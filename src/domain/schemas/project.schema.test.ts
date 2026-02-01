@@ -167,9 +167,19 @@ describe("ScenarioSettingsSchema", () => {
 });
 
 describe("CalendarSchema", () => {
+  const validHoliday = {
+    id: "h1",
+    name: "Christmas",
+    startDate: "2025-12-25",
+    endDate: "2025-12-25",
+  };
+
   it("accepts valid holidays", () => {
     const result = CalendarSchema.safeParse({
-      holidays: ["2025-12-25", "2026-01-01"],
+      holidays: [
+        validHoliday,
+        { id: "h2", name: "New Year", startDate: "2026-01-01", endDate: "2026-01-01" },
+      ],
     });
     expect(result.success).toBe(true);
   });
@@ -179,9 +189,37 @@ describe("CalendarSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts holiday with date range", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ id: "h1", name: "Break", startDate: "2025-12-22", endDate: "2026-01-02" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts holiday with empty name (migrated data)", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ id: "h1", name: "", startDate: "2025-12-25", endDate: "2025-12-25" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("rejects invalid date format", () => {
     const result = CalendarSchema.safeParse({
-      holidays: ["12/25/2025"],
+      holidays: [{ id: "h1", name: "Bad", startDate: "12/25/2025", endDate: "12/25/2025" }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects endDate before startDate", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ id: "h1", name: "Bad", startDate: "2025-12-26", endDate: "2025-12-25" }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects holiday with missing id", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ name: "No ID", startDate: "2025-12-25", endDate: "2025-12-25" }],
     });
     expect(result.success).toBe(false);
   });
@@ -230,7 +268,9 @@ describe("ProjectSchema", () => {
   it("accepts project with globalCalendarOverride", () => {
     const result = ProjectSchema.safeParse({
       ...validProject,
-      globalCalendarOverride: { holidays: ["2025-12-25"] },
+      globalCalendarOverride: {
+        holidays: [{ id: "h1", name: "Christmas", startDate: "2025-12-25", endDate: "2025-12-25" }],
+      },
     });
     expect(result.success).toBe(true);
   });

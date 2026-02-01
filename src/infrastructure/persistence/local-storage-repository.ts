@@ -98,4 +98,8 @@ export class LocalStorageRepository implements ProjectRepository {
     const ids = this.list().filter((existingId) => existingId !== id);
     localStorage.setItem(INDEX_KEY, JSON.stringify(ids));
   }
+
+  reorderIndex(ids: string[]): void {
+    localStorage.setItem(INDEX_KEY, JSON.stringify(ids));
+  }
 }

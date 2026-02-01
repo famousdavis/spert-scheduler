@@ -119,4 +119,22 @@ describe("LocalStorageRepository", () => {
     expect(repo.list()).toEqual(["p2"]);
     expect(repo.load("p2")).not.toBeNull();
   });
+
+  it("reorders the project index", () => {
+    repo.save(makeProject({ id: "p1" }));
+    repo.save(makeProject({ id: "p2", name: "Second" }));
+    repo.save(makeProject({ id: "p3", name: "Third" }));
+
+    repo.reorderIndex(["p3", "p1", "p2"]);
+    expect(repo.list()).toEqual(["p3", "p1", "p2"]);
+  });
+
+  it("preserves reordered index after fresh repo instance", () => {
+    repo.save(makeProject({ id: "p1" }));
+    repo.save(makeProject({ id: "p2", name: "Second" }));
+    repo.reorderIndex(["p2", "p1"]);
+
+    const freshRepo = new LocalStorageRepository();
+    expect(freshRepo.list()).toEqual(["p2", "p1"]);
+  });
 });

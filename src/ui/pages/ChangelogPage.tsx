@@ -19,7 +19,7 @@ const CHANGELOG: ChangelogEntry[] = [
         title: "Core Engine",
         items: [
           "SPERT three-point estimation with 10-level Ratio Scale Modifier (RSM) confidence mapping",
-          "Normal, LogNormal, and Triangular distribution strategies with automatic recommendation engine",
+          "T-Normal, LogNormal, and Triangular distribution strategies with automatic recommendation engine",
           "Deterministic schedule engine with configurable activity-level probability target (default P50)",
           "Monte Carlo simulation engine (50,000 trials default) running in a Web Worker for non-blocking UI",
           "Parkinson's Law modeling: simulated activity durations are clamped to at least the deterministic (scheduled) duration",

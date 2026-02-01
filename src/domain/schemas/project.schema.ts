@@ -13,8 +13,20 @@ const ISODateString = z.string().regex(isoDateRegex, "Must be YYYY-MM-DD");
 
 // -- Calendar ----------------------------------------------------------------
 
+export const HolidaySchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string(), // allow empty for migrated data
+    startDate: ISODateString,
+    endDate: ISODateString,
+  })
+  .refine((h) => h.endDate >= h.startDate, {
+    message: "End date must be >= start date",
+    path: ["endDate"],
+  });
+
 export const CalendarSchema = z.object({
-  holidays: z.array(ISODateString),
+  holidays: z.array(HolidaySchema),
 });
 
 // -- Activity ----------------------------------------------------------------

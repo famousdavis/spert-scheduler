@@ -94,7 +94,7 @@ describe("computeDeterministicSchedule", () => {
 
   it("skips holidays in calendar", () => {
     const activities = [makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 })];
-    const calendar = { holidays: ["2025-01-07"] }; // Tuesday is a holiday
+    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-07", endDate: "2025-01-07" }] }; // Tuesday is a holiday
 
     const withHoliday = computeDeterministicSchedule(
       activities,
@@ -131,7 +131,7 @@ describe("computeDeterministicSchedule", () => {
     const activities = [
       makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 }),
     ];
-    const calendar = { holidays: ["2025-01-06"] }; // Monday is holiday
+    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-06", endDate: "2025-01-06" }] }; // Monday is holiday
     const schedule = computeDeterministicSchedule(
       activities,
       "2025-01-06",

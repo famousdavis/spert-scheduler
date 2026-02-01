@@ -35,7 +35,8 @@ export function isWorkingDay(date: Date, calendar?: Calendar): boolean {
   if (day === 0 || day === 6) return false; // Sunday or Saturday
   if (calendar) {
     const iso = formatDateISO(date);
-    if (calendar.holidays.includes(iso)) return false;
+    if (calendar.holidays.some((h) => iso >= h.startDate && iso <= h.endDate))
+      return false;
   }
   return true;
 }

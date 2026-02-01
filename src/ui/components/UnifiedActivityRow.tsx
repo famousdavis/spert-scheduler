@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type {
   Activity,
   RSMLevel,
@@ -18,12 +20,9 @@ import { formatDateDisplay } from "@core/calendar/calendar";
 interface UnifiedActivityRowProps {
   activity: Activity;
   scheduledActivity?: ScheduledActivity;
-  index: number;
-  totalCount: number;
   activityProbabilityTarget: number;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
-  onMove: (fromIndex: number, toIndex: number) => void;
   onValidityChange: (activityId: string, isValid: boolean) => void;
 }
 
@@ -32,14 +31,25 @@ type FieldErrors = Partial<Record<string, string>>;
 export function UnifiedActivityRow({
   activity,
   scheduledActivity,
-  index,
-  totalCount,
   activityProbabilityTarget,
   onUpdate,
   onDelete,
-  onMove,
   onValidityChange,
 }: UnifiedActivityRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: activity.id });
+
+  const sortableStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const [errors, setErrors] = useState<FieldErrors>({});
 
   const validateAndUpdate = useCallback(
@@ -96,46 +106,26 @@ export function UnifiedActivityRow({
 
   return (
     <div
+      ref={setNodeRef}
       className={`grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 hover:bg-gray-50/50 text-sm ${
         hasErrors ? "bg-red-50/30" : ""
-      }`}
+      } ${isDragging ? "opacity-80 bg-blue-50 z-10 shadow-md" : ""}`}
       style={{
         gridTemplateColumns:
-          "28px 1fr 64px 64px 64px 140px 120px 96px 56px 1px 60px 90px 90px 44px 28px",
+          "28px 1fr 90px 90px 48px 48px 48px 120px 140px 96px 56px 1px 60px 44px 28px",
+        ...sortableStyle,
       }}
     >
       {/* Grip handle */}
-      <div className="flex flex-col items-center">
+      <div className="flex items-center justify-center">
         <button
           className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none text-base leading-none"
           title="Drag to reorder"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            // Simple click-based reorder: click top half = up, bottom half = down
-          }}
+          {...attributes}
+          {...listeners}
         >
           &#x2261;
         </button>
-        <div className="flex flex-col -mt-0.5">
-          <button
-            onClick={() => onMove(index, index - 1)}
-            disabled={index === 0}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-20 leading-none"
-            style={{ fontSize: "8px" }}
-            title="Move up"
-          >
-            &#9650;
-          </button>
-          <button
-            onClick={() => onMove(index, index + 1)}
-            disabled={index === totalCount - 1}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-20 leading-none"
-            style={{ fontSize: "8px" }}
-            title="Move down"
-          >
-            &#9660;
-          </button>
-        </div>
       </div>
 
       {/* Name */}
@@ -149,13 +139,31 @@ export function UnifiedActivityRow({
         />
       </div>
 
+      {/* Schedule: Start */}
+      <div className="tabular-nums text-gray-700 text-sm px-1">
+        {scheduledActivity ? (
+          <span>{formatDateDisplay(scheduledActivity.startDate)}</span>
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
+      </div>
+
+      {/* Schedule: End */}
+      <div className="tabular-nums text-gray-700 text-sm px-1">
+        {scheduledActivity ? (
+          <span>{formatDateDisplay(scheduledActivity.endDate)}</span>
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
+      </div>
+
       {/* Min */}
       <div>
         <input
           type="number"
           defaultValue={activity.min}
           onBlur={(e) => handleBlur("min", e.target.value)}
-          className={`w-full px-1.5 py-1 border rounded text-sm tabular-nums text-right ${
+          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
             errors["min"] ? "border-red-400 bg-red-50" : "border-gray-200"
           } focus:border-blue-400 focus:outline-none`}
           step="0.5"
@@ -170,7 +178,7 @@ export function UnifiedActivityRow({
           type="number"
           defaultValue={activity.mostLikely}
           onBlur={(e) => handleBlur("mostLikely", e.target.value)}
-          className={`w-full px-1.5 py-1 border rounded text-sm tabular-nums text-right ${
+          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
             errors["mostLikely"]
               ? "border-red-400 bg-red-50"
               : "border-gray-200"
@@ -187,7 +195,7 @@ export function UnifiedActivityRow({
           type="number"
           defaultValue={activity.max}
           onBlur={(e) => handleBlur("max", e.target.value)}
-          className={`w-full px-1.5 py-1 border rounded text-sm tabular-nums text-right ${
+          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
             errors["max"] ? "border-red-400 bg-red-50" : "border-gray-200"
           } focus:border-blue-400 focus:outline-none`}
           step="0.5"
@@ -230,7 +238,9 @@ export function UnifiedActivityRow({
             <option key={dt} value={dt}>
               {dt === "logNormal"
                 ? "LogNormal"
-                : dt.charAt(0).toUpperCase() + dt.slice(1)}
+                : dt === "normal"
+                  ? "T-Normal"
+                  : dt.charAt(0).toUpperCase() + dt.slice(1)}
             </option>
           ))}
         </select>
@@ -245,8 +255,10 @@ export function UnifiedActivityRow({
             title={recommendation.rationale}
           >
             {recommendation.recommended === "logNormal"
-              ? "LN"
-              : recommendation.recommended.slice(0, 4)}
+              ? "LogN"
+              : recommendation.recommended === "normal"
+                ? "Norm"
+                : "Tri"}
           </button>
         )}
       </div>
@@ -306,24 +318,6 @@ export function UnifiedActivityRow({
         )}
       </div>
 
-      {/* Schedule: Start */}
-      <div className="tabular-nums text-gray-600 text-xs px-1">
-        {scheduledActivity ? (
-          <span>{formatDateDisplay(scheduledActivity.startDate)}</span>
-        ) : (
-          <span className="text-gray-300">—</span>
-        )}
-      </div>
-
-      {/* Schedule: End */}
-      <div className="tabular-nums text-gray-600 text-xs px-1">
-        {scheduledActivity ? (
-          <span>{formatDateDisplay(scheduledActivity.endDate)}</span>
-        ) : (
-          <span className="text-gray-300">—</span>
-        )}
-      </div>
-
       {/* Source badge */}
       <div className="text-center">
         {scheduledActivity ? (
@@ -342,8 +336,12 @@ export function UnifiedActivityRow({
       {/* Delete */}
       <div className="text-center">
         <button
-          onClick={() => onDelete(activity.id)}
-          className="text-gray-300 hover:text-red-500 text-sm transition-colors"
+          onClick={() => {
+            if (window.confirm("Are you sure you want to delete this activity?")) {
+              onDelete(activity.id);
+            }
+          }}
+          className="text-red-400 hover:text-red-600 text-sm transition-colors"
           title="Delete activity"
         >
           &#10005;

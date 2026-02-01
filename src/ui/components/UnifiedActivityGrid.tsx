@@ -1,4 +1,18 @@
 import { useState, useCallback } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import type { Activity, ScheduledActivity } from "@domain/models/types";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
 
@@ -49,6 +63,26 @@ export function UnifiedActivityGrid({
 
   const targetPct = Math.round(activityProbabilityTarget * 100);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = activities.findIndex((a) => a.id === active.id);
+      const newIndex = activities.findIndex((a) => a.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        onMove(oldIndex, newIndex);
+      }
+    }
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
       {/* Header row */}
@@ -56,11 +90,13 @@ export function UnifiedActivityGrid({
         className="grid items-center gap-1 px-1 py-2 bg-gray-50 border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase tracking-wide"
         style={{
           gridTemplateColumns:
-            "28px 1fr 64px 64px 64px 140px 120px 96px 56px 1px 60px 90px 90px 44px 28px",
+            "28px 1fr 90px 90px 48px 48px 48px 120px 140px 96px 56px 1px 60px 44px 28px",
         }}
       >
         <div />
         <div className="px-1.5">Name</div>
+        <div className="px-1">Start</div>
+        <div className="px-1">End</div>
         <div className="text-right px-1.5">Min</div>
         <div className="text-right px-1.5">ML</div>
         <div className="text-right px-1.5">Max</div>
@@ -71,8 +107,6 @@ export function UnifiedActivityGrid({
         {/* Separator */}
         <div />
         <div className="text-right px-1">Dur.</div>
-        <div className="px-1">Start</div>
-        <div className="px-1">End</div>
         <div className="text-center">
           <span title="Source of duration estimate">Src</span>
         </div>
@@ -84,11 +118,13 @@ export function UnifiedActivityGrid({
         className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 border-b border-gray-100 text-[9px] text-gray-400"
         style={{
           gridTemplateColumns:
-            "28px 1fr 64px 64px 64px 140px 120px 96px 56px 1px 60px 90px 90px 44px 28px",
+            "28px 1fr 90px 90px 48px 48px 48px 120px 140px 96px 56px 1px 60px 44px 28px",
         }}
       >
         <div />
         <div />
+        <div className="px-1 text-gray-400">Scheduled</div>
+        <div className="px-1 text-gray-400">Scheduled</div>
         <div />
         <div />
         <div />
@@ -100,27 +136,33 @@ export function UnifiedActivityGrid({
         <div className="text-right px-1 text-gray-400">
           P{targetPct}
         </div>
-        <div className="px-1 text-gray-400">Scheduled</div>
-        <div className="px-1 text-gray-400">Scheduled</div>
         <div />
         <div />
       </div>
 
       {/* Activity rows */}
-      {activities.map((activity, index) => (
-        <UnifiedActivityRow
-          key={activity.id}
-          activity={activity}
-          scheduledActivity={scheduleMap.get(activity.id)}
-          index={index}
-          totalCount={activities.length}
-          activityProbabilityTarget={activityProbabilityTarget}
-          onUpdate={onUpdate}
-          onDelete={onDelete}
-          onMove={onMove}
-          onValidityChange={handleValidityChange}
-        />
-      ))}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={activities.map((a) => a.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {activities.map((activity) => (
+            <UnifiedActivityRow
+              key={activity.id}
+              activity={activity}
+              scheduledActivity={scheduleMap.get(activity.id)}
+              activityProbabilityTarget={activityProbabilityTarget}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+              onValidityChange={handleValidityChange}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {activities.length === 0 && (
         <p className="text-gray-400 text-sm text-center py-8">

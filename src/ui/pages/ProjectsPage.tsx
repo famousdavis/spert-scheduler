@@ -1,17 +1,58 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { NewProjectDialog } from "@ui/components/NewProjectDialog";
+import { ProjectTile } from "@ui/components/ProjectTile";
 
 export function ProjectsPage() {
-  const { projects, loadError, loadProjects, addProject, deleteProject } =
-    useProjectStore();
+  const {
+    projects,
+    loadError,
+    loadProjects,
+    addProject,
+    deleteProject,
+    reorderProjects,
+  } = useProjectStore();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = projects.findIndex((p) => p.id === active.id);
+      const newIndex = projects.findIndex((p) => p.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderProjects(oldIndex, newIndex);
+      }
+    }
+  };
 
   const handleCreate = (name: string) => {
     const project = addProject(name);
@@ -45,35 +86,27 @@ export function ProjectsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {projects.map((project) => (
-            <div
-              key={project.id}
-              className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-colors"
-              onClick={() => navigate(`/project/${project.id}`)}
-            >
-              <div>
-                <h2 className="font-semibold text-gray-900">{project.name}</h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {project.scenarios.length} scenario
-                  {project.scenarios.length !== 1 ? "s" : ""} | Created{" "}
-                  {new Date(project.createdAt).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" })}
-                </p>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (confirm(`Delete "${project.name}"?`)) {
-                    deleteProject(project.id);
-                  }
-                }}
-                className="text-gray-400 hover:text-red-500 text-sm px-2"
-              >
-                Delete
-              </button>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={projects.map((p) => p.id)}
+            strategy={rectSortingStrategy}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {projects.map((project) => (
+                <ProjectTile
+                  key={project.id}
+                  project={project}
+                  onNavigate={(id) => navigate(`/project/${id}`)}
+                  onDelete={deleteProject}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <NewProjectDialog

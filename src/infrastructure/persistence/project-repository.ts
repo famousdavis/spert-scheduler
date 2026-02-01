@@ -9,4 +9,5 @@ export interface ProjectRepository {
   load(id: string): Project | null;
   save(project: Project): void;
   remove(id: string): void;
+  reorderIndex(ids: string[]): void;
 }

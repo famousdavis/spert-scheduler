@@ -8,7 +8,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -74,8 +74,15 @@ export const RSM_LABELS: Record<RSMLevel, string> = {
 
 // -- Domain Interfaces -------------------------------------------------------
 
+export interface Holiday {
+  id: string;
+  name: string; // description (e.g., "Christmas Break")
+  startDate: string; // ISO "YYYY-MM-DD"
+  endDate: string; // ISO "YYYY-MM-DD" (same as startDate for single day)
+}
+
 export interface Calendar {
-  holidays: string[]; // ISO date strings "YYYY-MM-DD"
+  holidays: Holiday[];
 }
 
 export interface Activity {

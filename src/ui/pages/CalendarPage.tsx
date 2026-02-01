@@ -30,9 +30,11 @@ export function CalendarPage() {
               key={project.id}
               className="bg-white border border-gray-200 rounded-lg p-4"
             >
-              <h2 className="font-semibold text-gray-900 mb-3">
-                {project.name}
-              </h2>
+              {projects.length > 1 && (
+                <h2 className="font-semibold text-gray-900 mb-3">
+                  {project.name}
+                </h2>
+              )}
               <CalendarEditor
                 calendar={project.globalCalendarOverride ?? { holidays: [] }}
                 onUpdate={(calendar) => {

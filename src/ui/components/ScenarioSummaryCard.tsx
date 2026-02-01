@@ -7,17 +7,8 @@ import {
   formatDateISO,
 } from "@core/calendar/calendar";
 
-/** Percentile options for the Activity Target dropdown (P5–P95) */
+/** Percentile options for the Activity Target dropdown (P50–P95) */
 const PERCENTILE_OPTIONS = [
-  { value: 0.05, label: "P5" },
-  { value: 0.1, label: "P10" },
-  { value: 0.15, label: "P15" },
-  { value: 0.2, label: "P20" },
-  { value: 0.25, label: "P25" },
-  { value: 0.3, label: "P30" },
-  { value: 0.35, label: "P35" },
-  { value: 0.4, label: "P40" },
-  { value: 0.45, label: "P45" },
   { value: 0.5, label: "P50" },
   { value: 0.55, label: "P55" },
   { value: 0.6, label: "P60" },

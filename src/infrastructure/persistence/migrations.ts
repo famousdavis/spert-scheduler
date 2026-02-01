@@ -26,8 +26,35 @@ function migrateV1toV2(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v2 → v3: Convert holidays from string[] to Holiday[] objects.
+ * Each date string becomes { id, name: "", startDate, endDate } (single-day).
+ */
+function migrateV2toV3(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const cal = project.globalCalendarOverride as
+    | Record<string, unknown>
+    | undefined;
+  if (cal && Array.isArray(cal.holidays)) {
+    cal.holidays = (cal.holidays as unknown[]).map((h) => {
+      if (typeof h === "string") {
+        return {
+          id: crypto.randomUUID(),
+          name: "",
+          startDate: h,
+          endDate: h,
+        };
+      }
+      return h;
+    });
+  }
+  project.schemaVersion = 3;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
+  2: migrateV2toV3,
 };
 
 /**

@@ -8,3 +8,4 @@ export { NewProjectDialog } from "./NewProjectDialog";
 export { NewScenarioDialog } from "./NewScenarioDialog";
 export { CloneScenarioDialog } from "./CloneScenarioDialog";
 export { CalendarEditor } from "./CalendarEditor";
+export { ProjectTile } from "./ProjectTile";

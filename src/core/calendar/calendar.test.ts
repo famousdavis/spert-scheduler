@@ -54,12 +54,12 @@ describe("isWorkingDay", () => {
   });
 
   it("returns false for holidays", () => {
-    const calendar = { holidays: ["2025-01-06"] };
+    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-06", endDate: "2025-01-06" }] };
     expect(isWorkingDay(new Date(2025, 0, 6), calendar)).toBe(false);
   });
 
   it("returns true for working day not in holiday list", () => {
-    const calendar = { holidays: ["2025-12-25"] };
+    const calendar = { holidays: [{ id: "h1", name: "Christmas", startDate: "2025-12-25", endDate: "2025-12-25" }] };
     expect(isWorkingDay(new Date(2025, 0, 6), calendar)).toBe(true);
   });
 });
@@ -79,7 +79,7 @@ describe("addWorkingDays", () => {
 
   it("skips holidays", () => {
     // Start: Wed Jan 1. Add 1 working day. Jan 2 is a holiday -> Jan 3
-    const calendar = { holidays: ["2025-01-02"] };
+    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-02", endDate: "2025-01-02" }] };
     const result = addWorkingDays(new Date(2025, 0, 1), 1, calendar);
     expect(formatDateISO(result)).toBe("2025-01-03");
   });
@@ -136,7 +136,7 @@ describe("countWorkingDays", () => {
   });
 
   it("excludes holidays", () => {
-    const calendar = { holidays: ["2025-01-07"] }; // Tue is holiday
+    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-07", endDate: "2025-01-07" }] }; // Tue is holiday
     const count = countWorkingDays(
       new Date(2025, 0, 6),
       new Date(2025, 0, 10),
@@ -161,7 +161,7 @@ describe("countWorkingDays", () => {
   });
 
   it("excludes holidays from count even on weekends (no double-count)", () => {
-    const calendar = { holidays: ["2025-01-04"] }; // Saturday
+    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-04", endDate: "2025-01-04" }] }; // Saturday
     const countWith = countWorkingDays(new Date(2025, 0, 6), new Date(2025, 0, 13), calendar);
     const countWithout = countWorkingDays(new Date(2025, 0, 6), new Date(2025, 0, 13));
     expect(countWith).toBe(countWithout);
@@ -172,7 +172,7 @@ describe("calendar edge cases", () => {
   it("addWorkingDays skips a full week of holidays", () => {
     const calendar = {
       holidays: [
-        "2025-01-06", "2025-01-07", "2025-01-08", "2025-01-09", "2025-01-10",
+        { id: "h1", name: "Full Week Off", startDate: "2025-01-06", endDate: "2025-01-10" },
       ],
     };
     const result = addWorkingDays(new Date(2025, 0, 3), 1, calendar);
@@ -185,8 +185,31 @@ describe("calendar edge cases", () => {
   });
 
   it("isWorkingDay returns false for holiday on weekend (weekend takes precedence)", () => {
-    const calendar = { holidays: ["2025-01-04"] };
+    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-04", endDate: "2025-01-04" }] };
     expect(isWorkingDay(new Date(2025, 0, 4), calendar)).toBe(false);
     expect(isWorkingDay(new Date(2025, 0, 4))).toBe(false);
+  });
+
+  it("isWorkingDay returns false for date within a multi-day holiday range", () => {
+    const calendar = {
+      holidays: [{ id: "h1", name: "Christmas Break", startDate: "2025-12-22", endDate: "2026-01-02" }],
+    };
+    // Mon Dec 22 through Fri Jan 2 — all weekdays within should be non-working
+    expect(isWorkingDay(new Date(2025, 11, 22), calendar)).toBe(false);
+    expect(isWorkingDay(new Date(2025, 11, 24), calendar)).toBe(false);
+    expect(isWorkingDay(new Date(2025, 11, 29), calendar)).toBe(false);
+    expect(isWorkingDay(new Date(2026, 0, 2), calendar)).toBe(false);
+    // Day after range is working
+    expect(isWorkingDay(new Date(2026, 0, 5), calendar)).toBe(true); // Mon Jan 5
+  });
+
+  it("addWorkingDays skips a multi-day holiday range correctly", () => {
+    const calendar = {
+      holidays: [{ id: "h1", name: "Break", startDate: "2025-01-07", endDate: "2025-01-09" }],
+    };
+    // Start Mon Jan 6, add 2 working days.
+    // Jan 6 (Mon) is working, Jan 7-9 (Tue-Thu) are holidays, Jan 10 (Fri) is working.
+    const result = addWorkingDays(new Date(2025, 0, 6), 2, calendar);
+    expect(formatDateISO(result)).toBe("2025-01-13"); // Mon Jan 13
   });
 });

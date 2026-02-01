@@ -35,6 +35,7 @@ export interface ProjectStore {
   loadProjects: () => void;
   addProject: (name: string) => Project;
   deleteProject: (id: string) => void;
+  reorderProjects: (fromIndex: number, toIndex: number) => void;
   getProject: (id: string) => Project | undefined;
 
   // Scenario CRUD
@@ -133,6 +134,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set((state) => ({
       projects: state.projects.filter((p) => p.id !== id),
     }));
+  },
+
+  reorderProjects: (fromIndex: number, toIndex: number) => {
+    set((state) => {
+      const projects = [...state.projects];
+      const [moved] = projects.splice(fromIndex, 1);
+      if (!moved) return state;
+      projects.splice(toIndex, 0, moved);
+      repo.reorderIndex(projects.map((p) => p.id));
+      return { projects };
+    });
   },
 
   getProject: (id: string) => {
