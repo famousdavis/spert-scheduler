@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import type { Activity, ScheduledActivity } from "@domain/models/types";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
+import { GRID_COLUMNS } from "./grid-columns";
 
 interface UnifiedActivityGridProps {
   activities: Activity[];
@@ -114,12 +115,12 @@ export function UnifiedActivityGrid({
       <div
         className="grid items-center gap-1 px-1 py-2 bg-gray-50 border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase tracking-wide"
         style={{
-          gridTemplateColumns:
-            "28px 1fr 90px 90px 48px 48px 48px 120px 140px 96px 56px 1px 60px 44px 28px",
+          gridTemplateColumns: GRID_COLUMNS,
         }}
       >
         <div />
         <div className="px-1.5">Name</div>
+        <div className="text-right px-1">Dur.</div>
         <div className="px-1">Start</div>
         <div className="px-1">End</div>
         <div className="text-right px-1.5">Min</div>
@@ -131,7 +132,6 @@ export function UnifiedActivityGrid({
         <div className="px-1 text-center">Actual</div>
         {/* Separator */}
         <div />
-        <div className="text-right px-1">Dur.</div>
         <div className="text-center">
           <span title="Source of duration estimate">Src</span>
         </div>
@@ -142,25 +142,24 @@ export function UnifiedActivityGrid({
       <div
         className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 border-b border-gray-100 text-[9px] text-gray-400"
         style={{
-          gridTemplateColumns:
-            "28px 1fr 90px 90px 48px 48px 48px 120px 140px 96px 56px 1px 60px 44px 28px",
+          gridTemplateColumns: GRID_COLUMNS,
         }}
       >
-        <div />
-        <div />
-        <div className="px-1 text-gray-400">Scheduled</div>
-        <div className="px-1 text-gray-400">Scheduled</div>
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
         <div />
         <div />
         <div className="text-right px-1 text-gray-400">
           P{targetPct}
         </div>
+        <div className="px-1 text-gray-400">Scheduled</div>
+        <div className="px-1 text-gray-400">Scheduled</div>
+        <div />
+        <div />
+        <div />
+        <div />
+        <div />
+        <div />
+        <div />
+        <div />
         <div />
         <div />
       </div>

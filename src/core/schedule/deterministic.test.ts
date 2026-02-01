@@ -92,6 +92,14 @@ describe("computeDeterministicSchedule", () => {
     expect(schedule.projectEndDate).toBe("2025-01-06");
   });
 
+  it("adjusts empty-project end date when start falls on weekend", () => {
+    // Saturday Feb 8, 2025 → should advance to Monday Feb 10
+    const schedule = computeDeterministicSchedule([], "2025-02-08", 0.85);
+    expect(schedule.activities).toHaveLength(0);
+    expect(schedule.totalDurationDays).toBe(0);
+    expect(schedule.projectEndDate).toBe("2025-02-10");
+  });
+
   it("skips holidays in calendar", () => {
     const activities = [makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 })];
     const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-07", endDate: "2025-01-07" }] }; // Tuesday is a holiday

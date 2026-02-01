@@ -4,7 +4,7 @@ export function AboutPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-bold text-gray-900">
-        About SPERT Scheduler
+        About SPERT<span className="text-gray-300 text-xs align-super">®</span> Scheduler
       </h1>
       <p className="mt-1 italic text-gray-500">
         Probabilistic project scheduling tool
@@ -13,17 +13,17 @@ export function AboutPage() {
       <div className="mt-8 space-y-8 text-sm leading-relaxed text-gray-600">
         <section>
           <h2 className="text-lg font-semibold text-blue-600">
-            What is SPERT Scheduler?
+            What is SPERT<span className="text-gray-300 text-[10px] align-super">®</span> Scheduler?
           </h2>
           <p className="mt-2">
-            SPERT Scheduler is a lightweight, probabilistic project scheduling
+            SPERT® Scheduler is a lightweight, probabilistic project scheduling
             tool for professional IT project managers. It implements Statistical
-            PERT (SPERT) three-point estimation with Monte Carlo simulation to
+            PERT (SPERT®) three-point estimation with Monte Carlo simulation to
             produce probabilistic project duration forecasts.
           </p>
           <p className="mt-2">
             Unlike traditional scheduling tools that produce a single
-            deterministic finish date, SPERT Scheduler shows you the full range
+            deterministic finish date, SPERT® Scheduler shows you the full range
             of possible outcomes and helps you answer questions like: &ldquo;How
             likely is it that we finish by this date?&rdquo;
           </p>
