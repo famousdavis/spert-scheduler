@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
+  ReferenceArea,
   ResponsiveContainer,
 } from "recharts";
 import type { HistogramBin } from "@domain/models/types";
@@ -15,6 +16,7 @@ interface HistogramChartProps {
   mean: number;
   percentileTarget: number;
   percentileValue: number;
+  activityPercentileValue?: number;
 }
 
 export function HistogramChart({
@@ -22,11 +24,16 @@ export function HistogramChart({
   mean,
   percentileTarget,
   percentileValue,
+  activityPercentileValue,
 }: HistogramChartProps) {
   const data = bins.map((bin) => ({
     binMid: Number(((bin.binStart + bin.binEnd) / 2).toFixed(1)),
     count: bin.count,
   }));
+
+  const showBufferZone =
+    activityPercentileValue !== undefined &&
+    activityPercentileValue < percentileValue;
 
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -43,6 +50,20 @@ export function HistogramChart({
           formatter={(value: number) => [value, "Trials"]}
           labelFormatter={(label: number) => `~${label} days`}
         />
+        {showBufferZone && (
+          <ReferenceArea
+            x1={Number(activityPercentileValue.toFixed(1))}
+            x2={Number(percentileValue.toFixed(1))}
+            fill="#3b82f6"
+            fillOpacity={0.1}
+            label={{
+              value: "Buffer",
+              position: "insideTop",
+              fontSize: 10,
+              fill: "#3b82f6",
+            }}
+          />
+        )}
         <Bar dataKey="count" fill="#3b82f6" />
         <ReferenceLine
           x={Number(mean.toFixed(1))}

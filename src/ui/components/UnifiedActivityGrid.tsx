@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -26,6 +26,10 @@ interface UnifiedActivityGridProps {
   onMove: (fromIndex: number, toIndex: number) => void;
   onAdd: (name: string) => void;
   onValidityChange: (allValid: boolean) => void;
+  onBulkMarkComplete?: (
+    activityIds: string[],
+    scheduledDurations: Map<string, number>
+  ) => void;
 }
 
 export function UnifiedActivityGrid({
@@ -37,9 +41,11 @@ export function UnifiedActivityGrid({
   onMove,
   onAdd,
   onValidityChange,
+  onBulkMarkComplete,
 }: UnifiedActivityGridProps) {
   const [, setInvalidIds] = useState<Set<string>>(new Set());
   const [focusActivityId, setFocusActivityId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const pendingFocus = useRef(false);
   const prevCountRef = useRef(activities.length);
 
@@ -65,6 +71,15 @@ export function UnifiedActivityGrid({
     }
   }, [focusActivityId]);
 
+  // Clear selection when activities change
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const activityIdSet = new Set(activities.map((a) => a.id));
+      const next = new Set([...prev].filter((id) => activityIdSet.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [activities]);
+
   const handleValidityChange = useCallback(
     (activityId: string, isValid: boolean) => {
       setInvalidIds((prev) => {
@@ -81,13 +96,69 @@ export function UnifiedActivityGrid({
     [onValidityChange]
   );
 
+  const toggleSelect = useCallback((activityId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(activityId)) {
+        next.delete(activityId);
+      } else {
+        next.add(activityId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === activities.length) {
+        return new Set();
+      }
+      return new Set(activities.map((a) => a.id));
+    });
+  }, [activities]);
+
+  const handleBulkComplete = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    const scheduledDurations = new Map<string, number>();
+    for (const sa of scheduledActivities) {
+      scheduledDurations.set(sa.activityId, sa.duration);
+    }
+    if (onBulkMarkComplete) {
+      onBulkMarkComplete(Array.from(selectedIds), scheduledDurations);
+    } else {
+      for (const activityId of selectedIds) {
+        const duration = scheduledDurations.get(activityId);
+        onUpdate(activityId, {
+          status: "complete",
+          actualDuration: duration ?? undefined,
+        });
+      }
+    }
+    setSelectedIds(new Set());
+  }, [selectedIds, scheduledActivities, onBulkMarkComplete, onUpdate]);
+
   // Build a lookup map from activityId to ScheduledActivity
-  const scheduleMap = new Map<string, ScheduledActivity>();
-  for (const sa of scheduledActivities) {
-    scheduleMap.set(sa.activityId, sa);
-  }
+  const scheduleMap = useMemo(() => {
+    const map = new Map<string, ScheduledActivity>();
+    for (const sa of scheduledActivities) {
+      map.set(sa.activityId, sa);
+    }
+    return map;
+  }, [scheduledActivities]);
 
   const targetPct = Math.round(activityProbabilityTarget * 100);
+
+  // Summary computations
+  const summary = useMemo(() => {
+    const totalMin = activities.reduce((sum, a) => sum + a.min, 0);
+    const totalML = activities.reduce((sum, a) => sum + a.mostLikely, 0);
+    const totalMax = activities.reduce((sum, a) => sum + a.max, 0);
+    const totalScheduled = scheduledActivities.reduce(
+      (sum, sa) => sum + sa.duration,
+      0
+    );
+    return { totalMin, totalML, totalMax, totalScheduled, count: activities.length };
+  }, [activities, scheduledActivities]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -109,8 +180,39 @@ export function UnifiedActivityGrid({
     }
   };
 
+  const hasSelection = selectedIds.size > 0;
+  const incompleteSelectedCount = Array.from(selectedIds).filter(
+    (id) => activities.find((a) => a.id === id)?.status !== "complete"
+  ).length;
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div
+      className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+      data-activity-grid
+    >
+      {/* Bulk action toolbar */}
+      {hasSelection && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 border-b border-blue-200">
+          <span className="text-sm text-blue-700 font-medium">
+            {selectedIds.size} selected
+          </span>
+          {incompleteSelectedCount > 0 && (
+            <button
+              onClick={handleBulkComplete}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Mark Complete
+            </button>
+          )}
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="px-3 py-1 text-blue-600 text-sm hover:text-blue-800"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Header row */}
       <div
         className="grid items-center gap-1 px-1 py-2 bg-gray-50 border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase tracking-wide"
@@ -118,6 +220,17 @@ export function UnifiedActivityGrid({
           gridTemplateColumns: GRID_COLUMNS,
         }}
       >
+        <div className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            checked={
+              activities.length > 0 && selectedIds.size === activities.length
+            }
+            onChange={toggleSelectAll}
+            className="rounded border-gray-300"
+            tabIndex={-1}
+          />
+        </div>
         <div />
         <div className="px-1.5">Name</div>
         <div className="text-right px-1">Dur.</div>
@@ -145,6 +258,7 @@ export function UnifiedActivityGrid({
           gridTemplateColumns: GRID_COLUMNS,
         }}
       >
+        <div />
         <div />
         <div />
         <div className="text-right px-1 text-gray-400">
@@ -181,6 +295,8 @@ export function UnifiedActivityGrid({
               scheduledActivity={scheduleMap.get(activity.id)}
               activityProbabilityTarget={activityProbabilityTarget}
               autoFocusName={activity.id === focusActivityId}
+              isSelected={selectedIds.has(activity.id)}
+              onToggleSelect={toggleSelect}
               onUpdate={onUpdate}
               onDelete={onDelete}
               onValidityChange={handleValidityChange}
@@ -195,9 +311,41 @@ export function UnifiedActivityGrid({
         </p>
       )}
 
+      {/* Summary row */}
+      {activities.length > 0 && (
+        <div
+          className="grid items-center gap-1 px-1 py-2 bg-gray-50 border-t border-gray-200 text-sm font-medium text-gray-700"
+          style={{
+            gridTemplateColumns: GRID_COLUMNS,
+          }}
+        >
+          <div />
+          <div />
+          <div className="px-1.5 text-gray-500">
+            {summary.count} activit{summary.count === 1 ? "y" : "ies"}
+          </div>
+          <div className="text-right tabular-nums px-1">
+            {summary.totalScheduled > 0 ? `${summary.totalScheduled}d` : ""}
+          </div>
+          <div />
+          <div />
+          <div className="text-right tabular-nums px-1">{summary.totalMin}</div>
+          <div className="text-right tabular-nums px-1">{summary.totalML}</div>
+          <div className="text-right tabular-nums px-1">{summary.totalMax}</div>
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+        </div>
+      )}
+
       {/* Add button */}
       <div className="p-2">
         <button
+          data-field="add-activity"
           onClick={() => {
             pendingFocus.current = true;
             onAdd("");

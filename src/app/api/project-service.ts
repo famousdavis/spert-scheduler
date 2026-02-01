@@ -188,6 +188,25 @@ export function reorderActivities(
   };
 }
 
+// -- Rename ------------------------------------------------------------------
+
+export function renameProject(project: Project, name: string): Project {
+  return { ...project, name };
+}
+
+export function renameScenario(
+  project: Project,
+  scenarioId: string,
+  name: string
+): Project {
+  return {
+    ...project,
+    scenarios: project.scenarios.map((s) =>
+      s.id === scenarioId ? { ...s, name } : s
+    ),
+  };
+}
+
 // -- Calendar ----------------------------------------------------------------
 
 export function setGlobalCalendar(

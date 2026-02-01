@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0";
 export const APP_NAME = "SPERT Scheduler";
 export const APP_DESCRIPTION =
   "Probabilistic project scheduling using Statistical PERT estimation with Monte Carlo simulation";

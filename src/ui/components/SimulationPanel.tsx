@@ -1,5 +1,8 @@
+import { useCallback } from "react";
 import type { SimulationRun } from "@domain/models/types";
 import { cdf } from "@core/analytics/analytics";
+import { exportSimulationCSV } from "@app/api/csv-export-service";
+import { downloadFile } from "@ui/helpers/download";
 import { HistogramChart } from "@ui/charts/HistogramChart";
 import { CDFChart } from "@ui/charts/CDFChart";
 import { PercentileTable } from "@ui/charts/PercentileTable";
@@ -7,12 +10,16 @@ import { PercentileTable } from "@ui/charts/PercentileTable";
 interface SimulationPanelProps {
   simulationResults: SimulationRun | undefined;
   probabilityTarget: number;
+  activityProbabilityTarget?: number;
   isRunning: boolean;
   progress: { completed: number; total: number } | null;
   error: string | null;
   elapsedMs: number | null;
   allActivitiesValid: boolean;
   hasActivities: boolean;
+  autoRunEnabled?: boolean;
+  projectName?: string;
+  scenarioName?: string;
   onRun: () => void;
   onCancel: () => void;
 }
@@ -20,25 +27,64 @@ interface SimulationPanelProps {
 export function SimulationPanel({
   simulationResults,
   probabilityTarget,
+  activityProbabilityTarget,
   isRunning,
   progress,
   error,
   elapsedMs,
   allActivitiesValid,
   hasActivities,
+  autoRunEnabled,
+  projectName,
+  scenarioName,
   onRun,
   onCancel,
 }: SimulationPanelProps) {
   const targetPct = Math.round(probabilityTarget * 100);
+  const actPct = activityProbabilityTarget
+    ? Math.round(activityProbabilityTarget * 100)
+    : undefined;
   const canRun = hasActivities && allActivitiesValid && !isRunning;
+
+  const handleExportCSV = useCallback(() => {
+    if (!simulationResults) return;
+    const csv = exportSimulationCSV(
+      simulationResults,
+      scenarioName ?? "Scenario",
+      projectName ?? "Project"
+    );
+    const filename = `spert-simulation-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadFile(csv, filename, "text/csv;charset=utf-8;");
+  }, [simulationResults, scenarioName, projectName]);
+
+  // Activity percentile value for the confidence band visualization
+  const activityPercentileValue =
+    actPct !== undefined && simulationResults
+      ? simulationResults.percentiles[actPct]
+      : undefined;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Monte Carlo Simulation
-        </h3>
         <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Monte Carlo Simulation
+          </h3>
+          {autoRunEnabled && (
+            <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+              Auto-run
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {simulationResults && (
+            <button
+              onClick={handleExportCSV}
+              className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded text-sm hover:bg-gray-50"
+            >
+              Export CSV
+            </button>
+          )}
           {isRunning ? (
             <button
               onClick={onCancel}
@@ -147,6 +193,7 @@ export function SimulationPanel({
                 percentileValue={
                   simulationResults.percentiles[targetPct] ?? simulationResults.mean
                 }
+                activityPercentileValue={activityPercentileValue}
               />
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-4">

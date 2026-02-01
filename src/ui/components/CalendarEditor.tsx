@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { Calendar, Holiday } from "@domain/models/types";
 import { generateId } from "@app/api/id";
-import { formatDateISO, formatDateDisplay } from "@core/calendar/calendar";
+import { formatDateISO } from "@core/calendar/calendar";
+import { getUSHolidays } from "@core/calendar/us-holidays";
+import { useDateFormat } from "@ui/hooks/use-date-format";
 
 interface CalendarEditorProps {
   calendar: Calendar;
@@ -9,7 +11,29 @@ interface CalendarEditorProps {
 }
 
 export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
+  const formatDate = useDateFormat();
   const today = formatDateISO(new Date());
+  const currentYear = new Date().getFullYear();
+  const [presetYear, setPresetYear] = useState(currentYear);
+
+  const loadUSHolidays = () => {
+    const entries = getUSHolidays(presetYear);
+    const existingDates = new Set(calendar.holidays.map((h) => h.startDate));
+    const newHolidays: Holiday[] = entries
+      .filter((e) => !existingDates.has(e.date))
+      .map((e) => ({
+        id: generateId(),
+        name: e.name,
+        startDate: e.date,
+        endDate: e.date,
+      }));
+    if (newHolidays.length === 0) return;
+    onUpdate({
+      holidays: [...calendar.holidays, ...newHolidays].sort((a, b) =>
+        a.startDate.localeCompare(b.startDate)
+      ),
+    });
+  };
 
   // Add form state
   const [newName, setNewName] = useState("");
@@ -83,13 +107,35 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
 
   const formatRange = (h: Holiday) => {
     if (h.startDate === h.endDate) {
-      return formatDateDisplay(h.startDate);
+      return formatDate(h.startDate);
     }
-    return `${formatDateDisplay(h.startDate)} \u2013 ${formatDateDisplay(h.endDate)}`;
+    return `${formatDate(h.startDate)} \u2013 ${formatDate(h.endDate)}`;
   };
 
   return (
     <div className="space-y-4">
+      {/* US Holiday presets */}
+      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
+        <span className="text-sm text-gray-700">Load US Holidays for</span>
+        <select
+          value={presetYear}
+          onChange={(e) => setPresetYear(parseInt(e.target.value, 10))}
+          className="px-2 py-1 border border-gray-300 rounded text-sm"
+        >
+          {[currentYear, currentYear + 1, currentYear + 2].map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={loadUSHolidays}
+          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+        >
+          Load Holidays
+        </button>
+      </div>
+
       {/* Add holiday form */}
       <div className="flex flex-wrap items-end gap-2">
         <div>

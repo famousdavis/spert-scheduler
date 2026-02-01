@@ -20,16 +20,44 @@ import {
   updateActivity,
   reorderActivities,
   setGlobalCalendar,
+  renameProject as renameProjectFn,
+  renameScenario as renameScenarioFn,
 } from "@app/api/project-service";
 import type { CloneOptions } from "@app/api/project-service";
 import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
 
 const repo = new LocalStorageRepository();
 
+interface UndoEntry {
+  projectId: string;
+  snapshot: Project;
+}
+
+const UNDO_STACK_LIMIT = 50;
+
+/** Strip simulationResults to save memory in undo snapshots */
+function snapshotProject(project: Project): Project {
+  return {
+    ...project,
+    scenarios: project.scenarios.map((s) => ({
+      ...s,
+      simulationResults: undefined,
+    })),
+  };
+}
+
 export interface ProjectStore {
   // State
   projects: Project[];
   loadError: boolean;
+
+  // Undo/Redo
+  undoStack: UndoEntry[];
+  redoStack: UndoEntry[];
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
 
   // Project CRUD
   loadProjects: () => void;
@@ -37,6 +65,22 @@ export interface ProjectStore {
   deleteProject: (id: string) => void;
   reorderProjects: (fromIndex: number, toIndex: number) => void;
   getProject: (id: string) => Project | undefined;
+
+  // Rename
+  renameProject: (projectId: string, name: string) => void;
+  renameScenario: (
+    projectId: string,
+    scenarioId: string,
+    name: string
+  ) => void;
+
+  // Bulk
+  bulkUpdateActivities: (
+    projectId: string,
+    scenarioId: string,
+    activityIds: string[],
+    updates: Partial<Activity>
+  ) => void;
 
   // Scenario CRUD
   addScenario: (
@@ -104,9 +148,74 @@ function persist(projects: Project[], projectId?: string) {
   }
 }
 
-export const useProjectStore = create<ProjectStore>((set, get) => ({
+export const useProjectStore = create<ProjectStore>((set, get) => {
+  /** Push current project state to undo stack before mutating */
+  function pushUndo(projectId: string) {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) return;
+    set((state) => ({
+      undoStack: [
+        ...state.undoStack.slice(-(UNDO_STACK_LIMIT - 1)),
+        { projectId, snapshot: snapshotProject(project) },
+      ],
+      redoStack: [],
+    }));
+  }
+
+  return {
   projects: [],
   loadError: false,
+  undoStack: [],
+  redoStack: [],
+
+  undo: () => {
+    const { undoStack, projects } = get();
+    if (undoStack.length === 0) return;
+    const entry = undoStack[undoStack.length - 1]!;
+    const currentProject = projects.find((p) => p.id === entry.projectId);
+    if (!currentProject) return;
+
+    set((state) => ({
+      undoStack: state.undoStack.slice(0, -1),
+      redoStack: [
+        ...state.redoStack,
+        { projectId: entry.projectId, snapshot: snapshotProject(currentProject) },
+      ],
+      projects: state.projects.map((p) =>
+        p.id === entry.projectId ? entry.snapshot : p
+      ),
+    }));
+    persist(
+      get().projects,
+      entry.projectId
+    );
+  },
+
+  redo: () => {
+    const { redoStack, projects } = get();
+    if (redoStack.length === 0) return;
+    const entry = redoStack[redoStack.length - 1]!;
+    const currentProject = projects.find((p) => p.id === entry.projectId);
+    if (!currentProject) return;
+
+    set((state) => ({
+      redoStack: state.redoStack.slice(0, -1),
+      undoStack: [
+        ...state.undoStack,
+        { projectId: entry.projectId, snapshot: snapshotProject(currentProject) },
+      ],
+      projects: state.projects.map((p) =>
+        p.id === entry.projectId ? entry.snapshot : p
+      ),
+    }));
+    persist(
+      get().projects,
+      entry.projectId
+    );
+  },
+
+  canUndo: () => get().undoStack.length > 0,
+  canRedo: () => get().redoStack.length > 0,
 
   loadProjects: () => {
     const ids = repo.list();
@@ -155,6 +264,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   addScenario: (projectId, name, startDate, settingsOverrides) => {
+    pushUndo(projectId);
     const scenario = createScenario(name, startDate, settingsOverrides);
     set((state) => {
       const projects = state.projects.map((p) =>
@@ -166,6 +276,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   deleteScenario: (projectId, scenarioId) => {
+    pushUndo(projectId);
     set((state) => {
       const project = state.projects.find((p) => p.id === projectId);
       // Protect baseline (first scenario) from deletion
@@ -180,6 +291,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   duplicateScenario: (projectId, scenarioId, newName, options) => {
+    pushUndo(projectId);
     set((state) => {
       const project = state.projects.find((p) => p.id === projectId);
       if (!project) return state;
@@ -196,6 +308,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   updateScenarioSettings: (projectId, scenarioId, settings) => {
+    pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
         p.id === projectId
@@ -212,6 +325,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   addActivity: (projectId, scenarioId, name) => {
+    pushUndo(projectId);
     set((state) => {
       const project = state.projects.find((p) => p.id === projectId);
       if (!project) return state;
@@ -232,6 +346,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   deleteActivity: (projectId, scenarioId, activityId) => {
+    pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
         p.id === projectId
@@ -246,6 +361,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   updateActivityField: (projectId, scenarioId, activityId, updates) => {
+    pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
         p.id === projectId
@@ -260,6 +376,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   moveActivity: (projectId, scenarioId, fromIndex, toIndex) => {
+    pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
         p.id === projectId
@@ -289,10 +406,51 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   setProjectCalendar: (projectId, calendar) => {
+    pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
         p.id === projectId ? setGlobalCalendar(p, calendar) : p
       );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  renameProject: (projectId, name) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId ? renameProjectFn(p, name) : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  renameScenario: (projectId, scenarioId, name) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId ? renameScenarioFn(p, scenarioId, name) : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  bulkUpdateActivities: (projectId, scenarioId, activityIds, updates) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        return updateScenario(p, scenarioId, (s) => ({
+          ...s,
+          activities: s.activities.map((a) =>
+            activityIds.includes(a.id) ? { ...a, ...updates } : a
+          ),
+          simulationResults: undefined,
+        }));
+      });
       persist(projects, projectId);
       return { projects };
     });
@@ -316,4 +474,4 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       };
     });
   },
-}));
+};});

@@ -1,6 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Project } from "@domain/models/types";
+import { useDateFormat } from "@ui/hooks/use-date-format";
+import { formatDateISO } from "@core/calendar/calendar";
 
 interface ProjectTileProps {
   project: Project;
@@ -13,6 +15,7 @@ export function ProjectTile({
   onNavigate,
   onDelete,
 }: ProjectTileProps) {
+  const formatDate = useDateFormat();
   const {
     attributes,
     listeners,
@@ -62,11 +65,7 @@ export function ProjectTile({
           </p>
           <p className="text-xs text-gray-400 mt-0.5">
             Created{" "}
-            {new Date(project.createdAt).toLocaleDateString("en-US", {
-              month: "2-digit",
-              day: "2-digit",
-              year: "numeric",
-            })}
+            {formatDate(formatDateISO(new Date(project.createdAt)))}
           </p>
         </div>
         <div className="flex flex-col items-center gap-1 shrink-0">
