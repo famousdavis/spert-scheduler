@@ -64,4 +64,18 @@ describe("createDistributionForActivity", () => {
     });
     expect(() => createDistributionForActivity(activity)).toThrow();
   });
+
+  it("creates normal distribution with zero variance (min == max)", () => {
+    const activity = makeActivity({
+      min: 5,
+      mostLikely: 5,
+      max: 5,
+      distributionType: "normal",
+    });
+    const dist = createDistributionForActivity(activity);
+    expect(dist).toBeInstanceOf(NormalDistribution);
+    expect(dist.mean()).toBe(5);
+    expect(dist.variance()).toBe(0);
+    expect(dist.inverseCDF(0.5)).toBe(5);
+  });
 });

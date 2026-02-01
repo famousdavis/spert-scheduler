@@ -35,7 +35,6 @@ export function createScenario(
     name,
     startDate,
     activities: [],
-    dependencies: [],
     settings: {
       ...DEFAULT_SCENARIO_SETTINGS,
       rngSeed: generateId(), // Fresh seed per scenario
@@ -108,7 +107,6 @@ export function cloneScenario(
     name: newName,
     startDate: scenario.startDate,
     activities,
-    dependencies: [],
     settings: {
       ...scenario.settings,
       rngSeed: generateId(), // New seed for clone

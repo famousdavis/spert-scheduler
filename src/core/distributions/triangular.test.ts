@@ -85,4 +85,26 @@ describe("TriangularDistribution", () => {
       { numRuns: 100 }
     );
   });
+
+  it("handles a == c (peak at min, right-skewed)", () => {
+    const dist = new TriangularDistribution(2, 2, 10);
+    expect(dist.mean()).toBeCloseTo((2 + 2 + 10) / 3);
+    const rng = createSeededRng("left-peak");
+    for (let i = 0; i < 1000; i++) {
+      const s = dist.sample(rng);
+      expect(s).toBeGreaterThanOrEqual(2);
+      expect(s).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("handles c == b (peak at max, left-skewed)", () => {
+    const dist = new TriangularDistribution(1, 8, 8);
+    expect(dist.mean()).toBeCloseTo((1 + 8 + 8) / 3);
+    const rng = createSeededRng("right-peak");
+    for (let i = 0; i < 1000; i++) {
+      const s = dist.sample(rng);
+      expect(s).toBeGreaterThanOrEqual(1);
+      expect(s).toBeLessThanOrEqual(8);
+    }
+  });
 });

@@ -100,15 +100,6 @@ export interface ScenarioSettings {
   projectProbabilityTarget: number; // Project-level (MC percentile lookup), 0.01 - 0.99 (default 0.95)
 }
 
-/**
- * Not used in v1. Reserved for v2 DAG traversal.
- */
-export interface Dependency {
-  fromActivityId: string;
-  toActivityId: string;
-  type: "finishToStart";
-}
-
 export interface HistogramBin {
   binStart: number;
   binEnd: number;
@@ -140,8 +131,6 @@ export interface Scenario {
   name: string;
   startDate: string; // "YYYY-MM-DD"
   activities: Activity[];
-  /** Not used in v1. Reserved for v2 DAG traversal. Always []. */
-  dependencies: Dependency[];
   settings: ScenarioSettings;
   simulationResults?: SimulationRun;
 }

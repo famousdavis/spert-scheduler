@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { runMonteCarloSimulation } from "./monte-carlo";
+import { runMonteCarloSimulation, runTrials } from "./monte-carlo";
 import type { Activity } from "@domain/models/types";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
@@ -187,5 +187,96 @@ describe("runMonteCarloSimulation", () => {
     for (const sample of result.samples) {
       expect(sample).toBeGreaterThanOrEqual(35);
     }
+  });
+
+  it("handles 0 activities (empty project)", () => {
+    const result = runMonteCarloSimulation({
+      activities: [],
+      trialCount: 1000,
+      rngSeed: "empty-test",
+    });
+    expect(result.trialCount).toBe(1000);
+    expect(result.samples).toHaveLength(1000);
+    for (const sample of result.samples) {
+      expect(sample).toBe(0);
+    }
+    expect(result.mean).toBe(0);
+    expect(result.standardDeviation).toBe(0);
+  });
+
+  it("handles 1 trial", () => {
+    const result = runMonteCarloSimulation({
+      activities: [makeActivity()],
+      trialCount: 1,
+      rngSeed: "single-trial",
+    });
+    expect(result.samples).toHaveLength(1);
+    const singleValue = result.samples[0]!;
+    for (const p of [5, 50, 95, 99]) {
+      expect(result.percentiles[p]).toBe(singleValue);
+    }
+  });
+
+  it("handles all-complete activities (no randomness)", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 5 }),
+      makeActivity({ id: "a2", status: "complete", actualDuration: 10 }),
+      makeActivity({ id: "a3", status: "complete", actualDuration: 3 }),
+    ];
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 1000,
+      rngSeed: "all-complete",
+    });
+    for (const sample of result.samples) {
+      expect(sample).toBe(18);
+    }
+    expect(result.mean).toBe(18);
+    expect(result.standardDeviation).toBe(0);
+  });
+
+  it("handles completed activity with actualDuration = 0", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 0 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 1000,
+      rngSeed: "zero-actual",
+    });
+    expect(result.mean).toBeGreaterThan(0);
+  });
+});
+
+describe("runTrials", () => {
+  it("calls onProgress callback at expected intervals", () => {
+    const progressCalls: [number, number][] = [];
+    runTrials({
+      activities: [makeActivity()],
+      trialCount: 25000,
+      rngSeed: "progress-test",
+      onProgress: (completed, total) => {
+        progressCalls.push([completed, total]);
+      },
+      progressInterval: 10000,
+    });
+    expect(progressCalls).toHaveLength(2);
+    expect(progressCalls[0]).toEqual([10000, 25000]);
+    expect(progressCalls[1]).toEqual([20000, 25000]);
+  });
+
+  it("does not call onProgress for small trial counts", () => {
+    const progressCalls: number[] = [];
+    runTrials({
+      activities: [makeActivity()],
+      trialCount: 5000,
+      rngSeed: "small-test",
+      onProgress: (completed) => {
+        progressCalls.push(completed);
+      },
+      progressInterval: 10000,
+    });
+    expect(progressCalls).toHaveLength(0);
   });
 });

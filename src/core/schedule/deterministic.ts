@@ -13,9 +13,25 @@ import {
 } from "@core/calendar/calendar";
 
 /**
- * Compute a deterministic schedule for a linear activity chain at a given percentile.
+ * Compute the deterministic duration for each non-complete activity at a given percentile.
+ * Returns an array of durations (minimum 1 working day each), one per non-complete activity.
  *
- * Not used in v1: dependency-based DAG traversal. Reserved for v2.
+ * Used as the Parkinson's Law floor in Monte Carlo simulation.
+ */
+export function computeDeterministicDurations(
+  activities: Activity[],
+  probabilityTarget: number
+): number[] {
+  return activities
+    .filter((a) => !(a.status === "complete" && a.actualDuration != null))
+    .map((a) => {
+      const dist = createDistributionForActivity(a);
+      return Math.max(1, Math.ceil(dist.inverseCDF(probabilityTarget)));
+    });
+}
+
+/**
+ * Compute a deterministic schedule for a linear activity chain at a given percentile.
  * Activities are executed in array order (finish-to-start linear chain).
  *
  * @param activities - Activities in execution order

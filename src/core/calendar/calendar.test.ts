@@ -159,4 +159,34 @@ describe("countWorkingDays", () => {
       { numRuns: 100 }
     );
   });
+
+  it("excludes holidays from count even on weekends (no double-count)", () => {
+    const calendar = { holidays: ["2025-01-04"] }; // Saturday
+    const countWith = countWorkingDays(new Date(2025, 0, 6), new Date(2025, 0, 13), calendar);
+    const countWithout = countWorkingDays(new Date(2025, 0, 6), new Date(2025, 0, 13));
+    expect(countWith).toBe(countWithout);
+  });
+});
+
+describe("calendar edge cases", () => {
+  it("addWorkingDays skips a full week of holidays", () => {
+    const calendar = {
+      holidays: [
+        "2025-01-06", "2025-01-07", "2025-01-08", "2025-01-09", "2025-01-10",
+      ],
+    };
+    const result = addWorkingDays(new Date(2025, 0, 3), 1, calendar);
+    expect(formatDateISO(result)).toBe("2025-01-13");
+  });
+
+  it("handles year boundary (Dec to Jan)", () => {
+    const result = addWorkingDays(new Date(2025, 11, 31), 1);
+    expect(formatDateISO(result)).toBe("2026-01-01");
+  });
+
+  it("isWorkingDay returns false for holiday on weekend (weekend takes precedence)", () => {
+    const calendar = { holidays: ["2025-01-04"] };
+    expect(isWorkingDay(new Date(2025, 0, 4), calendar)).toBe(false);
+    expect(isWorkingDay(new Date(2025, 0, 4))).toBe(false);
+  });
 });

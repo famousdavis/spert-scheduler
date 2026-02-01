@@ -168,3 +168,26 @@ describe("cdf", () => {
     expect(cdf(new Float64Array(0))).toEqual([]);
   });
 });
+
+describe("edge cases", () => {
+  it("percentile with single sample returns that value for any p", () => {
+    const arr = new Float64Array([42]);
+    expect(percentile(arr, 0)).toBe(42);
+    expect(percentile(arr, 0.5)).toBe(42);
+    expect(percentile(arr, 1)).toBe(42);
+  });
+
+  it("mean with single value", () => {
+    expect(mean(new Float64Array([7]))).toBe(7);
+  });
+
+  it("standardDeviation with single value", () => {
+    expect(standardDeviation(new Float64Array([7]))).toBe(0);
+  });
+
+  it("histogram with two identical values", () => {
+    const bins = histogram(new Float64Array([3, 3]), 10);
+    expect(bins).toHaveLength(1);
+    expect(bins[0]!.count).toBe(2);
+  });
+});

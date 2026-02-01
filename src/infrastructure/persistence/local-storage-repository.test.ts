@@ -26,7 +26,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
             status: "planned",
           },
         ],
-        dependencies: [],
         settings: {
           defaultConfidenceLevel: "mediumConfidence",
           defaultDistributionType: "normal",

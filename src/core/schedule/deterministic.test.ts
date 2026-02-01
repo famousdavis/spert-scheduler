@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeDeterministicSchedule } from "./deterministic";
+import { computeDeterministicSchedule, computeDeterministicDurations } from "./deterministic";
 import type { Activity } from "@domain/models/types";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
@@ -125,5 +125,66 @@ describe("computeDeterministicSchedule", () => {
     );
     // Should adjust to Monday Jan 6
     expect(schedule.activities[0]!.startDate).toBe("2025-01-06");
+  });
+
+  it("adjusts start date to next working day if start is a holiday", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const calendar = { holidays: ["2025-01-06"] }; // Monday is holiday
+    const schedule = computeDeterministicSchedule(
+      activities,
+      "2025-01-06",
+      0.5,
+      calendar
+    );
+    // Should advance to Tuesday Jan 7
+    expect(schedule.activities[0]!.startDate).toBe("2025-01-07");
+  });
+
+  it("schedules all-complete activities from actuals only", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 5 }),
+      makeActivity({ id: "a2", status: "complete", actualDuration: 3 }),
+    ];
+    const schedule = computeDeterministicSchedule(activities, "2025-01-06", 0.5);
+    expect(schedule.totalDurationDays).toBe(8);
+    expect(schedule.activities[0]!.isActual).toBe(true);
+    expect(schedule.activities[1]!.isActual).toBe(true);
+  });
+});
+
+describe("computeDeterministicDurations", () => {
+  it("returns durations for non-complete activities", () => {
+
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a2", min: 2, mostLikely: 4, max: 8 }),
+    ];
+    const durations = computeDeterministicDurations(activities, 0.5);
+    expect(durations).toHaveLength(2);
+    for (const d of durations) {
+      expect(d).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("filters out complete activities", () => {
+
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 5 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a3", status: "complete", actualDuration: 3 }),
+    ];
+    const durations = computeDeterministicDurations(activities, 0.5);
+    expect(durations).toHaveLength(1); // Only a2
+  });
+
+  it("returns empty array when all activities are complete", () => {
+
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 5 }),
+    ];
+    const durations = computeDeterministicDurations(activities, 0.5);
+    expect(durations).toHaveLength(0);
   });
 });
