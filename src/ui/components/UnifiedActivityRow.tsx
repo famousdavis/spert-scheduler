@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type {
@@ -16,6 +16,7 @@ import {
 import { ActivitySchema } from "@domain/schemas/project.schema";
 import { recommendDistribution } from "@core/recommendation/recommendation";
 import { formatDateDisplay } from "@core/calendar/calendar";
+import { GRID_COLUMNS } from "./grid-columns";
 
 interface UnifiedActivityRowProps {
   activity: Activity;
@@ -120,11 +121,15 @@ export function UnifiedActivityRow({
     [validateAndUpdate]
   );
 
-  const recommendation = recommendDistribution(
-    activity.min,
-    activity.mostLikely,
-    activity.max,
-    activity.confidenceLevel
+  const recommendation = useMemo(
+    () =>
+      recommendDistribution(
+        activity.min,
+        activity.mostLikely,
+        activity.max,
+        activity.confidenceLevel
+      ),
+    [activity.min, activity.mostLikely, activity.max, activity.confidenceLevel]
   );
 
   const isComplete = activity.status === "complete";
@@ -139,8 +144,7 @@ export function UnifiedActivityRow({
         hasErrors ? "bg-red-50/30" : ""
       } ${isDragging ? "opacity-80 bg-blue-50 z-10 shadow-md" : ""}`}
       style={{
-        gridTemplateColumns:
-          "28px 1fr 90px 90px 48px 48px 48px 120px 140px 96px 56px 1px 60px 44px 28px",
+        gridTemplateColumns: GRID_COLUMNS,
         ...sortableStyle,
       }}
     >
@@ -166,6 +170,15 @@ export function UnifiedActivityRow({
           className="w-full px-1.5 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
           placeholder="Add an activity name"
         />
+      </div>
+
+      {/* Schedule: Duration */}
+      <div className="text-right tabular-nums text-gray-700 px-1">
+        {scheduledActivity ? (
+          <span>{scheduledActivity.duration}d</span>
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
       </div>
 
       {/* Schedule: Start */}
@@ -339,15 +352,6 @@ export function UnifiedActivityRow({
 
       {/* Separator */}
       <div className="h-6 bg-gray-200" />
-
-      {/* Schedule: Duration */}
-      <div className="text-right tabular-nums text-gray-700 px-1">
-        {scheduledActivity ? (
-          <span>{scheduledActivity.duration}d</span>
-        ) : (
-          <span className="text-gray-300">—</span>
-        )}
-      </div>
 
       {/* Source badge */}
       <div className="text-center">

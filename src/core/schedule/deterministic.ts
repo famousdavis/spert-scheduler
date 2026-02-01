@@ -92,6 +92,6 @@ export function computeDeterministicSchedule(
   return {
     activities: scheduledActivities,
     totalDurationDays: totalDuration,
-    projectEndDate: lastActivity ? lastActivity.endDate : startDate,
+    projectEndDate: lastActivity ? lastActivity.endDate : formatDateISO(currentDate),
   };
 }

@@ -6,38 +6,10 @@ import {
   addWorkingDays,
   formatDateISO,
 } from "@core/calendar/calendar";
-
-/** Percentile options for the Activity Target dropdown (P50–P95) */
-const PERCENTILE_OPTIONS = [
-  { value: 0.5, label: "P50" },
-  { value: 0.55, label: "P55" },
-  { value: 0.6, label: "P60" },
-  { value: 0.65, label: "P65" },
-  { value: 0.7, label: "P70" },
-  { value: 0.75, label: "P75" },
-  { value: 0.8, label: "P80" },
-  { value: 0.85, label: "P85" },
-  { value: 0.9, label: "P90" },
-  { value: 0.95, label: "P95" },
-];
-
-/** Percentile options for the Project Target dropdown (P50–P99) */
-const PROJECT_PERCENTILE_OPTIONS = [
-  { value: 0.5, label: "P50" },
-  { value: 0.55, label: "P55" },
-  { value: 0.6, label: "P60" },
-  { value: 0.65, label: "P65" },
-  { value: 0.7, label: "P70" },
-  { value: 0.75, label: "P75" },
-  { value: 0.8, label: "P80" },
-  { value: 0.85, label: "P85" },
-  { value: 0.9, label: "P90" },
-  { value: 0.95, label: "P95" },
-  { value: 0.96, label: "P96" },
-  { value: 0.97, label: "P97" },
-  { value: 0.98, label: "P98" },
-  { value: 0.99, label: "P99" },
-];
+import {
+  ACTIVITY_PERCENTILE_OPTIONS,
+  PROJECT_PERCENTILE_OPTIONS,
+} from "@ui/helpers/percentile-options";
 
 interface ScenarioSummaryCardProps {
   startDate: string;
@@ -157,7 +129,7 @@ export function ScenarioSummaryCard({
             }
             className="px-2 py-1 border border-gray-200 rounded text-sm font-medium focus:border-blue-400 focus:outline-none"
           >
-            {PERCENTILE_OPTIONS.map((opt) => (
+            {ACTIVITY_PERCENTILE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>

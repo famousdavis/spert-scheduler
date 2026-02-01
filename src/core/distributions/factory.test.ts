@@ -85,6 +85,20 @@ describe("createDistributionForActivity", () => {
     expect(dist.mean()).toBe(6.5);
   });
 
+  it("creates uniform distribution as point mass when min === max", () => {
+    const activity = makeActivity({
+      min: 7,
+      mostLikely: 7,
+      max: 7,
+      distributionType: "uniform",
+    });
+    const dist = createDistributionForActivity(activity);
+    expect(dist).toBeInstanceOf(UniformDistribution);
+    expect(dist.mean()).toBe(7);
+    expect(dist.variance()).toBe(0);
+    expect(dist.inverseCDF(0.5)).toBe(7);
+  });
+
   it("creates normal distribution with zero variance (min == max)", () => {
     const activity = makeActivity({
       min: 5,

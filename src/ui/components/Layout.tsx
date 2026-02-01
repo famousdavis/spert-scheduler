@@ -4,6 +4,7 @@ import { APP_VERSION } from "@app/constants";
 const NAV_ITEMS = [
   { path: "/projects", label: "Projects" },
   { path: "/calendar", label: "Calendar" },
+  { path: "/settings", label: "Settings" },
   { path: "/about", label: "About" },
 ];
 
@@ -12,11 +13,11 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200">
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             <Link to="/projects" className="text-lg font-bold text-gray-900">
-              SPERT Scheduler
+              SPERT<span className="text-gray-300 text-xs align-super">®</span> Scheduler
             </Link>
             <nav className="flex gap-1">
               {NAV_ITEMS.map((item) => {

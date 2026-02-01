@@ -90,6 +90,9 @@ export interface ProjectStore {
     projectId: string,
     calendar: Calendar | undefined
   ) => void;
+
+  // Import
+  importProjects: (projects: Project[], replaceIds?: string[]) => void;
 }
 
 function persist(projects: Project[], projectId?: string) {
@@ -292,6 +295,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       );
       persist(projects, projectId);
       return { projects };
+    });
+  },
+
+  importProjects: (projects, replaceIds = []) => {
+    set((state) => {
+      // Remove projects being replaced
+      const filteredExisting = state.projects.filter(
+        (p) => !replaceIds.includes(p.id)
+      );
+      for (const id of replaceIds) {
+        repo.remove(id);
+      }
+      // Save all imported projects to localStorage
+      for (const project of projects) {
+        repo.save(project);
+      }
+      return {
+        projects: [...filteredExisting, ...projects],
+      };
     });
   },
 }));

@@ -62,19 +62,30 @@ All computation runs in the browser. There is no backend.
 
 **Key constraint:** Core logic is framework-agnostic. The `/core` and `/domain` directories never import from React, Zustand, Recharts, or any UI library.
 
+## Key Features
+
+- **Baseline scenarios:** The first scenario in every project is the Baseline (protected from deletion). Additional scenarios can be cloned from any existing scenario for what-if analysis or re-baselining.
+- **Four distribution types:** Normal, LogNormal, Triangular, Uniform — with automatic recommendation per activity.
+- **Holiday calendar:** Multi-day holiday ranges with global overrides per project.
+- **Export/Import:** JSON-based project backup and restore on the Settings page, with schema migration and conflict resolution (skip, replace, import as copy).
+
 ## Domain Model
 
 ```
 Project
   ├── id, name, createdAt, schemaVersion
-  ├── globalCalendarOverride?: Calendar { holidays: string[] }
+  ├── globalCalendarOverride?: Calendar
+  │     └── holidays: Holiday[]
+  │           ├── id, name (description)
+  │           ├── startDate ("YYYY-MM-DD")
+  │           └── endDate ("YYYY-MM-DD", same as startDate for single day)
   └── scenarios: Scenario[]
         ├── id, name, startDate
         ├── activities: Activity[]
         │     ├── id, name
         │     ├── min, mostLikely, max (three-point estimates)
         │     ├── confidenceLevel: RSMLevel (10 levels)
-        │     ├── distributionType: "normal" | "logNormal" | "triangular"
+        │     ├── distributionType: "normal" | "logNormal" | "triangular" | "uniform"
         │     ├── status: "planned" | "inProgress" | "complete"
         │     └── actualDuration?: number
         ├── settings: ScenarioSettings
@@ -107,7 +118,7 @@ interface Distribution {
 }
 ```
 
-Three implementations: Normal (Box-Muller + Acklam), LogNormal (exp of normal), Triangular (inverse CDF).
+Four implementations: Normal (Box-Muller + Acklam), LogNormal (exp of normal), Triangular (inverse CDF), Uniform (linear interpolation).
 
 Factory: `createDistributionForActivity(activity)` computes PERT mean + resolved SD, switches on `distributionType`.
 
@@ -150,15 +161,16 @@ Worker is created per-run and terminated on completion. Progress updates every 1
 
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
-- Schema versioned (`SCHEMA_VERSION = 2`) with sequential migrations
+- Schema versioned (`SCHEMA_VERSION = 3`) with sequential migrations (v1→v2→v3)
 - Zod validation on every load
+- Export/Import via JSON files on the Settings page
 
 ## Testing Strategy
 
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants
-- **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload)
-- **193 tests** across 20 test files
+- **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip
+- **280 tests** across 25 test files
 
 ## Performance Budget
 
