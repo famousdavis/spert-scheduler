@@ -42,7 +42,7 @@ export function isWorkingDay(date: Date, calendar?: Calendar): boolean {
 
 /**
  * Add working days to a start date. Returns the end date.
- * If days is 0, returns the start date itself (or next working day if start is non-working).
+ * If days is 0, returns the start date unchanged.
  */
 export function addWorkingDays(
   start: Date,

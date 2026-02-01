@@ -5,7 +5,7 @@ import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
 import type { ScenarioSettings } from "@domain/models/types";
-import { createDistributionForActivity } from "@core/distributions/factory";
+import { computeDeterministicDurations } from "@core/schedule/deterministic";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { UnifiedActivityGrid } from "@ui/components/UnifiedActivityGrid";
 import { ScenarioSummaryCard } from "@ui/components/ScenarioSummaryCard";
@@ -119,14 +119,10 @@ export function ProjectPage() {
   const handleRunSimulation = useCallback(() => {
     if (!id || !scenario) return;
 
-    // Compute Parkinson's Law floor for each non-complete activity:
-    // work expands to fill the time allotted (scheduled duration).
-    const deterministicDurations = scenario.activities
-      .filter((a) => !(a.status === "complete" && a.actualDuration != null))
-      .map((a) => {
-        const dist = createDistributionForActivity(a);
-        return Math.max(1, Math.ceil(dist.inverseCDF(scenario.settings.probabilityTarget)));
-      });
+    const deterministicDurations = computeDeterministicDurations(
+      scenario.activities,
+      scenario.settings.probabilityTarget
+    );
 
     simulation.run(
       scenario.activities,

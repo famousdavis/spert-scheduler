@@ -69,4 +69,18 @@ describe("computeScheduleBuffer", () => {
     expect(result).not.toBeNull();
     expect(result!.bufferDays).toBe(33);
   });
+
+  it("handles zero deterministic total (no activities)", () => {
+    const simPercentiles: Record<number, number> = { 95: 0 };
+    const result = computeScheduleBuffer(0, simPercentiles, 0.5, 0.95);
+    expect(result).not.toBeNull();
+    expect(result!.bufferDays).toBe(0);
+  });
+
+  it("handles single-activity buffer", () => {
+    const simPercentiles: Record<number, number> = { 95: 15 };
+    const result = computeScheduleBuffer(10, simPercentiles, 0.5, 0.95);
+    expect(result).not.toBeNull();
+    expect(result!.bufferDays).toBe(5);
+  });
 });

@@ -52,14 +52,6 @@ export const ScenarioSettingsSchema = z.object({
   projectProbabilityTarget: z.number().min(0.01).max(0.99),
 });
 
-// -- Dependency (v2 reserved) ------------------------------------------------
-
-export const DependencySchema = z.object({
-  fromActivityId: z.string().min(1),
-  toActivityId: z.string().min(1),
-  type: z.literal("finishToStart"),
-});
-
 // -- Histogram / CDF ---------------------------------------------------------
 
 export const HistogramBinSchema = z.object({
@@ -97,7 +89,6 @@ export const ScenarioSchema = z.object({
   name: z.string().min(1),
   startDate: ISODateString,
   activities: z.array(ActivitySchema),
-  dependencies: z.array(DependencySchema),
   settings: ScenarioSettingsSchema,
   simulationResults: SimulationRunSchema.optional(),
 });

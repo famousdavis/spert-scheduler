@@ -30,4 +30,22 @@ describe("recommendDistribution", () => {
     expect(result.rationale).toBeTruthy();
     expect(typeof result.rationale).toBe("string");
   });
+
+  it("recommends logNormal for extreme right skew", () => {
+    // min=1, ml=2, max=100 -> very right-skewed, high CV
+    const result = recommendDistribution(1, 2, 100, "mediumConfidence");
+    expect(result.recommended).toBe("logNormal");
+  });
+
+  it("recommends triangular for left-skewed estimates", () => {
+    // min=1, ml=99, max=100 -> left-skewed (skew < 0), not logNormal
+    const result = recommendDistribution(1, 99, 100, "mediumConfidence");
+    expect(result.recommended).not.toBe("logNormal");
+  });
+
+  it("handles near-threshold values", () => {
+    // Test that the function doesn't crash at boundary values
+    const result = recommendDistribution(5, 10, 15, "mediumConfidence");
+    expect(["normal", "logNormal", "triangular"]).toContain(result.recommended);
+  });
 });

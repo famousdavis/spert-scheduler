@@ -1,6 +1,9 @@
 import type { RSMLevel, DistributionType } from "@domain/models/types";
 import { computePertMean, computeSpertSD, computeSkewIndicator, computeCV } from "@core/estimation/spert";
 
+const SKEW_THRESHOLD = 0.1;
+const CV_THRESHOLD = 0.3;
+
 export interface DistributionRecommendation {
   recommended: DistributionType;
   rationale: string;
@@ -10,8 +13,8 @@ export interface DistributionRecommendation {
  * Recommend a distribution type based on the activity's statistical properties.
  *
  * Rules:
- * - |skew| < 0.1 and CV < 0.3 --> Normal
- * - skew > 0.1 and CV > 0.3 --> LogNormal
+ * - |skew| < SKEW_THRESHOLD and CV < CV_THRESHOLD --> Normal
+ * - skew > SKEW_THRESHOLD and CV > CV_THRESHOLD --> LogNormal
  * - Otherwise --> Triangular
  */
 export function recommendDistribution(
@@ -33,14 +36,14 @@ export function recommendDistribution(
   const skew = computeSkewIndicator(min, ml, max, rsmLevel);
   const cv = computeCV(mean, sd);
 
-  if (Math.abs(skew) < 0.1 && cv < 0.3) {
+  if (Math.abs(skew) < SKEW_THRESHOLD && cv < CV_THRESHOLD) {
     return {
       recommended: "normal",
       rationale: "Low skew and low coefficient of variation indicate a symmetric distribution.",
     };
   }
 
-  if (skew > 0.1 && cv > 0.3) {
+  if (skew > SKEW_THRESHOLD && cv > CV_THRESHOLD) {
     return {
       recommended: "logNormal",
       rationale: "Right skew with high variability suggests a LogNormal distribution.",

@@ -1,11 +1,11 @@
 import type { Activity, SimulationRun } from "@domain/models/types";
-import { ENGINE_VERSION, STANDARD_PERCENTILES } from "@domain/models/types";
+import { ENGINE_VERSION } from "@domain/models/types";
 import { createDistributionForActivity } from "@core/distributions/factory";
 import type { Distribution } from "@core/distributions/distribution";
 import { createSeededRng } from "@infrastructure/rng";
 import {
   sortSamples,
-  percentile,
+  computeStandardPercentiles,
   mean as computeMean,
   standardDeviation as computeSD,
   histogram,
@@ -17,19 +17,29 @@ export interface MonteCarloInput {
   rngSeed: string;
   /** Per non-complete activity deterministic duration (Parkinson's Law floor). */
   deterministicDurations?: number[];
+  /** Optional progress callback, called every `progressInterval` trials. */
+  onProgress?: (completedTrials: number, totalTrials: number) => void;
+  /** How often to report progress (default: 10000). */
+  progressInterval?: number;
 }
 
 /**
- * Run a Monte Carlo simulation. Pure function, no DOM, no Worker API.
+ * Run Monte Carlo trials and return raw samples.
  *
- * Algorithm (v1 -- sum of samples):
- * - Sum actualDuration for complete activities
- * - Create distributions for non-complete activities
- * - For each trial, sum samples from distributions + completed sum
- * - Clamp negative samples to zero (modeling decision, see plan Section 7)
+ * Shared between the pure function and the Web Worker.
+ * Parkinson's Law: each activity's duration is at least its deterministic
+ * (scheduled) duration, because work expands to fill time allotted.
  */
-export function runMonteCarloSimulation(input: MonteCarloInput): SimulationRun {
-  const { activities, trialCount, rngSeed, deterministicDurations } = input;
+export function runTrials(input: MonteCarloInput): Float64Array {
+  const {
+    activities,
+    trialCount,
+    rngSeed,
+    deterministicDurations,
+    onProgress,
+    progressInterval = 10000,
+  } = input;
+
   const rng = createSeededRng(rngSeed);
 
   // Separate completed activities from active ones
@@ -44,9 +54,10 @@ export function runMonteCarloSimulation(input: MonteCarloInput): SimulationRun {
     }
   }
 
-  // Run trials — Parkinson's Law: each activity's duration is at least its
-  // deterministic (scheduled) duration, because work expands to fill time allotted.
+  // Run trials
   const samples = new Float64Array(trialCount);
+  const shouldReportProgress = onProgress && trialCount >= progressInterval;
+
   for (let trial = 0; trial < trialCount; trial++) {
     let totalDays = completedSum;
     for (let i = 0; i < distributions.length; i++) {
@@ -55,25 +66,28 @@ export function runMonteCarloSimulation(input: MonteCarloInput): SimulationRun {
       totalDays += Math.max(floor, sampled);
     }
     samples[trial] = totalDays;
+
+    if (
+      shouldReportProgress &&
+      (trial + 1) % progressInterval === 0 &&
+      trial + 1 < trialCount
+    ) {
+      onProgress(trial + 1, trialCount);
+    }
   }
 
-  // Sort for percentile computation
+  return samples;
+}
+
+/**
+ * Compute simulation statistics from raw sorted samples.
+ */
+export function computeSimulationStats(
+  samples: Float64Array,
+  trialCount: number,
+  rngSeed: string
+): SimulationRun {
   sortSamples(samples);
-
-  // Compute statistics
-  const sampleMean = computeMean(samples);
-  const sampleSD = computeSD(samples);
-  const minSample = samples[0]!;
-  const maxSample = samples[trialCount - 1]!;
-
-  // Compute standard percentiles
-  const percentiles: Record<number, number> = {};
-  for (const p of STANDARD_PERCENTILES) {
-    percentiles[p] = percentile(samples, p / 100);
-  }
-
-  // Generate histogram
-  const histogramBins = histogram(samples, 40);
 
   return {
     id: "", // Set by caller (service layer)
@@ -81,12 +95,20 @@ export function runMonteCarloSimulation(input: MonteCarloInput): SimulationRun {
     trialCount,
     seed: rngSeed,
     engineVersion: ENGINE_VERSION,
-    percentiles,
-    histogramBins,
-    mean: sampleMean,
-    standardDeviation: sampleSD,
-    minSample,
-    maxSample,
+    percentiles: computeStandardPercentiles(samples),
+    histogramBins: histogram(samples, 40),
+    mean: computeMean(samples),
+    standardDeviation: computeSD(samples),
+    minSample: samples[0] ?? 0,
+    maxSample: samples[trialCount - 1] ?? 0,
     samples: Array.from(samples),
   };
+}
+
+/**
+ * Run a Monte Carlo simulation. Pure function, no DOM, no Worker API.
+ */
+export function runMonteCarloSimulation(input: MonteCarloInput): SimulationRun {
+  const samples = runTrials(input);
+  return computeSimulationStats(samples, input.trialCount, input.rngSeed);
 }
