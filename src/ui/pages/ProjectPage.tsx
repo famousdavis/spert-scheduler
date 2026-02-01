@@ -4,6 +4,7 @@ import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
+import type { ScenarioSettings } from "@domain/models/types";
 import { createDistributionForActivity } from "@core/distributions/factory";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { UnifiedActivityGrid } from "@ui/components/UnifiedActivityGrid";
@@ -139,7 +140,7 @@ export function ProjectPage() {
   }, [id, scenario, simulation, setSimulationResults]);
 
   const handleSettingsChange = useCallback(
-    (updates: Partial<typeof scenario.settings>) => {
+    (updates: Partial<ScenarioSettings>) => {
       if (!id || !scenario) return;
       updateScenarioSettings(id, scenario.id, updates);
     },
