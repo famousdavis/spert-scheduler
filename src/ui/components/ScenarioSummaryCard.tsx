@@ -1,7 +1,6 @@
 import type { DeterministicSchedule, ScenarioSettings, Calendar } from "@domain/models/types";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
-  formatDateDisplay,
   parseDateISO,
   addWorkingDays,
   formatDateISO,
@@ -10,6 +9,7 @@ import {
   ACTIVITY_PERCENTILE_OPTIONS,
   PROJECT_PERCENTILE_OPTIONS,
 } from "@ui/helpers/percentile-options";
+import { useDateFormat } from "@ui/hooks/use-date-format";
 
 interface ScenarioSummaryCardProps {
   startDate: string;
@@ -32,6 +32,7 @@ export function ScenarioSummaryCard({
   onSettingsChange,
   onNewSeed,
 }: ScenarioSummaryCardProps) {
+  const formatDate = useDateFormat();
   const actPct = Math.round(settings.probabilityTarget * 100);
   const projPct = Math.round(settings.projectProbabilityTarget * 100);
 
@@ -56,7 +57,7 @@ export function ScenarioSummaryCard({
             Start
           </span>
           <p className="text-lg font-semibold text-blue-700 tabular-nums">
-            {formatDateDisplay(startDate)}
+            {formatDate(startDate)}
           </p>
         </div>
         <div className="border-l border-gray-200 self-stretch" />
@@ -65,7 +66,7 @@ export function ScenarioSummaryCard({
             Finish w/o Buffer
           </span>
           <p className="text-lg font-semibold text-blue-700 tabular-nums">
-            {schedule ? formatDateDisplay(schedule.projectEndDate) : "—"}
+            {schedule ? formatDate(schedule.projectEndDate) : "—"}
           </p>
         </div>
         <div>
@@ -91,7 +92,7 @@ export function ScenarioSummaryCard({
             Finish w/Buffer
           </span>
           <p className="text-lg font-semibold text-blue-700 tabular-nums">
-            {bufferedEndDate ? formatDateDisplay(bufferedEndDate) : "—"}
+            {bufferedEndDate ? formatDate(bufferedEndDate) : "—"}
           </p>
         </div>
         <div>

@@ -3,19 +3,22 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type {
   Activity,
-  RSMLevel,
   DistributionType,
   ScheduledActivity,
 } from "@domain/models/types";
 import {
-  RSM_LEVELS,
-  RSM_LABELS,
   DISTRIBUTION_TYPES,
   ACTIVITY_STATUSES,
 } from "@domain/models/types";
 import { ActivitySchema } from "@domain/schemas/project.schema";
 import { recommendDistribution } from "@core/recommendation/recommendation";
-import { formatDateDisplay } from "@core/calendar/calendar";
+import { useDateFormat } from "@ui/hooks/use-date-format";
+import {
+  distributionLabel,
+  distributionShortLabel,
+  statusLabel,
+} from "@ui/helpers/format-labels";
+import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { GRID_COLUMNS } from "./grid-columns";
 
 interface UnifiedActivityRowProps {
@@ -23,6 +26,8 @@ interface UnifiedActivityRowProps {
   scheduledActivity?: ScheduledActivity;
   activityProbabilityTarget: number;
   autoFocusName?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (activityId: string) => void;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
   onValidityChange: (activityId: string, isValid: boolean) => void;
@@ -30,16 +35,54 @@ interface UnifiedActivityRowProps {
 
 type FieldErrors = Partial<Record<string, string>>;
 
+function focusField(rowId: string, field: string) {
+  const el = document.querySelector<HTMLElement>(
+    `[data-row-id="${rowId}"][data-field="${field}"]`
+  );
+  if (el) {
+    el.focus();
+    return true;
+  }
+  return false;
+}
+
+function focusNextRow(currentRowId: string, activities: string[]) {
+  const idx = activities.indexOf(currentRowId);
+  if (idx >= 0 && idx < activities.length - 1) {
+    return focusField(activities[idx + 1]!, "name");
+  }
+  // Focus the add-activity button if last row
+  const addBtn = document.querySelector<HTMLElement>(
+    '[data-field="add-activity"]'
+  );
+  if (addBtn) {
+    addBtn.focus();
+    return true;
+  }
+  return false;
+}
+
+function focusPrevRow(currentRowId: string, activities: string[]) {
+  const idx = activities.indexOf(currentRowId);
+  if (idx > 0) {
+    return focusField(activities[idx - 1]!, "max");
+  }
+  return false;
+}
+
 export function UnifiedActivityRow({
   activity,
   scheduledActivity,
   activityProbabilityTarget,
   autoFocusName,
+  isSelected,
+  onToggleSelect,
   onUpdate,
   onDelete,
   onValidityChange,
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const formatDate = useDateFormat();
 
   useEffect(() => {
     if (autoFocusName && nameInputRef.current) {
@@ -61,8 +104,6 @@ export function UnifiedActivityRow({
   };
 
   const [errors, setErrors] = useState<FieldErrors>({});
-  // If estimates are already differentiated, treat all three as touched so
-  // editing any single field triggers validation immediately.
   const [, setTouchedFields] = useState<Set<string>>(() => {
     const allEqual =
       activity.min === activity.mostLikely &&
@@ -91,7 +132,6 @@ export function UnifiedActivityRow({
         });
         onValidityChange(activity.id, true);
       } else if (allEstimatesTouched(touched)) {
-        // Only show cross-field errors once all three estimate fields have been visited
         const fieldErrors: FieldErrors = {};
         for (const issue of result.error.issues) {
           const path = issue.path.join(".");
@@ -121,6 +161,63 @@ export function UnifiedActivityRow({
     [validateAndUpdate]
   );
 
+  const handleTabNav = useCallback(
+    (
+      e: React.KeyboardEvent,
+      currentField: "name" | "min" | "ml" | "max"
+    ) => {
+      if (e.key !== "Tab") return;
+
+      const fieldOrder = ["name", "min", "ml", "max"];
+      const idx = fieldOrder.indexOf(currentField);
+
+      if (!e.shiftKey && currentField === "max") {
+        // Tab from Max -> next row's Name (or Add button)
+        e.preventDefault();
+        const gridEl = (e.target as HTMLElement).closest(
+          "[data-activity-grid]"
+        );
+        if (!gridEl) return;
+        const rows = Array.from(
+          gridEl.querySelectorAll<HTMLElement>("[data-row-id]")
+        );
+        const rowIds = [
+          ...new Set(rows.map((r) => r.getAttribute("data-row-id")!)),
+        ];
+        focusNextRow(activity.id, rowIds);
+      } else if (e.shiftKey && currentField === "name") {
+        // Shift+Tab from Name -> prev row's Max
+        e.preventDefault();
+        const gridEl = (e.target as HTMLElement).closest(
+          "[data-activity-grid]"
+        );
+        if (!gridEl) return;
+        const rows = Array.from(
+          gridEl.querySelectorAll<HTMLElement>("[data-row-id]")
+        );
+        const rowIds = [
+          ...new Set(rows.map((r) => r.getAttribute("data-row-id")!)),
+        ];
+        focusPrevRow(activity.id, rowIds);
+      } else if (!e.shiftKey) {
+        // Tab forward within the row
+        const nextField = fieldOrder[idx + 1];
+        if (nextField) {
+          e.preventDefault();
+          focusField(activity.id, nextField);
+        }
+      } else {
+        // Shift+Tab backward within the row
+        const prevField = fieldOrder[idx - 1];
+        if (prevField) {
+          e.preventDefault();
+          focusField(activity.id, prevField);
+        }
+      }
+    },
+    [activity.id]
+  );
+
   const recommendation = useMemo(
     () =>
       recommendDistribution(
@@ -148,6 +245,17 @@ export function UnifiedActivityRow({
         ...sortableStyle,
       }}
     >
+      {/* Checkbox */}
+      <div className="flex items-center justify-center">
+        <input
+          type="checkbox"
+          checked={isSelected ?? false}
+          onChange={() => onToggleSelect?.(activity.id)}
+          className="rounded border-gray-300"
+          tabIndex={-1}
+        />
+      </div>
+
       {/* Grip handle */}
       <div className="flex items-center justify-center">
         <button
@@ -155,6 +263,7 @@ export function UnifiedActivityRow({
           title="Drag to reorder"
           {...attributes}
           {...listeners}
+          tabIndex={-1}
         >
           &#x2261;
         </button>
@@ -164,9 +273,12 @@ export function UnifiedActivityRow({
       <div>
         <input
           ref={nameInputRef}
+          data-row-id={activity.id}
+          data-field="name"
           type="text"
           value={activity.name}
           onChange={(e) => onUpdate(activity.id, { name: e.target.value })}
+          onKeyDown={(e) => handleTabNav(e, "name")}
           className="w-full px-1.5 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
           placeholder="Add an activity name"
         />
@@ -177,34 +289,37 @@ export function UnifiedActivityRow({
         {scheduledActivity ? (
           <span>{scheduledActivity.duration}d</span>
         ) : (
-          <span className="text-gray-300">—</span>
+          <span className="text-gray-300">&mdash;</span>
         )}
       </div>
 
       {/* Schedule: Start */}
       <div className="tabular-nums text-gray-700 text-sm px-1">
         {scheduledActivity ? (
-          <span>{formatDateDisplay(scheduledActivity.startDate)}</span>
+          <span>{formatDate(scheduledActivity.startDate)}</span>
         ) : (
-          <span className="text-gray-300">—</span>
+          <span className="text-gray-300">&mdash;</span>
         )}
       </div>
 
       {/* Schedule: End */}
       <div className="tabular-nums text-gray-700 text-sm px-1">
         {scheduledActivity ? (
-          <span>{formatDateDisplay(scheduledActivity.endDate)}</span>
+          <span>{formatDate(scheduledActivity.endDate)}</span>
         ) : (
-          <span className="text-gray-300">—</span>
+          <span className="text-gray-300">&mdash;</span>
         )}
       </div>
 
       {/* Min */}
       <div>
         <input
+          data-row-id={activity.id}
+          data-field="min"
           type="number"
           defaultValue={activity.min}
           onBlur={(e) => handleBlur("min", e.target.value)}
+          onKeyDown={(e) => handleTabNav(e, "min")}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
             errors["min"] ? "border-red-400 bg-red-50" : "border-gray-200"
           } focus:border-blue-400 focus:outline-none`}
@@ -217,9 +332,12 @@ export function UnifiedActivityRow({
       {/* ML */}
       <div>
         <input
+          data-row-id={activity.id}
+          data-field="ml"
           type="number"
           defaultValue={activity.mostLikely}
           onBlur={(e) => handleBlur("mostLikely", e.target.value)}
+          onKeyDown={(e) => handleTabNav(e, "ml")}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
             errors["mostLikely"]
               ? "border-red-400 bg-red-50"
@@ -234,9 +352,12 @@ export function UnifiedActivityRow({
       {/* Max */}
       <div>
         <input
+          data-row-id={activity.id}
+          data-field="max"
           type="number"
           defaultValue={activity.max}
           onBlur={(e) => handleBlur("max", e.target.value)}
+          onKeyDown={(e) => handleTabNav(e, "max")}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
             errors["max"] ? "border-red-400 bg-red-50" : "border-gray-200"
           } focus:border-blue-400 focus:outline-none`}
@@ -248,21 +369,12 @@ export function UnifiedActivityRow({
 
       {/* Confidence */}
       <div>
-        <select
+        <ConfidenceLevelSelect
           value={activity.confidenceLevel}
-          onChange={(e) =>
-            onUpdate(activity.id, {
-              confidenceLevel: e.target.value as RSMLevel,
-            })
+          onChange={(level) =>
+            onUpdate(activity.id, { confidenceLevel: level })
           }
-          className="w-full px-1 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
-        >
-          {RSM_LEVELS.map((level) => (
-            <option key={level} value={level}>
-              {RSM_LABELS[level]}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       {/* Distribution */}
@@ -275,14 +387,11 @@ export function UnifiedActivityRow({
             })
           }
           className="w-full px-1 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
+          tabIndex={-1}
         >
           {DISTRIBUTION_TYPES.map((dt) => (
             <option key={dt} value={dt}>
-              {dt === "logNormal"
-                ? "LogNormal"
-                : dt === "normal"
-                  ? "T-Normal"
-                  : dt.charAt(0).toUpperCase() + dt.slice(1)}
+              {distributionLabel(dt)}
             </option>
           ))}
         </select>
@@ -295,14 +404,9 @@ export function UnifiedActivityRow({
             }
             className="shrink-0 px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] hover:bg-amber-200"
             title={recommendation.rationale}
+            tabIndex={-1}
           >
-            {recommendation.recommended === "logNormal"
-              ? "LogN"
-              : recommendation.recommended === "normal"
-                ? "Norm"
-                : recommendation.recommended === "uniform"
-                  ? "Uni"
-                  : "Tri"}
+            {distributionShortLabel(recommendation.recommended)}
           </button>
         )}
       </div>
@@ -317,12 +421,11 @@ export function UnifiedActivityRow({
             })
           }
           className="w-full px-1 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
+          tabIndex={-1}
         >
           {ACTIVITY_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s === "inProgress"
-                ? "In Progress"
-                : s.charAt(0).toUpperCase() + s.slice(1)}
+              {statusLabel(s)}
             </option>
           ))}
         </select>
@@ -344,9 +447,10 @@ export function UnifiedActivityRow({
             placeholder="Act."
             min="0"
             step="1"
+            tabIndex={-1}
           />
         ) : (
-          <span className="text-gray-300 text-xs px-1">—</span>
+          <span className="text-gray-300 text-xs px-1">&mdash;</span>
         )}
       </div>
 
@@ -378,6 +482,7 @@ export function UnifiedActivityRow({
           }}
           className="text-red-400 hover:text-red-600 text-sm transition-colors"
           title="Delete activity"
+          tabIndex={-1}
         >
           &#10005;
         </button>

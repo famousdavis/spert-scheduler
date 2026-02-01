@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DndContext,
@@ -29,6 +29,7 @@ export function ProjectsPage() {
   } = useProjectStore();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     loadProjects();
@@ -59,6 +60,12 @@ export function ProjectsPage() {
     navigate(`/project/${project.id}`);
   };
 
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projects;
+    const q = searchQuery.toLowerCase();
+    return projects.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, searchQuery]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -70,6 +77,16 @@ export function ProjectsPage() {
           New Project
         </button>
       </div>
+
+      {projects.length > 0 && (
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search projects..."
+          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+        />
+      )}
 
       {loadError && (
         <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-700">
@@ -85,6 +102,13 @@ export function ProjectsPage() {
             Create a project to get started with probabilistic scheduling.
           </p>
         </div>
+      ) : filteredProjects.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-400 text-lg">No matching projects.</p>
+          <p className="text-gray-400 text-sm mt-1">
+            Try a different search term.
+          </p>
+        </div>
       ) : (
         <DndContext
           sensors={sensors}
@@ -92,11 +116,11 @@ export function ProjectsPage() {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={projects.map((p) => p.id)}
+            items={filteredProjects.map((p) => p.id)}
             strategy={rectSortingStrategy}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {projects.map((project) => (
+              {filteredProjects.map((project) => (
                 <ProjectTile
                   key={project.id}
                   project={project}

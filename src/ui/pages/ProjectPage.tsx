@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import type { ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
@@ -14,6 +15,10 @@ import { ScenarioSummaryCard } from "@ui/components/ScenarioSummaryCard";
 import { SimulationPanel } from "@ui/components/SimulationPanel";
 import { NewScenarioDialog } from "@ui/components/NewScenarioDialog";
 import { CloneScenarioDialog } from "@ui/components/CloneScenarioDialog";
+import { InlineEdit } from "@ui/components/InlineEdit";
+import { Breadcrumbs } from "@ui/components/Breadcrumbs";
+import { ValidationSummary } from "@ui/components/ValidationSummary";
+import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +35,12 @@ export function ProjectPage() {
     moveActivity,
     setSimulationResults,
     updateScenarioSettings,
+    renameProject,
+    renameScenario,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useProjectStore();
 
   const simulation = useSimulation();
@@ -39,6 +50,10 @@ export function ProjectPage() {
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
   const [allActivitiesValid, setAllActivitiesValid] = useState(true);
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(
+    () => new Set()
+  );
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -78,6 +93,73 @@ export function ProjectPage() {
     scenario?.settings.probabilityTarget ?? 0.5,
     scenario?.settings.projectProbabilityTarget ?? 0.95
   );
+
+  // Auto-run simulation on activity/settings changes (debounced 500ms)
+  const autoRunSimulation = usePreferencesStore(
+    (s) => s.preferences.autoRunSimulation
+  );
+  const autoRunTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const activitiesRef = useRef(scenario?.activities);
+  activitiesRef.current = scenario?.activities;
+
+  useEffect(() => {
+    if (
+      !autoRunSimulation ||
+      !allActivitiesValid ||
+      !scenario ||
+      scenario.activities.length === 0 ||
+      simulation.isRunning
+    ) {
+      return;
+    }
+
+    clearTimeout(autoRunTimerRef.current);
+    autoRunTimerRef.current = setTimeout(() => {
+      if (!id || !activitiesRef.current || activitiesRef.current.length === 0)
+        return;
+      const deterministicDurations = computeDeterministicDurations(
+        activitiesRef.current,
+        scenario.settings.probabilityTarget
+      );
+      simulation.run(
+        activitiesRef.current,
+        scenario.settings.trialCount,
+        scenario.settings.rngSeed,
+        deterministicDurations,
+        (result) => {
+          setSimulationResults(id, scenario.id, result);
+        }
+      );
+    }, 500);
+
+    return () => clearTimeout(autoRunTimerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    autoRunSimulation,
+    allActivitiesValid,
+    scenario?.activities,
+    scenario?.settings.probabilityTarget,
+    scenario?.settings.projectProbabilityTarget,
+    scenario?.settings.trialCount,
+    scenario?.settings.rngSeed,
+  ]);
+
+  // Undo/Redo keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.key === "z" && e.shiftKey) || e.key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [undo, redo]);
 
   const handleAddScenario = useCallback(
     (name: string, sourceScenarioId: string) => {
@@ -160,6 +242,33 @@ export function ProjectPage() {
     updateScenarioSettings(id, scenario.id, { rngSeed: newSeed });
   }, [id, scenario, updateScenarioSettings]);
 
+  const handleToggleCompare = useCallback((scenarioId: string) => {
+    setSelectedForCompare((prev) => {
+      const next = new Set(prev);
+      if (next.has(scenarioId)) {
+        next.delete(scenarioId);
+      } else if (next.size < 3) {
+        next.add(scenarioId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleCompareMode = useCallback(() => {
+    setCompareMode((prev) => {
+      if (!prev) {
+        // Entering compare mode: clear selection
+        setSelectedForCompare(new Set());
+      }
+      return !prev;
+    });
+  }, []);
+
+  const compareScenarios =
+    compareMode && project
+      ? project.scenarios.filter((s) => selectedForCompare.has(s.id))
+      : [];
+
   if (!project) {
     return (
       <div className="text-center py-12">
@@ -178,26 +287,86 @@ export function ProjectPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate("/projects")}
-          className="text-gray-400 hover:text-gray-600"
-        >
-          &larr;
-        </button>
-        <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
+      {/* Header with breadcrumbs and undo/redo */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Breadcrumbs
+            items={[
+              { label: "Projects", to: "/projects" },
+              { label: project.name },
+            ]}
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={undo}
+            disabled={!canUndo()}
+            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed"
+            title="Undo (Ctrl+Z)"
+          >
+            Undo
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo()}
+            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed"
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            Redo
+          </button>
+        </div>
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          <InlineEdit
+            value={project.name}
+            onSave={(name) => renameProject(id!, name)}
+            className="text-2xl font-bold text-gray-900"
+            inputClassName="text-2xl font-bold text-gray-900"
+          />
+        </h1>
       </div>
 
-      {/* Scenario tabs */}
-      <ScenarioTabs
-        scenarios={project.scenarios}
-        activeScenarioId={activeScenarioId}
-        onSelect={setActiveScenarioId}
-        onAdd={() => setNewScenarioOpen(true)}
-        onClone={handleCloneStart}
-        onDelete={handleDeleteScenario}
-      />
+      {/* Scenario tabs + compare toggle */}
+      <div className="flex items-center justify-between">
+        <ScenarioTabs
+          scenarios={project.scenarios}
+          activeScenarioId={activeScenarioId}
+          onSelect={setActiveScenarioId}
+          onAdd={() => setNewScenarioOpen(true)}
+          onClone={handleCloneStart}
+          onDelete={handleDeleteScenario}
+          onRename={(scenarioId, name) => renameScenario(id!, scenarioId, name)}
+          compareMode={compareMode}
+          selectedForCompare={selectedForCompare}
+          onToggleCompare={handleToggleCompare}
+        />
+        {project.scenarios.length >= 2 && (
+          <button
+            onClick={handleToggleCompareMode}
+            className={`px-3 py-1.5 text-sm rounded transition-colors shrink-0 ${
+              compareMode
+                ? "bg-blue-100 text-blue-700 font-medium"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            {compareMode ? "Exit Compare" : "Compare"}
+          </button>
+        )}
+      </div>
+
+      {/* Scenario comparison table */}
+      {compareMode && compareScenarios.length >= 2 && (
+        <ScenarioComparisonTable
+          scenarios={compareScenarios}
+          calendar={project.globalCalendarOverride}
+        />
+      )}
+      {compareMode && compareScenarios.length < 2 && (
+        <p className="text-sm text-gray-400">
+          Select 2-3 scenarios above to compare.
+        </p>
+      )}
 
       {/* Active scenario content */}
       {scenario ? (
@@ -213,6 +382,11 @@ export function ProjectPage() {
             onSettingsChange={handleSettingsChange}
             onNewSeed={handleNewSeed}
           />
+
+          {/* Validation errors */}
+          {!allActivitiesValid && (
+            <ValidationSummary activities={scenario.activities} />
+          )}
 
           {/* Unified Activity Grid — input + schedule merged */}
           <UnifiedActivityGrid
@@ -234,12 +408,16 @@ export function ProjectPage() {
           <SimulationPanel
             simulationResults={scenario.simulationResults}
             probabilityTarget={scenario.settings.projectProbabilityTarget}
+            activityProbabilityTarget={scenario.settings.probabilityTarget}
             isRunning={simulation.isRunning}
             progress={simulation.progress}
             error={simulation.error}
             elapsedMs={simulation.elapsedMs}
             allActivitiesValid={allActivitiesValid}
             hasActivities={scenario.activities.length > 0}
+            autoRunEnabled={autoRunSimulation}
+            projectName={project.name}
+            scenarioName={scenario.name}
             onRun={handleRunSimulation}
             onCancel={simulation.cancel}
           />

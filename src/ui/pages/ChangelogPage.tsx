@@ -12,6 +12,58 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.2.0",
+    date: "2026-02-01",
+    sections: [
+      {
+        title: "User Preferences",
+        items: [
+          "Configurable defaults for trial count, distribution type, confidence level, activity target, and project target",
+          "Date format preference (MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD) applied globally across all views",
+          "Auto-run simulation toggle with 500ms debounce \u2014 simulation re-runs automatically when activities or settings change",
+          "Preferences stored separately in localStorage, independent of project data",
+        ],
+      },
+      {
+        title: "Data Entry & Editing",
+        items: [
+          "Tab navigation flows between estimate fields (Min \u2192 ML \u2192 Max) across activity rows",
+          "Inline editing for project names and scenario names (double-click to rename)",
+          "Activity grid summary row showing totals for Min, ML, Max, and scheduled duration",
+          "Bulk select and mark-complete for multiple activities at once",
+          "Confidence level dropdown with RSM descriptions for each of the 10 levels",
+        ],
+      },
+      {
+        title: "Simulation & Analysis",
+        items: [
+          "Confidence band visualization on histogram (shaded region between activity and project percentiles)",
+          "Export simulation results as CSV with metadata, summary statistics, and percentile table",
+          "Scenario comparison table for 2\u20133 scenarios with side-by-side metrics and best-value highlighting",
+        ],
+      },
+      {
+        title: "Navigation & Polish",
+        items: [
+          "Breadcrumb navigation on the project page",
+          "Project search/filter on the projects page",
+          "Undo/redo support (Ctrl+Z / Ctrl+Shift+Z) with 50-entry stack for all project mutations",
+          "Validation error summary panel above the activity grid",
+          "US federal holiday presets (12 holidays) with year selector in the calendar editor",
+        ],
+      },
+      {
+        title: "Refactoring & Quality",
+        items: [
+          "Centralized download helper and distribution/status label formatters for DRY code",
+          "Memoized schedule lookup map in the activity grid for render performance",
+          "Consistent date formatting across all views via the useDateFormat hook",
+          "314 automated tests across 29 test files (up from 280 in v0.1.0)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.0",
     date: "2026-01-31",
     sections: [
@@ -36,7 +88,7 @@ const CHANGELOG: ChangelogEntry[] = [
           "Dual probability targets: Activity Target (deterministic schedule) and Project Target (MC confidence / buffer)",
           "Histogram, CDF chart, and percentile table for simulation results",
           "Scenario tabs with add, clone (with option to drop completed activities), and delete",
-          "Activity reorder via grip handles with up/down arrows",
+          "Activity reorder via drag-and-drop with grip handles",
           "All dates displayed in MM/DD/YYYY format (stored internally as YYYY-MM-DD)",
           "Blue-highlighted date values in the summary card for quick scanning",
         ],
@@ -45,9 +97,10 @@ const CHANGELOG: ChangelogEntry[] = [
         title: "Data & Persistence",
         items: [
           "All data stored locally in browser localStorage \u2014 no server, no analytics, no telemetry",
-          "Schema-versioned persistence with sequential migration system (currently v2)",
+          "Schema-versioned persistence with sequential migration system (v1 \u2192 v2 \u2192 v3)",
           "Zod runtime validation on every load for data integrity",
           "Project and scenario CRUD with global calendar overrides",
+          "JSON export/import with schema migration and conflict resolution (skip, replace, import as copy)",
         ],
       },
       {
@@ -55,7 +108,6 @@ const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Strict layered architecture: Domain \u2192 Core \u2192 Infrastructure \u2192 Application \u2192 UI",
           "Core scheduling math is framework-agnostic (zero React/DOM dependencies)",
-          "193 automated tests (unit, property-based via fast-check, integration) across 20 test files",
           "TypeScript strict mode with zero type errors",
           "Production build under 42 KB gzipped (excluding charts library)",
         ],
@@ -64,7 +116,7 @@ const CHANGELOG: ChangelogEntry[] = [
   },
 ];
 
-function formatDate(dateStr: string): string {
+function formatChangelogDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const date = new Date(y!, m! - 1, d!);
   return date.toLocaleDateString("en-US", {
@@ -106,7 +158,7 @@ export function ChangelogPage() {
                 v{entry.version}
               </h2>
               <span className="text-sm text-gray-400">
-                {formatDate(entry.date)}
+                {formatChangelogDate(entry.date)}
               </span>
             </div>
 

@@ -183,3 +183,46 @@ export const DEFAULT_SCENARIO_SETTINGS: ScenarioSettings = {
 export const STANDARD_PERCENTILES = [5, 10, 25, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 96, 97, 98, 99] as const;
 
 export const BASELINE_SCENARIO_NAME = "Baseline";
+
+// -- Date Format Preference ---------------------------------------------------
+
+export const DATE_FORMATS = ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD"] as const;
+
+export type DateFormatPreference = (typeof DATE_FORMATS)[number];
+
+// -- User Preferences ---------------------------------------------------------
+
+export interface UserPreferences {
+  defaultTrialCount: number;
+  defaultDistributionType: DistributionType;
+  defaultConfidenceLevel: RSMLevel;
+  defaultActivityTarget: number;
+  defaultProjectTarget: number;
+  dateFormat: DateFormatPreference;
+  autoRunSimulation: boolean;
+}
+
+export const DEFAULT_USER_PREFERENCES: UserPreferences = {
+  defaultTrialCount: 50000,
+  defaultDistributionType: "normal",
+  defaultConfidenceLevel: "mediumConfidence",
+  defaultActivityTarget: 0.5,
+  defaultProjectTarget: 0.95,
+  dateFormat: "MM/DD/YYYY",
+  autoRunSimulation: false,
+};
+
+// -- RSM Descriptions (tooltips) ----------------------------------------------
+
+export const RSM_DESCRIPTIONS: Record<RSMLevel, string> = {
+  nearCertainty: "Very narrow range. Highly confident in estimates.",
+  veryHighConfidence: "Narrow range with strong certainty.",
+  highConfidence: "Reasonably tight range. Well-understood work.",
+  mediumHighConfidence: "Moderate range with good understanding.",
+  mediumConfidence: "Balanced range. Typical for familiar work.",
+  mediumLowConfidence: "Wider range. Some unknowns present.",
+  lowConfidence: "Broad range. Significant uncertainty.",
+  veryLowConfidence: "Very broad range. Limited information.",
+  extremelyLowConfidence: "Extremely wide range. Mostly unknown.",
+  guesstimate: "Widest range. Barely an educated guess.",
+};

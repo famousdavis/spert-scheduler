@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useProjectStore } from "@ui/hooks/use-project-store";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import {
   serializeExport,
   validateImport,
@@ -10,40 +11,25 @@ import type {
 } from "@app/api/export-import-service";
 import { generateId } from "@app/api/id";
 import type { Project } from "@domain/models/types";
-
-// -- Helpers -----------------------------------------------------------------
-
-function downloadJson(content: string, filename: string): void {
-  const blob = new Blob([content], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function todayISO(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+import {
+  RSM_LEVELS,
+  RSM_LABELS,
+  DISTRIBUTION_TYPES,
+  DATE_FORMATS,
+} from "@domain/models/types";
+import type {
+  RSMLevel,
+  DistributionType,
+  DateFormatPreference,
+} from "@domain/models/types";
+import {
+  ACTIVITY_PERCENTILE_OPTIONS,
+  PROJECT_PERCENTILE_OPTIONS,
+} from "@ui/helpers/percentile-options";
+import { downloadFile } from "@ui/helpers/download";
+import { distributionLabel } from "@ui/helpers/format-labels";
+import { useDateFormat } from "@ui/hooks/use-date-format";
+import { formatDateISO } from "@core/calendar/calendar";
 
 // -- Conflict resolution types -----------------------------------------------
 
@@ -74,6 +60,7 @@ interface ExportSectionProps {
 }
 
 function ExportSection({ projects }: ExportSectionProps) {
+  const formatDate = useDateFormat();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggleProject = (id: string) => {
@@ -100,8 +87,8 @@ function ExportSection({ projects }: ExportSectionProps) {
     const toExport = projects.filter((p) => selectedIds.has(p.id));
     if (toExport.length === 0) return;
     const json = serializeExport(toExport);
-    const filename = `spert-export-${todayISO()}.json`;
-    downloadJson(json, filename);
+    const filename = `spert-export-${formatDateISO(new Date())}.json`;
+    downloadFile(json, filename, "application/json");
   }, [projects, selectedIds]);
 
   return (
@@ -155,7 +142,7 @@ function ExportSection({ projects }: ExportSectionProps) {
                   </span>
                 </div>
                 <span className="text-xs text-gray-400">
-                  {formatDate(project.createdAt)}
+                  {formatDate(project.createdAt.slice(0, 10))}
                 </span>
               </label>
             ))}
@@ -442,20 +429,192 @@ function ImportSection({ projects, importProjects }: ImportSectionProps) {
   );
 }
 
+// -- Preferences Section -----------------------------------------------------
+
+function PreferencesSection() {
+  const { preferences, updatePreferences } = usePreferencesStore();
+
+  return (
+    <section className="bg-white border border-gray-200 rounded-lg p-6">
+      <h2 className="text-lg font-semibold text-blue-600">Preferences</h2>
+      <p className="mt-1 text-sm text-gray-500">
+        Set defaults for new scenarios and display options.
+      </p>
+
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Default Trial Count */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Default Trial Count
+          </label>
+          <select
+            value={preferences.defaultTrialCount}
+            onChange={(e) =>
+              updatePreferences({
+                defaultTrialCount: parseInt(e.target.value, 10),
+              })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+          >
+            {[1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000].map(
+              (n) => (
+                <option key={n} value={n}>
+                  {n.toLocaleString()}
+                </option>
+              )
+            )}
+          </select>
+        </div>
+
+        {/* Default Distribution Type */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Default Distribution Type
+          </label>
+          <select
+            value={preferences.defaultDistributionType}
+            onChange={(e) =>
+              updatePreferences({
+                defaultDistributionType: e.target.value as DistributionType,
+              })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+          >
+            {DISTRIBUTION_TYPES.map((dt) => (
+              <option key={dt} value={dt}>
+                {distributionLabel(dt)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Default Confidence Level */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Default Confidence Level
+          </label>
+          <select
+            value={preferences.defaultConfidenceLevel}
+            onChange={(e) =>
+              updatePreferences({
+                defaultConfidenceLevel: e.target.value as RSMLevel,
+              })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+          >
+            {RSM_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {RSM_LABELS[level]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Default Activity Target */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Default Activity Target
+          </label>
+          <select
+            value={preferences.defaultActivityTarget}
+            onChange={(e) =>
+              updatePreferences({
+                defaultActivityTarget: parseFloat(e.target.value),
+              })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+          >
+            {ACTIVITY_PERCENTILE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Default Project Target */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Default Project Target
+          </label>
+          <select
+            value={preferences.defaultProjectTarget}
+            onChange={(e) =>
+              updatePreferences({
+                defaultProjectTarget: parseFloat(e.target.value),
+              })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+          >
+            {PROJECT_PERCENTILE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Date Format */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Date Format
+          </label>
+          <select
+            value={preferences.dateFormat}
+            onChange={(e) =>
+              updatePreferences({
+                dateFormat: e.target.value as DateFormatPreference,
+              })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+          >
+            {DATE_FORMATS.map((fmt) => (
+              <option key={fmt} value={fmt}>
+                {fmt}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Auto-Run Simulation */}
+        <div className="sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={preferences.autoRunSimulation}
+              onChange={(e) =>
+                updatePreferences({ autoRunSimulation: e.target.checked })
+              }
+              className="rounded border-gray-300"
+            />
+            <span className="font-medium">Auto-run simulation</span>
+            <span className="text-gray-500">
+              — automatically re-run after activity changes (500ms debounce)
+            </span>
+          </label>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // -- Page Component ----------------------------------------------------------
 
 export function SettingsPage() {
   const { projects, loadProjects, importProjects } = useProjectStore();
+  const { loadPreferences: loadPrefs } = usePreferencesStore();
 
   useEffect(() => {
     if (projects.length === 0) {
       loadProjects();
     }
-  }, [projects.length, loadProjects]);
+    loadPrefs();
+  }, [projects.length, loadProjects, loadPrefs]);
 
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+      <PreferencesSection />
       <ExportSection projects={projects} />
       <ImportSection projects={projects} importProjects={importProjects} />
     </div>

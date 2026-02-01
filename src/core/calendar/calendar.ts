@@ -1,4 +1,4 @@
-import type { Calendar } from "@domain/models/types";
+import type { Calendar, DateFormatPreference } from "@domain/models/types";
 
 /**
  * Format a Date to "YYYY-MM-DD" string.
@@ -11,12 +11,23 @@ export function formatDateISO(date: Date): string {
 }
 
 /**
- * Format a "YYYY-MM-DD" ISO string to "MM/DD/YYYY" for display.
+ * Format a "YYYY-MM-DD" ISO string for display.
  * Pure string transform — no Date object construction, no timezone issues.
  */
-export function formatDateDisplay(isoDate: string): string {
+export function formatDateDisplay(
+  isoDate: string,
+  format: DateFormatPreference = "MM/DD/YYYY"
+): string {
   const [y, m, d] = isoDate.split("-");
-  return `${m}/${d}/${y}`;
+  switch (format) {
+    case "DD/MM/YYYY":
+      return `${d}/${m}/${y}`;
+    case "YYYY-MM-DD":
+      return isoDate;
+    case "MM/DD/YYYY":
+    default:
+      return `${m}/${d}/${y}`;
+  }
 }
 
 /**

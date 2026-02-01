@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { APP_VERSION } from "@app/constants";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 
 const NAV_ITEMS = [
   { path: "/projects", label: "Projects" },
@@ -10,6 +12,11 @@ const NAV_ITEMS = [
 
 export function Layout() {
   const location = useLocation();
+  const loadPreferences = usePreferencesStore((s) => s.loadPreferences);
+
+  useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

@@ -17,6 +17,7 @@ All computation runs in the browser. There is no backend.
 | Styling | Tailwind CSS 4 |
 | Charts | Recharts |
 | UI Primitives | Radix UI (Dialog, Popover) |
+| Drag & Drop | dnd-kit |
 | Router | React Router v7 |
 | RNG | seedrandom (ARC4) |
 | Validation | Zod |
@@ -29,15 +30,15 @@ All computation runs in the browser. There is no backend.
 ```
 +--------------------------------------------------------------+
 |                        UI Layer (/ui)                        |
-|  pages/  components/  charts/  hooks/                        |
-|  React components, Zustand store, Recharts wrappers          |
+|  pages/  components/  charts/  hooks/  helpers/              |
+|  React components, Zustand stores, Recharts wrappers         |
 +--------------------------------------------------------------+
          |                    |                    |
          v                    v                    v
 +--------------------------------------------------------------+
 |                  Application Layer (/app/api)                |
 |  Facade services: project-service, simulation-service,       |
-|  schedule-service. Wires core + infrastructure for UI.       |
+|  schedule-service, csv-export-service, export-import-service |
 +--------------------------------------------------------------+
          |                    |                    |
          v                    v                    v
@@ -46,10 +47,10 @@ All computation runs in the browser. There is no backend.
 |  estimation/              |  |  persistence/             |
 |  distributions/           |  |    ProjectRepository      |
 |  calendar/                |  |    LocalStorageRepository  |
-|  schedule/                |  |    migrations              |
-|  simulation/              |  |  rng/                     |
-|  analytics/               |  |    SeededRng               |
-|  recommendation/          |  |    seedrandom wrapper      |
+|  schedule/                |  |    PreferencesRepository   |
+|  simulation/              |  |    migrations              |
+|  analytics/               |  |  rng/                     |
+|  recommendation/          |  |    SeededRng               |
 +---------------------------+  +---------------------------+
          |
          v
@@ -66,8 +67,13 @@ All computation runs in the browser. There is no backend.
 
 - **Baseline scenarios:** The first scenario in every project is the Baseline (protected from deletion). Additional scenarios can be cloned from any existing scenario for what-if analysis or re-baselining.
 - **Four distribution types:** Normal, LogNormal, Triangular, Uniform — with automatic recommendation per activity.
-- **Holiday calendar:** Multi-day holiday ranges with global overrides per project.
+- **Holiday calendar:** Multi-day holiday ranges with global overrides per project. US federal holiday presets with year selector.
 - **Export/Import:** JSON-based project backup and restore on the Settings page, with schema migration and conflict resolution (skip, replace, import as copy).
+- **CSV Export:** Simulation results exportable as CSV with metadata, summary statistics, and percentile table.
+- **User Preferences:** Configurable defaults (trial count, distribution, confidence, targets, date format) stored separately from project data.
+- **Undo/Redo:** 50-entry undo stack for all project mutations with Ctrl+Z / Ctrl+Shift+Z shortcuts.
+- **Scenario Comparison:** Side-by-side comparison table for 2–3 scenarios with best-value highlighting.
+- **Auto-run Simulation:** Optional 500ms-debounced auto-run when activities or settings change.
 
 ## Domain Model
 
@@ -94,6 +100,12 @@ Project
         │     ├── trialCount (default 50,000)
         │     └── rngSeed
         └── simulationResults?: SimulationRun
+
+UserPreferences (stored separately in localStorage)
+  ├── defaultTrialCount, defaultDistributionType, defaultConfidenceLevel
+  ├── defaultActivityTarget, defaultProjectTarget
+  ├── dateFormat: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD"
+  └── autoRunSimulation: boolean
 ```
 
 ## SPERT Estimation
@@ -157,20 +169,28 @@ Main Thread                              Worker Thread
 
 Worker is created per-run and terminated on completion. Progress updates every 10,000 trials. Synchronous fallback if Worker creation fails.
 
+## State Management
+
+Two Zustand stores, separated by concern:
+
+- **`useProjectStore`**: Project CRUD, scenario/activity mutations, undo/redo stack. Persists to localStorage per-project.
+- **`usePreferencesStore`**: User preferences (defaults, date format, auto-run). Persists to `spert:user-preferences` localStorage key.
+
 ## Persistence
 
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
+- User preferences: `localStorage["spert:user-preferences"]`
 - Schema versioned (`SCHEMA_VERSION = 3`) with sequential migrations (v1→v2→v3)
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
 
 ## Testing Strategy
 
-- **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer
+- **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants
-- **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip
-- **280 tests** across 25 test files
+- **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import
+- **314 tests** across 29 test files
 
 ## Performance Budget
 
