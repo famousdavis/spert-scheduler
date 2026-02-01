@@ -164,6 +164,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   deleteScenario: (projectId, scenarioId) => {
     set((state) => {
+      const project = state.projects.find((p) => p.id === projectId);
+      // Protect baseline (first scenario) from deletion
+      if (project?.scenarios[0]?.id === scenarioId) return state;
+
       const projects = state.projects.map((p) =>
         p.id === projectId ? removeScenarioFromProject(p, scenarioId) : p
       );

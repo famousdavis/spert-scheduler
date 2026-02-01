@@ -23,6 +23,15 @@ describe("useProjectStore", () => {
     expect(retrieved!.name).toBe("Test Project");
   });
 
+  it("new project has a Baseline scenario", () => {
+    const store = useProjectStore.getState();
+    const project = store.addProject("With Baseline");
+
+    const retrieved = useProjectStore.getState().getProject(project.id)!;
+    expect(retrieved.scenarios).toHaveLength(1);
+    expect(retrieved.scenarios[0]!.name).toBe("Baseline");
+  });
+
   it("persists and reloads projects", () => {
     const store = useProjectStore.getState();
     store.addProject("Persistent");
@@ -46,23 +55,47 @@ describe("useProjectStore", () => {
     expect(useProjectStore.getState().projects).toHaveLength(0);
   });
 
-  it("adds and deletes scenarios", () => {
+  it("adds scenarios and deletes non-baseline scenarios", () => {
     const store = useProjectStore.getState();
     const project = store.addProject("With Scenarios");
 
-    store.addScenario(project.id, "Baseline", "2025-01-06");
+    // Project starts with auto-created Baseline
     let updated = useProjectStore.getState().getProject(project.id)!;
     expect(updated.scenarios).toHaveLength(1);
+    expect(updated.scenarios[0]!.name).toBe("Baseline");
 
-    store.deleteScenario(project.id, updated.scenarios[0]!.id);
+    // Add a second scenario
+    store.addScenario(project.id, "Optimistic", "2025-01-06");
     updated = useProjectStore.getState().getProject(project.id)!;
-    expect(updated.scenarios).toHaveLength(0);
+    expect(updated.scenarios).toHaveLength(2);
+
+    // Delete the second scenario (non-baseline)
+    store.deleteScenario(project.id, updated.scenarios[1]!.id);
+    updated = useProjectStore.getState().getProject(project.id)!;
+    expect(updated.scenarios).toHaveLength(1);
+    expect(updated.scenarios[0]!.name).toBe("Baseline");
+  });
+
+  it("cannot delete the baseline scenario", () => {
+    const store = useProjectStore.getState();
+    const project = store.addProject("Protected Baseline");
+
+    let updated = useProjectStore.getState().getProject(project.id)!;
+    const baselineId = updated.scenarios[0]!.id;
+
+    // Add a second so deletion isn't blocked by "only one scenario" logic
+    store.addScenario(project.id, "Alt", "2025-01-06");
+
+    // Attempt to delete baseline — should be a no-op
+    store.deleteScenario(project.id, baselineId);
+    updated = useProjectStore.getState().getProject(project.id)!;
+    expect(updated.scenarios).toHaveLength(2);
+    expect(updated.scenarios[0]!.id).toBe(baselineId);
   });
 
   it("adds activities and invalidates simulation results", () => {
     const store = useProjectStore.getState();
     const project = store.addProject("With Activities");
-    store.addScenario(project.id, "Baseline", "2025-01-06");
 
     let updated = useProjectStore.getState().getProject(project.id)!;
     const scenarioId = updated.scenarios[0]!.id;
@@ -75,17 +108,17 @@ describe("useProjectStore", () => {
   it("duplicates scenario with new IDs", () => {
     const store = useProjectStore.getState();
     const project = store.addProject("Clone Test");
-    store.addScenario(project.id, "Original", "2025-01-06");
 
+    // Project already has Baseline; use it as the clone source
     let updated = useProjectStore.getState().getProject(project.id)!;
-    const originalId = updated.scenarios[0]!.id;
+    const baselineId = updated.scenarios[0]!.id;
 
-    store.addActivity(project.id, originalId, "Task 1");
-    store.duplicateScenario(project.id, originalId, "Clone");
+    store.addActivity(project.id, baselineId, "Task 1");
+    store.duplicateScenario(project.id, baselineId, "Clone");
 
     updated = useProjectStore.getState().getProject(project.id)!;
     expect(updated.scenarios).toHaveLength(2);
     expect(updated.scenarios[1]!.name).toBe("Clone");
-    expect(updated.scenarios[1]!.id).not.toBe(originalId);
+    expect(updated.scenarios[1]!.id).not.toBe(baselineId);
   });
 });

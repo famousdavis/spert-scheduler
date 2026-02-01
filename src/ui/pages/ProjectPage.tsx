@@ -5,6 +5,8 @@ import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
 import type { ScenarioSettings } from "@domain/models/types";
+import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
+import { formatDateISO } from "@core/calendar/calendar";
 import { computeDeterministicDurations } from "@core/schedule/deterministic";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { UnifiedActivityGrid } from "@ui/components/UnifiedActivityGrid";
@@ -46,6 +48,13 @@ export function ProjectPage() {
 
   const project = projects.find((p) => p.id === id);
 
+  // Backfill legacy projects that have no scenarios
+  useEffect(() => {
+    if (project && project.scenarios.length === 0) {
+      addScenario(project.id, BASELINE_SCENARIO_NAME, formatDateISO(new Date()));
+    }
+  }, [project?.id, project?.scenarios.length, addScenario]);
+
   useEffect(() => {
     if (project && project.scenarios.length > 0 && !activeScenarioId) {
       setActiveScenarioId(project.scenarios[0]!.id);
@@ -71,9 +80,9 @@ export function ProjectPage() {
   );
 
   const handleAddScenario = useCallback(
-    (name: string, startDate: string) => {
-      if (!id) return;
-      addScenario(id, name, startDate);
+    (name: string, sourceScenarioId: string) => {
+      if (!id || !project) return;
+      duplicateScenario(id, sourceScenarioId, name);
       const updatedProject = useProjectStore.getState().getProject(id);
       if (updatedProject && updatedProject.scenarios.length > 0) {
         setActiveScenarioId(
@@ -81,12 +90,14 @@ export function ProjectPage() {
         );
       }
     },
-    [id, addScenario]
+    [id, project, duplicateScenario]
   );
 
   const handleDeleteScenario = useCallback(
     (scenarioId: string) => {
-      if (!id) return;
+      if (!id || !project) return;
+      // Protect baseline (first scenario) from deletion
+      if (scenarioId === project.scenarios[0]?.id) return;
       if (!confirm("Delete this scenario?")) return;
       deleteScenario(id, scenarioId);
       if (scenarioId === activeScenarioId) {
@@ -94,7 +105,7 @@ export function ProjectPage() {
         setActiveScenarioId(updatedProject?.scenarios[0]?.id ?? null);
       }
     },
-    [id, activeScenarioId, deleteScenario]
+    [id, project, activeScenarioId, deleteScenario]
   );
 
   const handleCloneStart = useCallback((scenarioId: string) => {
@@ -245,6 +256,7 @@ export function ProjectPage() {
       <NewScenarioDialog
         open={newScenarioOpen}
         onOpenChange={setNewScenarioOpen}
+        scenarios={project.scenarios}
         onCreate={handleAddScenario}
       />
       {cloneSource && (

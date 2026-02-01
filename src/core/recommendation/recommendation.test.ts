@@ -20,9 +20,9 @@ describe("recommendDistribution", () => {
     expect(result.recommended).toBe("triangular");
   });
 
-  it("returns Normal for zero-variance (min == max)", () => {
+  it("recommends Uniform for zero-variance (min == ml == max)", () => {
     const result = recommendDistribution(5, 5, 5, "mediumConfidence");
-    expect(result.recommended).toBe("normal");
+    expect(result.recommended).toBe("uniform");
   });
 
   it("always includes a rationale string", () => {
@@ -43,9 +43,26 @@ describe("recommendDistribution", () => {
     expect(result.recommended).not.toBe("logNormal");
   });
 
+  it("recommends Uniform when ML equals min", () => {
+    // ml=3 equals min=3, no distinct mode
+    const result = recommendDistribution(3, 3, 10, "mediumConfidence");
+    expect(result.recommended).toBe("uniform");
+  });
+
+  it("recommends Uniform when ML equals max", () => {
+    // ml=10 equals max=10, no distinct mode
+    const result = recommendDistribution(3, 10, 10, "mediumConfidence");
+    expect(result.recommended).toBe("uniform");
+  });
+
+  it("does not recommend Uniform when ML is between min and max", () => {
+    const result = recommendDistribution(3, 5, 10, "mediumConfidence");
+    expect(result.recommended).not.toBe("uniform");
+  });
+
   it("handles near-threshold values", () => {
     // Test that the function doesn't crash at boundary values
     const result = recommendDistribution(5, 10, 15, "mediumConfidence");
-    expect(["normal", "logNormal", "triangular"]).toContain(result.recommended);
+    expect(["normal", "logNormal", "triangular", "uniform"]).toContain(result.recommended);
   });
 });

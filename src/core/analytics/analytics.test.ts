@@ -9,6 +9,7 @@ import {
   histogram,
   cdf,
 } from "./analytics";
+import { STANDARD_PERCENTILES } from "@domain/models/types";
 
 describe("sortSamples", () => {
   it("sorts in ascending order", () => {
@@ -45,12 +46,13 @@ describe("percentile", () => {
 });
 
 describe("computeStandardPercentiles", () => {
-  it("returns all 12 standard percentiles", () => {
+  it("returns all standard percentiles", () => {
     const arr = new Float64Array(1000);
     for (let i = 0; i < 1000; i++) arr[i] = i;
     const result = computeStandardPercentiles(arr);
-    expect(Object.keys(result)).toHaveLength(12);
+    expect(Object.keys(result)).toHaveLength(STANDARD_PERCENTILES.length);
     expect(result[5]).toBeDefined();
+    expect(result[80]).toBeDefined();
     expect(result[95]).toBeDefined();
     expect(result[99]).toBeDefined();
   });

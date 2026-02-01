@@ -4,6 +4,7 @@ import type { Distribution } from "./distribution";
 import { NormalDistribution } from "./normal";
 import { LogNormalDistribution } from "./log-normal";
 import { TriangularDistribution } from "./triangular";
+import { UniformDistribution } from "./uniform";
 
 /**
  * Creates a Distribution instance for the given activity using its
@@ -36,6 +37,9 @@ export function createDistributionForActivity(activity: Activity): Distribution 
         activity.mostLikely,
         activity.max
       );
+
+    case "uniform":
+      return new UniformDistribution(activity.min, activity.max);
 
     default: {
       const _exhaustive: never = activity.distributionType;

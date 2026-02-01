@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type {
@@ -21,6 +21,7 @@ interface UnifiedActivityRowProps {
   activity: Activity;
   scheduledActivity?: ScheduledActivity;
   activityProbabilityTarget: number;
+  autoFocusName?: boolean;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
   onValidityChange: (activityId: string, isValid: boolean) => void;
@@ -32,10 +33,18 @@ export function UnifiedActivityRow({
   activity,
   scheduledActivity,
   activityProbabilityTarget,
+  autoFocusName,
   onUpdate,
   onDelete,
   onValidityChange,
 }: UnifiedActivityRowProps) {
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (autoFocusName && nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, [autoFocusName]);
   const {
     attributes,
     listeners,
@@ -51,9 +60,22 @@ export function UnifiedActivityRow({
   };
 
   const [errors, setErrors] = useState<FieldErrors>({});
+  // If estimates are already differentiated, treat all three as touched so
+  // editing any single field triggers validation immediately.
+  const [, setTouchedFields] = useState<Set<string>>(() => {
+    const allEqual =
+      activity.min === activity.mostLikely &&
+      activity.mostLikely === activity.max;
+    return allEqual
+      ? new Set<string>()
+      : new Set(["min", "mostLikely", "max"]);
+  });
+
+  const allEstimatesTouched = (touched: Set<string>) =>
+    touched.has("min") && touched.has("mostLikely") && touched.has("max");
 
   const validateAndUpdate = useCallback(
-    (field: string, value: number | string) => {
+    (field: string, value: number | string, touched: Set<string>) => {
       const updates = { [field]: value };
       const candidate = { ...activity, ...updates };
 
@@ -67,7 +89,8 @@ export function UnifiedActivityRow({
           return next;
         });
         onValidityChange(activity.id, true);
-      } else {
+      } else if (allEstimatesTouched(touched)) {
+        // Only show cross-field errors once all three estimate fields have been visited
         const fieldErrors: FieldErrors = {};
         for (const issue of result.error.issues) {
           const path = issue.path.join(".");
@@ -86,7 +109,12 @@ export function UnifiedActivityRow({
     (field: "min" | "mostLikely" | "max", rawValue: string) => {
       const num = parseFloat(rawValue);
       if (!isNaN(num)) {
-        validateAndUpdate(field, num);
+        setTouchedFields((prev) => {
+          const next = new Set(prev);
+          next.add(field);
+          validateAndUpdate(field, num, next);
+          return next;
+        });
       }
     },
     [validateAndUpdate]
@@ -131,11 +159,12 @@ export function UnifiedActivityRow({
       {/* Name */}
       <div>
         <input
+          ref={nameInputRef}
           type="text"
           value={activity.name}
           onChange={(e) => onUpdate(activity.id, { name: e.target.value })}
           className="w-full px-1.5 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
-          placeholder="Activity name"
+          placeholder="Add an activity name"
         />
       </div>
 
@@ -166,7 +195,7 @@ export function UnifiedActivityRow({
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
             errors["min"] ? "border-red-400 bg-red-50" : "border-gray-200"
           } focus:border-blue-400 focus:outline-none`}
-          step="0.5"
+          step="1"
           min="0"
           title={errors["min"] ?? "Optimistic estimate (days)"}
         />
@@ -183,7 +212,7 @@ export function UnifiedActivityRow({
               ? "border-red-400 bg-red-50"
               : "border-gray-200"
           } focus:border-blue-400 focus:outline-none`}
-          step="0.5"
+          step="1"
           min="0"
           title={errors["mostLikely"] ?? "Most likely estimate (days)"}
         />
@@ -198,7 +227,7 @@ export function UnifiedActivityRow({
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
             errors["max"] ? "border-red-400 bg-red-50" : "border-gray-200"
           } focus:border-blue-400 focus:outline-none`}
-          step="0.5"
+          step="1"
           min="0"
           title={errors["max"] ?? "Pessimistic estimate (days)"}
         />
@@ -258,7 +287,9 @@ export function UnifiedActivityRow({
               ? "LogN"
               : recommendation.recommended === "normal"
                 ? "Norm"
-                : "Tri"}
+                : recommendation.recommended === "uniform"
+                  ? "Uni"
+                  : "Tri"}
           </button>
         )}
       </div>

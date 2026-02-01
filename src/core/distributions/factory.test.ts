@@ -3,6 +3,7 @@ import { createDistributionForActivity } from "./factory";
 import { NormalDistribution } from "./normal";
 import { LogNormalDistribution } from "./log-normal";
 import { TriangularDistribution } from "./triangular";
+import { UniformDistribution } from "./uniform";
 import type { Activity } from "@domain/models/types";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
@@ -63,6 +64,25 @@ describe("createDistributionForActivity", () => {
       distributionType: "logNormal",
     });
     expect(() => createDistributionForActivity(activity)).toThrow();
+  });
+
+  it("creates UniformDistribution for uniform type", () => {
+    const dist = createDistributionForActivity(
+      makeActivity({ distributionType: "uniform" })
+    );
+    expect(dist).toBeInstanceOf(UniformDistribution);
+  });
+
+  it("uniform distribution uses activity min and max directly", () => {
+    const activity = makeActivity({
+      min: 3,
+      mostLikely: 7,
+      max: 10,
+      distributionType: "uniform",
+    });
+    const dist = createDistributionForActivity(activity);
+    expect(dist.parameters()).toEqual({ a: 3, b: 10 });
+    expect(dist.mean()).toBe(6.5);
   });
 
   it("creates normal distribution with zero variance (min == max)", () => {

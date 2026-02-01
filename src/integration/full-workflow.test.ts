@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   createProject,
-  createScenario,
-  addScenarioToProject,
   createActivity,
   addActivityToScenario,
   updateActivity,
@@ -21,14 +19,10 @@ describe("Full workflow integration test", () => {
   });
 
   it("create project -> add activities -> simulate -> schedule -> clone -> persist -> reload", () => {
-    // 1. Create project
-    let project = createProject("IT Migration");
-    expect(project.scenarios).toHaveLength(0);
-
-    // 2. Create scenario
-    const scenario = createScenario("Baseline", "2025-02-03");
-    project = addScenarioToProject(project, scenario);
+    // 1. Create project (auto-creates Baseline scenario)
+    let project = createProject("IT Migration", "2025-02-03");
     expect(project.scenarios).toHaveLength(1);
+    expect(project.scenarios[0]!.name).toBe("Baseline");
 
     // 3. Add activities
     const settings = project.scenarios[0]!.settings;

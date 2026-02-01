@@ -13,6 +13,7 @@ export interface DistributionRecommendation {
  * Recommend a distribution type based on the activity's statistical properties.
  *
  * Rules:
+ * - ml === min or ml === max (no distinct mode) --> Uniform
  * - |skew| < SKEW_THRESHOLD and CV < CV_THRESHOLD --> Normal
  * - skew > SKEW_THRESHOLD and CV > CV_THRESHOLD --> LogNormal
  * - Otherwise --> Triangular
@@ -25,6 +26,17 @@ export function recommendDistribution(
 ): DistributionRecommendation {
   const mean = computePertMean(min, ml, max);
   const sd = computeSpertSD(min, max, rsmLevel);
+
+  // Uniform when ML offers no distinct mode (equals min, max, or both)
+  if (ml === min || ml === max) {
+    return {
+      recommended: "uniform",
+      rationale:
+        ml === min && ml === max
+          ? "All estimates equal; Uniform is appropriate for a point estimate."
+          : "No distinct most-likely value; Uniform distribution treats all values in range as equally probable.",
+    };
+  }
 
   if (sd === 0 || mean === 0) {
     return {

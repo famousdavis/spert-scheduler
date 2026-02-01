@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -38,6 +38,31 @@ export function UnifiedActivityGrid({
   onValidityChange,
 }: UnifiedActivityGridProps) {
   const [, setInvalidIds] = useState<Set<string>>(new Set());
+  const [focusActivityId, setFocusActivityId] = useState<string | null>(null);
+  const pendingFocus = useRef(false);
+  const prevCountRef = useRef(activities.length);
+
+  // When the activities list grows after the Add button was clicked,
+  // capture the last activity's ID so we can auto-focus its name input.
+  useEffect(() => {
+    if (pendingFocus.current && activities.length > prevCountRef.current) {
+      const lastActivity = activities[activities.length - 1];
+      if (lastActivity) {
+        setFocusActivityId(lastActivity.id);
+      }
+      pendingFocus.current = false;
+    }
+    prevCountRef.current = activities.length;
+  }, [activities]);
+
+  // Clear the focus target after one render cycle so it doesn't
+  // re-trigger on subsequent re-renders.
+  useEffect(() => {
+    if (focusActivityId) {
+      const id = requestAnimationFrame(() => setFocusActivityId(null));
+      return () => cancelAnimationFrame(id);
+    }
+  }, [focusActivityId]);
 
   const handleValidityChange = useCallback(
     (activityId: string, isValid: boolean) => {
@@ -156,6 +181,7 @@ export function UnifiedActivityGrid({
               activity={activity}
               scheduledActivity={scheduleMap.get(activity.id)}
               activityProbabilityTarget={activityProbabilityTarget}
+              autoFocusName={activity.id === focusActivityId}
               onUpdate={onUpdate}
               onDelete={onDelete}
               onValidityChange={handleValidityChange}
@@ -173,7 +199,10 @@ export function UnifiedActivityGrid({
       {/* Add button */}
       <div className="p-2">
         <button
-          onClick={() => onAdd("New Activity")}
+          onClick={() => {
+            pendingFocus.current = true;
+            onAdd("");
+          }}
           className="w-full py-2 border-2 border-dashed border-gray-200 rounded-lg text-sm text-gray-400 hover:border-blue-400 hover:text-blue-600 transition-colors"
         >
           + Add Activity

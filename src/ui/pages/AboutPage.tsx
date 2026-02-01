@@ -41,7 +41,7 @@ export function AboutPage() {
               standard deviation via the SPERT Ratio Scale Modifier
             </li>
             <li>
-              Choose from T-Normal, LogNormal, or Triangular distributions per
+              Choose from T-Normal, LogNormal, Triangular, or Uniform distributions per
               activity (with automatic recommendations)
             </li>
             <li>

@@ -8,18 +8,21 @@ import type {
 import {
   SCHEMA_VERSION,
   DEFAULT_SCENARIO_SETTINGS,
+  BASELINE_SCENARIO_NAME,
 } from "@domain/models/types";
+import { formatDateISO } from "@core/calendar/calendar";
 import { generateId } from "./id";
 
 // -- Project CRUD ------------------------------------------------------------
 
-export function createProject(name: string): Project {
+export function createProject(name: string, startDate?: string): Project {
+  const resolvedStartDate = startDate ?? formatDateISO(new Date());
   return {
     id: generateId(),
     name,
     createdAt: new Date().toISOString(),
     schemaVersion: SCHEMA_VERSION,
-    scenarios: [],
+    scenarios: [createScenario(BASELINE_SCENARIO_NAME, resolvedStartDate)],
   };
 }
 

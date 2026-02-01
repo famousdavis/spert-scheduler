@@ -31,6 +31,7 @@ export const DISTRIBUTION_TYPES = [
   "normal",
   "logNormal",
   "triangular",
+  "uniform",
 ] as const;
 
 export type DistributionType = (typeof DISTRIBUTION_TYPES)[number];
@@ -179,4 +180,6 @@ export const DEFAULT_SCENARIO_SETTINGS: ScenarioSettings = {
   projectProbabilityTarget: 0.95, // P95 project-level (MC confidence)
 };
 
-export const STANDARD_PERCENTILES = [5, 10, 25, 50, 75, 85, 90, 95, 96, 97, 98, 99] as const;
+export const STANDARD_PERCENTILES = [5, 10, 25, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 96, 97, 98, 99] as const;
+
+export const BASELINE_SCENARIO_NAME = "Baseline";

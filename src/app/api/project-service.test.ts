@@ -20,9 +20,16 @@ describe("createProject", () => {
     expect(p1.id).not.toBe(p2.id);
   });
 
-  it("has empty scenarios", () => {
+  it("auto-creates a Baseline scenario", () => {
     const project = createProject("Test");
-    expect(project.scenarios).toEqual([]);
+    expect(project.scenarios).toHaveLength(1);
+    expect(project.scenarios[0]!.name).toBe("Baseline");
+    expect(project.scenarios[0]!.activities).toEqual([]);
+  });
+
+  it("uses provided startDate for Baseline", () => {
+    const project = createProject("Test", "2025-06-01");
+    expect(project.scenarios[0]!.startDate).toBe("2025-06-01");
   });
 });
 
