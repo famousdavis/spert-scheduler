@@ -98,7 +98,7 @@ export function ProjectPage() {
   const autoRunSimulation = usePreferencesStore(
     (s) => s.preferences.autoRunSimulation
   );
-  const autoRunTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const autoRunTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const activitiesRef = useRef(scenario?.activities);
   activitiesRef.current = scenario?.activities;
 
