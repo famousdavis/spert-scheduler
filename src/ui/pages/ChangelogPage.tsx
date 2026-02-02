@@ -12,6 +12,33 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.3.0",
+    date: "2026-02-02",
+    sections: [
+      {
+        title: "Dependency Upgrades",
+        items: [
+          "React 18.3 \u2192 19.2 (latest stable)",
+          "Vite 6 \u2192 7 with @vitejs/plugin-react 5",
+          "TypeScript 5.7 \u2192 5.9",
+          "Zod 3 \u2192 4 (schema validation)",
+          "Recharts 2 \u2192 3 (charting library)",
+          "Vitest 2 \u2192 4, fast-check 3 \u2192 4 (testing infrastructure)",
+          "ESLint 9.18 \u2192 9.39, eslint-plugin-react-hooks 5 \u2192 7",
+          "Tailwind CSS 4.0 \u2192 4.1, React Router 7.1 \u2192 7.13",
+          "All remaining dependencies updated to latest stable versions",
+        ],
+      },
+      {
+        title: "Security & Quality",
+        items: [
+          "Zero known vulnerabilities for JFrog scan compliance",
+          "All 314 automated tests passing on upgraded toolchain",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.2.0",
     date: "2026-02-01",
     sections: [

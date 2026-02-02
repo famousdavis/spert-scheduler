@@ -10,18 +10,18 @@ All computation runs in the browser. There is no backend.
 
 | Concern | Choice |
 |---------|--------|
-| Language | TypeScript (strict mode) |
-| UI Framework | React 18 |
-| Build | Vite 6 |
+| Language | TypeScript 5.9 (strict mode) |
+| UI Framework | React 19 |
+| Build | Vite 7 |
 | State Management | Zustand 5 |
 | Styling | Tailwind CSS 4 |
-| Charts | Recharts |
+| Charts | Recharts 3 |
 | UI Primitives | Radix UI (Dialog, Popover) |
 | Drag & Drop | dnd-kit |
 | Router | React Router v7 |
 | RNG | seedrandom (ARC4) |
-| Validation | Zod |
-| Testing | Vitest + fast-check |
+| Validation | Zod 4 |
+| Testing | Vitest 4 + fast-check 4 |
 | Simulation | Web Worker |
 | Persistence | localStorage |
 

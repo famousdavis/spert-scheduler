@@ -47,8 +47,8 @@ export function HistogramChart({
         />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip
-          formatter={(value: number) => [value, "Trials"]}
-          labelFormatter={(label: number) => `~${label} days`}
+          formatter={(value: number | undefined) => [value ?? 0, "Trials"]}
+          labelFormatter={(label: unknown) => `~${label} days`}
         />
         {showBufferZone && (
           <ReferenceArea
