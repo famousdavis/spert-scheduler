@@ -36,6 +36,26 @@ function postError(message: string) {
 self.onmessage = (event: MessageEvent<SimulationRequest>) => {
   const { type, payload } = event.data;
   if (type === "simulation:start") {
+    // Defense-in-depth: validate payload structure even though UI should send valid data
+    if (!payload || !Array.isArray(payload.activities)) {
+      postError("Invalid simulation payload: missing or invalid activities");
+      return;
+    }
+    if (
+      typeof payload.trialCount !== "number" ||
+      payload.trialCount < 1000 ||
+      payload.trialCount > 500000
+    ) {
+      postError(
+        "Invalid simulation payload: trialCount must be between 1000 and 500000"
+      );
+      return;
+    }
+    if (typeof payload.rngSeed !== "string" || payload.rngSeed.length === 0) {
+      postError("Invalid simulation payload: rngSeed must be a non-empty string");
+      return;
+    }
+
     try {
       const startTime = performance.now();
 

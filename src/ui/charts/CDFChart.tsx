@@ -21,10 +21,15 @@ export function CDFChart({
   probabilityTarget,
   percentileValue,
 }: CDFChartProps) {
-  const data = points.map((pt) => ({
-    value: Number(pt.value.toFixed(2)),
-    probability: Number((pt.probability * 100).toFixed(1)),
-  }));
+  // Filter out any points with non-finite values (defensive check)
+  const data = points
+    .filter(
+      (pt) => Number.isFinite(pt.value) && Number.isFinite(pt.probability)
+    )
+    .map((pt) => ({
+      value: Number(pt.value.toFixed(2)),
+      probability: Number((pt.probability * 100).toFixed(1)),
+    }));
 
   return (
     <ResponsiveContainer width="100%" height={300}>
