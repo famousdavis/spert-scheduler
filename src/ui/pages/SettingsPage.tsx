@@ -180,6 +180,19 @@ function ImportSection({ projects, importProjects }: ImportSectionProps) {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      // Security: Limit file size to prevent memory exhaustion
+      const MAX_FILE_SIZE_MB = 10;
+      const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setImportState({
+          step: "error",
+          error: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB)`,
+          details: `Maximum allowed file size is ${MAX_FILE_SIZE_MB} MB.`,
+        });
+        e.target.value = "";
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = () => {
         const text = reader.result as string;

@@ -195,15 +195,19 @@ export function bootstrapPercentileCI(
   bootstrapEstimates.sort((a, b) => a - b);
 
   // Compute CI bounds using percentile method
+  // Clamp indices to valid range to handle edge cases (very few iterations)
   const alpha = (1 - ciLevel) / 2;
-  const lowerIdx = Math.floor(alpha * bootstrapIterations);
-  const upperIdx = Math.floor((1 - alpha) * bootstrapIterations) - 1;
+  const lowerIdx = Math.max(0, Math.floor(alpha * bootstrapIterations));
+  const upperIdx = Math.min(
+    bootstrapIterations - 1,
+    Math.floor((1 - alpha) * bootstrapIterations) - 1
+  );
 
   return {
     percentile: p,
     point: pointEstimate,
-    lower: bootstrapEstimates[lowerIdx]!,
-    upper: bootstrapEstimates[upperIdx]!,
+    lower: bootstrapEstimates[Math.max(0, lowerIdx)] ?? pointEstimate,
+    upper: bootstrapEstimates[Math.max(0, upperIdx)] ?? pointEstimate,
     confidence: ciLevel,
   };
 }

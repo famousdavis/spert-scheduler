@@ -29,6 +29,7 @@ import {
   LocalStorageRepository,
   type LoadError,
 } from "@infrastructure/persistence/local-storage-repository";
+import { UNDO_STACK_LIMIT } from "@ui/constants";
 
 const repo = new LocalStorageRepository();
 
@@ -38,8 +39,6 @@ interface UndoEntry {
   projectId: string;
   snapshot: Project;
 }
-
-const UNDO_STACK_LIMIT = 50;
 
 /** Strip simulationResults to save memory in undo snapshots */
 function snapshotProject(project: Project): Project {

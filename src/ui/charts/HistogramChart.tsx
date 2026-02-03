@@ -1,4 +1,3 @@
-import { useRef, useState, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -11,8 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { HistogramBin } from "@domain/models/types";
-import { exportChartAsPng } from "@ui/helpers/export-chart";
-import { toast } from "@ui/hooks/use-notification-store";
+import { useChartExport } from "@ui/hooks/use-chart-export";
 
 interface HistogramChartProps {
   bins: HistogramBin[];
@@ -31,21 +29,7 @@ export function HistogramChart({
   activityPercentileValue,
   exportFilename = "histogram",
 }: HistogramChartProps) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [isExporting, setIsExporting] = useState(false);
-
-  const handleExport = useCallback(async () => {
-    if (!chartRef.current || isExporting) return;
-    setIsExporting(true);
-    try {
-      await exportChartAsPng(chartRef.current, exportFilename);
-      toast.success("Chart exported");
-    } catch {
-      toast.error("Failed to export chart");
-    } finally {
-      setIsExporting(false);
-    }
-  }, [exportFilename, isExporting]);
+  const { chartRef, handleExport, isExporting } = useChartExport(exportFilename);
 
   // Filter out any bins with non-finite values (defensive check)
   const data = bins

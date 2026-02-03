@@ -1,4 +1,3 @@
-import { useRef, useState, useCallback } from "react";
 import {
   LineChart,
   Line,
@@ -10,8 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { CDFPoint } from "@domain/models/types";
-import { exportChartAsPng } from "@ui/helpers/export-chart";
-import { toast } from "@ui/hooks/use-notification-store";
+import { useChartExport } from "@ui/hooks/use-chart-export";
 
 interface CDFChartProps {
   points: CDFPoint[];
@@ -26,21 +24,7 @@ export function CDFChart({
   percentileValue,
   exportFilename = "cdf",
 }: CDFChartProps) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [isExporting, setIsExporting] = useState(false);
-
-  const handleExport = useCallback(async () => {
-    if (!chartRef.current || isExporting) return;
-    setIsExporting(true);
-    try {
-      await exportChartAsPng(chartRef.current, exportFilename);
-      toast.success("Chart exported");
-    } catch {
-      toast.error("Failed to export chart");
-    } finally {
-      setIsExporting(false);
-    }
-  }, [exportFilename, isExporting]);
+  const { chartRef, handleExport, isExporting } = useChartExport(exportFilename);
 
   // Filter out any points with non-finite values (defensive check)
   const data = points
