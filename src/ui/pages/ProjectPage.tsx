@@ -19,6 +19,8 @@ import { InlineEdit } from "@ui/components/InlineEdit";
 import { Breadcrumbs } from "@ui/components/Breadcrumbs";
 import { ValidationSummary } from "@ui/components/ValidationSummary";
 import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
+import { PrintableReport } from "@ui/components/PrintableReport";
+import { SensitivityPanel } from "@ui/components/SensitivityPanel";
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +32,7 @@ export function ProjectPage() {
     deleteScenario,
     duplicateScenario,
     addActivity,
+    duplicateActivity,
     deleteActivity,
     updateActivityField,
     moveActivity,
@@ -37,6 +40,8 @@ export function ProjectPage() {
     updateScenarioSettings,
     renameProject,
     renameScenario,
+    bulkUpdateActivities,
+    bulkDeleteActivities,
     undo,
     redo,
     canUndo,
@@ -299,9 +304,20 @@ export function ProjectPage() {
         </div>
         <div className="flex items-center gap-1">
           <button
+            onClick={() => window.print()}
+            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
+            title="Print Report"
+            aria-label="Print project report"
+          >
+            <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Print
+          </button>
+          <button
             onClick={undo}
             disabled={!canUndo()}
-            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed"
+            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-gray-200 dark:disabled:text-gray-600"
             title="Undo (Ctrl+Z)"
           >
             Undo
@@ -309,7 +325,7 @@ export function ProjectPage() {
           <button
             onClick={redo}
             disabled={!canRedo()}
-            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed"
+            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-gray-200 dark:disabled:text-gray-600"
             title="Redo (Ctrl+Shift+Z)"
           >
             Redo
@@ -399,9 +415,18 @@ export function ProjectPage() {
             onDelete={(activityId) =>
               deleteActivity(id!, scenario.id, activityId)
             }
+            onDuplicate={(activityId) =>
+              duplicateActivity(id!, scenario.id, activityId)
+            }
             onMove={(from, to) => moveActivity(id!, scenario.id, from, to)}
             onAdd={(name) => addActivity(id!, scenario.id, name)}
             onValidityChange={setAllActivitiesValid}
+            onBulkUpdate={(activityIds, updates) =>
+              bulkUpdateActivities(id!, scenario.id, activityIds, updates)
+            }
+            onBulkDelete={(activityIds) =>
+              bulkDeleteActivities(id!, scenario.id, activityIds)
+            }
           />
 
           {/* Monte Carlo Simulation */}
@@ -421,6 +446,11 @@ export function ProjectPage() {
             onRun={handleRunSimulation}
             onCancel={simulation.cancel}
           />
+
+          {/* Sensitivity Analysis */}
+          {scenario.activities.length >= 2 && (
+            <SensitivityPanel activities={scenario.activities} />
+          )}
         </div>
       ) : (
         <div className="text-center py-12">
@@ -443,6 +473,17 @@ export function ProjectPage() {
           onOpenChange={setCloneDialogOpen}
           sourceName={cloneSource.name}
           onClone={handleClone}
+        />
+      )}
+
+      {/* Printable Report (hidden on screen, visible when printing) */}
+      {scenario && (
+        <PrintableReport
+          project={project}
+          scenario={scenario}
+          schedule={schedule}
+          scheduledActivities={schedule?.activities ?? []}
+          buffer={buffer}
         />
       )}
     </div>

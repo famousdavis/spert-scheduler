@@ -141,4 +141,62 @@ describe("applyMigrations", () => {
     expect(holidays[0]!.startDate).toBe("2025-07-04");
     expect(holidays[0]!.endDate).toBe("2025-07-04");
   });
+
+  it("migrates v3 to v4: adds archived field", () => {
+    const v3Data = {
+      schemaVersion: 3,
+      name: "Test Project",
+      scenarios: [],
+    };
+
+    const result = applyMigrations(v3Data, 3, 4) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(4);
+    expect(result.archived).toBe(false);
+  });
+
+  it("v3→v4 migration does not overwrite existing archived value", () => {
+    const v3Data = {
+      schemaVersion: 3,
+      name: "Archived Project",
+      archived: true, // already set (edge case)
+      scenarios: [],
+    };
+
+    const result = applyMigrations(v3Data, 3, 4) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(4);
+    expect(result.archived).toBe(true); // preserved
+  });
+
+  it("applies sequential v1→v4 migrations", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      name: "Old Project",
+      scenarios: [
+        {
+          settings: {
+            probabilityTarget: 0.85,
+          },
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 4) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(4);
+
+    // v1→v2: projectProbabilityTarget added
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+    expect(settings.projectProbabilityTarget).toBe(0.95);
+
+    // v2→v3: holidays migrated
+    const cal = result.globalCalendarOverride as Record<string, unknown>;
+    const holidays = cal.holidays as Array<Record<string, unknown>>;
+    expect(holidays[0]!.startDate).toBe("2025-07-04");
+
+    // v3→v4: archived added
+    expect(result.archived).toBe(false);
+  });
 });

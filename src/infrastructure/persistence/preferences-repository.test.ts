@@ -75,6 +75,7 @@ describe("savePreferences", () => {
       defaultProjectTarget: 0.9,
       dateFormat: "DD/MM/YYYY",
       autoRunSimulation: true,
+      theme: "dark",
     };
     savePreferences(prefs);
     expect(loadPreferences()).toEqual(prefs);

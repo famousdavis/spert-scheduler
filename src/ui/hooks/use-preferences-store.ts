@@ -10,6 +10,7 @@ export interface PreferencesStore {
   preferences: UserPreferences;
   loadPreferences: () => void;
   updatePreferences: (updates: Partial<UserPreferences>) => void;
+  resetPreferences: () => void;
 }
 
 export const usePreferencesStore = create<PreferencesStore>((set) => ({
@@ -26,5 +27,10 @@ export const usePreferencesStore = create<PreferencesStore>((set) => ({
       savePreferences(preferences);
       return { preferences };
     });
+  },
+
+  resetPreferences: () => {
+    savePreferences({ ...DEFAULT_USER_PREFERENCES });
+    set({ preferences: { ...DEFAULT_USER_PREFERENCES } });
   },
 }));

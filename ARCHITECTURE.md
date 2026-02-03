@@ -70,10 +70,16 @@ All computation runs in the browser. There is no backend.
 - **Holiday calendar:** Multi-day holiday ranges with global overrides per project. US federal holiday presets with year selector.
 - **Export/Import:** JSON-based project backup and restore on the Settings page, with schema migration and conflict resolution (skip, replace, import as copy).
 - **CSV Export:** Simulation results exportable as CSV with metadata, summary statistics, and percentile table.
-- **User Preferences:** Configurable defaults (trial count, distribution, confidence, targets, date format) stored separately from project data.
+- **User Preferences:** Configurable defaults (trial count, distribution, confidence, targets, date format, theme) stored separately from project data.
 - **Undo/Redo:** 50-entry undo stack for all project mutations with Ctrl+Z / Ctrl+Shift+Z shortcuts.
-- **Scenario Comparison:** Side-by-side comparison table for 2–3 scenarios with best-value highlighting.
+- **Scenario Comparison:** Side-by-side comparison table for 2–3 scenarios with best-value highlighting and CDF overlay chart.
 - **Auto-run Simulation:** Optional 500ms-debounced auto-run when activities or settings change.
+- **Dark Mode:** System preference detection with manual toggle (light/dark/system).
+- **Sensitivity Analysis:** Ranks activities by impact on project uncertainty (variance contribution, impact score).
+- **Confidence Intervals:** Bootstrap 95% CI on percentiles with toggle in percentile table.
+- **Chart Export:** PNG export for histogram and CDF charts via html2canvas.
+- **Print Report:** Browser-based print with dedicated print-optimized layout.
+- **Project Archival:** Archive/unarchive projects with filter toggle.
 
 ## Domain Model
 
@@ -105,7 +111,8 @@ UserPreferences (stored separately in localStorage)
   ├── defaultTrialCount, defaultDistributionType, defaultConfidenceLevel
   ├── defaultActivityTarget, defaultProjectTarget
   ├── dateFormat: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD"
-  └── autoRunSimulation: boolean
+  ├── autoRunSimulation: boolean
+  └── theme: "light" | "dark" | "system"
 ```
 
 ## SPERT Estimation
@@ -181,7 +188,7 @@ Two Zustand stores, separated by concern:
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
 - User preferences: `localStorage["spert:user-preferences"]`
-- Schema versioned (`SCHEMA_VERSION = 3`) with sequential migrations (v1→v2→v3)
+- Schema versioned (`SCHEMA_VERSION = 4`) with sequential migrations (v1→v2→v3→v4)
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
 
@@ -190,7 +197,7 @@ Two Zustand stores, separated by concern:
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import
-- **314 tests** across 29 test files
+- **321 tests** across 29 test files
 
 ## Performance Budget
 

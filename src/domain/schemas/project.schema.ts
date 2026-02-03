@@ -114,4 +114,5 @@ export const ProjectSchema = z.object({
   schemaVersion: z.number().int().positive(),
   globalCalendarOverride: CalendarSchema.optional(),
   scenarios: z.array(ScenarioSchema),
+  archived: z.boolean().optional(),
 });

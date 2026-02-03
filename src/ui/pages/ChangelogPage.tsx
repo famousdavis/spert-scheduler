@@ -12,6 +12,56 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.5.0",
+    date: "2026-02-03",
+    sections: [
+      {
+        title: "User Experience",
+        items: [
+          "Dark mode support with system preference detection and manual toggle",
+          "Toast notification system for user feedback (success, error, info)",
+          "Keyboard shortcuts help modal (press ? to view)",
+          "Print-optimized project report (browser print with dedicated layout)",
+          "Copy RNG seed to clipboard button",
+          "Reset preferences to defaults button in Settings",
+        ],
+      },
+      {
+        title: "Activity Management",
+        items: [
+          "Activity row duplication with one-click copy",
+          "Batch operations: bulk set confidence level, distribution type, or delete selected activities",
+          "Inline distribution sparkline charts (hover to preview distribution shape)",
+          "Variance tracking: shows actual vs estimated difference when activities complete",
+        ],
+      },
+      {
+        title: "Analysis & Visualization",
+        items: [
+          "Sensitivity analysis panel ranking activities by impact on project uncertainty",
+          "Bootstrap confidence intervals on percentiles (toggle 'Show 95% CI' in percentile table)",
+          "CDF comparison chart overlay when comparing 2-3 scenarios",
+          "Chart export as PNG (histogram and CDF charts)",
+        ],
+      },
+      {
+        title: "Data Management",
+        items: [
+          "Project archival: archive/unarchive projects with filter toggle on projects page",
+          "Preferences included in export/import (optional, backward compatible)",
+          "Schema version 4 with archived project support",
+        ],
+      },
+      {
+        title: "Technical",
+        items: [
+          "html2canvas integration for chart PNG export",
+          "321 automated tests across 29 test files",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.0",
     date: "2026-02-03",
     sections: [
