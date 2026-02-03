@@ -52,9 +52,23 @@ function migrateV2toV3(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v3 → v4: Add archived field to project.
+ * Defaults to false for existing projects.
+ */
+function migrateV3toV4(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  if (project.archived === undefined) {
+    project.archived = false;
+  }
+  project.schemaVersion = 4;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
+  3: migrateV3toV4,
 };
 
 /**

@@ -142,3 +142,83 @@ export function cdf(
 
   return points;
 }
+
+/**
+ * Confidence interval for a percentile.
+ */
+export interface PercentileCI {
+  percentile: number; // e.g., 95 for P95
+  point: number; // point estimate
+  lower: number; // lower bound of CI
+  upper: number; // upper bound of CI
+  confidence: number; // e.g., 0.95 for 95% CI
+}
+
+/**
+ * Compute bootstrap confidence interval for a percentile.
+ * Uses simple percentile bootstrap method for efficiency.
+ *
+ * @param samples - Raw (unsorted) samples
+ * @param p - Percentile as integer (e.g., 95 for P95)
+ * @param bootstrapIterations - Number of bootstrap resamples (default 1000)
+ * @param ciLevel - Confidence level (default 0.95 for 95% CI)
+ */
+export function bootstrapPercentileCI(
+  samples: Float64Array | number[],
+  p: number,
+  bootstrapIterations: number = 1000,
+  ciLevel: number = 0.95
+): PercentileCI {
+  const n = samples.length;
+  if (n === 0) {
+    return { percentile: p, point: 0, lower: 0, upper: 0, confidence: ciLevel };
+  }
+
+  // Sort samples for the point estimate
+  const sortedOriginal = Float64Array.from(samples).sort();
+  const pointEstimate = percentile(sortedOriginal, p / 100);
+
+  // Bootstrap resampling
+  const bootstrapEstimates: number[] = [];
+  for (let b = 0; b < bootstrapIterations; b++) {
+    // Resample with replacement
+    const resample = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const idx = Math.floor(Math.random() * n);
+      resample[i] = samples[idx]!;
+    }
+    resample.sort();
+    bootstrapEstimates.push(percentile(resample, p / 100));
+  }
+
+  // Sort bootstrap estimates
+  bootstrapEstimates.sort((a, b) => a - b);
+
+  // Compute CI bounds using percentile method
+  const alpha = (1 - ciLevel) / 2;
+  const lowerIdx = Math.floor(alpha * bootstrapIterations);
+  const upperIdx = Math.floor((1 - alpha) * bootstrapIterations) - 1;
+
+  return {
+    percentile: p,
+    point: pointEstimate,
+    lower: bootstrapEstimates[lowerIdx]!,
+    upper: bootstrapEstimates[upperIdx]!,
+    confidence: ciLevel,
+  };
+}
+
+/**
+ * Compute bootstrap CIs for all standard percentiles.
+ * Note: This is computationally expensive. Use sparingly.
+ */
+export function computeStandardPercentileCIs(
+  samples: Float64Array | number[],
+  bootstrapIterations: number = 500 // Lower default for batch
+): Record<number, PercentileCI> {
+  const result: Record<number, PercentileCI> = {};
+  for (const p of STANDARD_PERCENTILES) {
+    result[p] = bootstrapPercentileCI(samples, p, bootstrapIterations);
+  }
+  return result;
+}

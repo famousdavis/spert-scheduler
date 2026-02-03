@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type {
   Scenario,
   DeterministicSchedule,
@@ -6,12 +7,17 @@ import type {
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { computeScheduleBuffer } from "@core/schedule/buffer";
 import { computeSchedule } from "@app/api/schedule-service";
+import { cdf } from "@core/analytics/analytics";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import {
   parseDateISO,
   addWorkingDays,
   formatDateISO,
 } from "@core/calendar/calendar";
+import { CDFComparisonChart, type CDFDataset } from "@ui/charts/CDFComparisonChart";
+
+// Color palette for comparison lines
+const COMPARISON_COLORS = ["#3b82f6", "#10b981", "#f59e0b"];
 
 interface ScenarioComparison {
   scenario: Scenario;
@@ -71,6 +77,24 @@ export function ScenarioComparisonTable({
 }: ScenarioComparisonProps) {
   const formatDate = useDateFormat();
   const entries = scenarios.map((s) => computeEntry(s, calendar));
+
+  // Build CDF datasets for scenarios with simulation results
+  const cdfDatasets = useMemo<CDFDataset[]>(() => {
+    return entries
+      .filter((e) => e.scenario.simulationResults?.samples)
+      .map((e, idx) => ({
+        label: e.scenario.name,
+        points: cdf(
+          new Float64Array(e.scenario.simulationResults!.samples),
+          300 // Use fewer points for comparison chart
+        ),
+        color: COMPARISON_COLORS[idx % COMPARISON_COLORS.length]!,
+      }));
+  }, [entries]);
+
+  // Get the first scenario's project probability target for the reference line
+  const probabilityTarget =
+    scenarios[0]?.settings.projectProbabilityTarget ?? 0.95;
 
   const durations = entries.map((e) => e.schedule?.totalDurationDays ?? null);
   const buffers = entries.map((e) => e.buffer?.bufferDays ?? null);
@@ -226,6 +250,20 @@ export function ScenarioComparisonTable({
         <p className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100">
           Run simulation on all scenarios for complete comparison data.
         </p>
+      )}
+
+      {/* CDF Comparison Chart */}
+      {cdfDatasets.length >= 2 && (
+        <div className="p-4 border-t border-gray-100">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Cumulative Distribution Comparison
+          </h4>
+          <CDFComparisonChart
+            datasets={cdfDatasets}
+            probabilityTarget={probabilityTarget}
+            exportFilename="scenario-comparison-cdf"
+          />
+        </div>
       )}
     </div>
   );

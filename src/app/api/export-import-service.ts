@@ -1,6 +1,7 @@
-import type { Project } from "@domain/models/types";
-import { SCHEMA_VERSION } from "@domain/models/types";
+import type { Project, UserPreferences } from "@domain/models/types";
+import { SCHEMA_VERSION, DEFAULT_USER_PREFERENCES } from "@domain/models/types";
 import { ProjectSchema } from "@domain/schemas/project.schema";
+import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
 import { applyMigrations } from "@infrastructure/persistence/migrations";
 import { APP_VERSION } from "@app/constants";
 
@@ -12,6 +13,8 @@ export interface SpertExportEnvelope {
   exportedAt: string;
   schemaVersion: number;
   projects: Project[];
+  /** Optional user preferences. Added in v0.5.0. */
+  preferences?: UserPreferences;
 }
 
 export interface ConflictInfo {
@@ -23,6 +26,8 @@ export interface ImportValidationResult {
   success: true;
   projects: Project[];
   conflicts: ConflictInfo[];
+  /** Preferences from the import file, if present and valid. */
+  preferences?: UserPreferences;
 }
 
 export interface ImportValidationError {
@@ -35,18 +40,35 @@ export type ImportResult = ImportValidationResult | ImportValidationError;
 
 // -- Export ------------------------------------------------------------------
 
-export function buildExportEnvelope(projects: Project[]): SpertExportEnvelope {
-  return {
+export interface ExportOptions {
+  includePreferences?: boolean;
+  preferences?: UserPreferences;
+}
+
+export function buildExportEnvelope(
+  projects: Project[],
+  options: ExportOptions = {}
+): SpertExportEnvelope {
+  const envelope: SpertExportEnvelope = {
     format: "spert-scheduler-export",
     appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
     schemaVersion: SCHEMA_VERSION,
     projects,
   };
+
+  if (options.includePreferences && options.preferences) {
+    envelope.preferences = options.preferences;
+  }
+
+  return envelope;
 }
 
-export function serializeExport(projects: Project[]): string {
-  return JSON.stringify(buildExportEnvelope(projects), null, 2);
+export function serializeExport(
+  projects: Project[],
+  options: ExportOptions = {}
+): string {
+  return JSON.stringify(buildExportEnvelope(projects, options), null, 2);
 }
 
 // -- Import ------------------------------------------------------------------
@@ -62,10 +84,10 @@ function parseJSON(
   }
 }
 
-/** Step 2: Validate the export envelope structure and extract raw projects. */
+/** Step 2: Validate the export envelope structure and extract raw projects + preferences. */
 function validateEnvelope(
   raw: unknown
-): ImportValidationError | { projects: unknown[] } {
+): ImportValidationError | { projects: unknown[]; rawPreferences?: unknown } {
   if (
     typeof raw !== "object" ||
     raw === null ||
@@ -85,7 +107,10 @@ function validateEnvelope(
     return { success: false, error: "Export file contains no projects." };
   }
 
-  return { projects: rawProjects };
+  // Extract optional preferences
+  const rawPreferences = envelope.preferences;
+
+  return { projects: rawProjects, rawPreferences };
 }
 
 /** Step 3: Migrate each project to the current schema version and validate with Zod. */
@@ -160,6 +185,22 @@ function detectConflicts(
 }
 
 /**
+ * Step 5: Validate preferences if present.
+ * Returns undefined if not present or invalid (non-fatal).
+ */
+function validatePreferences(raw: unknown): UserPreferences | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+
+  // Merge with defaults to handle missing fields from older exports
+  const merged = { ...DEFAULT_USER_PREFERENCES, ...(raw as Record<string, unknown>) };
+  const result = UserPreferencesSchema.safeParse(merged);
+  if (!result.success) return undefined;
+
+  // Ensure all required fields are present by spreading defaults again
+  return { ...DEFAULT_USER_PREFERENCES, ...result.data };
+}
+
+/**
  * Parse, migrate, validate, and detect conflicts for an imported JSON string.
  */
 export function validateImport(
@@ -177,5 +218,8 @@ export function validateImport(
 
   const conflicts = detectConflicts(migrated.projects, existingProjects);
 
-  return { success: true, projects: migrated.projects, conflicts };
+  // Validate preferences (non-fatal if invalid)
+  const preferences = validatePreferences(envelope.rawPreferences);
+
+  return { success: true, projects: migrated.projects, conflicts, preferences };
 }

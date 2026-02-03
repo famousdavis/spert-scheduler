@@ -8,7 +8,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -150,6 +150,7 @@ export interface Project {
   schemaVersion: number;
   globalCalendarOverride?: Calendar;
   scenarios: Scenario[];
+  archived?: boolean; // default false
 }
 
 // -- Schedule Output Types ---------------------------------------------------
@@ -190,6 +191,12 @@ export const DATE_FORMATS = ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD"] as const;
 
 export type DateFormatPreference = (typeof DATE_FORMATS)[number];
 
+// -- Theme Preference ---------------------------------------------------------
+
+export const THEME_OPTIONS = ["light", "dark", "system"] as const;
+
+export type ThemePreference = (typeof THEME_OPTIONS)[number];
+
 // -- User Preferences ---------------------------------------------------------
 
 export interface UserPreferences {
@@ -200,6 +207,7 @@ export interface UserPreferences {
   defaultProjectTarget: number;
   dateFormat: DateFormatPreference;
   autoRunSimulation: boolean;
+  theme: ThemePreference;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
@@ -210,6 +218,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   defaultProjectTarget: 0.95,
   dateFormat: "MM/DD/YYYY",
   autoRunSimulation: false,
+  theme: "system",
 };
 
 // -- RSM Descriptions (tooltips) ----------------------------------------------

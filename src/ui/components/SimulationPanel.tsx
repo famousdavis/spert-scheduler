@@ -182,8 +182,8 @@ export function SimulationPanel({
 
           {/* Charts */}
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Distribution Histogram
               </h4>
               <HistogramChart
@@ -194,10 +194,11 @@ export function SimulationPanel({
                   simulationResults.percentiles[targetPct] ?? simulationResults.mean
                 }
                 activityPercentileValue={activityPercentileValue}
+                exportFilename={`${projectName || 'project'}-${scenarioName || 'scenario'}-histogram`}
               />
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Cumulative Distribution
               </h4>
               <CDFChart
@@ -209,18 +210,20 @@ export function SimulationPanel({
                 percentileValue={
                   simulationResults.percentiles[targetPct] ?? simulationResults.mean
                 }
+                exportFilename={`${projectName || 'project'}-${scenarioName || 'scenario'}-cdf`}
               />
             </div>
           </div>
 
           {/* Percentile Table */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4 max-w-sm">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 max-w-md">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Percentile Summary
             </h4>
             <PercentileTable
               percentiles={simulationResults.percentiles}
               probabilityTarget={probabilityTarget}
+              samples={simulationResults.samples}
             />
           </div>
         </div>

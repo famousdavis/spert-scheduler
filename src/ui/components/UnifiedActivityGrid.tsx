@@ -13,9 +13,20 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import type { Activity, ScheduledActivity } from "@domain/models/types";
+import type {
+  Activity,
+  ScheduledActivity,
+  RSMLevel,
+  DistributionType,
+} from "@domain/models/types";
+import {
+  RSM_LEVELS,
+  RSM_LABELS,
+  DISTRIBUTION_TYPES,
+} from "@domain/models/types";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
 import { GRID_COLUMNS } from "./grid-columns";
+import { distributionLabel } from "@ui/helpers/format-labels";
 
 interface UnifiedActivityGridProps {
   activities: Activity[];
@@ -23,9 +34,12 @@ interface UnifiedActivityGridProps {
   activityProbabilityTarget: number;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
+  onDuplicate: (activityId: string) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
   onAdd: (name: string) => void;
   onValidityChange: (allValid: boolean) => void;
+  onBulkUpdate?: (activityIds: string[], updates: Partial<Activity>) => void;
+  onBulkDelete?: (activityIds: string[]) => void;
   onBulkMarkComplete?: (
     activityIds: string[],
     scheduledDurations: Map<string, number>
@@ -38,9 +52,12 @@ export function UnifiedActivityGrid({
   activityProbabilityTarget,
   onUpdate,
   onDelete,
+  onDuplicate,
   onMove,
   onAdd,
   onValidityChange,
+  onBulkUpdate,
+  onBulkDelete,
   onBulkMarkComplete,
 }: UnifiedActivityGridProps) {
   const [, setInvalidIds] = useState<Set<string>>(new Set());
@@ -185,17 +202,100 @@ export function UnifiedActivityGrid({
     (id) => activities.find((a) => a.id === id)?.status !== "complete"
   ).length;
 
+  const handleBulkConfidenceChange = useCallback(
+    (level: RSMLevel) => {
+      if (selectedIds.size === 0) return;
+      if (onBulkUpdate) {
+        onBulkUpdate(Array.from(selectedIds), { confidenceLevel: level });
+      } else {
+        for (const activityId of selectedIds) {
+          onUpdate(activityId, { confidenceLevel: level });
+        }
+      }
+    },
+    [selectedIds, onBulkUpdate, onUpdate]
+  );
+
+  const handleBulkDistributionChange = useCallback(
+    (type: DistributionType) => {
+      if (selectedIds.size === 0) return;
+      if (onBulkUpdate) {
+        onBulkUpdate(Array.from(selectedIds), { distributionType: type });
+      } else {
+        for (const activityId of selectedIds) {
+          onUpdate(activityId, { distributionType: type });
+        }
+      }
+    },
+    [selectedIds, onBulkUpdate, onUpdate]
+  );
+
+  const handleBulkDelete = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!window.confirm(`Delete ${count} selected activit${count === 1 ? 'y' : 'ies'}?`)) {
+      return;
+    }
+    if (onBulkDelete) {
+      onBulkDelete(Array.from(selectedIds));
+    } else {
+      for (const activityId of selectedIds) {
+        onDelete(activityId);
+      }
+    }
+    setSelectedIds(new Set());
+  }, [selectedIds, onBulkDelete, onDelete]);
+
   return (
     <div
-      className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
       data-activity-grid
     >
       {/* Bulk action toolbar */}
       {hasSelection && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 border-b border-blue-200">
-          <span className="text-sm text-blue-700 font-medium">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800">
+          <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
             {selectedIds.size} selected
           </span>
+
+          {/* Confidence level dropdown */}
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) {
+                handleBulkConfidenceChange(e.target.value as RSMLevel);
+                e.target.value = "";
+              }
+            }}
+            className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"
+          >
+            <option value="" disabled>Set Confidence...</option>
+            {RSM_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {RSM_LABELS[level]}
+              </option>
+            ))}
+          </select>
+
+          {/* Distribution type dropdown */}
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) {
+                handleBulkDistributionChange(e.target.value as DistributionType);
+                e.target.value = "";
+              }
+            }}
+            className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"
+          >
+            <option value="" disabled>Set Distribution...</option>
+            {DISTRIBUTION_TYPES.map((dt) => (
+              <option key={dt} value={dt}>
+                {distributionLabel(dt)}
+              </option>
+            ))}
+          </select>
+
           {incompleteSelectedCount > 0 && (
             <button
               onClick={handleBulkComplete}
@@ -204,9 +304,17 @@ export function UnifiedActivityGrid({
               Mark Complete
             </button>
           )}
+
+          <button
+            onClick={handleBulkDelete}
+            className="px-3 py-1 text-red-600 dark:text-red-400 text-sm hover:text-red-800 dark:hover:text-red-300"
+          >
+            Delete
+          </button>
+
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="px-3 py-1 text-blue-600 text-sm hover:text-blue-800"
+            className="px-3 py-1 text-blue-600 dark:text-blue-400 text-sm hover:text-blue-800 dark:hover:text-blue-300"
           >
             Clear
           </button>
@@ -215,7 +323,7 @@ export function UnifiedActivityGrid({
 
       {/* Header row */}
       <div
-        className="grid items-center gap-1 px-1 py-2 bg-gray-50 border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase tracking-wide"
+        className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
         style={{
           gridTemplateColumns: GRID_COLUMNS,
         }}
@@ -227,7 +335,7 @@ export function UnifiedActivityGrid({
               activities.length > 0 && selectedIds.size === activities.length
             }
             onChange={toggleSelectAll}
-            className="rounded border-gray-300"
+            className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
             tabIndex={-1}
           />
         </div>
@@ -253,7 +361,7 @@ export function UnifiedActivityGrid({
 
       {/* Subheader labels */}
       <div
-        className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 border-b border-gray-100 text-[9px] text-gray-400"
+        className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-[9px] text-gray-400 dark:text-gray-500"
         style={{
           gridTemplateColumns: GRID_COLUMNS,
         }}
@@ -261,11 +369,11 @@ export function UnifiedActivityGrid({
         <div />
         <div />
         <div />
-        <div className="text-right px-1 text-gray-400">
+        <div className="text-right px-1 text-gray-400 dark:text-gray-500">
           P{targetPct}
         </div>
-        <div className="px-1 text-gray-400">Scheduled</div>
-        <div className="px-1 text-gray-400">Scheduled</div>
+        <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
+        <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
         <div />
         <div />
         <div />
@@ -299,6 +407,7 @@ export function UnifiedActivityGrid({
               onToggleSelect={toggleSelect}
               onUpdate={onUpdate}
               onDelete={onDelete}
+              onDuplicate={onDuplicate}
               onValidityChange={handleValidityChange}
             />
           ))}
@@ -306,7 +415,7 @@ export function UnifiedActivityGrid({
       </DndContext>
 
       {activities.length === 0 && (
-        <p className="text-gray-400 text-sm text-center py-8">
+        <p className="text-gray-400 dark:text-gray-500 text-sm text-center py-8">
           No activities yet. Add one to get started.
         </p>
       )}
@@ -314,14 +423,14 @@ export function UnifiedActivityGrid({
       {/* Summary row */}
       {activities.length > 0 && (
         <div
-          className="grid items-center gap-1 px-1 py-2 bg-gray-50 border-t border-gray-200 text-sm font-medium text-gray-700"
+          className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300"
           style={{
             gridTemplateColumns: GRID_COLUMNS,
           }}
         >
           <div />
           <div />
-          <div className="px-1.5 text-gray-500">
+          <div className="px-1.5 text-gray-500 dark:text-gray-400">
             {summary.count} activit{summary.count === 1 ? "y" : "ies"}
           </div>
           <div className="text-right tabular-nums px-1">
@@ -350,7 +459,7 @@ export function UnifiedActivityGrid({
             pendingFocus.current = true;
             onAdd("");
           }}
-          className="w-full py-2 border-2 border-dashed border-gray-200 rounded-lg text-sm text-gray-400 hover:border-blue-400 hover:text-blue-600 transition-colors"
+          className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
         >
           + Add Activity
         </button>

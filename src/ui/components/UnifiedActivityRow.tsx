@@ -19,6 +19,7 @@ import {
   statusLabel,
 } from "@ui/helpers/format-labels";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
+import { DistributionSparkline } from "./DistributionSparkline";
 import { GRID_COLUMNS } from "./grid-columns";
 
 interface UnifiedActivityRowProps {
@@ -30,6 +31,7 @@ interface UnifiedActivityRowProps {
   onToggleSelect?: (activityId: string) => void;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
+  onDuplicate: (activityId: string) => void;
   onValidityChange: (activityId: string, isValid: boolean) => void;
 }
 
@@ -79,6 +81,7 @@ export function UnifiedActivityRow({
   onToggleSelect,
   onUpdate,
   onDelete,
+  onDuplicate,
   onValidityChange,
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -237,9 +240,9 @@ export function UnifiedActivityRow({
   return (
     <div
       ref={setNodeRef}
-      className={`grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 hover:bg-gray-50/50 text-sm ${
-        hasErrors ? "bg-red-50/30" : ""
-      } ${isDragging ? "opacity-80 bg-blue-50 z-10 shadow-md" : ""}`}
+      className={`grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 text-sm ${
+        hasErrors ? "bg-red-50/30 dark:bg-red-900/20" : ""
+      } ${isDragging ? "opacity-80 bg-blue-50 dark:bg-blue-900/30 z-10 shadow-md" : ""}`}
       style={{
         gridTemplateColumns: GRID_COLUMNS,
         ...sortableStyle,
@@ -251,7 +254,7 @@ export function UnifiedActivityRow({
           type="checkbox"
           checked={isSelected ?? false}
           onChange={() => onToggleSelect?.(activity.id)}
-          className="rounded border-gray-300"
+          className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
           tabIndex={-1}
         />
       </div>
@@ -259,7 +262,7 @@ export function UnifiedActivityRow({
       {/* Grip handle */}
       <div className="flex items-center justify-center">
         <button
-          className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none text-base leading-none"
+          className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab active:cursor-grabbing select-none text-base leading-none"
           title="Drag to reorder"
           {...attributes}
           {...listeners}
@@ -279,35 +282,35 @@ export function UnifiedActivityRow({
           value={activity.name}
           onChange={(e) => onUpdate(activity.id, { name: e.target.value })}
           onKeyDown={(e) => handleTabNav(e, "name")}
-          className="w-full px-1.5 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none"
           placeholder="Add an activity name"
         />
       </div>
 
       {/* Schedule: Duration */}
-      <div className="text-right tabular-nums text-gray-700 px-1">
+      <div className="text-right tabular-nums text-gray-700 dark:text-gray-300 px-1">
         {scheduledActivity ? (
           <span>{scheduledActivity.duration}d</span>
         ) : (
-          <span className="text-gray-300">&mdash;</span>
+          <span className="text-gray-300 dark:text-gray-600">&mdash;</span>
         )}
       </div>
 
       {/* Schedule: Start */}
-      <div className="tabular-nums text-gray-700 text-sm px-1">
+      <div className="tabular-nums text-gray-700 dark:text-gray-300 text-sm px-1">
         {scheduledActivity ? (
           <span>{formatDate(scheduledActivity.startDate)}</span>
         ) : (
-          <span className="text-gray-300">&mdash;</span>
+          <span className="text-gray-300 dark:text-gray-600">&mdash;</span>
         )}
       </div>
 
       {/* Schedule: End */}
-      <div className="tabular-nums text-gray-700 text-sm px-1">
+      <div className="tabular-nums text-gray-700 dark:text-gray-300 text-sm px-1">
         {scheduledActivity ? (
           <span>{formatDate(scheduledActivity.endDate)}</span>
         ) : (
-          <span className="text-gray-300">&mdash;</span>
+          <span className="text-gray-300 dark:text-gray-600">&mdash;</span>
         )}
       </div>
 
@@ -320,8 +323,8 @@ export function UnifiedActivityRow({
           defaultValue={activity.min}
           onBlur={(e) => handleBlur("min", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "min")}
-          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
-            errors["min"] ? "border-red-400 bg-red-50" : "border-gray-200"
+          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
+            errors["min"] ? "border-red-400 bg-red-50 dark:bg-red-900/30" : "border-gray-200 dark:border-gray-600"
           } focus:border-blue-400 focus:outline-none`}
           step="1"
           min="0"
@@ -338,10 +341,10 @@ export function UnifiedActivityRow({
           defaultValue={activity.mostLikely}
           onBlur={(e) => handleBlur("mostLikely", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "ml")}
-          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
+          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
             errors["mostLikely"]
-              ? "border-red-400 bg-red-50"
-              : "border-gray-200"
+              ? "border-red-400 bg-red-50 dark:bg-red-900/30"
+              : "border-gray-200 dark:border-gray-600"
           } focus:border-blue-400 focus:outline-none`}
           step="1"
           min="0"
@@ -358,8 +361,8 @@ export function UnifiedActivityRow({
           defaultValue={activity.max}
           onBlur={(e) => handleBlur("max", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "max")}
-          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right ${
-            errors["max"] ? "border-red-400 bg-red-50" : "border-gray-200"
+          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
+            errors["max"] ? "border-red-400 bg-red-50 dark:bg-red-900/30" : "border-gray-200 dark:border-gray-600"
           } focus:border-blue-400 focus:outline-none`}
           step="1"
           min="0"
@@ -378,7 +381,7 @@ export function UnifiedActivityRow({
       </div>
 
       {/* Distribution */}
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5 group relative">
         <select
           value={activity.distributionType}
           onChange={(e) =>
@@ -386,7 +389,7 @@ export function UnifiedActivityRow({
               distributionType: e.target.value as DistributionType,
             })
           }
-          className="w-full px-1 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none"
           tabIndex={-1}
         >
           {DISTRIBUTION_TYPES.map((dt) => (
@@ -402,13 +405,26 @@ export function UnifiedActivityRow({
                 distributionType: recommendation.recommended,
               })
             }
-            className="shrink-0 px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] hover:bg-amber-200"
+            className="shrink-0 px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded text-[10px] hover:bg-amber-200 dark:hover:bg-amber-800/50"
             title={recommendation.rationale}
             tabIndex={-1}
           >
             {distributionShortLabel(recommendation.recommended)}
           </button>
         )}
+        {/* Sparkline tooltip on hover */}
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-20 pointer-events-none">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded shadow-lg p-1">
+            <DistributionSparkline
+              min={activity.min}
+              mostLikely={activity.mostLikely}
+              max={activity.max}
+              distributionType={activity.distributionType}
+              width={80}
+              height={30}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Status */}
@@ -420,7 +436,7 @@ export function UnifiedActivityRow({
               status: e.target.value as Activity["status"],
             })
           }
-          className="w-full px-1 py-1 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none"
           tabIndex={-1}
         >
           {ACTIVITY_STATUSES.map((s) => (
@@ -443,50 +459,112 @@ export function UnifiedActivityRow({
                 onUpdate(activity.id, { actualDuration: val });
               }
             }}
-            className="w-full px-1 py-1 border border-gray-200 rounded text-sm tabular-nums text-right focus:border-blue-400 focus:outline-none"
+            className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm tabular-nums text-right focus:border-blue-400 focus:outline-none"
             placeholder="Act."
             min="0"
             step="1"
             tabIndex={-1}
           />
         ) : (
-          <span className="text-gray-300 text-xs px-1">&mdash;</span>
+          <span className="text-gray-300 dark:text-gray-600 text-xs px-1">&mdash;</span>
         )}
       </div>
 
       {/* Separator */}
-      <div className="h-6 bg-gray-200" />
+      <div className="h-6 bg-gray-200 dark:bg-gray-600" />
 
-      {/* Source badge */}
+      {/* Source badge with variance indicator */}
       <div className="text-center">
         {scheduledActivity ? (
-          scheduledActivity.isActual ? (
-            <span className="text-green-600 text-[10px] font-medium bg-green-50 px-1.5 py-0.5 rounded">
-              Actual
-            </span>
-          ) : (
-            <span className="text-blue-600 text-[10px] bg-blue-50 px-1.5 py-0.5 rounded">
-              P{targetPct}
-            </span>
-          )
+          <div className="flex flex-col items-center gap-0.5">
+            {scheduledActivity.isActual ? (
+              <span className="text-green-600 dark:text-green-400 text-[10px] font-medium bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+                Actual
+              </span>
+            ) : (
+              <span className="text-blue-600 dark:text-blue-400 text-[10px] bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
+                P{targetPct}
+              </span>
+            )}
+            {/* Variance indicator when complete with actual duration */}
+            {isComplete && activity.actualDuration != null && scheduledActivity && !scheduledActivity.isActual && (
+              <VarianceIndicator
+                estimated={scheduledActivity.duration}
+                actual={activity.actualDuration}
+              />
+            )}
+          </div>
         ) : null}
       </div>
 
-      {/* Delete */}
-      <div className="text-center">
+      {/* Actions: Duplicate and Delete */}
+      <div className="flex items-center justify-center gap-1">
+        <button
+          onClick={() => onDuplicate(activity.id)}
+          className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm transition-colors"
+          title="Duplicate activity"
+          tabIndex={-1}
+          aria-label="Duplicate activity"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        </button>
         <button
           onClick={() => {
             if (window.confirm("Are you sure you want to delete this activity?")) {
               onDelete(activity.id);
             }
           }}
-          className="text-red-400 hover:text-red-600 text-sm transition-colors"
+          className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 text-sm transition-colors"
           title="Delete activity"
           tabIndex={-1}
+          aria-label="Delete activity"
         >
           &#10005;
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Small variance indicator showing actual vs estimated difference.
+ */
+function VarianceIndicator({
+  estimated,
+  actual,
+}: {
+  estimated: number;
+  actual: number;
+}) {
+  const diff = actual - estimated;
+  const pctDiff = estimated > 0 ? (diff / estimated) * 100 : 0;
+
+  if (Math.abs(diff) < 0.1) {
+    // On track
+    return (
+      <span
+        className="text-[9px] text-gray-500 dark:text-gray-400"
+        title={`Actual ${actual}d matches estimate ${estimated.toFixed(1)}d`}
+      >
+        ✓ On track
+      </span>
+    );
+  }
+
+  const isUnder = diff < 0;
+  const colorClass = isUnder
+    ? "text-green-600 dark:text-green-400"
+    : "text-amber-600 dark:text-amber-400";
+
+  return (
+    <span
+      className={`text-[9px] ${colorClass}`}
+      title={`Actual: ${actual}d, Estimated: ${estimated.toFixed(1)}d (${isUnder ? "" : "+"}${pctDiff.toFixed(0)}%)`}
+    >
+      {isUnder ? "▼" : "▲"} {Math.abs(diff).toFixed(1)}d ({isUnder ? "" : "+"}
+      {pctDiff.toFixed(0)}%)
+    </span>
   );
 }

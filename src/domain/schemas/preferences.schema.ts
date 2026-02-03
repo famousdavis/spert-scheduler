@@ -3,6 +3,7 @@ import {
   RSM_LEVELS,
   DISTRIBUTION_TYPES,
   DATE_FORMATS,
+  THEME_OPTIONS,
 } from "../models/types";
 
 export const UserPreferencesSchema = z.object({
@@ -13,4 +14,5 @@ export const UserPreferencesSchema = z.object({
   defaultProjectTarget: z.number().min(0.01).max(0.99),
   dateFormat: z.enum(DATE_FORMATS),
   autoRunSimulation: z.boolean(),
+  theme: z.enum(THEME_OPTIONS).optional(), // Optional for backward compatibility
 });

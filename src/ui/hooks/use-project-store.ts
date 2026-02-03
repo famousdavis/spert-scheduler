@@ -24,9 +24,15 @@ import {
   renameScenario as renameScenarioFn,
 } from "@app/api/project-service";
 import type { CloneOptions } from "@app/api/project-service";
-import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
+import { generateId } from "@app/api/id";
+import {
+  LocalStorageRepository,
+  type LoadError,
+} from "@infrastructure/persistence/local-storage-repository";
 
 const repo = new LocalStorageRepository();
+
+export type { LoadError };
 
 interface UndoEntry {
   projectId: string;
@@ -50,6 +56,7 @@ export interface ProjectStore {
   // State
   projects: Project[];
   loadError: boolean;
+  loadErrors: LoadError[];
 
   // Undo/Redo
   undoStack: UndoEntry[];
@@ -81,6 +88,11 @@ export interface ProjectStore {
     activityIds: string[],
     updates: Partial<Activity>
   ) => void;
+  bulkDeleteActivities: (
+    projectId: string,
+    scenarioId: string,
+    activityIds: string[]
+  ) => void;
 
   // Scenario CRUD
   addScenario: (
@@ -104,6 +116,11 @@ export interface ProjectStore {
 
   // Activity CRUD
   addActivity: (projectId: string, scenarioId: string, name: string) => void;
+  duplicateActivity: (
+    projectId: string,
+    scenarioId: string,
+    activityId: string
+  ) => void;
   deleteActivity: (
     projectId: string,
     scenarioId: string,
@@ -137,6 +154,14 @@ export interface ProjectStore {
 
   // Import
   importProjects: (projects: Project[], replaceIds?: string[]) => void;
+
+  // Archive
+  archiveProject: (id: string) => void;
+  unarchiveProject: (id: string) => void;
+
+  // Error recovery
+  getCorruptedProjectRawData: (id: string) => string | null;
+  removeCorruptedProject: (id: string) => void;
 }
 
 function persist(projects: Project[], projectId?: string) {
@@ -165,6 +190,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   return {
   projects: [],
   loadError: false,
+  loadErrors: [],
   undoStack: [],
   redoStack: [],
 
@@ -220,18 +246,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   loadProjects: () => {
     const ids = repo.list();
     const projects: Project[] = [];
-    let hasError = false;
+    const errors: LoadError[] = [];
 
     for (const id of ids) {
-      const project = repo.load(id);
-      if (project) {
-        projects.push(project);
+      const result = repo.loadWithDiagnostics(id);
+      if (result.success) {
+        projects.push(result.data);
       } else {
-        hasError = true;
+        errors.push(result.error);
       }
     }
 
-    set({ projects, loadError: hasError });
+    set({ projects, loadError: errors.length > 0, loadErrors: errors });
   },
 
   addProject: (name: string) => {
@@ -337,6 +363,37 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         p.id === projectId
           ? updateScenario(p, scenarioId, (s) =>
               addActivityToScenario(s, activity)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  duplicateActivity: (projectId, scenarioId, activityId) => {
+    pushUndo(projectId);
+    set((state) => {
+      const project = state.projects.find((p) => p.id === projectId);
+      if (!project) return state;
+      const scenario = project.scenarios.find((s) => s.id === scenarioId);
+      if (!scenario) return state;
+      const activity = scenario.activities.find((a) => a.id === activityId);
+      if (!activity) return state;
+
+      // Clone the activity with a new ID and "(copy)" suffix
+      const clone: Activity = {
+        ...activity,
+        id: generateId(),
+        name: `${activity.name} (copy)`,
+        status: "planned",
+        actualDuration: undefined,
+      };
+
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              addActivityToScenario(s, clone)
             )
           : p
       );
@@ -456,6 +513,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     });
   },
 
+  bulkDeleteActivities: (projectId, scenarioId, activityIds) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        return updateScenario(p, scenarioId, (s) => ({
+          ...s,
+          activities: s.activities.filter((a) => !activityIds.includes(a.id)),
+          simulationResults: undefined,
+        }));
+      });
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
   importProjects: (projects, replaceIds = []) => {
     set((state) => {
       // Remove projects being replaced
@@ -473,5 +546,37 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         projects: [...filteredExisting, ...projects],
       };
     });
+  },
+
+  archiveProject: (id: string) => {
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === id ? { ...p, archived: true } : p
+      );
+      persist(projects, id);
+      return { projects };
+    });
+  },
+
+  unarchiveProject: (id: string) => {
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === id ? { ...p, archived: false } : p
+      );
+      persist(projects, id);
+      return { projects };
+    });
+  },
+
+  getCorruptedProjectRawData: (id: string) => {
+    return repo.getRawData(id);
+  },
+
+  removeCorruptedProject: (id: string) => {
+    repo.removeById(id);
+    set((state) => ({
+      loadErrors: state.loadErrors.filter((e) => e.projectId !== id),
+      loadError: state.loadErrors.filter((e) => e.projectId !== id).length > 0,
+    }));
   },
 };});

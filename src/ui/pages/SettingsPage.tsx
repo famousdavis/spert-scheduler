@@ -21,7 +21,9 @@ import type {
   RSMLevel,
   DistributionType,
   DateFormatPreference,
+  ThemePreference,
 } from "@domain/models/types";
+import { THEME_OPTIONS } from "@domain/models/types";
 import {
   ACTIVITY_PERCENTILE_OPTIONS,
   PROJECT_PERCENTILE_OPTIONS,
@@ -92,25 +94,25 @@ function ExportSection({ projects }: ExportSectionProps) {
   }, [projects, selectedIds]);
 
   return (
-    <section className="bg-white border border-gray-200 rounded-lg p-6">
-      <h2 className="text-lg font-semibold text-blue-600">Export Projects</h2>
-      <p className="mt-1 text-sm text-gray-500">
+    <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+      <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Export Projects</h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Download selected projects as a JSON file for backup or sharing.
       </p>
 
       {projects.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-400">No projects to export.</p>
+        <p className="mt-4 text-sm text-gray-400 dark:text-gray-500">No projects to export.</p>
       ) : (
         <div className="mt-4 space-y-3">
           {/* Select all toggle */}
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
               checked={
                 selectedIds.size === projects.length && projects.length > 0
               }
               onChange={toggleAll}
-              className="rounded border-gray-300"
+              className="rounded border-gray-300 dark:border-gray-600"
             />
             <span className="font-medium">
               {selectedIds.size === projects.length
@@ -120,28 +122,28 @@ function ExportSection({ projects }: ExportSectionProps) {
           </label>
 
           {/* Project list */}
-          <div className="border border-gray-100 rounded-md divide-y divide-gray-100 max-h-64 overflow-y-auto">
+          <div className="border border-gray-100 dark:border-gray-700 rounded-md divide-y divide-gray-100 dark:divide-gray-700 max-h-64 overflow-y-auto">
             {projects.map((project) => (
               <label
                 key={project.id}
-                className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
               >
                 <input
                   type="checkbox"
                   checked={selectedIds.has(project.id)}
                   onChange={() => toggleProject(project.id)}
-                  className="rounded border-gray-300"
+                  className="rounded border-gray-300 dark:border-gray-600"
                 />
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {project.name}
                   </span>
-                  <span className="ml-2 text-xs text-gray-400">
+                  <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
                     {project.scenarios.length} scenario
                     {project.scenarios.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-400 dark:text-gray-500">
                   {formatDate(project.createdAt.slice(0, 10))}
                 </span>
               </label>
@@ -254,9 +256,9 @@ function ImportSection({ projects, importProjects }: ImportSectionProps) {
   const resetImport = () => setImportState({ step: "idle" });
 
   return (
-    <section className="bg-white border border-gray-200 rounded-lg p-6">
-      <h2 className="text-lg font-semibold text-blue-600">Import Projects</h2>
-      <p className="mt-1 text-sm text-gray-500">
+    <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+      <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Import Projects</h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Upload a previously exported JSON file to restore or add projects.
       </p>
 
@@ -271,7 +273,7 @@ function ImportSection({ projects, importProjects }: ImportSectionProps) {
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50"
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
         >
           Choose File
         </button>
@@ -429,22 +431,67 @@ function ImportSection({ projects, importProjects }: ImportSectionProps) {
   );
 }
 
+// -- Theme Labels ------------------------------------------------------------
+
+const THEME_LABELS: Record<ThemePreference, string> = {
+  light: "Light",
+  dark: "Dark",
+  system: "System",
+};
+
 // -- Preferences Section -----------------------------------------------------
 
 function PreferencesSection() {
-  const { preferences, updatePreferences } = usePreferencesStore();
+  const { preferences, updatePreferences, resetPreferences } = usePreferencesStore();
+
+  const handleReset = () => {
+    if (window.confirm("Reset all preferences to defaults?")) {
+      resetPreferences();
+    }
+  };
 
   return (
-    <section className="bg-white border border-gray-200 rounded-lg p-6">
-      <h2 className="text-lg font-semibold text-blue-600">Preferences</h2>
-      <p className="mt-1 text-sm text-gray-500">
-        Set defaults for new scenarios and display options.
-      </p>
+    <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Preferences</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Set defaults for new scenarios and display options.
+          </p>
+        </div>
+        <button
+          onClick={handleReset}
+          className="text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+        >
+          Reset to defaults
+        </button>
+      </div>
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Theme */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Theme
+          </label>
+          <select
+            value={preferences.theme ?? "system"}
+            onChange={(e) =>
+              updatePreferences({
+                theme: e.target.value as ThemePreference,
+              })
+            }
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+          >
+            {THEME_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {THEME_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </div>
         {/* Default Trial Count */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Trial Count
           </label>
           <select
@@ -454,7 +501,7 @@ function PreferencesSection() {
                 defaultTrialCount: parseInt(e.target.value, 10),
               })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             {[1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000].map(
               (n) => (
@@ -468,7 +515,7 @@ function PreferencesSection() {
 
         {/* Default Distribution Type */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Distribution Type
           </label>
           <select
@@ -478,7 +525,7 @@ function PreferencesSection() {
                 defaultDistributionType: e.target.value as DistributionType,
               })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             {DISTRIBUTION_TYPES.map((dt) => (
               <option key={dt} value={dt}>
@@ -490,7 +537,7 @@ function PreferencesSection() {
 
         {/* Default Confidence Level */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Confidence Level
           </label>
           <select
@@ -500,7 +547,7 @@ function PreferencesSection() {
                 defaultConfidenceLevel: e.target.value as RSMLevel,
               })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             {RSM_LEVELS.map((level) => (
               <option key={level} value={level}>
@@ -512,7 +559,7 @@ function PreferencesSection() {
 
         {/* Default Activity Target */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Activity Target
           </label>
           <select
@@ -522,7 +569,7 @@ function PreferencesSection() {
                 defaultActivityTarget: parseFloat(e.target.value),
               })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             {ACTIVITY_PERCENTILE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -534,7 +581,7 @@ function PreferencesSection() {
 
         {/* Default Project Target */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Project Target
           </label>
           <select
@@ -544,7 +591,7 @@ function PreferencesSection() {
                 defaultProjectTarget: parseFloat(e.target.value),
               })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             {PROJECT_PERCENTILE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -556,7 +603,7 @@ function PreferencesSection() {
 
         {/* Date Format */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Date Format
           </label>
           <select
@@ -566,7 +613,7 @@ function PreferencesSection() {
                 dateFormat: e.target.value as DateFormatPreference,
               })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             {DATE_FORMATS.map((fmt) => (
               <option key={fmt} value={fmt}>
@@ -578,17 +625,17 @@ function PreferencesSection() {
 
         {/* Auto-Run Simulation */}
         <div className="sm:col-span-2">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
               checked={preferences.autoRunSimulation}
               onChange={(e) =>
                 updatePreferences({ autoRunSimulation: e.target.checked })
               }
-              className="rounded border-gray-300"
+              className="rounded border-gray-300 dark:border-gray-600"
             />
             <span className="font-medium">Auto-run simulation</span>
-            <span className="text-gray-500">
+            <span className="text-gray-500 dark:text-gray-400">
               — automatically re-run after activity changes (500ms debounce)
             </span>
           </label>
@@ -613,7 +660,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
       <PreferencesSection />
       <ExportSection projects={projects} />
       <ImportSection projects={projects} importProjects={importProjects} />
