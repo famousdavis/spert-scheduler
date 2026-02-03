@@ -1,5 +1,8 @@
 import type { Calendar, DateFormatPreference } from "@domain/models/types";
 
+/** Maximum iterations for working day calculations to prevent infinite loops */
+const MAX_CALENDAR_ITERATIONS = 10000;
+
 /**
  * Format a Date to "YYYY-MM-DD" string.
  */
@@ -63,7 +66,13 @@ export function addWorkingDays(
 ): Date {
   const result = new Date(start);
   let remaining = days;
+  let iterations = 0;
   while (remaining > 0) {
+    if (++iterations > MAX_CALENDAR_ITERATIONS) {
+      throw new Error(
+        "Calendar iteration limit exceeded - check for excessive consecutive holidays"
+      );
+    }
     result.setDate(result.getDate() + 1);
     if (isWorkingDay(result, calendar)) {
       remaining--;
@@ -82,7 +91,13 @@ export function subtractWorkingDays(
 ): Date {
   const result = new Date(start);
   let remaining = days;
+  let iterations = 0;
   while (remaining > 0) {
+    if (++iterations > MAX_CALENDAR_ITERATIONS) {
+      throw new Error(
+        "Calendar iteration limit exceeded - check for excessive consecutive holidays"
+      );
+    }
     result.setDate(result.getDate() - 1);
     if (isWorkingDay(result, calendar)) {
       remaining--;
@@ -100,8 +115,14 @@ export function countWorkingDays(
   calendar?: Calendar
 ): number {
   let count = 0;
+  let iterations = 0;
   const current = new Date(start);
   while (current < end) {
+    if (++iterations > MAX_CALENDAR_ITERATIONS) {
+      throw new Error(
+        "Calendar iteration limit exceeded - date range too large"
+      );
+    }
     if (isWorkingDay(current, calendar)) {
       count++;
     }

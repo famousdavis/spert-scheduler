@@ -41,6 +41,14 @@ export function runSimulationInWorker(
 
   worker.onmessage = (event: MessageEvent<WorkerOutgoingMessage>) => {
     const msg = event.data;
+
+    // Defensive validation: ensure message has expected structure
+    if (!msg || typeof msg !== "object" || !("type" in msg)) {
+      callbacks.onError("Invalid worker message received");
+      terminate();
+      return;
+    }
+
     switch (msg.type) {
       case "simulation:progress":
         callbacks.onProgress?.(

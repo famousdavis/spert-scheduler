@@ -213,3 +213,38 @@ describe("calendar edge cases", () => {
     expect(formatDateISO(result)).toBe("2025-01-13"); // Mon Jan 13
   });
 });
+
+describe("calendar iteration limits", () => {
+  it("addWorkingDays throws on pathological calendar with all days as holidays", () => {
+    // Create a calendar where every day for 50+ years is a holiday
+    const calendar = {
+      holidays: [{ id: "h1", name: "Eternal Holiday", startDate: "2020-01-01", endDate: "2070-12-31" }],
+    };
+    expect(() => addWorkingDays(new Date(2025, 0, 1), 100, calendar)).toThrow(
+      "Calendar iteration limit exceeded"
+    );
+  });
+
+  it("subtractWorkingDays throws on pathological calendar", () => {
+    // Calendar where all past dates are holidays - force iteration limit
+    const calendar = {
+      holidays: [{ id: "h1", name: "Eternal Holiday", startDate: "1900-01-01", endDate: "2030-12-31" }],
+    };
+    expect(() => subtractWorkingDays(new Date(2025, 6, 1), 100, calendar)).toThrow(
+      "Calendar iteration limit exceeded"
+    );
+  });
+
+  it("countWorkingDays throws on extremely large date range", () => {
+    // A 50-year range would exceed 10,000 iterations
+    expect(() =>
+      countWorkingDays(new Date(2000, 0, 1), new Date(2050, 0, 1))
+    ).toThrow("Calendar iteration limit exceeded");
+  });
+
+  it("normal calendar operations stay within limits", () => {
+    // 5 years of working days should be fine (< 10,000 iterations)
+    const result = addWorkingDays(new Date(2025, 0, 1), 1000);
+    expect(result.getFullYear()).toBeGreaterThanOrEqual(2028);
+  });
+});

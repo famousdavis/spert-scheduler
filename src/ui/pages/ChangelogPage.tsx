@@ -12,6 +12,24 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.3.1",
+    date: "2026-02-03",
+    sections: [
+      {
+        title: "Security Hardening",
+        items: [
+          "React Error Boundary for graceful error recovery",
+          "Calendar iteration guards prevent infinite loops with pathological data",
+          "Web Worker message validation (defense-in-depth)",
+          "Simulation payload validation before processing",
+          "Chart data NaN/Infinity guards",
+          "Explicit source map disabling in production builds",
+          "SECURITY.md with deployment recommendations and security headers",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.3.0",
     date: "2026-02-02",
     sections: [

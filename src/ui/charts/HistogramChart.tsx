@@ -26,10 +26,18 @@ export function HistogramChart({
   percentileValue,
   activityPercentileValue,
 }: HistogramChartProps) {
-  const data = bins.map((bin) => ({
-    binMid: Number(((bin.binStart + bin.binEnd) / 2).toFixed(1)),
-    count: bin.count,
-  }));
+  // Filter out any bins with non-finite values (defensive check)
+  const data = bins
+    .filter(
+      (bin) =>
+        Number.isFinite(bin.binStart) &&
+        Number.isFinite(bin.binEnd) &&
+        Number.isFinite(bin.count)
+    )
+    .map((bin) => ({
+      binMid: Number(((bin.binStart + bin.binEnd) / 2).toFixed(1)),
+      count: bin.count,
+    }));
 
   const showBufferZone =
     activityPercentileValue !== undefined &&

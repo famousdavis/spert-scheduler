@@ -21,6 +21,7 @@ export default defineConfig({
     format: "es",
   },
   build: {
+    sourcemap: false, // Explicitly disable source maps in production
     rollupOptions: {
       output: {
         manualChunks: {
