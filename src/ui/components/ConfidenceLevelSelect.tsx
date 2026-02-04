@@ -68,10 +68,16 @@ export function ConfidenceLevelSelect({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [open]);
 
-  // Close on scroll (dropdown position would be stale)
+  // Close on scroll outside dropdown (dropdown position would be stale)
   useEffect(() => {
     if (!open) return;
-    const handleScroll = () => setOpen(false);
+    const handleScroll = (e: Event) => {
+      // Don't close if scrolling inside the dropdown
+      if (dropdownRef.current?.contains(e.target as Node)) {
+        return;
+      }
+      setOpen(false);
+    };
     window.addEventListener("scroll", handleScroll, true);
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [open]);
