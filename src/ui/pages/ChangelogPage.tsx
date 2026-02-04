@@ -12,6 +12,18 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.1",
+    date: "2026-02-03",
+    sections: [
+      {
+        title: "User Interface",
+        items: [
+          "Remove distracting up/down spinner arrows from number input fields (min, ml, max, actual)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.6.0",
     date: "2026-02-03",
     sections: [
