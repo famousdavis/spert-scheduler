@@ -43,22 +43,22 @@ export function NewScenarioDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-          <Dialog.Title className="text-lg font-semibold text-gray-900">
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+          <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Add Scenario
           </Dialog.Title>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Clone from an existing scenario with a new name.
           </p>
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Copy from
               </label>
               <select
                 value={sourceId}
                 onChange={(e) => setSourceId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
               >
                 {scenarios.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -68,14 +68,14 @@ export function NewScenarioDialog({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Scenario Name
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
                 placeholder="Optimistic timeline"
                 autoFocus
               />
@@ -84,7 +84,7 @@ export function NewScenarioDialog({
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
                 >
                   Cancel
                 </button>

@@ -115,12 +115,12 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
   return (
     <div className="space-y-4">
       {/* US Holiday presets */}
-      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
-        <span className="text-sm text-gray-700">Load US Holidays for</span>
+      <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+        <span className="text-sm text-gray-700 dark:text-gray-300">Load US Holidays for</span>
         <select
           value={presetYear}
           onChange={(e) => setPresetYear(parseInt(e.target.value, 10))}
-          className="px-2 py-1 border border-gray-300 rounded text-sm"
+          className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
         >
           {[currentYear, currentYear + 1, currentYear + 2].map((y) => (
             <option key={y} value={y}>
