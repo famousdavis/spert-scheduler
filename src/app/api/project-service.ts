@@ -15,14 +15,18 @@ import { generateId } from "./id";
 
 // -- Project CRUD ------------------------------------------------------------
 
-export function createProject(name: string, startDate?: string): Project {
+export function createProject(
+  name: string,
+  startDate?: string,
+  settingsOverrides?: Partial<ScenarioSettings>
+): Project {
   const resolvedStartDate = startDate ?? formatDateISO(new Date());
   return {
     id: generateId(),
     name,
     createdAt: new Date().toISOString(),
     schemaVersion: SCHEMA_VERSION,
-    scenarios: [createScenario(BASELINE_SCENARIO_NAME, resolvedStartDate)],
+    scenarios: [createScenario(BASELINE_SCENARIO_NAME, resolvedStartDate, settingsOverrides)],
   };
 }
 

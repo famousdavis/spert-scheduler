@@ -30,7 +30,9 @@ import {
   type LoadError,
   stripSimulationSamples,
 } from "@infrastructure/persistence/local-storage-repository";
-import { loadPreferences } from "@infrastructure/persistence/preferences-repository";
+import {
+  loadPreferences,
+} from "@infrastructure/persistence/preferences-repository";
 import { UNDO_STACK_LIMIT } from "@ui/constants";
 
 const repo = new LocalStorageRepository();
@@ -298,7 +300,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   addProject: (name: string) => {
-    const project = createProject(name);
+    const prefs = loadPreferences();
+    const project = createProject(name, undefined, {
+      trialCount: prefs.defaultTrialCount,
+      defaultDistributionType: prefs.defaultDistributionType,
+      defaultConfidenceLevel: prefs.defaultConfidenceLevel,
+      probabilityTarget: prefs.defaultActivityTarget,
+      projectProbabilityTarget: prefs.defaultProjectTarget,
+    });
     repo.save(project);
     set((state) => ({ projects: [...state.projects, project] }));
     return project;
