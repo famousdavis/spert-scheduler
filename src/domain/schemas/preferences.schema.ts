@@ -7,7 +7,7 @@ import {
 } from "../models/types";
 
 export const UserPreferencesSchema = z.object({
-  defaultTrialCount: z.number().int().min(1000).max(500000),
+  defaultTrialCount: z.number().int().min(1000).max(50000),
   defaultDistributionType: z.enum(DISTRIBUTION_TYPES),
   defaultConfidenceLevel: z.enum(RSM_LEVELS),
   defaultActivityTarget: z.number().min(0.01).max(0.99),

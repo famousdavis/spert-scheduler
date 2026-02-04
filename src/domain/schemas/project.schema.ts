@@ -58,7 +58,7 @@ export const ActivitySchema = z
 export const ScenarioSettingsSchema = z.object({
   defaultConfidenceLevel: z.enum(RSM_LEVELS),
   defaultDistributionType: z.enum(DISTRIBUTION_TYPES),
-  trialCount: z.number().int().min(1000).max(500000),
+  trialCount: z.number().int().min(1000).max(50000),
   rngSeed: z.string().min(1),
   probabilityTarget: z.number().min(0.01).max(0.99),
   projectProbabilityTarget: z.number().min(0.01).max(0.99),

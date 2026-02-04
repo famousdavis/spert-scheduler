@@ -44,10 +44,10 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
     if (
       typeof payload.trialCount !== "number" ||
       payload.trialCount < 1000 ||
-      payload.trialCount > 500000
+      payload.trialCount > 50000
     ) {
       postError(
-        "Invalid simulation payload: trialCount must be between 1000 and 500000"
+        "Invalid simulation payload: trialCount must be between 1000 and 50000"
       );
       return;
     }

@@ -213,7 +213,7 @@ export interface UserPreferences {
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
-  defaultTrialCount: 50000,
+  defaultTrialCount: 10000,
   defaultDistributionType: "normal",
   defaultConfidenceLevel: "mediumConfidence",
   defaultActivityTarget: 0.5,

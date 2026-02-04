@@ -68,7 +68,7 @@ describe("savePreferences", () => {
 
   it("round-trips through save and load", () => {
     const prefs: UserPreferences = {
-      defaultTrialCount: 100000,
+      defaultTrialCount: 25000,
       defaultDistributionType: "triangular",
       defaultConfidenceLevel: "highConfidence",
       defaultActivityTarget: 0.75,
