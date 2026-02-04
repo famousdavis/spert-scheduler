@@ -165,10 +165,24 @@ export function ScenarioSummaryCard({
 
         {/* Trials */}
         <div className="flex items-center gap-1.5">
-          <span className="text-gray-500 dark:text-gray-400 text-xs">Trials:</span>
-          <span className="font-medium dark:text-gray-100 tabular-nums">
-            {settings.trialCount.toLocaleString()}
-          </span>
+          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+            Trials:
+          </label>
+          <select
+            value={settings.trialCount}
+            onChange={(e) =>
+              onSettingsChange({
+                trialCount: parseInt(e.target.value, 10),
+              })
+            }
+            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none tabular-nums"
+          >
+            {[1000, 5000, 10000, 25000, 50000].map((n) => (
+              <option key={n} value={n}>
+                {n.toLocaleString()}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Seed */}
