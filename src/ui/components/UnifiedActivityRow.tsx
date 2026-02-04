@@ -68,7 +68,12 @@ function focusNextRow(currentRowId: string, activities: string[]) {
 function focusPrevRow(currentRowId: string, activities: string[]) {
   const idx = activities.indexOf(currentRowId);
   if (idx > 0) {
-    return focusField(activities[idx - 1]!, "max");
+    const prevRowId = activities[idx - 1]!;
+    // Try to focus "actual" first (if prev row is complete), otherwise "max"
+    if (focusField(prevRowId, "actual")) {
+      return true;
+    }
+    return focusField(prevRowId, "max");
   }
   return false;
 }
@@ -166,18 +171,24 @@ export function UnifiedActivityRow({
     [validateAndUpdate]
   );
 
+  const isComplete = activity.status === "complete";
+
   const handleTabNav = useCallback(
     (
       e: React.KeyboardEvent,
-      currentField: "name" | "min" | "ml" | "max"
+      currentField: "name" | "min" | "ml" | "max" | "actual"
     ) => {
       if (e.key !== "Tab") return;
 
-      const fieldOrder = ["name", "min", "ml", "max"];
+      // Include "actual" in field order only if activity is complete
+      const fieldOrder = isComplete
+        ? ["name", "min", "ml", "max", "actual"]
+        : ["name", "min", "ml", "max"];
       const idx = fieldOrder.indexOf(currentField);
+      const lastField = fieldOrder[fieldOrder.length - 1];
 
-      if (!e.shiftKey && currentField === "max") {
-        // Tab from Max -> next row's Name (or Add button)
+      if (!e.shiftKey && currentField === lastField) {
+        // Tab from last field -> next row's Name (or Add button)
         e.preventDefault();
         const gridEl = (e.target as HTMLElement).closest(
           "[data-activity-grid]"
@@ -191,7 +202,7 @@ export function UnifiedActivityRow({
         ];
         focusNextRow(activity.id, rowIds);
       } else if (e.shiftKey && currentField === "name") {
-        // Shift+Tab from Name -> prev row's Max
+        // Shift+Tab from Name -> prev row's last field (actual or max)
         e.preventDefault();
         const gridEl = (e.target as HTMLElement).closest(
           "[data-activity-grid]"
@@ -220,7 +231,7 @@ export function UnifiedActivityRow({
         }
       }
     },
-    [activity.id]
+    [activity.id, isComplete]
   );
 
   const recommendation = useMemo(
@@ -234,7 +245,6 @@ export function UnifiedActivityRow({
     [activity.min, activity.mostLikely, activity.max, activity.confidenceLevel]
   );
 
-  const isComplete = activity.status === "complete";
   const targetPct = Math.round(activityProbabilityTarget * 100);
 
   const hasErrors = Object.keys(errors).length > 0;
@@ -332,6 +342,7 @@ export function UnifiedActivityRow({
           data-field="min"
           type="number"
           defaultValue={activity.min}
+          onFocus={(e) => e.target.select()}
           onBlur={(e) => handleBlur("min", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "min")}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
@@ -350,6 +361,7 @@ export function UnifiedActivityRow({
           data-field="ml"
           type="number"
           defaultValue={activity.mostLikely}
+          onFocus={(e) => e.target.select()}
           onBlur={(e) => handleBlur("mostLikely", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "ml")}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
@@ -370,6 +382,7 @@ export function UnifiedActivityRow({
           data-field="max"
           type="number"
           defaultValue={activity.max}
+          onFocus={(e) => e.target.select()}
           onBlur={(e) => handleBlur("max", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "max")}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
@@ -462,19 +475,22 @@ export function UnifiedActivityRow({
       <div>
         {isComplete ? (
           <input
+            data-row-id={activity.id}
+            data-field="actual"
             type="number"
             defaultValue={activity.actualDuration ?? ""}
+            onFocus={(e) => e.target.select()}
             onBlur={(e) => {
               const val = parseInt(e.target.value, 10);
               if (!isNaN(val)) {
                 onUpdate(activity.id, { actualDuration: val });
               }
             }}
+            onKeyDown={(e) => handleTabNav(e, "actual")}
             className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm tabular-nums text-right focus:border-blue-400 focus:outline-none"
             placeholder="Act."
             min="0"
             step="1"
-            tabIndex={-1}
           />
         ) : (
           <span className="text-gray-300 dark:text-gray-600 text-xs px-1">&mdash;</span>
