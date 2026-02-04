@@ -12,6 +12,18 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.2",
+    date: "2026-02-03",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fix confidence dropdown being clipped on bottom activity rows (now renders via portal)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.6.1",
     date: "2026-02-03",
     sections: [
