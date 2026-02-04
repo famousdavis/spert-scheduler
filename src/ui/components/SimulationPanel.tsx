@@ -67,11 +67,11 @@ export function SimulationPanel({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Monte Carlo Simulation
           </h3>
           {autoRunEnabled && (
-            <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+            <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-medium">
               Auto-run
             </span>
           )}
@@ -80,7 +80,7 @@ export function SimulationPanel({
           {simulationResults && (
             <button
               onClick={handleExportCSV}
-              className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded text-sm hover:bg-gray-50"
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               Export CSV
             </button>
@@ -105,7 +105,7 @@ export function SimulationPanel({
       </div>
 
       {!hasActivities && (
-        <p className="text-gray-400 text-sm">
+        <p className="text-gray-400 dark:text-gray-500 text-sm">
           Add activities to run a simulation.
         </p>
       )}
@@ -119,14 +119,14 @@ export function SimulationPanel({
       {/* Progress */}
       {isRunning && progress && (
         <div className="space-y-1">
-          <div className="flex justify-between text-xs text-gray-500">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
             <span>Running...</span>
             <span>
               {progress.completed.toLocaleString()} /{" "}
               {progress.total.toLocaleString()}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all"
               style={{
@@ -139,7 +139,7 @@ export function SimulationPanel({
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded p-3 text-sm text-red-700 dark:text-red-400">
           Simulation failed: {error}
         </div>
       )}
@@ -149,31 +149,31 @@ export function SimulationPanel({
         <div className="space-y-6">
           {/* Summary */}
           <div className="grid grid-cols-4 gap-4">
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-500">Mean</p>
-              <p className="text-lg font-semibold tabular-nums">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Mean</p>
+              <p className="text-lg font-semibold tabular-nums dark:text-gray-100">
                 {simulationResults.mean.toFixed(1)} days
               </p>
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-500">Std Dev</p>
-              <p className="text-lg font-semibold tabular-nums">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Std Dev</p>
+              <p className="text-lg font-semibold tabular-nums dark:text-gray-100">
                 {simulationResults.standardDeviation.toFixed(1)} days
               </p>
             </div>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-xs text-green-600">P{targetPct}</p>
-              <p className="text-lg font-semibold text-green-700 tabular-nums">
+            <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
+              <p className="text-xs text-green-600 dark:text-green-400">P{targetPct}</p>
+              <p className="text-lg font-semibold text-green-700 dark:text-green-400 tabular-nums">
                 {simulationResults.percentiles[targetPct]?.toFixed(1) ?? "—"} days
               </p>
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-500">Trials</p>
-              <p className="text-lg font-semibold tabular-nums">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Trials</p>
+              <p className="text-lg font-semibold tabular-nums dark:text-gray-100">
                 {simulationResults.trialCount.toLocaleString()}
               </p>
               {elapsedMs != null && (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-400 dark:text-gray-500">
                   in {elapsedMs.toFixed(0)}ms
                 </p>
               )}
