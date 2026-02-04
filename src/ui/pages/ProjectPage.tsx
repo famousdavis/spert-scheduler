@@ -46,6 +46,7 @@ export function ProjectPage() {
     redo,
     canUndo,
     canRedo,
+    toggleScenarioLock,
   } = useProjectStore();
 
   const simulation = useSimulation();
@@ -353,6 +354,7 @@ export function ProjectPage() {
           onClone={handleCloneStart}
           onDelete={handleDeleteScenario}
           onRename={(scenarioId, name) => renameScenario(id!, scenarioId, name)}
+          onToggleLock={(scenarioId) => toggleScenarioLock(id!, scenarioId)}
           compareMode={compareMode}
           selectedForCompare={selectedForCompare}
           onToggleCompare={handleToggleCompare}
@@ -397,6 +399,8 @@ export function ProjectPage() {
             hasSimulationResults={!!scenario.simulationResults}
             onSettingsChange={handleSettingsChange}
             onNewSeed={handleNewSeed}
+            isLocked={scenario.locked}
+            onToggleLock={() => toggleScenarioLock(id!, scenario.id)}
           />
 
           {/* Validation errors */}
@@ -427,6 +431,7 @@ export function ProjectPage() {
             onBulkDelete={(activityIds) =>
               bulkDeleteActivities(id!, scenario.id, activityIds)
             }
+            isScenarioLocked={scenario.locked}
           />
 
           {/* Monte Carlo Simulation */}

@@ -12,6 +12,31 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.7.0",
+    date: "2026-02-03",
+    sections: [
+      {
+        title: "Scenario Management",
+        items: [
+          "Scenario lock/unlock feature to protect schedules from accidental edits",
+          "Lock indicator banner and disabled inputs when scenario is locked",
+          "Lock toggle accessible from scenario tabs (hover to reveal lock icon)",
+          "Lock state persisted and included in export/import",
+          "Schema version 5 with locked scenario support",
+        ],
+      },
+      {
+        title: "Code Quality",
+        items: [
+          "Refactored lock guard pattern into reusable helper function (8 instances consolidated)",
+          "Added findScenario and isLocked helper utilities for cleaner store code",
+          "Expanded test coverage: 343 automated tests across 29 test files",
+          "Migration edge case tests for v4→v5 schema upgrade",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.6.2",
     date: "2026-02-03",
     sections: [

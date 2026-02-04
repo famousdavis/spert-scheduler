@@ -65,10 +65,29 @@ function migrateV3toV4(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v4 → v5: Add locked field to scenarios.
+ * Defaults to false (unlocked) for existing scenarios.
+ */
+function migrateV4toV5(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (scenarios) {
+    for (const scenario of scenarios) {
+      if (scenario.locked === undefined) {
+        scenario.locked = false;
+      }
+    }
+  }
+  project.schemaVersion = 5;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
   3: migrateV3toV4,
+  4: migrateV4toV5,
 };
 
 /**

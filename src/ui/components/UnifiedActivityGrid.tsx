@@ -44,6 +44,7 @@ interface UnifiedActivityGridProps {
     activityIds: string[],
     scheduledDurations: Map<string, number>
   ) => void;
+  isScenarioLocked?: boolean;
 }
 
 export function UnifiedActivityGrid({
@@ -59,6 +60,7 @@ export function UnifiedActivityGrid({
   onBulkUpdate,
   onBulkDelete,
   onBulkMarkComplete,
+  isScenarioLocked,
 }: UnifiedActivityGridProps) {
   const [, setInvalidIds] = useState<Set<string>>(new Set());
   const [focusActivityId, setFocusActivityId] = useState<string | null>(null);
@@ -251,8 +253,8 @@ export function UnifiedActivityGrid({
       className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
       data-activity-grid
     >
-      {/* Bulk action toolbar */}
-      {hasSelection && (
+      {/* Bulk action toolbar - hidden when scenario is locked */}
+      {hasSelection && !isScenarioLocked && (
         <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800">
           <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
             {selectedIds.size} selected
@@ -409,6 +411,7 @@ export function UnifiedActivityGrid({
               onDelete={onDelete}
               onDuplicate={onDuplicate}
               onValidityChange={handleValidityChange}
+              isLocked={isScenarioLocked}
             />
           ))}
         </SortableContext>
@@ -456,10 +459,12 @@ export function UnifiedActivityGrid({
         <button
           data-field="add-activity"
           onClick={() => {
+            if (isScenarioLocked) return;
             pendingFocus.current = true;
             onAdd("");
           }}
-          className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          disabled={isScenarioLocked}
+          className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-600 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
         >
           + Add Activity
         </button>

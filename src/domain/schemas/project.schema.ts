@@ -103,6 +103,7 @@ export const ScenarioSchema = z.object({
   activities: z.array(ActivitySchema),
   settings: ScenarioSettingsSchema,
   simulationResults: SimulationRunSchema.optional(),
+  locked: z.boolean().optional(), // default false
 });
 
 // -- Project -----------------------------------------------------------------

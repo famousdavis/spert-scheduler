@@ -8,7 +8,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -141,6 +141,7 @@ export interface Scenario {
   activities: Activity[];
   settings: ScenarioSettings;
   simulationResults?: SimulationRun;
+  locked?: boolean; // default false - prevents modifications when true
 }
 
 export interface Project {

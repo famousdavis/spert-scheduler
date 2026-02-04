@@ -199,4 +199,118 @@ describe("applyMigrations", () => {
     // v3→v4: archived added
     expect(result.archived).toBe(false);
   });
+
+  it("migrates v4 to v5: adds locked field to scenarios", () => {
+    const v4Data = {
+      schemaVersion: 4,
+      name: "Test Project",
+      scenarios: [
+        { id: "s1", name: "Baseline", settings: {} },
+        { id: "s2", name: "Alt", settings: {} },
+      ],
+    };
+
+    const result = applyMigrations(v4Data, 4, 5) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(5);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios[0]!.locked).toBe(false);
+    expect(scenarios[1]!.locked).toBe(false);
+  });
+
+  it("v4→v5 migration does not overwrite existing locked value", () => {
+    const v4Data = {
+      schemaVersion: 4,
+      name: "Locked Project",
+      scenarios: [
+        { id: "s1", name: "Baseline", settings: {}, locked: true }, // already locked (edge case)
+      ],
+    };
+
+    const result = applyMigrations(v4Data, 4, 5) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(5);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios[0]!.locked).toBe(true); // preserved
+  });
+
+  it("applies sequential v1→v5 migrations", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      name: "Old Project",
+      scenarios: [
+        {
+          settings: {
+            probabilityTarget: 0.85,
+          },
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 5) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(5);
+
+    // v1→v2: projectProbabilityTarget added
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+    expect(settings.projectProbabilityTarget).toBe(0.95);
+
+    // v2→v3: holidays migrated
+    const cal = result.globalCalendarOverride as Record<string, unknown>;
+    const holidays = cal.holidays as Array<Record<string, unknown>>;
+    expect(holidays[0]!.startDate).toBe("2025-07-04");
+
+    // v3→v4: archived added
+    expect(result.archived).toBe(false);
+
+    // v4→v5: locked added to scenarios
+    expect(scenarios[0]!.locked).toBe(false);
+  });
+
+  it("v4→v5 migration handles missing scenarios gracefully", () => {
+    const v4Data = {
+      schemaVersion: 4,
+      name: "No Scenarios Project",
+    };
+
+    const result = applyMigrations(v4Data, 4, 5) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(5);
+    expect(result.scenarios).toBeUndefined();
+  });
+
+  it("v4→v5 migration handles empty scenarios array", () => {
+    const v4Data = {
+      schemaVersion: 4,
+      name: "Empty Scenarios",
+      scenarios: [],
+    };
+
+    const result = applyMigrations(v4Data, 4, 5) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(5);
+    expect(result.scenarios).toEqual([]);
+  });
+
+  it("v4→v5 migration handles multiple scenarios", () => {
+    const v4Data = {
+      schemaVersion: 4,
+      name: "Multi-Scenario Project",
+      scenarios: [
+        { id: "s1", name: "Baseline", settings: {} },
+        { id: "s2", name: "Optimistic", settings: {} },
+        { id: "s3", name: "Pessimistic", settings: {} },
+      ],
+    };
+
+    const result = applyMigrations(v4Data, 4, 5) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(5);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios).toHaveLength(3);
+    expect(scenarios[0]!.locked).toBe(false);
+    expect(scenarios[1]!.locked).toBe(false);
+    expect(scenarios[2]!.locked).toBe(false);
+  });
 });

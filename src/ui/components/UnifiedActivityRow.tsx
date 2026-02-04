@@ -33,6 +33,7 @@ interface UnifiedActivityRowProps {
   onDelete: (activityId: string) => void;
   onDuplicate: (activityId: string) => void;
   onValidityChange: (activityId: string, isValid: boolean) => void;
+  isLocked?: boolean;
 }
 
 type FieldErrors = Partial<Record<string, string>>;
@@ -83,6 +84,7 @@ export function UnifiedActivityRow({
   onDelete,
   onDuplicate,
   onValidityChange,
+  isLocked,
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formatDate = useDateFormat();
@@ -261,15 +263,24 @@ export function UnifiedActivityRow({
 
       {/* Grip handle */}
       <div className="flex items-center justify-center">
-        <button
-          className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab active:cursor-grabbing select-none text-base leading-none"
-          title="Drag to reorder"
-          {...attributes}
-          {...listeners}
-          tabIndex={-1}
-        >
-          &#x2261;
-        </button>
+        {isLocked ? (
+          <span
+            className="text-gray-200 dark:text-gray-700 select-none text-base leading-none cursor-not-allowed"
+            title="Scenario is locked"
+          >
+            &#x2261;
+          </span>
+        ) : (
+          <button
+            className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab active:cursor-grabbing select-none text-base leading-none"
+            title="Drag to reorder"
+            {...attributes}
+            {...listeners}
+            tabIndex={-1}
+          >
+            &#x2261;
+          </button>
+        )}
       </div>
 
       {/* Name */}
@@ -499,30 +510,38 @@ export function UnifiedActivityRow({
 
       {/* Actions: Duplicate and Delete */}
       <div className="flex items-center justify-center gap-1">
-        <button
-          onClick={() => onDuplicate(activity.id)}
-          className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm transition-colors"
-          title="Duplicate activity"
-          tabIndex={-1}
-          aria-label="Duplicate activity"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-        </button>
-        <button
-          onClick={() => {
-            if (window.confirm("Are you sure you want to delete this activity?")) {
-              onDelete(activity.id);
-            }
-          }}
-          className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 text-sm transition-colors"
-          title="Delete activity"
-          tabIndex={-1}
-          aria-label="Delete activity"
-        >
-          &#10005;
-        </button>
+        {isLocked ? (
+          <span className="text-gray-300 dark:text-gray-600 text-xs" title="Scenario is locked">
+            🔒
+          </span>
+        ) : (
+          <>
+            <button
+              onClick={() => onDuplicate(activity.id)}
+              className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm transition-colors"
+              title="Duplicate activity"
+              tabIndex={-1}
+              aria-label="Duplicate activity"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to delete this activity?")) {
+                  onDelete(activity.id);
+                }
+              }}
+              className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 text-sm transition-colors"
+              title="Delete activity"
+              tabIndex={-1}
+              aria-label="Delete activity"
+            >
+              &#10005;
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

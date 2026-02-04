@@ -21,6 +21,8 @@ interface ScenarioSummaryCardProps {
   hasSimulationResults: boolean;
   onSettingsChange: (updates: Partial<ScenarioSettings>) => void;
   onNewSeed: () => void;
+  isLocked?: boolean;
+  onToggleLock?: () => void;
 }
 
 export function ScenarioSummaryCard({
@@ -32,6 +34,8 @@ export function ScenarioSummaryCard({
   hasSimulationResults,
   onSettingsChange,
   onNewSeed,
+  isLocked,
+  onToggleLock,
 }: ScenarioSummaryCardProps) {
   const formatDate = useDateFormat();
   const actPct = Math.round(settings.probabilityTarget * 100);
@@ -51,6 +55,24 @@ export function ScenarioSummaryCard({
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+      {/* Lock indicator banner */}
+      {isLocked && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md -mt-1 mb-2">
+          <span className="text-amber-600 dark:text-amber-400 text-sm">🔒</span>
+          <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+            This scenario is locked — editing is disabled
+          </span>
+          {onToggleLock && (
+            <button
+              onClick={onToggleLock}
+              className="ml-auto text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium hover:underline"
+            >
+              Unlock
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Row 1: Dates and duration */}
       <div className="flex items-baseline gap-6 flex-wrap">
         <div>
@@ -129,7 +151,8 @@ export function ScenarioSummaryCard({
                 probabilityTarget: parseFloat(e.target.value),
               })
             }
-            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none"
+            disabled={isLocked}
+            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {ACTIVITY_PERCENTILE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -151,7 +174,8 @@ export function ScenarioSummaryCard({
                 projectProbabilityTarget: parseFloat(e.target.value),
               })
             }
-            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none"
+            disabled={isLocked}
+            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {PROJECT_PERCENTILE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -175,7 +199,8 @@ export function ScenarioSummaryCard({
                 trialCount: parseInt(e.target.value, 10),
               })
             }
-            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none tabular-nums"
+            disabled={isLocked}
+            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {[1000, 5000, 10000, 25000, 50000].map((n) => (
               <option key={n} value={n}>
@@ -206,7 +231,8 @@ export function ScenarioSummaryCard({
           </button>
           <button
             onClick={onNewSeed}
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs hover:underline"
+            disabled={isLocked}
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:no-underline"
           >
             New
           </button>

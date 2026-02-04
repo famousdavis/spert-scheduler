@@ -42,6 +42,33 @@ interface UndoEntry {
   snapshot: Project;
 }
 
+/**
+ * Helper to find a scenario within the project store.
+ * Returns undefined if project or scenario not found.
+ */
+function findScenario(
+  projects: Project[],
+  projectId: string,
+  scenarioId: string
+): Scenario | undefined {
+  return projects
+    .find((p) => p.id === projectId)
+    ?.scenarios.find((s) => s.id === scenarioId);
+}
+
+/**
+ * Check if a scenario is locked. Used as a guard before mutations.
+ * Returns true if the scenario is locked or doesn't exist.
+ */
+function isLocked(
+  projects: Project[],
+  projectId: string,
+  scenarioId: string
+): boolean {
+  const scenario = findScenario(projects, projectId, scenarioId);
+  return scenario?.locked ?? false;
+}
+
 /** Strip simulationResults to save memory in undo snapshots */
 function snapshotProject(project: Project): Project {
   return {
@@ -159,6 +186,10 @@ export interface ProjectStore {
   // Archive
   archiveProject: (id: string) => void;
   unarchiveProject: (id: string) => void;
+
+  // Scenario Lock
+  toggleScenarioLock: (projectId: string, scenarioId: string) => void;
+  isScenarioLocked: (projectId: string, scenarioId: string) => boolean;
 
   // Error recovery
   getCorruptedProjectRawData: (id: string) => string | null;
@@ -340,6 +371,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   updateScenarioSettings: (projectId, scenarioId, settings) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
@@ -357,14 +389,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   addActivity: (projectId, scenarioId, name) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
       const project = state.projects.find((p) => p.id === projectId);
       if (!project) return state;
-      const scenario = project.scenarios.find((s) => s.id === scenarioId);
-      if (!scenario) return state;
+      const scen = project.scenarios.find((s) => s.id === scenarioId);
+      if (!scen) return state;
 
-      const activity = createActivity(name, scenario.settings);
+      const activity = createActivity(name, scen.settings);
       const projects = state.projects.map((p) =>
         p.id === projectId
           ? updateScenario(p, scenarioId, (s) =>
@@ -378,13 +411,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   duplicateActivity: (projectId, scenarioId, activityId) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
       const project = state.projects.find((p) => p.id === projectId);
       if (!project) return state;
-      const scenario = project.scenarios.find((s) => s.id === scenarioId);
-      if (!scenario) return state;
-      const activity = scenario.activities.find((a) => a.id === activityId);
+      const scen = project.scenarios.find((s) => s.id === scenarioId);
+      if (!scen) return state;
+      const activity = scen.activities.find((a) => a.id === activityId);
       if (!activity) return state;
 
       // Clone the activity with a new ID and "(copy)" suffix
@@ -409,6 +443,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   deleteActivity: (projectId, scenarioId, activityId) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
@@ -424,6 +459,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   updateActivityField: (projectId, scenarioId, activityId, updates) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
@@ -439,6 +475,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   moveActivity: (projectId, scenarioId, fromIndex, toIndex) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
@@ -502,6 +539,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   bulkUpdateActivities: (projectId, scenarioId, activityIds, updates) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) => {
@@ -520,6 +558,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   bulkDeleteActivities: (projectId, scenarioId, activityIds) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) => {
@@ -584,5 +623,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       loadErrors: state.loadErrors.filter((e) => e.projectId !== id),
       loadError: state.loadErrors.filter((e) => e.projectId !== id).length > 0,
     }));
+  },
+
+  toggleScenarioLock: (projectId, scenarioId) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) => ({
+              ...s,
+              locked: !s.locked,
+            }))
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  isScenarioLocked: (projectId, scenarioId) => {
+    return isLocked(get().projects, projectId, scenarioId);
   },
 };});
