@@ -73,7 +73,7 @@ export function ScenarioTabs({
               />
             ) : (
               <span
-                className={`flex items-center gap-1 ${isBaseline ? "font-semibold" : "font-medium"}`}
+                className={isBaseline ? "font-semibold" : "font-medium"}
                 onDoubleClick={(e) => {
                   if (onRename && !isLocked) {
                     e.stopPropagation();
@@ -83,14 +83,9 @@ export function ScenarioTabs({
                 title={isLocked ? "Locked scenario (click lock to edit)" : onRename ? "Double-click to rename" : undefined}
               >
                 {scenario.name}
-                {isLocked && (
-                  <span className="text-amber-500 dark:text-amber-400 text-xs" title="Locked">
-                    🔒
-                  </span>
-                )}
               </span>
             )}
-            <div className="hidden group-hover:flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5">
               {onToggleLock && (
                 <button
                   onClick={(e) => {
@@ -104,7 +99,7 @@ export function ScenarioTabs({
                   }`}
                   title={isLocked ? "Unlock scenario" : "Lock scenario"}
                 >
-                  {isLocked ? "🔓" : "🔒"}
+                  {isLocked ? "🔒" : "🔓"}
                 </button>
               )}
               <button
