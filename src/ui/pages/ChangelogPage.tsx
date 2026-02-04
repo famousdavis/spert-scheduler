@@ -12,6 +12,21 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.0",
+    date: "2026-02-03",
+    sections: [
+      {
+        title: "Storage Optimization",
+        items: [
+          "User preference to control simulation data storage (saves ~90% space when disabled)",
+          "Storage usage display in Settings showing current localStorage consumption",
+          "Export option to include/exclude simulation results (checkbox, unchecked by default)",
+          "328 automated tests across 29 test files",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.0",
     date: "2026-02-03",
     sections: [

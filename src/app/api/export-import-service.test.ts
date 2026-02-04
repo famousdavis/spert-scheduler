@@ -212,3 +212,52 @@ describe("round-trip", () => {
     }
   });
 });
+
+describe("includeSimulationResults option", () => {
+  function makeProjectWithSimulation() {
+    const project = makeProject("With Simulation", "2025-01-01");
+    project.scenarios[0]!.simulationResults = {
+      id: "sim1",
+      timestamp: "2025-01-01T00:00:00.000Z",
+      trialCount: 1000,
+      seed: "test",
+      engineVersion: "1.0.0",
+      percentiles: { 50: 10, 95: 20 },
+      histogramBins: [],
+      mean: 10,
+      standardDeviation: 2,
+      minSample: 5,
+      maxSample: 25,
+      samples: [10, 11, 12],
+    };
+    return project;
+  }
+
+  it("strips simulation results by default", () => {
+    const project = makeProjectWithSimulation();
+    const json = serializeExport([project]);
+    const parsed = JSON.parse(json);
+
+    expect(parsed.projects[0].scenarios[0].simulationResults).toBeUndefined();
+  });
+
+  it("strips simulation results when includeSimulationResults is false", () => {
+    const project = makeProjectWithSimulation();
+    const json = serializeExport([project], { includeSimulationResults: false });
+    const parsed = JSON.parse(json);
+
+    expect(parsed.projects[0].scenarios[0].simulationResults).toBeUndefined();
+  });
+
+  it("includes simulation results when includeSimulationResults is true", () => {
+    const project = makeProjectWithSimulation();
+    const json = serializeExport([project], { includeSimulationResults: true });
+    const parsed = JSON.parse(json);
+
+    expect(parsed.projects[0].scenarios[0].simulationResults).toBeDefined();
+    expect(parsed.projects[0].scenarios[0].simulationResults.mean).toBe(10);
+    expect(parsed.projects[0].scenarios[0].simulationResults.samples).toEqual([
+      10, 11, 12,
+    ]);
+  });
+});

@@ -15,4 +15,5 @@ export const UserPreferencesSchema = z.object({
   dateFormat: z.enum(DATE_FORMATS),
   autoRunSimulation: z.boolean(),
   theme: z.enum(THEME_OPTIONS).optional(), // Optional for backward compatibility
+  storeFullSimulationData: z.boolean().optional(), // Optional for backward compatibility
 });

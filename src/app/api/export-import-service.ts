@@ -43,18 +43,39 @@ export type ImportResult = ImportValidationResult | ImportValidationError;
 export interface ExportOptions {
   includePreferences?: boolean;
   preferences?: UserPreferences;
+  /** When false, strips simulationResults from all scenarios (default: false) */
+  includeSimulationResults?: boolean;
+}
+
+/**
+ * Strip simulation results from all scenarios in a project.
+ */
+function stripSimulationResults(project: Project): Project {
+  return {
+    ...project,
+    scenarios: project.scenarios.map((scenario) => ({
+      ...scenario,
+      simulationResults: undefined,
+    })),
+  };
 }
 
 export function buildExportEnvelope(
   projects: Project[],
   options: ExportOptions = {}
 ): SpertExportEnvelope {
+  // Strip simulation results unless explicitly included
+  const processedProjects =
+    options.includeSimulationResults === true
+      ? projects
+      : projects.map(stripSimulationResults);
+
   const envelope: SpertExportEnvelope = {
     format: "spert-scheduler-export",
     appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
     schemaVersion: SCHEMA_VERSION,
-    projects,
+    projects: processedProjects,
   };
 
   if (options.includePreferences && options.preferences) {

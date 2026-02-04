@@ -37,6 +37,23 @@ export class StorageQuotaError extends Error {
 }
 
 /**
+ * Strip the samples array from simulation results to reduce storage size.
+ * Preserves percentiles, histogram, mean, SD, and other computed statistics.
+ * The samples array typically contains 50k+ numbers and constitutes ~90% of storage.
+ */
+export function stripSimulationSamples(project: Project): Project {
+  return {
+    ...project,
+    scenarios: project.scenarios.map((scenario) => ({
+      ...scenario,
+      simulationResults: scenario.simulationResults
+        ? { ...scenario.simulationResults, samples: [] }
+        : undefined,
+    })),
+  };
+}
+
+/**
  * localStorage-backed ProjectRepository with schema versioning.
  *
  * Storage scheme:

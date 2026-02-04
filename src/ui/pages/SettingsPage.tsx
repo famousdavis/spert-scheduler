@@ -64,6 +64,7 @@ interface ExportSectionProps {
 function ExportSection({ projects }: ExportSectionProps) {
   const formatDate = useDateFormat();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [includeSimulationResults, setIncludeSimulationResults] = useState(false);
 
   const toggleProject = (id: string) => {
     setSelectedIds((prev) => {
@@ -88,10 +89,10 @@ function ExportSection({ projects }: ExportSectionProps) {
   const handleExport = useCallback(() => {
     const toExport = projects.filter((p) => selectedIds.has(p.id));
     if (toExport.length === 0) return;
-    const json = serializeExport(toExport);
+    const json = serializeExport(toExport, { includeSimulationResults });
     const filename = `spert-export-${formatDateISO(new Date())}.json`;
     downloadFile(json, filename, "application/json");
-  }, [projects, selectedIds]);
+  }, [projects, selectedIds, includeSimulationResults]);
 
   return (
     <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
@@ -149,6 +150,20 @@ function ExportSection({ projects }: ExportSectionProps) {
               </label>
             ))}
           </div>
+
+          {/* Include simulation results checkbox */}
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={includeSimulationResults}
+              onChange={(e) => setIncludeSimulationResults(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            <span>Include simulation results</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              (larger file)
+            </span>
+          </label>
 
           {/* Export button */}
           <button
@@ -658,6 +673,110 @@ function PreferencesSection() {
   );
 }
 
+// -- Storage Section ---------------------------------------------------------
+
+function StorageSection() {
+  const { preferences, updatePreferences } = usePreferencesStore();
+  const [storageInfo, setStorageInfo] = useState<{
+    used: number;
+    usedFormatted: string;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      let totalSize = 0;
+      for (const key in localStorage) {
+        if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+          const value = localStorage.getItem(key);
+          if (value) {
+            // localStorage strings are UTF-16 encoded, so multiply by 2 for byte estimate
+            totalSize += value.length * 2;
+          }
+        }
+      }
+      const usedKB = totalSize / 1024;
+      const usedMB = usedKB / 1024;
+      const usedFormatted =
+        usedMB >= 1
+          ? `${usedMB.toFixed(2)} MB`
+          : `${usedKB.toFixed(1)} KB`;
+      setStorageInfo({ used: totalSize, usedFormatted });
+    } catch {
+      setStorageInfo(null);
+    }
+  }, [preferences.storeFullSimulationData]);
+
+  // Estimate percentage of 5MB limit
+  const LIMIT_BYTES = 5 * 1024 * 1024;
+  const usagePercent = storageInfo
+    ? Math.min(100, (storageInfo.used / LIMIT_BYTES) * 100)
+    : 0;
+
+  return (
+    <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+      <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+        Storage
+      </h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Manage how project data is stored locally.
+      </p>
+
+      <div className="mt-4 space-y-4">
+        {/* Storage usage display */}
+        {storageInfo && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                Current usage
+              </span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                {storageInfo.usedFormatted}{" "}
+                <span className="text-gray-400 dark:text-gray-500 font-normal">
+                  / ~5 MB limit
+                </span>
+              </span>
+            </div>
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all ${
+                  usagePercent > 80
+                    ? "bg-red-500"
+                    : usagePercent > 50
+                      ? "bg-amber-500"
+                      : "bg-blue-500"
+                }`}
+                style={{ width: `${usagePercent}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Store full simulation data toggle */}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={preferences.storeFullSimulationData ?? false}
+            onChange={(e) =>
+              updatePreferences({ storeFullSimulationData: e.target.checked })
+            }
+            className="mt-0.5 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
+          />
+          <div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Store full simulation data
+            </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              When enabled, stores all trial samples per simulation (~90% more
+              storage). Disabling saves space but prevents recalculating
+              confidence intervals after reload.
+            </p>
+          </div>
+        </label>
+      </div>
+    </section>
+  );
+}
+
 // -- Page Component ----------------------------------------------------------
 
 export function SettingsPage() {
@@ -675,6 +794,7 @@ export function SettingsPage() {
     <div className="space-y-8">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
       <PreferencesSection />
+      <StorageSection />
       <ExportSection projects={projects} />
       <ImportSection projects={projects} importProjects={importProjects} />
     </div>

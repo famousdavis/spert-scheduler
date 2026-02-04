@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { LocalStorageRepository } from "./local-storage-repository";
-import type { Project } from "@domain/models/types";
+import {
+  LocalStorageRepository,
+  stripSimulationSamples,
+} from "./local-storage-repository";
+import type { Project, SimulationRun } from "@domain/models/types";
 import { SCHEMA_VERSION } from "@domain/models/types";
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -136,5 +139,62 @@ describe("LocalStorageRepository", () => {
 
     const freshRepo = new LocalStorageRepository();
     expect(freshRepo.list()).toEqual(["p2", "p1"]);
+  });
+});
+
+describe("stripSimulationSamples", () => {
+  function makeSimulationRun(): SimulationRun {
+    return {
+      id: "sim1",
+      timestamp: "2025-01-01T00:00:00.000Z",
+      trialCount: 50000,
+      seed: "test-seed",
+      engineVersion: "1.0.0",
+      percentiles: { 5: 10, 50: 20, 95: 30 },
+      histogramBins: [{ binStart: 0, binEnd: 5, count: 100 }],
+      mean: 20,
+      standardDeviation: 5,
+      minSample: 5,
+      maxSample: 40,
+      samples: Array(1000).fill(20), // Large samples array
+    };
+  }
+
+  it("empties samples array but preserves other fields", () => {
+    const project = makeProject();
+    project.scenarios[0]!.simulationResults = makeSimulationRun();
+
+    const stripped = stripSimulationSamples(project);
+
+    expect(stripped.scenarios[0]!.simulationResults).toBeDefined();
+    expect(stripped.scenarios[0]!.simulationResults!.samples).toEqual([]);
+    expect(stripped.scenarios[0]!.simulationResults!.percentiles).toEqual({
+      5: 10,
+      50: 20,
+      95: 30,
+    });
+    expect(stripped.scenarios[0]!.simulationResults!.mean).toBe(20);
+    expect(stripped.scenarios[0]!.simulationResults!.histogramBins).toHaveLength(1);
+  });
+
+  it("handles scenarios without simulation results", () => {
+    const project = makeProject();
+    project.scenarios[0]!.simulationResults = undefined;
+
+    const stripped = stripSimulationSamples(project);
+
+    expect(stripped.scenarios[0]!.simulationResults).toBeUndefined();
+  });
+
+  it("does not mutate the original project", () => {
+    const project = makeProject();
+    project.scenarios[0]!.simulationResults = makeSimulationRun();
+    const originalLength = project.scenarios[0]!.simulationResults.samples.length;
+
+    stripSimulationSamples(project);
+
+    expect(project.scenarios[0]!.simulationResults!.samples).toHaveLength(
+      originalLength
+    );
   });
 });

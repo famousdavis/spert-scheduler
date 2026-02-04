@@ -28,7 +28,9 @@ import { generateId } from "@app/api/id";
 import {
   LocalStorageRepository,
   type LoadError,
+  stripSimulationSamples,
 } from "@infrastructure/persistence/local-storage-repository";
+import { loadPreferences } from "@infrastructure/persistence/preferences-repository";
 import { UNDO_STACK_LIMIT } from "@ui/constants";
 
 const repo = new LocalStorageRepository();
@@ -165,8 +167,13 @@ export interface ProjectStore {
 
 function persist(projects: Project[], projectId?: string) {
   if (projectId) {
-    const project = projects.find((p) => p.id === projectId);
+    let project = projects.find((p) => p.id === projectId);
     if (project) {
+      // Check if we should strip samples to save storage
+      const prefs = loadPreferences();
+      if (!prefs.storeFullSimulationData) {
+        project = stripSimulationSamples(project);
+      }
       repo.save(project);
     }
   }

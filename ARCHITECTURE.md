@@ -192,12 +192,16 @@ Two Zustand stores, separated by concern:
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
 
+### Storage Optimization
+
+The `storeFullSimulationData` preference (default: `false`) controls whether the 50k+ trial samples array is persisted. When disabled, ~90% storage is saved per simulation while preserving percentiles, histogram, and statistics. The `stripSimulationSamples()` helper in `local-storage-repository.ts` handles this.
+
 ## Testing Strategy
 
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import
-- **321 tests** across 29 test files
+- **328 tests** across 29 test files
 
 ## Performance Budget
 

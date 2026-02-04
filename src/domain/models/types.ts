@@ -208,6 +208,8 @@ export interface UserPreferences {
   dateFormat: DateFormatPreference;
   autoRunSimulation: boolean;
   theme: ThemePreference;
+  /** When false, strip samples array from simulation results to save storage (~90% reduction) */
+  storeFullSimulationData: boolean;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
@@ -219,6 +221,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   dateFormat: "MM/DD/YYYY",
   autoRunSimulation: false,
   theme: "system",
+  storeFullSimulationData: false, // Save storage by default
 };
 
 // -- RSM Descriptions (tooltips) ----------------------------------------------

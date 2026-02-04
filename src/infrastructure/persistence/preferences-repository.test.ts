@@ -76,8 +76,14 @@ describe("savePreferences", () => {
       dateFormat: "DD/MM/YYYY",
       autoRunSimulation: true,
       theme: "dark",
+      storeFullSimulationData: true,
     };
     savePreferences(prefs);
     expect(loadPreferences()).toEqual(prefs);
+  });
+
+  it("storeFullSimulationData defaults to false", () => {
+    localStorage.clear();
+    expect(loadPreferences().storeFullSimulationData).toBe(false);
   });
 });
