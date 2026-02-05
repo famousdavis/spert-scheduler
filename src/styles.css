@@ -32,23 +32,23 @@ input[type="number"] {
 
 /* Print styles */
 @media print {
-  /* Hide everything except the printable report */
-  body > *:not(.print-container),
-  nav,
+  /* Hide non-printable UI elements */
   header,
   footer,
+  nav,
   button,
   .no-print {
     display: none !important;
   }
 
-  /* Show the print report */
+  /* Show the print report overlaying all other content */
   .print-report {
     display: block !important;
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
+    z-index: 9999;
     background: white;
     color: black;
     font-size: 11pt;

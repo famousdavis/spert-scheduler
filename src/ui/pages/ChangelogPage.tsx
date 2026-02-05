@@ -22,6 +22,13 @@ const CHANGELOG: ChangelogEntry[] = [
           "Replaced lock/unlock emoji with cross-platform SVG padlock icons",
         ],
       },
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed print/PDF export rendering a blank page",
+          "Print report columns now match the web form order and include the duration column",
+        ],
+      },
     ],
   },
   {

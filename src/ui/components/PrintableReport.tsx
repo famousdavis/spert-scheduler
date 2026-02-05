@@ -147,15 +147,15 @@ export function PrintableReport({
             <tr className="border-b-2 border-gray-400 text-left">
               <th className="py-2 pr-2">#</th>
               <th className="py-2 pr-2">Name</th>
+              <th className="py-2 pr-2 text-center">Dur.</th>
+              <th className="py-2 pr-2">Start</th>
+              <th className="py-2 pr-2">Finish</th>
               <th className="py-2 pr-2 text-center">Min</th>
               <th className="py-2 pr-2 text-center">ML</th>
               <th className="py-2 pr-2 text-center">Max</th>
-              <th className="py-2 pr-2">Conf</th>
-              <th className="py-2 pr-2">Dist</th>
-              <th className="py-2 pr-2">Status</th>
-              <th className="py-2 pr-2 text-center">P{actPct}</th>
-              <th className="py-2 pr-2">Start</th>
-              <th className="py-2">Finish</th>
+              <th className="py-2 pr-2">Confidence</th>
+              <th className="py-2 pr-2">Distribution</th>
+              <th className="py-2">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -167,6 +167,15 @@ export function PrintableReport({
                 <tr key={activity.id} className="border-b border-gray-200">
                   <td className="py-1.5 pr-2 text-gray-500">{idx + 1}</td>
                   <td className="py-1.5 pr-2 font-medium">{activity.name}</td>
+                  <td className="py-1.5 pr-2 text-center tabular-nums font-medium">
+                    {scheduled ? `${Math.round(scheduled.duration)}d` : "—"}
+                  </td>
+                  <td className="py-1.5 pr-2 tabular-nums">
+                    {scheduled ? formatDate(scheduled.startDate) : "—"}
+                  </td>
+                  <td className="py-1.5 pr-2 tabular-nums">
+                    {scheduled ? formatDate(scheduled.endDate) : "—"}
+                  </td>
                   <td className="py-1.5 pr-2 text-center tabular-nums">
                     {activity.min}
                   </td>
@@ -182,17 +191,8 @@ export function PrintableReport({
                   <td className="py-1.5 pr-2 text-xs">
                     {distributionLabel(activity.distributionType)}
                   </td>
-                  <td className="py-1.5 pr-2 text-xs">
+                  <td className="py-1.5 text-xs">
                     {statusLabel(activity.status)}
-                  </td>
-                  <td className="py-1.5 pr-2 text-center tabular-nums font-medium">
-                    {scheduled?.duration.toFixed(1) ?? "—"}
-                  </td>
-                  <td className="py-1.5 pr-2 tabular-nums">
-                    {scheduled ? formatDate(scheduled.startDate) : "—"}
-                  </td>
-                  <td className="py-1.5 tabular-nums">
-                    {scheduled ? formatDate(scheduled.endDate) : "—"}
                   </td>
                 </tr>
               );
