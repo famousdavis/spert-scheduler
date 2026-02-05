@@ -203,7 +203,7 @@ export function PrintableReport({
 
       {/* Simulation Results */}
       {simulationResults && (
-        <section className="mb-3">
+        <section className="mb-3 print-section-keep">
           <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
             Monte Carlo Simulation Results
           </h2>
