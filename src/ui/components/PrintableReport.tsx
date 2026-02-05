@@ -59,7 +59,7 @@ export function PrintableReport({
       </div>
 
       {/* Summary Section */}
-      <section className="mb-3">
+      <section className="mb-3 print-section-keep">
         <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
           Project Summary
         </h2>

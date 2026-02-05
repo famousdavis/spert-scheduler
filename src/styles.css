@@ -60,8 +60,8 @@ input[type="number"] {
     margin: 1cm;
   }
 
-  /* Ensure proper page breaks */
-  section {
+  /* Keep small sections together on one page */
+  .print-section-keep {
     break-inside: avoid;
   }
 
