@@ -16,7 +16,7 @@ import { SimulationPanel } from "@ui/components/SimulationPanel";
 import { NewScenarioDialog } from "@ui/components/NewScenarioDialog";
 import { CloneScenarioDialog } from "@ui/components/CloneScenarioDialog";
 import { InlineEdit } from "@ui/components/InlineEdit";
-import { Breadcrumbs } from "@ui/components/Breadcrumbs";
+
 import { ValidationSummary } from "@ui/components/ValidationSummary";
 import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
 import { PrintableReport } from "@ui/components/PrintableReport";
@@ -293,16 +293,16 @@ export function ProjectPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with breadcrumbs and undo/redo */}
+      {/* Header with project name and actions */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Breadcrumbs
-            items={[
-              { label: "Projects", to: "/projects" },
-              { label: project.name },
-            ]}
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <InlineEdit
+            value={project.name}
+            onSave={(name) => renameProject(id!, name)}
+            className="text-2xl font-bold text-gray-900 dark:text-gray-100"
+            inputClassName="text-2xl font-bold text-gray-900 dark:text-gray-100"
           />
-        </div>
+        </h1>
         <div className="flex items-center gap-1">
           <button
             onClick={() => window.print()}
@@ -332,16 +332,6 @@ export function ProjectPage() {
             Redo
           </button>
         </div>
-      </div>
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          <InlineEdit
-            value={project.name}
-            onSave={(name) => renameProject(id!, name)}
-            className="text-2xl font-bold text-gray-900"
-            inputClassName="text-2xl font-bold text-gray-900"
-          />
-        </h1>
       </div>
 
       {/* Scenario tabs + compare toggle */}

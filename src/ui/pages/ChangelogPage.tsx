@@ -12,6 +12,19 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.7.1",
+    date: "2026-02-04",
+    sections: [
+      {
+        title: "User Interface",
+        items: [
+          "Removed breadcrumbs from project page to reduce whitespace",
+          "Replaced lock/unlock emoji with cross-platform SVG padlock icons",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.7.0",
     date: "2026-02-03",
     sections: [
