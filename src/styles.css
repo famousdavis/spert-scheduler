@@ -54,6 +54,24 @@ input[type="number"] {
     font-size: 9pt;
   }
 
+  /* Neutralize flex/grid/min-height on all ancestors of .print-report
+     so content flows naturally across printed pages.
+     Chain: body > #root > div.flex.flex-col > main.flex-1 > div.space-y-6 > .print-report */
+  body,
+  #root,
+  #root > *,
+  #root > * > main,
+  #root > * > main > * {
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    flex: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
   /* Page setup */
   @page {
     size: A4;
