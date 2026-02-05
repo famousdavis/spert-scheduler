@@ -41,18 +41,13 @@ input[type="number"] {
     display: none !important;
   }
 
-  /* Hide all content but preserve layout ancestry for print report */
-  body {
-    visibility: hidden !important;
+  /* Hide all on-screen project content; show only the print report */
+  .space-y-6 > *:not(.print-report) {
+    display: none !important;
   }
 
-  /* Show only the print report (visibility:visible on a child works even when parent is hidden) */
   .print-report {
     display: block !important;
-    visibility: visible !important;
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     background: white;
     color: black;
