@@ -77,9 +77,10 @@ All computation runs in the browser. There is no backend.
 - **Dark Mode:** System preference detection with manual toggle (light/dark/system).
 - **Sensitivity Analysis:** Ranks activities by impact on project uncertainty (variance contribution, impact score).
 - **Confidence Intervals:** Bootstrap 95% CI on percentiles with toggle in percentile table.
-- **Chart Export:** PNG export for histogram and CDF charts via html2canvas.
-- **Print Report:** Browser-based print with dedicated print-optimized layout.
+- **Chart Copy:** Copy chart images to clipboard as PNG (histogram, CDF, CDF comparison) via html2canvas, with stateful button feedback (spinner, checkmark, X).
+- **Print Report:** Browser-based print with dedicated print-optimized layout (compact single-page A4).
 - **Project Archival:** Archive/unarchive projects with filter toggle.
+- **Scenario Locking:** Lock/unlock scenarios to protect schedules from accidental edits.
 
 ## Domain Model
 
@@ -105,6 +106,7 @@ Project
         │     ├── projectProbabilityTarget (project-level, default 0.95)
         │     ├── trialCount (default 50,000)
         │     └── rngSeed
+        ├── locked?: boolean
         └── simulationResults?: SimulationRun
 
 UserPreferences (stored separately in localStorage)
@@ -112,7 +114,8 @@ UserPreferences (stored separately in localStorage)
   ├── defaultActivityTarget, defaultProjectTarget
   ├── dateFormat: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD"
   ├── autoRunSimulation: boolean
-  └── theme: "light" | "dark" | "system"
+  ├── theme: "light" | "dark" | "system"
+  └── storeFullSimulationData: boolean
 ```
 
 ## SPERT Estimation
@@ -151,7 +154,7 @@ For each non-complete activity: `duration = Math.ceil(distribution.inverseCDF(pr
 
 For each of N trials (default 50,000), sample all non-complete activities from their distributions. **Parkinson's Law clamping:** each sampled duration is floored to the deterministic duration (`max(sampled, deterministicDuration)`). Complete activities contribute their fixed `actualDuration`. Trial total = sum of all activity durations.
 
-Post-simulation: sort samples, compute percentiles (P5 through P99), histogram, mean, SD.
+Post-simulation: sort samples, compute percentiles (P5 through P99), histogram (samples > P99 excluded to remove extreme outliers), mean, SD.
 
 ### Schedule Buffer
 
@@ -188,7 +191,7 @@ Two Zustand stores, separated by concern:
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
 - User preferences: `localStorage["spert:user-preferences"]`
-- Schema versioned (`SCHEMA_VERSION = 4`) with sequential migrations (v1→v2→v3→v4)
+- Schema versioned (`SCHEMA_VERSION = 5`) with sequential migrations (v1→v2→v3→v4→v5)
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
 
@@ -201,7 +204,7 @@ The `storeFullSimulationData` preference (default: `false`) controls whether the
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import
-- **328 tests** across 29 test files
+- **343 tests** across 29 test files
 
 ## Performance Budget
 

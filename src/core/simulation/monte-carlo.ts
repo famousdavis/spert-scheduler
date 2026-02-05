@@ -6,6 +6,7 @@ import { createSeededRng } from "@infrastructure/rng";
 import {
   sortSamples,
   computeStandardPercentiles,
+  percentile as computePercentile,
   mean as computeMean,
   standardDeviation as computeSD,
   histogram,
@@ -89,6 +90,17 @@ export function computeSimulationStats(
 ): SimulationRun {
   sortSamples(samples);
 
+  // Build histogram from samples ≤ P99 to exclude extreme outliers
+  const p99 = computePercentile(samples, 0.99);
+  let p99EndIdx = samples.length;
+  for (let i = samples.length - 1; i >= 0; i--) {
+    if (samples[i]! <= p99) {
+      p99EndIdx = i + 1;
+      break;
+    }
+  }
+  const histogramSamples = samples.subarray(0, p99EndIdx);
+
   return {
     id: "", // Set by caller (service layer)
     timestamp: new Date().toISOString(),
@@ -96,7 +108,7 @@ export function computeSimulationStats(
     seed: rngSeed,
     engineVersion: ENGINE_VERSION,
     percentiles: computeStandardPercentiles(samples),
-    histogramBins: histogram(samples, 40),
+    histogramBins: histogram(histogramSamples, 40),
     mean: computeMean(samples),
     standardDeviation: computeSD(samples),
     minSample: samples[0] ?? 0,

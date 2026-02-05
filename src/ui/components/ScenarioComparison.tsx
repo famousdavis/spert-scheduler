@@ -261,7 +261,6 @@ export function ScenarioComparisonTable({
           <CDFComparisonChart
             datasets={cdfDatasets}
             probabilityTarget={probabilityTarget}
-            exportFilename="scenario-comparison-cdf"
           />
         </div>
       )}

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -10,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { HistogramBin } from "@domain/models/types";
-import { useChartExport } from "@ui/hooks/use-chart-export";
+import { CopyImageButton } from "@ui/components/CopyImageButton";
 
 interface HistogramChartProps {
   bins: HistogramBin[];
@@ -18,7 +19,6 @@ interface HistogramChartProps {
   percentileTarget: number;
   percentileValue: number;
   activityPercentileValue?: number;
-  exportFilename?: string;
 }
 
 export function HistogramChart({
@@ -27,9 +27,8 @@ export function HistogramChart({
   percentileTarget,
   percentileValue,
   activityPercentileValue,
-  exportFilename = "histogram",
 }: HistogramChartProps) {
-  const { chartRef, handleExport, isExporting } = useChartExport(exportFilename);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   // Filter out any bins with non-finite values (defensive check)
   const data = bins
@@ -48,19 +47,26 @@ export function HistogramChart({
     activityPercentileValue !== undefined &&
     activityPercentileValue < percentileValue;
 
+  // Determine x-axis range so we can detect label proximity
+  const xMin = data.length > 0 ? data[0]!.binMid : 0;
+  const xMax = data.length > 0 ? data[data.length - 1]!.binMid : 1;
+  const xRange = xMax - xMin || 1;
+
+  // When mean and percentile labels are close (<15% of range), offset them
+  const labelsTooClose = Math.abs(percentileValue - mean) / xRange < 0.15;
+  const meanIsLeft = mean <= percentileValue;
+  const meanLabelPos = labelsTooClose
+    ? meanIsLeft ? "insideTopLeft" as const : "insideTopRight" as const
+    : "top" as const;
+  const pctLabelPos = labelsTooClose
+    ? meanIsLeft ? "insideTopRight" as const : "insideTopLeft" as const
+    : "top" as const;
+
   return (
     <div className="relative">
-      <button
-        onClick={handleExport}
-        disabled={isExporting}
-        className="absolute top-0 right-0 z-10 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
-        title="Export as PNG"
-        aria-label="Export chart as PNG"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-      </button>
+      <div className="absolute top-0 right-0 z-10">
+        <CopyImageButton targetRef={chartRef} title="Copy chart as image" />
+      </div>
       <div ref={chartRef} className="bg-white dark:bg-gray-800 p-2">
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
@@ -97,8 +103,9 @@ export function HistogramChart({
               strokeDasharray="5 5"
               label={{
                 value: `Mean: ${mean.toFixed(1)}`,
-                position: "top",
-                fontSize: 11,
+                position: meanLabelPos,
+                fontSize: 10,
+                fill: "#ef4444",
               }}
             />
             <ReferenceLine
@@ -107,8 +114,9 @@ export function HistogramChart({
               strokeDasharray="5 5"
               label={{
                 value: `P${Math.round(percentileTarget * 100)}: ${percentileValue.toFixed(1)}`,
-                position: "top",
-                fontSize: 11,
+                position: pctLabelPos,
+                fontSize: 10,
+                fill: "#10b981",
               }}
             />
           </BarChart>

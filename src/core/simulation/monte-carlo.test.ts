@@ -105,17 +105,20 @@ describe("runMonteCarloSimulation", () => {
     }
   });
 
-  it("histogram bin counts sum to trial count", () => {
+  it("histogram bin counts sum to at least 99% of trial count (>P99 outliers excluded)", () => {
+    const trialCount = 5000;
     const result = runMonteCarloSimulation({
       activities: [makeActivity()],
-      trialCount: 5000,
+      trialCount,
       rngSeed: "histogram-test",
     });
     const totalCount = result.histogramBins.reduce(
       (sum, b) => sum + b.count,
       0
     );
-    expect(totalCount).toBe(5000);
+    // Bins include samples ≤ P99, so at least 99% of trials are represented
+    expect(totalCount).toBeGreaterThanOrEqual(Math.floor(trialCount * 0.99));
+    expect(totalCount).toBeLessThanOrEqual(trialCount);
   });
 
   it("records engine version and seed", () => {

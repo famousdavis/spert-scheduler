@@ -23,6 +23,16 @@ const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Charts & Visualization",
+        items: [
+          "Histogram excludes extreme outliers beyond P99 for a clearer distribution shape",
+          "Chart copy-to-clipboard replaces file download (paste directly into Word, PowerPoint, Slack, etc.)",
+          "Copy button shows stateful feedback: spinner while copying, green checkmark on success, red X on error",
+          "Histogram reference line labels auto-offset when Mean and Percentile values are close together",
+          "Reference line labels color-coded to match their lines (red for Mean, green for Percentile)",
+        ],
+      },
+      {
         title: "Bug Fixes",
         items: [
           "Fixed print/PDF export rendering a blank page",

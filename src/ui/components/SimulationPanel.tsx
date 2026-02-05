@@ -184,7 +184,10 @@ export function SimulationPanel({
           <div className="grid grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Distribution Histogram
+                Distribution Histogram{" "}
+                <span className="font-normal italic text-gray-400 dark:text-gray-500">
+                  (outlier values &gt; P99 omitted)
+                </span>
               </h4>
               <HistogramChart
                 bins={simulationResults.histogramBins}
@@ -194,7 +197,6 @@ export function SimulationPanel({
                   simulationResults.percentiles[targetPct] ?? simulationResults.mean
                 }
                 activityPercentileValue={activityPercentileValue}
-                exportFilename={`${projectName || 'project'}-${scenarioName || 'scenario'}-histogram`}
               />
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -210,7 +212,6 @@ export function SimulationPanel({
                 percentileValue={
                   simulationResults.percentiles[targetPct] ?? simulationResults.mean
                 }
-                exportFilename={`${projectName || 'project'}-${scenarioName || 'scenario'}-cdf`}
               />
             </div>
           </div>
