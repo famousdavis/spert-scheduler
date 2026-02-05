@@ -41,7 +41,13 @@ input[type="number"] {
     display: none !important;
   }
 
-  /* Show the print report overlaying all other content */
+  /* Collapse on-screen content so it doesn't add extra printed pages */
+  main {
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Show the print report as the only printed content */
   .print-report {
     display: block !important;
     position: fixed;
@@ -49,6 +55,8 @@ input[type="number"] {
     left: 0;
     width: 100%;
     z-index: 9999;
+    overflow: visible !important;
+    height: auto !important;
     background: white;
     color: black;
     font-size: 11pt;
