@@ -41,22 +41,19 @@ input[type="number"] {
     display: none !important;
   }
 
-  /* Collapse on-screen content so it doesn't add extra printed pages */
-  main {
-    height: 0 !important;
-    overflow: hidden !important;
+  /* Hide all content but preserve layout ancestry for print report */
+  body {
+    visibility: hidden !important;
   }
 
-  /* Show the print report as the only printed content */
+  /* Show only the print report (visibility:visible on a child works even when parent is hidden) */
   .print-report {
     display: block !important;
-    position: fixed;
+    visibility: visible !important;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    z-index: 9999;
-    overflow: visible !important;
-    height: auto !important;
     background: white;
     color: black;
     font-size: 11pt;
