@@ -109,15 +109,22 @@ export function AboutPage() {
         </section>
 
         <section>
+          <h2 className="text-lg font-semibold text-blue-600">
+            No Warranty Disclaimer
+          </h2>
           <p
-            className="uppercase text-gray-500"
+            className="mt-2 uppercase text-gray-500"
             style={{ fontSize: "0.7rem", lineHeight: 1.6 }}
           >
-            Disclaimer: SPERT Scheduler is provided as-is for educational and
-            professional planning purposes. The probabilistic forecasts are
-            statistical estimates based on your inputs and do not guarantee
-            actual project outcomes. Always apply professional judgment when
-            making scheduling decisions.
+            THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+            APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE
+            COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM
+            &ldquo;AS IS&rdquo; WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED
+            OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+            OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE
+            RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.
+            SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL
+            NECESSARY SERVICING, REPAIR OR CORRECTION.
           </p>
         </section>
       </div>
