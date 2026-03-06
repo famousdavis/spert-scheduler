@@ -1,5 +1,6 @@
 import type {
   Activity,
+  ActivityDependency,
   Calendar,
   DeterministicSchedule,
   ScheduledActivity,
@@ -11,6 +12,7 @@ import {
   parseDateISO,
   isWorkingDay,
 } from "@core/calendar/calendar";
+import { buildDependencyGraph, computeCriticalPathDuration } from "./dependency-graph";
 
 /**
  * Compute the deterministic duration for each non-complete activity at a given percentile.
@@ -93,5 +95,136 @@ export function computeDeterministicSchedule(
     activities: scheduledActivities,
     totalDurationDays: totalDuration,
     projectEndDate: lastActivity ? lastActivity.endDate : formatDateISO(currentDate),
+  };
+}
+
+// -- Dependency-aware scheduling ---------------------------------------------
+
+/**
+ * Compute deterministic durations as a Map (activityId → days).
+ * Used by Monte Carlo dependency simulation as Parkinson's Law floors.
+ */
+export function computeDependencyDurations(
+  activities: Activity[],
+  percentile: number
+): Map<string, number> {
+  const durations = new Map<string, number>();
+  for (const activity of activities) {
+    if (activity.status === "complete" && activity.actualDuration != null) {
+      durations.set(activity.id, activity.actualDuration);
+    } else {
+      const dist = createDistributionForActivity(activity);
+      const d = Math.max(1, Math.ceil(dist.inverseCDF(percentile)));
+      durations.set(activity.id, d);
+    }
+  }
+  return durations;
+}
+
+/**
+ * Compute a deterministic schedule using a dependency graph.
+ * Activities are scheduled based on predecessor finish dates (not array order).
+ * Activities with no predecessors start on the project start date (in parallel).
+ *
+ * @param activities - All activities in the scenario
+ * @param dependencies - Finish-to-Start dependencies with optional lag
+ * @param startDate - Project start date ("YYYY-MM-DD")
+ * @param percentile - Probability target (e.g. 0.50 for P50)
+ * @param calendar - Optional calendar with holidays
+ */
+export function computeDependencySchedule(
+  activities: Activity[],
+  dependencies: ActivityDependency[],
+  startDate: string,
+  percentile: number,
+  calendar?: Calendar
+): DeterministicSchedule {
+  const graph = buildDependencyGraph(
+    activities.map((a) => a.id),
+    dependencies
+  );
+
+  // Compute duration for each activity
+  const durationMap = computeDependencyDurations(activities, percentile);
+
+  // Activity lookup
+  const activityMap = new Map(activities.map((a) => [a.id, a]));
+
+  let projectStart = parseDateISO(startDate);
+  while (!isWorkingDay(projectStart, calendar)) {
+    projectStart.setDate(projectStart.getDate() + 1);
+  }
+
+  // Schedule each activity in topological order
+  const startDates = new Map<string, Date>();
+  const endDates = new Map<string, Date>();
+  const scheduledActivities: ScheduledActivity[] = [];
+
+  for (const id of graph.topologicalOrder) {
+    const activity = activityMap.get(id)!;
+    const duration = durationMap.get(id) ?? 1;
+    const isActual = activity.status === "complete" && activity.actualDuration != null;
+
+    const preds = graph.predecessors.get(id) ?? [];
+    let activityStart: Date;
+
+    if (preds.length === 0) {
+      // Root activity: starts at project start
+      activityStart = new Date(projectStart);
+    } else {
+      // Starts after all predecessors finish + lag
+      let latestDate = new Date(0); // epoch
+      for (const pred of preds) {
+        const predEnd = endDates.get(pred.id)!;
+        // Next working day after predecessor ends, plus lag days
+        let candidateStart = addWorkingDays(predEnd, 1 + Math.max(0, pred.lagDays), calendar);
+        // Negative lag (lead time): move start earlier
+        if (pred.lagDays < 0) {
+          candidateStart = addWorkingDays(predEnd, 1 + pred.lagDays, calendar);
+          // Don't start before project start
+          if (candidateStart < projectStart) {
+            candidateStart = new Date(projectStart);
+          }
+        }
+        if (candidateStart > latestDate) {
+          latestDate = candidateStart;
+        }
+      }
+      activityStart = latestDate;
+    }
+
+    // Ensure start is a working day
+    while (!isWorkingDay(activityStart, calendar)) {
+      activityStart.setDate(activityStart.getDate() + 1);
+    }
+
+    const activityEnd = addWorkingDays(activityStart, duration, calendar);
+
+    startDates.set(id, activityStart);
+    endDates.set(id, activityEnd);
+
+    scheduledActivities.push({
+      activityId: id,
+      name: activity.name,
+      duration,
+      startDate: formatDateISO(activityStart),
+      endDate: formatDateISO(activityEnd),
+      isActual,
+    });
+  }
+
+  // Project end is the latest end date among all activities
+  let projectEndDate = projectStart;
+  for (const endDate of endDates.values()) {
+    if (endDate > projectEndDate) projectEndDate = endDate;
+  }
+
+  // Total duration is the critical path length (consistent with Monte Carlo computation)
+  const totalDurationDays = computeCriticalPathDuration(graph, durationMap);
+
+  return {
+    activities: scheduledActivities,
+    totalDurationDays,
+    projectEndDate: formatDateISO(projectEndDate),
   };
 }

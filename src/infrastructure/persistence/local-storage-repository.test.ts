@@ -29,6 +29,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
             status: "planned",
           },
         ],
+        dependencies: [],
         settings: {
           defaultConfidenceLevel: "mediumConfidence",
           defaultDistributionType: "normal",
@@ -39,6 +40,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
           heuristicEnabled: false,
           heuristicMinPercent: 50,
           heuristicMaxPercent: 200,
+          dependencyMode: false,
         },
       },
     ],

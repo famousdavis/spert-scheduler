@@ -2,8 +2,9 @@ import type { Activity, SimulationRun } from "@domain/models/types";
 import {
   runSimulationInWorker,
   type SimulationHandle,
+  type DependencySimulationParams,
 } from "@core/simulation/worker-client";
-import { runMonteCarloSimulation } from "@core/simulation/monte-carlo";
+import { runMonteCarloSimulation, runDependencyTrials, computeSimulationStats } from "@core/simulation/monte-carlo";
 import { generateId } from "./id";
 
 export interface SimulationServiceCallbacks {
@@ -21,7 +22,8 @@ export function runSimulation(
   trialCount: number,
   rngSeed: string,
   deterministicDurations: number[] | undefined,
-  callbacks: SimulationServiceCallbacks
+  callbacks: SimulationServiceCallbacks,
+  dependencyParams?: DependencySimulationParams
 ): SimulationHandle {
   const simulationId = generateId();
 
@@ -32,17 +34,36 @@ export function runSimulation(
         callbacks.onComplete({ ...result, id: simulationId }, elapsedMs);
       },
       onError: callbacks.onError,
-    });
+    }, dependencyParams);
   } catch {
     // Worker creation failed — synchronous fallback
     try {
       const startTime = performance.now();
-      const result = runMonteCarloSimulation({
-        activities,
-        trialCount,
-        rngSeed,
-        deterministicDurations,
-      });
+      let result: SimulationRun;
+
+      if (dependencyParams?.dependencyMode) {
+        const durMap = new Map(
+          Object.entries(dependencyParams.deterministicDurationMap).map(
+            ([k, v]) => [k, v as number]
+          )
+        );
+        const samples = runDependencyTrials({
+          activities,
+          dependencies: dependencyParams.dependencies,
+          trialCount,
+          rngSeed,
+          deterministicDurationMap: durMap,
+        });
+        result = computeSimulationStats(samples, trialCount, rngSeed);
+      } else {
+        result = runMonteCarloSimulation({
+          activities,
+          trialCount,
+          rngSeed,
+          deterministicDurations,
+        });
+      }
+
       const elapsedMs = performance.now() - startTime;
       callbacks.onComplete({ ...result, id: simulationId }, elapsedMs);
     } catch (err) {

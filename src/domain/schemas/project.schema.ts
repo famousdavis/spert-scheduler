@@ -3,6 +3,7 @@ import {
   RSM_LEVELS,
   DISTRIBUTION_TYPES,
   ACTIVITY_STATUSES,
+  DEPENDENCY_TYPES,
 } from "../models/types";
 
 // -- Primitive Schemas -------------------------------------------------------
@@ -53,6 +54,15 @@ export const ActivitySchema = z
     path: ["mostLikely"],
   });
 
+// -- Activity Dependency -----------------------------------------------------
+
+export const ActivityDependencySchema = z.object({
+  fromActivityId: z.string().min(1),
+  toActivityId: z.string().min(1),
+  type: z.enum(DEPENDENCY_TYPES),
+  lagDays: z.number().int(),
+});
+
 // -- Scenario Settings -------------------------------------------------------
 
 export const ScenarioSettingsSchema = z.object({
@@ -65,6 +75,7 @@ export const ScenarioSettingsSchema = z.object({
   heuristicEnabled: z.boolean().optional(),
   heuristicMinPercent: z.number().int().min(1).max(99).optional(),
   heuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
+  dependencyMode: z.boolean().optional(),
 });
 
 // -- Histogram / CDF ---------------------------------------------------------
@@ -104,6 +115,7 @@ export const ScenarioSchema = z.object({
   name: z.string().min(1),
   startDate: ISODateString,
   activities: z.array(ActivitySchema),
+  dependencies: z.array(ActivityDependencySchema).optional(),
   settings: ScenarioSettingsSchema,
   simulationResults: SimulationRunSchema.optional(),
   locked: z.boolean().optional(), // default false

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useSimulation } from "@ui/hooks/use-simulation";
@@ -8,8 +8,9 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import type { ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
-import { computeDeterministicDurations } from "@core/schedule/deterministic";
+import { computeDeterministicDurations, computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
+import { DependencyPanel } from "@ui/components/DependencyPanel";
 import { UnifiedActivityGrid } from "@ui/components/UnifiedActivityGrid";
 import { ScenarioSummaryCard } from "@ui/components/ScenarioSummaryCard";
 import { SimulationPanel } from "@ui/components/SimulationPanel";
@@ -47,6 +48,9 @@ export function ProjectPage() {
     canUndo,
     canRedo,
     toggleScenarioLock,
+    addDependency,
+    removeDependency,
+    updateDependencyLag,
   } = useProjectStore();
 
   const simulation = useSimulation();
@@ -84,13 +88,37 @@ export function ProjectPage() {
 
   const scenario = project?.scenarios.find((s) => s.id === activeScenarioId);
 
-  // Deterministic schedule uses the activity-level probability target
-  const schedule = useSchedule(
-    scenario?.activities ?? [],
+  // Deterministic schedule — uses sequential or dependency-aware engine
+  const sequentialSchedule = useSchedule(
+    scenario?.settings.dependencyMode ? [] : (scenario?.activities ?? []),
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.probabilityTarget ?? 0.5,
     project?.globalCalendarOverride
   );
+
+  const dependencySchedule = useMemo(() => {
+    if (!scenario?.settings.dependencyMode || !scenario || scenario.activities.length === 0) return null;
+    try {
+      return computeDependencySchedule(
+        scenario.activities,
+        scenario.dependencies,
+        scenario.startDate,
+        scenario.settings.probabilityTarget,
+        project?.globalCalendarOverride
+      );
+    } catch {
+      return null;
+    }
+  }, [
+    scenario?.settings.dependencyMode,
+    scenario?.activities,
+    scenario?.dependencies,
+    scenario?.startDate,
+    scenario?.settings.probabilityTarget,
+    project?.globalCalendarOverride,
+  ]);
+
+  const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
 
   // Schedule buffer = MC percentile at project target - deterministic total
   const buffer = useScheduleBuffer(
@@ -123,19 +151,46 @@ export function ProjectPage() {
     autoRunTimerRef.current = setTimeout(() => {
       if (!id || !activitiesRef.current || activitiesRef.current.length === 0)
         return;
-      const deterministicDurations = computeDeterministicDurations(
-        activitiesRef.current,
-        scenario.settings.probabilityTarget
-      );
-      simulation.run(
-        activitiesRef.current,
-        scenario.settings.trialCount,
-        scenario.settings.rngSeed,
-        deterministicDurations,
-        (result) => {
-          setSimulationResults(id, scenario.id, result);
-        }
-      );
+
+      if (scenario.settings.dependencyMode) {
+        // Dependency-aware auto-run
+        const durationMap = computeDependencyDurations(
+          activitiesRef.current,
+          scenario.settings.probabilityTarget
+        );
+        const durMapRecord: Record<string, number> = {};
+        for (const [k, v] of durationMap) durMapRecord[k] = v;
+
+        simulation.run(
+          activitiesRef.current,
+          scenario.settings.trialCount,
+          scenario.settings.rngSeed,
+          undefined,
+          (result) => {
+            setSimulationResults(id, scenario.id, result);
+          },
+          {
+            dependencyMode: true,
+            dependencies: scenario.dependencies,
+            deterministicDurationMap: durMapRecord,
+          }
+        );
+      } else {
+        // Sequential auto-run (original behavior)
+        const deterministicDurations = computeDeterministicDurations(
+          activitiesRef.current,
+          scenario.settings.probabilityTarget
+        );
+        simulation.run(
+          activitiesRef.current,
+          scenario.settings.trialCount,
+          scenario.settings.rngSeed,
+          deterministicDurations,
+          (result) => {
+            setSimulationResults(id, scenario.id, result);
+          }
+        );
+      }
     }, 500);
 
     return () => clearTimeout(autoRunTimerRef.current);
@@ -144,6 +199,8 @@ export function ProjectPage() {
     autoRunSimulation,
     allActivitiesValid,
     scenario?.activities,
+    scenario?.dependencies,
+    scenario?.settings.dependencyMode,
     scenario?.settings.probabilityTarget,
     scenario?.settings.projectProbabilityTarget,
     scenario?.settings.trialCount,
@@ -218,20 +275,46 @@ export function ProjectPage() {
   const handleRunSimulation = useCallback(() => {
     if (!id || !scenario) return;
 
-    const deterministicDurations = computeDeterministicDurations(
-      scenario.activities,
-      scenario.settings.probabilityTarget
-    );
+    if (scenario.settings.dependencyMode) {
+      // Dependency-aware simulation
+      const durationMap = computeDependencyDurations(
+        scenario.activities,
+        scenario.settings.probabilityTarget
+      );
+      const durMapRecord: Record<string, number> = {};
+      for (const [k, v] of durationMap) durMapRecord[k] = v;
 
-    simulation.run(
-      scenario.activities,
-      scenario.settings.trialCount,
-      scenario.settings.rngSeed,
-      deterministicDurations,
-      (result) => {
-        setSimulationResults(id, scenario.id, result);
-      }
-    );
+      simulation.run(
+        scenario.activities,
+        scenario.settings.trialCount,
+        scenario.settings.rngSeed,
+        undefined, // not used in dependency mode
+        (result) => {
+          setSimulationResults(id, scenario.id, result);
+        },
+        {
+          dependencyMode: true,
+          dependencies: scenario.dependencies,
+          deterministicDurationMap: durMapRecord,
+        }
+      );
+    } else {
+      // Sequential simulation (original behavior)
+      const deterministicDurations = computeDeterministicDurations(
+        scenario.activities,
+        scenario.settings.probabilityTarget
+      );
+
+      simulation.run(
+        scenario.activities,
+        scenario.settings.trialCount,
+        scenario.settings.rngSeed,
+        deterministicDurations,
+        (result) => {
+          setSimulationResults(id, scenario.id, result);
+        }
+      );
+    }
   }, [id, scenario, simulation, setSimulationResults]);
 
   const handleSettingsChange = useCallback(
@@ -426,6 +509,24 @@ export function ProjectPage() {
             heuristicMinPercent={scenario.settings.heuristicMinPercent}
             heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
           />
+
+          {/* Dependency Panel — only shown when dependency mode is on */}
+          {scenario.settings.dependencyMode && (
+            <DependencyPanel
+              activities={scenario.activities}
+              dependencies={scenario.dependencies}
+              onAddDependency={(fromId, toId, type, lag) =>
+                addDependency(id!, scenario.id, fromId, toId, type, lag)
+              }
+              onRemoveDependency={(fromId, toId) =>
+                removeDependency(id!, scenario.id, fromId, toId)
+              }
+              onUpdateLag={(fromId, toId, lag) =>
+                updateDependencyLag(id!, scenario.id, fromId, toId, lag)
+              }
+              isLocked={scenario.locked}
+            />
+          )}
 
           {/* Monte Carlo Simulation */}
           <SimulationPanel

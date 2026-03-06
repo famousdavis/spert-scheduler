@@ -19,4 +19,5 @@ export const UserPreferencesSchema = z.object({
   defaultHeuristicEnabled: z.boolean().optional(),
   defaultHeuristicMinPercent: z.number().int().min(1).max(99).optional(),
   defaultHeuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
+  defaultDependencyMode: z.boolean().optional(),
 });

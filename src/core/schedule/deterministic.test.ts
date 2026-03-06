@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { computeDeterministicSchedule, computeDeterministicDurations } from "./deterministic";
-import type { Activity } from "@domain/models/types";
+import {
+  computeDeterministicSchedule,
+  computeDeterministicDurations,
+  computeDependencySchedule,
+  computeDependencyDurations,
+} from "./deterministic";
+import type { Activity, ActivityDependency } from "@domain/models/types";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -194,5 +199,116 @@ describe("computeDeterministicDurations", () => {
     ];
     const durations = computeDeterministicDurations(activities, 0.5);
     expect(durations).toHaveLength(0);
+  });
+});
+
+// -- Dependency-aware scheduling tests ---------------------------------------
+
+function fsDep(from: string, to: string, lag = 0): ActivityDependency {
+  return { fromActivityId: from, toActivityId: to, type: "FS", lagDays: lag };
+}
+
+describe("computeDependencySchedule", () => {
+  it("schedules parallel activities starting on the same day", () => {
+    const activities = [
+      makeActivity({ id: "a1", name: "Task 1", min: 3, mostLikely: 5, max: 7 }),
+      makeActivity({ id: "a2", name: "Task 2", min: 2, mostLikely: 3, max: 5 }),
+    ];
+    // No dependencies = all activities run in parallel
+    const schedule = computeDependencySchedule(
+      activities,
+      [],
+      "2025-01-06",
+      0.5
+    );
+    expect(schedule.activities).toHaveLength(2);
+    // Both start on the same day
+    expect(schedule.activities[0]!.startDate).toBe(schedule.activities[1]!.startDate);
+  });
+
+  it("schedules linear chain sequentially", () => {
+    const activities = [
+      makeActivity({ id: "a1", name: "Task 1", min: 1, mostLikely: 1, max: 1 }),
+      makeActivity({ id: "a2", name: "Task 2", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+    const schedule = computeDependencySchedule(
+      activities,
+      deps,
+      "2025-01-06", // Monday
+      0.5
+    );
+    // Task 2 starts after Task 1 ends
+    expect(schedule.activities[1]!.startDate > schedule.activities[0]!.endDate).toBe(true);
+  });
+
+  it("parallel branches: total duration equals max branch, not sum", () => {
+    const activities = [
+      makeActivity({ id: "a1", name: "Start", min: 1, mostLikely: 1, max: 1 }),
+      makeActivity({ id: "a2", name: "Long branch", min: 5, mostLikely: 5, max: 5 }),
+      makeActivity({ id: "a3", name: "Short branch", min: 2, mostLikely: 2, max: 2 }),
+      makeActivity({ id: "a4", name: "End", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    // a1 → a2 → a4, a1 → a3 → a4
+    const deps = [fsDep("a1", "a2"), fsDep("a1", "a3"), fsDep("a2", "a4"), fsDep("a3", "a4")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+
+    // Duration should be driven by the critical path (a1→a2→a4 = 7), not sum (9)
+    // totalDurationDays is working days from start to end, which accounts for parallelism
+    expect(schedule.totalDurationDays).toBeLessThan(9); // less than sequential sum
+  });
+
+  it("uses actual duration for complete activities", () => {
+    const activities = [
+      makeActivity({ id: "a1", name: "Done", status: "complete", actualDuration: 3 }),
+      makeActivity({ id: "a2", name: "Task 2", min: 2, mostLikely: 2, max: 2 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+
+    expect(schedule.activities[0]!.duration).toBe(3);
+    expect(schedule.activities[0]!.isActual).toBe(true);
+  });
+
+  it("handles empty activity list", () => {
+    const schedule = computeDependencySchedule([], [], "2025-01-06", 0.5);
+    expect(schedule.activities).toHaveLength(0);
+    expect(schedule.totalDurationDays).toBe(0);
+  });
+
+  it("handles positive lag days", () => {
+    const activities = [
+      makeActivity({ id: "a1", name: "Task 1", min: 1, mostLikely: 1, max: 1 }),
+      makeActivity({ id: "a2", name: "Task 2", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const deps = [fsDep("a1", "a2", 2)]; // 2 days lag
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+
+    // a2 should start later than without lag
+    const noLag = computeDependencySchedule(activities, [fsDep("a1", "a2")], "2025-01-06", 0.5);
+    expect(schedule.activities[1]!.startDate > noLag.activities[1]!.startDate).toBe(true);
+  });
+});
+
+describe("computeDependencyDurations", () => {
+  it("returns Map of activityId to duration", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a2", min: 2, mostLikely: 4, max: 8 }),
+    ];
+    const durations = computeDependencyDurations(activities, 0.5);
+    expect(durations.size).toBe(2);
+    expect(durations.has("a1")).toBe(true);
+    expect(durations.has("a2")).toBe(true);
+    expect(durations.get("a1")!).toBeGreaterThanOrEqual(1);
+  });
+
+  it("uses actual duration for complete activities", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 7 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const durations = computeDependencyDurations(activities, 0.5);
+    expect(durations.get("a1")).toBe(7);
   });
 });

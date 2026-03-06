@@ -4,6 +4,7 @@ import type {
   Scenario,
   Activity,
   Calendar,
+  DependencyType,
   ScenarioSettings,
   SimulationRun,
 } from "@domain/models/types";
@@ -22,6 +23,10 @@ import {
   setGlobalCalendar,
   renameProject as renameProjectFn,
   renameScenario as renameScenarioFn,
+  addDependency as addDependencyFn,
+  removeDependency as removeDependencyFn,
+  updateDependencyLag as updateDependencyLagFn,
+  removeActivitiesDeps,
 } from "@app/api/project-service";
 import type { CloneOptions } from "@app/api/project-service";
 import { generateId } from "@app/api/id";
@@ -189,6 +194,29 @@ export interface ProjectStore {
   archiveProject: (id: string) => void;
   unarchiveProject: (id: string) => void;
 
+  // Dependencies
+  addDependency: (
+    projectId: string,
+    scenarioId: string,
+    fromActivityId: string,
+    toActivityId: string,
+    type?: DependencyType,
+    lagDays?: number
+  ) => void;
+  removeDependency: (
+    projectId: string,
+    scenarioId: string,
+    fromActivityId: string,
+    toActivityId: string
+  ) => void;
+  updateDependencyLag: (
+    projectId: string,
+    scenarioId: string,
+    fromActivityId: string,
+    toActivityId: string,
+    lagDays: number
+  ) => void;
+
   // Scenario Lock
   toggleScenarioLock: (projectId: string, scenarioId: string) => void;
   isScenarioLocked: (projectId: string, scenarioId: string) => boolean;
@@ -310,6 +338,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       heuristicEnabled: prefs.defaultHeuristicEnabled,
       heuristicMinPercent: prefs.defaultHeuristicMinPercent,
       heuristicMaxPercent: prefs.defaultHeuristicMaxPercent,
+      dependencyMode: prefs.defaultDependencyMode,
     });
     repo.save(project);
     set((state) => ({ projects: [...state.projects, project] }));
@@ -575,11 +604,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     set((state) => {
       const projects = state.projects.map((p) => {
         if (p.id !== projectId) return p;
-        return updateScenario(p, scenarioId, (s) => ({
-          ...s,
-          activities: s.activities.filter((a) => !activityIds.includes(a.id)),
-          simulationResults: undefined,
-        }));
+        return updateScenario(p, scenarioId, (s) => {
+          const cleaned = removeActivitiesDeps(s, activityIds);
+          return {
+            ...cleaned,
+            activities: cleaned.activities.filter((a) => !activityIds.includes(a.id)),
+            simulationResults: undefined,
+          };
+        });
       });
       persist(projects, projectId);
       return { projects };
@@ -635,6 +667,54 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       loadErrors: state.loadErrors.filter((e) => e.projectId !== id),
       loadError: state.loadErrors.filter((e) => e.projectId !== id).length > 0,
     }));
+  },
+
+  addDependency: (projectId, scenarioId, fromActivityId, toActivityId, type, lagDays) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              addDependencyFn(s, fromActivityId, toActivityId, type, lagDays)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  removeDependency: (projectId, scenarioId, fromActivityId, toActivityId) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              removeDependencyFn(s, fromActivityId, toActivityId)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  updateDependencyLag: (projectId, scenarioId, fromActivityId, toActivityId, lagDays) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              updateDependencyLagFn(s, fromActivityId, toActivityId, lagDays)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
   },
 
   toggleScenarioLock: (projectId, scenarioId) => {

@@ -110,12 +110,35 @@ function migrateV5toV6(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v6 → v7: Add dependency mode and dependencies array to scenarios.
+ * Defaults to dependencyMode: false and dependencies: [].
+ */
+function migrateV6toV7(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (scenarios) {
+    for (const scenario of scenarios) {
+      if (scenario.dependencies === undefined) {
+        scenario.dependencies = [];
+      }
+      const settings = scenario.settings as Record<string, unknown> | undefined;
+      if (settings && settings.dependencyMode === undefined) {
+        settings.dependencyMode = false;
+      }
+    }
+  }
+  project.schemaVersion = 7;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
   3: migrateV3toV4,
   4: migrateV4toV5,
   5: migrateV5toV6,
+  6: migrateV6toV7,
 };
 
 /**

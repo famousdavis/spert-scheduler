@@ -408,4 +408,133 @@ describe("applyMigrations", () => {
     // v3→v4
     expect(result.archived).toBe(false);
   });
+
+  it("migrates v6 to v7: adds dependencies and dependencyMode to scenarios", () => {
+    const v6Data = {
+      schemaVersion: 6,
+      name: "Test Project",
+      scenarios: [
+        {
+          id: "s1",
+          name: "Baseline",
+          settings: {
+            probabilityTarget: 0.5,
+            projectProbabilityTarget: 0.95,
+            heuristicEnabled: false,
+            heuristicMinPercent: 50,
+            heuristicMaxPercent: 200,
+          },
+        },
+      ],
+    };
+
+    const result = applyMigrations(v6Data, 6, 7) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(7);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios[0]!.dependencies).toEqual([]);
+
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+    expect(settings.dependencyMode).toBe(false);
+  });
+
+  it("v6→v7 migration does not overwrite existing dependencies", () => {
+    const v6Data = {
+      schemaVersion: 6,
+      name: "Deps Project",
+      scenarios: [
+        {
+          id: "s1",
+          name: "Baseline",
+          dependencies: [
+            { fromActivityId: "a1", toActivityId: "a2", type: "FS", lagDays: 0 },
+          ],
+          settings: {
+            dependencyMode: true,
+          },
+        },
+      ],
+    };
+
+    const result = applyMigrations(v6Data, 6, 7) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(7);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const deps = scenarios[0]!.dependencies as Array<Record<string, unknown>>;
+    expect(deps).toHaveLength(1);
+    expect(deps[0]!.fromActivityId).toBe("a1");
+
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+    expect(settings.dependencyMode).toBe(true);
+  });
+
+  it("v6→v7 migration handles missing scenarios gracefully", () => {
+    const v6Data = {
+      schemaVersion: 6,
+      name: "No Scenarios",
+    };
+
+    const result = applyMigrations(v6Data, 6, 7) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(7);
+  });
+
+  it("v6→v7 migration handles multiple scenarios", () => {
+    const v6Data = {
+      schemaVersion: 6,
+      name: "Multi-Scenario",
+      scenarios: [
+        { id: "s1", name: "Baseline", settings: {} },
+        { id: "s2", name: "Optimistic", settings: {} },
+      ],
+    };
+
+    const result = applyMigrations(v6Data, 6, 7) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(7);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios[0]!.dependencies).toEqual([]);
+    expect(scenarios[1]!.dependencies).toEqual([]);
+
+    const s1Settings = scenarios[0]!.settings as Record<string, unknown>;
+    const s2Settings = scenarios[1]!.settings as Record<string, unknown>;
+    expect(s1Settings.dependencyMode).toBe(false);
+    expect(s2Settings.dependencyMode).toBe(false);
+  });
+
+  it("applies sequential v1→v7 migrations", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      name: "Old Project",
+      scenarios: [
+        {
+          settings: {
+            probabilityTarget: 0.85,
+          },
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 7) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(7);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+
+    // v1→v2
+    expect(settings.projectProbabilityTarget).toBe(0.95);
+    // v3→v4
+    expect(result.archived).toBe(false);
+    // v4→v5
+    expect(scenarios[0]!.locked).toBe(false);
+    // v5→v6
+    expect(settings.heuristicEnabled).toBe(false);
+    expect(settings.heuristicMinPercent).toBe(50);
+    expect(settings.heuristicMaxPercent).toBe(200);
+    // v6→v7
+    expect(scenarios[0]!.dependencies).toEqual([]);
+    expect(settings.dependencyMode).toBe(false);
+  });
 });

@@ -8,7 +8,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -43,6 +43,10 @@ export const ACTIVITY_STATUSES = [
 ] as const;
 
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
+
+export const DEPENDENCY_TYPES = ["FS"] as const;
+
+export type DependencyType = (typeof DEPENDENCY_TYPES)[number];
 
 // -- RSM Lookup Table --------------------------------------------------------
 // RSM = sqrt(k) / 10 for specific k values
@@ -99,6 +103,13 @@ export interface Activity {
   actualDuration?: number; // filled when status is "complete"
 }
 
+export interface ActivityDependency {
+  fromActivityId: string; // predecessor
+  toActivityId: string; // successor
+  type: DependencyType; // FS only for v1
+  lagDays: number; // 0 default; negative = lead time
+}
+
 export interface ScenarioSettings {
   defaultConfidenceLevel: RSMLevel;
   defaultDistributionType: DistributionType;
@@ -109,6 +120,7 @@ export interface ScenarioSettings {
   heuristicEnabled: boolean; // when true, min/max auto-calculated from ML (default false)
   heuristicMinPercent: number; // 1-99, percentage of ML for min estimate (default 50)
   heuristicMaxPercent: number; // 101-1000, percentage of ML for max estimate (default 200)
+  dependencyMode: boolean; // when true, use dependency graph instead of sequential order (default false)
 }
 
 export interface HistogramBin {
@@ -142,6 +154,7 @@ export interface Scenario {
   name: string;
   startDate: string; // "YYYY-MM-DD"
   activities: Activity[];
+  dependencies: ActivityDependency[];
   settings: ScenarioSettings;
   simulationResults?: SimulationRun;
   locked?: boolean; // default false - prevents modifications when true
@@ -186,6 +199,7 @@ export const DEFAULT_SCENARIO_SETTINGS: ScenarioSettings = {
   heuristicEnabled: false,
   heuristicMinPercent: 50, // min = ML * 50%
   heuristicMaxPercent: 200, // max = ML * 200%
+  dependencyMode: false,
 };
 
 export const STANDARD_PERCENTILES = [5, 10, 25, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 96, 97, 98, 99] as const;
@@ -220,6 +234,7 @@ export interface UserPreferences {
   defaultHeuristicEnabled: boolean;
   defaultHeuristicMinPercent: number;
   defaultHeuristicMaxPercent: number;
+  defaultDependencyMode: boolean;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
@@ -235,6 +250,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   defaultHeuristicEnabled: false,
   defaultHeuristicMinPercent: 50,
   defaultHeuristicMaxPercent: 200,
+  defaultDependencyMode: false,
 };
 
 // -- RSM Descriptions (tooltips) ----------------------------------------------

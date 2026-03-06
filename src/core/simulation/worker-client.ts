@@ -1,4 +1,4 @@
-import type { Activity, SimulationRun } from "@domain/models/types";
+import type { Activity, ActivityDependency, SimulationRun } from "@domain/models/types";
 import type {
   SimulationRequest,
   WorkerOutgoingMessage,
@@ -14,6 +14,12 @@ export interface SimulationHandle {
   cancel: () => void;
 }
 
+export interface DependencySimulationParams {
+  dependencyMode: boolean;
+  dependencies: ActivityDependency[];
+  deterministicDurationMap: Record<string, number>;
+}
+
 /**
  * Launch a Monte Carlo simulation in a Web Worker.
  * Worker is created per-run and terminated on completion/error/cancel.
@@ -23,7 +29,8 @@ export function runSimulationInWorker(
   trialCount: number,
   rngSeed: string,
   deterministicDurations: number[] | undefined,
-  callbacks: SimulationCallbacks
+  callbacks: SimulationCallbacks,
+  dependencyParams?: DependencySimulationParams
 ): SimulationHandle {
   const worker = new Worker(
     new URL("../../workers/simulation.worker.ts", import.meta.url),
@@ -74,7 +81,17 @@ export function runSimulationInWorker(
 
   const request: SimulationRequest = {
     type: "simulation:start",
-    payload: { activities, trialCount, rngSeed, deterministicDurations },
+    payload: {
+      activities,
+      trialCount,
+      rngSeed,
+      deterministicDurations,
+      ...(dependencyParams && {
+        dependencyMode: dependencyParams.dependencyMode,
+        dependencies: dependencyParams.dependencies,
+        deterministicDurationMap: dependencyParams.deterministicDurationMap,
+      }),
+    },
   };
 
   worker.postMessage(request);

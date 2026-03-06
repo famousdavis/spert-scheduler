@@ -2,7 +2,9 @@ import type {
   Project,
   Scenario,
   Activity,
+  ActivityDependency,
   Calendar,
+  DependencyType,
   ScenarioSettings,
 } from "@domain/models/types";
 import {
@@ -43,6 +45,7 @@ export function createScenario(
     name,
     startDate,
     activities: [],
+    dependencies: [],
     settings: {
       ...DEFAULT_SCENARIO_SETTINGS,
       rngSeed: generateId(), // Fresh seed per scenario
@@ -95,12 +98,22 @@ export function cloneScenario(
   newName: string,
   options: CloneOptions = {}
 ): Scenario {
-  let activities = scenario.activities.map((a) => ({
-    ...a,
-    id: generateId(),
-  }));
+  // First pass: clone all activities with new IDs, building old→new map
+  const oldToNewId = new Map<string, string>();
+  let activities = scenario.activities.map((a) => {
+    const newId = generateId();
+    oldToNewId.set(a.id, newId);
+    return { ...a, id: newId };
+  });
 
   if (options.dropCompleted) {
+    // Remove completed activities and clear their ID mappings
+    const removed = new Set(
+      activities.filter((a) => a.status === "complete").map((a) => a.id)
+    );
+    for (const [oldId, newId] of oldToNewId) {
+      if (removed.has(newId)) oldToNewId.delete(oldId);
+    }
     activities = activities
       .filter((a) => a.status !== "complete")
       .map((a) => ({
@@ -110,11 +123,24 @@ export function cloneScenario(
       }));
   }
 
+  // Filter out deps referencing removed activities (when dropCompleted is true)
+  const clonedDeps = scenario.dependencies
+    .map((dep) => ({
+      ...dep,
+      fromActivityId: oldToNewId.get(dep.fromActivityId),
+      toActivityId: oldToNewId.get(dep.toActivityId),
+    }))
+    .filter(
+      (dep): dep is typeof dep & { fromActivityId: string; toActivityId: string } =>
+        dep.fromActivityId !== undefined && dep.toActivityId !== undefined
+    );
+
   return {
     id: generateId(),
     name: newName,
     startDate: scenario.startDate,
     activities,
+    dependencies: clonedDeps,
     settings: {
       ...scenario.settings,
       rngSeed: generateId(), // New seed for clone
@@ -163,6 +189,9 @@ export function removeActivityFromScenario(
   return {
     ...scenario,
     activities: scenario.activities.filter((a) => a.id !== activityId),
+    dependencies: scenario.dependencies.filter(
+      (d) => d.fromActivityId !== activityId && d.toActivityId !== activityId
+    ),
     simulationResults: undefined, // Invalidate stale results
   };
 }
@@ -225,5 +254,70 @@ export function setGlobalCalendar(
   return {
     ...project,
     globalCalendarOverride: calendar,
+  };
+}
+
+// -- Dependencies ------------------------------------------------------------
+
+export function addDependency(
+  scenario: Scenario,
+  fromActivityId: string,
+  toActivityId: string,
+  type: DependencyType = "FS",
+  lagDays = 0
+): Scenario {
+  const dep: ActivityDependency = { fromActivityId, toActivityId, type, lagDays };
+  return {
+    ...scenario,
+    dependencies: [...scenario.dependencies, dep],
+    simulationResults: undefined,
+  };
+}
+
+export function removeDependency(
+  scenario: Scenario,
+  fromActivityId: string,
+  toActivityId: string
+): Scenario {
+  return {
+    ...scenario,
+    dependencies: scenario.dependencies.filter(
+      (d) => !(d.fromActivityId === fromActivityId && d.toActivityId === toActivityId)
+    ),
+    simulationResults: undefined,
+  };
+}
+
+export function updateDependencyLag(
+  scenario: Scenario,
+  fromActivityId: string,
+  toActivityId: string,
+  lagDays: number
+): Scenario {
+  return {
+    ...scenario,
+    dependencies: scenario.dependencies.map((d) =>
+      d.fromActivityId === fromActivityId && d.toActivityId === toActivityId
+        ? { ...d, lagDays }
+        : d
+    ),
+    simulationResults: undefined,
+  };
+}
+
+/**
+ * Remove all dependencies referencing any of the given activity IDs.
+ * Used by bulk delete.
+ */
+export function removeActivitiesDeps(
+  scenario: Scenario,
+  activityIds: string[]
+): Scenario {
+  const idSet = new Set(activityIds);
+  return {
+    ...scenario,
+    dependencies: scenario.dependencies.filter(
+      (d) => !idSet.has(d.fromActivityId) && !idSet.has(d.toActivityId)
+    ),
   };
 }

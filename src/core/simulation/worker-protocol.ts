@@ -1,4 +1,4 @@
-import type { Activity, SimulationRun } from "@domain/models/types";
+import type { Activity, ActivityDependency, SimulationRun } from "@domain/models/types";
 
 // -- Main thread --> Worker ---------------------------------------------------
 
@@ -9,6 +9,12 @@ export interface SimulationRequest {
     trialCount: number;
     rngSeed: string;
     deterministicDurations?: number[];
+    /** When true, use dependency-aware simulation. */
+    dependencyMode?: boolean;
+    /** Dependencies for dependency-aware simulation. */
+    dependencies?: ActivityDependency[];
+    /** Per-activity deterministic durations (Parkinson floors), keyed by activity ID. */
+    deterministicDurationMap?: Record<string, number>;
   };
 }
 
