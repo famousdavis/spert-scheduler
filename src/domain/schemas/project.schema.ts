@@ -62,6 +62,9 @@ export const ScenarioSettingsSchema = z.object({
   rngSeed: z.string().min(1),
   probabilityTarget: z.number().min(0.01).max(0.99),
   projectProbabilityTarget: z.number().min(0.01).max(0.99),
+  heuristicEnabled: z.boolean().optional(),
+  heuristicMinPercent: z.number().int().min(1).max(99).optional(),
+  heuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
 });
 
 // -- Histogram / CDF ---------------------------------------------------------

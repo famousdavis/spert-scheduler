@@ -12,6 +12,7 @@ import {
 } from "@domain/models/types";
 import { ActivitySchema } from "@domain/schemas/project.schema";
 import { recommendDistribution } from "@core/recommendation/recommendation";
+import { computeHeuristic } from "@core/estimation/heuristic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import {
   distributionLabel,
@@ -34,6 +35,9 @@ interface UnifiedActivityRowProps {
   onDuplicate: (activityId: string) => void;
   onValidityChange: (activityId: string, isValid: boolean) => void;
   isLocked?: boolean;
+  heuristicEnabled?: boolean;
+  heuristicMinPercent?: number;
+  heuristicMaxPercent?: number;
 }
 
 type FieldErrors = Partial<Record<string, string>>;
@@ -65,12 +69,15 @@ function focusNextRow(currentRowId: string, activities: string[]) {
   return false;
 }
 
-function focusPrevRow(currentRowId: string, activities: string[]) {
+function focusPrevRow(currentRowId: string, activities: string[], lastFieldHint?: string) {
   const idx = activities.indexOf(currentRowId);
   if (idx > 0) {
     const prevRowId = activities[idx - 1]!;
-    // Try to focus "actual" first (if prev row is complete), otherwise "max"
+    // Try to focus "actual" first (if prev row is complete), then hint, then "max"
     if (focusField(prevRowId, "actual")) {
+      return true;
+    }
+    if (lastFieldHint && focusField(prevRowId, lastFieldHint)) {
       return true;
     }
     return focusField(prevRowId, "max");
@@ -90,6 +97,9 @@ export function UnifiedActivityRow({
   onDuplicate,
   onValidityChange,
   isLocked,
+  heuristicEnabled,
+  heuristicMinPercent = 50,
+  heuristicMaxPercent = 200,
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formatDate = useDateFormat();
@@ -160,15 +170,45 @@ export function UnifiedActivityRow({
     (field: "min" | "mostLikely" | "max", rawValue: string) => {
       const num = parseFloat(rawValue);
       if (!isNaN(num)) {
-        setTouchedFields((prev) => {
-          const next = new Set(prev);
-          next.add(field);
-          validateAndUpdate(field, num, next);
-          return next;
-        });
+        // When heuristic is enabled and ML actually changed, auto-calculate min/max
+        if (heuristicEnabled && field === "mostLikely" && num !== activity.mostLikely) {
+          const { min, max } = computeHeuristic(num, heuristicMinPercent, heuristicMaxPercent);
+          setTouchedFields((prev) => {
+            const next = new Set(prev);
+            next.add("min");
+            next.add("mostLikely");
+            next.add("max");
+            return next;
+          });
+          // Update all three fields together
+          const updates = { mostLikely: num, min, max };
+          const candidate = { ...activity, ...updates };
+          const result = ActivitySchema.safeParse(candidate);
+          if (result.success) {
+            setErrors({});
+            onValidityChange(activity.id, true);
+          }
+          onUpdate(activity.id, updates);
+          // Sync min/max input elements with new values
+          const minEl = document.querySelector<HTMLInputElement>(
+            `[data-row-id="${activity.id}"][data-field="min"]`
+          );
+          const maxEl = document.querySelector<HTMLInputElement>(
+            `[data-row-id="${activity.id}"][data-field="max"]`
+          );
+          if (minEl) minEl.value = String(min);
+          if (maxEl) maxEl.value = String(max);
+        } else {
+          setTouchedFields((prev) => {
+            const next = new Set(prev);
+            next.add(field);
+            validateAndUpdate(field, num, next);
+            return next;
+          });
+        }
       }
     },
-    [validateAndUpdate]
+    [validateAndUpdate, heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, activity, onUpdate, onValidityChange]
   );
 
   const isComplete = activity.status === "complete";
@@ -176,16 +216,36 @@ export function UnifiedActivityRow({
   const handleTabNav = useCallback(
     (
       e: React.KeyboardEvent,
-      currentField: "name" | "min" | "ml" | "max" | "actual"
+      currentField: "name" | "min" | "ml" | "max" | "confidence" | "distribution" | "status" | "actual"
     ) => {
       if (e.key !== "Tab") return;
 
-      // Include "actual" in field order only if activity is complete
-      const fieldOrder = isComplete
-        ? ["name", "min", "ml", "max", "actual"]
-        : ["name", "min", "ml", "max"];
-      const idx = fieldOrder.indexOf(currentField);
+      // Build field order based on heuristic mode and completion status
+      let fieldOrder: string[];
+      if (heuristicEnabled) {
+        fieldOrder = isComplete
+          ? ["name", "ml", "confidence", "distribution", "status", "actual"]
+          : ["name", "ml", "confidence", "distribution", "status"];
+      } else {
+        fieldOrder = isComplete
+          ? ["name", "min", "ml", "max", "actual"]
+          : ["name", "min", "ml", "max"];
+      }
+      let idx = fieldOrder.indexOf(currentField);
       const lastField = fieldOrder[fieldOrder.length - 1];
+
+      // When heuristic is on and user clicked directly into min or max
+      // (not in the tab-order), navigate relative to their position in the full layout:
+      // min sits before ml, max sits after ml
+      if (heuristicEnabled && idx === -1) {
+        e.preventDefault();
+        if (currentField === "min") {
+          focusField(activity.id, e.shiftKey ? "name" : "ml");
+        } else if (currentField === "max") {
+          focusField(activity.id, e.shiftKey ? "ml" : "confidence");
+        }
+        return;
+      }
 
       if (!e.shiftKey && currentField === lastField) {
         // Tab from last field -> next row's Name (or Add button)
@@ -202,7 +262,7 @@ export function UnifiedActivityRow({
         ];
         focusNextRow(activity.id, rowIds);
       } else if (e.shiftKey && currentField === "name") {
-        // Shift+Tab from Name -> prev row's last field (actual or max)
+        // Shift+Tab from Name -> prev row's last field
         e.preventDefault();
         const gridEl = (e.target as HTMLElement).closest(
           "[data-activity-grid]"
@@ -214,7 +274,8 @@ export function UnifiedActivityRow({
         const rowIds = [
           ...new Set(rows.map((r) => r.getAttribute("data-row-id")!)),
         ];
-        focusPrevRow(activity.id, rowIds);
+        // Hint to prev row what the last tabbable field is (status for heuristic, max for normal)
+        focusPrevRow(activity.id, rowIds, heuristicEnabled ? "status" : undefined);
       } else if (!e.shiftKey) {
         // Tab forward within the row
         const nextField = fieldOrder[idx + 1];
@@ -231,7 +292,7 @@ export function UnifiedActivityRow({
         }
       }
     },
-    [activity.id, isComplete]
+    [activity.id, isComplete, heuristicEnabled]
   );
 
   const recommendation = useMemo(
@@ -401,20 +462,27 @@ export function UnifiedActivityRow({
           onChange={(level) =>
             onUpdate(activity.id, { confidenceLevel: level })
           }
+          data-row-id={activity.id}
+          data-field="confidence"
+          onKeyDown={(e) => handleTabNav(e, "confidence")}
+          tabIndex={heuristicEnabled ? 0 : -1}
         />
       </div>
 
       {/* Distribution */}
       <div className="flex items-center gap-0.5 group relative">
         <select
+          data-row-id={activity.id}
+          data-field="distribution"
           value={activity.distributionType}
           onChange={(e) =>
             onUpdate(activity.id, {
               distributionType: e.target.value as DistributionType,
             })
           }
+          onKeyDown={(e) => handleTabNav(e, "distribution")}
           className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none"
-          tabIndex={-1}
+          tabIndex={heuristicEnabled ? 0 : -1}
         >
           {DISTRIBUTION_TYPES.map((dt) => (
             <option key={dt} value={dt}>
@@ -454,14 +522,17 @@ export function UnifiedActivityRow({
       {/* Status */}
       <div>
         <select
+          data-row-id={activity.id}
+          data-field="status"
           value={activity.status}
           onChange={(e) =>
             onUpdate(activity.id, {
               status: e.target.value as Activity["status"],
             })
           }
+          onKeyDown={(e) => handleTabNav(e, "status")}
           className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none"
-          tabIndex={-1}
+          tabIndex={heuristicEnabled ? 0 : -1}
         >
           {ACTIVITY_STATUSES.map((s) => (
             <option key={s} value={s}>

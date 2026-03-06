@@ -8,7 +8,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -106,6 +106,9 @@ export interface ScenarioSettings {
   rngSeed: string; // auto-generated, user-editable
   probabilityTarget: number; // Activity-level (deterministic schedule), 0.01 - 0.99 (default 0.50)
   projectProbabilityTarget: number; // Project-level (MC percentile lookup), 0.01 - 0.99 (default 0.95)
+  heuristicEnabled: boolean; // when true, min/max auto-calculated from ML (default false)
+  heuristicMinPercent: number; // 1-99, percentage of ML for min estimate (default 50)
+  heuristicMaxPercent: number; // 101-1000, percentage of ML for max estimate (default 200)
 }
 
 export interface HistogramBin {
@@ -180,6 +183,9 @@ export const DEFAULT_SCENARIO_SETTINGS: ScenarioSettings = {
   rngSeed: "placeholder", // overridden at createScenario() time
   probabilityTarget: 0.5, // P50 per-activity (deterministic schedule)
   projectProbabilityTarget: 0.95, // P95 project-level (MC confidence)
+  heuristicEnabled: false,
+  heuristicMinPercent: 50, // min = ML * 50%
+  heuristicMaxPercent: 200, // max = ML * 200%
 };
 
 export const STANDARD_PERCENTILES = [5, 10, 25, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 96, 97, 98, 99] as const;
@@ -211,6 +217,9 @@ export interface UserPreferences {
   theme: ThemePreference;
   /** When false, strip samples array from simulation results to save storage (~90% reduction) */
   storeFullSimulationData: boolean;
+  defaultHeuristicEnabled: boolean;
+  defaultHeuristicMinPercent: number;
+  defaultHeuristicMaxPercent: number;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
@@ -223,6 +232,9 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   autoRunSimulation: false,
   theme: "system",
   storeFullSimulationData: false, // Save storage by default
+  defaultHeuristicEnabled: false,
+  defaultHeuristicMinPercent: 50,
+  defaultHeuristicMaxPercent: 200,
 };
 
 // -- RSM Descriptions (tooltips) ----------------------------------------------

@@ -11,6 +11,7 @@ import {
   BASELINE_SCENARIO_NAME,
 } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
+import { computeHeuristic } from "@core/estimation/heuristic";
 import { generateId } from "./id";
 
 // -- Project CRUD ------------------------------------------------------------
@@ -128,12 +129,16 @@ export function createActivity(
   name: string,
   settings: ScenarioSettings
 ): Activity {
+  const ml = 1;
+  const { min, max } = settings.heuristicEnabled
+    ? computeHeuristic(ml, settings.heuristicMinPercent, settings.heuristicMaxPercent)
+    : { min: 1, max: 1 };
   return {
     id: generateId(),
     name,
-    min: 1,
-    mostLikely: 1,
-    max: 1,
+    min,
+    mostLikely: ml,
+    max,
     confidenceLevel: settings.defaultConfidenceLevel,
     distributionType: settings.defaultDistributionType,
     status: "planned",

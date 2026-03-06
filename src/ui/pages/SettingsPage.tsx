@@ -651,6 +651,83 @@ function PreferencesSection() {
           </select>
         </div>
 
+        {/* Heuristic Enabled */}
+        <div className="flex items-center gap-3 sm:col-span-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Enable Heuristic by Default
+          </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={preferences.defaultHeuristicEnabled}
+            onClick={() =>
+              updatePreferences({ defaultHeuristicEnabled: !preferences.defaultHeuristicEnabled })
+            }
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
+              preferences.defaultHeuristicEnabled
+                ? "bg-blue-600"
+                : "bg-gray-300 dark:bg-gray-600"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                preferences.defaultHeuristicEnabled ? "translate-x-4" : "translate-x-0"
+              }`}
+            />
+          </button>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Auto-calculate min/max from Most Likely for new scenarios
+          </span>
+        </div>
+
+        {/* Heuristic Min % */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Default Heuristic Min %
+          </label>
+          <input
+            type="number"
+            value={preferences.defaultHeuristicMinPercent}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!isNaN(val) && val >= 1 && val <= 99) {
+                updatePreferences({ defaultHeuristicMinPercent: val });
+              }
+            }}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            min={1}
+            max={99}
+            step={1}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Min estimate as % of Most Likely (1–99)
+          </p>
+        </div>
+
+        {/* Heuristic Max % */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Default Heuristic Max %
+          </label>
+          <input
+            type="number"
+            value={preferences.defaultHeuristicMaxPercent}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!isNaN(val) && val >= 101 && val <= 1000) {
+                updatePreferences({ defaultHeuristicMaxPercent: val });
+              }
+            }}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            min={101}
+            max={1000}
+            step={1}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Max estimate as % of Most Likely (101–1000)
+          </p>
+        </div>
+
         {/* Auto-Run Simulation */}
         <div className="sm:col-span-2">
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">

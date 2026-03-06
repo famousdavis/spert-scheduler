@@ -12,6 +12,45 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.8.0",
+    date: "2026-03-06",
+    sections: [
+      {
+        title: "Heuristic Estimation",
+        items: [
+          "Heuristic toggle auto-calculates min/max from Most Likely using configurable percentages (default 50%/200%)",
+          "New activity defaults reflect heuristic when enabled (e.g., min=0.5, ML=1, max=2 for 50%/200%)",
+          "Manual overrides persist — heuristic only recalculates when Most Likely value actually changes",
+          "Min/max fields remain clickable for direct override even when heuristic is enabled",
+          "Per-scenario heuristic toggle with global default in Settings",
+          "Schema version 6 with heuristic settings (min%, max%, enabled) per scenario",
+        ],
+      },
+      {
+        title: "Keyboard Navigation",
+        items: [
+          "Heuristic tab order: Name → ML → Confidence → Distribution → Status → Add Activity (skips min/max)",
+          "Tab from min/max fields navigates logically to adjacent columns even in heuristic mode",
+          "Add Activity button shows blue focus state when tabbed to (no longer appears disabled)",
+        ],
+      },
+      {
+        title: "Confidence Dropdown",
+        items: [
+          "Type-ahead filter: start typing to narrow the confidence level list (e.g., 'L' filters to Low)",
+          "Arrow key navigation: use Up/Down to highlight options, Enter to select",
+          "Highlighted option auto-scrolls into view in the dropdown list",
+        ],
+      },
+      {
+        title: "Quality",
+        items: [
+          "356 automated tests across 30 test files",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.7.1",
     date: "2026-02-04",
     sections: [

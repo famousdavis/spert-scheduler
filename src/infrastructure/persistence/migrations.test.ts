@@ -313,4 +313,99 @@ describe("applyMigrations", () => {
     expect(scenarios[1]!.locked).toBe(false);
     expect(scenarios[2]!.locked).toBe(false);
   });
+
+  it("migrates v5 to v6: adds heuristic settings to scenario settings", () => {
+    const v5Data = {
+      schemaVersion: 5,
+      name: "Test Project",
+      scenarios: [
+        {
+          id: "s1",
+          name: "Baseline",
+          settings: {
+            probabilityTarget: 0.5,
+            projectProbabilityTarget: 0.95,
+          },
+        },
+      ],
+    };
+
+    const result = applyMigrations(v5Data, 5, 6) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(6);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+    expect(settings.heuristicEnabled).toBe(false);
+    expect(settings.heuristicMinPercent).toBe(50);
+    expect(settings.heuristicMaxPercent).toBe(200);
+  });
+
+  it("v5→v6 migration does not overwrite existing heuristic values", () => {
+    const v5Data = {
+      schemaVersion: 5,
+      name: "Custom Heuristic",
+      scenarios: [
+        {
+          id: "s1",
+          name: "Baseline",
+          settings: {
+            heuristicEnabled: true,
+            heuristicMinPercent: 25,
+            heuristicMaxPercent: 300,
+          },
+        },
+      ],
+    };
+
+    const result = applyMigrations(v5Data, 5, 6) as Record<string, unknown>;
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+    expect(settings.heuristicEnabled).toBe(true);
+    expect(settings.heuristicMinPercent).toBe(25);
+    expect(settings.heuristicMaxPercent).toBe(300);
+  });
+
+  it("v5→v6 migration handles missing scenarios gracefully", () => {
+    const v5Data = {
+      schemaVersion: 5,
+      name: "No Scenarios",
+    };
+
+    const result = applyMigrations(v5Data, 5, 6) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(6);
+  });
+
+  it("applies sequential v1→v6 migrations", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      name: "Old Project",
+      scenarios: [
+        {
+          settings: {
+            probabilityTarget: 0.85,
+          },
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 6) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(6);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+
+    // v1→v2
+    expect(settings.projectProbabilityTarget).toBe(0.95);
+    // v4→v5
+    expect(scenarios[0]!.locked).toBe(false);
+    // v5→v6
+    expect(settings.heuristicEnabled).toBe(false);
+    expect(settings.heuristicMinPercent).toBe(50);
+    expect(settings.heuristicMaxPercent).toBe(200);
+    // v3→v4
+    expect(result.archived).toBe(false);
+  });
 });
