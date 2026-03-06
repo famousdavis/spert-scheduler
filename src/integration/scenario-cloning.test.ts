@@ -3,6 +3,7 @@ import {
   createScenario,
   createActivity,
   addActivityToScenario,
+  addDependency,
   updateActivity,
   cloneScenario,
 } from "@app/api/project-service";
@@ -92,5 +93,40 @@ describe("Scenario cloning", () => {
     expect(clone.settings.defaultConfidenceLevel).toBe(
       scenario.settings.defaultConfidenceLevel
     );
+  });
+
+  it("clone remaps dependency IDs to new activity IDs", () => {
+    const { scenario, activityIds } = buildScenario();
+
+    // Add a dependency: a1 → a2
+    const withDep = addDependency(scenario, activityIds[0]!, activityIds[1]!);
+    const clone = cloneScenario(withDep, "Clone with deps");
+
+    expect(clone.dependencies).toHaveLength(1);
+    const dep = clone.dependencies[0]!;
+    // Dep should reference new IDs, not old ones
+    expect(dep.fromActivityId).not.toBe(activityIds[0]);
+    expect(dep.toActivityId).not.toBe(activityIds[1]);
+    // Dep should reference the cloned activity IDs
+    expect(dep.fromActivityId).toBe(clone.activities[0]!.id);
+    expect(dep.toActivityId).toBe(clone.activities[1]!.id);
+  });
+
+  it("clone with dropCompleted drops deps referencing removed activities", () => {
+    const { scenario, activityIds } = buildScenario();
+
+    // a1 is already complete. Add deps: a1→a2, a2→a3
+    const withDeps = addDependency(
+      addDependency(scenario, activityIds[0]!, activityIds[1]!),
+      activityIds[1]!,
+      activityIds[2]!
+    );
+
+    const clone = cloneScenario(withDeps, "Reforecast", { dropCompleted: true });
+
+    // a1 dropped → a1→a2 dep removed, only a2→a3 remains
+    expect(clone.dependencies).toHaveLength(1);
+    expect(clone.dependencies[0]!.fromActivityId).toBe(clone.activities[0]!.id);
+    expect(clone.dependencies[0]!.toActivityId).toBe(clone.activities[1]!.id);
   });
 });

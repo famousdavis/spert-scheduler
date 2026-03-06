@@ -201,6 +201,51 @@ export function PrintableReport({
         </table>
       </section>
 
+      {/* Dependencies (when dependency mode is on) */}
+      {scenario.settings.dependencyMode && scenario.dependencies.length > 0 && (
+        <section className="mb-3">
+          <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
+            Dependencies ({scenario.dependencies.length})
+          </h2>
+          <table className="w-full text-[9px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-gray-400 text-left">
+                <th className="py-1 pr-1">#</th>
+                <th className="py-1 pr-1">Predecessor</th>
+                <th className="py-1 pr-1 text-center">→</th>
+                <th className="py-1 pr-1">Successor</th>
+                <th className="py-1 pr-1 text-center">Type</th>
+                <th className="py-1">Lag (days)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenario.dependencies.map((dep, idx) => {
+                const fromName =
+                  scenario.activities.find((a) => a.id === dep.fromActivityId)
+                    ?.name ?? "Unknown";
+                const toName =
+                  scenario.activities.find((a) => a.id === dep.toActivityId)
+                    ?.name ?? "Unknown";
+                return (
+                  <tr key={idx} className="border-b border-gray-200">
+                    <td className="py-0.5 pr-1 text-gray-500">{idx + 1}</td>
+                    <td className="py-0.5 pr-1 font-medium">{fromName}</td>
+                    <td className="py-0.5 pr-1 text-center text-gray-400">→</td>
+                    <td className="py-0.5 pr-1 font-medium">{toName}</td>
+                    <td className="py-0.5 pr-1 text-center">{dep.type}</td>
+                    <td className="py-0.5 tabular-nums">
+                      {dep.lagDays !== 0
+                        ? `${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}`
+                        : "0"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       {/* Simulation Results */}
       {simulationResults && (
         <section className="mb-3 print-section-keep">

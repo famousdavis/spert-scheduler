@@ -80,6 +80,7 @@ describe("savePreferences", () => {
       defaultHeuristicEnabled: false,
       defaultHeuristicMinPercent: 50,
       defaultHeuristicMaxPercent: 200,
+      defaultDependencyMode: false,
     };
     savePreferences(prefs);
     expect(loadPreferences()).toEqual(prefs);

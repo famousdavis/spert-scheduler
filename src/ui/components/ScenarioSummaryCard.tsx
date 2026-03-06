@@ -303,6 +303,33 @@ export function ScenarioSummaryCard({
           />
           <span className="text-gray-500 dark:text-gray-400 text-xs">%</span>
         </div>
+
+        <div className="border-l border-gray-200 dark:border-gray-600 h-5" />
+
+        {/* Dependencies */}
+        <div className="flex items-center gap-1.5">
+          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+            Dependencies:
+          </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.dependencyMode}
+            onClick={() => onSettingsChange({ dependencyMode: !settings.dependencyMode })}
+            disabled={isLocked}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+              settings.dependencyMode
+                ? "bg-blue-600"
+                : "bg-gray-300 dark:bg-gray-600"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                settings.dependencyMode ? "translate-x-4" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Row 3: Schedule Buffer */}

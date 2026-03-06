@@ -1,4 +1,4 @@
-import type { Activity, SimulationRun } from "@domain/models/types";
+import type { Activity, ActivityDependency, SimulationRun } from "@domain/models/types";
 import { ENGINE_VERSION } from "@domain/models/types";
 import { createDistributionForActivity } from "@core/distributions/factory";
 import type { Distribution } from "@core/distributions/distribution";
@@ -11,6 +11,10 @@ import {
   standardDeviation as computeSD,
   histogram,
 } from "@core/analytics/analytics";
+import {
+  buildDependencyGraph,
+  computeCriticalPathDuration,
+} from "@core/schedule/dependency-graph";
 
 export interface MonteCarloInput {
   activities: Activity[];
@@ -67,6 +71,96 @@ export function runTrials(input: MonteCarloInput): Float64Array {
       totalDays += Math.max(floor, sampled);
     }
     samples[trial] = totalDays;
+
+    if (
+      shouldReportProgress &&
+      (trial + 1) % progressInterval === 0 &&
+      trial + 1 < trialCount
+    ) {
+      onProgress(trial + 1, trialCount);
+    }
+  }
+
+  return samples;
+}
+
+// -- Dependency-aware Monte Carlo --------------------------------------------
+
+export interface DependencyMonteCarloInput {
+  activities: Activity[];
+  dependencies: ActivityDependency[];
+  trialCount: number;
+  rngSeed: string;
+  /** Per-activity deterministic duration (Parkinson's Law floor), keyed by activity ID. */
+  deterministicDurationMap?: Map<string, number>;
+  /** Optional progress callback. */
+  onProgress?: (completedTrials: number, totalTrials: number) => void;
+  /** How often to report progress (default: 10000). */
+  progressInterval?: number;
+}
+
+/**
+ * Run Monte Carlo trials using a dependency graph.
+ * Per trial: sample each activity's duration, compute the critical path.
+ *
+ * Parkinson's Law: each activity's trial duration is clamped to at least
+ * its deterministic (scheduled) duration.
+ */
+export function runDependencyTrials(input: DependencyMonteCarloInput): Float64Array {
+  const {
+    activities,
+    dependencies,
+    trialCount,
+    rngSeed,
+    deterministicDurationMap,
+    onProgress,
+    progressInterval = 10000,
+  } = input;
+
+  const rng = createSeededRng(rngSeed);
+  const activityIds = activities.map((a) => a.id);
+
+  // Build graph once (reused across all trials)
+  const graph = buildDependencyGraph(activityIds, dependencies);
+
+  // Separate completed activities and build distribution list for active ones
+  const completedDurations = new Map<string, number>();
+  const activeDistributions = new Map<string, Distribution>();
+  const activeFloors = new Map<string, number>();
+
+  for (const activity of activities) {
+    if (activity.status === "complete" && activity.actualDuration != null) {
+      completedDurations.set(activity.id, activity.actualDuration);
+    } else {
+      activeDistributions.set(activity.id, createDistributionForActivity(activity));
+      activeFloors.set(
+        activity.id,
+        deterministicDurationMap?.get(activity.id) ?? 0
+      );
+    }
+  }
+
+  const samples = new Float64Array(trialCount);
+  const shouldReportProgress = onProgress && trialCount >= progressInterval;
+  const trialDurations = new Map<string, number>();
+
+  for (let trial = 0; trial < trialCount; trial++) {
+    // Build duration map for this trial
+    trialDurations.clear();
+
+    for (const id of activityIds) {
+      const completedDur = completedDurations.get(id);
+      if (completedDur !== undefined) {
+        trialDurations.set(id, completedDur);
+      } else {
+        const dist = activeDistributions.get(id)!;
+        const sampled = dist.sample(rng);
+        const floor = activeFloors.get(id) ?? 0;
+        trialDurations.set(id, Math.max(floor, sampled));
+      }
+    }
+
+    samples[trial] = computeCriticalPathDuration(graph, trialDurations);
 
     if (
       shouldReportProgress &&

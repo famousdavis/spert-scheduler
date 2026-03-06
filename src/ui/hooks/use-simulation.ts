@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { Activity, SimulationRun } from "@domain/models/types";
 import { runSimulation } from "@app/api/simulation-service";
-import type { SimulationHandle } from "@core/simulation/worker-client";
+import type { SimulationHandle, DependencySimulationParams } from "@core/simulation/worker-client";
 
 export interface SimulationState {
   isRunning: boolean;
@@ -26,7 +26,8 @@ export function useSimulation() {
       trialCount: number,
       rngSeed: string,
       deterministicDurations: number[] | undefined,
-      onComplete: (result: SimulationRun, elapsedMs: number) => void
+      onComplete: (result: SimulationRun, elapsedMs: number) => void,
+      dependencyParams?: DependencySimulationParams
     ) => {
       setState({
         isRunning: true,
@@ -61,7 +62,7 @@ export function useSimulation() {
           });
           handleRef.current = null;
         },
-      });
+      }, dependencyParams);
     },
     []
   );

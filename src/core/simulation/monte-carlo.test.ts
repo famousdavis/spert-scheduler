@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { runMonteCarloSimulation, runTrials } from "./monte-carlo";
-import type { Activity } from "@domain/models/types";
+import { runMonteCarloSimulation, runTrials, runDependencyTrials, computeSimulationStats } from "./monte-carlo";
+import type { Activity, ActivityDependency } from "@domain/models/types";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -281,5 +281,143 @@ describe("runTrials", () => {
       progressInterval: 10000,
     });
     expect(progressCalls).toHaveLength(0);
+  });
+});
+
+// -- Dependency-aware Monte Carlo tests --------------------------------------
+
+function fsDep(from: string, to: string, lag = 0): ActivityDependency {
+  return { fromActivityId: from, toActivityId: to, type: "FS", lagDays: lag };
+}
+
+describe("runDependencyTrials", () => {
+  it("is deterministic with same seed", () => {
+    const activities = [
+      makeActivity({ id: "a1", name: "Task 1" }),
+      makeActivity({ id: "a2", name: "Task 2" }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+    const input = {
+      activities,
+      dependencies: deps,
+      trialCount: 5000,
+      rngSeed: "dep-seed",
+    };
+    const s1 = runDependencyTrials(input);
+    const s2 = runDependencyTrials(input);
+    expect(Array.from(s1)).toEqual(Array.from(s2));
+  });
+
+  it("parallel activities produce shorter durations than sequential", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 5, mostLikely: 10, max: 15 }),
+      makeActivity({ id: "a2", min: 5, mostLikely: 10, max: 15 }),
+    ];
+
+    // Sequential: A1 → A2
+    const seqSamples = runDependencyTrials({
+      activities,
+      dependencies: [fsDep("a1", "a2")],
+      trialCount: 5000,
+      rngSeed: "parallel-test",
+    });
+
+    // Parallel: no deps
+    const parSamples = runDependencyTrials({
+      activities,
+      dependencies: [],
+      trialCount: 5000,
+      rngSeed: "parallel-test",
+    });
+
+    const seqStats = computeSimulationStats(seqSamples, 5000, "s");
+    const parStats = computeSimulationStats(parSamples, 5000, "s");
+
+    // Parallel mean should be significantly less than sequential
+    expect(parStats.mean).toBeLessThan(seqStats.mean);
+  });
+
+  it("applies Parkinson's Law floor per activity", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 1, mostLikely: 2, max: 3 }),
+      makeActivity({ id: "a2", min: 1, mostLikely: 2, max: 3 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+    const floorMap = new Map([["a1", 20], ["a2", 30]]);
+
+    const samples = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 1000,
+      rngSeed: "parkinson-dep",
+      deterministicDurationMap: floorMap,
+    });
+
+    // Sequential: a1 + a2, with floors 20 + 30 = 50
+    for (let i = 0; i < samples.length; i++) {
+      expect(samples[i]!).toBeGreaterThanOrEqual(50);
+    }
+  });
+
+  it("handles completed activities as fixed durations", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 10 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+
+    const samples = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 1000,
+      rngSeed: "completed-dep",
+    });
+
+    // Every trial should be at least 10 (a1) + something for a2
+    for (let i = 0; i < samples.length; i++) {
+      expect(samples[i]!).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  it("handles all-complete activities (no randomness)", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 5 }),
+      makeActivity({ id: "a2", status: "complete", actualDuration: 3 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+
+    const samples = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 100,
+      rngSeed: "all-complete-dep",
+    });
+
+    // Sequential: 5 + 3 = 8
+    for (let i = 0; i < samples.length; i++) {
+      expect(samples[i]!).toBe(8);
+    }
+  });
+
+  it("diamond graph: critical path through longest branch", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 2, mostLikely: 2, max: 2 }),
+      makeActivity({ id: "a2", min: 10, mostLikely: 10, max: 10 }),
+      makeActivity({ id: "a3", min: 3, mostLikely: 3, max: 3 }),
+      makeActivity({ id: "a4", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const deps = [fsDep("a1", "a2"), fsDep("a1", "a3"), fsDep("a2", "a4"), fsDep("a3", "a4")];
+
+    const samples = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 100,
+      rngSeed: "diamond-test",
+    });
+
+    // Critical path: a1(2) + a2(10) + a4(1) = 13
+    for (let i = 0; i < samples.length; i++) {
+      expect(samples[i]!).toBe(13);
+    }
   });
 });

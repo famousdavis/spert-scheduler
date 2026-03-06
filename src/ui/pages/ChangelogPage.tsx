@@ -12,6 +12,58 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.9.0",
+    date: "2026-03-06",
+    sections: [
+      {
+        title: "Activity Dependencies",
+        items: [
+          "Opt-in dependency mode per scenario — toggle in the Scenario Summary Card",
+          "Finish-to-Start (FS) dependencies with optional lag days (negative lag for lead time)",
+          "Dependency Panel with add form, inline lag editing, and one-click removal",
+          "Cycle prevention: the add form validates with real-time cycle detection before allowing new dependencies",
+          "Duplicate prevention: cannot add the same predecessor→successor relationship twice",
+        ],
+      },
+      {
+        title: "Dependency-Aware Scheduling",
+        items: [
+          "Topological sort (Kahn's algorithm) determines correct execution order",
+          "Critical path method computes project duration accounting for parallelism",
+          "Activities with no predecessors start in parallel on the project start date",
+          "Deterministic schedule respects dependency constraints and lag days",
+          "Monte Carlo simulation uses critical path per trial instead of flat summation",
+          "Schedule buffer formula preserved: MC percentile at project target minus critical path duration",
+        ],
+      },
+      {
+        title: "Backward Compatibility",
+        items: [
+          "Dependencies toggle defaults to OFF — existing projects behave identically",
+          "Toggling mode off preserves dependencies (not deleted), reverts to sequential schedule",
+          "Schema version 7 with automatic v6→v7 migration (adds dependencies array and mode flag)",
+          "Dependencies survive export/import and scenario cloning (IDs remapped correctly)",
+          "Deleting an activity automatically cleans up all its dependencies",
+        ],
+      },
+      {
+        title: "Settings & Printing",
+        items: [
+          "\"Enable Dependencies by Default\" preference in Settings page",
+          "Printable report includes Dependencies section when dependency mode is on",
+        ],
+      },
+      {
+        title: "Quality",
+        items: [
+          "425 automated tests across 32 test files",
+          "38 dependency graph algorithm tests including property-based tests with fast-check",
+          "9 integration tests covering full dependency lifecycle and round-trip scenarios",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.8.0",
     date: "2026-03-06",
     sections: [
