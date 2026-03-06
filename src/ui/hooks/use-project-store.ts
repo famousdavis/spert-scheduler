@@ -307,6 +307,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       defaultConfidenceLevel: prefs.defaultConfidenceLevel,
       probabilityTarget: prefs.defaultActivityTarget,
       projectProbabilityTarget: prefs.defaultProjectTarget,
+      heuristicEnabled: prefs.defaultHeuristicEnabled,
+      heuristicMinPercent: prefs.defaultHeuristicMinPercent,
+      heuristicMaxPercent: prefs.defaultHeuristicMaxPercent,
     });
     repo.save(project);
     set((state) => ({ projects: [...state.projects, project] }));

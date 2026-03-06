@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { RSMLevel } from "@domain/models/types";
 import { RSM_LEVELS, RSM_LABELS, RSM_DESCRIPTIONS } from "@domain/models/types";
@@ -6,20 +6,67 @@ import { RSM_LEVELS, RSM_LABELS, RSM_DESCRIPTIONS } from "@domain/models/types";
 interface ConfidenceLevelSelectProps {
   value: RSMLevel;
   onChange: (level: RSMLevel) => void;
+  "data-row-id"?: string;
+  "data-field"?: string;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+  tabIndex?: number;
 }
 
 export function ConfidenceLevelSelect({
   value,
   onChange,
+  "data-row-id": dataRowId,
+  "data-field": dataField,
+  onKeyDown,
+  tabIndex = -1,
 }: ConfidenceLevelSelectProps) {
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const [highlightIdx, setHighlightIdx] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const filterInputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [position, setPosition] = useState<{ top: number; left: number; openUp: boolean }>({
     top: 0,
     left: 0,
     openUp: false,
   });
+
+  // Reset filter and highlight when opening
+  useEffect(() => {
+    if (open) {
+      setFilter("");
+      setHighlightIdx(0);
+    }
+  }, [open]);
+
+  // Auto-focus the filter input when dropdown opens
+  useEffect(() => {
+    if (open && filterInputRef.current) {
+      // Small delay to ensure portal is rendered
+      requestAnimationFrame(() => filterInputRef.current?.focus());
+    }
+  }, [open]);
+
+  // Filter levels by label match
+  const filteredLevels = useMemo(() => {
+    if (!filter) return RSM_LEVELS;
+    const lower = filter.toLowerCase();
+    return RSM_LEVELS.filter((level) =>
+      RSM_LABELS[level].toLowerCase().includes(lower)
+    );
+  }, [filter]);
+
+  // Reset highlight when filter changes
+  useEffect(() => {
+    setHighlightIdx(0);
+  }, [filter]);
+
+  // Scroll highlighted option into view
+  useEffect(() => {
+    optionRefs.current[highlightIdx]?.scrollIntoView({ block: "nearest" });
+  }, [highlightIdx]);
 
   // Calculate dropdown position when opening
   useLayoutEffect(() => {
@@ -82,14 +129,44 @@ export function ConfidenceLevelSelect({
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [open]);
 
+  const selectLevel = (level: RSMLevel) => {
+    onChange(level);
+    setOpen(false);
+    // Return focus to the trigger button
+    buttonRef.current?.focus();
+  };
+
+  const handleFilterKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightIdx((prev) =>
+        prev < filteredLevels.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIdx((prev) => (prev > 0 ? prev - 1 : prev));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredLevels.length > 0) {
+        selectLevel(filteredLevels[highlightIdx] ?? filteredLevels[0]!);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      buttonRef.current?.focus();
+    }
+  };
+
   return (
     <div className="relative">
       <button
         ref={buttonRef}
         type="button"
+        data-row-id={dataRowId}
+        data-field={dataField}
         onClick={() => setOpen(!open)}
+        onKeyDown={onKeyDown}
         className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm text-left focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 dark:text-gray-100 truncate"
-        tabIndex={-1}
+        tabIndex={tabIndex}
       >
         {RSM_LABELS[value]}
       </button>
@@ -97,30 +174,58 @@ export function ConfidenceLevelSelect({
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed z-[9999] w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-72 overflow-y-auto"
+            className="fixed z-[9999] w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-72 overflow-hidden flex flex-col"
             style={{
               top: position.top,
               left: position.left,
             }}
           >
-            {RSM_LEVELS.map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => {
-                  onChange(level);
-                  setOpen(false);
-                }}
-                className={`w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${
-                  level === value ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" : "dark:text-gray-100"
-                }`}
-              >
-                <p className="text-sm font-medium">{RSM_LABELS[level]}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {RSM_DESCRIPTIONS[level]}
+            {/* Filter input */}
+            <div className="p-1.5 border-b border-gray-200 dark:border-gray-700 shrink-0">
+              <input
+                ref={filterInputRef}
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                onKeyDown={handleFilterKeyDown}
+                className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:border-blue-400 focus:outline-none placeholder-gray-400 dark:placeholder-gray-500"
+                placeholder="Type to filter…"
+              />
+            </div>
+            {/* Options list */}
+            <div className="overflow-y-auto">
+              {filteredLevels.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">
+                  No matches
                 </p>
-              </button>
-            ))}
+              ) : (
+                filteredLevels.map((level, i) => {
+                  const isHighlighted = i === highlightIdx;
+                  const isSelected = level === value;
+                  return (
+                    <button
+                      key={level}
+                      ref={(el) => { optionRefs.current[i] = el; }}
+                      type="button"
+                      onClick={() => selectLevel(level)}
+                      onMouseEnter={() => setHighlightIdx(i)}
+                      className={`w-full text-left px-3 py-2 ${
+                        isHighlighted
+                          ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                          : isSelected
+                            ? "bg-blue-50/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300"
+                            : "dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{RSM_LABELS[level]}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {RSM_DESCRIPTIONS[level]}
+                      </p>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>,
           document.body
         )}

@@ -242,6 +242,67 @@ export function ScenarioSummaryCard({
             New
           </button>
         </div>
+
+        <div className="border-l border-gray-200 dark:border-gray-600 h-5" />
+
+        {/* Heuristic */}
+        <div className="flex items-center gap-1.5">
+          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+            Heuristic:
+          </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.heuristicEnabled}
+            onClick={() => onSettingsChange({ heuristicEnabled: !settings.heuristicEnabled })}
+            disabled={isLocked}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+              settings.heuristicEnabled
+                ? "bg-blue-600"
+                : "bg-gray-300 dark:bg-gray-600"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                settings.heuristicEnabled ? "translate-x-4" : "translate-x-0"
+              }`}
+            />
+          </button>
+          <span className="text-gray-500 dark:text-gray-400 text-xs">Min</span>
+          <input
+            type="number"
+            value={settings.heuristicMinPercent}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!isNaN(val) && val >= 1 && val <= 99) {
+                onSettingsChange({ heuristicMinPercent: val });
+              }
+            }}
+            disabled={isLocked || !settings.heuristicEnabled}
+            className="w-14 px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            min={1}
+            max={99}
+            step={1}
+          />
+          <span className="text-gray-500 dark:text-gray-400 text-xs">%</span>
+          <span className="text-gray-500 dark:text-gray-400 text-xs ml-1">Max</span>
+          <input
+            type="number"
+            value={settings.heuristicMaxPercent}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!isNaN(val) && val >= 101 && val <= 1000) {
+                onSettingsChange({ heuristicMaxPercent: val });
+              }
+            }}
+            disabled={isLocked || !settings.heuristicEnabled}
+            className="w-16 px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            min={101}
+            max={1000}
+            step={1}
+          />
+          <span className="text-gray-500 dark:text-gray-400 text-xs">%</span>
+        </div>
       </div>
 
       {/* Row 3: Schedule Buffer */}

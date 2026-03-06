@@ -77,6 +77,9 @@ describe("savePreferences", () => {
       autoRunSimulation: true,
       theme: "dark",
       storeFullSimulationData: true,
+      defaultHeuristicEnabled: false,
+      defaultHeuristicMinPercent: 50,
+      defaultHeuristicMaxPercent: 200,
     };
     savePreferences(prefs);
     expect(loadPreferences()).toEqual(prefs);

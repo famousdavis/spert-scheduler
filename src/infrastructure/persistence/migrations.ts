@@ -83,11 +83,39 @@ function migrateV4toV5(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v5 → v6: Add heuristic estimate settings to scenario settings.
+ * Defaults to 50% for min and 200% for max.
+ */
+function migrateV5toV6(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (scenarios) {
+    for (const scenario of scenarios) {
+      const settings = scenario.settings as Record<string, unknown> | undefined;
+      if (settings) {
+        if (settings.heuristicEnabled === undefined) {
+          settings.heuristicEnabled = false;
+        }
+        if (settings.heuristicMinPercent === undefined) {
+          settings.heuristicMinPercent = 50;
+        }
+        if (settings.heuristicMaxPercent === undefined) {
+          settings.heuristicMaxPercent = 200;
+        }
+      }
+    }
+  }
+  project.schemaVersion = 6;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
   3: migrateV3toV4,
   4: migrateV4toV5,
+  5: migrateV5toV6,
 };
 
 /**

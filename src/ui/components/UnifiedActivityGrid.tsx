@@ -45,6 +45,9 @@ interface UnifiedActivityGridProps {
     scheduledDurations: Map<string, number>
   ) => void;
   isScenarioLocked?: boolean;
+  heuristicEnabled?: boolean;
+  heuristicMinPercent?: number;
+  heuristicMaxPercent?: number;
 }
 
 export function UnifiedActivityGrid({
@@ -61,6 +64,9 @@ export function UnifiedActivityGrid({
   onBulkDelete,
   onBulkMarkComplete,
   isScenarioLocked,
+  heuristicEnabled,
+  heuristicMinPercent,
+  heuristicMaxPercent,
 }: UnifiedActivityGridProps) {
   const [, setInvalidIds] = useState<Set<string>>(new Set());
   const [focusActivityId, setFocusActivityId] = useState<string | null>(null);
@@ -412,6 +418,9 @@ export function UnifiedActivityGrid({
               onDuplicate={onDuplicate}
               onValidityChange={handleValidityChange}
               isLocked={isScenarioLocked}
+              heuristicEnabled={heuristicEnabled}
+              heuristicMinPercent={heuristicMinPercent}
+              heuristicMaxPercent={heuristicMaxPercent}
             />
           ))}
         </SortableContext>
@@ -464,7 +473,7 @@ export function UnifiedActivityGrid({
             onAdd("");
           }}
           disabled={isScenarioLocked}
-          className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-600 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
+          className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-600 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
         >
           + Add Activity
         </button>

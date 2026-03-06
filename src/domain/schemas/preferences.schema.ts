@@ -16,4 +16,7 @@ export const UserPreferencesSchema = z.object({
   autoRunSimulation: z.boolean(),
   theme: z.enum(THEME_OPTIONS).optional(), // Optional for backward compatibility
   storeFullSimulationData: z.boolean().optional(), // Optional for backward compatibility
+  defaultHeuristicEnabled: z.boolean().optional(),
+  defaultHeuristicMinPercent: z.number().int().min(1).max(99).optional(),
+  defaultHeuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
 });

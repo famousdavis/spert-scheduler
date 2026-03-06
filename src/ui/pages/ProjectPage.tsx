@@ -422,6 +422,9 @@ export function ProjectPage() {
               bulkDeleteActivities(id!, scenario.id, activityIds)
             }
             isScenarioLocked={scenario.locked}
+            heuristicEnabled={scenario.settings.heuristicEnabled}
+            heuristicMinPercent={scenario.settings.heuristicMinPercent}
+            heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
           />
 
           {/* Monte Carlo Simulation */}
