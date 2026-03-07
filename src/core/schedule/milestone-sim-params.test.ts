@@ -7,8 +7,8 @@ function makeActivity(overrides: Partial<Activity> & { id: string; name: string 
     min: 1,
     mostLikely: 2,
     max: 3,
-    confidenceLevel: "Moderate-Low",
-    distributionType: "T-Normal",
+    confidenceLevel: "mediumLowConfidence",
+    distributionType: "normal",
     status: "planned",
     ...overrides,
   };

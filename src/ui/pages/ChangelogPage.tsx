@@ -12,6 +12,21 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.11.2",
+    date: "2026-03-07",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Added Content Security Policy (CSP) meta tag to restrict script, style, image, and worker sources",
+          "Added .max() length constraints to all Zod schema string fields (IDs: 64, names: 200, seeds: 100)",
+          "Added .max() size constraints to all Zod schema array fields (activities: 500, deps: 2000, milestones: 100, samples: 100k, scenarios: 20, holidays: 1000)",
+          "Fixed schema optionality mismatch: dependencies and milestones arrays are now required in ScenarioSchema (matching TypeScript interface and V8 migration guarantees)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.11.1",
     date: "2026-03-07",
     sections: [

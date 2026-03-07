@@ -248,6 +248,8 @@ describe("ProjectSchema", () => {
             status: "planned",
           },
         ],
+        dependencies: [],
+        milestones: [],
         settings: {
           defaultConfidenceLevel: "mediumConfidence",
           defaultDistributionType: "normal",
