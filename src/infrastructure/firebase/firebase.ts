@@ -1,0 +1,38 @@
+import { initializeApp, getApps } from "firebase/app";
+import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import type { FirebaseApp } from "firebase/app";
+import type { Firestore } from "firebase/firestore";
+import type { Auth } from "firebase/auth";
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
+/**
+ * Firebase is only initialized when config is present.
+ * When env vars are missing, the app operates in local-only mode.
+ */
+const isFirebaseConfigured = Boolean(firebaseConfig.apiKey);
+
+const app: FirebaseApp | null = isFirebaseConfigured
+  ? getApps().length === 0
+    ? initializeApp(firebaseConfig)
+    : getApps()[0]!
+  : null;
+
+// memoryLocalCache avoids stale security rule decisions that persist in IndexedDB
+// and cause "Missing or insufficient permissions" errors after rules change.
+export const db: Firestore | null = app
+  ? initializeFirestore(app, { localCache: memoryLocalCache() })
+  : null;
+
+export const auth: Auth | null = app ? getAuth(app) : null;
+
+/** True when Firebase SDK is initialized and available. */
+export const isFirebaseAvailable = isFirebaseConfigured && app !== null;
