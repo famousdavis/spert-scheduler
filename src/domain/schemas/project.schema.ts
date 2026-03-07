@@ -44,6 +44,8 @@ export const ActivitySchema = z
     distributionType: z.enum(DISTRIBUTION_TYPES),
     status: z.enum(ACTIVITY_STATUSES),
     actualDuration: z.number().nonnegative().optional(),
+    milestoneId: z.string().optional(),
+    startsAtMilestoneId: z.string().optional(),
   })
   .refine((a) => a.min <= a.mostLikely, {
     message: "Min must be <= Most Likely",
@@ -61,6 +63,14 @@ export const ActivityDependencySchema = z.object({
   toActivityId: z.string().min(1),
   type: z.enum(DEPENDENCY_TYPES),
   lagDays: z.number().int(),
+});
+
+// -- Milestone ---------------------------------------------------------------
+
+export const MilestoneSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  targetDate: ISODateString,
 });
 
 // -- Scenario Settings -------------------------------------------------------
@@ -106,6 +116,11 @@ export const SimulationRunSchema = z.object({
   minSample: z.number(),
   maxSample: z.number(),
   samples: z.array(z.number()),
+  milestoneResults: z.record(z.string(), z.object({
+    percentiles: z.record(z.coerce.number(), z.number()),
+    mean: z.number(),
+    standardDeviation: z.number().nonnegative(),
+  })).optional(),
 });
 
 // -- Scenario ----------------------------------------------------------------
@@ -116,6 +131,7 @@ export const ScenarioSchema = z.object({
   startDate: ISODateString,
   activities: z.array(ActivitySchema),
   dependencies: z.array(ActivityDependencySchema).optional(),
+  milestones: z.array(MilestoneSchema).optional(),
   settings: ScenarioSettingsSchema,
   simulationResults: SimulationRunSchema.optional(),
   locked: z.boolean().optional(), // default false

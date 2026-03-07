@@ -18,6 +18,8 @@ export interface DependencySimulationParams {
   dependencyMode: boolean;
   dependencies: ActivityDependency[];
   deterministicDurationMap: Record<string, number>;
+  milestoneActivityIds?: Record<string, string[]>;
+  activityEarliestStart?: Record<string, number>;
 }
 
 /**
@@ -90,6 +92,8 @@ export function runSimulationInWorker(
         dependencyMode: dependencyParams.dependencyMode,
         dependencies: dependencyParams.dependencies,
         deterministicDurationMap: dependencyParams.deterministicDurationMap,
+        milestoneActivityIds: dependencyParams.milestoneActivityIds,
+        activityEarliestStart: dependencyParams.activityEarliestStart,
       }),
     },
   };

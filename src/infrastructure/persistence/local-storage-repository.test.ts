@@ -30,6 +30,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
           },
         ],
         dependencies: [],
+        milestones: [],
         settings: {
           defaultConfidenceLevel: "mediumConfidence",
           defaultDistributionType: "normal",

@@ -4,13 +4,15 @@ import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
+import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import type { ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
-import { formatDateISO } from "@core/calendar/calendar";
+import { formatDateISO, countWorkingDays, parseDateISO, isWorkingDay, mergeCalendars } from "@core/calendar/calendar";
 import { computeDeterministicDurations, computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { DependencyPanel } from "@ui/components/DependencyPanel";
+import { MilestonePanel } from "@ui/components/MilestonePanel";
 import { GanttSection } from "@ui/components/GanttSection";
 import { UnifiedActivityGrid } from "@ui/components/UnifiedActivityGrid";
 import { ScenarioSummaryCard } from "@ui/components/ScenarioSummaryCard";
@@ -52,6 +54,11 @@ export function ProjectPage() {
     addDependency,
     removeDependency,
     updateDependencyLag,
+    addMilestone,
+    removeMilestone,
+    updateMilestone,
+    assignActivityToMilestone,
+    setActivityStartsAtMilestone,
   } = useProjectStore();
 
   const simulation = useSimulation();
@@ -89,12 +96,19 @@ export function ProjectPage() {
 
   const scenario = project?.scenarios.find((s) => s.id === activeScenarioId);
 
+  // Merge company-wide calendar (from preferences) with project-specific calendar
+  const globalCalendar = usePreferencesStore((s) => s.preferences.globalCalendar);
+  const mergedCalendar = useMemo(
+    () => mergeCalendars(globalCalendar, project?.globalCalendarOverride),
+    [globalCalendar, project?.globalCalendarOverride]
+  );
+
   // Deterministic schedule — uses sequential or dependency-aware engine
   const sequentialSchedule = useSchedule(
     scenario?.settings.dependencyMode ? [] : (scenario?.activities ?? []),
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.probabilityTarget ?? 0.5,
-    project?.globalCalendarOverride
+    mergedCalendar
   );
 
   const dependencySchedule = useMemo(() => {
@@ -105,7 +119,8 @@ export function ProjectPage() {
         scenario.dependencies,
         scenario.startDate,
         scenario.settings.probabilityTarget,
-        project?.globalCalendarOverride
+        mergedCalendar,
+        scenario.milestones
       );
     } catch {
       return null;
@@ -116,7 +131,7 @@ export function ProjectPage() {
     scenario?.dependencies,
     scenario?.startDate,
     scenario?.settings.probabilityTarget,
-    project?.globalCalendarOverride,
+    mergedCalendar,
   ]);
 
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
@@ -127,6 +142,17 @@ export function ProjectPage() {
     scenario?.simulationResults,
     scenario?.settings.probabilityTarget ?? 0.5,
     scenario?.settings.projectProbabilityTarget ?? 0.95
+  );
+
+  // Milestone buffers
+  const milestoneBuffers = useMilestoneBuffers(
+    scenario?.milestones ?? [],
+    schedule?.activities ?? [],
+    scenario?.activities ?? [],
+    scenario?.simulationResults,
+    scenario?.startDate ?? "2025-01-06",
+    scenario?.settings.projectProbabilityTarget ?? 0.95,
+    mergedCalendar
   );
 
   // Auto-run simulation on activity/settings changes (debounced 500ms)
@@ -162,6 +188,13 @@ export function ProjectPage() {
         const durMapRecord: Record<string, number> = {};
         for (const [k, v] of durationMap) durMapRecord[k] = v;
 
+        const msParams = buildMilestoneSimParams(
+          activitiesRef.current,
+          scenario.milestones,
+          scenario.startDate,
+          mergedCalendar
+        );
+
         simulation.run(
           activitiesRef.current,
           scenario.settings.trialCount,
@@ -174,6 +207,7 @@ export function ProjectPage() {
             dependencyMode: true,
             dependencies: scenario.dependencies,
             deterministicDurationMap: durMapRecord,
+            ...msParams,
           }
         );
       } else {
@@ -206,6 +240,7 @@ export function ProjectPage() {
     scenario?.settings.projectProbabilityTarget,
     scenario?.settings.trialCount,
     scenario?.settings.rngSeed,
+    scenario?.milestones,
   ]);
 
   // Undo/Redo keyboard shortcuts
@@ -273,6 +308,51 @@ export function ProjectPage() {
     [id, cloneSourceId, duplicateScenario]
   );
 
+  // Build milestone simulation params for dependency mode
+  const buildMilestoneSimParams = useCallback((
+    activities: typeof scenario extends undefined ? never : NonNullable<typeof scenario>["activities"],
+    milestones: typeof scenario extends undefined ? never : NonNullable<typeof scenario>["milestones"],
+    startDate: string,
+    calendar: ReturnType<typeof mergeCalendars>
+  ) => {
+    if (!milestones || milestones.length === 0) return {};
+
+    const milestoneActivityIds: Record<string, string[]> = {};
+    const activityEarliestStart: Record<string, number> = {};
+
+    for (const m of milestones) {
+      const assigned = activities.filter((a) => a.milestoneId === m.id).map((a) => a.id);
+      if (assigned.length > 0) {
+        milestoneActivityIds[m.id] = assigned;
+      }
+    }
+
+    // Build earliest start offsets for activities with startsAtMilestoneId
+    const projStart = parseDateISO(startDate);
+    while (!isWorkingDay(projStart, calendar)) {
+      projStart.setDate(projStart.getDate() + 1);
+    }
+
+    for (const a of activities) {
+      if (a.startsAtMilestoneId) {
+        const ms = milestones.find((m) => m.id === a.startsAtMilestoneId);
+        if (ms) {
+          const msDate = parseDateISO(ms.targetDate);
+          while (!isWorkingDay(msDate, calendar)) {
+            msDate.setDate(msDate.getDate() + 1);
+          }
+          const offset = countWorkingDays(projStart, msDate, calendar);
+          activityEarliestStart[a.id] = offset;
+        }
+      }
+    }
+
+    return {
+      milestoneActivityIds: Object.keys(milestoneActivityIds).length > 0 ? milestoneActivityIds : undefined,
+      activityEarliestStart: Object.keys(activityEarliestStart).length > 0 ? activityEarliestStart : undefined,
+    };
+  }, []);
+
   const handleRunSimulation = useCallback(() => {
     if (!id || !scenario) return;
 
@@ -284,6 +364,13 @@ export function ProjectPage() {
       );
       const durMapRecord: Record<string, number> = {};
       for (const [k, v] of durationMap) durMapRecord[k] = v;
+
+      const msParams = buildMilestoneSimParams(
+        scenario.activities,
+        scenario.milestones,
+        scenario.startDate,
+        mergedCalendar
+      );
 
       simulation.run(
         scenario.activities,
@@ -297,6 +384,7 @@ export function ProjectPage() {
           dependencyMode: true,
           dependencies: scenario.dependencies,
           deterministicDurationMap: durMapRecord,
+          ...msParams,
         }
       );
     } else {
@@ -451,7 +539,7 @@ export function ProjectPage() {
       {compareMode && compareScenarios.length >= 2 && (
         <ScenarioComparisonTable
           scenarios={compareScenarios}
-          calendar={project.globalCalendarOverride}
+          calendar={mergedCalendar}
         />
       )}
       {compareMode && compareScenarios.length < 2 && (
@@ -468,13 +556,14 @@ export function ProjectPage() {
             startDate={scenario.startDate}
             schedule={schedule}
             buffer={buffer}
-            calendar={project.globalCalendarOverride}
+            calendar={mergedCalendar}
             settings={scenario.settings}
             hasSimulationResults={!!scenario.simulationResults}
             onSettingsChange={handleSettingsChange}
             onNewSeed={handleNewSeed}
             isLocked={scenario.locked}
             onToggleLock={() => toggleScenarioLock(id!, scenario.id)}
+            milestoneBuffers={milestoneBuffers}
           />
 
           {/* Validation errors */}
@@ -529,6 +618,31 @@ export function ProjectPage() {
             />
           )}
 
+          {/* Milestone Panel — only shown when dependency mode is on */}
+          {scenario.settings.dependencyMode && (
+            <MilestonePanel
+              milestones={scenario.milestones}
+              activities={scenario.activities}
+              milestoneBuffers={milestoneBuffers}
+              onAddMilestone={(name, targetDate) =>
+                addMilestone(id!, scenario.id, name, targetDate)
+              }
+              onRemoveMilestone={(milestoneId) =>
+                removeMilestone(id!, scenario.id, milestoneId)
+              }
+              onUpdateMilestone={(milestoneId, updates) =>
+                updateMilestone(id!, scenario.id, milestoneId, updates)
+              }
+              onAssignActivity={(activityId, milestoneId) =>
+                assignActivityToMilestone(id!, scenario.id, activityId, milestoneId)
+              }
+              onSetStartsAt={(activityId, milestoneId) =>
+                setActivityStartsAtMilestone(id!, scenario.id, activityId, milestoneId)
+              }
+              isLocked={scenario.locked}
+            />
+          )}
+
           {/* Gantt Chart */}
           {schedule && scenario.activities.length > 0 && (
             <GanttSection
@@ -541,7 +655,9 @@ export function ProjectPage() {
               dependencyMode={scenario.settings.dependencyMode}
               activityTarget={scenario.settings.probabilityTarget}
               projectTarget={scenario.settings.projectProbabilityTarget}
-              calendar={project.globalCalendarOverride}
+              calendar={mergedCalendar}
+              milestones={scenario.milestones}
+              milestoneBuffers={milestoneBuffers}
             />
           )}
 
@@ -600,6 +716,8 @@ export function ProjectPage() {
           schedule={schedule}
           scheduledActivities={schedule?.activities ?? []}
           buffer={buffer}
+          milestoneBuffers={milestoneBuffers}
+          calendar={mergedCalendar}
         />
       )}
     </div>

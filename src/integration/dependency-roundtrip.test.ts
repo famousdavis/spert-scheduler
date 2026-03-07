@@ -87,7 +87,7 @@ describe("Dependency round-trip integration", () => {
       deterministicDurationMap: durationMap,
     });
 
-    const stats = computeSimulationStats(samples, 1000, scenario.settings.rngSeed);
+    const stats = computeSimulationStats(samples.samples, 1000, scenario.settings.rngSeed);
     expect(stats.mean).toBeGreaterThan(0);
     expect(stats.trialCount).toBe(1000);
     // Sequential chain with lag, mean should be well above 10

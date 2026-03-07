@@ -1,4 +1,4 @@
-import type { DeterministicSchedule, ScenarioSettings, Calendar } from "@domain/models/types";
+import type { DeterministicSchedule, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
   parseDateISO,
@@ -23,6 +23,7 @@ interface ScenarioSummaryCardProps {
   onNewSeed: () => void;
   isLocked?: boolean;
   onToggleLock?: () => void;
+  milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
 }
 
 export function ScenarioSummaryCard({
@@ -36,6 +37,7 @@ export function ScenarioSummaryCard({
   onNewSeed,
   isLocked,
   onToggleLock,
+  milestoneBuffers,
 }: ScenarioSummaryCardProps) {
   const formatDate = useDateFormat();
   const actPct = Math.round(settings.probabilityTarget * 100);
@@ -359,6 +361,57 @@ export function ScenarioSummaryCard({
           </span>
         )}
       </div>
+
+      {/* Row 4: Milestone Health (only when milestones exist) */}
+      {milestoneBuffers && milestoneBuffers.size > 0 && (
+        <div className="pt-1 border-t border-gray-100 dark:border-gray-700">
+          <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Milestones:</span>
+          <div className="space-y-0.5">
+            {Array.from(milestoneBuffers.values()).map((info) => (
+              <div key={info.milestone.id} className="flex items-center gap-2 text-xs">
+                <span
+                  className={`inline-block w-2 h-2 rounded-full ${
+                    info.health === "green"
+                      ? "bg-green-500"
+                      : info.health === "amber"
+                        ? "bg-amber-500"
+                        : "bg-red-500"
+                  }`}
+                />
+                <span className="text-gray-700 dark:text-gray-300 font-medium min-w-[120px]">
+                  {info.milestone.name}
+                  <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">
+                    ({formatDate(info.milestone.targetDate)})
+                  </span>
+                </span>
+                {info.bufferDays !== null ? (
+                  <>
+                    <span className="text-gray-500 dark:text-gray-400 tabular-nums">
+                      Buffer: {info.bufferDays}d
+                    </span>
+                    <span
+                      className={`tabular-nums font-medium ${
+                        info.slackDays !== null && info.slackDays >= 0
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      Slack: {info.slackDays !== null ? `${info.slackDays >= 0 ? "+" : ""}${info.slackDays}d` : "—"}
+                    </span>
+                    <span className="text-xs">
+                      {info.health === "green" ? "✓" : info.health === "amber" ? "⚠" : "✗ At Risk"}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-gray-400 dark:text-gray-500 italic">
+                    Run simulation
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

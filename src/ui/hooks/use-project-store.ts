@@ -5,6 +5,7 @@ import type {
   Activity,
   Calendar,
   DependencyType,
+  Milestone,
   ScenarioSettings,
   SimulationRun,
 } from "@domain/models/types";
@@ -27,6 +28,11 @@ import {
   removeDependency as removeDependencyFn,
   updateDependencyLag as updateDependencyLagFn,
   removeActivitiesDeps,
+  addMilestone as addMilestoneFn,
+  removeMilestone as removeMilestoneFn,
+  updateMilestone as updateMilestoneFn,
+  assignActivityToMilestone as assignActivityToMilestoneFn,
+  setActivityStartsAtMilestone as setActivityStartsAtMilestoneFn,
 } from "@app/api/project-service";
 import type { CloneOptions } from "@app/api/project-service";
 import { generateId } from "@app/api/id";
@@ -215,6 +221,37 @@ export interface ProjectStore {
     fromActivityId: string,
     toActivityId: string,
     lagDays: number
+  ) => void;
+
+  // Milestones
+  addMilestone: (
+    projectId: string,
+    scenarioId: string,
+    name: string,
+    targetDate: string
+  ) => void;
+  removeMilestone: (
+    projectId: string,
+    scenarioId: string,
+    milestoneId: string
+  ) => void;
+  updateMilestone: (
+    projectId: string,
+    scenarioId: string,
+    milestoneId: string,
+    updates: Partial<Omit<Milestone, "id">>
+  ) => void;
+  assignActivityToMilestone: (
+    projectId: string,
+    scenarioId: string,
+    activityId: string,
+    milestoneId: string | null
+  ) => void;
+  setActivityStartsAtMilestone: (
+    projectId: string,
+    scenarioId: string,
+    activityId: string,
+    milestoneId: string | null
   ) => void;
 
   // Scenario Lock
@@ -709,6 +746,86 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         p.id === projectId
           ? updateScenario(p, scenarioId, (s) =>
               updateDependencyLagFn(s, fromActivityId, toActivityId, lagDays)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  addMilestone: (projectId, scenarioId, name, targetDate) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              addMilestoneFn(s, name, targetDate)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  removeMilestone: (projectId, scenarioId, milestoneId) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              removeMilestoneFn(s, milestoneId)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  updateMilestone: (projectId, scenarioId, milestoneId, updates) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              updateMilestoneFn(s, milestoneId, updates)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  assignActivityToMilestone: (projectId, scenarioId, activityId, milestoneId) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              assignActivityToMilestoneFn(s, activityId, milestoneId)
+            )
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  setActivityStartsAtMilestone: (projectId, scenarioId, activityId, milestoneId) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) =>
+              setActivityStartsAtMilestoneFn(s, activityId, milestoneId)
             )
           : p
       );

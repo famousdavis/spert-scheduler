@@ -5,6 +5,7 @@ import {
   DATE_FORMATS,
   THEME_OPTIONS,
 } from "../models/types";
+import { CalendarSchema } from "./project.schema";
 
 export const UserPreferencesSchema = z.object({
   defaultTrialCount: z.number().int().min(1000).max(50000),
@@ -20,4 +21,5 @@ export const UserPreferencesSchema = z.object({
   defaultHeuristicMinPercent: z.number().int().min(1).max(99).optional(),
   defaultHeuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
   defaultDependencyMode: z.boolean().optional(),
+  globalCalendar: CalendarSchema.optional(),
 });

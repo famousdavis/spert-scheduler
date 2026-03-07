@@ -8,7 +8,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -101,6 +101,8 @@ export interface Activity {
   distributionType: DistributionType;
   status: ActivityStatus;
   actualDuration?: number; // filled when status is "complete"
+  milestoneId?: string; // which milestone this activity must finish before
+  startsAtMilestoneId?: string; // activity starts on this milestone's target date
 }
 
 export interface ActivityDependency {
@@ -108,6 +110,12 @@ export interface ActivityDependency {
   toActivityId: string; // successor
   type: DependencyType; // FS only for v1
   lagDays: number; // 0 default; negative = lead time
+}
+
+export interface Milestone {
+  id: string;
+  name: string; // e.g., "DR Cutover", "Phase 1 Complete"
+  targetDate: string; // "YYYY-MM-DD" — the hard deadline
 }
 
 export interface ScenarioSettings {
@@ -147,6 +155,11 @@ export interface SimulationRun {
   minSample: number;
   maxSample: number;
   samples: number[]; // raw trial results for persistence
+  milestoneResults?: Record<string, {
+    percentiles: Record<number, number>;
+    mean: number;
+    standardDeviation: number;
+  }>;
 }
 
 export interface Scenario {
@@ -155,6 +168,7 @@ export interface Scenario {
   startDate: string; // "YYYY-MM-DD"
   activities: Activity[];
   dependencies: ActivityDependency[];
+  milestones: Milestone[];
   settings: ScenarioSettings;
   simulationResults?: SimulationRun;
   locked?: boolean; // default false - prevents modifications when true
@@ -185,6 +199,16 @@ export interface DeterministicSchedule {
   activities: ScheduledActivity[];
   totalDurationDays: number;
   projectEndDate: string; // "YYYY-MM-DD"
+}
+
+export interface MilestoneBufferInfo {
+  milestone: Milestone;
+  deterministicEndDate: string; // latest end date among milestone's activities
+  deterministicDuration: number; // working days from project start
+  bufferedEndDate: string | null; // after adding buffer
+  bufferDays: number | null;
+  slackDays: number | null; // working days between bufferedEnd and targetDate (positive = healthy)
+  health: "green" | "amber" | "red";
 }
 
 // -- Defaults ----------------------------------------------------------------
@@ -235,6 +259,8 @@ export interface UserPreferences {
   defaultHeuristicMinPercent: number;
   defaultHeuristicMaxPercent: number;
   defaultDependencyMode: boolean;
+  /** Company-wide holidays that apply to all projects */
+  globalCalendar?: Calendar;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {

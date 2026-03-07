@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeScheduleBuffer } from "./buffer";
+import { computeScheduleBuffer, computeMilestoneBuffer } from "./buffer";
 
 describe("computeScheduleBuffer", () => {
   const percentiles: Record<number, number> = {
@@ -82,5 +82,59 @@ describe("computeScheduleBuffer", () => {
     const result = computeScheduleBuffer(10, simPercentiles, 0.5, 0.95);
     expect(result).not.toBeNull();
     expect(result!.bufferDays).toBe(5);
+  });
+});
+
+describe("computeMilestoneBuffer", () => {
+  it("computes positive buffer when MC percentile > deterministic", () => {
+    const percentiles: Record<number, number> = { 95: 50 };
+    const result = computeMilestoneBuffer(40, percentiles, 0.95);
+    expect(result).not.toBeNull();
+    expect(result!.bufferDays).toBe(10);
+    expect(result!.bufferedDuration).toBe(50);
+  });
+
+  it("computes zero buffer when percentile matches deterministic", () => {
+    const percentiles: Record<number, number> = { 95: 40 };
+    const result = computeMilestoneBuffer(40, percentiles, 0.95);
+    expect(result).not.toBeNull();
+    expect(result!.bufferDays).toBe(0);
+    expect(result!.bufferedDuration).toBe(40);
+  });
+
+  it("computes negative buffer when deterministic exceeds percentile", () => {
+    const percentiles: Record<number, number> = { 95: 35 };
+    const result = computeMilestoneBuffer(40, percentiles, 0.95);
+    expect(result).not.toBeNull();
+    expect(result!.bufferDays).toBe(-5);
+  });
+
+  it("returns null when required percentile is not available", () => {
+    const percentiles: Record<number, number> = { 95: 50 };
+    const result = computeMilestoneBuffer(40, percentiles, 0.99);
+    expect(result).toBeNull();
+  });
+
+  it("rounds buffer days to whole number", () => {
+    const percentiles: Record<number, number> = { 95: 43.7 };
+    const result = computeMilestoneBuffer(40, percentiles, 0.95);
+    expect(result).not.toBeNull();
+    expect(result!.bufferDays).toBe(4);
+    expect(result!.bufferedDuration).toBe(44);
+  });
+
+  it("handles zero deterministic duration", () => {
+    const percentiles: Record<number, number> = { 95: 0 };
+    const result = computeMilestoneBuffer(0, percentiles, 0.95);
+    expect(result).not.toBeNull();
+    expect(result!.bufferDays).toBe(0);
+  });
+
+  it("uses correct percentile key from probability target", () => {
+    const percentiles: Record<number, number> = { 85: 48, 95: 55 };
+    const result = computeMilestoneBuffer(40, percentiles, 0.85);
+    expect(result).not.toBeNull();
+    expect(result!.bufferDays).toBe(8);
+    expect(result!.bufferedDuration).toBe(48);
   });
 });

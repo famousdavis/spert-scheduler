@@ -51,4 +51,21 @@ export const COLORS = {
   },
 } as const;
 
+export const MILESTONE_COLORS = {
+  light: {
+    green: "#16a34a",
+    amber: "#d97706",
+    red: "#dc2626",
+    line: "#9333ea",
+    diamond: "#7c3aed",
+  },
+  dark: {
+    green: "#4ade80",
+    amber: "#fbbf24",
+    red: "#f87171",
+    line: "#c084fc",
+    diamond: "#a78bfa",
+  },
+} as const;
+
 export type GanttColorTheme = (typeof COLORS)["light"];

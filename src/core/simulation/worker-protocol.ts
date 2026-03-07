@@ -15,6 +15,10 @@ export interface SimulationRequest {
     dependencies?: ActivityDependency[];
     /** Per-activity deterministic durations (Parkinson floors), keyed by activity ID. */
     deterministicDurationMap?: Record<string, number>;
+    /** Map of milestoneId → activity IDs assigned to that milestone (serialized as Record). */
+    milestoneActivityIds?: Record<string, string[]>;
+    /** Map of activityId → earliest start offset in working days (serialized as Record). */
+    activityEarliestStart?: Record<string, number>;
   };
 }
 

@@ -259,3 +259,62 @@ export function computeCriticalPathDuration(
 
   return maxFinish;
 }
+
+/**
+ * Compute critical path duration with per-milestone tracking and earliest-start constraints.
+ *
+ * Same forward pass as computeCriticalPathDuration but:
+ * - Applies activityEarliestStart floor to each activity's early start (for startsAtMilestoneId)
+ * - Computes max(earlyFinish) for each milestone's activity set
+ *
+ * @param graph - Pre-built dependency graph
+ * @param durations - Map of activityId → duration in working days
+ * @param milestoneActivityIds - Map of milestoneId → list of activity IDs assigned to that milestone
+ * @param activityEarliestStart - Map of activityId → earliest start offset (working days from project start)
+ * @returns Project duration and per-milestone durations
+ */
+export function computeCriticalPathWithMilestones(
+  graph: DependencyGraph,
+  durations: Map<string, number>,
+  milestoneActivityIds: Map<string, string[]>,
+  activityEarliestStart?: Map<string, number>
+): { projectDuration: number; milestoneDurations: Map<string, number> } {
+  const earlyStart = new Map<string, number>();
+  const earlyFinish = new Map<string, number>();
+
+  for (const id of graph.topologicalOrder) {
+    const preds = graph.predecessors.get(id) ?? [];
+    let es = 0;
+    for (const pred of preds) {
+      const predFinish = earlyFinish.get(pred.id) ?? 0;
+      es = Math.max(es, predFinish + pred.lagDays);
+    }
+    // Apply earliest-start constraint (from startsAtMilestoneId)
+    if (activityEarliestStart) {
+      const floor = activityEarliestStart.get(id);
+      if (floor !== undefined && floor > es) {
+        es = floor;
+      }
+    }
+    earlyStart.set(id, es);
+    earlyFinish.set(id, es + (durations.get(id) ?? 0));
+  }
+
+  let projectDuration = 0;
+  for (const ef of earlyFinish.values()) {
+    if (ef > projectDuration) projectDuration = ef;
+  }
+
+  // Compute per-milestone durations (max early finish among milestone's activities)
+  const milestoneDurations = new Map<string, number>();
+  for (const [milestoneId, actIds] of milestoneActivityIds) {
+    let maxFinish = 0;
+    for (const actId of actIds) {
+      const ef = earlyFinish.get(actId) ?? 0;
+      if (ef > maxFinish) maxFinish = ef;
+    }
+    milestoneDurations.set(milestoneId, maxFinish);
+  }
+
+  return { projectDuration, milestoneDurations };
+}

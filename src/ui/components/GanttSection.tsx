@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import type {
   Activity,
   ActivityDependency,
+  Milestone,
+  MilestoneBufferInfo,
   ScheduledActivity,
   Calendar,
 } from "@domain/models/types";
@@ -20,6 +22,8 @@ interface GanttSectionProps {
   activityTarget: number;
   projectTarget: number;
   calendar?: Calendar;
+  milestones?: Milestone[];
+  milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
 }
 
 export function GanttSection(props: GanttSectionProps) {

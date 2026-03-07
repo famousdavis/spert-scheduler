@@ -116,18 +116,39 @@ export function DependencyPanel({
   const getActivityName = (id: string) =>
     activityMap.get(id)?.name ?? `Unknown (${id.slice(0, 8)})`;
 
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+    <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+        <button
+          className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          onClick={() => setCollapsed((c) => !c)}
+        >
+          <svg
+            className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-90"}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
           Dependencies
-        </h3>
+        </button>
         <span className="text-xs text-gray-400 dark:text-gray-500">
           {dependencies.length === 0
             ? "No dependencies — all activities will start in parallel"
             : `${dependencies.length} ${dependencies.length === 1 ? "dependency" : "dependencies"}`}
         </span>
       </div>
+
+      {!collapsed && (<div className="p-4 space-y-3">
 
       {/* Validation errors */}
       {validationErrors.length > 0 && (
@@ -239,6 +260,7 @@ export function DependencyPanel({
       {isDuplicate && (
         <p className="text-xs text-amber-500 dark:text-amber-400">This dependency already exists</p>
       )}
-    </div>
+    </div>)}
+    </section>
   );
 }

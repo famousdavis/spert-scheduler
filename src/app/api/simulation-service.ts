@@ -4,7 +4,7 @@ import {
   type SimulationHandle,
   type DependencySimulationParams,
 } from "@core/simulation/worker-client";
-import { runMonteCarloSimulation, runDependencyTrials, computeSimulationStats } from "@core/simulation/monte-carlo";
+import { runMonteCarloSimulation, runDependencyTrials, computeSimulationStats, computeMilestoneStats } from "@core/simulation/monte-carlo";
 import { generateId } from "./id";
 
 export interface SimulationServiceCallbacks {
@@ -47,14 +47,26 @@ export function runSimulation(
             ([k, v]) => [k, v as number]
           )
         );
-        const samples = runDependencyTrials({
+        const milestoneActivityIds = dependencyParams.milestoneActivityIds
+          ? new Map(Object.entries(dependencyParams.milestoneActivityIds))
+          : undefined;
+        const activityEarliestStart = dependencyParams.activityEarliestStart
+          ? new Map(Object.entries(dependencyParams.activityEarliestStart))
+          : undefined;
+
+        const depResult = runDependencyTrials({
           activities,
           dependencies: dependencyParams.dependencies,
           trialCount,
           rngSeed,
           deterministicDurationMap: durMap,
+          milestoneActivityIds,
+          activityEarliestStart,
         });
-        result = computeSimulationStats(samples, trialCount, rngSeed);
+        result = computeSimulationStats(depResult.samples, trialCount, rngSeed);
+        if (depResult.milestoneSamples) {
+          result.milestoneResults = computeMilestoneStats(depResult.milestoneSamples, trialCount);
+        }
       } else {
         result = runMonteCarloSimulation({
           activities,
