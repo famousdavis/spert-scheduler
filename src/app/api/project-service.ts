@@ -2,10 +2,7 @@ import type {
   Project,
   Scenario,
   Activity,
-  ActivityDependency,
-  Milestone,
   Calendar,
-  DependencyType,
   ScenarioSettings,
 } from "@domain/models/types";
 import {
@@ -275,144 +272,21 @@ export function setGlobalCalendar(
   };
 }
 
-// -- Dependencies ------------------------------------------------------------
+// -- Dependencies (re-exported from dependency-service.ts) -------------------
 
-export function addDependency(
-  scenario: Scenario,
-  fromActivityId: string,
-  toActivityId: string,
-  type: DependencyType = "FS",
-  lagDays = 0
-): Scenario {
-  const dep: ActivityDependency = { fromActivityId, toActivityId, type, lagDays };
-  return {
-    ...scenario,
-    dependencies: [...scenario.dependencies, dep],
-    simulationResults: undefined,
-  };
-}
+export {
+  addDependency,
+  removeDependency,
+  updateDependencyLag,
+  removeActivitiesDeps,
+} from "./dependency-service";
 
-export function removeDependency(
-  scenario: Scenario,
-  fromActivityId: string,
-  toActivityId: string
-): Scenario {
-  return {
-    ...scenario,
-    dependencies: scenario.dependencies.filter(
-      (d) => !(d.fromActivityId === fromActivityId && d.toActivityId === toActivityId)
-    ),
-    simulationResults: undefined,
-  };
-}
+// -- Milestones (re-exported from milestone-service.ts) ----------------------
 
-export function updateDependencyLag(
-  scenario: Scenario,
-  fromActivityId: string,
-  toActivityId: string,
-  lagDays: number
-): Scenario {
-  return {
-    ...scenario,
-    dependencies: scenario.dependencies.map((d) =>
-      d.fromActivityId === fromActivityId && d.toActivityId === toActivityId
-        ? { ...d, lagDays }
-        : d
-    ),
-    simulationResults: undefined,
-  };
-}
-
-/**
- * Remove all dependencies referencing any of the given activity IDs.
- * Used by bulk delete.
- */
-export function removeActivitiesDeps(
-  scenario: Scenario,
-  activityIds: string[]
-): Scenario {
-  const idSet = new Set(activityIds);
-  return {
-    ...scenario,
-    dependencies: scenario.dependencies.filter(
-      (d) => !idSet.has(d.fromActivityId) && !idSet.has(d.toActivityId)
-    ),
-  };
-}
-
-// -- Milestones ---------------------------------------------------------------
-
-export function addMilestone(
-  scenario: Scenario,
-  name: string,
-  targetDate: string
-): Scenario {
-  const milestone: Milestone = { id: generateId(), name, targetDate };
-  return {
-    ...scenario,
-    milestones: [...scenario.milestones, milestone],
-    simulationResults: undefined,
-  };
-}
-
-export function removeMilestone(
-  scenario: Scenario,
-  milestoneId: string
-): Scenario {
-  return {
-    ...scenario,
-    milestones: scenario.milestones.filter((m) => m.id !== milestoneId),
-    activities: scenario.activities.map((a) => ({
-      ...a,
-      milestoneId: a.milestoneId === milestoneId ? undefined : a.milestoneId,
-      startsAtMilestoneId: a.startsAtMilestoneId === milestoneId ? undefined : a.startsAtMilestoneId,
-    })),
-    simulationResults: undefined,
-  };
-}
-
-export function updateMilestone(
-  scenario: Scenario,
-  milestoneId: string,
-  updates: Partial<Omit<Milestone, "id">>
-): Scenario {
-  return {
-    ...scenario,
-    milestones: scenario.milestones.map((m) =>
-      m.id === milestoneId ? { ...m, ...updates } : m
-    ),
-    simulationResults: undefined,
-  };
-}
-
-export function assignActivityToMilestone(
-  scenario: Scenario,
-  activityId: string,
-  milestoneId: string | null
-): Scenario {
-  return {
-    ...scenario,
-    activities: scenario.activities.map((a) =>
-      a.id === activityId
-        ? { ...a, milestoneId: milestoneId ?? undefined }
-        : a
-    ),
-    simulationResults: undefined,
-  };
-}
-
-export function setActivityStartsAtMilestone(
-  scenario: Scenario,
-  activityId: string,
-  milestoneId: string | null
-): Scenario {
-  return {
-    ...scenario,
-    activities: scenario.activities.map((a) =>
-      a.id === activityId
-        ? { ...a, startsAtMilestoneId: milestoneId ?? undefined }
-        : a
-    ),
-    simulationResults: undefined,
-  };
-}
+export {
+  addMilestone,
+  removeMilestone,
+  updateMilestone,
+  assignActivityToMilestone,
+  setActivityStartsAtMilestone,
+} from "./milestone-service";

@@ -8,8 +8,9 @@ import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import type { ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
-import { formatDateISO, countWorkingDays, parseDateISO, isWorkingDay, mergeCalendars } from "@core/calendar/calendar";
+import { formatDateISO, mergeCalendars } from "@core/calendar/calendar";
 import { computeDeterministicDurations, computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
+import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { DependencyPanel } from "@ui/components/DependencyPanel";
 import { MilestonePanel } from "@ui/components/MilestonePanel";
@@ -308,50 +309,7 @@ export function ProjectPage() {
     [id, cloneSourceId, duplicateScenario]
   );
 
-  // Build milestone simulation params for dependency mode
-  const buildMilestoneSimParams = useCallback((
-    activities: typeof scenario extends undefined ? never : NonNullable<typeof scenario>["activities"],
-    milestones: typeof scenario extends undefined ? never : NonNullable<typeof scenario>["milestones"],
-    startDate: string,
-    calendar: ReturnType<typeof mergeCalendars>
-  ) => {
-    if (!milestones || milestones.length === 0) return {};
-
-    const milestoneActivityIds: Record<string, string[]> = {};
-    const activityEarliestStart: Record<string, number> = {};
-
-    for (const m of milestones) {
-      const assigned = activities.filter((a) => a.milestoneId === m.id).map((a) => a.id);
-      if (assigned.length > 0) {
-        milestoneActivityIds[m.id] = assigned;
-      }
-    }
-
-    // Build earliest start offsets for activities with startsAtMilestoneId
-    const projStart = parseDateISO(startDate);
-    while (!isWorkingDay(projStart, calendar)) {
-      projStart.setDate(projStart.getDate() + 1);
-    }
-
-    for (const a of activities) {
-      if (a.startsAtMilestoneId) {
-        const ms = milestones.find((m) => m.id === a.startsAtMilestoneId);
-        if (ms) {
-          const msDate = parseDateISO(ms.targetDate);
-          while (!isWorkingDay(msDate, calendar)) {
-            msDate.setDate(msDate.getDate() + 1);
-          }
-          const offset = countWorkingDays(projStart, msDate, calendar);
-          activityEarliestStart[a.id] = offset;
-        }
-      }
-    }
-
-    return {
-      milestoneActivityIds: Object.keys(milestoneActivityIds).length > 0 ? milestoneActivityIds : undefined,
-      activityEarliestStart: Object.keys(activityEarliestStart).length > 0 ? activityEarliestStart : undefined,
-    };
-  }, []);
+  // buildMilestoneSimParams is now a pure function imported from @core/schedule/milestone-sim-params
 
   const handleRunSimulation = useCallback(() => {
     if (!id || !scenario) return;
