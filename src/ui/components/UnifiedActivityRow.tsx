@@ -246,7 +246,7 @@ export function UnifiedActivityRow({
         if (currentField === "min") {
           focusField(activity.id, e.shiftKey ? "name" : "ml");
         } else if (currentField === "max") {
-          focusField(activity.id, e.shiftKey ? "ml" : "confidence");
+          focusField(activity.id, e.shiftKey ? "ml" : (confidenceApplies ? "confidence" : "distribution"));
         }
         return;
       }
