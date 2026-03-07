@@ -150,6 +150,11 @@ export interface ProjectStore {
     newName: string,
     options?: CloneOptions
   ) => void;
+  updateScenarioStartDate: (
+    projectId: string,
+    scenarioId: string,
+    startDate: string
+  ) => void;
   updateScenarioSettings: (
     projectId: string,
     scenarioId: string,
@@ -451,6 +456,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       const clone = cloneScenario(scenario, newName, options);
       const projects = state.projects.map((p) =>
         p.id === projectId ? addScenarioToProject(p, clone) : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  updateScenarioStartDate: (projectId, scenarioId, startDate) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) => ({
+              ...s,
+              startDate,
+              simulationResults: undefined,
+            }))
+          : p
       );
       persist(projects, projectId);
       return { projects };

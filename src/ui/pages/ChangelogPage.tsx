@@ -12,6 +12,19 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.12.1",
+    date: "2026-03-07",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Project start date is now editable via a date picker in the Scenario Summary Card",
+          "Milestone panel moved above Predecessor panel so the Gantt chart is visible while editing dependencies",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.12.0",
     date: "2026-03-07",
     sections: [

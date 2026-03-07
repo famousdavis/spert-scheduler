@@ -43,6 +43,7 @@ export function ProjectPage() {
     updateActivityField,
     moveActivity,
     setSimulationResults,
+    updateScenarioStartDate,
     updateScenarioSettings,
     renameProject,
     renameScenario,
@@ -519,6 +520,9 @@ export function ProjectPage() {
             settings={scenario.settings}
             hasSimulationResults={!!scenario.simulationResults}
             onSettingsChange={handleSettingsChange}
+            onStartDateChange={(startDate) =>
+              updateScenarioStartDate(id!, scenario.id, startDate)
+            }
             onNewSeed={handleNewSeed}
             isLocked={scenario.locked}
             onToggleLock={() => toggleScenarioLock(id!, scenario.id)}
