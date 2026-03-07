@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { Activity, ActivityDependency, DependencyType } from "@domain/models/types";
 import { validateDependencies, detectCycle } from "@core/schedule/dependency-graph";
 
@@ -14,6 +14,45 @@ interface DependencyPanelProps {
   onRemoveDependency: (fromActivityId: string, toActivityId: string) => void;
   onUpdateLag: (fromActivityId: string, toActivityId: string, lagDays: number) => void;
   isLocked?: boolean;
+}
+
+function LagInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  className?: string;
+}) {
+  const [input, setInput] = useState(value ? String(value) : "");
+
+  useEffect(() => {
+    setInput(value ? String(value) : "");
+  }, [value]);
+
+  const commit = () => {
+    const val = parseInt(input, 10);
+    onChange(isNaN(val) ? 0 : val);
+    if (input === "" || isNaN(parseInt(input, 10))) setInput("");
+  };
+
+  return (
+    <input
+      type="number"
+      value={input}
+      placeholder="0"
+      onChange={(e) => setInput(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          commit();
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      className={className}
+    />
+  );
 }
 
 export function DependencyPanel({
@@ -123,15 +162,9 @@ export function DependencyPanel({
               {!isLocked && (
                 <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
                   <label className="text-xs text-gray-400 dark:text-gray-500">Lag:</label>
-                  <input
-                    type="number"
+                  <LagInput
                     value={dep.lagDays}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      if (!isNaN(val)) {
-                        onUpdateLag(dep.fromActivityId, dep.toActivityId, val);
-                      }
-                    }}
+                    onChange={(val) => onUpdateLag(dep.fromActivityId, dep.toActivityId, val)}
                     className="w-14 px-1 py-0.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-right tabular-nums focus:border-blue-400 focus:outline-none"
                   />
                   <button
@@ -181,13 +214,9 @@ export function DependencyPanel({
           </select>
           <div className="flex items-center gap-1 shrink-0">
             <label className="text-xs text-gray-400 dark:text-gray-500">Lag:</label>
-            <input
-              type="number"
+            <LagInput
               value={lagDays}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val)) setLagDays(val);
-              }}
+              onChange={setLagDays}
               className="w-14 px-1 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-right tabular-nums focus:border-blue-400 focus:outline-none"
             />
           </div>

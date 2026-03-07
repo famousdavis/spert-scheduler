@@ -12,6 +12,26 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.10.1",
+    date: "2026-03-07",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed Gantt chart not resizing when dependencies change — chart now defensively scans all scheduled activity end dates",
+          "Fixed negative lag (lead time) having no effect — addWorkingDays ignored negative offsets, now uses subtractWorkingDays for lead time",
+        ],
+      },
+      {
+        title: "UX Improvements",
+        items: [
+          "Lag input field clears on focus (placeholder \"0\" instead of hard-to-select value), commits on blur or Enter",
+          "Negative lag values fully supported in the UI for lead time scheduling",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.10.0",
     date: "2026-03-06",
     sections: [
