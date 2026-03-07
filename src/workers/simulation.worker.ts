@@ -5,7 +5,7 @@ import type {
   SimulationError,
 } from "@core/simulation/worker-protocol";
 import type { SimulationRun } from "@domain/models/types";
-import { runTrials, runDependencyTrials, computeSimulationStats } from "@core/simulation/monte-carlo";
+import { runTrials, runDependencyTrials, computeSimulationStats, computeMilestoneStats } from "@core/simulation/monte-carlo";
 
 const PROGRESS_INTERVAL = 10000;
 
@@ -60,20 +60,35 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
       const startTime = performance.now();
 
       let samples: Float64Array;
+      let milestoneResults: Record<string, { percentiles: Record<number, number>; mean: number; standardDeviation: number }> | undefined;
+
       if (payload.dependencyMode && payload.dependencies) {
         // Dependency-aware simulation: critical path per trial
         const durMap = payload.deterministicDurationMap
           ? new Map(Object.entries(payload.deterministicDurationMap).map(([k, v]) => [k, v as number]))
           : undefined;
-        samples = runDependencyTrials({
+        const milestoneActivityIds = payload.milestoneActivityIds
+          ? new Map(Object.entries(payload.milestoneActivityIds))
+          : undefined;
+        const activityEarliestStart = payload.activityEarliestStart
+          ? new Map(Object.entries(payload.activityEarliestStart))
+          : undefined;
+
+        const depResult = runDependencyTrials({
           activities: payload.activities,
           dependencies: payload.dependencies,
           trialCount: payload.trialCount,
           rngSeed: payload.rngSeed,
           deterministicDurationMap: durMap,
+          milestoneActivityIds,
+          activityEarliestStart,
           onProgress: postProgress,
           progressInterval: PROGRESS_INTERVAL,
         });
+        samples = depResult.samples;
+        if (depResult.milestoneSamples) {
+          milestoneResults = computeMilestoneStats(depResult.milestoneSamples, payload.trialCount);
+        }
       } else {
         // Sequential simulation (original behavior)
         samples = runTrials({
@@ -91,6 +106,10 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
         payload.trialCount,
         payload.rngSeed
       );
+
+      if (milestoneResults) {
+        result.milestoneResults = milestoneResults;
+      }
 
       postResult(result, performance.now() - startTime);
     } catch (err) {

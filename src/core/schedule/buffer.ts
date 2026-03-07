@@ -52,3 +52,27 @@ export function computeScheduleBuffer(
     projectProbabilityTarget,
   };
 }
+
+/**
+ * Compute the buffer for a single milestone.
+ * Same logic as project-level buffer but scoped to a milestone's MC results.
+ *
+ * @returns Buffer days or null if the required percentile is not available
+ */
+export function computeMilestoneBuffer(
+  deterministicDuration: number,
+  milestonePercentiles: Record<number, number>,
+  projectProbabilityTarget: number
+): { bufferDays: number; bufferedDuration: number } | null {
+  const pctKey = Math.round(projectProbabilityTarget * 100);
+  const bufferedDuration = milestonePercentiles[pctKey];
+
+  if (bufferedDuration === undefined) {
+    return null;
+  }
+
+  return {
+    bufferDays: Math.round(bufferedDuration - deterministicDuration),
+    bufferedDuration: Math.round(bufferedDuration),
+  };
+}

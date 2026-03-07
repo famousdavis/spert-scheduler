@@ -305,7 +305,7 @@ describe("runDependencyTrials", () => {
     };
     const s1 = runDependencyTrials(input);
     const s2 = runDependencyTrials(input);
-    expect(Array.from(s1)).toEqual(Array.from(s2));
+    expect(Array.from(s1.samples)).toEqual(Array.from(s2.samples));
   });
 
   it("parallel activities produce shorter durations than sequential", () => {
@@ -330,8 +330,8 @@ describe("runDependencyTrials", () => {
       rngSeed: "parallel-test",
     });
 
-    const seqStats = computeSimulationStats(seqSamples, 5000, "s");
-    const parStats = computeSimulationStats(parSamples, 5000, "s");
+    const seqStats = computeSimulationStats(seqSamples.samples, 5000, "s");
+    const parStats = computeSimulationStats(parSamples.samples, 5000, "s");
 
     // Parallel mean should be significantly less than sequential
     expect(parStats.mean).toBeLessThan(seqStats.mean);
@@ -345,7 +345,7 @@ describe("runDependencyTrials", () => {
     const deps = [fsDep("a1", "a2")];
     const floorMap = new Map([["a1", 20], ["a2", 30]]);
 
-    const samples = runDependencyTrials({
+    const result = runDependencyTrials({
       activities,
       dependencies: deps,
       trialCount: 1000,
@@ -354,8 +354,8 @@ describe("runDependencyTrials", () => {
     });
 
     // Sequential: a1 + a2, with floors 20 + 30 = 50
-    for (let i = 0; i < samples.length; i++) {
-      expect(samples[i]!).toBeGreaterThanOrEqual(50);
+    for (let i = 0; i < result.samples.length; i++) {
+      expect(result.samples[i]!).toBeGreaterThanOrEqual(50);
     }
   });
 
@@ -366,7 +366,7 @@ describe("runDependencyTrials", () => {
     ];
     const deps = [fsDep("a1", "a2")];
 
-    const samples = runDependencyTrials({
+    const result = runDependencyTrials({
       activities,
       dependencies: deps,
       trialCount: 1000,
@@ -374,8 +374,8 @@ describe("runDependencyTrials", () => {
     });
 
     // Every trial should be at least 10 (a1) + something for a2
-    for (let i = 0; i < samples.length; i++) {
-      expect(samples[i]!).toBeGreaterThanOrEqual(10);
+    for (let i = 0; i < result.samples.length; i++) {
+      expect(result.samples[i]!).toBeGreaterThanOrEqual(10);
     }
   });
 
@@ -386,7 +386,7 @@ describe("runDependencyTrials", () => {
     ];
     const deps = [fsDep("a1", "a2")];
 
-    const samples = runDependencyTrials({
+    const result = runDependencyTrials({
       activities,
       dependencies: deps,
       trialCount: 100,
@@ -394,8 +394,8 @@ describe("runDependencyTrials", () => {
     });
 
     // Sequential: 5 + 3 = 8
-    for (let i = 0; i < samples.length; i++) {
-      expect(samples[i]!).toBe(8);
+    for (let i = 0; i < result.samples.length; i++) {
+      expect(result.samples[i]!).toBe(8);
     }
   });
 
@@ -408,7 +408,7 @@ describe("runDependencyTrials", () => {
     ];
     const deps = [fsDep("a1", "a2"), fsDep("a1", "a3"), fsDep("a2", "a4"), fsDep("a3", "a4")];
 
-    const samples = runDependencyTrials({
+    const result = runDependencyTrials({
       activities,
       dependencies: deps,
       trialCount: 100,
@@ -416,8 +416,8 @@ describe("runDependencyTrials", () => {
     });
 
     // Critical path: a1(2) + a2(10) + a4(1) = 13
-    for (let i = 0; i < samples.length; i++) {
-      expect(samples[i]!).toBe(13);
+    for (let i = 0; i < result.samples.length; i++) {
+      expect(result.samples[i]!).toBe(13);
     }
   });
 });

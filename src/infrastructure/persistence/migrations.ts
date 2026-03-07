@@ -132,6 +132,24 @@ function migrateV6toV7(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v7 → v8: Add milestones array to scenarios.
+ * Defaults to milestones: []. Activities gain optional milestoneId and startsAtMilestoneId.
+ */
+function migrateV7toV8(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (scenarios) {
+    for (const scenario of scenarios) {
+      if (scenario.milestones === undefined) {
+        scenario.milestones = [];
+      }
+    }
+  }
+  project.schemaVersion = 8;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -139,6 +157,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   4: migrateV4toV5,
   5: migrateV5toV6,
   6: migrateV6toV7,
+  7: migrateV7toV8,
 };
 
 /**

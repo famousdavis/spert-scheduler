@@ -14,6 +14,7 @@ import {
 import {
   buildDependencyGraph,
   computeCriticalPathDuration,
+  computeCriticalPathWithMilestones,
 } from "@core/schedule/dependency-graph";
 
 export interface MonteCarloInput {
@@ -93,6 +94,10 @@ export interface DependencyMonteCarloInput {
   rngSeed: string;
   /** Per-activity deterministic duration (Parkinson's Law floor), keyed by activity ID. */
   deterministicDurationMap?: Map<string, number>;
+  /** Map of milestoneId → list of activity IDs assigned to that milestone. */
+  milestoneActivityIds?: Map<string, string[]>;
+  /** Map of activityId → earliest start offset in working days (from startsAtMilestoneId). */
+  activityEarliestStart?: Map<string, number>;
   /** Optional progress callback. */
   onProgress?: (completedTrials: number, totalTrials: number) => void;
   /** How often to report progress (default: 10000). */
@@ -106,13 +111,20 @@ export interface DependencyMonteCarloInput {
  * Parkinson's Law: each activity's trial duration is clamped to at least
  * its deterministic (scheduled) duration.
  */
-export function runDependencyTrials(input: DependencyMonteCarloInput): Float64Array {
+export interface DependencyTrialsResult {
+  samples: Float64Array;
+  milestoneSamples?: Map<string, Float64Array>;
+}
+
+export function runDependencyTrials(input: DependencyMonteCarloInput): DependencyTrialsResult {
   const {
     activities,
     dependencies,
     trialCount,
     rngSeed,
     deterministicDurationMap,
+    milestoneActivityIds,
+    activityEarliestStart,
     onProgress,
     progressInterval = 10000,
   } = input;
@@ -140,9 +152,17 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Float64Ar
     }
   }
 
+  const hasMilestones = milestoneActivityIds && milestoneActivityIds.size > 0;
   const samples = new Float64Array(trialCount);
   const shouldReportProgress = onProgress && trialCount >= progressInterval;
   const trialDurations = new Map<string, number>();
+
+  // Pre-allocate milestone sample arrays
+  const milestoneSamples = hasMilestones
+    ? new Map<string, Float64Array>(
+        Array.from(milestoneActivityIds.keys()).map((id) => [id, new Float64Array(trialCount)])
+      )
+    : undefined;
 
   for (let trial = 0; trial < trialCount; trial++) {
     // Build duration map for this trial
@@ -160,7 +180,20 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Float64Ar
       }
     }
 
-    samples[trial] = computeCriticalPathDuration(graph, trialDurations);
+    if (hasMilestones) {
+      const result = computeCriticalPathWithMilestones(
+        graph,
+        trialDurations,
+        milestoneActivityIds,
+        activityEarliestStart
+      );
+      samples[trial] = result.projectDuration;
+      for (const [milestoneId, duration] of result.milestoneDurations) {
+        milestoneSamples!.get(milestoneId)![trial] = duration;
+      }
+    } else {
+      samples[trial] = computeCriticalPathDuration(graph, trialDurations);
+    }
 
     if (
       shouldReportProgress &&
@@ -171,7 +204,29 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Float64Ar
     }
   }
 
-  return samples;
+  return { samples, milestoneSamples };
+}
+
+/**
+ * Compute per-milestone statistics from milestone MC samples.
+ */
+export function computeMilestoneStats(
+  milestoneSamples: Map<string, Float64Array>,
+  _trialCount: number
+): Record<string, { percentiles: Record<number, number>; mean: number; standardDeviation: number }> {
+  const results: Record<string, { percentiles: Record<number, number>; mean: number; standardDeviation: number }> = {};
+
+  for (const [milestoneId, samples] of milestoneSamples) {
+    // Sort in-place for percentile calculation
+    sortSamples(samples);
+    results[milestoneId] = {
+      percentiles: computeStandardPercentiles(samples),
+      mean: computeMean(samples),
+      standardDeviation: computeSD(samples),
+    };
+  }
+
+  return results;
 }
 
 /**

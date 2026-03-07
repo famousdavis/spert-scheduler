@@ -3,6 +3,7 @@ import type {
   Scenario,
   Activity,
   ActivityDependency,
+  Milestone,
   Calendar,
   DependencyType,
   ScenarioSettings,
@@ -46,6 +47,7 @@ export function createScenario(
     startDate,
     activities: [],
     dependencies: [],
+    milestones: [],
     settings: {
       ...DEFAULT_SCENARIO_SETTINGS,
       rngSeed: generateId(), // Fresh seed per scenario
@@ -135,12 +137,28 @@ export function cloneScenario(
         dep.fromActivityId !== undefined && dep.toActivityId !== undefined
     );
 
+  // Clone milestones with new IDs, building old→new map
+  const oldToNewMilestoneId = new Map<string, string>();
+  const clonedMilestones = scenario.milestones.map((m) => {
+    const newId = generateId();
+    oldToNewMilestoneId.set(m.id, newId);
+    return { ...m, id: newId };
+  });
+
+  // Remap activity milestone references
+  activities = activities.map((a) => ({
+    ...a,
+    milestoneId: a.milestoneId ? oldToNewMilestoneId.get(a.milestoneId) ?? undefined : undefined,
+    startsAtMilestoneId: a.startsAtMilestoneId ? oldToNewMilestoneId.get(a.startsAtMilestoneId) ?? undefined : undefined,
+  }));
+
   return {
     id: generateId(),
     name: newName,
     startDate: scenario.startDate,
     activities,
     dependencies: clonedDeps,
+    milestones: clonedMilestones,
     settings: {
       ...scenario.settings,
       rngSeed: generateId(), // New seed for clone
@@ -319,5 +337,82 @@ export function removeActivitiesDeps(
     dependencies: scenario.dependencies.filter(
       (d) => !idSet.has(d.fromActivityId) && !idSet.has(d.toActivityId)
     ),
+  };
+}
+
+// -- Milestones ---------------------------------------------------------------
+
+export function addMilestone(
+  scenario: Scenario,
+  name: string,
+  targetDate: string
+): Scenario {
+  const milestone: Milestone = { id: generateId(), name, targetDate };
+  return {
+    ...scenario,
+    milestones: [...scenario.milestones, milestone],
+    simulationResults: undefined,
+  };
+}
+
+export function removeMilestone(
+  scenario: Scenario,
+  milestoneId: string
+): Scenario {
+  return {
+    ...scenario,
+    milestones: scenario.milestones.filter((m) => m.id !== milestoneId),
+    activities: scenario.activities.map((a) => ({
+      ...a,
+      milestoneId: a.milestoneId === milestoneId ? undefined : a.milestoneId,
+      startsAtMilestoneId: a.startsAtMilestoneId === milestoneId ? undefined : a.startsAtMilestoneId,
+    })),
+    simulationResults: undefined,
+  };
+}
+
+export function updateMilestone(
+  scenario: Scenario,
+  milestoneId: string,
+  updates: Partial<Omit<Milestone, "id">>
+): Scenario {
+  return {
+    ...scenario,
+    milestones: scenario.milestones.map((m) =>
+      m.id === milestoneId ? { ...m, ...updates } : m
+    ),
+    simulationResults: undefined,
+  };
+}
+
+export function assignActivityToMilestone(
+  scenario: Scenario,
+  activityId: string,
+  milestoneId: string | null
+): Scenario {
+  return {
+    ...scenario,
+    activities: scenario.activities.map((a) =>
+      a.id === activityId
+        ? { ...a, milestoneId: milestoneId ?? undefined }
+        : a
+    ),
+    simulationResults: undefined,
+  };
+}
+
+export function setActivityStartsAtMilestone(
+  scenario: Scenario,
+  activityId: string,
+  milestoneId: string | null
+): Scenario {
+  return {
+    ...scenario,
+    activities: scenario.activities.map((a) =>
+      a.id === activityId
+        ? { ...a, startsAtMilestoneId: milestoneId ?? undefined }
+        : a
+    ),
+    simulationResults: undefined,
   };
 }

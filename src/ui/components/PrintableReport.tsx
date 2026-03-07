@@ -2,8 +2,10 @@ import { useMemo } from "react";
 import type {
   Project,
   Scenario,
+  Calendar,
   DeterministicSchedule,
   ScheduledActivity,
+  MilestoneBufferInfo,
 } from "@domain/models/types";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { STANDARD_PERCENTILES } from "@domain/models/types";
@@ -24,6 +26,8 @@ interface PrintableReportProps {
   schedule: DeterministicSchedule | null;
   scheduledActivities: ScheduledActivity[];
   buffer: ScheduleBuffer | null;
+  milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
+  calendar?: Calendar;
 }
 
 export function PrintableReport({
@@ -32,6 +36,8 @@ export function PrintableReport({
   schedule,
   scheduledActivities,
   buffer,
+  milestoneBuffers,
+  calendar,
 }: PrintableReportProps) {
   const formatDate = useDateFormat();
   const actPct = Math.round(scenario.settings.probabilityTarget * 100);
@@ -45,7 +51,7 @@ export function PrintableReport({
           addWorkingDays(
             parseDateISO(schedule.projectEndDate),
             buffer.bufferDays,
-            project.globalCalendarOverride
+            calendar
           )
         )
       : null;
@@ -249,6 +255,58 @@ export function PrintableReport({
         </section>
       )}
 
+      {/* Milestones (when dependency mode is on and milestones exist) */}
+      {scenario.settings.dependencyMode && scenario.milestones.length > 0 && (
+        <section className="mb-3 print-section-keep">
+          <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
+            Milestones ({scenario.milestones.length})
+          </h2>
+          <table className="w-full text-[9px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-gray-400 text-left">
+                <th className="py-1 pr-1">#</th>
+                <th className="py-1 pr-1">Name</th>
+                <th className="py-1 pr-1">Target Date</th>
+                <th className="py-1 pr-1 text-center">Buffer</th>
+                <th className="py-1 pr-1 text-center">Slack</th>
+                <th className="py-1">Health</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenario.milestones.map((ms, idx) => {
+                const info = milestoneBuffers?.get(ms.id);
+                return (
+                  <tr key={ms.id} className="border-b border-gray-200">
+                    <td className="py-0.5 pr-1 text-gray-500">{idx + 1}</td>
+                    <td className="py-0.5 pr-1 font-medium">{ms.name}</td>
+                    <td className="py-0.5 pr-1 tabular-nums">{formatDate(ms.targetDate)}</td>
+                    <td className="py-0.5 pr-1 text-center tabular-nums">
+                      {info?.bufferDays !== null && info?.bufferDays !== undefined ? `${info.bufferDays}d` : "—"}
+                    </td>
+                    <td className="py-0.5 pr-1 text-center tabular-nums">
+                      {info?.slackDays !== null && info?.slackDays !== undefined
+                        ? `${info.slackDays >= 0 ? "+" : ""}${info.slackDays}d`
+                        : "—"}
+                    </td>
+                    <td className="py-0.5">
+                      {info ? (
+                        <span className={
+                          info.health === "green" ? "text-green-700" :
+                          info.health === "amber" ? "text-amber-700" :
+                          "text-red-700 font-medium"
+                        }>
+                          {info.health === "green" ? "On Track" : info.health === "amber" ? "Warning" : "At Risk"}
+                        </span>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       {/* Gantt Chart (print-friendly) */}
       {schedule && scheduledActivities.length > 0 && (
         <PrintGanttChart
@@ -261,9 +319,11 @@ export function PrintableReport({
           dependencyMode={scenario.settings.dependencyMode}
           activityTarget={scenario.settings.probabilityTarget}
           projectTarget={scenario.settings.projectProbabilityTarget}
-          calendar={project.globalCalendarOverride}
+          calendar={calendar}
           bufferedEndDate={bufferedEndDate}
           formatDate={formatDate}
+          milestones={scenario.milestones}
+          milestoneBuffers={milestoneBuffers}
         />
       )}
 
@@ -377,6 +437,8 @@ interface PrintGanttChartProps {
   calendar?: import("@domain/models/types").Calendar;
   bufferedEndDate: string | null;
   formatDate: (iso: string) => string;
+  milestones?: import("@domain/models/types").Milestone[];
+  milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
 }
 
 function PrintGanttChart({
@@ -388,6 +450,8 @@ function PrintGanttChart({
   dependencies,
   dependencyMode,
   bufferedEndDate,
+  milestones,
+  milestoneBuffers,
 }: PrintGanttChartProps) {
   const scheduleMap = useMemo(() => {
     const m = new Map<string, ScheduledActivity>();
@@ -402,7 +466,13 @@ function PrintGanttChart({
   );
 
   const showBuffer = buffer && buffer.bufferDays > 0 && bufferedEndDate;
-  const endDate = bufferedEndDate ?? projectEndDate;
+  // Extend end date to cover milestone target dates if they exceed the chart range
+  let endDate = bufferedEndDate ?? projectEndDate;
+  if (milestones) {
+    for (const ms of milestones) {
+      if (ms.targetDate > endDate) endDate = ms.targetDate;
+    }
+  }
   const totalRows = ordered.length + (showBuffer ? 1 : 0);
   const chartW = 700;
   const chartH = PRINT_TOP + totalRows * PRINT_ROW + 8;
@@ -465,6 +535,20 @@ function PrintGanttChart({
             })()}
           </g>
         )}
+        {/* Milestone diamond markers */}
+        {milestones && milestones.map((ms) => {
+          const info = milestoneBuffers?.get(ms.id);
+          const x = toX(ms.targetDate);
+          const color = info?.health === "red" ? "#dc2626" : info?.health === "amber" ? "#d97706" : "#7c3aed";
+          const ds = 4; // diamond half-size
+          return (
+            <g key={ms.id}>
+              <line x1={x} y1={PRINT_TOP - 2} x2={x} y2={PRINT_TOP + totalRows * PRINT_ROW} stroke={color} strokeWidth="0.5" strokeDasharray="2,2" />
+              <polygon points={`${x},${PRINT_TOP - 8 - ds} ${x + ds},${PRINT_TOP - 8} ${x},${PRINT_TOP - 8 + ds} ${x - ds},${PRINT_TOP - 8}`} fill={color} />
+              <text x={x} y={PRINT_TOP - 14} textAnchor="middle" fontSize="5" fill={color} fontWeight="600">{ms.name}</text>
+            </g>
+          );
+        })}
       </svg>
     </section>
   );

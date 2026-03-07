@@ -6,6 +6,7 @@ import {
   detectCycle,
   validateDependencies,
   computeCriticalPathDuration,
+  computeCriticalPathWithMilestones,
 } from "./dependency-graph";
 
 // -- Helpers -----------------------------------------------------------------
@@ -292,6 +293,101 @@ describe("computeCriticalPathDuration", () => {
     // D starts at max(earlyFinish[A], earlyFinish[B])=max(2,1)=2, D(2-5)
     // E starts at max(earlyFinish[C], earlyFinish[D])=max(8,5)=8, E(8-9)
     expect(computeCriticalPathDuration(graph, durations)).toBe(9);
+  });
+});
+
+// -- computeCriticalPathWithMilestones ----------------------------------------
+
+describe("computeCriticalPathWithMilestones", () => {
+  it("returns 0 for empty graph", () => {
+    const graph = buildDependencyGraph([], []);
+    const result = computeCriticalPathWithMilestones(graph, new Map(), new Map());
+    expect(result.projectDuration).toBe(0);
+    expect(result.milestoneDurations.size).toBe(0);
+  });
+
+  it("matches computeCriticalPathDuration when no milestones", () => {
+    const graph = buildDependencyGraph(
+      ["a", "b", "c"],
+      [fsDep("a", "b"), fsDep("b", "c")]
+    );
+    const durations = new Map([["a", 3], ["b", 4], ["c", 5]]);
+    const result = computeCriticalPathWithMilestones(graph, durations, new Map());
+    expect(result.projectDuration).toBe(12);
+  });
+
+  it("computes per-milestone durations", () => {
+    // A(3) → B(4) → C(5), milestone M1 covers A and B
+    const graph = buildDependencyGraph(
+      ["a", "b", "c"],
+      [fsDep("a", "b"), fsDep("b", "c")]
+    );
+    const durations = new Map([["a", 3], ["b", 4], ["c", 5]]);
+    const milestoneActivityIds = new Map([["m1", ["a", "b"]]]);
+    const result = computeCriticalPathWithMilestones(graph, durations, milestoneActivityIds);
+    expect(result.projectDuration).toBe(12);
+    // M1 finish = max(earlyFinish[a]=3, earlyFinish[b]=7) = 7
+    expect(result.milestoneDurations.get("m1")).toBe(7);
+  });
+
+  it("handles multiple milestones", () => {
+    // A(2) → B(3), A(2) → C(5)
+    const graph = buildDependencyGraph(
+      ["a", "b", "c"],
+      [fsDep("a", "b"), fsDep("a", "c")]
+    );
+    const durations = new Map([["a", 2], ["b", 3], ["c", 5]]);
+    const milestoneActivityIds = new Map([
+      ["m1", ["a", "b"]],
+      ["m2", ["a", "c"]],
+    ]);
+    const result = computeCriticalPathWithMilestones(graph, durations, milestoneActivityIds);
+    // A(0-2), B(2-5), C(2-7)
+    expect(result.projectDuration).toBe(7);
+    expect(result.milestoneDurations.get("m1")).toBe(5); // max(2, 5)
+    expect(result.milestoneDurations.get("m2")).toBe(7); // max(2, 7)
+  });
+
+  it("applies earliest-start constraint", () => {
+    // A(3) → B(4), but B has earliest start = 10
+    const graph = buildDependencyGraph(
+      ["a", "b"],
+      [fsDep("a", "b")]
+    );
+    const durations = new Map([["a", 3], ["b", 4]]);
+    const milestoneActivityIds = new Map([["m1", ["a", "b"]]]);
+    const activityEarliestStart = new Map([["b", 10]]);
+    const result = computeCriticalPathWithMilestones(
+      graph, durations, milestoneActivityIds, activityEarliestStart
+    );
+    // A(0-3), B starts at max(3, 10)=10, B(10-14)
+    expect(result.projectDuration).toBe(14);
+    expect(result.milestoneDurations.get("m1")).toBe(14);
+  });
+
+  it("predecessor wins when later than earliest-start", () => {
+    // A(15) → B(4), B has earliest start = 10
+    const graph = buildDependencyGraph(
+      ["a", "b"],
+      [fsDep("a", "b")]
+    );
+    const durations = new Map([["a", 15], ["b", 4]]);
+    const activityEarliestStart = new Map([["b", 10]]);
+    const result = computeCriticalPathWithMilestones(
+      graph, durations, new Map([["m1", ["b"]]]), activityEarliestStart
+    );
+    // A(0-15), B starts at max(15, 10)=15, B(15-19)
+    expect(result.projectDuration).toBe(19);
+    expect(result.milestoneDurations.get("m1")).toBe(19);
+  });
+
+  it("handles empty milestone activity list", () => {
+    const graph = buildDependencyGraph(["a"], []);
+    const durations = new Map([["a", 5]]);
+    const milestoneActivityIds = new Map([["m1", []]]);
+    const result = computeCriticalPathWithMilestones(graph, durations, milestoneActivityIds);
+    expect(result.projectDuration).toBe(5);
+    expect(result.milestoneDurations.get("m1")).toBe(0);
   });
 });
 

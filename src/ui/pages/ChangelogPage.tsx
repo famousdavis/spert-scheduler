@@ -12,6 +12,61 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.11.0",
+    date: "2026-03-07",
+    sections: [
+      {
+        title: "Milestones",
+        items: [
+          "Added Milestones feature: fixed-date checkpoints with per-milestone schedule buffer and health indicators",
+          "Milestone Panel UI for creating, editing, and assigning activities to milestones (requires dependency mode)",
+          "Per-milestone Monte Carlo simulation: tracks finish times for each milestone's activity set independently",
+          "Milestone buffer calculation with slack days and health status (green/amber/red)",
+          "Gantt chart milestone markers: color-coded diamond markers with vertical dashed lines at target dates",
+          "Activity 'starts at milestone' constraint: activities can be pinned to start on a milestone's target date",
+          "Milestone-aware deterministic scheduling: startsAtMilestoneId constraint in dependency forward pass",
+          "Scenario cloning preserves and remaps milestone IDs and activity milestone references",
+        ],
+      },
+      {
+        title: "Global Calendar",
+        items: [
+          "Company-wide holiday calendar that applies to all projects (e.g., US federal holidays)",
+          "Per-project calendars remain for project-specific non-work days (e.g., team offsite, vendor shutdown)",
+          "Global and per-project calendars are merged at schedule computation time",
+          "Calendar page redesigned with two sections: Company Holidays and Project-Specific Non-Work Days",
+        ],
+      },
+      {
+        title: "Gantt Chart",
+        items: [
+          "Dependency arrows use cubic Bézier curves with shorter horizontal stubs for cleaner routing",
+          "Overlap case arrows route with a flatter descent and connect to arrowheads from the left",
+          "Milestone markers rendered as color-coded diamonds with vertical dashed lines at target dates",
+        ],
+      },
+      {
+        title: "User Interface",
+        items: [
+          "Collapsible Milestones and Dependencies sections matching the Gantt chart toggle pattern",
+        ],
+      },
+      {
+        title: "Schema",
+        items: [
+          "Schema v8: Added milestones array to scenarios, milestoneId and startsAtMilestoneId to activities",
+          "Automatic migration from v7 to v8 adds empty milestones array to existing scenarios",
+        ],
+      },
+      {
+        title: "Quality",
+        items: [
+          "471 automated tests across 33 test files",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.10.1",
     date: "2026-03-07",
     sections: [

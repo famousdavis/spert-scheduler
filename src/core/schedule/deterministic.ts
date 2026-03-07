@@ -3,6 +3,7 @@ import type {
   ActivityDependency,
   Calendar,
   DeterministicSchedule,
+  Milestone,
   ScheduledActivity,
 } from "@domain/models/types";
 import { createDistributionForActivity } from "@core/distributions/factory";
@@ -170,7 +171,8 @@ export function computeDependencySchedule(
   dependencies: ActivityDependency[],
   startDate: string,
   percentile: number,
-  calendar?: Calendar
+  calendar?: Calendar,
+  milestones?: Milestone[]
 ): DeterministicSchedule {
   const graph = buildDependencyGraph(
     activities.map((a) => a.id),
@@ -228,6 +230,20 @@ export function computeDependencySchedule(
         }
       }
       activityStart = latestDate;
+    }
+
+    // Apply startsAtMilestoneId constraint: activity cannot start before milestone target date
+    if (activity.startsAtMilestoneId && milestones) {
+      const milestone = milestones.find((m) => m.id === activity.startsAtMilestoneId);
+      if (milestone) {
+        const milestoneDate = parseDateISO(milestone.targetDate);
+        while (!isWorkingDay(milestoneDate, calendar)) {
+          milestoneDate.setDate(milestoneDate.getDate() + 1);
+        }
+        if (milestoneDate > activityStart) {
+          activityStart = milestoneDate;
+        }
+      }
     }
 
     // Ensure start is a working day

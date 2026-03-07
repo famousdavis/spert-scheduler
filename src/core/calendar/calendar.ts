@@ -130,3 +130,20 @@ export function countWorkingDays(
   }
   return count;
 }
+
+/**
+ * Merge a global (company-wide) calendar with a project-specific calendar.
+ * Returns undefined if both inputs are undefined.
+ */
+export function mergeCalendars(
+  global?: Calendar,
+  project?: Calendar
+): Calendar | undefined {
+  if (!global && !project) return undefined;
+  return {
+    holidays: [
+      ...(global?.holidays ?? []),
+      ...(project?.holidays ?? []),
+    ],
+  };
+}

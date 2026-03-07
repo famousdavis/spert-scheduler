@@ -537,4 +537,117 @@ describe("applyMigrations", () => {
     expect(scenarios[0]!.dependencies).toEqual([]);
     expect(settings.dependencyMode).toBe(false);
   });
+
+  it("migrates v7 to v8: adds milestones to scenarios", () => {
+    const v7Data = {
+      schemaVersion: 7,
+      name: "Test Project",
+      scenarios: [
+        {
+          id: "s1",
+          name: "Baseline",
+          dependencies: [],
+          settings: {
+            dependencyMode: true,
+          },
+        },
+      ],
+    };
+
+    const result = applyMigrations(v7Data, 7, 8) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(8);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios[0]!.milestones).toEqual([]);
+  });
+
+  it("v7→v8 migration does not overwrite existing milestones", () => {
+    const v7Data = {
+      schemaVersion: 7,
+      name: "Milestone Project",
+      scenarios: [
+        {
+          id: "s1",
+          name: "Baseline",
+          milestones: [
+            { id: "m1", name: "DR Cutover", targetDate: "2025-07-01" },
+          ],
+          settings: {},
+        },
+      ],
+    };
+
+    const result = applyMigrations(v7Data, 7, 8) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(8);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const milestones = scenarios[0]!.milestones as Array<Record<string, unknown>>;
+    expect(milestones).toHaveLength(1);
+    expect(milestones[0]!.name).toBe("DR Cutover");
+  });
+
+  it("v7→v8 migration handles missing scenarios gracefully", () => {
+    const v7Data = {
+      schemaVersion: 7,
+      name: "No Scenarios",
+    };
+
+    const result = applyMigrations(v7Data, 7, 8) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(8);
+  });
+
+  it("v7→v8 migration handles multiple scenarios", () => {
+    const v7Data = {
+      schemaVersion: 7,
+      name: "Multi-Scenario",
+      scenarios: [
+        { id: "s1", name: "Baseline", settings: {} },
+        { id: "s2", name: "Optimistic", settings: {} },
+      ],
+    };
+
+    const result = applyMigrations(v7Data, 7, 8) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(8);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios[0]!.milestones).toEqual([]);
+    expect(scenarios[1]!.milestones).toEqual([]);
+  });
+
+  it("applies sequential v1→v8 migrations", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      name: "Old Project",
+      scenarios: [
+        {
+          settings: {
+            probabilityTarget: 0.85,
+          },
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 8) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(8);
+
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+
+    // v1→v2
+    expect(settings.projectProbabilityTarget).toBe(0.95);
+    // v3→v4
+    expect(result.archived).toBe(false);
+    // v4→v5
+    expect(scenarios[0]!.locked).toBe(false);
+    // v5→v6
+    expect(settings.heuristicEnabled).toBe(false);
+    // v6→v7
+    expect(scenarios[0]!.dependencies).toEqual([]);
+    expect(settings.dependencyMode).toBe(false);
+    // v7→v8
+    expect(scenarios[0]!.milestones).toEqual([]);
+  });
 });

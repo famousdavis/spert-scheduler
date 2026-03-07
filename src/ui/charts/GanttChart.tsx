@@ -1,7 +1,9 @@
-import { useState, useMemo, type RefObject } from "react";
+import { useState, useEffect, useMemo, type RefObject } from "react";
 import type {
   Activity,
   ActivityDependency,
+  Milestone,
+  MilestoneBufferInfo,
   ScheduledActivity,
   Calendar,
 } from "@domain/models/types";
@@ -16,7 +18,7 @@ import { useDateFormat } from "@ui/hooks/use-date-format";
 import {
   LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, ROW_HEIGHT,
   BAR_HEIGHT, BAR_Y_OFFSET, BAR_RADIUS, MIN_CHART_WIDTH,
-  ARROW_HEAD_SIZE, MIN_TICK_SPACING_PX, COLORS,
+  ARROW_HEAD_SIZE, MIN_TICK_SPACING_PX, COLORS, MILESTONE_COLORS,
 } from "./gantt-constants";
 import {
   dateToX, longDateLabel, generateTicks, buildOrderedActivities,
@@ -33,6 +35,8 @@ interface GanttChartProps {
   activityTarget: number;
   projectTarget: number;
   calendar?: Calendar;
+  milestones?: Milestone[];
+  milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   svgContainerRef?: RefObject<HTMLDivElement | null>;
 }
 
@@ -47,6 +51,8 @@ export function GanttChart({
   activityTarget,
   projectTarget,
   calendar,
+  milestones = [],
+  milestoneBuffers,
   svgContainerRef,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
@@ -64,6 +70,7 @@ export function GanttChart({
     typeof document !== "undefined" &&
     document.documentElement.classList.contains("dark");
   const c = isDark ? COLORS.dark : COLORS.light;
+  const mc = isDark ? MILESTONE_COLORS.dark : MILESTONE_COLORS.light;
 
   // Uncertainty data
   const uncertaintyMap = useMemo(
@@ -112,7 +119,7 @@ export function GanttChart({
     return m;
   }, [viewMode, orderedActivities, scheduleMap, uncertaintyMap, calendar]);
 
-  // Compute the furthest date considering all scheduled activities and uncertainty extensions
+  // Compute the furthest date considering all scheduled activities, uncertainty extensions, and milestones
   const furthestDate = useMemo(() => {
     let latest = timelineEnd;
     for (const sa of scheduledActivities) {
@@ -121,22 +128,45 @@ export function GanttChart({
     for (const extEnd of activityExtendedEndDates.values()) {
       if (extEnd > latest) latest = extEnd;
     }
+    for (const m of milestones) {
+      if (m.targetDate > latest) latest = m.targetDate;
+    }
     return latest;
-  }, [timelineEnd, scheduledActivities, activityExtendedEndDates]);
+  }, [timelineEnd, scheduledActivities, activityExtendedEndDates, milestones]);
+
+  // Measure container width for responsive chart sizing
+  const [containerWidth, setContainerWidth] = useState(0);
+  useEffect(() => {
+    const el = svgContainerRef?.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    setContainerWidth(el.clientWidth);
+    return () => observer.disconnect();
+  }, [svgContainerRef]);
 
   const showBuffer = buffer !== null && buffer.bufferDays > 0 && bufferedEndDate;
   const totalRows = orderedActivities.length + (showBuffer ? 1 : 0);
-  const chartHeight = TOP_MARGIN + totalRows * ROW_HEIGHT + 20;
+  // Extra top margin when milestones exist so name + date labels clear the tick row
+  const topMargin = milestones.length > 0 ? TOP_MARGIN + 26 : TOP_MARGIN;
+  const chartHeight = topMargin + totalRows * ROW_HEIGHT + 20;
 
-  // Scale chart width based on date range: ~8px per calendar day, min 900
+  // Scale chart width: fit container, only scroll when bars would be unreadably small
   const minTimestamp = new Date(projectStartDate + "T00:00:00").getTime();
   const maxTimestamp = new Date(furthestDate + "T00:00:00").getTime();
   const dateRange = maxTimestamp - minTimestamp;
   const calendarDays = dateRange / (1000 * 60 * 60 * 24);
-  const chartWidth = Math.max(
-    MIN_CHART_WIDTH,
-    LEFT_MARGIN + RIGHT_MARGIN + Math.ceil(calendarDays * 8)
-  );
+  const MIN_PX_PER_DAY = 2;
+  const targetWidth = containerWidth > 0 ? containerWidth : MIN_CHART_WIDTH;
+  const availableChartArea = targetWidth - LEFT_MARGIN - RIGHT_MARGIN;
+  const pxPerDay = calendarDays > 0 ? availableChartArea / calendarDays : 8;
+  const chartWidth = pxPerDay < MIN_PX_PER_DAY
+    ? LEFT_MARGIN + RIGHT_MARGIN + Math.ceil(calendarDays * MIN_PX_PER_DAY)
+    : targetWidth;
   const chartAreaWidth = chartWidth - LEFT_MARGIN - RIGHT_MARGIN;
 
   // Generate ticks then filter out any that are too close in pixel space
@@ -151,6 +181,14 @@ export function GanttChart({
     ? dateToX(finishDate, minTimestamp, dateRange, chartAreaWidth)
     : 0;
 
+  // Milestone X positions for tick suppression
+  const milestoneXPositions = useMemo(() => {
+    if (dateRange === 0) return [];
+    return milestones.map((m) =>
+      dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth)
+    );
+  }, [milestones, minTimestamp, dateRange, chartAreaWidth]);
+
   const ticks = useMemo(() => {
     if (allTicks.length === 0 || dateRange === 0) return allTicks;
     const filtered: typeof allTicks = [];
@@ -160,13 +198,15 @@ export function GanttChart({
       // Suppress ticks that collide with the finish date label
       // Wider exclusion zone for the long-form finish date label
       if (Math.abs(x - finishX) < MIN_TICK_SPACING_PX * 1.5) continue;
+      // Suppress ticks that collide with milestone labels
+      if (milestoneXPositions.some((mx) => Math.abs(x - mx) < MIN_TICK_SPACING_PX)) continue;
       if (x - lastX >= MIN_TICK_SPACING_PX) {
         filtered.push(tick);
         lastX = x;
       }
     }
     return filtered;
-  }, [allTicks, minTimestamp, dateRange, chartAreaWidth, finishX]);
+  }, [allTicks, minTimestamp, dateRange, chartAreaWidth, finishX, milestoneXPositions]);
 
   // Build row index map for dependency arrows
   const rowIndex = useMemo(() => {
@@ -284,7 +324,7 @@ export function GanttChart({
               <g key={i}>
                 <line
                   x1={x}
-                  y1={TOP_MARGIN}
+                  y1={topMargin}
                   x2={x}
                   y2={chartHeight - 10}
                   stroke={c.gridLine}
@@ -292,7 +332,7 @@ export function GanttChart({
                 />
                 <text
                   x={x}
-                  y={TOP_MARGIN - 8}
+                  y={topMargin - 8}
                   textAnchor="middle"
                   fontSize="10"
                   fill={c.textMuted}
@@ -308,7 +348,7 @@ export function GanttChart({
             <g>
               <line
                 x1={finishX}
-                y1={TOP_MARGIN}
+                y1={topMargin}
                 x2={finishX}
                 y2={chartHeight - 10}
                 stroke={c.finishLine}
@@ -317,7 +357,7 @@ export function GanttChart({
               />
               <text
                 x={finishX}
-                y={TOP_MARGIN - 8}
+                y={topMargin - 8}
                 textAnchor="middle"
                 fontSize="10"
                 fontWeight="600"
@@ -327,6 +367,61 @@ export function GanttChart({
               </text>
             </g>
           )}
+
+          {/* Milestone vertical lines and diamonds */}
+          {milestones.map((m) => {
+            if (dateRange === 0) return null;
+            const mx = dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth);
+            const bufferInfo = milestoneBuffers?.get(m.id);
+            const healthColor = bufferInfo
+              ? mc[bufferInfo.health]
+              : mc.line;
+            const diamondSize = 6;
+
+            return (
+              <g key={`ms-${m.id}`}>
+                {/* Vertical dashed line */}
+                <line
+                  x1={mx}
+                  y1={topMargin}
+                  x2={mx}
+                  y2={chartHeight - 10}
+                  stroke={healthColor}
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                  opacity={0.7}
+                />
+                {/* Diamond marker at top */}
+                <polygon
+                  points={`${mx},${topMargin - 2 - diamondSize} ${mx + diamondSize},${topMargin - 2} ${mx},${topMargin - 2 + diamondSize} ${mx - diamondSize},${topMargin - 2}`}
+                  fill={healthColor}
+                />
+                {/* Milestone name above diamond */}
+                <text
+                  x={mx}
+                  y={topMargin - 2 - diamondSize - 13}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fill={healthColor}
+                  fontWeight="600"
+                  className="pointer-events-none"
+                >
+                  {m.name}
+                </text>
+                {/* Target date below name */}
+                <text
+                  x={mx}
+                  y={topMargin - 2 - diamondSize - 3}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fill={healthColor}
+                  className="pointer-events-none"
+                >
+                  {formatDate(m.targetDate)}
+                </text>
+              </g>
+            );
+          })}
 
           {/* Dependency arrows (rendered before bars so bars paint on top) */}
           {dependencyMode &&
@@ -344,7 +439,7 @@ export function GanttChart({
               )
                 return null;
 
-              // Arrow from right edge of predecessor bar to back of arrowhead at successor bar
+              // Arrow from right edge of predecessor bar to left side of successor bar
               const barEndX = dateToX(
                 fromSa.endDate,
                 minTimestamp,
@@ -352,7 +447,7 @@ export function GanttChart({
                 chartAreaWidth
               );
               const fromY =
-                TOP_MARGIN + fromRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+                topMargin + fromRow * ROW_HEIGHT + ROW_HEIGHT / 2;
               const toX = dateToX(
                 toSa.startDate,
                 minTimestamp,
@@ -360,21 +455,33 @@ export function GanttChart({
                 chartAreaWidth
               );
               const toY =
-                TOP_MARGIN + toRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+                topMargin + toRow * ROW_HEIGHT + ROW_HEIGHT / 2;
 
-              // Arrowhead tip touches the successor bar exactly (refX=0, tip at +ARROW_HEAD_SIZE)
+              // Stub right from bar end, then cubic Bezier swerve down to arrowhead
+              const STUB = 7;
+              const stubX = barEndX + STUB;
               const endX = toX - ARROW_HEAD_SIZE;
-              // Control points push outward so the curve extends horizontally before bending
-              const dy = Math.abs(toY - fromY);
-              const curvature = Math.max(24, dy * 0.5);
-              const path = `M${barEndX},${fromY} C${barEndX + curvature},${fromY} ${endX - curvature},${toY} ${endX},${toY}`;
+              const dyAbs = Math.abs(toY - fromY);
+              const dySigned = toY - fromY; // positive = going down
+
+              let path: string;
+              if (endX >= stubX + 10) {
+                // Normal case: enough horizontal room for a wide S-curve
+                const spread = Math.max(20, dyAbs * 0.45);
+                path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + spread},${fromY} ${endX - spread},${toY} ${endX},${toY}`;
+              } else {
+                // Overlap case: bars overlap in time — flat descent then turn
+                // right into arrowhead from the left
+                const loopExt = Math.max(30, dyAbs * 0.5);
+                path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + loopExt},${fromY + dySigned * 0.3} ${endX - loopExt},${toY} ${endX},${toY}`;
+              }
 
               return (
                 <g key={`dep-${i}`}>
                   <path
                     d={path}
                     stroke={c.arrow}
-                    strokeWidth="2.5"
+                    strokeWidth="2"
                     fill="none"
                     markerEnd="url(#arrowhead)"
                   />
@@ -401,7 +508,7 @@ export function GanttChart({
             const sa = scheduleMap.get(act.id);
             if (!sa) return null;
 
-            const y = TOP_MARGIN + idx * ROW_HEIGHT;
+            const y = topMargin + idx * ROW_HEIGHT;
             const barY = y + BAR_Y_OFFSET;
             const barX = dateToX(
               sa.startDate,
@@ -527,7 +634,7 @@ export function GanttChart({
             <g>
               {(() => {
                 const bufIdx = orderedActivities.length;
-                const y = TOP_MARGIN + bufIdx * ROW_HEIGHT;
+                const y = topMargin + bufIdx * ROW_HEIGHT;
                 const barY = y + BAR_Y_OFFSET;
                 const bufStartX = dateToX(
                   projectEndDate,
