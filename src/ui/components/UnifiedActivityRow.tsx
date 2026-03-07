@@ -220,12 +220,16 @@ export function UnifiedActivityRow({
     ) => {
       if (e.key !== "Tab") return;
 
-      // Build field order based on heuristic mode and completion status
+      // Build field order based on heuristic mode, completion status,
+      // and whether confidence applies to this distribution type
+      const confidenceApplies =
+        activity.distributionType === "normal" || activity.distributionType === "logNormal";
       let fieldOrder: string[];
       if (heuristicEnabled) {
-        fieldOrder = isComplete
-          ? ["name", "ml", "confidence", "distribution", "status", "actual"]
-          : ["name", "ml", "confidence", "distribution", "status"];
+        fieldOrder = confidenceApplies
+          ? ["name", "ml", "confidence", "distribution", "status"]
+          : ["name", "ml", "distribution", "status"];
+        if (isComplete) fieldOrder.push("actual");
       } else {
         fieldOrder = isComplete
           ? ["name", "min", "ml", "max", "actual"]
@@ -292,7 +296,7 @@ export function UnifiedActivityRow({
         }
       }
     },
-    [activity.id, isComplete, heuristicEnabled]
+    [activity.id, activity.distributionType, isComplete, heuristicEnabled]
   );
 
   const recommendation = useMemo(
