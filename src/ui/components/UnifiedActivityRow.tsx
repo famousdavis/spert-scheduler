@@ -462,6 +462,7 @@ export function UnifiedActivityRow({
           onChange={(level) =>
             onUpdate(activity.id, { confidenceLevel: level })
           }
+          disabled={activity.distributionType !== "normal" && activity.distributionType !== "logNormal"}
           data-row-id={activity.id}
           data-field="confidence"
           onKeyDown={(e) => handleTabNav(e, "confidence")}

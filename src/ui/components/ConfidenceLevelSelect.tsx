@@ -6,6 +6,7 @@ import { RSM_LEVELS, RSM_LABELS, RSM_DESCRIPTIONS } from "@domain/models/types";
 interface ConfidenceLevelSelectProps {
   value: RSMLevel;
   onChange: (level: RSMLevel) => void;
+  disabled?: boolean;
   "data-row-id"?: string;
   "data-field"?: string;
   onKeyDown?: (e: React.KeyboardEvent) => void;
@@ -15,6 +16,7 @@ interface ConfidenceLevelSelectProps {
 export function ConfidenceLevelSelect({
   value,
   onChange,
+  disabled,
   "data-row-id": dataRowId,
   "data-field": dataField,
   onKeyDown,
@@ -163,10 +165,13 @@ export function ConfidenceLevelSelect({
         type="button"
         data-row-id={dataRowId}
         data-field={dataField}
-        onClick={() => setOpen(!open)}
+        onClick={() => { if (!disabled) setOpen(!open); }}
         onKeyDown={onKeyDown}
-        className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm text-left focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 dark:text-gray-100 truncate"
-        tabIndex={tabIndex}
+        disabled={disabled}
+        className={`w-full px-1 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm text-left focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 dark:text-gray-100 truncate ${
+          disabled ? "opacity-40 cursor-not-allowed" : ""
+        }`}
+        tabIndex={disabled ? -1 : tabIndex}
       >
         {RSM_LABELS[value]}
       </button>
