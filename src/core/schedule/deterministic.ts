@@ -8,6 +8,7 @@ import type {
 import { createDistributionForActivity } from "@core/distributions/factory";
 import {
   addWorkingDays,
+  subtractWorkingDays,
   formatDateISO,
   parseDateISO,
   isWorkingDay,
@@ -209,10 +210,14 @@ export function computeDependencySchedule(
       for (const pred of preds) {
         const predEnd = endDates.get(pred.id)!;
         // Next working day after predecessor ends, plus lag days
-        let candidateStart = addWorkingDays(predEnd, 1 + Math.max(0, pred.lagDays), calendar);
-        // Negative lag (lead time): move start earlier
-        if (pred.lagDays < 0) {
-          candidateStart = addWorkingDays(predEnd, 1 + pred.lagDays, calendar);
+        // offset = 1 (next day after end) + lagDays
+        const offset = 1 + pred.lagDays;
+        let candidateStart: Date;
+        if (offset >= 0) {
+          candidateStart = addWorkingDays(predEnd, offset, calendar);
+        } else {
+          // Negative offset (lead time): subtract working days from predecessor end
+          candidateStart = subtractWorkingDays(predEnd, -offset, calendar);
           // Don't start before project start
           if (candidateStart < projectStart) {
             candidateStart = new Date(projectStart);

@@ -112,14 +112,17 @@ export function GanttChart({
     return m;
   }, [viewMode, orderedActivities, scheduleMap, uncertaintyMap, calendar]);
 
-  // Compute the furthest date considering uncertainty extensions
+  // Compute the furthest date considering all scheduled activities and uncertainty extensions
   const furthestDate = useMemo(() => {
     let latest = timelineEnd;
+    for (const sa of scheduledActivities) {
+      if (sa.endDate > latest) latest = sa.endDate;
+    }
     for (const extEnd of activityExtendedEndDates.values()) {
       if (extEnd > latest) latest = extEnd;
     }
     return latest;
-  }, [timelineEnd, activityExtendedEndDates]);
+  }, [timelineEnd, scheduledActivities, activityExtendedEndDates]);
 
   const showBuffer = buffer !== null && buffer.bufferDays > 0 && bufferedEndDate;
   const totalRows = orderedActivities.length + (showBuffer ? 1 : 0);
