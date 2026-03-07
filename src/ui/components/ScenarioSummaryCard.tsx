@@ -20,6 +20,7 @@ interface ScenarioSummaryCardProps {
   settings: ScenarioSettings;
   hasSimulationResults: boolean;
   onSettingsChange: (updates: Partial<ScenarioSettings>) => void;
+  onStartDateChange: (startDate: string) => void;
   onNewSeed: () => void;
   isLocked?: boolean;
   onToggleLock?: () => void;
@@ -34,6 +35,7 @@ export function ScenarioSummaryCard({
   settings,
   hasSimulationResults,
   onSettingsChange,
+  onStartDateChange,
   onNewSeed,
   isLocked,
   onToggleLock,
@@ -86,9 +88,17 @@ export function ScenarioSummaryCard({
           <span className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Start
           </span>
-          <p className="text-lg font-semibold text-blue-700 dark:text-blue-400 tabular-nums">
-            {formatDate(startDate)}
-          </p>
+          <div>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                if (e.target.value) onStartDateChange(e.target.value);
+              }}
+              disabled={isLocked}
+              className="text-lg font-semibold text-blue-700 dark:text-blue-400 tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 dark:focus:border-blue-400 rounded px-1 -ml-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent"
+            />
+          </div>
         </div>
         <div className="border-l border-gray-200 dark:border-gray-600 self-stretch" />
         <div>
