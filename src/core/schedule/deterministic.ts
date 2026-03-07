@@ -98,6 +98,38 @@ export function computeDeterministicSchedule(
   };
 }
 
+// -- Per-activity uncertainty computation -------------------------------------
+
+/**
+ * Compute per-activity uncertainty: the difference between the duration at
+ * the project target and the activity target percentile.
+ *
+ * Used by the Gantt chart to show split bars (solid = deterministic, hatched = uncertainty).
+ *
+ * @returns Map of activityId → { solidDays, hatchedDays }
+ */
+export function computeActivityUncertaintyDays(
+  activities: Activity[],
+  activityTarget: number,
+  projectTarget: number
+): Map<string, { solidDays: number; hatchedDays: number }> {
+  const result = new Map<string, { solidDays: number; hatchedDays: number }>();
+
+  for (const activity of activities) {
+    if (activity.status === "complete" && activity.actualDuration != null) {
+      result.set(activity.id, { solidDays: activity.actualDuration, hatchedDays: 0 });
+    } else {
+      const dist = createDistributionForActivity(activity);
+      const solidDays = Math.max(1, Math.ceil(dist.inverseCDF(activityTarget)));
+      const projectDays = Math.max(1, Math.ceil(dist.inverseCDF(projectTarget)));
+      const hatchedDays = Math.max(0, projectDays - solidDays);
+      result.set(activity.id, { solidDays, hatchedDays });
+    }
+  }
+
+  return result;
+}
+
 // -- Dependency-aware scheduling ---------------------------------------------
 
 /**
@@ -150,7 +182,7 @@ export function computeDependencySchedule(
   // Activity lookup
   const activityMap = new Map(activities.map((a) => [a.id, a]));
 
-  let projectStart = parseDateISO(startDate);
+  const projectStart = parseDateISO(startDate);
   while (!isWorkingDay(projectStart, calendar)) {
     projectStart.setDate(projectStart.getDate() + 1);
   }

@@ -11,6 +11,7 @@ import { formatDateISO } from "@core/calendar/calendar";
 import { computeDeterministicDurations, computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { DependencyPanel } from "@ui/components/DependencyPanel";
+import { GanttSection } from "@ui/components/GanttSection";
 import { UnifiedActivityGrid } from "@ui/components/UnifiedActivityGrid";
 import { ScenarioSummaryCard } from "@ui/components/ScenarioSummaryCard";
 import { SimulationPanel } from "@ui/components/SimulationPanel";
@@ -525,6 +526,22 @@ export function ProjectPage() {
                 updateDependencyLag(id!, scenario.id, fromId, toId, lag)
               }
               isLocked={scenario.locked}
+            />
+          )}
+
+          {/* Gantt Chart */}
+          {schedule && scenario.activities.length > 0 && (
+            <GanttSection
+              activities={scenario.activities}
+              scheduledActivities={schedule.activities}
+              projectStartDate={scenario.startDate}
+              projectEndDate={schedule.projectEndDate}
+              buffer={buffer}
+              dependencies={scenario.dependencies}
+              dependencyMode={scenario.settings.dependencyMode}
+              activityTarget={scenario.settings.probabilityTarget}
+              projectTarget={scenario.settings.projectProbabilityTarget}
+              calendar={project.globalCalendarOverride}
             />
           )}
 
