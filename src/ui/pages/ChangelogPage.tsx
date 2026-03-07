@@ -20,6 +20,7 @@ const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Project start date is now editable via a date picker in the Scenario Summary Card",
           "Milestone panel moved above Predecessor panel so the Gantt chart is visible while editing dependencies",
+          "Confidence field is disabled for distributions that don't use it (Triangular, Uniform)",
         ],
       },
     ],
