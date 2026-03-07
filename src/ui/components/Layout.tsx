@@ -5,6 +5,8 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useTheme } from "@ui/hooks/use-theme";
 import { ToastContainer } from "./ToastContainer";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
+import { AuthButton } from "./AuthButton";
+import { useCloudSync } from "@ui/hooks/use-cloud-sync";
 
 const NAV_ITEMS = [
   { path: "/projects", label: "Projects" },
@@ -20,6 +22,9 @@ export function Layout() {
 
   // Initialize theme (applies dark class to document)
   useTheme();
+
+  // Initialize cloud sync (no-op when in local mode)
+  useCloudSync();
 
   useEffect(() => {
     loadPreferences();
@@ -56,24 +61,27 @@ export function Layout() {
             <Link to="/projects" className="text-lg font-bold text-gray-900 dark:text-gray-100">
               SPERT<span className="text-gray-300 dark:text-gray-600 text-xs align-super">®</span> Scheduler
             </Link>
-            <nav className="flex gap-1">
-              {NAV_ITEMS.map((item) => {
-                const isActive = location.pathname.startsWith(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
-                        : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+            <div className="flex items-center gap-1">
+              <nav className="flex gap-1">
+                {NAV_ITEMS.map((item) => {
+                  const isActive = location.pathname.startsWith(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                          : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <AuthButton />
+            </div>
           </div>
         </div>
       </header>

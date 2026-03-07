@@ -32,6 +32,7 @@ import { downloadFile } from "@ui/helpers/download";
 import { distributionLabel } from "@ui/helpers/format-labels";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { formatDateISO } from "@core/calendar/calendar";
+import { StorageModeSection } from "@ui/components/StorageModeSection";
 
 // -- Conflict resolution types -----------------------------------------------
 
@@ -901,6 +902,7 @@ export function SettingsPage() {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
       <PreferencesSection />
       <StorageSection />
+      <StorageModeSection />
       <ExportSection projects={projects} />
       <ImportSection projects={projects} importProjects={importProjects} />
     </div>

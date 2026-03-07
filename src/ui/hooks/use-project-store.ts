@@ -44,6 +44,7 @@ import {
 import {
   loadPreferences,
 } from "@infrastructure/persistence/preferences-repository";
+import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import { UNDO_STACK_LIMIT } from "@ui/constants";
 
 const repo = new LocalStorageRepository();
@@ -258,6 +259,10 @@ export interface ProjectStore {
   toggleScenarioLock: (projectId: string, scenarioId: string) => void;
   isScenarioLocked: (projectId: string, scenarioId: string) => boolean;
 
+  // Cloud sync
+  setProjects: (projects: Project[]) => void;
+  mergeProject: (project: Project) => void;
+
   // Error recovery
   getCorruptedProjectRawData: (id: string) => string | null;
   removeCorruptedProject: (id: string) => void;
@@ -273,6 +278,8 @@ function persist(projects: Project[], projectId?: string) {
         project = stripSimulationSamples(project);
       }
       repo.save(project);
+      // Notify cloud sync layer (no-op when no listeners registered)
+      cloudSyncBus.emitSave(projectId);
     }
   }
 }
@@ -379,6 +386,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     });
     repo.save(project);
     set((state) => ({ projects: [...state.projects, project] }));
+    cloudSyncBus.emitCreate(project.id);
     return project;
   },
 
@@ -387,6 +395,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     set((state) => ({
       projects: state.projects.filter((p) => p.id !== id),
     }));
+    cloudSyncBus.emitDelete(id);
   },
 
   reorderProjects: (fromIndex: number, toIndex: number) => {
@@ -692,6 +701,28 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       persist(projects, id);
       return { projects };
     });
+  },
+
+  setProjects: (projects: Project[]) => {
+    // Also sync to localStorage so local cache stays current
+    for (const project of projects) {
+      repo.save(project);
+    }
+    // Update the index to match
+    repo.reorderIndex(projects.map((p) => p.id));
+    set({ projects, loadError: false, loadErrors: [], undoStack: [], redoStack: [] });
+  },
+
+  mergeProject: (project: Project) => {
+    set((state) => {
+      const exists = state.projects.some((p) => p.id === project.id);
+      const projects = exists
+        ? state.projects.map((p) => (p.id === project.id ? project : p))
+        : [...state.projects, project];
+      return { projects };
+    });
+    // Update localStorage cache
+    repo.save(project);
   },
 
   getCorruptedProjectRawData: (id: string) => {

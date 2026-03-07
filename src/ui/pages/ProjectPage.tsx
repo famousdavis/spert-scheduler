@@ -26,6 +26,7 @@ import { ValidationSummary } from "@ui/components/ValidationSummary";
 import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
 import { PrintableReport } from "@ui/components/PrintableReport";
 import { SensitivityPanel } from "@ui/components/SensitivityPanel";
+import { SharingSection } from "@ui/components/SharingSection";
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -649,6 +650,9 @@ export function ProjectPage() {
           </p>
         </div>
       )}
+
+      {/* Project Sharing (cloud mode only) */}
+      <SharingSection projectId={id!} />
 
       {/* Dialogs */}
       <NewScenarioDialog
