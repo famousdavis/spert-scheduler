@@ -8,6 +8,7 @@ import {
   addWorkingDays,
   subtractWorkingDays,
   countWorkingDays,
+  mergeCalendars,
 } from "./calendar";
 
 describe("formatDateISO / parseDateISO", () => {
@@ -246,5 +247,44 @@ describe("calendar iteration limits", () => {
     // 5 years of working days should be fine (< 10,000 iterations)
     const result = addWorkingDays(new Date(2025, 0, 1), 1000);
     expect(result.getFullYear()).toBeGreaterThanOrEqual(2028);
+  });
+});
+
+describe("mergeCalendars", () => {
+  it("returns undefined when both inputs are undefined", () => {
+    expect(mergeCalendars(undefined, undefined)).toBeUndefined();
+  });
+
+  it("returns global calendar when project is undefined", () => {
+    const global = { holidays: [{ id: "h1", name: "NY", startDate: "2026-01-01", endDate: "2026-01-01" }] };
+    const result = mergeCalendars(global, undefined);
+    expect(result).toEqual(global);
+  });
+
+  it("returns project calendar when global is undefined", () => {
+    const project = { holidays: [{ id: "h2", name: "Offsite", startDate: "2026-03-10", endDate: "2026-03-11" }] };
+    const result = mergeCalendars(undefined, project);
+    expect(result).toEqual(project);
+  });
+
+  it("merges holidays from both calendars", () => {
+    const global = { holidays: [{ id: "h1", name: "NY", startDate: "2026-01-01", endDate: "2026-01-01" }] };
+    const project = { holidays: [{ id: "h2", name: "Offsite", startDate: "2026-03-10", endDate: "2026-03-11" }] };
+    const result = mergeCalendars(global, project);
+    expect(result!.holidays).toHaveLength(2);
+    expect(result!.holidays[0]!.name).toBe("NY");
+    expect(result!.holidays[1]!.name).toBe("Offsite");
+  });
+
+  it("merged calendar affects isWorkingDay", () => {
+    const global = { holidays: [{ id: "h1", name: "NY", startDate: "2026-01-01", endDate: "2026-01-01" }] };
+    const project = { holidays: [{ id: "h2", name: "Offsite", startDate: "2026-01-02", endDate: "2026-01-02" }] };
+    const merged = mergeCalendars(global, project)!;
+    // Thu Jan 1 2026 — global holiday
+    expect(isWorkingDay(new Date(2026, 0, 1), merged)).toBe(false);
+    // Fri Jan 2 2026 — project holiday
+    expect(isWorkingDay(new Date(2026, 0, 2), merged)).toBe(false);
+    // Mon Jan 5 2026 — working day
+    expect(isWorkingDay(new Date(2026, 0, 5), merged)).toBe(true);
   });
 });

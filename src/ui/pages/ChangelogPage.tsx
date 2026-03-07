@@ -12,6 +12,32 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.11.1",
+    date: "2026-03-07",
+    sections: [
+      {
+        title: "Refactoring",
+        items: [
+          "Extracted milestone-service.ts from project-service.ts for focused milestone CRUD operations",
+          "Extracted dependency-service.ts from project-service.ts for focused dependency CRUD operations",
+          "Extracted buildMilestoneSimParams as a pure utility function in core/schedule for testability",
+          "project-service.ts reduced from 418 to 290 LOC; new modules re-exported for backward compatibility",
+          "ProjectPage.tsx reduced by 40+ LOC by removing inline milestone simulation parameter logic",
+        ],
+      },
+      {
+        title: "Quality",
+        items: [
+          "494 automated tests across 36 test files (up from 471/33 in v0.11.0)",
+          "Added 5 mergeCalendars tests covering all input combinations and calendar integration",
+          "Added 5 milestone-service tests covering add, remove, update, assign, and constraint operations",
+          "Added 6 dependency-service tests covering add, remove, update lag, and bulk cleanup",
+          "Added 7 milestone-sim-params tests including weekend/holiday snapping and calendar-aware offsets",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.11.0",
     date: "2026-03-07",
     sections: [
