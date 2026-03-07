@@ -38,13 +38,6 @@ export function recommendDistribution(
     };
   }
 
-  if (sd === 0 || mean === 0) {
-    return {
-      recommended: "normal",
-      rationale: "No variance in estimates; Normal is a safe default.",
-    };
-  }
-
   const skew = computeSkewIndicator(min, ml, max, rsmLevel);
   const cv = computeCV(mean, sd);
 
