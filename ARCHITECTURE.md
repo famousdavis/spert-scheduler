@@ -77,8 +77,9 @@ All computation runs in the browser. There is no backend.
 - **Dark Mode:** System preference detection with manual toggle (light/dark/system).
 - **Sensitivity Analysis:** Ranks activities by impact on project uncertainty (variance contribution, impact score).
 - **Confidence Intervals:** Bootstrap 95% CI on percentiles with toggle in percentile table.
-- **Chart Copy:** Copy chart images to clipboard as PNG (histogram, CDF, CDF comparison) via html2canvas, with stateful button feedback (spinner, checkmark, X).
-- **Print Report:** Browser-based print with dedicated print-optimized layout (compact single-page A4).
+- **Chart Copy:** Copy chart images to clipboard as PNG (histogram, CDF, CDF comparison, Gantt) via html2canvas, with stateful button feedback (spinner, checkmark, X).
+- **Gantt Chart:** Interactive Gantt chart with dependency arrows, schedule buffer bar, finish line, and uncertainty toggle. Deterministic and With Uncertainty views. Range-adaptive time axis (daily/weekly/biweekly/monthly).
+- **Print Report:** Browser-based print with dedicated print-optimized layout (compact single-page A4), including Gantt chart.
 - **Project Archival:** Archive/unarchive projects with filter toggle.
 - **Scenario Locking:** Lock/unlock scenarios to protect schedules from accidental edits.
 
@@ -101,11 +102,17 @@ Project
         │     ├── distributionType: "normal" | "logNormal" | "triangular" | "uniform"
         │     ├── status: "planned" | "inProgress" | "complete"
         │     └── actualDuration?: number
+        ├── dependencies: ActivityDependency[]
+        │     ├── fromActivityId, toActivityId
+        │     ├── type: "FS" (Finish-to-Start)
+        │     └── lagDays: number
         ├── settings: ScenarioSettings
         │     ├── probabilityTarget (activity-level, default 0.50)
         │     ├── projectProbabilityTarget (project-level, default 0.95)
         │     ├── trialCount (default 50,000)
-        │     └── rngSeed
+        │     ├── rngSeed
+        │     ├── dependencyMode?: boolean
+        │     └── heuristicEstimation?: { enabled, minPercent, maxPercent }
         ├── locked?: boolean
         └── simulationResults?: SimulationRun
 
@@ -115,7 +122,9 @@ UserPreferences (stored separately in localStorage)
   ├── dateFormat: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD"
   ├── autoRunSimulation: boolean
   ├── theme: "light" | "dark" | "system"
-  └── storeFullSimulationData: boolean
+  ├── storeFullSimulationData: boolean
+  ├── defaultHeuristicMinPercent, defaultHeuristicMaxPercent
+  └── defaultDependencyMode: boolean
 ```
 
 ## SPERT Estimation
@@ -148,11 +157,11 @@ Factory: `createDistributionForActivity(activity)` computes PERT mean + resolved
 
 ### Deterministic Schedule
 
-For each non-complete activity: `duration = Math.ceil(distribution.inverseCDF(probabilityTarget))`, minimum 1 working day. Activities chain linearly (finish-to-start). Calendar-aware working day arithmetic.
+For each non-complete activity: `duration = Math.ceil(distribution.inverseCDF(probabilityTarget))`, minimum 1 working day. In sequential mode, activities chain linearly (finish-to-start). In dependency mode, topological sort determines execution order and the critical path method computes project duration accounting for parallelism. Calendar-aware working day arithmetic.
 
 ### Monte Carlo Simulation
 
-For each of N trials (default 50,000), sample all non-complete activities from their distributions. **Parkinson's Law clamping:** each sampled duration is floored to the deterministic duration (`max(sampled, deterministicDuration)`). Complete activities contribute their fixed `actualDuration`. Trial total = sum of all activity durations.
+For each of N trials (default 50,000), sample all non-complete activities from their distributions. **Parkinson's Law clamping:** each sampled duration is floored to the deterministic duration (`max(sampled, deterministicDuration)`). Complete activities contribute their fixed `actualDuration`. Trial total = sum of all activity durations (sequential mode) or critical path duration (dependency mode).
 
 Post-simulation: sort samples, compute percentiles (P5 through P99), histogram (samples > P99 excluded to remove extreme outliers), mean, SD.
 
@@ -191,7 +200,7 @@ Two Zustand stores, separated by concern:
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
 - User preferences: `localStorage["spert:user-preferences"]`
-- Schema versioned (`SCHEMA_VERSION = 5`) with sequential migrations (v1→v2→v3→v4→v5)
+- Schema versioned (`SCHEMA_VERSION = 7`) with sequential migrations (v1→v2→…→v7)
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
 
@@ -201,10 +210,10 @@ The `storeFullSimulationData` preference (default: `false`) controls whether the
 
 ## Testing Strategy
 
-- **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels
-- **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants
-- **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import
-- **343 tests** across 29 test files
+- **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels, Gantt utilities, dependency graph
+- **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants, dependency graph properties
+- **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import, dependency lifecycle
+- **452 tests** across 33 test files
 
 ## Performance Budget
 

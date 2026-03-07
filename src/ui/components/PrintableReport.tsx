@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type {
   Project,
   Scenario,
@@ -11,6 +12,8 @@ import {
   addWorkingDays,
   formatDateISO,
 } from "@core/calendar/calendar";
+import { PRINT_LEFT, PRINT_RIGHT, PRINT_TOP, PRINT_ROW, PRINT_BAR_H } from "@ui/charts/gantt-constants";
+import { dateToX, buildOrderedActivities } from "@ui/charts/gantt-utils";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { distributionLabel, statusLabel } from "@ui/helpers/format-labels";
 import { RSM_LABELS } from "@domain/models/types";
@@ -246,6 +249,24 @@ export function PrintableReport({
         </section>
       )}
 
+      {/* Gantt Chart (print-friendly) */}
+      {schedule && scheduledActivities.length > 0 && (
+        <PrintGanttChart
+          activities={scenario.activities}
+          scheduledActivities={scheduledActivities}
+          projectStartDate={scenario.startDate}
+          projectEndDate={schedule.projectEndDate}
+          buffer={buffer}
+          dependencies={scenario.dependencies}
+          dependencyMode={scenario.settings.dependencyMode}
+          activityTarget={scenario.settings.probabilityTarget}
+          projectTarget={scenario.settings.projectProbabilityTarget}
+          calendar={project.globalCalendarOverride}
+          bufferedEndDate={bufferedEndDate}
+          formatDate={formatDate}
+        />
+      )}
+
       {/* Simulation Results */}
       {simulationResults && (
         <section className="mb-3 print-section-keep">
@@ -338,5 +359,113 @@ export function PrintableReport({
         </p>
       </footer>
     </div>
+  );
+}
+
+// --- Print-only Gantt Chart (simplified, deterministic view only) ---
+
+interface PrintGanttChartProps {
+  activities: import("@domain/models/types").Activity[];
+  scheduledActivities: ScheduledActivity[];
+  projectStartDate: string;
+  projectEndDate: string;
+  buffer: ScheduleBuffer | null;
+  dependencies: import("@domain/models/types").ActivityDependency[];
+  dependencyMode: boolean;
+  activityTarget: number;
+  projectTarget: number;
+  calendar?: import("@domain/models/types").Calendar;
+  bufferedEndDate: string | null;
+  formatDate: (iso: string) => string;
+}
+
+function PrintGanttChart({
+  activities,
+  scheduledActivities,
+  projectStartDate,
+  projectEndDate,
+  buffer,
+  dependencies,
+  dependencyMode,
+  bufferedEndDate,
+}: PrintGanttChartProps) {
+  const scheduleMap = useMemo(() => {
+    const m = new Map<string, ScheduledActivity>();
+    for (const sa of scheduledActivities) m.set(sa.activityId, sa);
+    return m;
+  }, [scheduledActivities]);
+
+  // Row ordering
+  const ordered = useMemo(
+    () => buildOrderedActivities(activities, dependencies, dependencyMode),
+    [activities, dependencies, dependencyMode],
+  );
+
+  const showBuffer = buffer && buffer.bufferDays > 0 && bufferedEndDate;
+  const endDate = bufferedEndDate ?? projectEndDate;
+  const totalRows = ordered.length + (showBuffer ? 1 : 0);
+  const chartW = 700;
+  const chartH = PRINT_TOP + totalRows * PRINT_ROW + 8;
+  const areaW = chartW - PRINT_LEFT - PRINT_RIGHT;
+
+  const minTs = new Date(projectStartDate + "T00:00:00").getTime();
+  const maxTs = new Date(endDate + "T00:00:00").getTime();
+  const range = maxTs - minTs;
+
+  const toX = (d: string) => dateToX(d, minTs, range, areaW, PRINT_LEFT);
+
+  return (
+    <section className="mb-3 print-section-keep">
+      <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
+        Gantt Chart
+      </h2>
+      <svg width={chartW} height={chartH} viewBox={`0 0 ${chartW} ${chartH}`}>
+        {ordered.map((act, idx) => {
+          const sa = scheduleMap.get(act.id);
+          if (!sa) return null;
+          const y = PRINT_TOP + idx * PRINT_ROW;
+          const barY = y + (PRINT_ROW - PRINT_BAR_H) / 2;
+          const x1 = toX(sa.startDate);
+          const x2 = toX(sa.endDate);
+          const w = Math.max(2, x2 - x1);
+          const isComplete = act.status === "complete";
+          return (
+            <g key={act.id}>
+              <text x={PRINT_LEFT - 4} y={y + PRINT_ROW / 2} textAnchor="end" dominantBaseline="central" fontSize="7" fill="#374151">
+                {act.name.length > 18 ? act.name.slice(0, 16) + "..." : act.name}
+              </text>
+              <rect x={x1} y={barY} width={w} height={PRINT_BAR_H} rx={2} fill={isComplete ? "#22c55e" : "#3b82f6"} />
+              {w > 20 && (
+                <text x={x1 + w / 2} y={barY + PRINT_BAR_H / 2} textAnchor="middle" dominantBaseline="central" fontSize="6" fill="#fff" fontWeight="600">
+                  {sa.duration}d
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {showBuffer && bufferedEndDate && (
+          <g>
+            {(() => {
+              const y = PRINT_TOP + ordered.length * PRINT_ROW;
+              const barY = y + (PRINT_ROW - PRINT_BAR_H) / 2;
+              const x1 = toX(projectEndDate);
+              const x2 = toX(bufferedEndDate);
+              const w = Math.max(2, x2 - x1);
+              return (
+                <>
+                  <text x={PRINT_LEFT - 4} y={y + PRINT_ROW / 2} textAnchor="end" dominantBaseline="central" fontSize="7" fill="#6b7280" fontStyle="italic">Buffer</text>
+                  <rect x={x1} y={barY} width={w} height={PRINT_BAR_H} rx={2} fill="#fbbf24" fillOpacity="0.7" stroke="#fbbf24" strokeWidth="0.5" />
+                  {w > 20 && (
+                    <text x={x1 + w / 2} y={barY + PRINT_BAR_H / 2} textAnchor="middle" dominantBaseline="central" fontSize="6" fill="#92400e" fontWeight="600">
+                      +{buffer!.bufferDays}d
+                    </text>
+                  )}
+                </>
+              );
+            })()}
+          </g>
+        )}
+      </svg>
+    </section>
   );
 }

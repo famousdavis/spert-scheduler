@@ -231,7 +231,7 @@ export function UnifiedActivityRow({
           ? ["name", "min", "ml", "max", "actual"]
           : ["name", "min", "ml", "max"];
       }
-      let idx = fieldOrder.indexOf(currentField);
+      const idx = fieldOrder.indexOf(currentField);
       const lastField = fieldOrder[fieldOrder.length - 1];
 
       // When heuristic is on and user clicked directly into min or max

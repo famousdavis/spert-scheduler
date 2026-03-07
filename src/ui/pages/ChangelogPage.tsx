@@ -12,6 +12,55 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.10.0",
+    date: "2026-03-06",
+    sections: [
+      {
+        title: "Gantt Chart",
+        items: [
+          "Interactive Gantt chart with dependency arrows, activity bars, and schedule buffer visualization",
+          "Deterministic and With Uncertainty toggle showing per-activity uncertainty ranges",
+          "Green dashed finish line at the buffered project end date with long-form date label",
+          "Dependency arrows render behind activity bars for clean visual z-ordering",
+          "Copy Gantt chart to clipboard as PNG image",
+          "Range-adaptive time axis: daily, weekly, biweekly, or monthly ticks based on project duration",
+          "Print-optimized Gantt chart in the printable report",
+        ],
+      },
+      {
+        title: "Refactoring",
+        items: [
+          "Extracted shared Gantt constants and utilities into gantt-constants.ts and gantt-utils.ts",
+          "Eliminated code duplication between interactive and print Gantt charts",
+          "GanttChart.tsx reduced from 767 to ~625 LOC via shared module extraction",
+          "PrintableReport.tsx reduced from 491 to ~455 LOC by using shared utilities",
+          "Added GanttChart to barrel export in charts/index.ts",
+        ],
+      },
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed html2canvas crash on Tailwind CSS v4 oklch() color functions during chart copy",
+          "Fixed undefined variable (fromX) in Gantt lag label positioning",
+          "Fixed two prefer-const lint errors in deterministic.ts and UnifiedActivityRow.tsx",
+        ],
+      },
+      {
+        title: "Security",
+        items: [
+          "Resolved 3 npm audit vulnerabilities (rollup path traversal, minimatch ReDoS, ajv ReDoS)",
+        ],
+      },
+      {
+        title: "Quality",
+        items: [
+          "452 automated tests across 33 test files",
+          "22 new unit tests for Gantt utility functions (dateToX, generateTicks, buildOrderedActivities, etc.)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.9.0",
     date: "2026-03-06",
     sections: [

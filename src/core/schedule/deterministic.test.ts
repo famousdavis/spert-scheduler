@@ -4,6 +4,7 @@ import {
   computeDeterministicDurations,
   computeDependencySchedule,
   computeDependencyDurations,
+  computeActivityUncertaintyDays,
 } from "./deterministic";
 import type { Activity, ActivityDependency } from "@domain/models/types";
 
@@ -310,5 +311,60 @@ describe("computeDependencyDurations", () => {
     ];
     const durations = computeDependencyDurations(activities, 0.5);
     expect(durations.get("a1")).toBe(7);
+  });
+});
+
+// -- Per-activity uncertainty tests -------------------------------------------
+
+describe("computeActivityUncertaintyDays", () => {
+  it("returns solid + hatched days for a normal activity", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10, distributionType: "normal" }),
+    ];
+    const result = computeActivityUncertaintyDays(activities, 0.5, 0.95);
+    const entry = result.get("a1")!;
+
+    expect(entry.solidDays).toBeGreaterThanOrEqual(1);
+    expect(entry.hatchedDays).toBeGreaterThanOrEqual(0);
+    // At P95 the total should be larger than at P50
+    expect(entry.solidDays + entry.hatchedDays).toBeGreaterThan(entry.solidDays);
+  });
+
+  it("returns hatchedDays = 0 for completed activities", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 5 }),
+    ];
+    const result = computeActivityUncertaintyDays(activities, 0.5, 0.95);
+    const entry = result.get("a1")!;
+
+    expect(entry.solidDays).toBe(5);
+    expect(entry.hatchedDays).toBe(0);
+  });
+
+  it("returns hatchedDays = 0 for zero-variance activities", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 5, mostLikely: 5, max: 5 }),
+    ];
+    const result = computeActivityUncertaintyDays(activities, 0.5, 0.95);
+    const entry = result.get("a1")!;
+
+    expect(entry.hatchedDays).toBe(0);
+    expect(entry.solidDays).toBe(5);
+  });
+
+  it("handles multiple activities", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a2", min: 1, mostLikely: 2, max: 4 }),
+      makeActivity({ id: "a3", status: "complete", actualDuration: 3 }),
+    ];
+    const result = computeActivityUncertaintyDays(activities, 0.5, 0.95);
+    expect(result.size).toBe(3);
+    expect(result.get("a3")!.hatchedDays).toBe(0);
+  });
+
+  it("returns empty map for empty activity list", () => {
+    const result = computeActivityUncertaintyDays([], 0.5, 0.95);
+    expect(result.size).toBe(0);
   });
 });

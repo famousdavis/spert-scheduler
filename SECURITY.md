@@ -23,7 +23,7 @@ All data is stored in browser `localStorage`:
 When deploying SPERT Scheduler, configure your web server with these security headers:
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; worker-src 'self' blob:
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
@@ -31,7 +31,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 
 ### Header Explanations
 
-- **Content-Security-Policy**: Restricts script sources to same-origin only. `'unsafe-inline'` for styles is required by Tailwind CSS. `worker-src` allows Web Workers.
+- **Content-Security-Policy**: Restricts script sources to same-origin only. `'unsafe-inline'` for styles is required by Tailwind CSS. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `worker-src` allows Web Workers.
 - **X-Content-Type-Options**: Prevents MIME-type sniffing attacks.
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.
