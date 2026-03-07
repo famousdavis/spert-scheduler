@@ -559,24 +559,6 @@ export function ProjectPage() {
             heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
           />
 
-          {/* Dependency Panel — only shown when dependency mode is on */}
-          {scenario.settings.dependencyMode && (
-            <DependencyPanel
-              activities={scenario.activities}
-              dependencies={scenario.dependencies}
-              onAddDependency={(fromId, toId, type, lag) =>
-                addDependency(id!, scenario.id, fromId, toId, type, lag)
-              }
-              onRemoveDependency={(fromId, toId) =>
-                removeDependency(id!, scenario.id, fromId, toId)
-              }
-              onUpdateLag={(fromId, toId, lag) =>
-                updateDependencyLag(id!, scenario.id, fromId, toId, lag)
-              }
-              isLocked={scenario.locked}
-            />
-          )}
-
           {/* Milestone Panel — only shown when dependency mode is on */}
           {scenario.settings.dependencyMode && (
             <MilestonePanel
@@ -597,6 +579,24 @@ export function ProjectPage() {
               }
               onSetStartsAt={(activityId, milestoneId) =>
                 setActivityStartsAtMilestone(id!, scenario.id, activityId, milestoneId)
+              }
+              isLocked={scenario.locked}
+            />
+          )}
+
+          {/* Dependency Panel — only shown when dependency mode is on */}
+          {scenario.settings.dependencyMode && (
+            <DependencyPanel
+              activities={scenario.activities}
+              dependencies={scenario.dependencies}
+              onAddDependency={(fromId, toId, type, lag) =>
+                addDependency(id!, scenario.id, fromId, toId, type, lag)
+              }
+              onRemoveDependency={(fromId, toId) =>
+                removeDependency(id!, scenario.id, fromId, toId)
+              }
+              onUpdateLag={(fromId, toId, lag) =>
+                updateDependencyLag(id!, scenario.id, fromId, toId, lag)
               }
               isLocked={scenario.locked}
             />

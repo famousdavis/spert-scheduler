@@ -160,6 +160,8 @@ User preferences are stored separately (`spert:user-preferences` key) and are NO
 
 Optional Firebase/Firestore integration on the shared `spert-suite` Firebase project. When `VITE_FIREBASE_API_KEY` is missing, the app operates in local-only mode (zero Firebase code executes).
 
+**Deployment guide:** After completing Firebase code changes for any SPERT Suite app, follow the step-by-step deployment guide at `~/.claude/projects/-Users-william-Documents-spert-scheduler/memory/firebase-deployment-guide.md`. It covers `.env.local` setup, Firestore rules deployment, Vercel env vars, Firebase Auth authorized domains, and OAuth provider configuration.
+
 **Architecture:**
 - Event bus pattern: `cloudSyncBus` decouples Zustand store from async Firestore writes
 - Store actions call `cloudSyncBus.emitSave/emitCreate/emitDelete` (fire-and-forget)
