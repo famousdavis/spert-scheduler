@@ -168,6 +168,7 @@ export function ConfidenceLevelSelect({
         onClick={() => { if (!disabled) setOpen(!open); }}
         onKeyDown={onKeyDown}
         disabled={disabled}
+        title={disabled ? "Confidence only applies to Normal and LogNormal distributions" : undefined}
         className={`w-full px-1 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm text-left focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 dark:text-gray-100 truncate ${
           disabled ? "opacity-40 cursor-not-allowed" : ""
         }`}
