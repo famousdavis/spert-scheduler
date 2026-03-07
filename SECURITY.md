@@ -2,28 +2,49 @@
 
 ## Architecture
 
-SPERT Scheduler is a **client-side only** application. All computation runs in the browser.
+SPERT Scheduler is a **client-side** application. All computation runs in the browser.
 
-- **No backend server** — no API calls, no network requests
+- **No backend server** — scheduling math runs entirely in-browser
 - **No analytics or telemetry** — your data stays in your browser
-- **localStorage persistence** — all project data is stored locally in the browser
+- **Local-first persistence** — all project data is stored in browser localStorage by default
+- **Optional cloud sync** — opt-in Firebase/Firestore persistence on the shared `spert-suite` Firebase project
 
 ## Data Storage
+
+### Local Mode (default)
 
 All data is stored in browser `localStorage`:
 
 - `spert:project:{id}` — Individual project data
 - `spert:project-index` — List of project IDs
 - `spert:user-preferences` — User settings
+- `spert:storage-mode` — Current storage mode (local/cloud)
 
 **Note:** localStorage is accessible to any JavaScript running on the same origin. This application does not execute untrusted scripts.
+
+### Cloud Mode (opt-in)
+
+When the user signs in and switches to cloud mode, data is stored in Firestore:
+
+- `spertscheduler_projects/{projectId}` — Project data with `owner` and `members` fields
+- `spertscheduler_profiles/{uid}` — User display name and email (for sharing lookup)
+- `spertscheduler_settings/{uid}` — User preferences
+
+**Security rules** (`firestore.rules`) enforce role-based access:
+- Only project members can read projects
+- Only owners and editors can write
+- Editors cannot modify `owner` or `members` fields (privilege escalation prevention)
+- Profiles are readable by all authenticated users (for email-based member lookup)
+- Settings are private (owner-only read/write)
+
+**Simulation results are stripped** before cloud saves to stay within the Firestore 1 MB document limit and reduce data exposure.
 
 ## Recommended Deployment Headers
 
 When deploying SPERT Scheduler, configure your web server with these security headers:
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; worker-src 'self' blob:
+Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com; worker-src 'self' blob:; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
@@ -31,7 +52,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 
 ### Header Explanations
 
-- **Content-Security-Policy**: Restricts script sources to same-origin only. `'unsafe-inline'` for styles is required by Tailwind CSS. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `worker-src` allows Web Workers.
+- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-inline'` for styles is required by Tailwind CSS. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore and auth API calls.
 - **X-Content-Type-Options**: Prevents MIME-type sniffing attacks.
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.

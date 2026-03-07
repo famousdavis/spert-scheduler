@@ -12,6 +12,48 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.12.0",
+    date: "2026-03-07",
+    sections: [
+      {
+        title: "Cloud Storage",
+        items: [
+          "Optional Firebase/Firestore cloud persistence on the shared spert-suite Firebase project",
+          "Local-first architecture: app works identically without Firebase config; cloud is fully opt-in",
+          "Storage mode toggle in Settings (Local/Cloud) with one-way migration from localStorage to Firestore",
+          "Real-time sync across tabs and devices via Firestore onSnapshot listeners",
+          "Simulation results stripped for cloud saves to stay within the Firestore 1 MB document limit",
+        ],
+      },
+      {
+        title: "Authentication",
+        items: [
+          "Google and Microsoft SSO via Firebase Authentication (popup with redirect fallback)",
+          "Sign In button in the header (hidden when Firebase is not configured)",
+          "User profile synced to Firestore on sign-in for email-based member lookup",
+        ],
+      },
+      {
+        title: "Project Sharing",
+        items: [
+          "Share projects with other users by email (owner/editor/viewer roles)",
+          "Sharing panel on the project page for project owners in cloud mode",
+          "Firestore security rules enforce role-based access and prevent editor privilege escalation",
+        ],
+      },
+      {
+        title: "Technical",
+        items: [
+          "Event bus pattern decoupling Zustand store from async Firestore writes",
+          "Debounced cloud saves (500ms) with beforeunload flush for pending writes",
+          "Cross-device preferences sync to Firestore",
+          "Firebase SDK chunk splitting in Vite build for optimized loading",
+          "511 automated tests across 38 test files",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.11.2",
     date: "2026-03-07",
     sections: [

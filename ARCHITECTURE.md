@@ -23,7 +23,9 @@ All computation runs in the browser. There is no backend.
 | Validation | Zod 4 |
 | Testing | Vitest 4 + fast-check 4 |
 | Simulation | Web Worker |
-| Persistence | localStorage |
+| Persistence | localStorage (local), Firestore (cloud) |
+| Auth | Firebase Authentication (Google + Microsoft OAuth) |
+| Cloud Sync | Firebase/Firestore (optional, on spert-suite project) |
 
 ## Layered Architecture
 
@@ -49,8 +51,13 @@ All computation runs in the browser. There is no backend.
 |  calendar/                |  |    LocalStorageRepository  |
 |  schedule/                |  |    PreferencesRepository   |
 |  simulation/              |  |    migrations              |
-|  analytics/               |  |  rng/                     |
-|  recommendation/          |  |    SeededRng               |
+|  analytics/               |  |    sync-bus               |
+|  recommendation/          |  |  firebase/                |
+|                           |  |    FirestoreDriver        |
+|                           |  |    firestore-sharing      |
+|                           |  |    firestore-migration    |
+|                           |  |  rng/                     |
+|                           |  |    SeededRng               |
 +---------------------------+  +---------------------------+
          |
          v
@@ -82,6 +89,8 @@ All computation runs in the browser. There is no backend.
 - **Print Report:** Browser-based print with dedicated print-optimized layout (compact single-page A4), including Gantt chart.
 - **Project Archival:** Archive/unarchive projects with filter toggle.
 - **Scenario Locking:** Lock/unlock scenarios to protect schedules from accidental edits.
+- **Cloud Storage:** Optional Firebase/Firestore cloud persistence with Google/Microsoft SSO, real-time sync across devices, and project sharing (owner/editor/viewer roles).
+- **Project Sharing:** Share projects with other users by email with role-based access control.
 
 ## Domain Model
 
@@ -197,12 +206,23 @@ Two Zustand stores, separated by concern:
 
 ## Persistence
 
+### Local Storage (default)
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
 - User preferences: `localStorage["spert:user-preferences"]`
-- Schema versioned (`SCHEMA_VERSION = 7`) with sequential migrations (v1→v2→…→v7)
+- Schema versioned (`SCHEMA_VERSION = 8`) with sequential migrations (v1→v2→…→v8)
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
+
+### Cloud Storage (opt-in via Firebase)
+- Conditional Firebase init: when `VITE_FIREBASE_API_KEY` is missing, Firebase code is a no-op
+- Firestore collections: `spertscheduler_projects/{id}`, `spertscheduler_profiles/{uid}`, `spertscheduler_settings/{uid}`
+- Event bus pattern (`cloudSyncBus`) decouples synchronous Zustand store from async Firestore writes
+- Debounced saves (500ms) with `beforeunload` flush for pending writes
+- Real-time `onSnapshot` listeners with `hasPendingWrites` echo prevention
+- Simulation results stripped before cloud save (Firestore 1 MB doc limit)
+- `memoryLocalCache()` avoids stale security rule decisions that persist in IndexedDB
+- One-way migration from localStorage to Firestore with collision handling
 
 ### Storage Optimization
 
@@ -213,7 +233,7 @@ The `storeFullSimulationData` preference (default: `false`) controls whether the
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels, Gantt utilities, dependency graph
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants, dependency graph properties
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import, dependency lifecycle
-- **452 tests** across 33 test files
+- **511 tests** across 38 test files
 
 ## Performance Budget
 
