@@ -334,7 +334,7 @@ export function GanttChart({
                   x={x}
                   y={topMargin - 8}
                   textAnchor="middle"
-                  fontSize="12"
+                  fontSize="11"
                   fill={c.textMuted}
                 >
                   {tick.label}
@@ -359,7 +359,7 @@ export function GanttChart({
                 x={finishX}
                 y={topMargin - 8}
                 textAnchor="middle"
-                fontSize="13"
+                fontSize="12"
                 fontWeight="600"
                 fill={c.finishText}
               >
@@ -401,7 +401,7 @@ export function GanttChart({
                   x={mx}
                   y={topMargin - 2 - diamondSize - 15}
                   textAnchor="middle"
-                  fontSize="13"
+                  fontSize="12"
                   fill={healthColor}
                   fontWeight="600"
                   className="pointer-events-none"
@@ -413,7 +413,7 @@ export function GanttChart({
                   x={mx}
                   y={topMargin - 2 - diamondSize - 3}
                   textAnchor="middle"
-                  fontSize="11"
+                  fontSize="10"
                   fill={healthColor}
                   className="pointer-events-none"
                 >
