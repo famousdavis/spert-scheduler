@@ -368,7 +368,8 @@ export function UnifiedActivityRow({
           value={activity.name}
           onChange={(e) => onUpdate(activity.id, { name: e.target.value })}
           onKeyDown={(e) => handleTabNav(e, "name")}
-          className="w-full px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none"
+          disabled={isLocked}
+          className="w-full px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           placeholder="Add an activity name"
         />
       </div>
@@ -410,9 +411,10 @@ export function UnifiedActivityRow({
           onFocus={(e) => e.target.select()}
           onBlur={(e) => handleBlur("min", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "min")}
+          disabled={isLocked}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
             errors["min"] ? "border-red-400 bg-red-50 dark:bg-red-900/30" : "border-gray-200 dark:border-gray-600"
-          } focus:border-blue-400 focus:outline-none`}
+          } focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
           step="1"
           min="0"
           title={errors["min"] ?? "Optimistic estimate (days)"}
@@ -429,11 +431,12 @@ export function UnifiedActivityRow({
           onFocus={(e) => e.target.select()}
           onBlur={(e) => handleBlur("mostLikely", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "ml")}
+          disabled={isLocked}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
             errors["mostLikely"]
               ? "border-red-400 bg-red-50 dark:bg-red-900/30"
               : "border-gray-200 dark:border-gray-600"
-          } focus:border-blue-400 focus:outline-none`}
+          } focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
           step="1"
           min="0"
           title={errors["mostLikely"] ?? "Most likely estimate (days)"}
@@ -450,9 +453,10 @@ export function UnifiedActivityRow({
           onFocus={(e) => e.target.select()}
           onBlur={(e) => handleBlur("max", e.target.value)}
           onKeyDown={(e) => handleTabNav(e, "max")}
+          disabled={isLocked}
           className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
             errors["max"] ? "border-red-400 bg-red-50 dark:bg-red-900/30" : "border-gray-200 dark:border-gray-600"
-          } focus:border-blue-400 focus:outline-none`}
+          } focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
           step="1"
           min="0"
           title={errors["max"] ?? "Pessimistic estimate (days)"}
@@ -466,7 +470,7 @@ export function UnifiedActivityRow({
           onChange={(level) =>
             onUpdate(activity.id, { confidenceLevel: level })
           }
-          disabled={activity.distributionType !== "normal" && activity.distributionType !== "logNormal"}
+          disabled={isLocked || (activity.distributionType !== "normal" && activity.distributionType !== "logNormal")}
           data-row-id={activity.id}
           data-field="confidence"
           onKeyDown={(e) => handleTabNav(e, "confidence")}
@@ -486,7 +490,8 @@ export function UnifiedActivityRow({
             })
           }
           onKeyDown={(e) => handleTabNav(e, "distribution")}
-          className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none"
+          disabled={isLocked}
+          className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           tabIndex={heuristicEnabled ? 0 : -1}
         >
           {DISTRIBUTION_TYPES.map((dt) => (
@@ -495,7 +500,7 @@ export function UnifiedActivityRow({
             </option>
           ))}
         </select>
-        {recommendation.recommended !== activity.distributionType && (
+        {!isLocked && recommendation.recommended !== activity.distributionType && (
           <button
             onClick={() =>
               onUpdate(activity.id, {
@@ -536,7 +541,8 @@ export function UnifiedActivityRow({
             })
           }
           onKeyDown={(e) => handleTabNav(e, "status")}
-          className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none"
+          disabled={isLocked}
+          className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           tabIndex={heuristicEnabled ? 0 : -1}
         >
           {ACTIVITY_STATUSES.map((s) => (
@@ -563,7 +569,8 @@ export function UnifiedActivityRow({
               }
             }}
             onKeyDown={(e) => handleTabNav(e, "actual")}
-            className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm tabular-nums text-right focus:border-blue-400 focus:outline-none"
+            disabled={isLocked}
+            className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm tabular-nums text-right focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             placeholder="Act."
             min="0"
             step="1"
