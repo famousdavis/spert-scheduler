@@ -575,7 +575,7 @@ export function GanttChart({
                   y={y + ROW_HEIGHT / 2}
                   textAnchor="end"
                   dominantBaseline="central"
-                  fontSize="11"
+                  fontSize="13"
                   fill={c.text}
                   className="pointer-events-none"
                 >
@@ -669,7 +669,7 @@ export function GanttChart({
                       y={y + ROW_HEIGHT / 2}
                       textAnchor="end"
                       dominantBaseline="central"
-                      fontSize="11"
+                      fontSize="13"
                       fill={c.textMuted}
                       fontStyle="italic"
                       className="pointer-events-none"
