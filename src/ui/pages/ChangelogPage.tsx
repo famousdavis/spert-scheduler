@@ -20,7 +20,19 @@ const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Project start date is now editable via a date picker in the Scenario Summary Card",
           "Milestone panel moved above Predecessor panel so the Gantt chart is visible while editing dependencies",
-          "Confidence field is disabled for distributions that don't use it (Triangular, Uniform)",
+          "Confidence field is disabled for distributions that don't use it (Triangular, Uniform) with explanatory tooltip",
+          "Milestone label clarified: \"Must finish before\" → \"Must finish before milestone\"",
+          "Gantt chart finish date uses abbreviated month names to prevent truncation",
+          "Gantt chart font sizes increased for better readability (activity names, date labels, milestones)",
+          "Activity name truncation limit increased from 20 to 23 characters on Gantt chart",
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          "Tab navigation no longer gets stuck when Confidence field is disabled (Triangular/Uniform)",
+          "Tab from Max field correctly skips disabled Confidence and reaches Distribution",
+          "Removed unreachable dead code in distribution recommendation engine",
         ],
       },
     ],
