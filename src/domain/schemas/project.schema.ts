@@ -62,7 +62,7 @@ export const ActivityDependencySchema = z.object({
   fromActivityId: z.string().min(1).max(64),
   toActivityId: z.string().min(1).max(64),
   type: z.enum(DEPENDENCY_TYPES),
-  lagDays: z.number().int(),
+  lagDays: z.number().int().min(-365).max(365),
 });
 
 // -- Milestone ---------------------------------------------------------------

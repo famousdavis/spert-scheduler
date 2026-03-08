@@ -29,6 +29,7 @@ import {
 import { SCHEMA_VERSION } from "@domain/models/types";
 import type { Project, UserPreferences } from "@domain/models/types";
 import { ProjectSchema } from "@domain/schemas/project.schema";
+import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
 import { applyMigrations } from "@infrastructure/persistence/migrations";
 
 const PROJECTS_COL = "spertscheduler_projects";
@@ -288,7 +289,9 @@ export class FirestoreDriver {
     try {
       const ref = doc(db, SETTINGS_COL, this.uid);
       const snap = await getDoc(ref);
-      return snap.exists() ? (snap.data() as Partial<UserPreferences>) : {};
+      if (!snap.exists()) return {};
+      const parsed = UserPreferencesSchema.partial().safeParse(snap.data());
+      return parsed.success ? parsed.data : {};
     } catch (e) {
       console.error("Failed to load cloud preferences:", e);
       return {};
