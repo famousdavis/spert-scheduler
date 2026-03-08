@@ -575,12 +575,12 @@ export function GanttChart({
                   y={y + ROW_HEIGHT / 2}
                   textAnchor="end"
                   dominantBaseline="central"
-                  fontSize="13"
+                  fontSize="12"
                   fill={c.text}
                   className="pointer-events-none"
                 >
-                  {act.name.length > 22
-                    ? act.name.slice(0, 20) + "..."
+                  {act.name.length > 25
+                    ? act.name.slice(0, 23) + "..."
                     : act.name}
                 </text>
 
@@ -669,7 +669,7 @@ export function GanttChart({
                       y={y + ROW_HEIGHT / 2}
                       textAnchor="end"
                       dominantBaseline="central"
-                      fontSize="13"
+                      fontSize="12"
                       fill={c.textMuted}
                       fontStyle="italic"
                       className="pointer-events-none"
