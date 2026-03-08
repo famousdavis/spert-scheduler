@@ -18,7 +18,7 @@ const CHANGELOG: ChangelogEntry[] = [
       {
         title: "New Features",
         items: [
-          "Gantt chart bars are now color-coded by activity status: blue (Planned), green (In Progress), gray (Complete)",
+          "Gantt chart bars are now color-coded by activity status: blue (Planned), orange (In Progress), gray (Complete)",
           "Status colors apply to both interactive and print Gantt charts, including uncertainty hatching",
         ],
       },

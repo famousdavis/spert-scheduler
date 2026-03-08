@@ -500,7 +500,7 @@ function PrintGanttChart({
           const w = Math.max(2, x2 - x1);
           const printBarColor =
             act.status === "complete" ? "#9ca3af" :
-            act.status === "inProgress" ? "#22c55e" :
+            act.status === "inProgress" ? "#f97316" :
             "#3b82f6";
           return (
             <g key={act.id}>

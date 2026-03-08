@@ -21,10 +21,10 @@ export const PRINT_BAR_H = 12;
 export const COLORS = {
   light: {
     barPlanned: "#3b82f6",
-    barInProgress: "#22c55e",
+    barInProgress: "#f97316",
     barComplete: "#9ca3af",
     hatchActivity: "#93c5fd",
-    hatchInProgress: "#86efac",
+    hatchInProgress: "#fdba74",
     hatchBuffer: "#fbbf24",
     arrow: "#6b7280",
     gridLine: "#e5e7eb",
@@ -38,10 +38,10 @@ export const COLORS = {
   },
   dark: {
     barPlanned: "#60a5fa",
-    barInProgress: "#4ade80",
+    barInProgress: "#fb923c",
     barComplete: "#6b7280",
     hatchActivity: "#3b82f6",
-    hatchInProgress: "#22c55e",
+    hatchInProgress: "#f97316",
     hatchBuffer: "#f59e0b",
     arrow: "#6b7280",
     gridLine: "#374151",
