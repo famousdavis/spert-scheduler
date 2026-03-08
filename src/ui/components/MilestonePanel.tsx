@@ -156,10 +156,10 @@ export function MilestonePanel({
               </div>
             )}
 
-            {/* Assigned activities (must finish before) */}
+            {/* Assigned activities (must finish before milestone) */}
             <div className="space-y-1 pl-2">
               <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                Must finish before ({assigned.length})
+                Must finish before milestone ({assigned.length})
               </label>
               {!isLocked && (
                 <select
