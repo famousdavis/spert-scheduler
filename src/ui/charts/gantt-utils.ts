@@ -7,11 +7,6 @@ export const MONTH_ABBR = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-const MONTH_FULL = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
 /**
  * Date string → X coordinate mapping.
  * Uses timestamp ratio within the date range.
@@ -30,10 +25,10 @@ export function dateToX(
   return leftMargin + ratio * chartAreaWidth;
 }
 
-/** Long-form date label: "June 23, 2026" */
+/** Date label with abbreviated month: "Jun 23, 2026" */
 export function longDateLabel(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
-  return `${MONTH_FULL[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  return `${MONTH_ABBR[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
 /** Compact tick label: "Mar 16" for day-level ticks, "Apr '26" for month-level. */
