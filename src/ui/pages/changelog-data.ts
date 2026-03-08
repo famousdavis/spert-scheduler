@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.14.1",
+    date: "2026-03-08",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed cloud sync replacing local projects with empty data when Firestore returns no projects (data-loss guard)",
+          "Fixed storage mode switching to cloud even when migration fails — mode now stays on local if migration errors or has failures",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.14.0",
     date: "2026-03-08",
     sections: [

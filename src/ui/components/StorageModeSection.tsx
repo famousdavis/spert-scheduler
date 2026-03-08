@@ -29,13 +29,19 @@ export function StorageModeSection() {
         try {
           const result = await migrateLocalToCloud(user.uid);
           setMigrationResult(result);
+          // Only switch if migration had no failures
+          if (result.failed === 0) {
+            switchMode(newMode);
+          }
         } catch (e) {
           setMigrationError(
             e instanceof Error ? e.message : "Migration failed"
           );
+          // Do NOT call switchMode — stay in local mode
         } finally {
           setMigrating(false);
         }
+        return; // Already handled
       }
 
       switchMode(newMode);
