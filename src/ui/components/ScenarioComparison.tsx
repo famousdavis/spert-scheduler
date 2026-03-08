@@ -7,6 +7,7 @@ import type {
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { computeScheduleBuffer } from "@core/schedule/buffer";
 import { computeSchedule } from "@app/api/schedule-service";
+import { computeDependencySchedule } from "@core/schedule/deterministic";
 import { cdf } from "@core/analytics/analytics";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import {
@@ -39,12 +40,21 @@ function computeEntry(
 
   if (scenario.activities.length > 0) {
     try {
-      schedule = computeSchedule(
-        scenario.activities,
-        scenario.startDate,
-        scenario.settings.probabilityTarget,
-        calendar
-      );
+      schedule = scenario.settings.dependencyMode
+        ? computeDependencySchedule(
+            scenario.activities,
+            scenario.dependencies,
+            scenario.startDate,
+            scenario.settings.probabilityTarget,
+            calendar,
+            scenario.milestones
+          )
+        : computeSchedule(
+            scenario.activities,
+            scenario.startDate,
+            scenario.settings.probabilityTarget,
+            calendar
+          );
     } catch {
       // leave null
     }

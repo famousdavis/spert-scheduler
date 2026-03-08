@@ -12,6 +12,18 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.12.3",
+    date: "2026-03-07",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Scenario comparison now uses dependency-aware scheduling, fixing incorrect buffer and end-date values for scenarios with dependencies enabled",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.12.2",
     date: "2026-03-07",
     sections: [
