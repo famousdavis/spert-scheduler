@@ -303,6 +303,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     }));
   }
 
+  /** Lock-guard + undo + set + persist in one call. Used by most scenario mutations. */
+  function mutateScenario(
+    projectId: string,
+    scenarioId: string,
+    mutation: (s: Scenario) => Scenario
+  ) {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, mutation)
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  }
+
   return {
   projects: [],
   loadError: false,
@@ -462,41 +481,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     });
   },
 
-  updateScenarioStartDate: (projectId, scenarioId, startDate) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) => ({
-              ...s,
-              startDate,
-              simulationResults: undefined,
-            }))
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  updateScenarioStartDate: (projectId, scenarioId, startDate) =>
+    mutateScenario(projectId, scenarioId, (s) => ({
+      ...s,
+      startDate,
+      simulationResults: undefined,
+    })),
 
-  updateScenarioSettings: (projectId, scenarioId, settings) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) => ({
-              ...s,
-              settings: { ...s.settings, ...settings },
-              simulationResults: undefined, // Invalidate
-            }))
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  updateScenarioSettings: (projectId, scenarioId, settings) =>
+    mutateScenario(projectId, scenarioId, (s) => ({
+      ...s,
+      settings: { ...s.settings, ...settings },
+      simulationResults: undefined,
+    })),
 
   addActivity: (projectId, scenarioId, name) => {
     if (isLocked(get().projects, projectId, scenarioId)) return;
@@ -552,53 +549,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     });
   },
 
-  deleteActivity: (projectId, scenarioId, activityId) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              removeActivityFromScenario(s, activityId)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  deleteActivity: (projectId, scenarioId, activityId) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      removeActivityFromScenario(s, activityId)
+    ),
 
-  updateActivityField: (projectId, scenarioId, activityId, updates) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              updateActivity(s, activityId, updates)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  updateActivityField: (projectId, scenarioId, activityId, updates) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      updateActivity(s, activityId, updates)
+    ),
 
-  moveActivity: (projectId, scenarioId, fromIndex, toIndex) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              reorderActivities(s, fromIndex, toIndex)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  moveActivity: (projectId, scenarioId, fromIndex, toIndex) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      reorderActivities(s, fromIndex, toIndex)
+    ),
 
   setSimulationResults: (projectId, scenarioId, results) => {
     set((state) => {
@@ -648,44 +612,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     });
   },
 
-  bulkUpdateActivities: (projectId, scenarioId, activityIds, updates) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) => {
-        if (p.id !== projectId) return p;
-        return updateScenario(p, scenarioId, (s) => ({
-          ...s,
-          activities: s.activities.map((a) =>
-            activityIds.includes(a.id) ? { ...a, ...updates } : a
-          ),
-          simulationResults: undefined,
-        }));
-      });
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  bulkUpdateActivities: (projectId, scenarioId, activityIds, updates) =>
+    mutateScenario(projectId, scenarioId, (s) => ({
+      ...s,
+      activities: s.activities.map((a) =>
+        activityIds.includes(a.id) ? { ...a, ...updates } : a
+      ),
+      simulationResults: undefined,
+    })),
 
-  bulkDeleteActivities: (projectId, scenarioId, activityIds) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) => {
-        if (p.id !== projectId) return p;
-        return updateScenario(p, scenarioId, (s) => {
-          const cleaned = removeActivitiesDeps(s, activityIds);
-          return {
-            ...cleaned,
-            activities: cleaned.activities.filter((a) => !activityIds.includes(a.id)),
-            simulationResults: undefined,
-          };
-        });
-      });
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  bulkDeleteActivities: (projectId, scenarioId, activityIds) =>
+    mutateScenario(projectId, scenarioId, (s) => {
+      const cleaned = removeActivitiesDeps(s, activityIds);
+      return {
+        ...cleaned,
+        activities: cleaned.activities.filter((a) => !activityIds.includes(a.id)),
+        simulationResults: undefined,
+      };
+    }),
 
   importProjects: (projects, replaceIds = []) => {
     set((state) => {
@@ -760,133 +704,45 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     }));
   },
 
-  addDependency: (projectId, scenarioId, fromActivityId, toActivityId, type, lagDays) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              addDependencyFn(s, fromActivityId, toActivityId, type, lagDays)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  addDependency: (projectId, scenarioId, fromActivityId, toActivityId, type, lagDays) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      addDependencyFn(s, fromActivityId, toActivityId, type, lagDays)
+    ),
 
-  removeDependency: (projectId, scenarioId, fromActivityId, toActivityId) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              removeDependencyFn(s, fromActivityId, toActivityId)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  removeDependency: (projectId, scenarioId, fromActivityId, toActivityId) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      removeDependencyFn(s, fromActivityId, toActivityId)
+    ),
 
-  updateDependencyLag: (projectId, scenarioId, fromActivityId, toActivityId, lagDays) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              updateDependencyLagFn(s, fromActivityId, toActivityId, lagDays)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  updateDependencyLag: (projectId, scenarioId, fromActivityId, toActivityId, lagDays) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      updateDependencyLagFn(s, fromActivityId, toActivityId, lagDays)
+    ),
 
-  addMilestone: (projectId, scenarioId, name, targetDate) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              addMilestoneFn(s, name, targetDate)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  addMilestone: (projectId, scenarioId, name, targetDate) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      addMilestoneFn(s, name, targetDate)
+    ),
 
-  removeMilestone: (projectId, scenarioId, milestoneId) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              removeMilestoneFn(s, milestoneId)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  removeMilestone: (projectId, scenarioId, milestoneId) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      removeMilestoneFn(s, milestoneId)
+    ),
 
-  updateMilestone: (projectId, scenarioId, milestoneId, updates) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              updateMilestoneFn(s, milestoneId, updates)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  updateMilestone: (projectId, scenarioId, milestoneId, updates) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      updateMilestoneFn(s, milestoneId, updates)
+    ),
 
-  assignActivityToMilestone: (projectId, scenarioId, activityId, milestoneId) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              assignActivityToMilestoneFn(s, activityId, milestoneId)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  assignActivityToMilestone: (projectId, scenarioId, activityId, milestoneId) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      assignActivityToMilestoneFn(s, activityId, milestoneId)
+    ),
 
-  setActivityStartsAtMilestone: (projectId, scenarioId, activityId, milestoneId) => {
-    if (isLocked(get().projects, projectId, scenarioId)) return;
-    pushUndo(projectId);
-    set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              setActivityStartsAtMilestoneFn(s, activityId, milestoneId)
-            )
-          : p
-      );
-      persist(projects, projectId);
-      return { projects };
-    });
-  },
+  setActivityStartsAtMilestone: (projectId, scenarioId, activityId, milestoneId) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      setActivityStartsAtMilestoneFn(s, activityId, milestoneId)
+    ),
 
   toggleScenarioLock: (projectId, scenarioId) => {
     pushUndo(projectId);

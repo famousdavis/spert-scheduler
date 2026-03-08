@@ -135,6 +135,7 @@ export function ProjectPage() {
     scenario?.startDate,
     scenario?.settings.probabilityTarget,
     mergedCalendar,
+    scenario?.milestones,
   ]);
 
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;

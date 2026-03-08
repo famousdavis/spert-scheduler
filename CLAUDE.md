@@ -83,7 +83,13 @@ UI (React, Zustand, Recharts)
 | `firestore.rules` | Firestore security rules for spertscheduler_* collections |
 | `.env.example` | VITE_FIREBASE_* environment variable template |
 | `src/ui/pages/ProjectPage.tsx` | Main project page, orchestrates all components |
-| `src/ui/pages/SettingsPage.tsx` | Preferences UI + Export/Import with conflict resolution |
+| `src/ui/pages/SettingsPage.tsx` | Settings layout wrapper (imports section components) |
+| `src/ui/pages/changelog-data.ts` | Changelog version history data array |
+| `src/ui/components/PreferencesSection.tsx` | User preferences controls (theme, trials, distribution, etc.) |
+| `src/ui/components/LocalStorageSection.tsx` | localStorage usage bar and simulation data toggle |
+| `src/ui/components/ExportSection.tsx` | Project export with simulation data toggle |
+| `src/ui/components/ImportSection.tsx` | Project import with conflict resolution |
+| `src/ui/components/activity-row-helpers.ts` | Pure helpers: focusField, focusNextRow, focusPrevRow, computeElapsedDays |
 | `src/ui/components/ScenarioSummaryCard.tsx` | Summary card with dates, targets, buffer |
 | `src/ui/components/UnifiedActivityGrid.tsx` | Merged input + schedule grid with bulk selection |
 | `src/ui/components/ScenarioComparison.tsx` | Side-by-side scenario comparison (2-3 scenarios) |
@@ -116,7 +122,7 @@ User preferences are stored separately (`spert:user-preferences` key) and are NO
 
 ## Testing Patterns
 
-- **511 tests** across **38 test files**
+- **530 tests** across **39 test files**
 - **Unit tests:** Pure functions in `/core` — known values + property-based (fast-check)
 - **Integration tests:** `src/integration/` — full workflow, persistence round-trip, scenario cloning, export/import, dependency lifecycle
 - **Property-based:** Distribution samples bounded, percentiles monotonic, calendar round-trips

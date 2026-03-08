@@ -16,6 +16,28 @@ import {
 } from "@core/calendar/calendar";
 import { buildDependencyGraph, computeCriticalPathDuration } from "./dependency-graph";
 
+// -- Shared helper for duration resolution ------------------------------------
+
+/**
+ * Resolve the deterministic duration for a single activity at a given percentile.
+ *  - Complete with actual → returns actualDuration
+ *  - In-progress with elapsed → returns max(elapsed+1, inverseCDF)
+ *  - Otherwise → returns max(1, inverseCDF)
+ */
+function resolveActivityDuration(activity: Activity, percentile: number): number {
+  if (activity.status === "complete" && activity.actualDuration != null) {
+    return activity.actualDuration;
+  }
+  const dist = createDistributionForActivity(activity);
+  const base = Math.max(1, Math.ceil(dist.inverseCDF(percentile)));
+  if (activity.status === "inProgress" && activity.actualDuration != null) {
+    return Math.max(activity.actualDuration + 1, base);
+  }
+  return base;
+}
+
+// -- Sequential scheduling ----------------------------------------------------
+
 /**
  * Compute the deterministic duration for each non-complete activity at a given percentile.
  * Returns an array of durations (minimum 1 working day each), one per non-complete activity.
@@ -28,15 +50,7 @@ export function computeDeterministicDurations(
 ): number[] {
   return activities
     .filter((a) => !(a.status === "complete" && a.actualDuration != null))
-    .map((a) => {
-      const dist = createDistributionForActivity(a);
-      const base = Math.max(1, Math.ceil(dist.inverseCDF(probabilityTarget)));
-      // In-progress with elapsed time: floor is at least elapsed + 1
-      if (a.status === "inProgress" && a.actualDuration != null) {
-        return Math.max(a.actualDuration + 1, base);
-      }
-      return base;
-    });
+    .map((a) => resolveActivityDuration(a, probabilityTarget));
 }
 
 /**
@@ -64,20 +78,8 @@ export function computeDeterministicSchedule(
   }
 
   for (const activity of activities) {
-    let duration: number;
-    let isActual = false;
-
-    if (activity.status === "complete" && activity.actualDuration != null) {
-      duration = activity.actualDuration;
-      isActual = true;
-    } else if (activity.status === "inProgress" && activity.actualDuration != null) {
-      const dist = createDistributionForActivity(activity);
-      duration = Math.max(activity.actualDuration + 1, Math.ceil(dist.inverseCDF(percentile)));
-    } else {
-      const dist = createDistributionForActivity(activity);
-      duration = Math.ceil(dist.inverseCDF(percentile));
-      duration = Math.max(duration, 1); // minimum 1 working day
-    }
+    const isActual = activity.status === "complete" && activity.actualDuration != null;
+    const duration = resolveActivityDuration(activity, percentile);
 
     const activityStartDate = currentDate;
     const activityEndDate = addWorkingDays(activityStartDate, duration, calendar);
@@ -127,18 +129,12 @@ export function computeActivityUncertaintyDays(
 
   for (const activity of activities) {
     if (activity.status === "complete" && activity.actualDuration != null) {
+      // Complete activities: fixed duration, no uncertainty
       result.set(activity.id, { solidDays: activity.actualDuration, hatchedDays: 0 });
-    } else if (activity.status === "inProgress" && activity.actualDuration != null) {
-      const dist = createDistributionForActivity(activity);
-      const floor = activity.actualDuration + 1;
-      const solidDays = Math.max(floor, Math.ceil(dist.inverseCDF(activityTarget)));
-      const projectDays = Math.max(floor, Math.ceil(dist.inverseCDF(projectTarget)));
-      const hatchedDays = Math.max(0, projectDays - solidDays);
-      result.set(activity.id, { solidDays, hatchedDays });
     } else {
-      const dist = createDistributionForActivity(activity);
-      const solidDays = Math.max(1, Math.ceil(dist.inverseCDF(activityTarget)));
-      const projectDays = Math.max(1, Math.ceil(dist.inverseCDF(projectTarget)));
+      // Planned and in-progress: resolveActivityDuration handles floor logic
+      const solidDays = resolveActivityDuration(activity, activityTarget);
+      const projectDays = resolveActivityDuration(activity, projectTarget);
       const hatchedDays = Math.max(0, projectDays - solidDays);
       result.set(activity.id, { solidDays, hatchedDays });
     }
@@ -159,17 +155,7 @@ export function computeDependencyDurations(
 ): Map<string, number> {
   const durations = new Map<string, number>();
   for (const activity of activities) {
-    if (activity.status === "complete" && activity.actualDuration != null) {
-      durations.set(activity.id, activity.actualDuration);
-    } else if (activity.status === "inProgress" && activity.actualDuration != null) {
-      const dist = createDistributionForActivity(activity);
-      const d = Math.max(activity.actualDuration + 1, Math.ceil(dist.inverseCDF(percentile)));
-      durations.set(activity.id, d);
-    } else {
-      const dist = createDistributionForActivity(activity);
-      const d = Math.max(1, Math.ceil(dist.inverseCDF(percentile)));
-      durations.set(activity.id, d);
-    }
+    durations.set(activity.id, resolveActivityDuration(activity, percentile));
   }
   return durations;
 }
