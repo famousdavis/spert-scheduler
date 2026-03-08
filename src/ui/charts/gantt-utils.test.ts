@@ -46,20 +46,20 @@ describe("dateToX", () => {
 // -- longDateLabel ------------------------------------------------------------
 
 describe("longDateLabel", () => {
-  it("formats a date as 'Month Day, Year'", () => {
-    expect(longDateLabel("2026-06-23")).toBe("June 23, 2026");
+  it("formats a date as 'Mon Day, Year'", () => {
+    expect(longDateLabel("2026-06-23")).toBe("Jun 23, 2026");
   });
 
   it("handles single-digit days", () => {
-    expect(longDateLabel("2026-03-05")).toBe("March 5, 2026");
+    expect(longDateLabel("2026-03-05")).toBe("Mar 5, 2026");
   });
 
   it("handles January", () => {
-    expect(longDateLabel("2026-01-01")).toBe("January 1, 2026");
+    expect(longDateLabel("2026-01-01")).toBe("Jan 1, 2026");
   });
 
   it("handles December", () => {
-    expect(longDateLabel("2026-12-31")).toBe("December 31, 2026");
+    expect(longDateLabel("2026-12-31")).toBe("Dec 31, 2026");
   });
 });
 
