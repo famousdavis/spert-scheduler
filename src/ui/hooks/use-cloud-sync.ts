@@ -48,7 +48,18 @@ export function useCloudSync(): void {
         const projects = cloudProjects.map(
           ({ _owner, _members, ...project }) => project
         );
-        setProjects(projects);
+
+        // Data-loss guard: if cloud is empty but local has projects, skip
+        // replacement to protect un-migrated local data
+        const localProjects = useProjectStore.getState().projects;
+        if (projects.length === 0 && localProjects.length > 0) {
+          console.warn(
+            `Cloud returned 0 projects but local has ${localProjects.length} — skipping replacement to protect local data`
+          );
+        } else {
+          setProjects(projects);
+        }
+
         initialLoadDoneRef.current = true;
       }).catch((e) => {
         console.error("Failed to load projects from Firestore:", e);
