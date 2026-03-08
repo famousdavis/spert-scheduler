@@ -334,7 +334,7 @@ export function GanttChart({
                   x={x}
                   y={topMargin - 8}
                   textAnchor="middle"
-                  fontSize="10"
+                  fontSize="11"
                   fill={c.textMuted}
                 >
                   {tick.label}
@@ -359,7 +359,7 @@ export function GanttChart({
                 x={finishX}
                 y={topMargin - 8}
                 textAnchor="middle"
-                fontSize="10"
+                fontSize="11"
                 fontWeight="600"
                 fill={c.finishText}
               >
@@ -399,9 +399,9 @@ export function GanttChart({
                 {/* Milestone name above diamond */}
                 <text
                   x={mx}
-                  y={topMargin - 2 - diamondSize - 13}
+                  y={topMargin - 2 - diamondSize - 14}
                   textAnchor="middle"
-                  fontSize="9"
+                  fontSize="11"
                   fill={healthColor}
                   fontWeight="600"
                   className="pointer-events-none"
@@ -413,7 +413,7 @@ export function GanttChart({
                   x={mx}
                   y={topMargin - 2 - diamondSize - 3}
                   textAnchor="middle"
-                  fontSize="9"
+                  fontSize="10"
                   fill={healthColor}
                   className="pointer-events-none"
                 >
