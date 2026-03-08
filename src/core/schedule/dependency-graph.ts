@@ -260,6 +260,89 @@ export function computeCriticalPathDuration(
   return maxFinish;
 }
 
+// -- Critical Path Activities -------------------------------------------------
+
+export interface CriticalPathResult {
+  /** Set of activity IDs on the critical path (total float === 0) */
+  criticalActivityIds: Set<string>;
+  /** Total project duration (same as computeCriticalPathDuration) */
+  projectDuration: number;
+}
+
+/**
+ * Compute which activities are on the critical path using forward + backward pass.
+ *
+ * Forward pass: Early Start (ES), Early Finish (EF) per activity.
+ * Backward pass: Late Finish (LF), Late Start (LS) per activity.
+ * Total Float = LS - ES. Activities with float === 0 are critical.
+ *
+ * @param graph - Pre-built dependency graph
+ * @param durations - Map of activityId → duration in working days
+ * @returns Set of critical activity IDs and total project duration
+ */
+export function computeCriticalPathActivities(
+  graph: DependencyGraph,
+  durations: Map<string, number>
+): CriticalPathResult {
+  if (graph.topologicalOrder.length === 0) {
+    return { criticalActivityIds: new Set(), projectDuration: 0 };
+  }
+
+  // -- Forward pass ----------------------------------------------------------
+  const earlyStart = new Map<string, number>();
+  const earlyFinish = new Map<string, number>();
+
+  for (const id of graph.topologicalOrder) {
+    const preds = graph.predecessors.get(id) ?? [];
+    let es = 0;
+    for (const pred of preds) {
+      const predFinish = earlyFinish.get(pred.id) ?? 0;
+      es = Math.max(es, predFinish + pred.lagDays);
+    }
+    earlyStart.set(id, es);
+    earlyFinish.set(id, es + (durations.get(id) ?? 0));
+  }
+
+  let maxFinish = 0;
+  for (const ef of earlyFinish.values()) {
+    if (ef > maxFinish) maxFinish = ef;
+  }
+
+  // -- Backward pass ---------------------------------------------------------
+  const lateStart = new Map<string, number>();
+  const lateFinish = new Map<string, number>();
+
+  for (let i = graph.topologicalOrder.length - 1; i >= 0; i--) {
+    const id = graph.topologicalOrder[i]!;
+    const succs = graph.successors.get(id) ?? [];
+
+    let lf: number;
+    if (succs.length === 0) {
+      lf = maxFinish;
+    } else {
+      lf = Infinity;
+      for (const succ of succs) {
+        const succStart = lateStart.get(succ.id) ?? maxFinish;
+        lf = Math.min(lf, succStart - succ.lagDays);
+      }
+    }
+
+    lateFinish.set(id, lf);
+    lateStart.set(id, lf - (durations.get(id) ?? 0));
+  }
+
+  // -- Float → critical set --------------------------------------------------
+  const criticalActivityIds = new Set<string>();
+  for (const id of graph.topologicalOrder) {
+    const totalFloat = (lateStart.get(id) ?? 0) - (earlyStart.get(id) ?? 0);
+    if (totalFloat === 0) {
+      criticalActivityIds.add(id);
+    }
+  }
+
+  return { criticalActivityIds, projectDuration: maxFinish };
+}
+
 /**
  * Compute critical path duration with per-milestone tracking and earliest-start constraints.
  *

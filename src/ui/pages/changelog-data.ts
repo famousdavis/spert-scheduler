@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.14.0",
+    date: "2026-03-08",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Critical path visualization: activities on the critical path are highlighted with a red left stripe on Gantt chart bars, and dependency arrows between critical activities are shown in red (dependency mode only)",
+          "Today's date line: toggleable violet dashed vertical line showing today's position on the Gantt chart timeline",
+          "Gantt chart legend: contextual legend below the chart explains bar colors, critical path indicator, uncertainty hatching, finish line, today line, and milestones",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.13.0",
     date: "2026-03-08",
     sections: [

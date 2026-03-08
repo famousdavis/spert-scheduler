@@ -35,6 +35,9 @@ export const COLORS = {
     tickLine: "#d1d5db",
     finishLine: "#16a34a",
     finishText: "#15803d",
+    criticalPath: "#dc2626",
+    todayLine: "#8b5cf6",
+    todayText: "#7c3aed",
   },
   dark: {
     barPlanned: "#60a5fa",
@@ -52,6 +55,9 @@ export const COLORS = {
     tickLine: "#4b5563",
     finishLine: "#4ade80",
     finishText: "#4ade80",
+    criticalPath: "#f87171",
+    todayLine: "#a78bfa",
+    todayText: "#a78bfa",
   },
 } as const;
 
