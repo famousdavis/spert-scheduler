@@ -59,7 +59,7 @@ UI (React, Zustand, Recharts)
 | `src/core/estimation/spert.ts` | SPERT mean/SD computation |
 | `src/core/estimation/heuristic.ts` | Heuristic min/max from most-likely using % multipliers |
 | `src/core/distributions/factory.ts` | Creates Normal/LogNormal/Triangular/Uniform per activity |
-| `src/core/schedule/dependency-graph.ts` | Topological sort, cycle detection, critical path (Kahn's + forward pass) |
+| `src/core/schedule/dependency-graph.ts` | Topological sort, cycle detection, critical path (Kahn's + forward/backward pass), critical path activities |
 | `src/core/schedule/deterministic.ts` | Deterministic schedule (inverseCDF at percentile), dependency-aware variant |
 | `src/core/schedule/buffer.ts` | Schedule buffer calculation |
 | `src/core/simulation/monte-carlo.ts` | Monte Carlo engine (pure function), dependency-aware variant |
@@ -97,7 +97,7 @@ UI (React, Zustand, Recharts)
 | `src/ui/components/DependencyPanel.tsx` | Dependency management UI (add/remove/edit deps, cycle prevention, collapsible) |
 | `src/ui/components/MilestonePanel.tsx` | Milestone management UI (add/remove/edit milestones, activity assignment, collapsible) |
 | `src/ui/components/PrintableReport.tsx` | Print-optimized project report layout |
-| `src/ui/charts/GanttChart.tsx` | Interactive Gantt chart with dependency arrows, uncertainty, finish line |
+| `src/ui/charts/GanttChart.tsx` | Interactive Gantt chart with dependency arrows, uncertainty, finish line, critical path, today line, legend |
 | `src/ui/charts/gantt-constants.ts` | Shared layout constants and color palette for Gantt charts |
 | `src/ui/charts/gantt-utils.ts` | Pure utility functions shared by interactive and print Gantt charts |
 | `src/ui/components/GanttSection.tsx` | Gantt chart section wrapper with copy-to-clipboard |
@@ -122,7 +122,7 @@ User preferences are stored separately (`spert:user-preferences` key) and are NO
 
 ## Testing Patterns
 
-- **530 tests** across **39 test files**
+- **542 tests** across **39 test files**
 - **Unit tests:** Pure functions in `/core` — known values + property-based (fast-check)
 - **Integration tests:** `src/integration/` — full workflow, persistence round-trip, scenario cloning, export/import, dependency lifecycle
 - **Property-based:** Distribution samples bounded, percentiles monotonic, calendar round-trips

@@ -37,6 +37,7 @@ interface GanttChartProps {
   calendar?: Calendar;
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
+  criticalPathIds?: Set<string> | null;
   svgContainerRef?: RefObject<HTMLDivElement | null>;
 }
 
@@ -53,12 +54,14 @@ export function GanttChart({
   calendar,
   milestones = [],
   milestoneBuffers,
+  criticalPathIds,
   svgContainerRef,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
   const [viewMode, setViewMode] = useState<"deterministic" | "uncertainty">(
     "deterministic"
   );
+  const [showToday, setShowToday] = useState(true);
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
@@ -189,6 +192,13 @@ export function GanttChart({
     );
   }, [milestones, minTimestamp, dateRange, chartAreaWidth]);
 
+  // Today line X position — only when today falls within the project timeline
+  const todayStr = formatDateISO(new Date());
+  const todayInRange = dateRange > 0 && todayStr >= projectStartDate && todayStr <= furthestDate;
+  const todayX = todayInRange
+    ? dateToX(todayStr, minTimestamp, dateRange, chartAreaWidth)
+    : null;
+
   const ticks = useMemo(() => {
     if (allTicks.length === 0 || dateRange === 0) return allTicks;
     const filtered: typeof allTicks = [];
@@ -200,13 +210,15 @@ export function GanttChart({
       if (Math.abs(x - finishX) < MIN_TICK_SPACING_PX * 1.5) continue;
       // Suppress ticks that collide with milestone labels
       if (milestoneXPositions.some((mx) => Math.abs(x - mx) < MIN_TICK_SPACING_PX)) continue;
+      // Suppress ticks that collide with today line label
+      if (todayX !== null && Math.abs(x - todayX) < MIN_TICK_SPACING_PX) continue;
       if (x - lastX >= MIN_TICK_SPACING_PX) {
         filtered.push(tick);
         lastX = x;
       }
     }
     return filtered;
-  }, [allTicks, minTimestamp, dateRange, chartAreaWidth, finishX, milestoneXPositions]);
+  }, [allTicks, minTimestamp, dateRange, chartAreaWidth, finishX, milestoneXPositions, todayX]);
 
   // Build row index map for dependency arrows
   const rowIndex = useMemo(() => {
@@ -249,6 +261,15 @@ export function GanttChart({
             With Uncertainty
           </button>
         </div>
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showToday}
+            onChange={(e) => setShowToday(e.target.checked)}
+            className="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
+          />
+          Today
+        </label>
       </div>
 
       {/* Chart SVG — horizontally scrollable */}
@@ -315,6 +336,23 @@ export function GanttChart({
                 fill={c.arrow}
               />
             </marker>
+            {/* Critical path arrowhead marker */}
+            {dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
+              <marker
+                id="arrowhead-critical"
+                markerUnits="userSpaceOnUse"
+                markerWidth={ARROW_HEAD_SIZE}
+                markerHeight={ARROW_HEAD_SIZE}
+                refX="0"
+                refY={ARROW_HEAD_SIZE / 2}
+                orient="auto"
+              >
+                <polygon
+                  points={`0 0, ${ARROW_HEAD_SIZE} ${ARROW_HEAD_SIZE / 2}, 0 ${ARROW_HEAD_SIZE}`}
+                  fill={c.criticalPath}
+                />
+              </marker>
+            )}
           </defs>
 
           {/* Vertical grid lines at tick positions */}
@@ -364,6 +402,31 @@ export function GanttChart({
                 fill={c.finishText}
               >
                 {longDateLabel(finishDate)}
+              </text>
+            </g>
+          )}
+
+          {/* Today's date line */}
+          {showToday && todayX !== null && (
+            <g>
+              <line
+                x1={todayX}
+                y1={topMargin}
+                x2={todayX}
+                y2={chartHeight - 10}
+                stroke={c.todayLine}
+                strokeWidth="1.5"
+                strokeDasharray="4 2"
+              />
+              <text
+                x={todayX}
+                y={topMargin - 8}
+                textAnchor="middle"
+                fontSize="11"
+                fontWeight="500"
+                fill={c.todayText}
+              >
+                Today
               </text>
             </g>
           )}
@@ -476,14 +539,20 @@ export function GanttChart({
                 path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + loopExt},${fromY + dySigned * 0.3} ${endX - loopExt},${toY} ${endX},${toY}`;
               }
 
+              const isCriticalEdge =
+                criticalPathIds?.has(dep.fromActivityId) &&
+                criticalPathIds?.has(dep.toActivityId);
+              const arrowColor = isCriticalEdge ? c.criticalPath : c.arrow;
+              const arrowMarker = isCriticalEdge ? "url(#arrowhead-critical)" : "url(#arrowhead)";
+
               return (
                 <g key={`dep-${i}`}>
                   <path
                     d={path}
-                    stroke={c.arrow}
+                    stroke={arrowColor}
                     strokeWidth="2"
                     fill="none"
-                    markerEnd="url(#arrowhead)"
+                    markerEnd={arrowMarker}
                   />
                   {dep.lagDays !== 0 && (
                     <text
@@ -491,7 +560,7 @@ export function GanttChart({
                       y={(fromY + toY) / 2 - 4}
                       textAnchor="middle"
                       fontSize="9"
-                      fill={c.arrow}
+                      fill={arrowColor}
                       fontWeight="600"
                       className="pointer-events-none"
                     >
@@ -612,6 +681,19 @@ export function GanttChart({
                   strokeWidth="1"
                 />
 
+                {/* Critical path indicator — left stripe */}
+                {dependencyMode && criticalPathIds?.has(act.id) && (
+                  <rect
+                    x={barX}
+                    y={barY}
+                    width={4}
+                    height={BAR_HEIGHT}
+                    rx={BAR_RADIUS}
+                    fill={c.criticalPath}
+                    className="pointer-events-none"
+                  />
+                )}
+
                 {/* Duration label inside bar */}
                 {barWidth > 30 && (
                   <text
@@ -713,6 +795,77 @@ export function GanttChart({
           )}
 
         </svg>
+
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
+          {/* Status colors */}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
+            Planned
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barInProgress }} />
+            In Progress
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barComplete }} />
+            Complete
+          </span>
+
+          {/* Critical path */}
+          {dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-3 h-3 rounded-sm"
+                style={{ backgroundColor: c.barPlanned, borderLeft: `4px solid ${c.criticalPath}` }}
+              />
+              Critical Path
+            </span>
+          )}
+
+          {/* Uncertainty hatching */}
+          {viewMode === "uncertainty" && (
+            <span className="flex items-center gap-1.5">
+              <svg width="12" height="12" className="inline-block">
+                <defs>
+                  <pattern id="legend-hatch" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+                    <line x1="0" y1="0" x2="0" y2="4" stroke={c.hatchActivity} strokeWidth="2" />
+                  </pattern>
+                </defs>
+                <rect width="12" height="12" rx="1" fill="url(#legend-hatch)" stroke={c.hatchActivity} strokeWidth="0.5" />
+              </svg>
+              Uncertainty
+            </span>
+          )}
+
+          {/* Finish line */}
+          <span className="flex items-center gap-1.5">
+            <svg width="12" height="12" className="inline-block">
+              <line x1="6" y1="0" x2="6" y2="12" stroke={c.finishLine} strokeWidth="2" strokeDasharray="3 1.5" />
+            </svg>
+            Finish
+          </span>
+
+          {/* Today line */}
+          {showToday && todayX !== null && (
+            <span className="flex items-center gap-1.5">
+              <svg width="12" height="12" className="inline-block">
+                <line x1="6" y1="0" x2="6" y2="12" stroke={c.todayLine} strokeWidth="1.5" strokeDasharray="2 1" />
+              </svg>
+              Today
+            </span>
+          )}
+
+          {/* Milestones */}
+          {milestones.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <svg width="12" height="12" className="inline-block">
+                <polygon points="6,1 11,6 6,11 1,6" fill={mc.diamond} />
+              </svg>
+              Milestone
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Tooltip portal */}

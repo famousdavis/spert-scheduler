@@ -24,6 +24,7 @@ interface GanttSectionProps {
   calendar?: Calendar;
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
+  criticalPathIds?: Set<string> | null;
 }
 
 export function GanttSection(props: GanttSectionProps) {

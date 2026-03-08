@@ -7,6 +7,7 @@ import {
   validateDependencies,
   computeCriticalPathDuration,
   computeCriticalPathWithMilestones,
+  computeCriticalPathActivities,
 } from "./dependency-graph";
 
 // -- Helpers -----------------------------------------------------------------
@@ -391,6 +392,108 @@ describe("computeCriticalPathWithMilestones", () => {
   });
 });
 
+// -- computeCriticalPathActivities -------------------------------------------
+
+describe("computeCriticalPathActivities", () => {
+  it("returns empty set for empty graph", () => {
+    const graph = buildDependencyGraph([], []);
+    const result = computeCriticalPathActivities(graph, new Map());
+    expect(result.criticalActivityIds.size).toBe(0);
+    expect(result.projectDuration).toBe(0);
+  });
+
+  it("single activity is critical", () => {
+    const graph = buildDependencyGraph(["a"], []);
+    const result = computeCriticalPathActivities(graph, new Map([["a", 5]]));
+    expect(result.criticalActivityIds).toEqual(new Set(["a"]));
+    expect(result.projectDuration).toBe(5);
+  });
+
+  it("linear chain: all activities are critical", () => {
+    const graph = buildDependencyGraph(
+      ["a", "b", "c"],
+      [fsDep("a", "b"), fsDep("b", "c")]
+    );
+    const durations = new Map([["a", 3], ["b", 4], ["c", 5]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    expect(result.criticalActivityIds).toEqual(new Set(["a", "b", "c"]));
+    expect(result.projectDuration).toBe(12);
+  });
+
+  it("diamond: critical path through longest branch", () => {
+    // A → B, A → C, B → D, C → D; B is longer than C
+    const graph = buildDependencyGraph(
+      ["a", "b", "c", "d"],
+      [fsDep("a", "b"), fsDep("a", "c"), fsDep("b", "d"), fsDep("c", "d")]
+    );
+    const durations = new Map([["a", 2], ["b", 10], ["c", 3], ["d", 1]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A(0-2), B(2-12), C(2-5), D(12-13). C has float = 12-5 = 7
+    expect(result.criticalActivityIds).toEqual(new Set(["a", "b", "d"]));
+    expect(result.criticalActivityIds.has("c")).toBe(false);
+    expect(result.projectDuration).toBe(13);
+  });
+
+  it("parallel roots: only longest-path root is critical", () => {
+    // A and B are independent roots, no deps
+    const graph = buildDependencyGraph(["a", "b"], []);
+    const durations = new Map([["a", 10], ["b", 3]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    expect(result.criticalActivityIds).toEqual(new Set(["a"]));
+    expect(result.criticalActivityIds.has("b")).toBe(false);
+    expect(result.projectDuration).toBe(10);
+  });
+
+  it("parallel roots with equal durations: both are critical", () => {
+    const graph = buildDependencyGraph(["a", "b"], []);
+    const durations = new Map([["a", 5], ["b", 5]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    expect(result.criticalActivityIds).toEqual(new Set(["a", "b"]));
+  });
+
+  it("lag days can shift the critical path", () => {
+    // A → B (lag 0), A → C (lag 20); C is short but lag makes it critical
+    const graph = buildDependencyGraph(
+      ["a", "b", "c"],
+      [fsDep("a", "b", 0), fsDep("a", "c", 20)]
+    );
+    const durations = new Map([["a", 2], ["b", 10], ["c", 1]]);
+    // A(0-2), B(2-12), C starts at 2+20=22, C(22-23)
+    // maxFinish=23. LF[B]=23, LS[B]=23-10=13, ES[B]=2 → float=11
+    // LF[C]=23, LS[C]=23-1=22, ES[C]=22 → float=0
+    // LF[A]: min(LS[B]-0, LS[C]-20)=min(13,2)=2, LS[A]=2-2=0 → float=0
+    const result = computeCriticalPathActivities(graph, durations);
+    expect(result.criticalActivityIds).toEqual(new Set(["a", "c"]));
+    expect(result.criticalActivityIds.has("b")).toBe(false);
+    expect(result.projectDuration).toBe(23);
+  });
+
+  it("consistency: projectDuration matches computeCriticalPathDuration", () => {
+    const graph = buildDependencyGraph(
+      ["a", "b", "c", "d", "e"],
+      [fsDep("a", "c"), fsDep("a", "d"), fsDep("b", "d"), fsDep("c", "e"), fsDep("d", "e")]
+    );
+    const durations = new Map([["a", 2], ["b", 1], ["c", 6], ["d", 3], ["e", 1]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    const duration = computeCriticalPathDuration(graph, durations);
+    expect(result.projectDuration).toBe(duration);
+  });
+
+  it("complex graph: identifies correct critical activities", () => {
+    // A(2) → C(6) → E(1), A(2) → D(3) → E(1), B(1) → D(3) → E(1)
+    const graph = buildDependencyGraph(
+      ["a", "b", "c", "d", "e"],
+      [fsDep("a", "c"), fsDep("a", "d"), fsDep("b", "d"), fsDep("c", "e"), fsDep("d", "e")]
+    );
+    const durations = new Map([["a", 2], ["b", 1], ["c", 6], ["d", 3], ["e", 1]]);
+    // A(0-2), B(0-1), C(2-8), D(2-5), E(8-9)
+    // Critical: A→C→E (length 9). D has float=3, B has float=6
+    const result = computeCriticalPathActivities(graph, durations);
+    expect(result.criticalActivityIds).toEqual(new Set(["a", "c", "e"]));
+    expect(result.projectDuration).toBe(9);
+  });
+});
+
 // -- Property-based tests ----------------------------------------------------
 
 describe("property-based tests", () => {
@@ -446,6 +549,39 @@ describe("property-based tests", () => {
       fc.property(acyclicGraphArb, (graphData) => {
         const graph = buildDependencyGraph(graphData.ids, graphData.deps);
         expect(new Set(graph.topologicalOrder)).toEqual(new Set(graphData.ids));
+      })
+    );
+  });
+
+  it("computeCriticalPathActivities.projectDuration === computeCriticalPathDuration (fast-check)", () => {
+    fc.assert(
+      fc.property(acyclicGraphArb, (graphData) => {
+        const graph = buildDependencyGraph(graphData.ids, graphData.deps);
+        const result = computeCriticalPathActivities(graph, graphData.durations);
+        const duration = computeCriticalPathDuration(graph, graphData.durations);
+        expect(result.projectDuration).toBe(duration);
+      })
+    );
+  });
+
+  it("critical path set is non-empty when graph has activities (fast-check)", () => {
+    fc.assert(
+      fc.property(acyclicGraphArb, (graphData) => {
+        const graph = buildDependencyGraph(graphData.ids, graphData.deps);
+        const result = computeCriticalPathActivities(graph, graphData.durations);
+        expect(result.criticalActivityIds.size).toBeGreaterThanOrEqual(1);
+      })
+    );
+  });
+
+  it("critical activities are a subset of all activities (fast-check)", () => {
+    fc.assert(
+      fc.property(acyclicGraphArb, (graphData) => {
+        const graph = buildDependencyGraph(graphData.ids, graphData.deps);
+        const result = computeCriticalPathActivities(graph, graphData.durations);
+        for (const id of result.criticalActivityIds) {
+          expect(graphData.ids).toContain(id);
+        }
       })
     );
   });

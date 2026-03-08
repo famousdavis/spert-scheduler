@@ -10,6 +10,7 @@ import type { ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
 import { formatDateISO, mergeCalendars } from "@core/calendar/calendar";
 import { computeDeterministicDurations, computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
+import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
 import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { DependencyPanel } from "@ui/components/DependencyPanel";
@@ -136,6 +137,26 @@ export function ProjectPage() {
     scenario?.settings.probabilityTarget,
     mergedCalendar,
     scenario?.milestones,
+  ]);
+
+  // Critical path activity IDs (only in dependency mode)
+  const criticalPathIds = useMemo(() => {
+    if (!scenario?.settings.dependencyMode || !scenario || scenario.activities.length === 0) return null;
+    try {
+      const graph = buildDependencyGraph(
+        scenario.activities.map((a) => a.id),
+        scenario.dependencies
+      );
+      const durationMap = computeDependencyDurations(scenario.activities, scenario.settings.probabilityTarget);
+      return computeCriticalPathActivities(graph, durationMap).criticalActivityIds;
+    } catch {
+      return null;
+    }
+  }, [
+    scenario?.settings.dependencyMode,
+    scenario?.activities,
+    scenario?.dependencies,
+    scenario?.settings.probabilityTarget,
   ]);
 
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
@@ -623,6 +644,7 @@ export function ProjectPage() {
               calendar={mergedCalendar}
               milestones={scenario.milestones}
               milestoneBuffers={milestoneBuffers}
+              criticalPathIds={criticalPathIds}
             />
           )}
 
