@@ -561,6 +561,7 @@ export function ProjectPage() {
             heuristicEnabled={scenario.settings.heuristicEnabled}
             heuristicMinPercent={scenario.settings.heuristicMinPercent}
             heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
+            calendar={mergedCalendar}
           />
 
           {/* Milestone Panel — only shown when dependency mode is on */}

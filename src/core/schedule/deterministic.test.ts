@@ -166,6 +166,53 @@ describe("computeDeterministicSchedule", () => {
     expect(schedule.activities[0]!.isActual).toBe(true);
     expect(schedule.activities[1]!.isActual).toBe(true);
   });
+
+  it("uses elapsed+1 floor for inProgress activity with large elapsed time", () => {
+    const activities = [
+      makeActivity({
+        id: "a1",
+        status: "inProgress",
+        actualDuration: 15, // elapsed 15 days, estimates are only 3-10
+        min: 3,
+        mostLikely: 5,
+        max: 10,
+      }),
+    ];
+    const schedule = computeDeterministicSchedule(activities, "2025-01-06", 0.5);
+    // Floor is max(15+1, inverseCDF(0.5)) = max(16, ~5) = 16
+    expect(schedule.activities[0]!.duration).toBe(16);
+    expect(schedule.activities[0]!.isActual).toBe(false);
+  });
+
+  it("uses inverseCDF when it exceeds elapsed+1 for inProgress activity", () => {
+    const activities = [
+      makeActivity({
+        id: "a1",
+        status: "inProgress",
+        actualDuration: 1, // elapsed only 1 day, estimates are 3-10
+        min: 3,
+        mostLikely: 5,
+        max: 10,
+      }),
+    ];
+    const schedule = computeDeterministicSchedule(activities, "2025-01-06", 0.5);
+    // Floor is max(1+1, inverseCDF(0.5)) = max(2, ~5) = ~5
+    expect(schedule.activities[0]!.duration).toBeGreaterThanOrEqual(2);
+    expect(schedule.activities[0]!.isActual).toBe(false);
+  });
+
+  it("treats inProgress without actualDuration as planned", () => {
+    const activities = [
+      makeActivity({
+        id: "a1",
+        status: "inProgress",
+        // no actualDuration
+      }),
+    ];
+    const schedule = computeDeterministicSchedule(activities, "2025-01-06", 0.5);
+    expect(schedule.activities[0]!.isActual).toBe(false);
+    expect(schedule.activities[0]!.duration).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe("computeDeterministicDurations", () => {
@@ -200,6 +247,49 @@ describe("computeDeterministicDurations", () => {
     ];
     const durations = computeDeterministicDurations(activities, 0.5);
     expect(durations).toHaveLength(0);
+  });
+
+  it("uses elapsed+1 floor for inProgress with actualDuration", () => {
+    const activities = [
+      makeActivity({
+        id: "a1",
+        status: "inProgress",
+        actualDuration: 15,
+        min: 3,
+        mostLikely: 5,
+        max: 10,
+      }),
+    ];
+    const durations = computeDeterministicDurations(activities, 0.5);
+    expect(durations).toHaveLength(1);
+    expect(durations[0]).toBe(16); // max(15+1, inverseCDF) = 16
+  });
+
+  it("uses inverseCDF when it exceeds elapsed+1 for inProgress", () => {
+    const activities = [
+      makeActivity({
+        id: "a1",
+        status: "inProgress",
+        actualDuration: 1,
+        min: 3,
+        mostLikely: 5,
+        max: 10,
+      }),
+    ];
+    const durations = computeDeterministicDurations(activities, 0.5);
+    expect(durations).toHaveLength(1);
+    // inverseCDF(0.5) for (3,5,10) is ~5, which exceeds elapsed+1=2
+    expect(durations[0]).toBeGreaterThan(2);
+  });
+
+  it("does not filter out inProgress activities", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 5 }),
+      makeActivity({ id: "a2", status: "inProgress", actualDuration: 3 }),
+      makeActivity({ id: "a3", status: "planned" }),
+    ];
+    const durations = computeDeterministicDurations(activities, 0.5);
+    expect(durations).toHaveLength(2); // a2 and a3 (not a1)
   });
 });
 
@@ -312,6 +402,21 @@ describe("computeDependencyDurations", () => {
     const durations = computeDependencyDurations(activities, 0.5);
     expect(durations.get("a1")).toBe(7);
   });
+
+  it("uses elapsed+1 floor for inProgress with actualDuration", () => {
+    const activities = [
+      makeActivity({
+        id: "a1",
+        status: "inProgress",
+        actualDuration: 15,
+        min: 3,
+        mostLikely: 5,
+        max: 10,
+      }),
+    ];
+    const durations = computeDependencyDurations(activities, 0.5);
+    expect(durations.get("a1")).toBe(16); // max(15+1, inverseCDF) = 16
+  });
 });
 
 // -- Per-activity uncertainty tests -------------------------------------------
@@ -366,5 +471,41 @@ describe("computeActivityUncertaintyDays", () => {
   it("returns empty map for empty activity list", () => {
     const result = computeActivityUncertaintyDays([], 0.5, 0.95);
     expect(result.size).toBe(0);
+  });
+
+  it("applies elapsed floor for inProgress activity", () => {
+    const activities = [
+      makeActivity({
+        id: "a1",
+        status: "inProgress",
+        actualDuration: 15,
+        min: 3,
+        mostLikely: 5,
+        max: 10,
+      }),
+    ];
+    const result = computeActivityUncertaintyDays(activities, 0.5, 0.95);
+    const entry = result.get("a1")!;
+    // solidDays should be at least elapsed+1 = 16
+    expect(entry.solidDays).toBeGreaterThanOrEqual(16);
+  });
+
+  it("still shows hatching for inProgress activity when targets differ", () => {
+    const activities = [
+      makeActivity({
+        id: "a1",
+        status: "inProgress",
+        actualDuration: 1,
+        min: 3,
+        mostLikely: 5,
+        max: 10,
+        distributionType: "normal",
+      }),
+    ];
+    const result = computeActivityUncertaintyDays(activities, 0.5, 0.95);
+    const entry = result.get("a1")!;
+    // With low elapsed (1), the distribution drives solid/project days and hatching should exist
+    expect(entry.hatchedDays).toBeGreaterThanOrEqual(0);
+    expect(entry.solidDays).toBeGreaterThanOrEqual(2); // at least elapsed+1
   });
 });

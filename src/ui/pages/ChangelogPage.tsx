@@ -12,6 +12,21 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.13.0",
+    date: "2026-03-08",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "In-progress activities now respect elapsed working days: the Actual column auto-populates with elapsed days when an activity is marked \"In Progress\"",
+          "Monte Carlo simulation floors each trial at elapsed + 1 for in-progress activities, producing tighter schedule buffers that reflect work already completed",
+          "Clearing and blurring the Actual field for an in-progress activity auto-recalculates elapsed days from the scheduled start date",
+          "Gantt chart solid/hatched bars for in-progress activities reflect the elevated duration floor",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.12.3",
     date: "2026-03-07",
     sections: [

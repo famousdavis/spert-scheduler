@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import type {
   Activity,
+  Calendar,
   ScheduledActivity,
   RSMLevel,
   DistributionType,
@@ -48,6 +49,7 @@ interface UnifiedActivityGridProps {
   heuristicEnabled?: boolean;
   heuristicMinPercent?: number;
   heuristicMaxPercent?: number;
+  calendar?: Calendar;
 }
 
 export function UnifiedActivityGrid({
@@ -67,6 +69,7 @@ export function UnifiedActivityGrid({
   heuristicEnabled,
   heuristicMinPercent,
   heuristicMaxPercent,
+  calendar,
 }: UnifiedActivityGridProps) {
   const [, setInvalidIds] = useState<Set<string>>(new Set());
   const [focusActivityId, setFocusActivityId] = useState<string | null>(null);
@@ -421,6 +424,7 @@ export function UnifiedActivityGrid({
               heuristicEnabled={heuristicEnabled}
               heuristicMinPercent={heuristicMinPercent}
               heuristicMaxPercent={heuristicMaxPercent}
+              calendar={calendar}
             />
           ))}
         </SortableContext>

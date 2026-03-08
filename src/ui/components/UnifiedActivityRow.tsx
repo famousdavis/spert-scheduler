@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type {
   Activity,
+  Calendar,
   DistributionType,
   ScheduledActivity,
 } from "@domain/models/types";
@@ -13,6 +14,7 @@ import {
 import { ActivitySchema } from "@domain/schemas/project.schema";
 import { recommendDistribution } from "@core/recommendation/recommendation";
 import { computeHeuristic } from "@core/estimation/heuristic";
+import { countWorkingDays, parseDateISO, isWorkingDay } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import {
   distributionLabel,
@@ -38,6 +40,7 @@ interface UnifiedActivityRowProps {
   heuristicEnabled?: boolean;
   heuristicMinPercent?: number;
   heuristicMaxPercent?: number;
+  calendar?: Calendar;
 }
 
 type FieldErrors = Partial<Record<string, string>>;
@@ -85,6 +88,21 @@ function focusPrevRow(currentRowId: string, activities: string[], lastFieldHint?
   return false;
 }
 
+/**
+ * Compute elapsed working days from a scheduled start date to today.
+ * Inclusive of both start and today (if today is a working day).
+ * Returns at least 1.
+ */
+function computeElapsedDays(scheduledStartDate: string | undefined, calendar?: Calendar): number {
+  if (!scheduledStartDate) return 1;
+  const start = parseDateISO(scheduledStartDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (start > today) return 1; // future start → default 1
+  const elapsed = countWorkingDays(start, today, calendar) + (isWorkingDay(today, calendar) ? 1 : 0);
+  return Math.max(1, elapsed);
+}
+
 export function UnifiedActivityRow({
   activity,
   scheduledActivity,
@@ -100,6 +118,7 @@ export function UnifiedActivityRow({
   heuristicEnabled,
   heuristicMinPercent = 50,
   heuristicMaxPercent = 200,
+  calendar,
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formatDate = useDateFormat();
@@ -212,6 +231,7 @@ export function UnifiedActivityRow({
   );
 
   const isComplete = activity.status === "complete";
+  const isInProgress = activity.status === "inProgress";
 
   const handleTabNav = useCallback(
     (
@@ -229,9 +249,9 @@ export function UnifiedActivityRow({
         fieldOrder = confidenceApplies
           ? ["name", "ml", "confidence", "distribution", "status"]
           : ["name", "ml", "distribution", "status"];
-        if (isComplete) fieldOrder.push("actual");
+        if (isComplete || isInProgress) fieldOrder.push("actual");
       } else {
-        fieldOrder = isComplete
+        fieldOrder = (isComplete || isInProgress)
           ? ["name", "min", "ml", "max", "actual"]
           : ["name", "min", "ml", "max"];
       }
@@ -535,11 +555,17 @@ export function UnifiedActivityRow({
           data-row-id={activity.id}
           data-field="status"
           value={activity.status}
-          onChange={(e) =>
-            onUpdate(activity.id, {
-              status: e.target.value as Activity["status"],
-            })
-          }
+          onChange={(e) => {
+            const newStatus = e.target.value as Activity["status"];
+            const updates: Partial<Activity> = { status: newStatus };
+            if (newStatus === "inProgress" && scheduledActivity) {
+              updates.actualDuration = computeElapsedDays(scheduledActivity.startDate, calendar);
+            }
+            if (newStatus === "planned") {
+              updates.actualDuration = undefined;
+            }
+            onUpdate(activity.id, updates);
+          }}
           onKeyDown={(e) => handleTabNav(e, "status")}
           disabled={isLocked}
           className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
@@ -553,25 +579,37 @@ export function UnifiedActivityRow({
         </select>
       </div>
 
-      {/* Actual duration (shown when complete) */}
+      {/* Actual duration (shown when complete or in-progress) */}
       <div>
-        {isComplete ? (
+        {(isComplete || isInProgress) ? (
           <input
             data-row-id={activity.id}
             data-field="actual"
             type="number"
             defaultValue={activity.actualDuration ?? ""}
+            key={`${activity.id}-actual-${activity.status}-${activity.actualDuration ?? "empty"}`}
             onFocus={(e) => e.target.select()}
             onBlur={(e) => {
-              const val = parseInt(e.target.value, 10);
-              if (!isNaN(val)) {
+              const raw = e.target.value.trim();
+              if (raw === "") {
+                if (isInProgress && scheduledActivity) {
+                  const elapsed = computeElapsedDays(scheduledActivity.startDate, calendar);
+                  onUpdate(activity.id, { actualDuration: elapsed });
+                  e.target.value = String(elapsed);
+                } else {
+                  onUpdate(activity.id, { actualDuration: undefined });
+                }
+                return;
+              }
+              const val = parseInt(raw, 10);
+              if (!isNaN(val) && val >= 0) {
                 onUpdate(activity.id, { actualDuration: val });
               }
             }}
             onKeyDown={(e) => handleTabNav(e, "actual")}
             disabled={isLocked}
             className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm tabular-nums text-right focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-            placeholder="Act."
+            placeholder={isInProgress ? "Elapsed" : "Act."}
             min="0"
             step="1"
           />
