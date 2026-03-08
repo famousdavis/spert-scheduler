@@ -12,6 +12,26 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.12.2",
+    date: "2026-03-07",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Gantt chart bars are now color-coded by activity status: blue (Planned), green (In Progress), gray (Complete)",
+          "Status colors apply to both interactive and print Gantt charts, including uncertainty hatching",
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          "Activity grid inputs are now properly disabled when a scenario is locked",
+          "Status column widened so \"In Progress\" displays without truncation",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.12.1",
     date: "2026-03-07",
     sections: [

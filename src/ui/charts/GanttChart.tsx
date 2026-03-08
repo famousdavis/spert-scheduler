@@ -277,7 +277,7 @@ export function GanttChart({
                   y1="0"
                   x2="0"
                   y2="8"
-                  stroke={c.hatchActivity}
+                  stroke={act.status === "inProgress" ? c.hatchInProgress : c.hatchActivity}
                   strokeWidth="4"
                 />
               </pattern>
@@ -524,8 +524,10 @@ export function GanttChart({
             );
             const barWidth = Math.max(4, barEndX - barX);
 
-            const isComplete = act.status === "complete";
-            const barColor = isComplete ? c.barComplete : c.barPlanned;
+            const barColor =
+              act.status === "complete" ? c.barComplete :
+              act.status === "inProgress" ? c.barInProgress :
+              c.barPlanned;
 
             const uncertainty = uncertaintyMap.get(act.id);
             const extEndDate = activityExtendedEndDates.get(act.id);
@@ -593,7 +595,7 @@ export function GanttChart({
                     height={BAR_HEIGHT}
                     rx={BAR_RADIUS}
                     fill={`url(#hatch-${act.id})`}
-                    stroke={c.hatchActivity}
+                    stroke={act.status === "inProgress" ? c.hatchInProgress : c.hatchActivity}
                     strokeWidth="1"
                   />
                 )}

@@ -498,13 +498,16 @@ function PrintGanttChart({
           const x1 = toX(sa.startDate);
           const x2 = toX(sa.endDate);
           const w = Math.max(2, x2 - x1);
-          const isComplete = act.status === "complete";
+          const printBarColor =
+            act.status === "complete" ? "#9ca3af" :
+            act.status === "inProgress" ? "#22c55e" :
+            "#3b82f6";
           return (
             <g key={act.id}>
               <text x={PRINT_LEFT - 4} y={y + PRINT_ROW / 2} textAnchor="end" dominantBaseline="central" fontSize="7" fill="#374151">
                 {act.name.length > 18 ? act.name.slice(0, 16) + "..." : act.name}
               </text>
-              <rect x={x1} y={barY} width={w} height={PRINT_BAR_H} rx={2} fill={isComplete ? "#22c55e" : "#3b82f6"} />
+              <rect x={x1} y={barY} width={w} height={PRINT_BAR_H} rx={2} fill={printBarColor} />
               {w > 20 && (
                 <text x={x1 + w / 2} y={barY + PRINT_BAR_H / 2} textAnchor="middle" dominantBaseline="central" fontSize="6" fill="#fff" fontWeight="600">
                   {sa.duration}d
