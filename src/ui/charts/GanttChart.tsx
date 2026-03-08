@@ -62,6 +62,7 @@ export function GanttChart({
     "deterministic"
   );
   const [showToday, setShowToday] = useState(true);
+  const [showCriticalPath, setShowCriticalPath] = useState(true);
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
@@ -261,6 +262,17 @@ export function GanttChart({
             With Uncertainty
           </button>
         </div>
+        {dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showCriticalPath}
+              onChange={(e) => setShowCriticalPath(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
+            />
+            Critical path
+          </label>
+        )}
         <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
           <input
             type="checkbox"
@@ -337,7 +349,7 @@ export function GanttChart({
               />
             </marker>
             {/* Critical path arrowhead marker */}
-            {dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
+            {showCriticalPath && dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
               <marker
                 id="arrowhead-critical"
                 markerUnits="userSpaceOnUse"
@@ -540,6 +552,7 @@ export function GanttChart({
               }
 
               const isCriticalEdge =
+                showCriticalPath &&
                 criticalPathIds?.has(dep.fromActivityId) &&
                 criticalPathIds?.has(dep.toActivityId);
               const arrowColor = isCriticalEdge ? c.criticalPath : c.arrow;
@@ -682,7 +695,7 @@ export function GanttChart({
                 />
 
                 {/* Critical path indicator — left stripe */}
-                {dependencyMode && criticalPathIds?.has(act.id) && (
+                {showCriticalPath && dependencyMode && criticalPathIds?.has(act.id) && (
                   <rect
                     x={barX}
                     y={barY}
@@ -813,7 +826,7 @@ export function GanttChart({
           </span>
 
           {/* Critical path */}
-          {dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
+          {showCriticalPath && dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
             <span className="flex items-center gap-1.5">
               <span
                 className="inline-block w-3 h-3 rounded-sm"

@@ -15,7 +15,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "New Features",
         items: [
-          "Critical path visualization: activities on the critical path are highlighted with a red left stripe on Gantt chart bars, and dependency arrows between critical activities are shown in red (dependency mode only)",
+          "Critical path visualization: toggleable red left stripe on Gantt bars and red dependency arrows for critical-path activities (dependency mode only, on by default)",
           "Today's date line: toggleable violet dashed vertical line showing today's position on the Gantt chart timeline",
           "Gantt chart legend: contextual legend below the chart explains bar colors, critical path indicator, uncertainty hatching, finish line, today line, and milestones",
         ],
