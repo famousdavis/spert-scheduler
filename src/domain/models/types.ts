@@ -244,6 +244,10 @@ export type ThemePreference = (typeof THEME_OPTIONS)[number];
 
 // -- User Preferences ---------------------------------------------------------
 
+export const GANTT_VIEW_MODES = ["deterministic", "uncertainty"] as const;
+
+export type GanttViewMode = (typeof GANTT_VIEW_MODES)[number];
+
 export interface UserPreferences {
   defaultTrialCount: number;
   defaultDistributionType: DistributionType;
@@ -261,6 +265,14 @@ export interface UserPreferences {
   defaultDependencyMode: boolean;
   /** Company-wide holidays that apply to all projects */
   globalCalendar?: Calendar;
+  /** Gantt chart view mode: deterministic bars or with uncertainty hatching */
+  ganttViewMode: GanttViewMode;
+  /** Show today's date line on Gantt chart */
+  ganttShowToday: boolean;
+  /** Show critical path highlighting on Gantt chart */
+  ganttShowCriticalPath: boolean;
+  /** Show project name header on Gantt chart */
+  ganttShowProjectName: boolean;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
@@ -277,6 +289,10 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   defaultHeuristicMinPercent: 50,
   defaultHeuristicMaxPercent: 200,
   defaultDependencyMode: false,
+  ganttViewMode: "deterministic",
+  ganttShowToday: true,
+  ganttShowCriticalPath: true,
+  ganttShowProjectName: false,
 };
 
 // -- RSM Descriptions (tooltips) ----------------------------------------------

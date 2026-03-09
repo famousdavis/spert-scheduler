@@ -6,6 +6,7 @@ import { useSchedule } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
 import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
 import { formatDateISO, mergeCalendars } from "@core/calendar/calendar";
@@ -67,7 +68,15 @@ export function ProjectPage() {
 
   const simulation = useSimulation();
 
-  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
+  const [activeScenarioId, setActiveScenarioIdRaw] = useState<string | null>(null);
+  // Persist active scenario to localStorage whenever it changes
+  const setActiveScenarioId = useCallback(
+    (scenarioId: string | null) => {
+      setActiveScenarioIdRaw(scenarioId);
+      if (id && scenarioId) setLastScenarioId(id, scenarioId);
+    },
+    [id],
+  );
   const [newScenarioOpen, setNewScenarioOpen] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
@@ -94,7 +103,10 @@ export function ProjectPage() {
 
   useEffect(() => {
     if (project && project.scenarios.length > 0 && !activeScenarioId) {
-      setActiveScenarioId(project.scenarios[0]!.id);
+      // Restore last-active scenario from localStorage, fallback to first scenario
+      const stored = getLastScenarioId(project.id);
+      const match = stored && project.scenarios.find((s) => s.id === stored);
+      setActiveScenarioIdRaw(match ? stored : project.scenarios[0]!.id);
     }
   }, [project, activeScenarioId]);
 

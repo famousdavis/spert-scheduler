@@ -112,6 +112,7 @@ UI (React, Zustand, Recharts)
 | `src/app/api/csv-export-service.ts` | Pure CSV generation for simulation results |
 | `src/app/api/export-import-service.ts` | Export/Import: serialize, validate, migrate, conflict detection |
 | `src/core/schedule/milestone-sim-params.ts` | Pure utility: builds milestone simulation parameters (activity mapping, earliest start offsets) |
+| `src/infrastructure/persistence/scenario-memory.ts` | Per-project last-active scenario ID persistence (localStorage) |
 | `src/app/constants.ts` | APP_VERSION, APP_NAME |
 
 ## Schema Version
@@ -154,7 +155,7 @@ User preferences are stored separately (`spert:user-preferences` key) and are NO
 5. Wire into consuming components via `usePreferencesStore`
 6. Add tests in `preferences-repository.test.ts`
 
-**Current preferences:** `defaultTrialCount`, `defaultDistributionType`, `defaultConfidenceLevel`, `defaultActivityTarget`, `defaultProjectTarget`, `dateFormat`, `autoRunSimulation`, `theme`, `storeFullSimulationData`, `defaultHeuristicMinPercent`, `defaultHeuristicMaxPercent`, `defaultDependencyMode`, `globalCalendar`
+**Current preferences:** `defaultTrialCount`, `defaultDistributionType`, `defaultConfidenceLevel`, `defaultActivityTarget`, `defaultProjectTarget`, `dateFormat`, `autoRunSimulation`, `theme`, `storeFullSimulationData`, `defaultHeuristicMinPercent`, `defaultHeuristicMaxPercent`, `defaultDependencyMode`, `globalCalendar`, `ganttViewMode`, `ganttShowToday`, `ganttShowCriticalPath`, `ganttShowProjectName`
 
 ### Modifying the Gantt chart
 1. Change the interactive chart in `src/ui/charts/GanttChart.tsx`

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type RefObject } from "react";
+import { useState, useEffect, useMemo, useCallback, type RefObject } from "react";
 import type {
   Activity,
   ActivityDependency,
@@ -6,6 +6,7 @@ import type {
   MilestoneBufferInfo,
   ScheduledActivity,
   Calendar,
+  GanttViewMode,
 } from "@domain/models/types";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@core/calendar/calendar";
 import { computeActivityUncertaintyDays } from "@core/schedule/deterministic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import {
   LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, ROW_HEIGHT,
   BAR_HEIGHT, BAR_Y_OFFSET, BAR_RADIUS, MIN_CHART_WIDTH,
@@ -61,12 +63,27 @@ export function GanttChart({
   svgContainerRef,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
-  const [viewMode, setViewMode] = useState<"deterministic" | "uncertainty">(
-    "deterministic"
+  const { preferences, updatePreferences } = usePreferencesStore();
+  const viewMode: GanttViewMode = preferences.ganttViewMode ?? "deterministic";
+  const showToday = preferences.ganttShowToday ?? true;
+  const showCriticalPath = preferences.ganttShowCriticalPath ?? true;
+  const showProjectName = preferences.ganttShowProjectName ?? false;
+  const setViewMode = useCallback(
+    (mode: GanttViewMode) => updatePreferences({ ganttViewMode: mode }),
+    [updatePreferences],
   );
-  const [showToday, setShowToday] = useState(true);
-  const [showCriticalPath, setShowCriticalPath] = useState(true);
-  const [showProjectName, setShowProjectName] = useState(false);
+  const setShowToday = useCallback(
+    (v: boolean) => updatePreferences({ ganttShowToday: v }),
+    [updatePreferences],
+  );
+  const setShowCriticalPath = useCallback(
+    (v: boolean) => updatePreferences({ ganttShowCriticalPath: v }),
+    [updatePreferences],
+  );
+  const setShowProjectName = useCallback(
+    (v: boolean) => updatePreferences({ ganttShowProjectName: v }),
+    [updatePreferences],
+  );
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;

@@ -81,6 +81,10 @@ describe("savePreferences", () => {
       defaultHeuristicMinPercent: 50,
       defaultHeuristicMaxPercent: 200,
       defaultDependencyMode: false,
+      ganttViewMode: "uncertainty",
+      ganttShowToday: false,
+      ganttShowCriticalPath: false,
+      ganttShowProjectName: true,
     };
     savePreferences(prefs);
     expect(loadPreferences()).toEqual(prefs);

@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.15.1",
+    date: "2026-03-09",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Gantt chart toggle states (view mode, today line, critical path, project name) now persist across page refreshes and browser sessions via user preferences",
+          "Last-active scenario is remembered per project — reopening a project restores the scenario you were last working on instead of always defaulting to Baseline",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.15.0",
     date: "2026-03-09",
     sections: [

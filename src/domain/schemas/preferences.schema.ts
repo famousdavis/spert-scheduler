@@ -4,6 +4,7 @@ import {
   DISTRIBUTION_TYPES,
   DATE_FORMATS,
   THEME_OPTIONS,
+  GANTT_VIEW_MODES,
 } from "../models/types";
 import { CalendarSchema } from "./project.schema";
 
@@ -22,4 +23,8 @@ export const UserPreferencesSchema = z.object({
   defaultHeuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
   defaultDependencyMode: z.boolean().optional(),
   globalCalendar: CalendarSchema.optional(),
+  ganttViewMode: z.enum(GANTT_VIEW_MODES).optional(),
+  ganttShowToday: z.boolean().optional(),
+  ganttShowCriticalPath: z.boolean().optional(),
+  ganttShowProjectName: z.boolean().optional(),
 });
