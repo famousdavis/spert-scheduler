@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.14.2",
+    date: "2026-03-09",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Added Quick Reference Guide PDF download to the About page",
+          "Updated About page: default trial count corrected to 10,000, data privacy section now describes optional cloud storage",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.14.1",
     date: "2026-03-08",
     sections: [

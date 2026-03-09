@@ -30,6 +30,24 @@ export function AboutPage() {
         </section>
 
         <section>
+          <h2 className="text-lg font-semibold text-blue-600">
+            Quick Reference Guide
+          </h2>
+          <p className="mt-2">
+            Download the quick reference guide for a printable overview of
+            SPERT® Scheduler&apos;s features and workflow.
+          </p>
+          <a
+            href="/SPERTScheduler_Quick_Reference_Guide.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block rounded bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Download PDF
+          </a>
+        </section>
+
+        <section>
           <h2 className="text-lg font-semibold text-blue-600">How It Works</h2>
           <ul className="mt-2 list-disc space-y-1 pl-6">
             <li>
@@ -49,7 +67,7 @@ export function AboutPage() {
               deterministic schedule
             </li>
             <li>
-              Run Monte Carlo simulation (50,000 trials by default) to generate
+              Run Monte Carlo simulation (10,000 trials by default) to generate
               a project duration distribution
             </li>
             <li>
@@ -69,11 +87,16 @@ export function AboutPage() {
             Your Data &amp; Privacy
           </h2>
           <p className="mt-2">
-            All data is stored exclusively in your browser&apos;s localStorage.
-            No data is sent to any server. There is no backend, no analytics, no
-            telemetry, and no third-party data collection. Clearing your
-            browser&apos;s site data will permanently delete all projects and
-            settings.
+            By default, all data is stored in your browser&apos;s localStorage
+            &mdash; nothing leaves your device. There is no analytics, no
+            telemetry, and no third-party data collection.
+          </p>
+          <p className="mt-2">
+            Optionally, you can enable cloud storage in Settings by signing in
+            with Google or Microsoft. Cloud mode syncs your projects to
+            Firestore so you can access them across devices and share with
+            teammates. Clearing your browser&apos;s site data will permanently
+            delete any local-only projects and settings.
           </p>
         </section>
 
