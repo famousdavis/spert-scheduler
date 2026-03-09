@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.14.4",
+    date: "2026-03-09",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed Gantt chart copy-as-image still failing on SVG elements (dependency arrows, bars, text) that inherit oklch() colors; neutralization now covers all computed CSS properties on both HTML and SVG elements, plus Tailwind v4 CSS custom properties on :root",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.14.3",
     date: "2026-03-09",
     sections: [

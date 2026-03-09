@@ -4,8 +4,14 @@ import html2canvas from "html2canvas";
  * Neutralize oklch() colors in cloned DOM tree.
  * html2canvas cannot parse oklch() (Tailwind CSS v4 default).
  * Uses a canvas to resolve oklch → rgb so colors are preserved visually.
+ *
+ * Two-pass approach:
+ *  1. Fix CSS custom properties on :root (Tailwind v4 stores colors there).
+ *     This causes var() references everywhere to resolve to rgb automatically.
+ *  2. Fix any remaining oklch in computed standard properties on all elements
+ *     (both HTML and SVG — SVG elements inherit color from parent HTML).
  */
-function neutralizeOklch(_doc: Document, clonedEl: HTMLElement): void {
+function neutralizeOklch(doc: Document, clonedEl: HTMLElement): void {
   // Single reusable canvas to convert oklch → rgb
   const cvs = document.createElement("canvas");
   cvs.width = 1;
@@ -24,29 +30,34 @@ function neutralizeOklch(_doc: Document, clonedEl: HTMLElement): void {
       : `rgb(${r},${g},${b})`;
   };
 
-  const props = [
-    "color",
-    "backgroundColor",
-    "borderColor",
-    "borderTopColor",
-    "borderRightColor",
-    "borderBottomColor",
-    "borderLeftColor",
-    "outlineColor",
-  ] as const;
+  // Pass 1: Fix CSS custom properties (--color-*) on the cloned :root.
+  const root = doc.documentElement;
+  const rootStyles = getComputedStyle(root);
+  for (let i = 0; i < rootStyles.length; i++) {
+    const prop = rootStyles[i]!;
+    if (prop.startsWith("--")) {
+      const val = rootStyles.getPropertyValue(prop);
+      if (val.includes("oklch")) {
+        root.style.setProperty(prop, resolve(val.trim()));
+      }
+    }
+  }
 
-  const fix = (el: HTMLElement) => {
+  // Pass 2: Fix remaining oklch in standard properties on all elements.
+  const fix = (el: HTMLElement | SVGElement) => {
     const s = getComputedStyle(el);
-    for (const p of props) {
-      const v = s[p] as string | undefined;
-      if (v?.includes("oklch")) {
-        (el.style as unknown as Record<string, string>)[p] = resolve(v);
+    for (let i = 0; i < s.length; i++) {
+      const prop = s[i]!;
+      if (prop.startsWith("--")) continue; // already handled on :root
+      const val = s.getPropertyValue(prop);
+      if (val.includes("oklch")) {
+        el.style.setProperty(prop, resolve(val));
       }
     }
   };
   fix(clonedEl);
   clonedEl.querySelectorAll("*").forEach((node) => {
-    if (node instanceof HTMLElement) fix(node);
+    if (node instanceof HTMLElement || node instanceof SVGElement) fix(node);
   });
 }
 
