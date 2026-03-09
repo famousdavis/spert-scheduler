@@ -3,13 +3,45 @@ import html2canvas from "html2canvas";
 /**
  * Neutralize oklch() colors in cloned DOM tree.
  * html2canvas cannot parse oklch() (Tailwind CSS v4 default).
- * Only border-color properties use oklch in computed non-custom-property styles.
+ * Uses a canvas to resolve oklch → rgb so colors are preserved visually.
  */
 function neutralizeOklch(_doc: Document, clonedEl: HTMLElement): void {
+  // Single reusable canvas to convert oklch → rgb
+  const cvs = document.createElement("canvas");
+  cvs.width = 1;
+  cvs.height = 1;
+  const ctx = cvs.getContext("2d")!;
+
+  const resolve = (oklch: string): string => {
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = "#000";
+    ctx.fillStyle = oklch;
+    ctx.fillRect(0, 0, 1, 1);
+    const d = ctx.getImageData(0, 0, 1, 1).data;
+    const r = d[0]!, g = d[1]!, b = d[2]!, a = d[3]!;
+    return a < 255
+      ? `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`
+      : `rgb(${r},${g},${b})`;
+  };
+
+  const props = [
+    "color",
+    "backgroundColor",
+    "borderColor",
+    "borderTopColor",
+    "borderRightColor",
+    "borderBottomColor",
+    "borderLeftColor",
+    "outlineColor",
+  ] as const;
+
   const fix = (el: HTMLElement) => {
     const s = getComputedStyle(el);
-    if (s.borderColor?.includes("oklch")) {
-      el.style.borderColor = "transparent";
+    for (const p of props) {
+      const v = s[p] as string | undefined;
+      if (v?.includes("oklch")) {
+        (el.style as unknown as Record<string, string>)[p] = resolve(v);
+      }
     }
   };
   fix(clonedEl);

@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.14.3",
+    date: "2026-03-09",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed Gantt chart copy-as-image failing due to unhandled oklch() colors in the legend (Tailwind CSS v4); oklch values are now converted to RGB preserving visual fidelity",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.14.2",
     date: "2026-03-09",
     sections: [
