@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.14.5",
+    date: "2026-03-09",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Added optional project name header toggle to Gantt chart — when enabled, displays the project name left-justified at the top of the chart (included in copy-as-image)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.14.4",
     date: "2026-03-09",
     sections: [

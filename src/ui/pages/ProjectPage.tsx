@@ -632,6 +632,7 @@ export function ProjectPage() {
           {/* Gantt Chart */}
           {schedule && scenario.activities.length > 0 && (
             <GanttSection
+              projectName={project.name}
               activities={scenario.activities}
               scheduledActivities={schedule.activities}
               projectStartDate={scenario.startDate}

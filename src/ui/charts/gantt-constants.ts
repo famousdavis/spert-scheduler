@@ -9,6 +9,7 @@ export const BAR_RADIUS = 4;
 export const MIN_CHART_WIDTH = 900;
 export const ARROW_HEAD_SIZE = 10;
 export const MIN_TICK_SPACING_PX = 70;
+export const PROJECT_NAME_HEIGHT = 28;
 
 // --- Print Gantt layout constants ---
 export const PRINT_LEFT = 120;

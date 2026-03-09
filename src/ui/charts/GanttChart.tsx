@@ -18,7 +18,8 @@ import { useDateFormat } from "@ui/hooks/use-date-format";
 import {
   LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, ROW_HEIGHT,
   BAR_HEIGHT, BAR_Y_OFFSET, BAR_RADIUS, MIN_CHART_WIDTH,
-  ARROW_HEAD_SIZE, MIN_TICK_SPACING_PX, COLORS, MILESTONE_COLORS,
+  ARROW_HEAD_SIZE, MIN_TICK_SPACING_PX, PROJECT_NAME_HEIGHT,
+  COLORS, MILESTONE_COLORS,
 } from "./gantt-constants";
 import {
   dateToX, longDateLabel, generateTicks, buildOrderedActivities,
@@ -38,6 +39,7 @@ interface GanttChartProps {
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;
+  projectName?: string;
   svgContainerRef?: RefObject<HTMLDivElement | null>;
 }
 
@@ -55,6 +57,7 @@ export function GanttChart({
   milestones = [],
   milestoneBuffers,
   criticalPathIds,
+  projectName,
   svgContainerRef,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
@@ -63,6 +66,7 @@ export function GanttChart({
   );
   const [showToday, setShowToday] = useState(true);
   const [showCriticalPath, setShowCriticalPath] = useState(true);
+  const [showProjectName, setShowProjectName] = useState(false);
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
@@ -156,7 +160,8 @@ export function GanttChart({
   const showBuffer = buffer !== null && buffer.bufferDays > 0 && bufferedEndDate;
   const totalRows = orderedActivities.length + (showBuffer ? 1 : 0);
   // Extra top margin when milestones exist so name + date labels clear the tick row
-  const topMargin = milestones.length > 0 ? TOP_MARGIN + 26 : TOP_MARGIN;
+  let topMargin = milestones.length > 0 ? TOP_MARGIN + 26 : TOP_MARGIN;
+  if (showProjectName && projectName) topMargin += PROJECT_NAME_HEIGHT;
   const chartHeight = topMargin + totalRows * ROW_HEIGHT + 20;
 
   // Scale chart width: fit container, only scroll when bars would be unreadably small
@@ -282,6 +287,17 @@ export function GanttChart({
           />
           Today
         </label>
+        {projectName && (
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showProjectName}
+              onChange={(e) => setShowProjectName(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+            />
+            Project name
+          </label>
+        )}
       </div>
 
       {/* Chart SVG — horizontally scrollable */}
@@ -366,6 +382,21 @@ export function GanttChart({
               </marker>
             )}
           </defs>
+
+          {/* Project name header */}
+          {showProjectName && projectName && (
+            <text
+              x={12}
+              y={PROJECT_NAME_HEIGHT - 8}
+              textAnchor="start"
+              fontSize="16"
+              fontWeight="700"
+              fill={c.text}
+              className="pointer-events-none"
+            >
+              {projectName.length > 60 ? projectName.slice(0, 58) + "\u2026" : projectName}
+            </text>
+          )}
 
           {/* Vertical grid lines at tick positions */}
           {ticks.map((tick, i) => {
