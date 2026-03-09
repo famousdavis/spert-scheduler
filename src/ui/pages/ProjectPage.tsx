@@ -709,6 +709,7 @@ export function ProjectPage() {
           buffer={buffer}
           milestoneBuffers={milestoneBuffers}
           calendar={mergedCalendar}
+          criticalPathIds={criticalPathIds}
         />
       )}
     </div>

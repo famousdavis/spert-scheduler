@@ -96,8 +96,8 @@ UI (React, Zustand, Recharts)
 | `src/ui/components/CopyImageButton.tsx` | Stateful copy-to-clipboard button for charts (idle/copying/success/error) |
 | `src/ui/components/DependencyPanel.tsx` | Dependency management UI (add/remove/edit deps, cycle prevention, collapsible) |
 | `src/ui/components/MilestonePanel.tsx` | Milestone management UI (add/remove/edit milestones, activity assignment, collapsible) |
-| `src/ui/components/PrintableReport.tsx` | Print-optimized project report layout |
-| `src/ui/charts/GanttChart.tsx` | Interactive Gantt chart with dependency arrows, uncertainty, finish line, critical path, today line, legend |
+| `src/ui/components/PrintableReport.tsx` | Print-optimized project report layout (contains `PrintGanttChart` — must stay in sync with interactive Gantt) |
+| `src/ui/charts/GanttChart.tsx` | Interactive Gantt chart with dependency arrows, uncertainty, finish line, critical path, today line, legend (**print parity**: changes here may need mirroring in `PrintGanttChart` inside `PrintableReport.tsx`) |
 | `src/ui/charts/gantt-constants.ts` | Shared layout constants and color palette for Gantt charts |
 | `src/ui/charts/gantt-utils.ts` | Pure utility functions shared by interactive and print Gantt charts |
 | `src/ui/components/GanttSection.tsx` | Gantt chart section wrapper with copy-to-clipboard |
@@ -155,6 +155,13 @@ User preferences are stored separately (`spert:user-preferences` key) and are NO
 6. Add tests in `preferences-repository.test.ts`
 
 **Current preferences:** `defaultTrialCount`, `defaultDistributionType`, `defaultConfidenceLevel`, `defaultActivityTarget`, `defaultProjectTarget`, `dateFormat`, `autoRunSimulation`, `theme`, `storeFullSimulationData`, `defaultHeuristicMinPercent`, `defaultHeuristicMaxPercent`, `defaultDependencyMode`, `globalCalendar`
+
+### Modifying the Gantt chart
+1. Change the interactive chart in `src/ui/charts/GanttChart.tsx`
+2. **Mirror the same visual change** in `PrintGanttChart` inside `src/ui/components/PrintableReport.tsx` (print version)
+3. If adding a new prop, thread it through: `ProjectPage.tsx` -> `GanttSection.tsx` -> `GanttChart.tsx`, and also `ProjectPage.tsx` -> `PrintableReport.tsx` -> `PrintGanttChart`
+4. If adding layout constants, add both interactive (`LEFT_MARGIN`, etc.) and print (`PRINT_LEFT`, etc.) variants in `gantt-constants.ts`
+5. Shared utilities go in `gantt-utils.ts` (used by both charts)
 
 ### Modifying simulation behavior
 1. Change in `src/core/simulation/monte-carlo.ts` (pure function)

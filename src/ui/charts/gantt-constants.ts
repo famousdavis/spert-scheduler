@@ -17,6 +17,11 @@ export const PRINT_RIGHT = 20;
 export const PRINT_TOP = 24;
 export const PRINT_ROW = 18;
 export const PRINT_BAR_H = 12;
+export const PRINT_BAR_RADIUS = 2;
+export const PRINT_ARROW_SIZE = 6;
+export const PRINT_MIN_TICK_PX = 40;
+export const PRINT_PROJECT_NAME_H = 16;
+export const PRINT_MILESTONE_EXTRA_TOP = 14;
 
 // --- Color palette ---
 export const COLORS = {

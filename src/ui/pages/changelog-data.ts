@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.15.0",
+    date: "2026-03-09",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Print Gantt chart now matches interactive chart: dependency arrows with Bezier curves, critical path highlighting (red stripe + red arrows), finish line with date, today line, tick grid with labels, project name header, milestone target dates, and contextual legend",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.14.5",
     date: "2026-03-09",
     sections: [
