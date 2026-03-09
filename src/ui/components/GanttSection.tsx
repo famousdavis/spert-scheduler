@@ -25,6 +25,7 @@ interface GanttSectionProps {
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;
+  projectName?: string;
 }
 
 export function GanttSection(props: GanttSectionProps) {
