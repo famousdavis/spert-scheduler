@@ -217,3 +217,36 @@ Optional Firebase/Firestore integration on the shared `spert-suite` Firebase pro
 - Chart copy via `copyChartAsPng()` from `src/ui/helpers/export-chart.ts` — copies PNG to clipboard
 - Stateful copy button via `CopyImageButton` from `src/ui/components/CopyImageButton.tsx`
 - Version displayed in footer, links to `/changelog`
+
+## Copyright & Attribution Standing Instructions
+
+Every new human-authored source file must include the copyright header using the appropriate comment syntax for its file type. Never remove or modify existing copyright headers. The LICENSE file attribution block and Section 7 terms must not be altered. When creating test files, include the header. If a framework directive (`'use client'`, `'use server'`, shebang) is present, place the header above it. Leave a blank line between the header and the first line of code or directive.
+
+**Files that get headers:**
+- All `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs` files in `src/` and root config files (`vite.config.*`, `eslint.config.*`, `vitest.config.*`, `tailwind.config.*`, `postcss.config.*`, `firestore.rules`)
+- `.css` files in `src/`
+- `index.html`
+
+**Files that do NOT get headers:**
+- Auto-generated files (`vite-env.d.ts`, `next-env.d.ts`, `package-lock.json`, lock files, framework output in `dist/`, `build/`, `node_modules/`)
+- Files that do not support comments (`*.json`)
+
+**Header templates:**
+
+JS/TS (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.rules`):
+```
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
+```
+
+CSS (`.css`):
+```
+/* Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+   Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text. */
+```
+
+HTML (`.html`):
+```
+<!-- Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+     Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text. -->
+```
