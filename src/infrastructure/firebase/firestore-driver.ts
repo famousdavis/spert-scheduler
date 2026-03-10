@@ -232,6 +232,19 @@ export class FirestoreDriver {
   }
 
   /**
+   * Cancel a pending debounced save for a project without writing.
+   * Call before create() or remove() to prevent stale data from overwriting.
+   */
+  cancelPendingSave(id: string): void {
+    const timer = this.saveTimers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      this.saveTimers.delete(id);
+      this.pendingSaves.delete(id);
+    }
+  }
+
+  /**
    * Delete a project.
    */
   async remove(id: string): Promise<void> {

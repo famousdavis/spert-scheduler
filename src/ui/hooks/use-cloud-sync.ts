@@ -149,6 +149,7 @@ export function useCloudSync(): void {
           break;
         case "create":
           if (project) {
+            driver.cancelPendingSave(project.id);
             driver.create(project).catch((e) => {
               console.error("Failed to create project in Firestore:", e);
             });
@@ -156,6 +157,7 @@ export function useCloudSync(): void {
           }
           break;
         case "delete":
+          driver.cancelPendingSave(event.projectId);
           driver.remove(event.projectId).catch((e) => {
             console.error("Failed to delete project from Firestore:", e);
           });

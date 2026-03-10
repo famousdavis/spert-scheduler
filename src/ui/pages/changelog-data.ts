@@ -19,6 +19,8 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Fixed real-time sync listeners not established for projects created or imported after initial cloud load",
           "Fixed race condition where switching storage modes during initial cloud load could overwrite local data",
           "User preferences now sync bidirectionally with Firestore in cloud storage mode",
+          "Cancel pending debounced saves before project create/delete to prevent stale data overwrites",
+          "Preferences migration now uses merge to preserve existing cloud preferences from other devices",
         ],
       },
     ],

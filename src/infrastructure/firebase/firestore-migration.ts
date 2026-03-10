@@ -133,7 +133,8 @@ export async function migrateLocalToCloud(
     const prefs = loadPreferences();
     await setDoc(
       doc(db, SETTINGS_COL, uid),
-      sanitizeForFirestore(prefs)
+      sanitizeForFirestore(prefs),
+      { merge: true }
     );
   } catch (e) {
     console.error("Failed to migrate preferences:", e);
