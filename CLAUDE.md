@@ -79,7 +79,7 @@ UI (React, Zustand, Recharts)
 | `src/ui/components/AuthButton.tsx` | Sign-in/out button for header (hidden when Firebase not configured) |
 | `src/ui/components/StorageModeSection.tsx` | Local/Cloud toggle for Settings page with migration UI |
 | `src/ui/components/SharingSection.tsx` | Project sharing UI (add/remove members, role management) |
-| `src/ui/hooks/use-cloud-sync.ts` | Bridges Zustand store with Firestore (real-time listeners + debounced writes) |
+| `src/ui/hooks/use-cloud-sync.ts` | Bridges Zustand store with Firestore (real-time listeners + debounced writes + preferences sync) |
 | `firestore.rules` | Firestore security rules for spertscheduler_* collections |
 | `.env.example` | VITE_FIREBASE_* environment variable template |
 | `src/ui/pages/ProjectPage.tsx` | Main project page, orchestrates all components |
@@ -180,7 +180,8 @@ Optional Firebase/Firestore integration on the shared `spert-suite` Firebase pro
 - Event bus pattern: `cloudSyncBus` decouples Zustand store from async Firestore writes
 - Store actions call `cloudSyncBus.emitSave/emitCreate/emitDelete` (fire-and-forget)
 - `useCloudSync` hook subscribes to bus events and handles debounced Firestore writes (500ms)
-- `onSnapshot` listeners for real-time updates from other clients
+- `onSnapshot` listeners for real-time updates from other clients (set up during initial load and on project creation)
+- User preferences synced bidirectionally: loaded from Firestore on cloud activation, saved on every change
 - Simulation results stripped entirely before cloud save (Firestore 1 MB doc limit)
 - `memoryLocalCache()` used to avoid stale security rule caching in IndexedDB
 

@@ -1,5 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useProjectStore } from "./use-project-store";
+import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
+import { createProject } from "@app/api/project-service";
 
 describe("useProjectStore", () => {
   beforeEach(() => {
@@ -290,6 +292,78 @@ describe("useProjectStore", () => {
       // Redo should lock again
       useProjectStore.getState().redo();
       expect(useProjectStore.getState().isScenarioLocked(project.id, scenarioId)).toBe(true);
+    });
+  });
+
+  describe("importProjects cloud sync", () => {
+    it("emits create events for all imported projects", () => {
+      const handler = vi.fn();
+      const unsub = cloudSyncBus.subscribe(handler);
+
+      const imported1 = createProject("Imported 1");
+      const imported2 = createProject("Imported 2");
+
+      useProjectStore.getState().importProjects([imported1, imported2]);
+
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(handler).toHaveBeenCalledWith({
+        type: "create",
+        projectId: imported1.id,
+      });
+      expect(handler).toHaveBeenCalledWith({
+        type: "create",
+        projectId: imported2.id,
+      });
+
+      unsub();
+    });
+
+    it("emits create for replaced projects (no separate delete when ID matches)", () => {
+      const handler = vi.fn();
+      const unsub = cloudSyncBus.subscribe(handler);
+
+      const store = useProjectStore.getState();
+      const existing = store.addProject("Original");
+      handler.mockClear();
+
+      const replacement = createProject("Replaced");
+      // Use the same ID as existing (simulating "replace" conflict resolution)
+      const replacementWithId = { ...replacement, id: existing.id };
+
+      store.importProjects([replacementWithId], [existing.id]);
+
+      // Should emit create only — no delete since replaced ID is in import set
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledWith({
+        type: "create",
+        projectId: existing.id,
+      });
+
+      unsub();
+    });
+
+    it("emits delete for replaceIds not in import set", () => {
+      const handler = vi.fn();
+      const unsub = cloudSyncBus.subscribe(handler);
+
+      const store = useProjectStore.getState();
+      const existing = store.addProject("To Remove");
+      handler.mockClear();
+
+      const newProject = createProject("New Only");
+      store.importProjects([newProject], [existing.id]);
+
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(handler).toHaveBeenCalledWith({
+        type: "delete",
+        projectId: existing.id,
+      });
+      expect(handler).toHaveBeenCalledWith({
+        type: "create",
+        projectId: newProject.id,
+      });
+
+      unsub();
     });
   });
 });

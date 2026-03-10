@@ -9,6 +9,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.15.2",
+    date: "2026-03-09",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed project import silently failing in cloud storage mode — imported projects now sync to Firestore correctly",
+          "Fixed real-time sync listeners not established for projects created or imported after initial cloud load",
+          "Fixed race condition where switching storage modes during initial cloud load could overwrite local data",
+          "User preferences now sync bidirectionally with Firestore in cloud storage mode",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.15.1",
     date: "2026-03-09",
     sections: [

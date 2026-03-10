@@ -648,6 +648,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         projects: [...filteredExisting, ...projects],
       };
     });
+
+    // Cloud sync: delete replaced docs not in import set, create all imported
+    const importedIds = new Set(projects.map((p) => p.id));
+    for (const id of replaceIds) {
+      if (!importedIds.has(id)) {
+        cloudSyncBus.emitDelete(id);
+      }
+    }
+    for (const project of projects) {
+      cloudSyncBus.emitCreate(project.id);
+    }
   },
 
   archiveProject: (id: string) => {

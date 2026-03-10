@@ -4,6 +4,7 @@
  * When cloud mode is active:
  * - Subscribes to the sync bus for store mutations → debounced Firestore writes
  * - Sets up onSnapshot listeners for real-time updates from other clients
+ * - Syncs user preferences bidirectionally with Firestore
  * - Flushes pending writes on beforeunload
  *
  * When local-only mode is active, this hook is a no-op.
@@ -13,6 +14,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
 import { useProjectStore } from "@ui/hooks/use-project-store";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import type { SyncEvent } from "@infrastructure/persistence/sync-bus";
 import { FirestoreDriver } from "@infrastructure/firebase/firestore-driver";
@@ -26,6 +28,7 @@ export function useCloudSync(): void {
   const { mode } = useStorage();
   const driverRef = useRef<FirestoreDriver | null>(null);
   const unsubscribersRef = useRef<Unsubscribe[]>([]);
+  const listenedIdsRef = useRef<Set<string>>(new Set());
   const initialLoadDoneRef = useRef(false);
 
   const isCloudActive = mode === "cloud" && user !== null;
@@ -35,41 +38,88 @@ export function useCloudSync(): void {
   const setProjects = useProjectStore((s) => s.setProjects);
   const getProject = useProjectStore((s) => s.getProject);
 
+  // Helper: add a real-time listener for a project if not already listening
+  const addProjectListener = useCallback(
+    (projectId: string) => {
+      const driver = driverRef.current;
+      if (!driver || listenedIdsRef.current.has(projectId)) return;
+      listenedIdsRef.current.add(projectId);
+      const unsub = driver.subscribeToProject(projectId, (updated) => {
+        mergeProject(updated);
+      });
+      unsubscribersRef.current.push(unsub);
+    },
+    [mergeProject]
+  );
+
+  // Helper: clean up all real-time listeners
+  const cleanupListeners = useCallback(() => {
+    for (const unsub of unsubscribersRef.current) unsub();
+    unsubscribersRef.current = [];
+    listenedIdsRef.current.clear();
+  }, []);
+
   // Create/dispose driver when cloud mode or user changes
   useEffect(() => {
     if (isCloudActive && user) {
       const driver = new FirestoreDriver(user.uid);
       driverRef.current = driver;
       initialLoadDoneRef.current = false;
+      let cancelled = false;
 
       // Initial load from Firestore
-      driver.loadAll().then((cloudProjects) => {
-        // Strip _owner/_members metadata before setting in store
-        const projects = cloudProjects.map(
-          ({ _owner, _members, ...project }) => project
-        );
+      driver
+        .loadAll()
+        .then(async (cloudProjects) => {
+          if (cancelled) return;
 
-        // Data-loss guard: if cloud is empty but local has projects, skip
-        // replacement to protect un-migrated local data
-        const localProjects = useProjectStore.getState().projects;
-        if (projects.length === 0 && localProjects.length > 0) {
-          console.warn(
-            `Cloud returned 0 projects but local has ${localProjects.length} — skipping replacement to protect local data`
+          // Strip _owner/_members metadata before setting in store
+          const projects = cloudProjects.map(
+            ({ _owner, _members, ...project }) => project
           );
-        } else {
-          setProjects(projects);
-        }
 
-        initialLoadDoneRef.current = true;
-      }).catch((e) => {
-        console.error("Failed to load projects from Firestore:", e);
-        initialLoadDoneRef.current = true;
-      });
+          // Data-loss guard: if cloud is empty but local has projects, skip
+          // replacement to protect un-migrated local data
+          const localProjects = useProjectStore.getState().projects;
+          if (projects.length === 0 && localProjects.length > 0) {
+            console.warn(
+              `Cloud returned 0 projects but local has ${localProjects.length} — skipping replacement to protect local data`
+            );
+          } else {
+            setProjects(projects);
+          }
+
+          // Load and merge cloud preferences (cloud wins for existing fields)
+          try {
+            const cloudPrefs = await driver.loadPreferences();
+            if (!cancelled && Object.keys(cloudPrefs).length > 0) {
+              usePreferencesStore.getState().updatePreferences(cloudPrefs);
+            }
+          } catch (e) {
+            console.error("Failed to load cloud preferences:", e);
+          }
+
+          initialLoadDoneRef.current = true;
+
+          // Set up real-time listeners for all loaded projects
+          if (!cancelled) {
+            for (const project of projects) {
+              addProjectListener(project.id);
+            }
+          }
+        })
+        .catch((e) => {
+          if (cancelled) return;
+          console.error("Failed to load projects from Firestore:", e);
+          initialLoadDoneRef.current = true;
+        });
 
       return () => {
+        cancelled = true;
         driver.flushPendingSaves();
         driver.dispose();
         driverRef.current = null;
+        cleanupListeners();
       };
     } else {
       // Switching to local mode or signing out
@@ -79,8 +129,9 @@ export function useCloudSync(): void {
         driverRef.current = null;
       }
       initialLoadDoneRef.current = false;
+      cleanupListeners();
     }
-  }, [isCloudActive, user?.uid, setProjects]);
+  }, [isCloudActive, user?.uid, setProjects, addProjectListener, cleanupListeners]);
 
   // Subscribe to sync bus events (store → Firestore)
   useEffect(() => {
@@ -97,9 +148,12 @@ export function useCloudSync(): void {
           if (project) driver.save(project);
           break;
         case "create":
-          if (project) driver.create(project).catch((e) => {
-            console.error("Failed to create project in Firestore:", e);
-          });
+          if (project) {
+            driver.create(project).catch((e) => {
+              console.error("Failed to create project in Firestore:", e);
+            });
+            addProjectListener(project.id);
+          }
           break;
         case "delete":
           driver.remove(event.projectId).catch((e) => {
@@ -110,35 +164,18 @@ export function useCloudSync(): void {
     };
 
     return cloudSyncBus.subscribe(handleSyncEvent);
-  }, [isCloudActive, getProject]);
+  }, [isCloudActive, getProject, addProjectListener]);
 
-  // Set up real-time listeners for projects (Firestore → store)
+  // Sync preferences to cloud when they change
   useEffect(() => {
-    if (!isCloudActive || !initialLoadDoneRef.current) return;
+    if (!isCloudActive) return;
 
-    const driver = driverRef.current;
-    if (!driver) return;
-
-    // We'll set up listeners after the initial load
-    // Use a small delay to ensure initialLoadDoneRef is set
-    const timer = setTimeout(() => {
-      const projects = useProjectStore.getState().projects;
-      for (const project of projects) {
-        const unsub = driver.subscribeToProject(project.id, (updated) => {
-          mergeProject(updated);
-        });
-        unsubscribersRef.current.push(unsub);
+    return usePreferencesStore.subscribe((state) => {
+      if (initialLoadDoneRef.current && driverRef.current) {
+        driverRef.current.savePreferences(state.preferences);
       }
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-      for (const unsub of unsubscribersRef.current) {
-        unsub();
-      }
-      unsubscribersRef.current = [];
-    };
-  }, [isCloudActive, mergeProject, initialLoadDoneRef.current]);
+    });
+  }, [isCloudActive]);
 
   // Flush pending writes on beforeunload
   const handleBeforeUnload = useCallback(() => {
