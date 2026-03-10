@@ -1,3 +1,8 @@
+Statistical PERT® Software Suite
+Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+Original author: William W. Davis, MSPM, PMP
+Project repository: github.com/famousdavis/spert-scheduler
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
@@ -672,3 +677,20 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+--- ADDITIONAL TERMS (Section 7 of GPL v3) ---
+
+In accordance with Section 7 of the GNU General Public License v3.0,
+the following additional terms apply to this software:
+
+1. Attribution Preservation
+   All copies or substantial portions of this software must retain the
+   above copyright notice, this list of conditions, and the following
+   attribution:
+   Original author: William W. Davis, MSPM, PMP
+   Project: Statistical PERT® Software Suite
+
+2. UI Notice Preservation
+   If you modify this software and distribute it with a user interface,
+   you must retain a visible credit to the original author in an
+   "About" page, footer, or equivalent location within the interface.

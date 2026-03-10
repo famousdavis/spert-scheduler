@@ -1,3 +1,6 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
+
 export interface ChangelogEntry {
   version: string;
   date: string;
@@ -8,6 +11,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "0.15.3",
+    date: "2026-03-10",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Added copyright headers to all source files with GPL v3 license attribution",
+          "LICENSE file updated with author attribution block and Section 7 additional terms for attribution and UI notice preservation",
+        ],
+      },
+    ],
+  },
   {
     version: "0.15.2",
     date: "2026-03-09",
