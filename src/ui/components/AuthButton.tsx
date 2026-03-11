@@ -3,6 +3,12 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
+import { ConsentModal } from "./ConsentModal";
+import {
+  TOS_VERSION,
+  LS_TOS_ACCEPTED_VERSION,
+  LS_TOS_WRITE_PENDING,
+} from "@app/legal-constants";
 
 export function AuthButton() {
   const { user, firebaseAvailable, signInWithGoogle, signInWithMicrosoft, signOut } =
@@ -10,6 +16,8 @@ export function AuthButton() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSignInMenu, setShowSignInMenu] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const pendingProviderRef = useRef<"google" | "microsoft" | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Don't render if Firebase not configured
@@ -30,7 +38,8 @@ export function AuthButton() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const handleSignIn = useCallback(
+  /** Proceed with Firebase Auth for the selected provider. */
+  const doSignIn = useCallback(
     async (provider: "google" | "microsoft") => {
       setSigningIn(true);
       try {
@@ -40,7 +49,7 @@ export function AuthButton() {
           await signInWithMicrosoft();
         }
       } catch (e) {
-        // User cancelled popup or error
+        // User cancelled popup or error — local ToS cache persists intentionally
         console.error("Sign-in error:", e);
       } finally {
         setSigningIn(false);
@@ -50,6 +59,40 @@ export function AuthButton() {
     [signInWithGoogle, signInWithMicrosoft]
   );
 
+  /**
+   * Entry point: user clicks "Sign in with Google" or "Sign in with Microsoft".
+   * Check localStorage consent cache; show modal if not current version.
+   */
+  const handleSignIn = useCallback(
+    (provider: "google" | "microsoft") => {
+      const accepted = localStorage.getItem(LS_TOS_ACCEPTED_VERSION);
+      if (accepted === TOS_VERSION) {
+        // Already accepted current version — set write-pending in case prior
+        // auth was cancelled before Firestore write completed
+        if (localStorage.getItem(LS_TOS_WRITE_PENDING) !== "true") {
+          localStorage.setItem(LS_TOS_WRITE_PENDING, "true");
+        }
+        doSignIn(provider);
+      } else {
+        // Need consent — show modal
+        pendingProviderRef.current = provider;
+        setShowSignInMenu(false);
+        setConsentOpen(true);
+      }
+    },
+    [doSignIn]
+  );
+
+  /** Consent modal accepted: cache version + set write-pending, then sign in. */
+  const handleConsentAccept = useCallback(() => {
+    localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
+    localStorage.setItem(LS_TOS_WRITE_PENDING, "true");
+    setConsentOpen(false);
+    if (pendingProviderRef.current) {
+      doSignIn(pendingProviderRef.current);
+    }
+  }, [doSignIn]);
+
   const handleSignOut = useCallback(async () => {
     await signOut();
     setShowDropdown(false);
@@ -58,34 +101,41 @@ export function AuthButton() {
   // Signed out: show sign-in button
   if (!user) {
     return (
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => setShowSignInMenu(!showSignInMenu)}
-          disabled={signingIn}
-          className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
-        >
-          {signingIn ? "Signing in..." : "Sign In"}
-        </button>
+      <>
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setShowSignInMenu(!showSignInMenu)}
+            disabled={signingIn}
+            className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
+          >
+            {signingIn ? "Signing in..." : "Sign In"}
+          </button>
 
-        {showSignInMenu && (
-          <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50">
-            <button
-              onClick={() => handleSignIn("google")}
-              disabled={signingIn}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-            >
-              Sign in with Google
-            </button>
-            <button
-              onClick={() => handleSignIn("microsoft")}
-              disabled={signingIn}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-            >
-              Sign in with Microsoft
-            </button>
-          </div>
-        )}
-      </div>
+          {showSignInMenu && (
+            <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50">
+              <button
+                onClick={() => handleSignIn("google")}
+                disabled={signingIn}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Sign in with Google
+              </button>
+              <button
+                onClick={() => handleSignIn("microsoft")}
+                disabled={signingIn}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Sign in with Microsoft
+              </button>
+            </div>
+          )}
+        </div>
+        <ConsentModal
+          open={consentOpen}
+          onOpenChange={setConsentOpen}
+          onAccept={handleConsentAccept}
+        />
+      </>
     );
   }
 

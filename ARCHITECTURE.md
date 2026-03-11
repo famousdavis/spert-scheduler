@@ -215,8 +215,9 @@ Two Zustand stores, separated by concern:
 - Export/Import via JSON files on the Settings page
 
 ### Cloud Storage (opt-in via Firebase)
+- **ToS consent gate:** Clickwrap modal intercepts sign-in before Firebase Auth fires; acceptance recorded at `users/{uid}` in Firestore. Returning users verified against current ToS version on app load.
 - Conditional Firebase init: when `VITE_FIREBASE_API_KEY` is missing, Firebase code is a no-op
-- Firestore collections: `spertscheduler_projects/{id}`, `spertscheduler_profiles/{uid}`, `spertscheduler_settings/{uid}`
+- Firestore collections: `spertscheduler_projects/{id}`, `spertscheduler_profiles/{uid}`, `spertscheduler_settings/{uid}`, `users/{uid}` (ToS acceptance, shared across SPERT Suite)
 - Event bus pattern (`cloudSyncBus`) decouples synchronous Zustand store from async Firestore writes
 - Debounced saves (500ms) with `beforeunload` flush for pending writes
 - Real-time `onSnapshot` listeners with `hasPendingWrites` echo prevention
@@ -233,7 +234,7 @@ The `storeFullSimulationData` preference (default: `false`) controls whether the
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels, Gantt utilities, dependency graph
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants, dependency graph properties
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import, dependency lifecycle
-- **511 tests** across 38 test files
+- **545 tests** across 39 test files
 
 ## Performance Budget
 

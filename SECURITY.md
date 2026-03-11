@@ -19,10 +19,15 @@ All data is stored in browser `localStorage`:
 - `spert:project-index` — List of project IDs
 - `spert:user-preferences` — User settings
 - `spert:storage-mode` — Current storage mode (local/cloud)
+- `spert_firstRun_seen` — First-run banner dismissal
+- `spert_tos_accepted_version` — Cached ToS acceptance version
+- `spert_tos_write_pending` — Pending Firestore acceptance write flag
 
 **Note:** localStorage is accessible to any JavaScript running on the same origin. This application does not execute untrusted scripts.
 
 ### Cloud Mode (opt-in)
+
+Before signing in, users must accept the Statistical PERT® Terms of Service and Privacy Policy via a clickwrap consent modal. Acceptance is recorded in Firestore at `users/{uid}` and cached locally. Returning users are verified against the current ToS version on app load.
 
 When the user signs in and switches to cloud mode, data is stored in Firestore:
 
