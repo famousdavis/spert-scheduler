@@ -134,6 +134,7 @@ export function useCloudSync(): void {
       initialLoadDoneRef.current = false;
       cleanupListeners();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.uid is the only relevant identity; full user object would cause unnecessary re-runs
   }, [isCloudActive, user?.uid, setProjects, addProjectListener, cleanupListeners]);
 
   // Subscribe to sync bus events (store → Firestore)

@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useSimulation } from "@ui/hooks/use-simulation";
@@ -9,13 +9,14 @@ import { useSchedule } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
 import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
 import { formatDateISO, mergeCalendars } from "@core/calendar/calendar";
-import { computeDeterministicDurations, computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
+import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
-import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
+import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { DependencyPanel } from "@ui/components/DependencyPanel";
 import { MilestonePanel } from "@ui/components/MilestonePanel";
@@ -102,6 +103,7 @@ export function ProjectPage() {
     if (project && project.scenarios.length === 0) {
       addScenario(project.id, BASELINE_SCENARIO_NAME, formatDateISO(new Date()));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally fires only on project existence/count change, not full object
   }, [project?.id, project?.scenarios.length, addScenario]);
 
   useEffect(() => {
@@ -111,7 +113,8 @@ export function ProjectPage() {
       const match = stored && project.scenarios.find((s) => s.id === stored);
       setActiveScenarioIdRaw(match ? stored : project.scenarios[0]!.id);
     }
-  }, [project, activeScenarioId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on id/scenario count change only
+  }, [project?.id, project?.scenarios.length, activeScenarioId]);
 
   const scenario = project?.scenarios.find((s) => s.id === activeScenarioId);
 
@@ -130,49 +133,43 @@ export function ProjectPage() {
     mergedCalendar
   );
 
+  const depMode = scenario?.settings.dependencyMode;
+  const activities = scenario?.activities;
+  const dependencies = scenario?.dependencies;
+  const startDate = scenario?.startDate;
+  const probTarget = scenario?.settings.probabilityTarget;
+  const milestones = scenario?.milestones;
+
   const dependencySchedule = useMemo(() => {
-    if (!scenario?.settings.dependencyMode || !scenario || scenario.activities.length === 0) return null;
+    if (!depMode || !activities || activities.length === 0 || !dependencies || !startDate || probTarget == null) return null;
     try {
       return computeDependencySchedule(
-        scenario.activities,
-        scenario.dependencies,
-        scenario.startDate,
-        scenario.settings.probabilityTarget,
+        activities,
+        dependencies,
+        startDate,
+        probTarget,
         mergedCalendar,
-        scenario.milestones
+        milestones
       );
     } catch {
       return null;
     }
-  }, [
-    scenario?.settings.dependencyMode,
-    scenario?.activities,
-    scenario?.dependencies,
-    scenario?.startDate,
-    scenario?.settings.probabilityTarget,
-    mergedCalendar,
-    scenario?.milestones,
-  ]);
+  }, [depMode, activities, dependencies, startDate, probTarget, mergedCalendar, milestones]);
 
   // Critical path activity IDs (only in dependency mode)
   const criticalPathIds = useMemo(() => {
-    if (!scenario?.settings.dependencyMode || !scenario || scenario.activities.length === 0) return null;
+    if (!depMode || !activities || activities.length === 0 || !dependencies || probTarget == null) return null;
     try {
       const graph = buildDependencyGraph(
-        scenario.activities.map((a) => a.id),
-        scenario.dependencies
+        activities.map((a) => a.id),
+        dependencies
       );
-      const durationMap = computeDependencyDurations(scenario.activities, scenario.settings.probabilityTarget);
+      const durationMap = computeDependencyDurations(activities, probTarget);
       return computeCriticalPathActivities(graph, durationMap).criticalActivityIds;
     } catch {
       return null;
     }
-  }, [
-    scenario?.settings.dependencyMode,
-    scenario?.activities,
-    scenario?.dependencies,
-    scenario?.settings.probabilityTarget,
-  ]);
+  }, [depMode, activities, dependencies, probTarget]);
 
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
 
@@ -195,93 +192,20 @@ export function ProjectPage() {
     mergedCalendar
   );
 
-  // Auto-run simulation on activity/settings changes (debounced 500ms)
   const autoRunSimulation = usePreferencesStore(
-    (s) => s.preferences.autoRunSimulation
+    (s) => s.preferences.autoRunSimulation,
   );
-  const autoRunTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const activitiesRef = useRef(scenario?.activities);
-  activitiesRef.current = scenario?.activities;
 
-  useEffect(() => {
-    if (
-      !autoRunSimulation ||
-      !allActivitiesValid ||
-      !scenario ||
-      scenario.activities.length === 0 ||
-      simulation.isRunning
-    ) {
-      return;
-    }
-
-    clearTimeout(autoRunTimerRef.current);
-    autoRunTimerRef.current = setTimeout(() => {
-      if (!id || !activitiesRef.current || activitiesRef.current.length === 0)
-        return;
-
-      if (scenario.settings.dependencyMode) {
-        // Dependency-aware auto-run
-        const durationMap = computeDependencyDurations(
-          activitiesRef.current,
-          scenario.settings.probabilityTarget
-        );
-        const durMapRecord: Record<string, number> = {};
-        for (const [k, v] of durationMap) durMapRecord[k] = v;
-
-        const msParams = buildMilestoneSimParams(
-          activitiesRef.current,
-          scenario.milestones,
-          scenario.startDate,
-          mergedCalendar
-        );
-
-        simulation.run(
-          activitiesRef.current,
-          scenario.settings.trialCount,
-          scenario.settings.rngSeed,
-          undefined,
-          (result) => {
-            setSimulationResults(id, scenario.id, result);
-          },
-          {
-            dependencyMode: true,
-            dependencies: scenario.dependencies,
-            deterministicDurationMap: durMapRecord,
-            ...msParams,
-          }
-        );
-      } else {
-        // Sequential auto-run (original behavior)
-        const deterministicDurations = computeDeterministicDurations(
-          activitiesRef.current,
-          scenario.settings.probabilityTarget
-        );
-        simulation.run(
-          activitiesRef.current,
-          scenario.settings.trialCount,
-          scenario.settings.rngSeed,
-          deterministicDurations,
-          (result) => {
-            setSimulationResults(id, scenario.id, result);
-          }
-        );
-      }
-    }, 500);
-
-    return () => clearTimeout(autoRunTimerRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    autoRunSimulation,
+  // Auto-run simulation on activity/settings changes (debounced 500ms)
+  useAutoRunSimulation({
+    projectId: id,
+    scenario,
     allActivitiesValid,
-    scenario?.activities,
-    scenario?.dependencies,
-    scenario?.settings.dependencyMode,
-    scenario?.settings.probabilityTarget,
-    scenario?.settings.projectProbabilityTarget,
-    scenario?.settings.trialCount,
-    scenario?.settings.rngSeed,
-    scenario?.milestones,
-  ]);
+    mergedCalendar,
+    isRunning: simulation.isRunning,
+    runSimulation: simulation.run,
+    setSimulationResults,
+  });
 
   // Undo/Redo keyboard shortcuts
   useEffect(() => {
@@ -311,7 +235,7 @@ export function ProjectPage() {
         );
       }
     },
-    [id, project, duplicateScenario]
+    [id, project, duplicateScenario, setActiveScenarioId]
   );
 
   const handleDeleteScenario = useCallback(
@@ -326,7 +250,7 @@ export function ProjectPage() {
         setActiveScenarioId(updatedProject?.scenarios[0]?.id ?? null);
       }
     },
-    [id, project, activeScenarioId, deleteScenario]
+    [id, project, activeScenarioId, deleteScenario, setActiveScenarioId]
   );
 
   const handleCloneStart = useCallback((scenarioId: string) => {
@@ -345,63 +269,32 @@ export function ProjectPage() {
         );
       }
     },
-    [id, cloneSourceId, duplicateScenario]
+    [id, cloneSourceId, duplicateScenario, setActiveScenarioId]
   );
-
-  // buildMilestoneSimParams is now a pure function imported from @core/schedule/milestone-sim-params
 
   const handleRunSimulation = useCallback(() => {
     if (!id || !scenario) return;
 
-    if (scenario.settings.dependencyMode) {
-      // Dependency-aware simulation
-      const durationMap = computeDependencyDurations(
-        scenario.activities,
-        scenario.settings.probabilityTarget
-      );
-      const durMapRecord: Record<string, number> = {};
-      for (const [k, v] of durationMap) durMapRecord[k] = v;
-
-      const msParams = buildMilestoneSimParams(
-        scenario.activities,
-        scenario.milestones,
-        scenario.startDate,
-        mergedCalendar
-      );
-
-      simulation.run(
-        scenario.activities,
-        scenario.settings.trialCount,
-        scenario.settings.rngSeed,
-        undefined, // not used in dependency mode
-        (result) => {
-          setSimulationResults(id, scenario.id, result);
-        },
-        {
-          dependencyMode: true,
-          dependencies: scenario.dependencies,
-          deterministicDurationMap: durMapRecord,
-          ...msParams,
-        }
-      );
-    } else {
-      // Sequential simulation (original behavior)
-      const deterministicDurations = computeDeterministicDurations(
-        scenario.activities,
-        scenario.settings.probabilityTarget
-      );
-
-      simulation.run(
-        scenario.activities,
-        scenario.settings.trialCount,
-        scenario.settings.rngSeed,
-        deterministicDurations,
-        (result) => {
-          setSimulationResults(id, scenario.id, result);
-        }
-      );
-    }
-  }, [id, scenario, simulation, setSimulationResults]);
+    const params = buildSimulationParams(
+      scenario.activities,
+      scenario.settings.dependencyMode,
+      scenario.settings.probabilityTarget,
+      scenario.dependencies,
+      scenario.milestones,
+      scenario.startDate,
+      mergedCalendar,
+    );
+    simulation.run(
+      scenario.activities,
+      scenario.settings.trialCount,
+      scenario.settings.rngSeed,
+      params.deterministicDurations,
+      (result) => {
+        setSimulationResults(id, scenario.id, result);
+      },
+      params.dependencyParams,
+    );
+  }, [id, scenario, simulation, setSimulationResults, mergedCalendar]);
 
   const handleSettingsChange = useCallback(
     (updates: Partial<ScenarioSettings>) => {

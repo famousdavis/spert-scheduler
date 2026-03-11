@@ -158,7 +158,7 @@ export class FirestoreDriver {
 
     const ref = doc(db, PROJECTS_COL, project.id);
     const cleaned = stripSimulationResultsForCloud(project);
-    const { id, ...rest } = cleaned;
+    const { id: _id, ...rest } = cleaned;
 
     const data = sanitizeForFirestore({
       ...rest,
@@ -210,7 +210,7 @@ export class FirestoreDriver {
 
     try {
       const cleaned = stripSimulationResultsForCloud(project);
-      const { id, ...rest } = cleaned;
+      const { id: _docId, ...rest } = cleaned;
       const data = sanitizeForFirestore({
         ...rest,
         schemaVersion: SCHEMA_VERSION,
@@ -226,7 +226,7 @@ export class FirestoreDriver {
       }
 
       // merge: true preserves owner/members fields set during create()
-      const ref = doc(db, PROJECTS_COL, id);
+      const ref = doc(db, PROJECTS_COL, project.id);
       await setDoc(ref, data, { merge: true });
     } catch (e) {
       console.error("Firestore write error:", e);

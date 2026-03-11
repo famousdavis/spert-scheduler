@@ -261,7 +261,7 @@ export function UnifiedActivityRow({
         }
       }
     },
-    [activity.id, activity.distributionType, isComplete, heuristicEnabled]
+    [activity.id, activity.distributionType, isComplete, isInProgress, heuristicEnabled]
   );
 
   const recommendation = useMemo(

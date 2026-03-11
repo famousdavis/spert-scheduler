@@ -61,7 +61,7 @@ export function CDFChart({
               domain={[0, 100]}
             />
             <Tooltip
-              formatter={(value: number | undefined) => [`${value ?? 0}%`, "Probability"]}
+              formatter={(value) => [`${value ?? 0}%`, "Probability"]}
               labelFormatter={(label: unknown) => `${label} days`}
             />
             <Line

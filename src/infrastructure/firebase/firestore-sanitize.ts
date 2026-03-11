@@ -27,7 +27,7 @@ export function sanitizeForFirestore<T>(obj: T): T {
 export function stripFirestoreFields(
   data: Record<string, unknown>
 ): Record<string, unknown> {
-  const { owner, members, updatedAt, ...rest } = data;
+  const { owner: _owner, members: _members, updatedAt: _updatedAt, ...rest } = data;
   return rest;
 }
 

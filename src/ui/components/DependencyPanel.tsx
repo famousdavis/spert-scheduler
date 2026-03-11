@@ -31,7 +31,7 @@ function LagInput({
   const [input, setInput] = useState(value ? String(value) : "");
 
   useEffect(() => {
-    setInput(value ? String(value) : "");
+    setInput(value ? String(value) : ""); // eslint-disable-line react-hooks/set-state-in-effect -- sync local input with prop
   }, [value]);
 
   const commit = () => {

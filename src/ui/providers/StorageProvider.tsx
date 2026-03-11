@@ -81,6 +81,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- useStorage is tightly coupled to StorageProvider
 export function useStorage(): StorageContextValue {
   const ctx = useContext(StorageContext);
   if (!ctx) throw new Error("useStorage must be used within StorageProvider");

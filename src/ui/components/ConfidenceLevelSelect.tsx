@@ -41,7 +41,7 @@ export function ConfidenceLevelSelect({
   // Reset filter and highlight when opening
   useEffect(() => {
     if (open) {
-      setFilter("");
+      setFilter(""); // eslint-disable-line react-hooks/set-state-in-effect -- intentional state reset on open
       setHighlightIdx(0);
     }
   }, [open]);
@@ -65,7 +65,7 @@ export function ConfidenceLevelSelect({
 
   // Reset highlight when filter changes
   useEffect(() => {
-    setHighlightIdx(0);
+    setHighlightIdx(0); // eslint-disable-line react-hooks/set-state-in-effect -- derived state reset
   }, [filter]);
 
   // Scroll highlighted option into view

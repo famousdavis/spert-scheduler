@@ -215,7 +215,7 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
  */
 export function computeMilestoneStats(
   milestoneSamples: Map<string, Float64Array>,
-  _trialCount: number
+  _trialCount?: number
 ): Record<string, { percentiles: Record<number, number>; mean: number; standardDeviation: number }> {
   const results: Record<string, { percentiles: Record<number, number>; mean: number; standardDeviation: number }> = {};
 
