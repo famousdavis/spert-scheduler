@@ -169,6 +169,44 @@ describe("ScenarioSettingsSchema", () => {
   });
 });
 
+describe("ISODateString validation", () => {
+  // Use HolidaySchema as a convenient wrapper to test ISODateString
+  it("accepts valid dates", () => {
+    const valid = ["2025-01-01", "2024-02-29", "2025-12-31", "2000-06-15"];
+    for (const d of valid) {
+      const result = CalendarSchema.safeParse({
+        holidays: [{ id: "h1", name: "Test", startDate: d, endDate: d }],
+      });
+      expect(result.success, `Expected ${d} to be accepted`).toBe(true);
+    }
+  });
+
+  it("rejects invalid calendar dates", () => {
+    const invalid = [
+      "9999-99-99",   // out-of-range month and day
+      "2025-13-01",   // month 13
+      "2025-00-01",   // month 0
+      "2025-01-32",   // day 32
+      "2025-02-29",   // not a leap year
+      "2025-04-31",   // April has 30 days
+      "2025-06-31",   // June has 30 days
+    ];
+    for (const d of invalid) {
+      const result = CalendarSchema.safeParse({
+        holidays: [{ id: "h1", name: "Test", startDate: d, endDate: d }],
+      });
+      expect(result.success, `Expected ${d} to be rejected`).toBe(false);
+    }
+  });
+
+  it("accepts leap year Feb 29", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ id: "h1", name: "Leap", startDate: "2024-02-29", endDate: "2024-02-29" }],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
 describe("CalendarSchema", () => {
   const validHoliday = {
     id: "h1",

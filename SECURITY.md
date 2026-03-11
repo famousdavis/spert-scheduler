@@ -49,7 +49,7 @@ When the user signs in and switches to cloud mode, data is stored in Firestore:
 When deploying SPERT Scheduler, configure your web server with these security headers:
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com; worker-src 'self' blob:; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com
+Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com; font-src 'self'; worker-src 'self' blob:; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
@@ -57,7 +57,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 
 ### Header Explanations
 
-- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-inline'` for styles is required by Tailwind CSS. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore and auth API calls.
+- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-inline'` for styles is required by Tailwind CSS. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `font-src 'self'` restricts fonts to same-origin. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore and auth API calls. `object-src 'none'` blocks plugins. `base-uri 'self'` prevents base tag hijacking. `form-action 'self'` restricts form submissions to same-origin.
 - **X-Content-Type-Options**: Prevents MIME-type sniffing attacks.
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.
@@ -79,7 +79,7 @@ All user inputs are validated using [Zod](https://zod.dev/) schemas:
 - Activity estimates: `min ≤ mostLikely ≤ max`
 - Trial count: bounded to 1,000 – 500,000
 - Probability targets: bounded to 0.01 – 0.99
-- Dates: validated against ISO 8601 format
+- Dates: validated against ISO 8601 format with calendar date verification (rejects invalid dates like Feb 30)
 
 ## Defensive Measures
 
@@ -89,6 +89,11 @@ All user inputs are validated using [Zod](https://zod.dev/) schemas:
 - **Error boundaries** — graceful recovery from unexpected errors
 - **Iteration guards** — calendar calculations have iteration limits
 - **Worker validation** — simulation inputs validated before processing
+
+## Known Limitations
+
+- **Firestore field validation:** Firestore security rules validate document-level access control (ownership, membership, roles) but do not replicate the full Zod schema validation performed client-side. Field-level validation (e.g., string length limits, numeric ranges) is enforced only by the client. This is a pragmatic tradeoff — duplicating the complete Zod schema in Firestore rules is impractical for marginal security gain, since a malicious client could only corrupt their own project data.
+- **Email enumeration:** The sharing UI reveals whether an email is registered when attempting to share a project. This is mitigated by requiring authentication and using a uniform error message that does not distinguish between "user not found" and other failure modes.
 
 ## Reporting Vulnerabilities
 

@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.2",
+    date: "2026-03-11",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Sharing operations now use Firestore transactions for atomic read-verify-write, preventing race conditions",
+          "ISO date validation rejects invalid calendar dates (e.g., Feb 30, non-leap-year Feb 29)",
+          "Sharing error messages unified to prevent email enumeration",
+          "Email normalization ensures consistent case-insensitive user lookup",
+          "ToS localStorage flags properly cleared on sign-out",
+          "SECURITY.md and firestore.rules updated to match production configuration",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.16.1",
     date: "2026-03-11",
     sections: [
