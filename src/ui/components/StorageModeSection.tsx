@@ -16,9 +16,6 @@ export function StorageModeSection() {
     useState<MigrationResult | null>(null);
   const [migrationError, setMigrationError] = useState<string | null>(null);
 
-  // Only show if Firebase is configured
-  if (!firebaseAvailable || !isCloudAvailable) return null;
-
   const handleModeChange = useCallback(
     async (newMode: StorageMode) => {
       if (newMode === "cloud" && !user) {
@@ -51,6 +48,9 @@ export function StorageModeSection() {
     },
     [user, persistedMode, switchMode]
   );
+
+  // Only show if Firebase is configured
+  if (!firebaseAvailable || !isCloudAvailable) return null;
 
   return (
     <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">

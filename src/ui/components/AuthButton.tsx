@@ -20,11 +20,9 @@ export function AuthButton() {
   const pendingProviderRef = useRef<"google" | "microsoft" | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Don't render if Firebase not configured
-  if (!firebaseAvailable) return null;
-
   // Close dropdown on outside click
   useEffect(() => {
+    if (!firebaseAvailable) return;
     function handleClick(e: MouseEvent) {
       if (
         dropdownRef.current &&
@@ -36,7 +34,7 @@ export function AuthButton() {
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  }, [firebaseAvailable]);
 
   /** Proceed with Firebase Auth for the selected provider. */
   const doSignIn = useCallback(
@@ -97,6 +95,9 @@ export function AuthButton() {
     await signOut();
     setShowDropdown(false);
   }, [signOut]);
+
+  // Don't render if Firebase not configured
+  if (!firebaseAvailable) return null;
 
   // Signed out: show sign-in button
   if (!user) {

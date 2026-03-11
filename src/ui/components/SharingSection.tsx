@@ -29,14 +29,6 @@ export function SharingSection({ projectId }: SharingSectionProps) {
   const [sharing, setSharing] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
 
-  // Only render in cloud mode for authenticated users
-  if (mode !== "cloud" || !user) return null;
-
-  // Check if current user is the owner
-  const isOwner = members.some(
-    (m) => m.uid === user.uid && m.role === "owner"
-  );
-
   const loadMembers = useCallback(async () => {
     setLoading(true);
     try {
@@ -105,6 +97,14 @@ export function SharingSection({ projectId }: SharingSectionProps) {
       }
     },
     [user, projectId, loadMembers]
+  );
+
+  // Only render in cloud mode for authenticated users
+  if (mode !== "cloud" || !user) return null;
+
+  // Check if current user is the owner
+  const isOwner = members.some(
+    (m) => m.uid === user.uid && m.role === "owner"
   );
 
   return (

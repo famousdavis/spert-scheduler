@@ -28,7 +28,7 @@ export function NewScenarioDialog({
   // Reset source to Baseline (first scenario) whenever dialog opens
   useEffect(() => {
     if (open && scenarios.length > 0) {
-      setSourceId(scenarios[0]!.id);
+      setSourceId(scenarios[0]!.id); // eslint-disable-line react-hooks/set-state-in-effect -- intentional form reset on open
       setName("");
     }
   }, [open, scenarios]);

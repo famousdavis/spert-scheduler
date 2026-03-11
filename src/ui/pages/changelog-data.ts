@@ -12,6 +12,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.1",
+    date: "2026-03-11",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Decomposed GanttChart.tsx into useGanttLayout hook, GanttSvgDefs, and GanttLegend components",
+          "Extracted PrintGanttChart from PrintableReport.tsx into its own file",
+          "DRYed simulation parameter building into buildSimulationParams helper (shared by manual run and auto-run)",
+          "Extracted useAutoRunSimulation hook from ProjectPage.tsx",
+          "Updated recharts, react-router-dom, Tailwind CSS, and 7 other dependencies to latest stable versions",
+          "Fixed recharts 3.8.0 Tooltip formatter type compatibility",
+          "Resolved all 56 ESLint errors and 20 warnings across the codebase (zero remaining)",
+          "Fixed conditional React hooks in AuthButton, SharingSection, and StorageModeSection (rules-of-hooks compliance)",
+          "Added underscore-prefix convention for intentionally unused variables in ESLint config",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.16.0",
     date: "2026-03-11",
     sections: [

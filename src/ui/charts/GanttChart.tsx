@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useMemo, useCallback, type RefObject } from "react";
+import { useState, useMemo, useCallback, type RefObject } from "react";
 import type {
   Activity,
   ActivityDependency,
@@ -20,15 +20,18 @@ import {
 import { computeActivityUncertaintyDays } from "@core/schedule/deterministic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import { useGanttLayout } from "@ui/hooks/use-gantt-layout";
 import {
-  LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, ROW_HEIGHT,
-  BAR_HEIGHT, BAR_Y_OFFSET, BAR_RADIUS, MIN_CHART_WIDTH,
-  ARROW_HEAD_SIZE, MIN_TICK_SPACING_PX, PROJECT_NAME_HEIGHT,
+  LEFT_MARGIN, ROW_HEIGHT,
+  BAR_HEIGHT, BAR_Y_OFFSET, BAR_RADIUS,
+  ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT,
   COLORS, MILESTONE_COLORS,
 } from "./gantt-constants";
 import {
-  dateToX, longDateLabel, generateTicks, buildOrderedActivities,
+  dateToX, longDateLabel, buildOrderedActivities,
 } from "./gantt-utils";
+import { GanttSvgDefs } from "./GanttSvgDefs";
+import { GanttLegend } from "./GanttLegend";
 
 interface GanttChartProps {
   activities: Activity[];
@@ -162,96 +165,25 @@ export function GanttChart({
     return latest;
   }, [timelineEnd, scheduledActivities, activityExtendedEndDates, milestones]);
 
-  // Measure container width for responsive chart sizing
-  const [containerWidth, setContainerWidth] = useState(0);
-  useEffect(() => {
-    const el = svgContainerRef?.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-    observer.observe(el);
-    setContainerWidth(el.clientWidth);
-    return () => observer.disconnect();
-  }, [svgContainerRef]);
+  const showBuffer = !!(buffer && buffer.bufferDays > 0 && bufferedEndDate);
 
-  const showBuffer = buffer !== null && buffer.bufferDays > 0 && bufferedEndDate;
-  const totalRows = orderedActivities.length + (showBuffer ? 1 : 0);
-  // Extra top margin when milestones exist so name + date labels clear the tick row
-  let topMargin = milestones.length > 0 ? TOP_MARGIN + 26 : TOP_MARGIN;
-  if (showProjectName && projectName) topMargin += PROJECT_NAME_HEIGHT;
-  const chartHeight = topMargin + totalRows * ROW_HEIGHT + 20;
-
-  // Scale chart width: fit container, only scroll when bars would be unreadably small
-  const minTimestamp = new Date(projectStartDate + "T00:00:00").getTime();
-  const maxTimestamp = new Date(furthestDate + "T00:00:00").getTime();
-  const dateRange = maxTimestamp - minTimestamp;
-  const calendarDays = dateRange / (1000 * 60 * 60 * 24);
-  const MIN_PX_PER_DAY = 2;
-  const targetWidth = containerWidth > 0 ? containerWidth : MIN_CHART_WIDTH;
-  const availableChartArea = targetWidth - LEFT_MARGIN - RIGHT_MARGIN;
-  const pxPerDay = calendarDays > 0 ? availableChartArea / calendarDays : 8;
-  const chartWidth = pxPerDay < MIN_PX_PER_DAY
-    ? LEFT_MARGIN + RIGHT_MARGIN + Math.ceil(calendarDays * MIN_PX_PER_DAY)
-    : targetWidth;
-  const chartAreaWidth = chartWidth - LEFT_MARGIN - RIGHT_MARGIN;
-
-  // Generate ticks then filter out any that are too close in pixel space
-  const allTicks = useMemo(
-    () => generateTicks(projectStartDate, furthestDate),
-    [projectStartDate, furthestDate]
-  );
-
-  // Finish line date: buffered end if available, otherwise project end
-  const finishDate = bufferedEndDate ?? projectEndDate;
-  const finishX = dateRange > 0
-    ? dateToX(finishDate, minTimestamp, dateRange, chartAreaWidth)
-    : 0;
-
-  // Milestone X positions for tick suppression
-  const milestoneXPositions = useMemo(() => {
-    if (dateRange === 0) return [];
-    return milestones.map((m) =>
-      dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth)
-    );
-  }, [milestones, minTimestamp, dateRange, chartAreaWidth]);
-
-  // Today line X position — only when today falls within the project timeline
-  const todayStr = formatDateISO(new Date());
-  const todayInRange = dateRange > 0 && todayStr >= projectStartDate && todayStr <= furthestDate;
-  const todayX = todayInRange
-    ? dateToX(todayStr, minTimestamp, dateRange, chartAreaWidth)
-    : null;
-
-  const ticks = useMemo(() => {
-    if (allTicks.length === 0 || dateRange === 0) return allTicks;
-    const filtered: typeof allTicks = [];
-    let lastX = -Infinity;
-    for (const tick of allTicks) {
-      const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth);
-      // Suppress ticks that collide with the finish date label
-      // Wider exclusion zone for the long-form finish date label
-      if (Math.abs(x - finishX) < MIN_TICK_SPACING_PX * 1.5) continue;
-      // Suppress ticks that collide with milestone labels
-      if (milestoneXPositions.some((mx) => Math.abs(x - mx) < MIN_TICK_SPACING_PX)) continue;
-      // Suppress ticks that collide with today line label
-      if (todayX !== null && Math.abs(x - todayX) < MIN_TICK_SPACING_PX) continue;
-      if (x - lastX >= MIN_TICK_SPACING_PX) {
-        filtered.push(tick);
-        lastX = x;
-      }
-    }
-    return filtered;
-  }, [allTicks, minTimestamp, dateRange, chartAreaWidth, finishX, milestoneXPositions, todayX]);
-
-  // Build row index map for dependency arrows
-  const rowIndex = useMemo(() => {
-    const m = new Map<string, number>();
-    orderedActivities.forEach((a, i) => m.set(a.id, i));
-    return m;
-  }, [orderedActivities]);
+  const layout = useGanttLayout({
+    orderedActivities,
+    projectStartDate,
+    furthestDate,
+    bufferedEndDate,
+    projectEndDate,
+    showBuffer,
+    milestones,
+    showProjectName,
+    projectName,
+    svgContainerRef,
+  });
+  const {
+    chartWidth, chartHeight, chartAreaWidth, topMargin,
+    minTimestamp, dateRange, finishX, finishDate,
+    todayX, ticks, rowIndex,
+  } = layout;
 
   if (activities.length === 0) {
     return (
@@ -330,78 +262,13 @@ export function GanttChart({
           style={{ background: c.bg }}
           onMouseLeave={() => setTooltip(null)}
         >
-          {/* Hatching pattern definitions */}
-          <defs>
-            {orderedActivities.map((act) => (
-              <pattern
-                key={`hatch-${act.id}`}
-                id={`hatch-${act.id}`}
-                patternUnits="userSpaceOnUse"
-                width="8"
-                height="8"
-                patternTransform="rotate(45)"
-              >
-                <line
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="8"
-                  stroke={act.status === "inProgress" ? c.hatchInProgress : c.hatchActivity}
-                  strokeWidth="4"
-                />
-              </pattern>
-            ))}
-            {showBuffer && (
-              <pattern
-                id="hatch-buffer"
-                patternUnits="userSpaceOnUse"
-                width="8"
-                height="8"
-                patternTransform="rotate(45)"
-              >
-                <line
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="8"
-                  stroke={c.hatchBuffer}
-                  strokeWidth="4"
-                />
-              </pattern>
-            )}
-            {/* Arrowhead marker — userSpaceOnUse prevents scaling by stroke width */}
-            <marker
-              id="arrowhead"
-              markerUnits="userSpaceOnUse"
-              markerWidth={ARROW_HEAD_SIZE}
-              markerHeight={ARROW_HEAD_SIZE}
-              refX="0"
-              refY={ARROW_HEAD_SIZE / 2}
-              orient="auto"
-            >
-              <polygon
-                points={`0 0, ${ARROW_HEAD_SIZE} ${ARROW_HEAD_SIZE / 2}, 0 ${ARROW_HEAD_SIZE}`}
-                fill={c.arrow}
-              />
-            </marker>
-            {/* Critical path arrowhead marker */}
-            {showCriticalPath && dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
-              <marker
-                id="arrowhead-critical"
-                markerUnits="userSpaceOnUse"
-                markerWidth={ARROW_HEAD_SIZE}
-                markerHeight={ARROW_HEAD_SIZE}
-                refX="0"
-                refY={ARROW_HEAD_SIZE / 2}
-                orient="auto"
-              >
-                <polygon
-                  points={`0 0, ${ARROW_HEAD_SIZE} ${ARROW_HEAD_SIZE / 2}, 0 ${ARROW_HEAD_SIZE}`}
-                  fill={c.criticalPath}
-                />
-              </marker>
-            )}
-          </defs>
+          <GanttSvgDefs
+            orderedActivities={orderedActivities}
+            c={c}
+            showBuffer={showBuffer}
+            showCriticalPath={showCriticalPath}
+            hasCriticalPath={!!(dependencyMode && criticalPathIds && criticalPathIds.size > 0)}
+          />
 
           {/* Project name header */}
           {showProjectName && projectName && (
@@ -860,76 +727,17 @@ export function GanttChart({
 
         </svg>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
-          {/* Status colors */}
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
-            Planned
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barInProgress }} />
-            In Progress
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barComplete }} />
-            Complete
-          </span>
-
-          {/* Critical path */}
-          {showCriticalPath && dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
-            <span className="flex items-center gap-1.5">
-              <span
-                className="inline-block w-3 h-3 rounded-sm"
-                style={{ backgroundColor: c.barPlanned, borderLeft: `4px solid ${c.criticalPath}` }}
-              />
-              Critical Path
-            </span>
-          )}
-
-          {/* Uncertainty hatching */}
-          {viewMode === "uncertainty" && (
-            <span className="flex items-center gap-1.5">
-              <svg width="12" height="12" className="inline-block">
-                <defs>
-                  <pattern id="legend-hatch" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
-                    <line x1="0" y1="0" x2="0" y2="4" stroke={c.hatchActivity} strokeWidth="2" />
-                  </pattern>
-                </defs>
-                <rect width="12" height="12" rx="1" fill="url(#legend-hatch)" stroke={c.hatchActivity} strokeWidth="0.5" />
-              </svg>
-              Uncertainty
-            </span>
-          )}
-
-          {/* Finish line */}
-          <span className="flex items-center gap-1.5">
-            <svg width="12" height="12" className="inline-block">
-              <line x1="6" y1="0" x2="6" y2="12" stroke={c.finishLine} strokeWidth="2" strokeDasharray="3 1.5" />
-            </svg>
-            Finish
-          </span>
-
-          {/* Today line */}
-          {showToday && todayX !== null && (
-            <span className="flex items-center gap-1.5">
-              <svg width="12" height="12" className="inline-block">
-                <line x1="6" y1="0" x2="6" y2="12" stroke={c.todayLine} strokeWidth="1.5" strokeDasharray="2 1" />
-              </svg>
-              Today
-            </span>
-          )}
-
-          {/* Milestones */}
-          {milestones.length > 0 && (
-            <span className="flex items-center gap-1.5">
-              <svg width="12" height="12" className="inline-block">
-                <polygon points="6,1 11,6 6,11 1,6" fill={mc.diamond} />
-              </svg>
-              Milestone
-            </span>
-          )}
-        </div>
+        <GanttLegend
+          c={c}
+          mc={mc}
+          viewMode={viewMode}
+          showCriticalPath={showCriticalPath}
+          dependencyMode={dependencyMode}
+          hasCriticalPath={!!(criticalPathIds && criticalPathIds.size > 0)}
+          showToday={showToday}
+          todayVisible={todayX !== null}
+          hasMilestones={milestones.length > 0}
+        />
       </div>
 
       {/* Tooltip portal */}

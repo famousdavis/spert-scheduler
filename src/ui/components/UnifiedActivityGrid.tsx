@@ -86,7 +86,7 @@ export function UnifiedActivityGrid({
     if (pendingFocus.current && activities.length > prevCountRef.current) {
       const lastActivity = activities[activities.length - 1];
       if (lastActivity) {
-        setFocusActivityId(lastActivity.id);
+        setFocusActivityId(lastActivity.id); // eslint-disable-line react-hooks/set-state-in-effect -- coordinating ref-based flag with focus state
       }
       pendingFocus.current = false;
     }
@@ -104,7 +104,7 @@ export function UnifiedActivityGrid({
 
   // Clear selection when activities change
   useEffect(() => {
-    setSelectedIds((prev) => {
+    setSelectedIds((prev) => { // eslint-disable-line react-hooks/set-state-in-effect -- prunes stale IDs from selection set
       const activityIdSet = new Set(activities.map((a) => a.id));
       const next = new Set([...prev].filter((id) => activityIdSet.has(id)));
       return next.size === prev.size ? prev : next;

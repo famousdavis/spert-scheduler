@@ -29,7 +29,7 @@ export function LocalStorageSection() {
         usedMB >= 1
           ? `${usedMB.toFixed(2)} MB`
           : `${usedKB.toFixed(1)} KB`;
-      setStorageInfo({ used: totalSize, usedFormatted });
+      setStorageInfo({ used: totalSize, usedFormatted }); // eslint-disable-line react-hooks/set-state-in-effect -- reads external localStorage
     } catch {
       setStorageInfo(null);
     }

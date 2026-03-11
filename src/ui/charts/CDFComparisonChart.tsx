@@ -93,7 +93,7 @@ export function CDFComparisonChart({
               domain={[0, 100]}
             />
             <Tooltip
-              formatter={(value: number | undefined, name?: string) => [`${value ?? 0}%`, name ?? ""]}
+              formatter={(value, name) => [`${value ?? 0}%`, name ?? ""]}
               labelFormatter={(label: unknown) => `${label} days`}
             />
             <Legend
