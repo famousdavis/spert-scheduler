@@ -9,40 +9,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isProjectMember(projectData) {
-      return request.auth.uid in projectData.members;
-    }
-
-    function isProjectOwner(projectData) {
-      return projectData.members[request.auth.uid] == 'owner';
-    }
-
-    function isProjectEditor(projectData) {
-      return projectData.members[request.auth.uid] in ['owner', 'editor'];
-    }
-
     // ── Projects ──
     match /spertscheduler_projects/{projectId} {
-      allow list: if isAuth()
-                  && request.auth.uid in resource.data.members;
+      allow list: if isAuth() &&
+        request.auth.uid in resource.data.members;
 
-      allow get: if isAuth() && isProjectMember(resource.data);
+      allow get: if isAuth() && request.auth.uid in resource.data.members;
 
-      allow create: if isAuth()
-                    && request.resource.data.members[request.auth.uid] == 'owner';
+      allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
 
       // Update: editors can update, but only owners can change owner/members.
       // This prevents privilege escalation by editors.
       allow update: if isAuth()
-                    && isProjectEditor(resource.data)
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
-                      // No ownership fields changed — normal edit
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
-                      // OR user is the owner — allowed to change sharing
-                      || isProjectOwner(resource.data)
+                      || resource.data.members[request.auth.uid] == 'owner'
                     );
 
-      allow delete: if isAuth() && isProjectOwner(resource.data);
+      allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
     }
 
     // ── User profiles ──
@@ -58,7 +43,7 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == userId;
     }
 
-    // ── ToS acceptance records (shared across SPERT Suite apps) ──
+    // ── ToS acceptance records (shared across all SPERT apps) ──
     match /users/{uid} {
       allow read, write: if isAuth() && request.auth.uid == uid;
     }
