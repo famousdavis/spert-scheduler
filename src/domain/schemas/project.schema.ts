@@ -13,7 +13,14 @@ import {
 
 const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
-const ISODateString = z.string().regex(isoDateRegex, "Must be YYYY-MM-DD");
+const ISODateString = z
+  .string()
+  .regex(isoDateRegex, "Must be YYYY-MM-DD")
+  .refine((s) => {
+    const [y, m, d] = s.split("-").map(Number);
+    const date = new Date(y!, m! - 1, d!);
+    return date.getFullYear() === y && date.getMonth() === m! - 1 && date.getDate() === d;
+  }, "Must be a valid calendar date");
 
 // -- Calendar ----------------------------------------------------------------
 

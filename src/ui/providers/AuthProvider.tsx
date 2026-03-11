@@ -175,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Version mismatch — sign out; next onAuthStateChanged(null)
             // will handle setUser(null) + setLoading(false)
             localStorage.removeItem(LS_TOS_ACCEPTED_VERSION);
+            localStorage.removeItem(LS_TOS_WRITE_PENDING);
             await firebaseSignOut(auth!);
             return;
           }
@@ -222,6 +223,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (!auth) return;
+    localStorage.removeItem(LS_TOS_ACCEPTED_VERSION);
+    localStorage.removeItem(LS_TOS_WRITE_PENDING);
     await firebaseSignOut(auth);
   }, []);
 

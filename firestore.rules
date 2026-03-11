@@ -23,11 +23,8 @@ service cloud.firestore {
 
     // ── Projects ──
     match /spertscheduler_projects/{projectId} {
-      // List: The client uses where('members.<uid>', 'in', [...]) to filter
-      // server-side, but Firestore rules can't validate query constraints
-      // on dynamic map keys. The rule permits list for authenticated users;
-      // the where() clause ensures only member-of projects are returned.
-      allow list: if isAuth();
+      allow list: if isAuth()
+                  && request.auth.uid in resource.data.members;
 
       allow get: if isAuth() && isProjectMember(resource.data);
 
@@ -59,6 +56,11 @@ service cloud.firestore {
     // ── User settings ──
     match /spertscheduler_settings/{userId} {
       allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+
+    // ── ToS acceptance records (shared across SPERT Suite apps) ──
+    match /users/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
     }
   }
 }

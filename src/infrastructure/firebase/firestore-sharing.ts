@@ -9,13 +9,13 @@
 import {
   doc,
   getDoc,
-  updateDoc,
   setDoc,
   getDocs,
   collection,
   query,
   where,
   serverTimestamp,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import type { ProjectRole } from "./firestore-driver";
@@ -38,6 +38,7 @@ export interface ProjectMember {
 
 /**
  * Create or update user profile on sign-in.
+ * Email is normalized to lowercase to ensure consistent lookup.
  */
 export async function upsertUserProfile(
   uid: string,
@@ -49,7 +50,7 @@ export async function upsertUserProfile(
     doc(db, PROFILES_COL, uid),
     {
       displayName,
-      email,
+      email: email.toLowerCase().trim(),
       lastLogin: serverTimestamp(),
     },
     { merge: true }
@@ -119,7 +120,8 @@ export async function getProjectMembers(
 
 /**
  * Share a project with another user.
- * Only the project owner can share.
+ * Only the project owner can share. Uses a Firestore transaction
+ * to ensure atomic read-verify-write.
  */
 export async function shareProject(
   currentUid: string,
@@ -127,14 +129,14 @@ export async function shareProject(
   targetEmail: string,
   role: "editor" | "viewer"
 ): Promise<{ success: boolean; error?: string }> {
-  if (!db) return { success: false, error: "Firestore not available" };
+  if (!db) return { success: false, error: "Unable to share. Verify the email and try again." };
 
   // Look up target user
   const targetUser = await findUserByEmail(targetEmail);
   if (!targetUser) {
     return {
       success: false,
-      error: "No user found with that email. They must sign in at least once.",
+      error: "Unable to share. Verify the email and try again.",
     };
   }
 
@@ -142,70 +144,82 @@ export async function shareProject(
     return { success: false, error: "Cannot share with yourself." };
   }
 
-  // Verify current user is owner
   const ref = doc(db, PROJECTS_COL, projectId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) {
-    return { success: false, error: "Project not found." };
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(ref);
+      if (!snap.exists()) throw new Error("Project not found.");
+
+      const data = snap.data();
+      if (data.owner !== currentUid) {
+        throw new Error("Only the project owner can share.");
+      }
+
+      transaction.update(ref, {
+        [`members.${targetUser.uid}`]: role,
+      });
+    });
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Share failed.",
+    };
   }
-
-  const data = snap.data();
-  if (data.owner !== currentUid) {
-    return { success: false, error: "Only the project owner can share." };
-  }
-
-  // Add member
-  await updateDoc(ref, {
-    [`members.${targetUser.uid}`]: role,
-  });
-
-  return { success: true };
 }
 
 /**
  * Remove a member from a project.
- * Only the project owner can remove members.
+ * Only the project owner can remove members. Uses a Firestore transaction
+ * to ensure atomic read-verify-write.
  */
 export async function removeProjectMember(
   currentUid: string,
   projectId: string,
   targetUid: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!db) return { success: false, error: "Firestore not available" };
+  if (!db) return { success: false, error: "Unable to share. Verify the email and try again." };
 
   if (targetUid === currentUid) {
     return { success: false, error: "Cannot remove yourself." };
   }
 
-  // Verify current user is owner
   const ref = doc(db, PROJECTS_COL, projectId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) {
-    return { success: false, error: "Project not found." };
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(ref);
+      if (!snap.exists()) throw new Error("Project not found.");
+
+      const data = snap.data();
+      if (data.owner !== currentUid) {
+        throw new Error("Only the project owner can remove members.");
+      }
+
+      if (data.owner === targetUid) {
+        throw new Error("Cannot remove the project owner.");
+      }
+
+      // Rebuild the members map without the target user
+      const members = { ...(data.members as Record<string, ProjectRole>) };
+      delete members[targetUid];
+
+      transaction.update(ref, { members });
+    });
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Remove failed.",
+    };
   }
-
-  const data = snap.data();
-  if (data.owner !== currentUid) {
-    return { success: false, error: "Only the project owner can remove members." };
-  }
-
-  if (data.owner === targetUid) {
-    return { success: false, error: "Cannot remove the project owner." };
-  }
-
-  // Remove using updateDoc with FieldValue.delete()
-  // Firestore doesn't support deleting nested map keys directly with updateDoc,
-  // so we rebuild the members map without the target user.
-  const members = { ...(data.members as Record<string, ProjectRole>) };
-  delete members[targetUid];
-  await updateDoc(ref, { members });
-
-  return { success: true };
 }
 
 /**
  * Update a member's role on a project.
- * Only the project owner can update roles.
+ * Only the project owner can update roles. Uses a Firestore transaction
+ * to ensure atomic read-verify-write.
  */
 export async function updateMemberRole(
   currentUid: string,
@@ -213,26 +227,33 @@ export async function updateMemberRole(
   targetUid: string,
   newRole: "editor" | "viewer"
 ): Promise<{ success: boolean; error?: string }> {
-  if (!db) return { success: false, error: "Firestore not available" };
+  if (!db) return { success: false, error: "Unable to share. Verify the email and try again." };
 
   const ref = doc(db, PROJECTS_COL, projectId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) {
-    return { success: false, error: "Project not found." };
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(ref);
+      if (!snap.exists()) throw new Error("Project not found.");
+
+      const data = snap.data();
+      if (data.owner !== currentUid) {
+        throw new Error("Only the project owner can change roles.");
+      }
+
+      if (data.owner === targetUid) {
+        throw new Error("Cannot change the owner's role.");
+      }
+
+      transaction.update(ref, {
+        [`members.${targetUid}`]: newRole,
+      });
+    });
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Role update failed.",
+    };
   }
-
-  const data = snap.data();
-  if (data.owner !== currentUid) {
-    return { success: false, error: "Only the project owner can change roles." };
-  }
-
-  if (data.owner === targetUid) {
-    return { success: false, error: "Cannot change the owner's role." };
-  }
-
-  await updateDoc(ref, {
-    [`members.${targetUid}`]: newRole,
-  });
-
-  return { success: true };
 }

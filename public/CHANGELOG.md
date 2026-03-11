@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.16.2 — 2026-03-11
+
+### Security
+
+- Sharing operations (add member, remove member, change role) now use Firestore transactions for atomic read-verify-write, preventing TOCTOU race conditions
+- ISO date validation now rejects invalid calendar dates (e.g., Feb 30, non-leap-year Feb 29) via round-trip verification
+- Sharing error messages unified to prevent email enumeration (no longer reveals whether an email is registered)
+- Email normalization in user profile writes ensures consistent case-insensitive lookup
+- ToS write-pending localStorage flag now properly cleared on sign-out and version-mismatch paths
+- Updated SECURITY.md: CSP documentation now matches actual index.html directives, added Known Limitations section
+- Local firestore.rules updated to match production rules (membership-based list rule, privilege escalation prevention)
+
 ## 0.16.0 — 2026-03-11
 
 ### Features
