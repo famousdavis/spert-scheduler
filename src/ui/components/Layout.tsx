@@ -4,11 +4,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { APP_VERSION } from "@app/constants";
+import { TOS_URL, PRIVACY_URL } from "@app/legal-constants";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useTheme } from "@ui/hooks/use-theme";
 import { ToastContainer } from "./ToastContainer";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import { AuthButton } from "./AuthButton";
+import { FirstRunBanner } from "./FirstRunBanner";
 import { useCloudSync } from "@ui/hooks/use-cloud-sync";
 
 const NAV_ITEMS = [
@@ -89,24 +91,46 @@ export function Layout() {
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
+        <FirstRunBanner />
         <Outlet />
       </main>
       <footer className="mt-16 border-t-2 border-gray-100 dark:border-gray-800 pb-6 pt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-        &copy; 2026 William W. Davis, MSPM, PMP |{" "}
-        <Link
-          to="/changelog"
-          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-        >
-          Version {APP_VERSION}
-        </Link>{" "}
-        | Licensed under GNU GPL v3 |{" "}
-        <button
-          onClick={() => setShortcutsOpen(true)}
-          className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-          title="Keyboard shortcuts (?)"
-        >
-          Keyboard shortcuts
-        </button>
+        <div>
+          &copy; 2026 William W. Davis, MSPM, PMP |{" "}
+          <Link
+            to="/changelog"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+          >
+            Version {APP_VERSION}
+          </Link>{" "}
+          | Licensed under GNU GPL v3 |{" "}
+          <button
+            onClick={() => setShortcutsOpen(true)}
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            title="Keyboard shortcuts (?)"
+          >
+            Keyboard shortcuts
+          </button>
+        </div>
+        <div className="mt-1">
+          <a
+            href={TOS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            Terms of Service
+          </a>
+          {" | "}
+          <a
+            href={PRIVACY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            Privacy Policy
+          </a>
+        </div>
       </footer>
       <ToastContainer />
       <KeyboardShortcutsModal

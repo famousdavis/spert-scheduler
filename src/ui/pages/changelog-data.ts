@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.0",
+    date: "2026-03-11",
+    sections: [
+      {
+        title: "Features",
+        items: [
+          "Added Terms of Service and Privacy Policy links in a persistent footer on every page",
+          "Added first-run informational banner explaining optional Cloud Storage and legal agreements",
+          "Added clickwrap consent modal that intercepts Cloud Storage sign-in — requires agreement to ToS and Privacy Policy before Firebase Auth",
+          "Firestore ToS acceptance record written to users/{uid} after successful sign-in with read-before-write pattern",
+          "Returning user version check on app load — signs out users with outdated or missing ToS acceptance",
+          "Reference copies of Terms of Service and Privacy Policy added to /legal",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.15.3",
     date: "2026-03-10",
     sections: [
