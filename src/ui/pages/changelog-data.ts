@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.3",
+    date: "2026-03-11",
+    sections: [
+      {
+        title: "Infrastructure",
+        items: [
+          "Pinned Node.js version to 22 LTS (engines field, .nvmrc) ahead of Node 20 EOL",
+          "Aligned @types/node to ^22 for Node 22 LTS type definitions",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.16.2",
     date: "2026-03-11",
     sections: [
