@@ -30,6 +30,9 @@ export const HolidaySchema = z
     name: z.string().max(200), // allow empty for migrated data
     startDate: ISODateString,
     endDate: ISODateString,
+    source: z.enum(["manual", "api"]).optional(),
+    countryCodes: z.array(z.string().min(2).max(10)).max(200).optional(),
+    locale: z.string().max(100).optional(),
   })
   .refine((h) => h.endDate >= h.startDate, {
     message: "End date must be >= start date",

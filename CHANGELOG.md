@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.17.0 — 2026-03-16
+
+### New Features
+
+- Country holiday loader: select from 100+ countries to load public holidays via Nager.Date API
+- Multi-country support: load holidays from multiple countries additively, with automatic name merging for shared dates (e.g., "Memorial Day / Whit Monday")
+- Country labels on API holidays show origin country or "Multi" for shared dates
+- Optional locale field for manual holidays (e.g., state or region name)
+- Default country auto-detected from browser locale
+
+### Improvements
+
+- Holidays filtered to globally observed days only, visually distinguished from manual entries
+- Selected country persists across sessions
+- Built-in US holidays remain available as offline fallback when API is unavailable
+
 ## 0.16.2 — 2026-03-11
 
 ### Security

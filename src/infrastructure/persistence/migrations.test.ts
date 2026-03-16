@@ -653,4 +653,50 @@ describe("applyMigrations", () => {
     // v7→v8
     expect(scenarios[0]!.milestones).toEqual([]);
   });
+
+  // -- v8 → v9 ---------------------------------------------------------------
+
+  it("v8→v9: bumps schemaVersion to 9", () => {
+    const v8Data = { schemaVersion: 8, scenarios: [] };
+    const result = applyMigrations(v8Data, 8, 9) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(9);
+  });
+
+  it("v8→v9: preserves existing holidays without source field", () => {
+    const v8Data = {
+      schemaVersion: 8,
+      globalCalendarOverride: {
+        holidays: [
+          { id: "h1", name: "Christmas", startDate: "2026-12-25", endDate: "2026-12-25" },
+        ],
+      },
+      scenarios: [],
+    };
+    const result = applyMigrations(v8Data, 8, 9) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(9);
+    const cal = result.globalCalendarOverride as Record<string, unknown>;
+    const holidays = cal.holidays as Array<Record<string, unknown>>;
+    expect(holidays).toHaveLength(1);
+    expect(holidays[0]!.name).toBe("Christmas");
+    // source field not present — treated as manual by convention
+    expect(holidays[0]!.source).toBeUndefined();
+  });
+
+  it("v1→v9: full sequential migration", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      scenarios: [
+        {
+          settings: { probabilityTarget: 0.85 },
+          activities: [],
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 9) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(9);
+  });
 });

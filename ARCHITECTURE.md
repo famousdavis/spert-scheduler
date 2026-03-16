@@ -87,6 +87,7 @@ All computation runs in the browser. There is no backend.
 - **Chart Copy:** Copy chart images to clipboard as PNG (histogram, CDF, CDF comparison, Gantt) via html2canvas, with stateful button feedback (spinner, checkmark, X).
 - **Gantt Chart:** Interactive Gantt chart with dependency arrows, schedule buffer bar, finish line, and uncertainty toggle. Deterministic and With Uncertainty views. Range-adaptive time axis (daily/weekly/biweekly/monthly).
 - **Print Report:** Browser-based print with dedicated print-optimized layout (compact single-page A4), including Gantt chart.
+- **Country Holidays:** Load public holidays for 100+ countries from the Nager.Date API, filtered to globally observed days. Country selection persists across sessions. Built-in US holidays available as offline fallback.
 - **Project Archival:** Archive/unarchive projects with filter toggle.
 - **Scenario Locking:** Lock/unlock scenarios to protect schedules from accidental edits.
 - **Cloud Storage:** Optional Firebase/Firestore cloud persistence with Google/Microsoft SSO, real-time sync across devices, and project sharing (owner/editor/viewer roles).
@@ -234,7 +235,7 @@ The `storeFullSimulationData` preference (default: `false`) controls whether the
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels, Gantt utilities, dependency graph
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants, dependency graph properties
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import, dependency lifecycle
-- **545 tests** across 39 test files
+- **567 tests** across 41 test files
 
 ## Performance Budget
 

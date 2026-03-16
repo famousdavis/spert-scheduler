@@ -30,4 +30,5 @@ export const UserPreferencesSchema = z.object({
   ganttShowToday: z.boolean().optional(),
   ganttShowCriticalPath: z.boolean().optional(),
   ganttShowProjectName: z.boolean().optional(),
+  defaultHolidayCountry: z.string().min(2).max(10).optional(),
 });

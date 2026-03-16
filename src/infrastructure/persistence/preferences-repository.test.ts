@@ -97,4 +97,13 @@ describe("savePreferences", () => {
     localStorage.clear();
     expect(loadPreferences().storeFullSimulationData).toBe(false);
   });
+
+  it("round-trips defaultHolidayCountry", () => {
+    const prefs: UserPreferences = {
+      ...DEFAULT_USER_PREFERENCES,
+      defaultHolidayCountry: "DE",
+    };
+    savePreferences(prefs);
+    expect(loadPreferences().defaultHolidayCountry).toBe("DE");
+  });
 });

@@ -153,6 +153,16 @@ function migrateV7toV8(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v8 → v9: Add optional source field to holidays.
+ * No data transformation needed — existing holidays without source are treated as "manual".
+ */
+function migrateV8toV9(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 9;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -161,6 +171,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   5: migrateV5toV6,
   6: migrateV6toV7,
   7: migrateV7toV8,
+  8: migrateV8toV9,
 };
 
 /**
