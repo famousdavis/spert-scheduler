@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.4",
+    date: "2026-03-16",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Updated first-run notification to clarify browsewrap agreement for all users",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.16.3",
     date: "2026-03-11",
     sections: [
