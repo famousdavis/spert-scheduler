@@ -19,8 +19,8 @@ export function FirstRunBanner() {
   };
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-      <p className="text-sm text-blue-800 dark:text-blue-200">
+    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 flex items-center gap-4">
+      <p className="text-sm text-blue-800 dark:text-blue-200 flex-1">
         Statistical PERT® apps are free. No account is required to use them.
         By accessing or using this app, you agree to our{" "}
         <a
@@ -45,7 +45,7 @@ export function FirstRunBanner() {
       </p>
       <button
         onClick={dismiss}
-        className="mt-3 px-4 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+        className="shrink-0 px-4 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
       >
         Got it
       </button>
