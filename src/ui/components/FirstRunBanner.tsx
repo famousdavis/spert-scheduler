@@ -45,7 +45,7 @@ export function FirstRunBanner() {
       </p>
       <button
         onClick={dismiss}
-        className="shrink-0 px-4 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="shrink-0 px-4 py-1.5 border border-gray-400 dark:border-gray-500 text-gray-800 dark:text-gray-200 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         Got it
       </button>
