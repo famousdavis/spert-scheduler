@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -87,6 +87,9 @@ export interface Holiday {
   name: string; // description (e.g., "Christmas Break")
   startDate: string; // ISO "YYYY-MM-DD"
   endDate: string; // ISO "YYYY-MM-DD" (same as startDate for single day)
+  source?: "manual" | "api"; // origin tracker; absence treated as "manual"
+  countryCodes?: string[]; // which countries this holiday was loaded from (API only)
+  locale?: string; // optional free-text locale/region label (e.g., "California", "Bavaria")
 }
 
 export interface Calendar {
@@ -276,6 +279,8 @@ export interface UserPreferences {
   ganttShowCriticalPath: boolean;
   /** Show project name header on Gantt chart */
   ganttShowProjectName: boolean;
+  /** ISO 3166-1 alpha-2 country code for holiday loader (default: "US") */
+  defaultHolidayCountry?: string;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {

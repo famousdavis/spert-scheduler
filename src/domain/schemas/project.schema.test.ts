@@ -264,6 +264,34 @@ describe("CalendarSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts holiday with source: 'api'", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ ...validHoliday, source: "api" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts holiday with source: 'manual'", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ ...validHoliday, source: "manual" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts holiday without source (backward compat)", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [validHoliday],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects holiday with invalid source", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ ...validHoliday, source: "invalid" }],
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("ProjectSchema", () => {

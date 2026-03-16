@@ -12,6 +12,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.17.0",
+    date: "2026-03-16",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Country holiday loader: select from 100+ countries to load public holidays via Nager.Date API",
+          "Multi-country support: load holidays from multiple countries additively, with automatic name merging for shared dates",
+          "Country labels on API holidays show origin country or \"Multi\" for shared dates",
+          "Optional locale field for manual holidays (e.g., state or region name)",
+          "Default country auto-detected from browser locale",
+        ],
+      },
+      {
+        title: "Improvements",
+        items: [
+          "Holidays filtered to globally observed days only, visually distinguished from manual entries",
+          "Selected country persists across sessions",
+          "Built-in US holidays remain available as offline fallback when API is unavailable",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.16.4",
     date: "2026-03-16",
     sections: [
