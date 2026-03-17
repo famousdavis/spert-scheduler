@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.18.0 — 2026-03-16
+
+### New Features
+
+- Schedule grid export: download the current scenario's activity schedule as a formatted XLSX or plain CSV file
+- XLSX export includes professional formatting: bold headers, light fill, frozen column header row, auto-width columns, thin borders
+- Summary metadata block at top of export: project/scenario name, dates, buffer, targets, dependency mode status
+- Predecessor and Successor columns (dependency mode only) using activity numbers with lag notation (e.g., "1 +2d, 3")
+- Export available from both the project page (inline button near grid) and the Settings page (Schedule Export section)
+- XLSX/CSV toggle: active format button highlights blue to indicate last-exported format
+- Disabled export hint with clickable "Run simulation" link that triggers simulation directly
+- Confidence column blank in exports for Triangular and Uniform distributions (not applicable)
+
+### Improvements
+
+- Moved format-labels.ts from @ui/helpers to @domain/helpers (pure domain logic, fixes layer violation)
+- Widened downloadFile() to accept BlobPart for binary file downloads
+- XLSX column A auto-sized to fit longest summary key label
+
 ## 0.17.0 — 2026-03-16
 
 ### New Features

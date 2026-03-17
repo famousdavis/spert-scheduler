@@ -5,7 +5,7 @@
  * Generic file download helper — creates a Blob, triggers download via anchor element.
  */
 export function downloadFile(
-  content: string,
+  content: BlobPart,
   filename: string,
   mimeType: string
 ): void {
