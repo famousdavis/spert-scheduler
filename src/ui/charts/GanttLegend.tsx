@@ -44,35 +44,35 @@ export function GanttLegend({
 }: GanttLegendProps) {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
-      {/* Status colors */}
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block align-middle w-3 h-3 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
-        Planned
+      {/* Status colors — use inline vertical-align (not flex) for html2canvas compatibility */}
+      <span>
+        <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: c.barPlanned }} />
+        <span className="align-middle">Planned</span>
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block align-middle w-3 h-3 rounded-sm" style={{ backgroundColor: c.barInProgress }} />
-        In Progress
+      <span>
+        <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: c.barInProgress }} />
+        <span className="align-middle">In Progress</span>
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block align-middle w-3 h-3 rounded-sm" style={{ backgroundColor: c.barComplete }} />
-        Complete
+      <span>
+        <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: c.barComplete }} />
+        <span className="align-middle">Complete</span>
       </span>
 
       {/* Critical path */}
       {showCriticalPath && dependencyMode && hasCriticalPath && (
-        <span className="flex items-center gap-1.5">
+        <span>
           <span
-            className="inline-block align-middle w-3 h-3 rounded-sm"
+            className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5"
             style={{ backgroundColor: c.barPlanned, borderLeft: `4px solid ${c.criticalPath}` }}
           />
-          Critical Path
+          <span className="align-middle">Critical Path</span>
         </span>
       )}
 
       {/* Uncertainty hatching */}
       {viewMode === "uncertainty" && (
-        <span className="flex items-center gap-1.5">
-          <svg width="12" height="12" className="inline-block align-middle">
+        <span>
+          <svg width="12" height="12" className="inline-block align-middle mr-1.5">
             <defs>
               <pattern id="legend-hatch" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
                 <line x1="0" y1="0" x2="0" y2="4" stroke={c.hatchActivity} strokeWidth="2" />
@@ -80,35 +80,35 @@ export function GanttLegend({
             </defs>
             <rect width="12" height="12" rx="1" fill="url(#legend-hatch)" stroke={c.hatchActivity} strokeWidth="0.5" />
           </svg>
-          Uncertainty
+          <span className="align-middle">Uncertainty</span>
         </span>
       )}
 
       {/* Finish line */}
-      <span className="flex items-center gap-1.5">
-        <svg width="12" height="12" className="inline-block align-middle">
+      <span>
+        <svg width="12" height="12" className="inline-block align-middle mr-1.5">
           <line x1="6" y1="0" x2="6" y2="12" stroke={c.finishLine} strokeWidth="2" strokeDasharray="3 1.5" />
         </svg>
-        Finish
+        <span className="align-middle">Finish</span>
       </span>
 
       {/* Today line */}
       {showToday && todayVisible && (
-        <span className="flex items-center gap-1.5">
-          <svg width="12" height="12" className="inline-block align-middle">
+        <span>
+          <svg width="12" height="12" className="inline-block align-middle mr-1.5">
             <line x1="6" y1="0" x2="6" y2="12" stroke={c.todayLine} strokeWidth="1.5" strokeDasharray="2 1" />
           </svg>
-          Today
+          <span className="align-middle">Today</span>
         </span>
       )}
 
       {/* Milestones */}
       {hasMilestones && (
-        <span className="flex items-center gap-1.5">
-          <svg width="12" height="12" className="inline-block align-middle">
+        <span>
+          <svg width="12" height="12" className="inline-block align-middle mr-1.5">
             <polygon points="6,1 11,6 6,11 1,6" fill={mc.diamond} />
           </svg>
-          Milestone
+          <span className="align-middle">Milestone</span>
         </span>
       )}
 
