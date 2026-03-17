@@ -16,6 +16,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-03-17",
     sections: [
       {
+        title: "Enhancements",
+        items: [
+          "Add \"Date prepared\" label to bottom-right of Gantt chart (interactive + print), providing context when the chart is copied or shared",
+        ],
+      },
+      {
         title: "Bug Fixes",
         items: [
           "Fix Max % heuristic input not accepting typed values (removed HTML min constraint that blocked intermediate keystrokes)",
