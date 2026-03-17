@@ -68,13 +68,19 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
       if (payload.dependencyMode && payload.dependencies) {
         // Dependency-aware simulation: critical path per trial
         const durMap = payload.deterministicDurationMap
-          ? new Map(Object.entries(payload.deterministicDurationMap).map(([k, v]) => [k, v as number]))
+          ? new Map(Object.entries(payload.deterministicDurationMap).filter(
+              (entry): entry is [string, number] => typeof entry[1] === "number"
+            ))
           : undefined;
         const milestoneActivityIds = payload.milestoneActivityIds
-          ? new Map(Object.entries(payload.milestoneActivityIds))
+          ? new Map(Object.entries(payload.milestoneActivityIds).filter(
+              (entry): entry is [string, string[]] => Array.isArray(entry[1])
+            ))
           : undefined;
         const activityEarliestStart = payload.activityEarliestStart
-          ? new Map(Object.entries(payload.activityEarliestStart))
+          ? new Map(Object.entries(payload.activityEarliestStart).filter(
+              (entry): entry is [string, number] => typeof entry[1] === "number"
+            ))
           : undefined;
 
         const depResult = runDependencyTrials({

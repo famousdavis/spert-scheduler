@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.18.2",
+    date: "2026-03-16",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Added Zod schema validation to Nager.Date API responses (countries and holidays)",
+          "Added runtime type guards to worker milestone/dependency payload conversion",
+          "Added filename sanitization for schedule exports (strips invalid characters)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.18.1",
     date: "2026-03-16",
     sections: [

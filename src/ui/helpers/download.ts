@@ -2,6 +2,13 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 /**
+ * Replace characters that are invalid in filenames on Windows/macOS/Linux.
+ */
+export function sanitizeFilename(name: string): string {
+  return name.replace(/[/\\*?"<>|:]/g, "_");
+}
+
+/**
  * Generic file download helper — creates a Blob, triggers download via anchor element.
  */
 export function downloadFile(
