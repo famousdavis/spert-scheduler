@@ -22,7 +22,7 @@ import {
   distributionLabel,
   distributionShortLabel,
   statusLabel,
-} from "@ui/helpers/format-labels";
+} from "@domain/helpers/format-labels";
 import { focusField, focusNextRow, focusPrevRow, computeElapsedDays } from "./activity-row-helpers";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";

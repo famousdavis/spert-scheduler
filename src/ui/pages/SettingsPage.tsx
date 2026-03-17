@@ -9,6 +9,7 @@ import { ImportSection } from "@ui/components/ImportSection";
 import { PreferencesSection } from "@ui/components/PreferencesSection";
 import { LocalStorageSection } from "@ui/components/LocalStorageSection";
 import { StorageModeSection } from "@ui/components/StorageModeSection";
+import { ScheduleExportSection } from "@ui/components/ScheduleExportSection";
 
 export function SettingsPage() {
   const { projects, loadProjects, importProjects } = useProjectStore();
@@ -28,6 +29,7 @@ export function SettingsPage() {
       <LocalStorageSection />
       <StorageModeSection />
       <ExportSection projects={projects} />
+      <ScheduleExportSection projects={projects} />
       <ImportSection projects={projects} importProjects={importProjects} />
     </div>
   );

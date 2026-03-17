@@ -17,7 +17,7 @@ import {
   formatDateISO,
 } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { distributionLabel, statusLabel } from "@ui/helpers/format-labels";
+import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { PrintGanttChart } from "@ui/charts/PrintGanttChart";
 
 interface PrintableReportProps {

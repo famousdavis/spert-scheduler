@@ -18,7 +18,7 @@ import {
   ACTIVITY_PERCENTILE_OPTIONS,
   PROJECT_PERCENTILE_OPTIONS,
 } from "@ui/helpers/percentile-options";
-import { distributionLabel } from "@ui/helpers/format-labels";
+import { distributionLabel } from "@domain/helpers/format-labels";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 
 const THEME_LABELS: Record<ThemePreference, string> = {

@@ -33,6 +33,7 @@ import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
 import { PrintableReport } from "@ui/components/PrintableReport";
 import { SensitivityPanel } from "@ui/components/SensitivityPanel";
 import { SharingSection } from "@ui/components/SharingSection";
+import { ScheduleExportButton } from "@ui/components/ScheduleExportButton";
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -492,6 +493,21 @@ export function ProjectPage() {
             heuristicMinPercent={scenario.settings.heuristicMinPercent}
             heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
             calendar={mergedCalendar}
+          />
+
+          {/* Schedule Export — XLSX / CSV */}
+          <ScheduleExportButton
+            projectName={project.name}
+            scenarioName={scenario.name}
+            activities={scenario.activities}
+            schedule={schedule}
+            buffer={buffer}
+            settings={scenario.settings}
+            dependencies={scenario.dependencies}
+            milestones={scenario.milestones}
+            calendar={mergedCalendar}
+            hasSimulationResults={!!scenario.simulationResults}
+            onRunSimulation={handleRunSimulation}
           />
 
           {/* Milestone Panel — only shown when dependency mode is on */}

@@ -30,7 +30,7 @@ import {
 } from "@domain/models/types";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
 import { GRID_COLUMNS } from "./grid-columns";
-import { distributionLabel } from "@ui/helpers/format-labels";
+import { distributionLabel } from "@domain/helpers/format-labels";
 
 interface UnifiedActivityGridProps {
   activities: Activity[];
