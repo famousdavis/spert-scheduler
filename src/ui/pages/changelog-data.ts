@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.19.1",
+    date: "2026-03-17",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Updated ARCHITECTURE.md and SECURITY.md with v0.19.0 domain model, calendar validation, and security documentation",
+          "Simplified Zustand selectors in CalendarPage and useWorkCalendar hook (removed unnecessary useShallow wrappers)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.19.0",
     date: "2026-03-17",
     sections: [

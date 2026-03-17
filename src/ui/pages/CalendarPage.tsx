@@ -2,7 +2,6 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useEffect } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { CalendarEditor } from "@ui/components/CalendarEditor";
@@ -10,13 +9,10 @@ import { ConvertedWorkDaysEditor } from "@ui/components/ConvertedWorkDaysEditor"
 import { WEEKDAY_LABELS } from "@domain/models/types";
 
 export function CalendarPage() {
-  const { projects, loadProjects } = useProjectStore(
-    useShallow((s) => ({ projects: s.projects, loadProjects: s.loadProjects }))
-  );
+  const projects = useProjectStore((s) => s.projects);
+  const loadProjects = useProjectStore((s) => s.loadProjects);
   const globalCalendar = usePreferencesStore((s) => s.preferences.globalCalendar) ?? { holidays: [] };
-  const workDays = usePreferencesStore(
-    useShallow((s) => s.preferences.workDays)
-  ) ?? [1, 2, 3, 4, 5];
+  const workDays = usePreferencesStore((s) => s.preferences.workDays) ?? [1, 2, 3, 4, 5];
   const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
 
   useEffect(() => {

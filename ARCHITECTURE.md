@@ -74,7 +74,8 @@ All computation runs in the browser. There is no backend.
 
 - **Baseline scenarios:** The first scenario in every project is the Baseline (protected from deletion). Additional scenarios can be cloned from any existing scenario for what-if analysis or re-baselining.
 - **Four distribution types:** Normal, LogNormal, Triangular, Uniform — with automatic recommendation per activity.
-- **Holiday calendar:** Multi-day holiday ranges with global overrides per project. US federal holiday presets with year selector.
+- **Holiday calendar:** Multi-day holiday ranges with global overrides per project. Country holidays via Nager.Date API (100+ countries) with built-in US holidays as offline fallback.
+- **Configurable work week:** Interactive pill toggles for any day combination (Mon-Fri, Sun-Thu, non-contiguous). Per-project converted work days to override non-work days as working days.
 - **Export/Import:** JSON-based project backup and restore on the Settings page, with schema migration and conflict resolution (skip, replace, import as copy).
 - **CSV Export:** Simulation results exportable as CSV with metadata, summary statistics, and percentile table.
 - **User Preferences:** Configurable defaults (trial count, distribution, confidence, targets, date format, theme) stored separately from project data.
@@ -87,7 +88,7 @@ All computation runs in the browser. There is no backend.
 - **Chart Copy:** Copy chart images to clipboard as PNG (histogram, CDF, CDF comparison, Gantt) via html2canvas, with stateful button feedback (spinner, checkmark, X).
 - **Gantt Chart:** Interactive Gantt chart with dependency arrows, schedule buffer bar, finish line, and uncertainty toggle. Deterministic and With Uncertainty views. Range-adaptive time axis (daily/weekly/biweekly/monthly).
 - **Print Report:** Browser-based print with dedicated print-optimized layout (compact single-page A4), including Gantt chart.
-- **Country Holidays:** Load public holidays for 100+ countries from the Nager.Date API, filtered to globally observed days. Country selection persists across sessions. Built-in US holidays available as offline fallback.
+- **Country Holidays:** Load public holidays for 100+ countries from the Nager.Date API, filtered to globally observed days. Multi-country additive loading with date-based dedup and name merging. Country selection persists across sessions. Built-in US holidays available as offline fallback.
 - **Project Archival:** Archive/unarchive projects with filter toggle.
 - **Scenario Locking:** Lock/unlock scenarios to protect schedules from accidental edits.
 - **Cloud Storage:** Optional Firebase/Firestore cloud persistence with Google/Microsoft SSO, real-time sync across devices, and project sharing (owner/editor/viewer roles).
@@ -102,7 +103,11 @@ Project
   │     └── holidays: Holiday[]
   │           ├── id, name (description)
   │           ├── startDate ("YYYY-MM-DD")
-  │           └── endDate ("YYYY-MM-DD", same as startDate for single day)
+  │           ├── endDate ("YYYY-MM-DD", same as startDate for single day)
+  │           ├── source?: "manual" | "api"
+  │           ├── countryCodes?: string[]
+  │           └── locale?: string
+  ├── convertedWorkDays?: string[]  (YYYY-MM-DD dates)
   └── scenarios: Scenario[]
         ├── id, name, startDate
         ├── activities: Activity[]
@@ -126,6 +131,12 @@ Project
         ├── locked?: boolean
         └── simulationResults?: SimulationRun
 
+WorkCalendar (runtime, not persisted)
+  ├── isWorkDay(date): boolean     (priority: holiday→false, convertedDay→true, weekMask)
+  ├── addWorkDays(date, days): Date
+  ├── nextWorkDay(date): Date
+  └── countWorkDays(from, to): number
+
 UserPreferences (stored separately in localStorage)
   ├── defaultTrialCount, defaultDistributionType, defaultConfidenceLevel
   ├── defaultActivityTarget, defaultProjectTarget
@@ -134,7 +145,11 @@ UserPreferences (stored separately in localStorage)
   ├── theme: "light" | "dark" | "system"
   ├── storeFullSimulationData: boolean
   ├── defaultHeuristicMinPercent, defaultHeuristicMaxPercent
-  └── defaultDependencyMode: boolean
+  ├── defaultDependencyMode: boolean
+  ├── globalCalendar?: Calendar
+  ├── workDays: number[]  (day-of-week, e.g. [1,2,3,4,5] for Mon-Fri)
+  ├── defaultHolidayCountry?: string
+  └── ganttViewMode, ganttShowToday, ganttShowCriticalPath, ganttShowProjectName
 ```
 
 ## SPERT Estimation
@@ -211,7 +226,7 @@ Two Zustand stores, separated by concern:
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
 - User preferences: `localStorage["spert:user-preferences"]`
-- Schema versioned (`SCHEMA_VERSION = 8`) with sequential migrations (v1→v2→…→v8)
+- Schema versioned (`SCHEMA_VERSION = 10`) with sequential migrations (v1→v2→…→v10)
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
 
@@ -235,7 +250,7 @@ The `storeFullSimulationData` preference (default: `false`) controls whether the
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels, Gantt utilities, dependency graph
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants, dependency graph properties
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import, dependency lifecycle
-- **567 tests** across 41 test files
+- **728 tests** across 45 test files
 
 ## Performance Budget
 
