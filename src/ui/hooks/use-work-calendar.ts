@@ -2,7 +2,6 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useMemo } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "./use-preferences-store";
 import { useProjectStore } from "./use-project-store";
 import { mergeCalendars } from "@core/calendar/calendar";
@@ -20,10 +19,10 @@ const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5];
  */
 export function useWorkCalendar(projectId: string): WorkCalendar {
   const workDays = usePreferencesStore(
-    useShallow((s) => s.preferences.workDays ?? DEFAULT_WORK_DAYS)
+    (s) => s.preferences.workDays ?? DEFAULT_WORK_DAYS
   );
   const globalCalendar = usePreferencesStore(
-    useShallow((s) => s.preferences.globalCalendar)
+    (s) => s.preferences.globalCalendar
   );
   const projectCalendarOverride = useProjectStore(
     (s) => s.projects.find((p) => p.id === projectId)?.globalCalendarOverride

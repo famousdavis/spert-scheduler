@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.1 — 2026-03-17
+
+### Improvements
+
+- Updated ARCHITECTURE.md: schema version v8→v10, added `workDays`, `convertedWorkDays`, `WorkCalendar`, holiday `source`/`countryCodes`/`locale` fields, `defaultHolidayCountry` and Gantt preferences to domain model, updated test count
+- Updated SECURITY.md: added calendar configuration validation section covering `workDays` validation, `CalendarConfigurationError`, priority stack, holiday range limits, and filename sanitization
+- Simplified `useShallow` to targeted selectors in CalendarPage.tsx and use-work-calendar.ts where single-value selection made shallow comparison unnecessary
+
 ## 0.19.0 — 2026-03-17
 
 ### New Features

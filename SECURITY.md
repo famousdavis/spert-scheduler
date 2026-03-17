@@ -81,6 +81,16 @@ All user inputs are validated using [Zod](https://zod.dev/) schemas:
 - Probability targets: bounded to 0.01 – 0.99
 - Dates: validated against ISO 8601 format with calendar date verification (rejects invalid dates like Feb 30)
 
+## Calendar Configuration Validation
+
+Work week and calendar inputs are validated at multiple layers:
+
+- **`workDays` array:** Validated as integers 0–6 (Sunday–Saturday), minimum 1 day, maximum 7 days. Stored in UserPreferences.
+- **`CalendarConfigurationError`:** Thrown by `buildWorkCalendar()` when the combination of work week mask, holidays, and converted work days produces no reachable work days. Caught in the UI with an error banner.
+- **Priority stack:** Work day resolution follows a strict priority: holidays → non-work day (overrides everything), converted work days → work day (overrides week mask), work week mask → fallback.
+- **Holiday range limit:** Multi-day holidays spanning more than 366 days are rejected by `buildHolidaySet()` to prevent denial-of-service via unbounded date expansion. Zod schema enforces this at the validation layer.
+- **Iteration guards:** `addWorkingDays` and related calendar functions have a 10,000 iteration safety limit to prevent infinite loops from degenerate calendars.
+
 ## Defensive Measures
 
 - **No `eval()` or `Function()`** — no dynamic code execution
@@ -89,6 +99,7 @@ All user inputs are validated using [Zod](https://zod.dev/) schemas:
 - **Error boundaries** — graceful recovery from unexpected errors
 - **Iteration guards** — calendar calculations have iteration limits
 - **Worker validation** — simulation inputs validated before processing
+- **Filename sanitization** — schedule export filenames are stripped of characters invalid on Windows/macOS (`/\*?"<>|:`)
 
 ## Known Limitations
 
