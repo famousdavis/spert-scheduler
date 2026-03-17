@@ -2,6 +2,10 @@
 
 ## 0.19.3 — 2026-03-17
 
+### Enhancements
+
+- Add "Date prepared" label to bottom-right of Gantt chart (interactive + print), providing context when the chart is copied or shared
+
 ### Bug Fixes
 
 - Fix Max % heuristic input not accepting typed values (removed HTML `min` constraint that blocked intermediate keystrokes)

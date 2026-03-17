@@ -306,6 +306,12 @@ export function PrintGanttChart({
           );
         })}
 
+        {/* Date prepared label (bottom-right) */}
+        <text x={chartW - 4} y={chartH - 1} textAnchor="end"
+          fontSize="5" fill={c.textMuted}>
+          Date prepared: {formatDate(formatDateISO(new Date()))}
+        </text>
+
         {/* Dependency arrows */}
         {dependencyMode && dependencies.map((dep, i) => {
           const fromRow = rowIndex.get(dep.fromActivityId);
