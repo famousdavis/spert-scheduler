@@ -27,6 +27,7 @@ interface GanttLegendProps {
   showToday: boolean;
   todayVisible: boolean;
   hasMilestones: boolean;
+  datePrepared?: string;
 }
 
 export function GanttLegend({
@@ -39,6 +40,7 @@ export function GanttLegend({
   showToday,
   todayVisible,
   hasMilestones,
+  datePrepared,
 }: GanttLegendProps) {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
@@ -107,6 +109,13 @@ export function GanttLegend({
             <polygon points="6,1 11,6 6,11 1,6" fill={mc.diamond} />
           </svg>
           Milestone
+        </span>
+      )}
+
+      {/* Date prepared — pushed to far right */}
+      {datePrepared && (
+        <span className="ml-auto text-gray-400 dark:text-gray-500">
+          Date prepared: {datePrepared}
         </span>
       )}
     </div>

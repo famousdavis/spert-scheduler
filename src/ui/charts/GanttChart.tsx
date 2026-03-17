@@ -645,18 +645,6 @@ export function GanttChart({
             );
           })}
 
-          {/* Date prepared label (bottom-right) */}
-          <text
-            x={chartWidth - 8}
-            y={chartHeight - 2}
-            textAnchor="end"
-            fontSize="10"
-            fill={c.textMuted}
-            className="pointer-events-none"
-          >
-            Date prepared: {formatDate(formatDateISO(new Date()))}
-          </text>
-
           {/* Schedule Buffer row */}
           {showBuffer && bufferedEndDate && (
             <g>
@@ -750,6 +738,7 @@ export function GanttChart({
           showToday={showToday}
           todayVisible={todayX !== null}
           hasMilestones={milestones.length > 0}
+          datePrepared={formatDate(formatDateISO(new Date()))}
         />
       </div>
 

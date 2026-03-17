@@ -306,12 +306,6 @@ export function PrintGanttChart({
           );
         })}
 
-        {/* Date prepared label (bottom-right) */}
-        <text x={chartW - 4} y={chartH - 1} textAnchor="end"
-          fontSize="5" fill={c.textMuted}>
-          Date prepared: {formatDate(formatDateISO(new Date()))}
-        </text>
-
         {/* Dependency arrows */}
         {dependencyMode && dependencies.map((dep, i) => {
           const fromRow = rowIndex.get(dep.fromActivityId);
@@ -360,7 +354,7 @@ export function PrintGanttChart({
       </svg>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[6px] text-gray-600">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[6px] text-gray-600 print-section-keep">
         <span className="flex items-center gap-1">
           <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
           Planned
@@ -402,6 +396,9 @@ export function PrintGanttChart({
             Milestone
           </span>
         )}
+        <span className="ml-auto text-gray-400">
+          Date prepared: {formatDate(formatDateISO(new Date()))}
+        </span>
       </div>
     </section>
   );
