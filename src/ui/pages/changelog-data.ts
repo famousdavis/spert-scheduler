@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.19.2",
+    date: "2026-03-17",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Validate cached country data with Zod before use (loadCachedCountries)",
+          "Add regex guard and encodeURIComponent on country code before URL construction (fetchPublicHolidays)",
+          "Namespace localStorage cache key to spert-scheduler:nager-countries",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.19.1",
     date: "2026-03-17",
     sections: [

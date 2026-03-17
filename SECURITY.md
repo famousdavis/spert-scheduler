@@ -62,6 +62,15 @@ Referrer-Policy: strict-origin-when-cross-origin
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.
 
+## Nager.Date API Hardening
+
+The Nager.Date holiday API integration has multiple security layers:
+
+- **Response validation:** All API responses are validated with Zod schemas before use (`NagerCountrySchema`, `NagerPublicHolidaySchema`). Malformed or unexpected data shapes are rejected.
+- **Country code validation:** `fetchPublicHolidays()` validates country codes against `/^[A-Z]{2}$/` before URL construction, preventing path traversal or query injection. `encodeURIComponent()` is applied as defence-in-depth.
+- **Cache validation:** The localStorage country cache (`spert-scheduler:nager-countries`) is validated with Zod on read. Poisoned or corrupt cache entries are discarded and trigger a fresh API fetch.
+- **Error isolation:** API failures surface a generic user-facing message; raw error details are logged to console only.
+
 ## Import/Export Security
 
 When importing project data:

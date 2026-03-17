@@ -9,7 +9,7 @@ import type {
 
 const BASE_URL = "https://date.nager.at/api/v3";
 
-const NagerCountrySchema = z.object({
+export const NagerCountrySchema = z.object({
   countryCode: z.string(),
   name: z.string(),
 });
@@ -43,8 +43,11 @@ export async function fetchPublicHolidays(
   year: number,
   countryCode: string,
 ): Promise<NagerPublicHoliday[]> {
+  if (!/^[A-Z]{2}$/.test(countryCode)) {
+    throw new Error("Invalid country code");
+  }
   const res = await fetch(
-    `${BASE_URL}/PublicHolidays/${year}/${countryCode}`,
+    `${BASE_URL}/PublicHolidays/${year}/${encodeURIComponent(countryCode)}`,
   );
   if (!res.ok) {
     throw new Error(`Nager API error: ${res.status} ${res.statusText}`);

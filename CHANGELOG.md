@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.2 — 2026-03-17
+
+### Security
+
+- Validate cached country data with Zod before use (`loadCachedCountries`)
+- Add regex guard and `encodeURIComponent` on country code before URL construction (`fetchPublicHolidays`)
+- Namespace localStorage cache key to `spert-scheduler:nager-countries`
+
 ## 0.19.1 — 2026-03-17
 
 ### Improvements
