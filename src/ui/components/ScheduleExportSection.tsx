@@ -8,7 +8,7 @@ import {
   exportScheduleCsv,
 } from "@app/api/schedule-export-service";
 import type { ScheduleExportParams } from "@app/api/schedule-export-service";
-import { downloadFile } from "@ui/helpers/download";
+import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import {
@@ -102,7 +102,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
     setExporting(true);
     try {
       const arrayBuffer = await exportScheduleXlsx(params);
-      const filename = `${params.projectName} - ${params.scenarioName} Schedule ${formatDateISO(new Date())}.xlsx`;
+      const filename = `${sanitizeFilename(params.projectName)} - ${sanitizeFilename(params.scenarioName)} Schedule ${formatDateISO(new Date())}.xlsx`;
       downloadFile(arrayBuffer, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     } finally {
       setExporting(false);
@@ -113,7 +113,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
     const params = buildParams();
     if (!params) return;
     const csv = exportScheduleCsv(params);
-    const filename = `${params.projectName} - ${params.scenarioName} Schedule ${formatDateISO(new Date())}.csv`;
+    const filename = `${sanitizeFilename(params.projectName)} - ${sanitizeFilename(params.scenarioName)} Schedule ${formatDateISO(new Date())}.csv`;
     downloadFile(csv, filename, "text/csv");
   }, [buildParams]);
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.2 — 2026-03-16
+
+### Security
+
+- Added Zod schema validation to Nager.Date API responses (countries and holidays) — closes the only unvalidated external data boundary
+- Added runtime type guards to worker milestone/dependency payload conversion (defense-in-depth)
+- Added filename sanitization for schedule exports — strips characters invalid on Windows/macOS (`/\*?"<>|:`)
+
 ## 0.18.1 — 2026-03-16
 
 ### Improvements

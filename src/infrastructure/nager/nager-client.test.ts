@@ -67,6 +67,15 @@ describe("fetchAvailableCountries", () => {
       "Failed to fetch",
     );
   });
+
+  it("throws on malformed API response (missing required fields)", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => [{ countryCode: "US" }], // missing name
+    } as Response);
+
+    await expect(fetchAvailableCountries()).rejects.toThrow();
+  });
 });
 
 describe("fetchPublicHolidays", () => {
@@ -140,6 +149,17 @@ describe("fetchPublicHolidays", () => {
     await expect(fetchPublicHolidays(2026, "XX")).rejects.toThrow(
       "Nager API error: 404 Not Found",
     );
+  });
+
+  it("throws on malformed API response (missing required fields)", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { date: "2026-01-01", name: "New Year's Day" }, // missing global, countryCode, etc.
+      ],
+    } as Response);
+
+    await expect(fetchPublicHolidays(2026, "DE")).rejects.toThrow();
   });
 
   it("returns empty array when all holidays are subdivision-specific", async () => {
