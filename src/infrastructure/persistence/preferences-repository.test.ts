@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { loadPreferences, savePreferences } from "./preferences-repository";
 import { DEFAULT_USER_PREFERENCES } from "@domain/models/types";
 import type { UserPreferences } from "@domain/models/types";
+import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
 
 const STORAGE_KEY = "spert:user-preferences";
 
@@ -105,5 +106,49 @@ describe("savePreferences", () => {
     };
     savePreferences(prefs);
     expect(loadPreferences().defaultHolidayCountry).toBe("DE");
+  });
+
+  it("round-trips workDays", () => {
+    const prefs: UserPreferences = {
+      ...DEFAULT_USER_PREFERENCES,
+      workDays: [0, 1, 2, 3, 4],
+    };
+    savePreferences(prefs);
+    const loaded = loadPreferences();
+    expect(loaded.workDays).toEqual([0, 1, 2, 3, 4]);
+  });
+});
+
+describe("UserPreferencesSchema workDays validation", () => {
+  it("accepts valid workDays array", () => {
+    for (const workDays of [[1, 2, 3, 4, 5], [0, 6], [3]]) {
+      const result = UserPreferencesSchema.safeParse({
+        ...DEFAULT_USER_PREFERENCES,
+        workDays,
+      });
+      expect(result.success, `workDays=${JSON.stringify(workDays)} should be valid`).toBe(true);
+    }
+  });
+
+  it("rejects empty workDays", () => {
+    const result = UserPreferencesSchema.safeParse({
+      ...DEFAULT_USER_PREFERENCES,
+      workDays: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects out-of-range day index", () => {
+    expect(
+      UserPreferencesSchema.safeParse({ ...DEFAULT_USER_PREFERENCES, workDays: [7] }).success
+    ).toBe(false);
+    expect(
+      UserPreferencesSchema.safeParse({ ...DEFAULT_USER_PREFERENCES, workDays: [-1] }).success
+    ).toBe(false);
+  });
+
+  it("accepts undefined workDays (defaults to Mon-Fri)", () => {
+    const result = UserPreferencesSchema.safeParse(DEFAULT_USER_PREFERENCES);
+    expect(result.success).toBe(true);
   });
 });

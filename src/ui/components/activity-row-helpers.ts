@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Calendar } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { countWorkingDays, parseDateISO, isWorkingDay } from "@core/calendar/calendar";
 
 /**
@@ -69,7 +70,7 @@ export function focusPrevRow(
  */
 export function computeElapsedDays(
   scheduledStartDate: string | undefined,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): number {
   if (!scheduledStartDate) return 1;
   const start = parseDateISO(scheduledStartDate);

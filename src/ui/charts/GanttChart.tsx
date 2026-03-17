@@ -11,6 +11,7 @@ import type {
   Calendar,
   GanttViewMode,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
   addWorkingDays,
@@ -43,7 +44,7 @@ interface GanttChartProps {
   dependencyMode: boolean;
   activityTarget: number;
   projectTarget: number;
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;
@@ -69,11 +70,11 @@ export function GanttChart({
   svgContainerRef,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
-  const { preferences, updatePreferences } = usePreferencesStore();
-  const viewMode: GanttViewMode = preferences.ganttViewMode ?? "deterministic";
-  const showToday = preferences.ganttShowToday ?? true;
-  const showCriticalPath = preferences.ganttShowCriticalPath ?? true;
-  const showProjectName = preferences.ganttShowProjectName ?? false;
+  const viewMode: GanttViewMode = usePreferencesStore((s) => s.preferences.ganttViewMode) ?? "deterministic";
+  const showToday = usePreferencesStore((s) => s.preferences.ganttShowToday) ?? true;
+  const showCriticalPath = usePreferencesStore((s) => s.preferences.ganttShowCriticalPath) ?? true;
+  const showProjectName = usePreferencesStore((s) => s.preferences.ganttShowProjectName) ?? false;
+  const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
   const setViewMode = useCallback(
     (mode: GanttViewMode) => updatePreferences({ ganttViewMode: mode }),
     [updatePreferences],

@@ -6,6 +6,7 @@ import type {
   Calendar,
   DeterministicSchedule,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { computeDeterministicSchedule } from "@core/schedule/deterministic";
 
 /**
@@ -16,7 +17,7 @@ export function computeSchedule(
   activities: Activity[],
   startDate: string,
   probabilityTarget: number,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): DeterministicSchedule {
   return computeDeterministicSchedule(
     activities,

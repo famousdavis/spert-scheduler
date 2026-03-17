@@ -682,6 +682,48 @@ describe("applyMigrations", () => {
     expect(holidays[0]!.source).toBeUndefined();
   });
 
+  // -- v9 → v10 --------------------------------------------------------------
+
+  it("v9→v10: adds convertedWorkDays field", () => {
+    const v9Data = {
+      schemaVersion: 9,
+      scenarios: [],
+    };
+    const result = applyMigrations(v9Data, 9, 10) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(10);
+    expect(result.convertedWorkDays).toEqual([]);
+  });
+
+  it("v9→v10: does not overwrite existing convertedWorkDays", () => {
+    const v9Data = {
+      schemaVersion: 9,
+      convertedWorkDays: ["2025-01-04"],
+      scenarios: [],
+    };
+    const result = applyMigrations(v9Data, 9, 10) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(10);
+    expect(result.convertedWorkDays).toEqual(["2025-01-04"]);
+  });
+
+  it("v1→v10: full sequential migration", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      scenarios: [
+        {
+          settings: { probabilityTarget: 0.85 },
+          activities: [],
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 10) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(10);
+    expect(result.convertedWorkDays).toEqual([]);
+  });
+
   it("v1→v9: full sequential migration", () => {
     const v1Data = {
       schemaVersion: 1,

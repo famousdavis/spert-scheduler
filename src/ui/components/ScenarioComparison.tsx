@@ -7,6 +7,7 @@ import type {
   DeterministicSchedule,
   Calendar,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { computeScheduleBuffer } from "@core/schedule/buffer";
 import { computeSchedule } from "@app/api/schedule-service";
@@ -31,12 +32,12 @@ interface ScenarioComparison {
 
 interface ScenarioComparisonProps {
   scenarios: Scenario[];
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
 }
 
 function computeEntry(
   scenario: Scenario,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): ScenarioComparison {
   let schedule: DeterministicSchedule | null = null;
   let buffer: ScheduleBuffer | null = null;

@@ -23,6 +23,7 @@ import type {
   RSMLevel,
   DistributionType,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import {
   RSM_LEVELS,
   RSM_LABELS,
@@ -52,7 +53,7 @@ interface UnifiedActivityGridProps {
   heuristicEnabled?: boolean;
   heuristicMinPercent?: number;
   heuristicMaxPercent?: number;
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
 }
 
 export function UnifiedActivityGrid({

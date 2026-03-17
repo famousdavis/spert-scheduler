@@ -7,6 +7,7 @@ import {
   DISTRIBUTION_TYPES,
   DATE_FORMATS,
   THEME_OPTIONS,
+  WEEKDAY_LABELS,
 } from "@domain/models/types";
 import type {
   RSMLevel,
@@ -19,6 +20,7 @@ import {
   PROJECT_PERCENTILE_OPTIONS,
 } from "@ui/helpers/percentile-options";
 import { distributionLabel } from "@domain/helpers/format-labels";
+import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 
 const THEME_LABELS: Record<ThemePreference, string> = {
@@ -28,7 +30,13 @@ const THEME_LABELS: Record<ThemePreference, string> = {
 };
 
 export function PreferencesSection() {
-  const { preferences, updatePreferences, resetPreferences } = usePreferencesStore();
+  const { preferences, updatePreferences, resetPreferences } = usePreferencesStore(
+    useShallow((s) => ({
+      preferences: s.preferences,
+      updatePreferences: s.updatePreferences,
+      resetPreferences: s.resetPreferences,
+    }))
+  );
 
   const handleReset = () => {
     if (window.confirm("Reset all preferences to defaults?")) {
@@ -208,6 +216,48 @@ export function PreferencesSection() {
             ))}
           </select>
         </div>
+
+        {/* Work Days */}
+        {(() => {
+          const workDays = preferences.workDays ?? [1, 2, 3, 4, 5];
+          const workDaySet = new Set(workDays);
+          const toggleDay = (day: number) => {
+            if (workDaySet.has(day)) {
+              if (workDaySet.size <= 1) return; // prevent empty
+              updatePreferences({ workDays: workDays.filter((d) => d !== day) });
+            } else {
+              updatePreferences({ workDays: [...workDays, day].sort((a, b) => a - b) });
+            }
+          };
+          return (
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Work Days
+              </label>
+              <div className="flex items-center gap-1.5">
+                {WEEKDAY_LABELS.map((label, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => toggleDay(i)}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                      workDaySet.has(i)
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60"
+                        : "bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {workDays.length === 1 && (
+                <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  This creates a one-day work week.
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Dependencies Enabled */}
         <div className="flex items-center gap-3 sm:col-span-2">

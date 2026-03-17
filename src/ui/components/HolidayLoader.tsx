@@ -26,23 +26,23 @@ interface HolidayLoaderProps {
 
 export function HolidayLoader({ calendar, countries, onUpdate }: HolidayLoaderProps) {
   const currentYear = new Date().getFullYear();
-  const { preferences, updatePreferences } = usePreferencesStore();
+  const defaultHolidayCountry = usePreferencesStore((s) => s.preferences.defaultHolidayCountry);
+  const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
 
   // -- Country + year state ---------------------------------------------------
   const [selectedCountry, setSelectedCountry] = useState(
-    preferences.defaultHolidayCountry ??
+    defaultHolidayCountry ??
       (navigator.language?.split("-")[1]?.toUpperCase() || "US"),
   );
   const [presetYear, setPresetYear] = useState(currentYear);
 
   // Sync selectedCountry when preferences load from localStorage
   useEffect(() => {
-    const saved = preferences.defaultHolidayCountry;
-    if (saved && saved !== selectedCountry) {
-      setSelectedCountry(saved);
+    if (defaultHolidayCountry && defaultHolidayCountry !== selectedCountry) {
+      setSelectedCountry(defaultHolidayCountry);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferences.defaultHolidayCountry]);
+  }, [defaultHolidayCountry]);
 
   // -- Button + inline message state ------------------------------------------
   const [buttonState, setButtonState] = useState<ButtonState>("idle");

@@ -10,6 +10,7 @@ import type {
   ScheduledActivity,
   Calendar,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { GanttChart } from "@ui/charts/GanttChart";
 import { CopyImageButton } from "./CopyImageButton";
@@ -24,7 +25,7 @@ interface GanttSectionProps {
   dependencyMode: boolean;
   activityTarget: number;
   projectTarget: number;
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;

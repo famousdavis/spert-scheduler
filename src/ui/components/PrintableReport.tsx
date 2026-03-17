@@ -9,6 +9,7 @@ import type {
   ScheduledActivity,
   MilestoneBufferInfo,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { STANDARD_PERCENTILES, RSM_LABELS } from "@domain/models/types";
 import {
@@ -27,7 +28,7 @@ interface PrintableReportProps {
   scheduledActivities: ScheduledActivity[];
   buffer: ScheduleBuffer | null;
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
   criticalPathIds?: Set<string> | null;
 }
 

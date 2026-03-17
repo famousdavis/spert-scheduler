@@ -37,7 +37,24 @@ export const HolidaySchema = z
   .refine((h) => h.endDate >= h.startDate, {
     message: "End date must be >= start date",
     path: ["endDate"],
-  });
+  })
+  .refine(
+    (h) => {
+      if (h.startDate === h.endDate) return true;
+      const [sy, sm, sd] = h.startDate.split("-").map(Number);
+      const [ey, em, ed] = h.endDate.split("-").map(Number);
+      const start = new Date(sy!, sm! - 1, sd!);
+      const end = new Date(ey!, em! - 1, ed!);
+      const diffMs = end.getTime() - start.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      return diffDays <= 366;
+    },
+    {
+      message:
+        "Holiday ranges cannot exceed one year. Please split into multiple entries.",
+      path: ["endDate"],
+    }
+  );
 
 export const CalendarSchema = z.object({
   holidays: z.array(HolidaySchema).max(1000),
@@ -158,6 +175,7 @@ export const ProjectSchema = z.object({
   createdAt: z.string().max(64),
   schemaVersion: z.number().int().positive(),
   globalCalendarOverride: CalendarSchema.optional(),
+  convertedWorkDays: z.array(ISODateString).max(500).optional(),
   scenarios: z.array(ScenarioSchema).max(20),
   archived: z.boolean().optional(),
 });

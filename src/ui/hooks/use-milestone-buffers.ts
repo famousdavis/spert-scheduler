@@ -10,6 +10,7 @@ import type {
   ScheduledActivity,
   SimulationRun,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { computeMilestoneBuffer } from "@core/schedule/buffer";
 import {
   addWorkingDays,
@@ -35,7 +36,7 @@ export function useMilestoneBuffers(
   simulationResults: SimulationRun | undefined,
   projectStartDate: string,
   projectProbabilityTarget: number,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): Map<string, MilestoneBufferInfo> | null {
   return useMemo(() => {
     if (milestones.length === 0) return null;

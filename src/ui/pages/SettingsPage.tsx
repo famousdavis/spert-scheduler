@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { ExportSection } from "@ui/components/ExportSection";
@@ -12,8 +13,10 @@ import { StorageModeSection } from "@ui/components/StorageModeSection";
 import { ScheduleExportSection } from "@ui/components/ScheduleExportSection";
 
 export function SettingsPage() {
-  const { projects, loadProjects, importProjects } = useProjectStore();
-  const { loadPreferences: loadPrefs } = usePreferencesStore();
+  const { projects, loadProjects, importProjects } = useProjectStore(
+    useShallow((s) => ({ projects: s.projects, loadProjects: s.loadProjects, importProjects: s.importProjects }))
+  );
+  const loadPrefs = usePreferencesStore((s) => s.loadPreferences);
 
   useEffect(() => {
     if (projects.length === 0) {

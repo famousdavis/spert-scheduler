@@ -10,6 +10,7 @@ import type {
   Milestone,
   ScenarioSettings,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { RSM_LABELS } from "@domain/models/types";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
@@ -33,7 +34,7 @@ export interface ScheduleExportParams {
   settings: ScenarioSettings;
   dependencies: ActivityDependency[];
   milestones: Milestone[]; // included for future use — NOT rendered in v0.18.0
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
   dateFormat: DateFormatPreference;
 }
 

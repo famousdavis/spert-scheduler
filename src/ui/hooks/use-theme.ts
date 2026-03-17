@@ -19,8 +19,8 @@ export function useTheme(): {
   effectiveTheme: EffectiveTheme;
   setTheme: (theme: ThemePreference) => void;
 } {
-  const { preferences, updatePreferences } = usePreferencesStore();
-  const theme = preferences.theme ?? "system";
+  const theme = usePreferencesStore((s) => s.preferences.theme) ?? "system";
+  const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
 
   // Determine effective theme based on preference and system setting
   const effectiveTheme = useMemo((): EffectiveTheme => {

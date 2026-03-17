@@ -6,6 +6,7 @@ import type { SimulationRun } from "@domain/models/types";
 import { cdf } from "@core/analytics/analytics";
 import { exportSimulationCSV } from "@app/api/csv-export-service";
 import { downloadFile } from "@ui/helpers/download";
+import { formatDateISO } from "@core/calendar/calendar";
 import { HistogramChart } from "@ui/charts/HistogramChart";
 import { CDFChart } from "@ui/charts/CDFChart";
 import { PercentileTable } from "@ui/charts/PercentileTable";
@@ -56,7 +57,7 @@ export function SimulationPanel({
       scenarioName ?? "Scenario",
       projectName ?? "Project"
     );
-    const filename = `spert-simulation-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `spert-simulation-${formatDateISO(new Date())}.csv`;
     downloadFile(csv, filename, "text/csv;charset=utf-8;");
   }, [simulationResults, scenarioName, projectName]);
 

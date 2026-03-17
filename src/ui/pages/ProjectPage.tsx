@@ -3,6 +3,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useShallow } from "zustand/react/shallow";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule } from "@ui/hooks/use-schedule";
@@ -13,7 +14,9 @@ import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
-import { formatDateISO, mergeCalendars } from "@core/calendar/calendar";
+import { formatDateISO } from "@core/calendar/calendar";
+import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
+import { CalendarConfigurationError } from "@core/calendar/work-calendar";
 import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
 import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
@@ -69,7 +72,40 @@ export function ProjectPage() {
     updateMilestone,
     assignActivityToMilestone,
     setActivityStartsAtMilestone,
-  } = useProjectStore();
+  } = useProjectStore(
+    useShallow((s) => ({
+      projects: s.projects,
+      loadProjects: s.loadProjects,
+      addScenario: s.addScenario,
+      deleteScenario: s.deleteScenario,
+      duplicateScenario: s.duplicateScenario,
+      addActivity: s.addActivity,
+      duplicateActivity: s.duplicateActivity,
+      deleteActivity: s.deleteActivity,
+      updateActivityField: s.updateActivityField,
+      moveActivity: s.moveActivity,
+      setSimulationResults: s.setSimulationResults,
+      updateScenarioStartDate: s.updateScenarioStartDate,
+      updateScenarioSettings: s.updateScenarioSettings,
+      renameProject: s.renameProject,
+      renameScenario: s.renameScenario,
+      bulkUpdateActivities: s.bulkUpdateActivities,
+      bulkDeleteActivities: s.bulkDeleteActivities,
+      undo: s.undo,
+      redo: s.redo,
+      canUndo: s.canUndo,
+      canRedo: s.canRedo,
+      toggleScenarioLock: s.toggleScenarioLock,
+      addDependency: s.addDependency,
+      removeDependency: s.removeDependency,
+      updateDependencyLag: s.updateDependencyLag,
+      addMilestone: s.addMilestone,
+      removeMilestone: s.removeMilestone,
+      updateMilestone: s.updateMilestone,
+      assignActivityToMilestone: s.assignActivityToMilestone,
+      setActivityStartsAtMilestone: s.setActivityStartsAtMilestone,
+    }))
+  );
 
   const simulation = useSimulation();
 
@@ -86,6 +122,7 @@ export function ProjectPage() {
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
   const [allActivitiesValid, setAllActivitiesValid] = useState(true);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(
     () => new Set()
@@ -119,19 +156,16 @@ export function ProjectPage() {
 
   const scenario = project?.scenarios.find((s) => s.id === activeScenarioId);
 
-  // Merge company-wide calendar (from preferences) with project-specific calendar
-  const globalCalendar = usePreferencesStore((s) => s.preferences.globalCalendar);
-  const mergedCalendar = useMemo(
-    () => mergeCalendars(globalCalendar, project?.globalCalendarOverride),
-    [globalCalendar, project?.globalCalendarOverride]
-  );
+  // Assembled work calendar: work week + holidays + converted work days
+  const workCalendar = useWorkCalendar(id ?? "");
 
   // Deterministic schedule — uses sequential or dependency-aware engine
   const sequentialSchedule = useSchedule(
     scenario?.settings.dependencyMode ? [] : (scenario?.activities ?? []),
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.probabilityTarget ?? 0.5,
-    mergedCalendar
+    workCalendar,
+    setCalendarError
   );
 
   const depMode = scenario?.settings.dependencyMode;
@@ -144,18 +178,22 @@ export function ProjectPage() {
   const dependencySchedule = useMemo(() => {
     if (!depMode || !activities || activities.length === 0 || !dependencies || !startDate || probTarget == null) return null;
     try {
+      setCalendarError(null);
       return computeDependencySchedule(
         activities,
         dependencies,
         startDate,
         probTarget,
-        mergedCalendar,
+        workCalendar,
         milestones
       );
-    } catch {
+    } catch (err) {
+      if (err instanceof CalendarConfigurationError) {
+        setCalendarError(err.message);
+      }
       return null;
     }
-  }, [depMode, activities, dependencies, startDate, probTarget, mergedCalendar, milestones]);
+  }, [depMode, activities, dependencies, startDate, probTarget, workCalendar, milestones]);
 
   // Critical path activity IDs (only in dependency mode)
   const criticalPathIds = useMemo(() => {
@@ -190,7 +228,7 @@ export function ProjectPage() {
     scenario?.simulationResults,
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.projectProbabilityTarget ?? 0.95,
-    mergedCalendar
+    workCalendar
   );
 
   const autoRunSimulation = usePreferencesStore(
@@ -202,7 +240,7 @@ export function ProjectPage() {
     projectId: id,
     scenario,
     allActivitiesValid,
-    mergedCalendar,
+    workCalendar,
     isRunning: simulation.isRunning,
     runSimulation: simulation.run,
     setSimulationResults,
@@ -283,7 +321,7 @@ export function ProjectPage() {
       scenario.dependencies,
       scenario.milestones,
       scenario.startDate,
-      mergedCalendar,
+      workCalendar,
     );
     simulation.run(
       scenario.activities,
@@ -295,7 +333,7 @@ export function ProjectPage() {
       },
       params.dependencyParams,
     );
-  }, [id, scenario, simulation, setSimulationResults, mergedCalendar]);
+  }, [id, scenario, simulation, setSimulationResults, workCalendar]);
 
   const handleSettingsChange = useCallback(
     (updates: Partial<ScenarioSettings>) => {
@@ -430,13 +468,25 @@ export function ProjectPage() {
       {compareMode && compareScenarios.length >= 2 && (
         <ScenarioComparisonTable
           scenarios={compareScenarios}
-          calendar={mergedCalendar}
+          calendar={workCalendar}
         />
       )}
       {compareMode && compareScenarios.length < 2 && (
         <p className="text-sm text-gray-400">
           Select 2-3 scenarios above to compare.
         </p>
+      )}
+
+      {/* Calendar configuration error banner */}
+      {calendarError && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-sm font-medium text-red-800 dark:text-red-300">
+            Calendar Configuration Error
+          </p>
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+            {calendarError} Check your work week settings in Settings.
+          </p>
+        </div>
       )}
 
       {/* Active scenario content */}
@@ -447,7 +497,7 @@ export function ProjectPage() {
             startDate={scenario.startDate}
             schedule={schedule}
             buffer={buffer}
-            calendar={mergedCalendar}
+            calendar={workCalendar}
             settings={scenario.settings}
             hasSimulationResults={!!scenario.simulationResults}
             onSettingsChange={handleSettingsChange}
@@ -492,7 +542,7 @@ export function ProjectPage() {
             heuristicEnabled={scenario.settings.heuristicEnabled}
             heuristicMinPercent={scenario.settings.heuristicMinPercent}
             heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
-            calendar={mergedCalendar}
+            calendar={workCalendar}
           />
 
           {/* Schedule Export — XLSX / CSV */}
@@ -505,7 +555,7 @@ export function ProjectPage() {
             settings={scenario.settings}
             dependencies={scenario.dependencies}
             milestones={scenario.milestones}
-            calendar={mergedCalendar}
+            calendar={workCalendar}
             hasSimulationResults={!!scenario.simulationResults}
             onRunSimulation={handleRunSimulation}
           />
@@ -566,7 +616,7 @@ export function ProjectPage() {
               dependencyMode={scenario.settings.dependencyMode}
               activityTarget={scenario.settings.probabilityTarget}
               projectTarget={scenario.settings.projectProbabilityTarget}
-              calendar={mergedCalendar}
+              calendar={workCalendar}
               milestones={scenario.milestones}
               milestoneBuffers={milestoneBuffers}
               criticalPathIds={criticalPathIds}
@@ -632,7 +682,7 @@ export function ProjectPage() {
           scheduledActivities={schedule?.activities ?? []}
           buffer={buffer}
           milestoneBuffers={milestoneBuffers}
-          calendar={mergedCalendar}
+          calendar={workCalendar}
           criticalPathIds={criticalPathIds}
         />
       )}

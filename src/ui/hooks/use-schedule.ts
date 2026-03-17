@@ -7,24 +7,36 @@ import type {
   Calendar,
   DeterministicSchedule,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
+import { CalendarConfigurationError } from "@core/calendar/work-calendar";
 import { computeSchedule } from "@app/api/schedule-service";
 
 /**
  * Memoized deterministic schedule computation.
  * Recomputes only when activities, startDate, probabilityTarget, or calendar change.
+ *
+ * If the calendar configuration has no valid work days, fires onCalendarError
+ * (if provided) with the error message.
  */
 export function useSchedule(
   activities: Activity[],
   startDate: string,
   probabilityTarget: number,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar,
+  onCalendarError?: (msg: string | null) => void
 ): DeterministicSchedule | null {
   return useMemo(() => {
     if (activities.length === 0) return null;
     try {
-      return computeSchedule(activities, startDate, probabilityTarget, calendar);
-    } catch {
+      const result = computeSchedule(activities, startDate, probabilityTarget, calendar);
+      onCalendarError?.(null);
+      return result;
+    } catch (err) {
+      if (err instanceof CalendarConfigurationError) {
+        onCalendarError?.(err.message);
+      }
       return null;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- onCalendarError is a setState, stable ref
   }, [activities, startDate, probabilityTarget, calendar]);
 }

@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { DeterministicSchedule, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
   parseDateISO,
@@ -19,7 +20,7 @@ interface ScenarioSummaryCardProps {
   startDate: string;
   schedule: DeterministicSchedule | null;
   buffer: ScheduleBuffer | null;
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
   settings: ScenarioSettings;
   hasSimulationResults: boolean;
   onSettingsChange: (updates: Partial<ScenarioSettings>) => void;

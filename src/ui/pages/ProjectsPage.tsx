@@ -17,10 +17,12 @@ import {
   sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useShallow } from "zustand/react/shallow";
 import { useProjectStore, type LoadError } from "@ui/hooks/use-project-store";
 import { NewProjectDialog } from "@ui/components/NewProjectDialog";
 import { ProjectTile } from "@ui/components/ProjectTile";
 import { downloadFile } from "@ui/helpers/download";
+import { formatDateISO } from "@core/calendar/calendar";
 
 function getErrorTypeLabel(type: LoadError["type"]): string {
   switch (type) {
@@ -50,7 +52,21 @@ export function ProjectsPage() {
     unarchiveProject,
     getCorruptedProjectRawData,
     removeCorruptedProject,
-  } = useProjectStore();
+  } = useProjectStore(
+    useShallow((s) => ({
+      projects: s.projects,
+      loadError: s.loadError,
+      loadErrors: s.loadErrors,
+      loadProjects: s.loadProjects,
+      addProject: s.addProject,
+      deleteProject: s.deleteProject,
+      reorderProjects: s.reorderProjects,
+      archiveProject: s.archiveProject,
+      unarchiveProject: s.unarchiveProject,
+      getCorruptedProjectRawData: s.getCorruptedProjectRawData,
+      removeCorruptedProject: s.removeCorruptedProject,
+    }))
+  );
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -120,7 +136,7 @@ export function ProjectsPage() {
     (projectId: string) => {
       const raw = getCorruptedProjectRawData(projectId);
       if (raw) {
-        const filename = `corrupted-project-${projectId}-${new Date().toISOString().slice(0, 10)}.json`;
+        const filename = `corrupted-project-${projectId}-${formatDateISO(new Date())}.json`;
         downloadFile(raw, filename, "application/json");
       }
     },

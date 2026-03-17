@@ -10,6 +10,7 @@ import type {
   Milestone,
   ScenarioSettings,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
   exportScheduleXlsx,
@@ -29,7 +30,7 @@ interface ScheduleExportButtonProps {
   settings: ScenarioSettings;
   dependencies: ActivityDependency[];
   milestones: Milestone[];
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
   hasSimulationResults: boolean;
   onRunSimulation?: () => void;
 }

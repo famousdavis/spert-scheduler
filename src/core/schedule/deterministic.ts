@@ -9,6 +9,7 @@ import type {
   Milestone,
   ScheduledActivity,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { createDistributionForActivity } from "@core/distributions/factory";
 import {
   addWorkingDays,
@@ -69,7 +70,7 @@ export function computeDeterministicSchedule(
   activities: Activity[],
   startDate: string,
   percentile: number,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): DeterministicSchedule {
   const scheduledActivities: ScheduledActivity[] = [];
 
@@ -179,7 +180,7 @@ export function computeDependencySchedule(
   dependencies: ActivityDependency[],
   startDate: string,
   percentile: number,
-  calendar?: Calendar,
+  calendar?: WorkCalendar | Calendar,
   milestones?: Milestone[]
 ): DeterministicSchedule {
   const graph = buildDependencyGraph(

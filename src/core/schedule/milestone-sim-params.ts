@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Activity, Milestone, Calendar } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { parseDateISO, isWorkingDay, countWorkingDays } from "@core/calendar/calendar";
 
 export interface MilestoneSimParams {
@@ -23,7 +24,7 @@ export function buildMilestoneSimParams(
   activities: Activity[],
   milestones: Milestone[],
   startDate: string,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): MilestoneSimParams {
   if (!milestones || milestones.length === 0) return {};
 

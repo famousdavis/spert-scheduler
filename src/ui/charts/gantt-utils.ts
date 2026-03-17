@@ -3,6 +3,7 @@
 
 import type { Activity, ActivityDependency } from "@domain/models/types";
 import { buildDependencyGraph } from "@core/schedule/dependency-graph";
+import { formatDateISO } from "@core/calendar/calendar";
 import { LEFT_MARGIN } from "./gantt-constants";
 
 export const MONTH_ABBR = [
@@ -41,16 +42,8 @@ export function compactLabel(d: Date, includeDay: boolean): string {
   return `${mon} ${d.getDate()}`;
 }
 
-/** Date → ISO string "YYYY-MM-DD" (local time). */
-export function toISO(d: Date): string {
-  return (
-    d.getFullYear() +
-    "-" +
-    String(d.getMonth() + 1).padStart(2, "0") +
-    "-" +
-    String(d.getDate()).padStart(2, "0")
-  );
-}
+/** @deprecated Use formatDateISO from @core/calendar/calendar instead */
+export const toISO = formatDateISO;
 
 /**
  * Generate tick marks for the time axis.
