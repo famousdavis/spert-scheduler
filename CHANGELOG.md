@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.19.3 — 2026-03-17
+
+### Bug Fixes
+
+- Fix Max % heuristic input not accepting typed values (removed HTML `min` constraint that blocked intermediate keystrokes)
+- Fix Gantt chart showing activities in topological sort order instead of grid order when dependency mode is enabled
+
 ## 0.19.2 — 2026-03-17
 
 ### Security

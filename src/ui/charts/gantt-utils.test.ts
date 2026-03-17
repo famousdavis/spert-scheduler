@@ -186,13 +186,13 @@ describe("buildOrderedActivities", () => {
     expect(result.map((x) => x.id)).toEqual(["c", "b", "a"]);
   });
 
-  it("returns topological order for a chain A → B → C", () => {
+  it("preserves grid order even with dependencies (A → B → C chain)", () => {
     const result = buildOrderedActivities(
       [c, b, a],
       [fsDep("a", "b"), fsDep("b", "c")],
       true,
     );
-    expect(result.map((x) => x.id)).toEqual(["a", "b", "c"]);
+    expect(result.map((x) => x.id)).toEqual(["c", "b", "a"]);
   });
 
   it("returns original order on cyclic dependency (graceful fallback)", () => {
