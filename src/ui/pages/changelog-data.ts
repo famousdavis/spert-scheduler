@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.18.1",
+    date: "2026-03-16",
+    sections: [
+      {
+        title: "Improvements",
+        items: [
+          "Decomposed CalendarEditor.tsx (619 LOC) into HolidayLoader, HolidayList, and shell (~150 LOC each)",
+          "Fixed memory leak in downloadFile(): wrapped URL.createObjectURL() in try-finally to ensure cleanup on error",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.18.0",
     date: "2026-03-16",
     sections: [

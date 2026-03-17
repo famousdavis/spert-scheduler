@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.1 — 2026-03-16
+
+### Improvements
+
+- Decomposed CalendarEditor.tsx (619 LOC) into HolidayLoader, HolidayList, and shell (~150 LOC each)
+- Fixed memory leak in downloadFile(): wrapped URL.createObjectURL() in try-finally to ensure URL.revokeObjectURL() runs on error
+
 ## 0.18.0 — 2026-03-16
 
 ### New Features
