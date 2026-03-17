@@ -46,15 +46,15 @@ export function GanttLegend({
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
       {/* Status colors */}
       <span className="flex items-center gap-1.5">
-        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
+        <span className="inline-block align-middle w-3 h-3 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
         Planned
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barInProgress }} />
+        <span className="inline-block align-middle w-3 h-3 rounded-sm" style={{ backgroundColor: c.barInProgress }} />
         In Progress
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: c.barComplete }} />
+        <span className="inline-block align-middle w-3 h-3 rounded-sm" style={{ backgroundColor: c.barComplete }} />
         Complete
       </span>
 
@@ -62,7 +62,7 @@ export function GanttLegend({
       {showCriticalPath && dependencyMode && hasCriticalPath && (
         <span className="flex items-center gap-1.5">
           <span
-            className="inline-block w-3 h-3 rounded-sm"
+            className="inline-block align-middle w-3 h-3 rounded-sm"
             style={{ backgroundColor: c.barPlanned, borderLeft: `4px solid ${c.criticalPath}` }}
           />
           Critical Path
@@ -72,7 +72,7 @@ export function GanttLegend({
       {/* Uncertainty hatching */}
       {viewMode === "uncertainty" && (
         <span className="flex items-center gap-1.5">
-          <svg width="12" height="12" className="inline-block">
+          <svg width="12" height="12" className="inline-block align-middle">
             <defs>
               <pattern id="legend-hatch" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
                 <line x1="0" y1="0" x2="0" y2="4" stroke={c.hatchActivity} strokeWidth="2" />
@@ -86,7 +86,7 @@ export function GanttLegend({
 
       {/* Finish line */}
       <span className="flex items-center gap-1.5">
-        <svg width="12" height="12" className="inline-block">
+        <svg width="12" height="12" className="inline-block align-middle">
           <line x1="6" y1="0" x2="6" y2="12" stroke={c.finishLine} strokeWidth="2" strokeDasharray="3 1.5" />
         </svg>
         Finish
@@ -95,7 +95,7 @@ export function GanttLegend({
       {/* Today line */}
       {showToday && todayVisible && (
         <span className="flex items-center gap-1.5">
-          <svg width="12" height="12" className="inline-block">
+          <svg width="12" height="12" className="inline-block align-middle">
             <line x1="6" y1="0" x2="6" y2="12" stroke={c.todayLine} strokeWidth="1.5" strokeDasharray="2 1" />
           </svg>
           Today
@@ -105,7 +105,7 @@ export function GanttLegend({
       {/* Milestones */}
       {hasMilestones && (
         <span className="flex items-center gap-1.5">
-          <svg width="12" height="12" className="inline-block">
+          <svg width="12" height="12" className="inline-block align-middle">
             <polygon points="6,1 11,6 6,11 1,6" fill={mc.diamond} />
           </svg>
           Milestone
