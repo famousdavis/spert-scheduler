@@ -163,6 +163,19 @@ function migrateV8toV9(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v9 → v10: Add convertedWorkDays array to project.
+ * Defaults to empty array for existing projects.
+ */
+function migrateV9toV10(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  if (project.convertedWorkDays === undefined) {
+    project.convertedWorkDays = [];
+  }
+  project.schemaVersion = 10;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -172,6 +185,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   6: migrateV6toV7,
   7: migrateV7toV8,
   8: migrateV8toV9,
+  9: migrateV9toV10,
 };
 
 /**

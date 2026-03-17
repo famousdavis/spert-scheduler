@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Activity, Calendar, Milestone, ActivityDependency } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { DependencySimulationParams } from "@core/simulation/worker-client";
 import { computeDeterministicDurations, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
@@ -22,7 +23,7 @@ export function buildSimulationParams(
   dependencies: ActivityDependency[],
   milestones: Milestone[],
   startDate: string,
-  calendar: Calendar | undefined,
+  calendar: WorkCalendar | Calendar | undefined,
 ): SimulationParams {
   if (dependencyMode) {
     const durationMap = computeDependencyDurations(activities, probabilityTarget);

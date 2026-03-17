@@ -361,4 +361,52 @@ describe("ProjectSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts project with convertedWorkDays", () => {
+    const result = ProjectSchema.safeParse({
+      ...validProject,
+      convertedWorkDays: ["2025-03-08", "2025-03-15"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts project without convertedWorkDays (backward compat)", () => {
+    const result = ProjectSchema.safeParse(validProject);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects convertedWorkDays with invalid date", () => {
+    const result = ProjectSchema.safeParse({
+      ...validProject,
+      convertedWorkDays: ["not-a-date"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects convertedWorkDays with impossible date", () => {
+    const result = ProjectSchema.safeParse({
+      ...validProject,
+      convertedWorkDays: ["2025-02-29"],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("HolidaySchema range limit", () => {
+  it("accepts holiday range up to 366 days", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ id: "h1", name: "Year Off", startDate: "2025-01-01", endDate: "2026-01-02" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects holiday range exceeding 366 days", () => {
+    const result = CalendarSchema.safeParse({
+      holidays: [{ id: "h1", name: "Too Long", startDate: "2025-01-01", endDate: "2026-06-01" }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain("cannot exceed one year");
+    }
+  });
 });

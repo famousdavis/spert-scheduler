@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -186,6 +186,7 @@ export interface Project {
   createdAt: string; // ISO 8601
   schemaVersion: number;
   globalCalendarOverride?: Calendar;
+  convertedWorkDays?: string[]; // ISO date strings for non-work days converted to work days
   scenarios: Scenario[];
   archived?: boolean; // default false
 }
@@ -281,6 +282,8 @@ export interface UserPreferences {
   ganttShowProjectName: boolean;
   /** ISO 3166-1 alpha-2 country code for holiday loader (default: "US") */
   defaultHolidayCountry?: string;
+  /** Active work days: array of day indices (0=Sun, 1=Mon, ..., 6=Sat). Default: [1,2,3,4,5] (Mon–Fri) */
+  workDays?: number[];
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
@@ -301,7 +304,12 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   ganttShowToday: true,
   ganttShowCriticalPath: true,
   ganttShowProjectName: false,
+  workDays: [1, 2, 3, 4, 5], // Mon–Fri
 };
+
+// -- Weekday Labels -----------------------------------------------------------
+
+export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 // -- RSM Descriptions (tooltips) ----------------------------------------------
 

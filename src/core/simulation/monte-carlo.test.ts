@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from "vitest";
+import * as fc from "fast-check";
 import { runMonteCarloSimulation, runTrials, runDependencyTrials, computeSimulationStats } from "./monte-carlo";
 import type { Activity, ActivityDependency } from "@domain/models/types";
 
@@ -422,5 +423,490 @@ describe("runDependencyTrials", () => {
     for (let i = 0; i < result.samples.length; i++) {
       expect(result.samples[i]!).toBe(13);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MC with non-standard work week floors (Category 1)
+// ---------------------------------------------------------------------------
+
+describe("Monte Carlo with non-standard work week deterministic floors", () => {
+  it("invariant: Parkinson floor from 3-day week deterministic applied correctly", () => {
+    // 3-day week gives larger deterministic durations → higher floors
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a2", min: 5, mostLikely: 8, max: 15 }),
+    ];
+    const deterministicDurations = [20, 30]; // Simulating floors from 3-day week
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 5000,
+      rngSeed: "3day-floor-test",
+      deterministicDurations,
+    });
+    const floorSum = 50;
+    for (const sample of result.samples) {
+      expect(sample).toBeGreaterThanOrEqual(floorSum);
+    }
+  });
+
+  it("invariant: large floors from 1-day week complete without timeout", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const deterministicDurations = [100, 100]; // Simulating 1-day week floors
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 1000,
+      rngSeed: "1day-floor-test",
+      deterministicDurations,
+    });
+    expect(result.samples).toHaveLength(1000);
+    for (const sample of result.samples) {
+      expect(sample).toBeGreaterThanOrEqual(200);
+    }
+  });
+
+  it("PBT: every sequential trial >= sum of generated deterministic floors", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 100 }), { minLength: 1, maxLength: 5 }),
+        (floors) => {
+          const activities = floors.map((_, i) =>
+            makeActivity({ id: `a${i}`, min: 1, mostLikely: 2, max: 3 })
+          );
+          const result = runTrials({
+            activities,
+            trialCount: 100,
+            rngSeed: "pbt-floor",
+            deterministicDurations: floors,
+          });
+          const floorSum = floors.reduce((s, f) => s + f, 0);
+          for (let i = 0; i < result.length; i++) {
+            if (result[i]! < floorSum) return false;
+          }
+          return true;
+        }
+      ),
+      { numRuns: 200 }
+    );
+  });
+
+  it("invariant: dependency MC with high floors from non-standard week", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 1, mostLikely: 2, max: 3 }),
+      makeActivity({ id: "a2", min: 1, mostLikely: 2, max: 3 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+    const floorMap = new Map([["a1", 50], ["a2", 50]]);
+    const result = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 1000,
+      rngSeed: "dep-nonstandard-floor",
+      deterministicDurationMap: floorMap,
+    });
+    // Sequential chain: a1 + a2, floors 50 + 50 = 100
+    for (let i = 0; i < result.samples.length; i++) {
+      expect(result.samples[i]!).toBeGreaterThanOrEqual(100);
+    }
+  });
+
+  it("PBT: dependency MC samples >= critical path of generated floor map", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 50 }), { minLength: 2, maxLength: 4 }),
+        (floors) => {
+          const activities = floors.map((_, i) =>
+            makeActivity({ id: `a${i}`, min: 1, mostLikely: 2, max: 3 })
+          );
+          // Sequential chain: a0 → a1 → a2 → ...
+          const deps = floors.slice(1).map((_, i) => fsDep(`a${i}`, `a${i + 1}`));
+          const floorMap = new Map(floors.map((f, i) => [`a${i}`, f]));
+          const result = runDependencyTrials({
+            activities,
+            dependencies: deps,
+            trialCount: 50,
+            rngSeed: "pbt-dep-floor",
+            deterministicDurationMap: floorMap,
+          });
+          const criticalPathFloor = floors.reduce((s, f) => s + f, 0);
+          for (let i = 0; i < result.samples.length; i++) {
+            if (result.samples[i]! < criticalPathFloor) return false;
+          }
+          return true;
+        }
+      ),
+      { numRuns: 200 }
+    );
+  });
+
+  it("empty deterministic floors: no Parkinson clamping", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const withFloors = runMonteCarloSimulation({
+      activities,
+      trialCount: 5000,
+      rngSeed: "floor-compare",
+      deterministicDurations: [20],
+    });
+    const withoutFloors = runMonteCarloSimulation({
+      activities,
+      trialCount: 5000,
+      rngSeed: "floor-compare",
+    });
+    // Without floors, mean should be lower
+    expect(withoutFloors.mean).toBeLessThan(withFloors.mean);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Parkinson's Law invariants (Category 5)
+// ---------------------------------------------------------------------------
+
+describe("Parkinson's Law invariants", () => {
+  it("PBT: every sequential trial >= sum of generated floors", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 100 }), { minLength: 1, maxLength: 5 }),
+        (floors) => {
+          const activities = floors.map((_, i) =>
+            makeActivity({ id: `p${i}`, min: 1, mostLikely: 2, max: 5 })
+          );
+          const samples = runTrials({
+            activities,
+            trialCount: 100,
+            rngSeed: "parkinson-pbt",
+            deterministicDurations: floors,
+          });
+          const total = floors.reduce((s, f) => s + f, 0);
+          for (let i = 0; i < samples.length; i++) {
+            if (samples[i]! < total) return false;
+          }
+          return true;
+        }
+      ),
+      { numRuns: 200 }
+    );
+  });
+
+  it("invariant: all trials include completed activity fixed durations", () => {
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", actualDuration: 10 }),
+      makeActivity({ id: "a2", status: "complete", actualDuration: 7 }),
+      makeActivity({ id: "a3", min: 1, mostLikely: 2, max: 3 }),
+    ];
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 5000,
+      rngSeed: "completed-invariant",
+    });
+    // Every sample must be >= 10 + 7 = 17
+    for (const sample of result.samples) {
+      expect(sample).toBeGreaterThanOrEqual(17);
+    }
+  });
+
+  it("PBT: dependency trial >= critical path of generated floor map", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 50 }), { minLength: 2, maxLength: 4 }),
+        (floors) => {
+          const activities = floors.map((_, i) =>
+            makeActivity({ id: `d${i}`, min: 1, mostLikely: 2, max: 5 })
+          );
+          const deps = floors.slice(1).map((_, i) => fsDep(`d${i}`, `d${i + 1}`));
+          const floorMap = new Map(floors.map((f, i) => [`d${i}`, f]));
+          const result = runDependencyTrials({
+            activities,
+            dependencies: deps,
+            trialCount: 50,
+            rngSeed: "parkinson-dep-pbt",
+            deterministicDurationMap: floorMap,
+          });
+          const cpFloor = floors.reduce((s, f) => s + f, 0);
+          for (let i = 0; i < result.samples.length; i++) {
+            if (result.samples[i]! < cpFloor) return false;
+          }
+          return true;
+        }
+      ),
+      { numRuns: 200 }
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Degenerate inputs (Category 5)
+// ---------------------------------------------------------------------------
+
+describe("degenerate inputs", () => {
+  it("min=max=mostLikely: all trials equal", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 5, mostLikely: 5, max: 5 }),
+    ];
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 1000,
+      rngSeed: "zero-variance",
+    });
+    for (const sample of result.samples) {
+      expect(sample).toBe(5);
+    }
+    expect(result.standardDeviation).toBe(0);
+  });
+
+  it("min=max=mostLikely=0: all trials zero", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 0, mostLikely: 0, max: 0 }),
+    ];
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 1000,
+      rngSeed: "all-zero",
+    });
+    for (const sample of result.samples) {
+      expect(sample).toBe(0);
+    }
+    expect(result.mean).toBe(0);
+  });
+
+  it("100 activities with 10000 trials completes without timeout", () => {
+    const activities = Array.from({ length: 100 }, (_, i) =>
+      makeActivity({ id: `a${i}`, min: 1, mostLikely: 2, max: 5 })
+    );
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 10000,
+      rngSeed: "scale-test",
+    });
+    expect(result.samples).toHaveLength(10000);
+    expect(result.mean).toBeGreaterThan(0);
+  });
+
+  it("wide diamond graph (10 parallel branches): mean < sequential sum", () => {
+    const start = makeActivity({ id: "start", min: 1, mostLikely: 1, max: 1 });
+    const end = makeActivity({ id: "end", min: 1, mostLikely: 1, max: 1 });
+    const branches = Array.from({ length: 10 }, (_, i) =>
+      makeActivity({ id: `b${i}`, min: 3, mostLikely: 5, max: 10 })
+    );
+    const activities = [start, ...branches, end];
+    const deps = [
+      ...branches.map((b) => fsDep("start", b.id)),
+      ...branches.map((b) => fsDep(b.id, "end")),
+    ];
+
+    const result = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 5000,
+      rngSeed: "wide-diamond",
+    });
+    const stats = computeSimulationStats(result.samples, 5000, "s");
+    // Sequential sum would be ~52 (1 + 10*5 + 1), parallel should be ~7 (1 + max(branches) + 1)
+    const seqSum = 1 + 10 * 5 + 1;
+    expect(stats.mean).toBeLessThan(seqSum);
+  });
+
+  it("trial count of 1 produces valid statistics", () => {
+    const result = runMonteCarloSimulation({
+      activities: [makeActivity()],
+      trialCount: 1,
+      rngSeed: "single-trial-edge",
+    });
+    expect(result.samples).toHaveLength(1);
+    // All percentiles should equal the single sample
+    const value = result.samples[0]!;
+    for (const p of [5, 50, 95, 99]) {
+      expect(result.percentiles[p]).toBe(value);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Milestone Monte Carlo (Category 5)
+// ---------------------------------------------------------------------------
+
+describe("milestone Monte Carlo", () => {
+  it("milestoneSamples populated for each milestone", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+    const milestoneActivityIds = new Map([["m1", ["a1"]]]);
+
+    const result = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 100,
+      rngSeed: "milestone-pop",
+      milestoneActivityIds,
+    });
+
+    expect(result.milestoneSamples).toBeDefined();
+    expect(result.milestoneSamples!.has("m1")).toBe(true);
+    expect(result.milestoneSamples!.get("m1")!).toHaveLength(100);
+  });
+
+  it("milestone duration <= project duration for every trial", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+    const milestoneActivityIds = new Map([["m1", ["a1"]]]);
+
+    const result = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 1000,
+      rngSeed: "milestone-lte",
+      milestoneActivityIds,
+    });
+
+    const ms = result.milestoneSamples!.get("m1")!;
+    for (let i = 0; i < result.samples.length; i++) {
+      expect(ms[i]!).toBeLessThanOrEqual(result.samples[i]!);
+    }
+  });
+
+  it("milestone covering all activities equals project duration", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const deps = [fsDep("a1", "a2")];
+    const milestoneActivityIds = new Map([["m1", ["a1", "a2"]]]);
+
+    const result = runDependencyTrials({
+      activities,
+      dependencies: deps,
+      trialCount: 1000,
+      rngSeed: "milestone-all",
+      milestoneActivityIds,
+    });
+
+    const ms = result.milestoneSamples!.get("m1")!;
+    for (let i = 0; i < result.samples.length; i++) {
+      expect(ms[i]!).toBe(result.samples[i]!);
+    }
+  });
+
+  it("milestone with activityEarliestStart offset", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 5, mostLikely: 5, max: 5 }),
+      makeActivity({ id: "a2", min: 5, mostLikely: 5, max: 5 }),
+    ];
+    // Parallel: no deps
+    const milestoneActivityIds = new Map([["m1", ["a2"]]]);
+    const activityEarliestStart = new Map([["a2", 10]]); // a2 can't start before day 10
+
+    const result = runDependencyTrials({
+      activities,
+      dependencies: [],
+      trialCount: 100,
+      rngSeed: "milestone-offset",
+      milestoneActivityIds,
+      activityEarliestStart,
+    });
+
+    const ms = result.milestoneSamples!.get("m1")!;
+    // a2 starts at day 10, duration 5, so milestone = 15
+    for (let i = 0; i < ms.length; i++) {
+      expect(ms[i]!).toBeGreaterThanOrEqual(15);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Progress callback edge cases (Category 5)
+// ---------------------------------------------------------------------------
+
+describe("progress callback edge cases", () => {
+  it("onProgress receives monotonically increasing values", () => {
+    const values: number[] = [];
+    runTrials({
+      activities: [makeActivity()],
+      trialCount: 50000,
+      rngSeed: "progress-mono",
+      onProgress: (completed) => values.push(completed),
+      progressInterval: 10000,
+    });
+    for (let i = 1; i < values.length; i++) {
+      expect(values[i]!).toBeGreaterThan(values[i - 1]!);
+    }
+    expect(values.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("dependency MC calls onProgress at correct intervals", () => {
+    const calls: [number, number][] = [];
+    runDependencyTrials({
+      activities: [
+        makeActivity({ id: "a1" }),
+        makeActivity({ id: "a2" }),
+      ],
+      dependencies: [fsDep("a1", "a2")],
+      trialCount: 25000,
+      rngSeed: "dep-progress",
+      onProgress: (completed, total) => calls.push([completed, total]),
+      progressInterval: 10000,
+    });
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toEqual([10000, 25000]);
+    expect(calls[1]).toEqual([20000, 25000]);
+  });
+
+  it("computeSimulationStats: percentiles are monotonically non-decreasing", () => {
+    // Hand-crafted sorted samples
+    const samples = new Float64Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 100]);
+    const stats = computeSimulationStats(samples, samples.length, "hand-crafted");
+    const pValues = [5, 10, 25, 50, 75, 85, 90, 95, 99];
+    for (let i = 1; i < pValues.length; i++) {
+      expect(stats.percentiles[pValues[i]!]).toBeGreaterThanOrEqual(
+        stats.percentiles[pValues[i - 1]!]!
+      );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Floors edge cases (Category 5)
+// ---------------------------------------------------------------------------
+
+describe("deterministic floor edge cases", () => {
+  it("floors of 0 have no clamping effect", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const withZeroFloors = runMonteCarloSimulation({
+      activities,
+      trialCount: 5000,
+      rngSeed: "zero-floor",
+      deterministicDurations: [0],
+    });
+    const withoutFloors = runMonteCarloSimulation({
+      activities,
+      trialCount: 5000,
+      rngSeed: "zero-floor",
+    });
+    // Identical results since max(0, sampled) = sampled
+    expect(withZeroFloors.mean).toBe(withoutFloors.mean);
+  });
+
+  it("undefined floors: no Parkinson clamping applied", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 5, max: 10 }),
+    ];
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 5000,
+      rngSeed: "no-floor",
+      // deterministicDurations intentionally omitted
+    });
+    // Some samples should be below what a high floor would impose
+    expect(result.minSample).toBeLessThan(20);
   });
 });

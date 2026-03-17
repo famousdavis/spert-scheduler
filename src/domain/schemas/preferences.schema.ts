@@ -19,8 +19,8 @@ export const UserPreferencesSchema = z.object({
   defaultProjectTarget: z.number().min(0.01).max(0.99),
   dateFormat: z.enum(DATE_FORMATS),
   autoRunSimulation: z.boolean(),
-  theme: z.enum(THEME_OPTIONS).optional(), // Optional for backward compatibility
-  storeFullSimulationData: z.boolean().optional(), // Optional for backward compatibility
+  theme: z.enum(THEME_OPTIONS).optional(),
+  storeFullSimulationData: z.boolean().optional(),
   defaultHeuristicEnabled: z.boolean().optional(),
   defaultHeuristicMinPercent: z.number().int().min(1).max(99).optional(),
   defaultHeuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
@@ -31,4 +31,5 @@ export const UserPreferencesSchema = z.object({
   ganttShowCriticalPath: z.boolean().optional(),
   ganttShowProjectName: z.boolean().optional(),
   defaultHolidayCountry: z.string().min(2).max(10).optional(),
+  workDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
 });

@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Activity, Scenario, Calendar, SimulationRun } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
 
@@ -10,7 +11,7 @@ interface UseAutoRunSimulationArgs {
   projectId: string | undefined;
   scenario: Scenario | undefined;
   allActivitiesValid: boolean;
-  mergedCalendar: Calendar | undefined;
+  workCalendar: WorkCalendar | Calendar | undefined;
   isRunning: boolean;
   runSimulation: (
     activities: Activity[],
@@ -31,7 +32,7 @@ export function useAutoRunSimulation({
   projectId,
   scenario,
   allActivitiesValid,
-  mergedCalendar,
+  workCalendar,
   isRunning,
   runSimulation,
   setSimulationResults,
@@ -66,7 +67,7 @@ export function useAutoRunSimulation({
         scenario.dependencies,
         scenario.milestones,
         scenario.startDate,
-        mergedCalendar,
+        workCalendar,
       );
       runSimulation(
         activitiesRef.current,

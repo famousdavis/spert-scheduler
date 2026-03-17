@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Calendar, DateFormatPreference } from "@domain/models/types";
+import type { WorkCalendar } from "./work-calendar";
 
 /** Maximum iterations for working day calculations to prevent infinite loops */
 const MAX_CALENDAR_ITERATIONS = 10000;
@@ -44,30 +45,63 @@ export function parseDateISO(dateStr: string): Date {
   return new Date(y, m - 1, d);
 }
 
-/**
- * Check if a date is a working day (Mon-Fri, not a holiday).
- */
-export function isWorkingDay(date: Date, calendar?: Calendar): boolean {
+// -- Legacy fallback helpers (production only) --------------------------------
+
+function legacyIsWorkingDay(date: Date, calendar: Calendar): boolean {
   const day = date.getDay();
-  if (day === 0 || day === 6) return false; // Sunday or Saturday
-  if (calendar) {
-    const iso = formatDateISO(date);
-    if (calendar.holidays.some((h) => iso >= h.startDate && iso <= h.endDate))
-      return false;
-  }
+  if (day === 0 || day === 6) return false;
+  const iso = formatDateISO(date);
+  if (calendar.holidays.some((h) => iso >= h.startDate && iso <= h.endDate))
+    return false;
   return true;
+}
+
+function handleLegacyCalendar(calendar: unknown): void {
+  if (calendar && !("isWorkDay" in (calendar as object))) {
+    if (import.meta.env.DEV) {
+      throw new Error(
+        "Legacy Calendar passed to isWorkingDay. Migration required. " +
+          "Update this call site to pass a WorkCalendar instance."
+      );
+    }
+  }
+}
+
+// -- Public API (dual-accept: WorkCalendar | Calendar) ------------------------
+
+/**
+ * Check if a date is a working day.
+ *
+ * Accepts either a WorkCalendar (v0.19.0+) or a legacy Calendar data object.
+ * In development, passing a legacy Calendar throws to ensure migration.
+ * In production, falls back to Mon-Fri + holiday range scan.
+ */
+export function isWorkingDay(
+  date: Date,
+  calendar?: WorkCalendar | Calendar
+): boolean {
+  if (!calendar) {
+    const day = date.getDay();
+    return day !== 0 && day !== 6;
+  }
+  if ("isWorkDay" in calendar) {
+    return (calendar as WorkCalendar).isWorkDay(date);
+  }
+  handleLegacyCalendar(calendar);
+  return legacyIsWorkingDay(date, calendar as Calendar);
 }
 
 /**
  * Add working days to a start date. Returns the end date.
  * If days is 0, returns the start date unchanged.
+ * Always clones the input — never mutates.
  */
 export function addWorkingDays(
   start: Date,
   days: number,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): Date {
-  const result = new Date(start);
+  let result = new Date(start);
   let remaining = days;
   let iterations = 0;
   while (remaining > 0) {
@@ -76,6 +110,7 @@ export function addWorkingDays(
         "Calendar iteration limit exceeded - check for excessive consecutive holidays"
       );
     }
+    result = new Date(result);
     result.setDate(result.getDate() + 1);
     if (isWorkingDay(result, calendar)) {
       remaining--;
@@ -86,13 +121,14 @@ export function addWorkingDays(
 
 /**
  * Subtract working days from a date.
+ * Always clones the input — never mutates.
  */
 export function subtractWorkingDays(
   start: Date,
   days: number,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): Date {
-  const result = new Date(start);
+  let result = new Date(start);
   let remaining = days;
   let iterations = 0;
   while (remaining > 0) {
@@ -101,6 +137,7 @@ export function subtractWorkingDays(
         "Calendar iteration limit exceeded - check for excessive consecutive holidays"
       );
     }
+    result = new Date(result);
     result.setDate(result.getDate() - 1);
     if (isWorkingDay(result, calendar)) {
       remaining--;
@@ -115,7 +152,7 @@ export function subtractWorkingDays(
 export function countWorkingDays(
   start: Date,
   end: Date,
-  calendar?: Calendar
+  calendar?: WorkCalendar | Calendar
 ): number {
   let count = 0;
   let iterations = 0;
@@ -129,7 +166,9 @@ export function countWorkingDays(
     if (isWorkingDay(current, calendar)) {
       count++;
     }
-    current.setDate(current.getDate() + 1);
+    const next = new Date(current);
+    next.setDate(next.getDate() + 1);
+    current.setTime(next.getTime());
   }
   return count;
 }

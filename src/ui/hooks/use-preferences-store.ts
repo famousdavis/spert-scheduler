@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { create } from "zustand";
+import { shallow } from "zustand/shallow";
 import type { UserPreferences } from "@domain/models/types";
 import { DEFAULT_USER_PREFERENCES } from "@domain/models/types";
 import {
@@ -20,8 +21,11 @@ export const usePreferencesStore = create<PreferencesStore>((set) => ({
   preferences: { ...DEFAULT_USER_PREFERENCES },
 
   loadPreferences: () => {
-    const preferences = loadPreferences();
-    set({ preferences });
+    const incoming = loadPreferences();
+    set((state) => {
+      if (shallow(state.preferences, incoming)) return state;
+      return { preferences: incoming };
+    });
   },
 
   updatePreferences: (updates) => {

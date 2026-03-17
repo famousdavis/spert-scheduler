@@ -11,10 +11,8 @@ import type { ScheduleExportParams } from "@app/api/schedule-export-service";
 import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import {
-  formatDateISO,
-  mergeCalendars,
-} from "@core/calendar/calendar";
+import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
+import { formatDateISO } from "@core/calendar/calendar";
 import {
   computeDeterministicSchedule,
   computeDependencySchedule,
@@ -28,7 +26,6 @@ interface ScheduleExportSectionProps {
 export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) {
   const formatDate = useDateFormat();
   const dateFormat = usePreferencesStore((s) => s.preferences.dateFormat);
-  const globalCalendar = usePreferencesStore((s) => s.preferences.globalCalendar);
 
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>("");
@@ -38,6 +35,9 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
   const selectedScenario = selectedProject?.scenarios.find(
     (s) => s.id === selectedScenarioId
   );
+
+  // Assembled work calendar for selected project
+  const workCalendar = useWorkCalendar(selectedProjectId);
 
   // Eligible scenarios: must have simulation results
   const eligibleScenarios = useMemo(
@@ -56,7 +56,6 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
   const buildParams = useCallback((): ScheduleExportParams | null => {
     if (!selectedProject || !selectedScenario || !selectedScenario.simulationResults) return null;
 
-    const calendar = mergeCalendars(globalCalendar, selectedProject.globalCalendarOverride);
     const settings = selectedScenario.settings;
 
     const schedule = settings.dependencyMode
@@ -65,14 +64,14 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
           selectedScenario.dependencies,
           selectedScenario.startDate,
           settings.probabilityTarget,
-          calendar,
+          workCalendar,
           selectedScenario.milestones
         )
       : computeDeterministicSchedule(
           selectedScenario.activities,
           selectedScenario.startDate,
           settings.probabilityTarget,
-          calendar
+          workCalendar
         );
 
     const buffer = computeScheduleBuffer(
@@ -91,10 +90,10 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
       settings,
       dependencies: selectedScenario.dependencies,
       milestones: selectedScenario.milestones,
-      calendar,
+      calendar: workCalendar,
       dateFormat,
     };
-  }, [selectedProject, selectedScenario, globalCalendar, dateFormat]);
+  }, [selectedProject, selectedScenario, workCalendar, dateFormat]);
 
   const handleExportXlsx = useCallback(async () => {
     const params = buildParams();

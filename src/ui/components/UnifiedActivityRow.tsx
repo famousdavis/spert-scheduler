@@ -10,6 +10,7 @@ import type {
   DistributionType,
   ScheduledActivity,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import {
   DISTRIBUTION_TYPES,
   ACTIVITY_STATUSES,
@@ -43,7 +44,7 @@ interface UnifiedActivityRowProps {
   heuristicEnabled?: boolean;
   heuristicMinPercent?: number;
   heuristicMaxPercent?: number;
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
 }
 
 type FieldErrors = Partial<Record<string, string>>;

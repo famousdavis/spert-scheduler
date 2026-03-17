@@ -202,6 +202,11 @@ export interface ProjectStore {
     calendar: Calendar | undefined
   ) => void;
 
+  // Converted Work Days
+  setConvertedWorkDays: (projectId: string, dates: string[]) => void;
+  addConvertedWorkDay: (projectId: string, date: string) => void;
+  removeConvertedWorkDay: (projectId: string, date: string) => void;
+
   // Import
   importProjects: (projects: Project[], replaceIds?: string[]) => void;
 
@@ -588,6 +593,46 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       const projects = state.projects.map((p) =>
         p.id === projectId ? setGlobalCalendar(p, calendar) : p
       );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  setConvertedWorkDays: (projectId, dates) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId ? { ...p, convertedWorkDays: dates } : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  addConvertedWorkDay: (projectId, date) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        const existing = p.convertedWorkDays ?? [];
+        if (existing.includes(date)) return p;
+        return { ...p, convertedWorkDays: [...existing, date].sort() };
+      });
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  removeConvertedWorkDay: (projectId, date) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        return {
+          ...p,
+          convertedWorkDays: (p.convertedWorkDays ?? []).filter((d) => d !== date),
+        };
+      });
       persist(projects, projectId);
       return { projects };
     });

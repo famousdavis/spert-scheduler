@@ -10,6 +10,8 @@ import {
   computeActivityUncertaintyDays,
 } from "./deterministic";
 import type { Activity, ActivityDependency } from "@domain/models/types";
+import { buildWorkCalendar } from "@core/calendar/work-calendar";
+import { countWorkingDays, parseDateISO } from "@core/calendar/calendar";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -111,7 +113,7 @@ describe("computeDeterministicSchedule", () => {
 
   it("skips holidays in calendar", () => {
     const activities = [makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 })];
-    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-07", endDate: "2025-01-07" }] }; // Tuesday is a holiday
+    const calendar = buildWorkCalendar([1, 2, 3, 4, 5], [{ id: "h1", name: "Holiday", startDate: "2025-01-07", endDate: "2025-01-07" }], []); // Tuesday is a holiday
 
     const withHoliday = computeDeterministicSchedule(
       activities,
@@ -148,7 +150,7 @@ describe("computeDeterministicSchedule", () => {
     const activities = [
       makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 }),
     ];
-    const calendar = { holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-06", endDate: "2025-01-06" }] }; // Monday is holiday
+    const calendar = buildWorkCalendar([1, 2, 3, 4, 5], [{ id: "h1", name: "Holiday", startDate: "2025-01-06", endDate: "2025-01-06" }], []); // Monday is holiday
     const schedule = computeDeterministicSchedule(
       activities,
       "2025-01-06",
@@ -510,5 +512,153 @@ describe("computeActivityUncertaintyDays", () => {
     // With low elapsed (1), the distribution drives solid/project days and hatching should exist
     expect(entry.hatchedDays).toBeGreaterThanOrEqual(0);
     expect(entry.solidDays).toBeGreaterThanOrEqual(2); // at least elapsed+1
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Non-standard work weeks in scheduling (Category 1)
+// ---------------------------------------------------------------------------
+
+describe("computeDeterministicSchedule with non-standard work weeks", () => {
+  it("Sun-Thu: start advances to first work day when given Friday", () => {
+    const activities = [makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 })];
+    const cal = buildWorkCalendar([0, 1, 2, 3, 4], [], []); // Sun-Thu
+    const schedule = computeDeterministicSchedule(activities, "2025-01-10", 0.5, cal); // Friday
+    // Friday is not a work day; should advance to Sunday Jan 12
+    expect(schedule.activities[0]!.startDate).toBe("2025-01-12");
+  });
+
+  it("3-day week takes more calendar days than Mon-Fri", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 5, mostLikely: 5, max: 5 }),
+    ];
+    const monFri = computeDeterministicSchedule(activities, "2025-01-06", 0.5);
+    const threeDayCal = buildWorkCalendar([1, 3, 5], [], []);
+    const threeDay = computeDeterministicSchedule(activities, "2025-01-06", 0.5, threeDayCal);
+    // 3-day week must end later in calendar time than Mon-Fri for same work duration
+    expect(threeDay.projectEndDate > monFri.projectEndDate).toBe(true);
+  });
+
+  it("1-day work week produces valid schedule on Wednesdays only", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 2, mostLikely: 2, max: 2 }),
+    ];
+    const cal = buildWorkCalendar([3], [], []); // Wednesday only
+    // Start on Wed Jan 8
+    const schedule = computeDeterministicSchedule(activities, "2025-01-08", 0.5, cal);
+    // All dates in schedule should be Wednesdays
+    for (const act of schedule.activities) {
+      const start = new Date(act.startDate + "T00:00:00");
+      const end = new Date(act.endDate + "T00:00:00");
+      expect(start.getDay()).toBe(3);
+      expect(end.getDay()).toBe(3);
+    }
+  });
+});
+
+describe("computeDependencySchedule with non-standard work weeks", () => {
+  it("Sun-Thu: dependency lag respects Fri-Sat as non-work days", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 }),
+      makeActivity({ id: "a2", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const deps = [fsDep("a1", "a2", 2)]; // 2-day lag
+    const cal = buildWorkCalendar([0, 1, 2, 3, 4], [], []); // Sun-Thu
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-12", 0.5, cal); // Sunday
+
+    // a1 starts Sun Jan 12, duration 1 → ends Mon Jan 13
+    // 2-day lag: Tue Jan 14, Wed Jan 15 (Fri+Sat skipped)
+    // a2 should start Thu Jan 16
+    const a2Start = schedule.activities.find((a) => a.activityId === "a2")!.startDate;
+    const a2StartDate = new Date(a2Start + "T00:00:00");
+    // Must not be Friday or Saturday
+    expect(a2StartDate.getDay()).not.toBe(5); // Fri
+    expect(a2StartDate.getDay()).not.toBe(6); // Sat
+  });
+
+  it("dependency start adjusts to work day in Sun-Thu week", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const cal = buildWorkCalendar([0, 1, 2, 3, 4], [], []); // Sun-Thu
+    // Start on Friday (not a work day)
+    const schedule = computeDependencySchedule(activities, [], "2025-01-10", 0.5, cal);
+    expect(schedule.activities[0]!.startDate).toBe("2025-01-12"); // Sunday
+  });
+
+  it("parallel branches with 3-day week: critical path drives end date", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 }),
+      makeActivity({ id: "a2", min: 5, mostLikely: 5, max: 5 }),
+      makeActivity({ id: "a3", min: 2, mostLikely: 2, max: 2 }),
+      makeActivity({ id: "a4", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const deps = [fsDep("a1", "a2"), fsDep("a1", "a3"), fsDep("a2", "a4"), fsDep("a3", "a4")];
+    const cal = buildWorkCalendar([1, 3, 5], [], []); // Mon/Wed/Fri
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5, cal);
+
+    // Total should be less than sum of all activities (parallelism)
+    const sumAll = schedule.activities.reduce((s, a) => s + a.duration, 0);
+    expect(schedule.totalDurationDays).toBeLessThan(sumAll);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Date boundary conditions in scheduling (Category 4)
+// ---------------------------------------------------------------------------
+
+describe("scheduling date boundary conditions", () => {
+  it("schedule starting Dec 31 spans into January", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 3, mostLikely: 3, max: 3 }),
+      makeActivity({ id: "a2", min: 3, mostLikely: 3, max: 3 }),
+    ];
+    // Dec 31 2025 is Wednesday
+    const schedule = computeDeterministicSchedule(activities, "2025-12-31", 0.5);
+    // Second activity should end in January 2026
+    expect(schedule.projectEndDate.startsWith("2026-01")).toBe(true);
+  });
+
+  it("schedule starting on leap day Feb 29 2028", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 5, mostLikely: 5, max: 5 }),
+    ];
+    // Feb 29 2028 is Tuesday
+    const schedule = computeDeterministicSchedule(activities, "2028-02-29", 0.5);
+    expect(schedule.activities[0]!.startDate).toBe("2028-02-29");
+    // 5 work days from Tue Feb 29: Wed Mar 1, Thu Mar 2, Fri Mar 3, Mon Mar 6, Tue Mar 7
+    expect(schedule.projectEndDate).toBe("2028-03-07");
+  });
+
+  it("dependency lag spanning year boundary", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 }),
+      makeActivity({ id: "a2", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const deps = [fsDep("a1", "a2", 5)]; // 5-day lag
+    // Start Mon Dec 29, 2025
+    const schedule = computeDependencySchedule(activities, deps, "2025-12-29", 0.5);
+    // a2 should start in January 2026
+    const a2 = schedule.activities.find((a) => a.activityId === "a2")!;
+    expect(a2.startDate.startsWith("2026-01")).toBe(true);
+  });
+
+  it("50-day lag spanning multiple months", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 1, mostLikely: 1, max: 1 }),
+      makeActivity({ id: "a2", min: 1, mostLikely: 1, max: 1 }),
+    ];
+    const deps = [fsDep("a1", "a2", 50)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const a1 = schedule.activities.find((a) => a.activityId === "a1")!;
+    const a2 = schedule.activities.find((a) => a.activityId === "a2")!;
+    // a2 must start well after a1 ends
+    expect(a2.startDate > a1.endDate).toBe(true);
+    // Verify the gap between end of a1 and start of a2 is at least 50 working days
+    // (countWorkingDays is inclusive-start/exclusive-end, so the count includes the end date's successor offset)
+    const gapStart = parseDateISO(a1.endDate);
+    const gapEnd = parseDateISO(a2.startDate);
+    const gap = countWorkingDays(gapStart, gapEnd);
+    expect(gap).toBeGreaterThanOrEqual(50);
   });
 });

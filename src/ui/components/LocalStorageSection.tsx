@@ -5,7 +5,8 @@ import { useState, useEffect } from "react";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 
 export function LocalStorageSection() {
-  const { preferences, updatePreferences } = usePreferencesStore();
+  const storeFullSimulationData = usePreferencesStore((s) => s.preferences.storeFullSimulationData);
+  const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
   const [storageInfo, setStorageInfo] = useState<{
     used: number;
     usedFormatted: string;
@@ -33,7 +34,7 @@ export function LocalStorageSection() {
     } catch {
       setStorageInfo(null);
     }
-  }, [preferences.storeFullSimulationData]);
+  }, [storeFullSimulationData]);
 
   // Estimate percentage of 5MB limit
   const LIMIT_BYTES = 5 * 1024 * 1024;
@@ -77,7 +78,7 @@ export function LocalStorageSection() {
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"
-            checked={preferences.storeFullSimulationData}
+            checked={storeFullSimulationData}
             onChange={(e) =>
               updatePreferences({
                 storeFullSimulationData: e.target.checked,

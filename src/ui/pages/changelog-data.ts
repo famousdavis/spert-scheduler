@@ -12,6 +12,38 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-03-17",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Configurable work week: click interactive day pills to toggle work days on/off, supporting any combination including non-contiguous schedules (e.g., Mon/Wed/Fri)",
+          "Converted work days: override non-work days as work days on a per-project basis (e.g., make specific Saturdays count as work days)",
+          "Smart validation: warns when adding a date that is already a work day or falls on a holiday",
+          "Amber warning when converted work day list exceeds 50 entries, suggesting work week adjustment instead",
+        ],
+      },
+      {
+        title: "Improvements",
+        items: [
+          "Holiday-blocked conversion notification now persists until acknowledged via \"Got it\" button (replaces auto-dismiss toast)",
+          "Calendar page dynamically describes the active work week instead of hardcoded \"Monday through Friday\"",
+          "All scheduling, Gantt charts, and exports respect the configured work week",
+          "CalendarConfigurationError banner when work week settings produce no valid work days",
+          "Zustand store selectors refactored to eliminate re-render cascades",
+        ],
+      },
+      {
+        title: "Testing",
+        items: [
+          "Added 85 new tests (643 → 728 total) covering work weeks, holidays, calendar layering, date boundaries, and Monte Carlo edge cases",
+          "6 property-based tests (fast-check) for calendar round-trips and Parkinson's Law floor guarantees",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.18.2",
     date: "2026-03-16",
     sections: [

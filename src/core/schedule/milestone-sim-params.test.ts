@@ -3,7 +3,8 @@
 
 import { describe, it, expect } from "vitest";
 import { buildMilestoneSimParams } from "./milestone-sim-params";
-import type { Activity, Milestone, Calendar } from "@domain/models/types";
+import type { Activity, Milestone } from "@domain/models/types";
+import { buildWorkCalendar } from "@core/calendar/work-calendar";
 
 function makeActivity(overrides: Partial<Activity> & { id: string; name: string }): Activity {
   return {
@@ -78,9 +79,7 @@ describe("buildMilestoneSimParams", () => {
       makeActivity({ id: "a1", name: "Task 1", startsAtMilestoneId: "ms1" }),
     ];
     const milestones: Milestone[] = [{ id: "ms1", name: "Phase 1", targetDate: "2025-01-13" }];
-    const calendar: Calendar = {
-      holidays: [{ id: "h1", name: "Holiday", startDate: "2025-01-08", endDate: "2025-01-08" }],
-    };
+    const calendar = buildWorkCalendar([1, 2, 3, 4, 5], [{ id: "h1", name: "Holiday", startDate: "2025-01-08", endDate: "2025-01-08" }], []);
     // Start Mon Jan 6, milestone Mon Jan 13, but Jan 8 (Wed) is holiday
     // Working days: Jan 6, Jan 7, Jan 9, Jan 10, Jan 13 → only 4 working days from Jan 6 to Jan 13
     const result = buildMilestoneSimParams(activities, milestones, "2025-01-06", calendar);

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.19.0 — 2026-03-17
+
+### New Features
+
+- Configurable work week: click interactive day pills to toggle work days on/off, supporting any combination including non-contiguous schedules (e.g., Mon/Wed/Fri)
+- Converted work days: override non-work days as work days on a per-project basis (e.g., make specific Saturdays count as work days)
+- Smart validation: warns when adding a date that is already a work day or falls on a holiday
+- Amber warning when converted work day list exceeds 50 entries, suggesting work week adjustment instead
+
+### Improvements
+
+- Holiday-blocked conversion notification now persists until acknowledged via "Got it" button (replaces auto-dismiss toast)
+- Calendar page dynamically describes the active work week instead of hardcoded "Monday through Friday"
+- All scheduling, Gantt charts, and exports respect the configured work week
+- CalendarConfigurationError banner when work week settings produce no valid work days
+- Zustand store selectors refactored with `useShallow` and targeted selectors to eliminate "Maximum update depth exceeded" re-render cascades
+- `loadPreferences()` uses shallow comparison to prevent unnecessary state replacement from JSON deserialization
+
+### Testing
+
+- Added 85 new tests (643 → 728 total across 45 files) covering v0.17.0–v0.19.0 features
+- Non-standard work week configurations: Sun-Thu, 3-day, 1-day, non-contiguous, 7-day
+- Holiday source interactions: API vs manual, backward compatibility, multi-country dedup
+- Calendar layering integration tests: all 4 global/project combinations through full scheduling pipeline
+- Date boundary conditions: year boundaries, DST transitions, leap year Feb 29
+- Monte Carlo edge cases: Parkinson floor invariants, degenerate inputs, milestone simulation, progress callbacks
+- 6 property-based tests (fast-check) for calendar round-trips and Parkinson's Law floor guarantees
+
 ## 0.18.2 — 2026-03-16
 
 ### Security

@@ -10,6 +10,7 @@ import type {
   ScheduledActivity,
   Calendar,
 } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { formatDateISO } from "@core/calendar/calendar";
 import {
@@ -30,7 +31,7 @@ export interface PrintGanttChartProps {
   dependencyMode: boolean;
   activityTarget: number;
   projectTarget: number;
-  calendar?: Calendar;
+  calendar?: WorkCalendar | Calendar;
   bufferedEndDate: string | null;
   formatDate: (iso: string) => string;
   milestones?: Milestone[];
