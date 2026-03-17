@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.19.3",
+    date: "2026-03-17",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fix Max % heuristic input not accepting typed values (removed HTML min constraint that blocked intermediate keystrokes)",
+          "Fix Gantt chart showing activities in topological sort order instead of grid order when dependency mode is enabled",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.19.2",
     date: "2026-03-17",
     sections: [

@@ -2,7 +2,6 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Activity, ActivityDependency } from "@domain/models/types";
-import { buildDependencyGraph } from "@core/schedule/dependency-graph";
 import { formatDateISO } from "@core/calendar/calendar";
 import { LEFT_MARGIN } from "./gantt-constants";
 
@@ -94,25 +93,15 @@ export function generateTicks(
 }
 
 /**
- * Order activities by topological sort when in dependency mode,
- * fall back to array order otherwise.
+ * Return activities in their original grid order.
+ * Previously re-sorted by topological order in dependency mode,
+ * but this caused a visual mismatch with the activity grid.
+ * Dependency arrows render correctly regardless of row order.
  */
 export function buildOrderedActivities(
   activities: Activity[],
-  dependencies: ActivityDependency[],
-  dependencyMode: boolean,
+  _dependencies: ActivityDependency[],
+  _dependencyMode: boolean,
 ): Activity[] {
-  if (!dependencyMode || dependencies.length === 0) return activities;
-  try {
-    const actIds = activities.map((a) => a.id);
-    const graph = buildDependencyGraph(actIds, dependencies);
-    const orderMap = new Map(
-      graph.topologicalOrder.map((id, idx) => [id, idx]),
-    );
-    return [...activities].sort(
-      (a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
-    );
-  } catch {
-    return activities;
-  }
+  return activities;
 }
