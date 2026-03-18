@@ -72,7 +72,6 @@ export function GanttChart({
   onEditActivity,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
-  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
   const viewMode: GanttViewMode = usePreferencesStore((s) => s.preferences.ganttViewMode) ?? "deterministic";
   const showToday = usePreferencesStore((s) => s.preferences.ganttShowToday) ?? true;
   const showCriticalPath = usePreferencesStore((s) => s.preferences.ganttShowCriticalPath) ?? true;
@@ -561,7 +560,6 @@ export function GanttChart({
                   height={ROW_HEIGHT}
                   fill="transparent"
                   onMouseEnter={(e) => {
-                    setHoveredRowId(act.id);
                     setTooltip({
                       x: e.clientX,
                       y: e.clientY,
@@ -573,10 +571,7 @@ export function GanttChart({
                       prev ? { ...prev, x: e.clientX, y: e.clientY } : null
                     )
                   }
-                  onMouseLeave={() => {
-                    setHoveredRowId(null);
-                    setTooltip(null);
-                  }}
+                  onMouseLeave={() => setTooltip(null)}
                 />
 
                 {/* Activity name */}
@@ -684,34 +679,6 @@ export function GanttChart({
                   );
                 })()}
 
-                {/* Hover constraint edit icon — only for activities with constraints */}
-                {hoveredRowId === act.id && onEditActivity && act.constraintType && (
-                  <g
-                    className="cursor-pointer"
-                    onClick={() => onEditActivity(act.id)}
-                  >
-                    <rect
-                      x={LEFT_MARGIN - 8 + 4}
-                      y={y + ROW_HEIGHT / 2 - 7}
-                      width={14}
-                      height={14}
-                      rx={2}
-                      fill="#3b82f6"
-                      opacity={0.9}
-                    />
-                    <text
-                      x={LEFT_MARGIN - 8 + 11}
-                      y={y + ROW_HEIGHT / 2}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fontSize="8"
-                      fill="#ffffff"
-                      fontWeight="700"
-                    >
-                      C
-                    </text>
-                  </g>
-                )}
               </g>
             );
           })}
