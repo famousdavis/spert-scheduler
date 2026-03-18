@@ -8,7 +8,7 @@
  * localStorage key. Bounded by the number of projects (max ~50 entries).
  */
 
-const STORAGE_KEY = "spert:active-scenarios";
+const STORAGE_KEY = "spert-scheduler:active-scenarios";
 
 function loadMap(): Record<string, string> {
   try {

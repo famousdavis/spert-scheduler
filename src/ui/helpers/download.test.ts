@@ -21,11 +21,25 @@ describe("sanitizeFilename", () => {
     expect(sanitizeFilename("Project: Phase 1")).toBe("Project_ Phase 1");
   });
 
-  it("handles empty string", () => {
-    expect(sanitizeFilename("")).toBe("");
+  it("returns Untitled for empty string", () => {
+    expect(sanitizeFilename("")).toBe("Untitled");
   });
 
-  it("handles string with only invalid characters", () => {
+  it("replaces all invalid characters with underscores", () => {
     expect(sanitizeFilename('*?"<>|')).toBe("______");
+  });
+
+  it("returns Untitled for whitespace-only string", () => {
+    expect(sanitizeFilename("   ")).toBe("Untitled");
+  });
+
+  it("truncates to 200 characters", () => {
+    const long = "A".repeat(250);
+    expect(sanitizeFilename(long)).toBe("A".repeat(200));
+  });
+
+  it("does not truncate names at exactly 200 characters", () => {
+    const exact = "B".repeat(200);
+    expect(sanitizeFilename(exact)).toBe(exact);
   });
 });

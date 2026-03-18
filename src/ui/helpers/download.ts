@@ -3,9 +3,13 @@
 
 /**
  * Replace characters that are invalid in filenames on Windows/macOS/Linux.
+ * Returns "Untitled" if the result is empty after sanitization.
+ * Truncates to 200 characters to stay within filesystem limits.
  */
 export function sanitizeFilename(name: string): string {
-  return name.replace(/[/\\*?"<>|:]/g, "_");
+  const sanitized = name.replace(/[/\\*?"<>|:]/g, "_").trim();
+  if (!sanitized) return "Untitled";
+  return sanitized.length > 200 ? sanitized.slice(0, 200) : sanitized;
 }
 
 /**

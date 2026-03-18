@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.20.2",
+    date: "2026-03-17",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Escalate write-forward migration failures to error callback",
+          "Add iteration guard to constraint date picker non-working-day snap loop",
+          "Validate constraint type/mode enum domains in worker payload filter",
+          "Reject schema versions below 1 on project import",
+          "Fix localStorage key namespace collision for active-scenario persistence",
+          "Harden filename sanitization: empty fallback, 200-char truncation",
+          "Log Zod validation failures in preferences loader for diagnostics",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.20.1",
     date: "2026-03-17",
     sections: [

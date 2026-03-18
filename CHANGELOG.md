@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.20.2 — 2026-03-17
+
+### Security
+
+- Escalate write-forward migration failures to error callback (firestore-driver.ts)
+- Add iteration guard to constraint date picker non-working-day snap loop (ActivityEditModal.tsx)
+- Validate constraint type/mode enum domains in worker payload filter (simulation.worker.ts)
+- Reject schema versions below 1 on project import (export-import-service.ts)
+- Fix localStorage key namespace collision for active-scenario persistence (scenario-memory.ts)
+- Harden filename sanitization: empty fallback, 200-char truncation (download.ts)
+- Log Zod validation failures in preferences loader for diagnostics (preferences-repository.ts)
+
 ## 0.20.1 — 2026-03-17
 
 ### Refactoring

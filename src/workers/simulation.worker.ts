@@ -82,10 +82,15 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
               (entry): entry is [string, number] => typeof entry[1] === "number"
             ))
           : undefined;
+        const VALID_CONSTRAINT_TYPES = ["MSO", "MFO", "SNET", "SNLT", "FNET", "FNLT"];
+        const VALID_CONSTRAINT_MODES = ["hard", "soft"];
         const constraintMap = payload.constraintMap
           ? new Map(Object.entries(payload.constraintMap).filter(
               (entry): entry is [string, { type: string; offsetFromStart: number; mode: string }] =>
-                entry[1] != null && typeof entry[1].offsetFromStart === "number"
+                entry[1] != null
+                && typeof entry[1].offsetFromStart === "number"
+                && VALID_CONSTRAINT_TYPES.includes(entry[1].type)
+                && VALID_CONSTRAINT_MODES.includes(entry[1].mode)
             ))
           : undefined;
 
