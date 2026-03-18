@@ -1,20 +1,75 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
 import type { StorageMode } from "@ui/providers/StorageProvider";
 import { migrateLocalToCloud } from "@infrastructure/firebase/firestore-migration";
 import type { MigrationResult } from "@infrastructure/firebase/firestore-migration";
+import { ConsentModal } from "./ConsentModal";
+import {
+  TOS_VERSION,
+  LS_TOS_ACCEPTED_VERSION,
+  LS_TOS_WRITE_PENDING,
+} from "@app/legal-constants";
 
 export function StorageModeSection() {
-  const { user, firebaseAvailable } = useAuth();
+  const { user, firebaseAvailable, signInWithGoogle, signInWithMicrosoft } = useAuth();
   const { mode, persistedMode, switchMode, isCloudAvailable } = useStorage();
   const [migrating, setMigrating] = useState(false);
   const [migrationResult, setMigrationResult] =
     useState<MigrationResult | null>(null);
   const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const pendingProviderRef = useRef<"google" | "microsoft" | null>(null);
+
+  /** Proceed with Firebase Auth for the selected provider. */
+  const doSignIn = useCallback(
+    async (provider: "google" | "microsoft") => {
+      setSigningIn(true);
+      try {
+        if (provider === "google") {
+          await signInWithGoogle();
+        } else {
+          await signInWithMicrosoft();
+        }
+      } catch (e) {
+        console.error("Sign-in error:", e);
+      } finally {
+        setSigningIn(false);
+      }
+    },
+    [signInWithGoogle, signInWithMicrosoft]
+  );
+
+  /** Check localStorage consent cache; show modal if not current version. */
+  const handleSignIn = useCallback(
+    (provider: "google" | "microsoft") => {
+      const accepted = localStorage.getItem(LS_TOS_ACCEPTED_VERSION);
+      if (accepted === TOS_VERSION) {
+        if (localStorage.getItem(LS_TOS_WRITE_PENDING) !== "true") {
+          localStorage.setItem(LS_TOS_WRITE_PENDING, "true");
+        }
+        doSignIn(provider);
+      } else {
+        pendingProviderRef.current = provider;
+        setConsentOpen(true);
+      }
+    },
+    [doSignIn]
+  );
+
+  /** Consent modal accepted: cache version + set write-pending, then sign in. */
+  const handleConsentAccept = useCallback(() => {
+    localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
+    localStorage.setItem(LS_TOS_WRITE_PENDING, "true");
+    setConsentOpen(false);
+    if (pendingProviderRef.current) {
+      doSignIn(pendingProviderRef.current);
+    }
+  }, [doSignIn]);
 
   const handleModeChange = useCallback(
     async (newMode: StorageMode) => {
@@ -62,9 +117,32 @@ export function StorageModeSection() {
       </p>
 
       {!user ? (
-        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          Sign in to enable cloud storage.
-        </p>
+        <div className="mt-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            Sign in to enable cloud storage:
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleSignIn("google")}
+              disabled={signingIn}
+              className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50"
+            >
+              {signingIn && pendingProviderRef.current === "google" ? "Signing in..." : "Sign in with Google"}
+            </button>
+            <button
+              onClick={() => handleSignIn("microsoft")}
+              disabled={signingIn}
+              className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50"
+            >
+              {signingIn && pendingProviderRef.current === "microsoft" ? "Signing in..." : "Sign in with Microsoft"}
+            </button>
+          </div>
+          <ConsentModal
+            open={consentOpen}
+            onOpenChange={setConsentOpen}
+            onAccept={handleConsentAccept}
+          />
+        </div>
       ) : (
         <div className="mt-4 space-y-4">
           {/* Mode toggle */}

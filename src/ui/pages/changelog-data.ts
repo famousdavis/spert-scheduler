@@ -22,6 +22,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Add Constraints section to print report with Type, Date, Mode, and Note columns",
           "Add Constraint Note column to XLSX/CSV schedule exports",
           "Add SPERT® branding to print report header and footer",
+          "Add sign-in buttons to Cloud Storage settings section for discoverability",
         ],
       },
     ],
