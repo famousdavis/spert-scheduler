@@ -6,6 +6,7 @@ import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { DependencySimulationParams } from "@core/simulation/worker-client";
 import { computeDeterministicDurations, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
+import { parseDateISO, isWorkingDay, countWorkingDays } from "@core/calendar/calendar";
 
 export interface SimulationParams {
   deterministicDurations: number[] | undefined;
@@ -32,6 +33,30 @@ export function buildSimulationParams(
 
     const msParams = buildMilestoneSimParams(activities, milestones, startDate, calendar);
 
+    // Build constraintMap: convert constraint dates to integer offsets from project start
+    let constraintMap: Record<string, { type: string; offsetFromStart: number; mode: string }> | undefined;
+    const constrainedActivities = activities.filter(
+      (a) => a.constraintType && a.constraintDate && a.constraintMode
+    );
+    if (constrainedActivities.length > 0) {
+      const projStart = parseDateISO(startDate);
+      while (!isWorkingDay(projStart, calendar)) {
+        projStart.setDate(projStart.getDate() + 1);
+      }
+      constraintMap = {};
+      for (const a of constrainedActivities) {
+        const cDate = parseDateISO(a.constraintDate!);
+        while (!isWorkingDay(cDate, calendar)) {
+          cDate.setDate(cDate.getDate() + 1);
+        }
+        constraintMap[a.id] = {
+          type: a.constraintType!,
+          offsetFromStart: countWorkingDays(projStart, cDate, calendar),
+          mode: a.constraintMode!,
+        };
+      }
+    }
+
     return {
       deterministicDurations: undefined,
       dependencyParams: {
@@ -39,6 +64,7 @@ export function buildSimulationParams(
         dependencies,
         deterministicDurationMap: durMapRecord,
         ...msParams,
+        constraintMap,
       },
     };
   }

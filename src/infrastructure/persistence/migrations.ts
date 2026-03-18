@@ -176,6 +176,35 @@ function migrateV9toV10(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v10 → v11: Add constraint fields to activities.
+ * Three nullable fields: constraintType, constraintDate, constraintMode.
+ * Defensive normalization: partial constraint state → all null.
+ */
+function migrateV10toV11(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (scenarios) {
+    for (const scenario of scenarios) {
+      const activities = scenario.activities as Array<Record<string, unknown>> | undefined;
+      if (activities) {
+        for (const activity of activities) {
+          const hasType = activity.constraintType != null;
+          const hasDate = activity.constraintDate != null;
+          const hasMode = activity.constraintMode != null;
+          if (!hasType || !hasDate || !hasMode) {
+            activity.constraintType = null;
+            activity.constraintDate = null;
+            activity.constraintMode = null;
+          }
+        }
+      }
+    }
+  }
+  project.schemaVersion = 11;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -186,6 +215,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   7: migrateV7toV8,
   8: migrateV8toV9,
   9: migrateV9toV10,
+  10: migrateV10toV11,
 };
 
 /**

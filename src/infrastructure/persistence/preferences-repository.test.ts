@@ -22,14 +22,14 @@ describe("loadPreferences", () => {
     const prefs: UserPreferences = {
       ...DEFAULT_USER_PREFERENCES,
       defaultTrialCount: 10000,
-      dateFormat: "YYYY-MM-DD",
+      dateFormat: "YYYY/MM/DD",
       autoRunSimulation: true,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
 
     const loaded = loadPreferences();
     expect(loaded.defaultTrialCount).toBe(10000);
-    expect(loaded.dateFormat).toBe("YYYY-MM-DD");
+    expect(loaded.dateFormat).toBe("YYYY/MM/DD");
     expect(loaded.autoRunSimulation).toBe(true);
   });
 

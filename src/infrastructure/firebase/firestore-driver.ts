@@ -94,7 +94,8 @@ export class FirestoreDriver {
         typeof stripped.schemaVersion === "number"
           ? stripped.schemaVersion
           : 1;
-      if (schemaVersion < SCHEMA_VERSION) {
+      const wasMigrated = schemaVersion < SCHEMA_VERSION;
+      if (wasMigrated) {
         try {
           data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
         } catch {
@@ -113,6 +114,15 @@ export class FirestoreDriver {
       project._owner = raw.owner as string;
       project._members = raw.members as Record<string, ProjectRole>;
       projects.push(project);
+
+      // Write-forward: persist migrated schema immediately
+      if (wasMigrated) {
+        try {
+          await this.doSave(project);
+        } catch {
+          console.warn("Write-forward migration save failed for project:", docSnap.id);
+        }
+      }
     }
 
     return projects;
@@ -138,7 +148,8 @@ export class FirestoreDriver {
       typeof stripped.schemaVersion === "number"
         ? stripped.schemaVersion
         : 1;
-    if (schemaVersion < SCHEMA_VERSION) {
+    const wasMigrated = schemaVersion < SCHEMA_VERSION;
+    if (wasMigrated) {
       data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
     }
 
@@ -146,7 +157,20 @@ export class FirestoreDriver {
     const result = ProjectSchema.safeParse(data);
     if (!result.success) return null;
 
-    return result.data as Project;
+    const project = result.data as Project;
+
+    // Write-forward: persist migrated schema immediately to prevent
+    // multi-device race where a v0.19.x client overwrites patched fields
+    if (wasMigrated) {
+      try {
+        await this.doSave(project);
+      } catch {
+        // Non-blocking: log but don't prevent the user from using the app
+        console.warn("Write-forward migration save failed for project:", id);
+      }
+    }
+
+    return project;
   }
 
   /**

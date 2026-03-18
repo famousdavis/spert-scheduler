@@ -23,6 +23,7 @@ export interface DependencySimulationParams {
   deterministicDurationMap: Record<string, number>;
   milestoneActivityIds?: Record<string, string[]>;
   activityEarliestStart?: Record<string, number>;
+  constraintMap?: Record<string, { type: string; offsetFromStart: number; mode: string }>;
 }
 
 /**
@@ -97,6 +98,7 @@ export function runSimulationInWorker(
         deterministicDurationMap: dependencyParams.deterministicDurationMap,
         milestoneActivityIds: dependencyParams.milestoneActivityIds,
         activityEarliestStart: dependencyParams.activityEarliestStart,
+        constraintMap: dependencyParams.constraintMap,
       }),
     },
   };

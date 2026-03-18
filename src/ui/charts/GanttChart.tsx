@@ -50,6 +50,7 @@ interface GanttChartProps {
   criticalPathIds?: Set<string> | null;
   projectName?: string;
   svgContainerRef?: RefObject<HTMLDivElement | null>;
+  onEditActivity?: (activityId: string) => void;
 }
 
 export function GanttChart({
@@ -68,8 +69,10 @@ export function GanttChart({
   criticalPathIds,
   projectName,
   svgContainerRef,
+  onEditActivity,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
   const viewMode: GanttViewMode = usePreferencesStore((s) => s.preferences.ganttViewMode) ?? "deterministic";
   const showToday = usePreferencesStore((s) => s.preferences.ganttShowToday) ?? true;
   const showCriticalPath = usePreferencesStore((s) => s.preferences.ganttShowCriticalPath) ?? true;
@@ -557,19 +560,23 @@ export function GanttChart({
                   width={chartWidth}
                   height={ROW_HEIGHT}
                   fill="transparent"
-                  onMouseEnter={(e) =>
+                  onMouseEnter={(e) => {
+                    setHoveredRowId(act.id);
                     setTooltip({
                       x: e.clientX,
                       y: e.clientY,
                       text: `${act.name}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`,
-                    })
-                  }
+                    });
+                  }}
                   onMouseMove={(e) =>
                     setTooltip((prev) =>
                       prev ? { ...prev, x: e.clientX, y: e.clientY } : null
                     )
                   }
-                  onMouseLeave={() => setTooltip(null)}
+                  onMouseLeave={() => {
+                    setHoveredRowId(null);
+                    setTooltip(null);
+                  }}
                 />
 
                 {/* Activity name */}
@@ -582,8 +589,8 @@ export function GanttChart({
                   fill={c.text}
                   className="pointer-events-none"
                 >
-                  {act.name.length > 25
-                    ? act.name.slice(0, 23) + "..."
+                  {act.name.length > 38
+                    ? act.name.slice(0, 36) + "..."
                     : act.name}
                 </text>
 
@@ -640,6 +647,70 @@ export function GanttChart({
                   >
                     {sa.duration}d
                   </text>
+                )}
+
+                {/* Constraint indicator icon */}
+                {act.constraintType && (() => {
+                  const isStart = act.constraintType === "MSO" || act.constraintType === "SNET" || act.constraintType === "SNLT";
+                  const iconX = isStart ? barX - 2 : barX + barWidth - 6;
+                  const iconColor = act.constraintMode === "hard" ? "#3b82f6" : "#9ca3af";
+                  return (
+                    <g
+                      className="cursor-pointer"
+                      onClick={() => onEditActivity?.(act.id)}
+                    >
+                      <rect
+                        x={iconX}
+                        y={barY - 3}
+                        width={8}
+                        height={8}
+                        rx={2}
+                        fill={iconColor}
+                        opacity={act.constraintMode === "soft" ? 0.5 : 0.9}
+                      />
+                      <text
+                        x={iconX + 4}
+                        y={barY + 1}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fontSize="6"
+                        fill="#ffffff"
+                        fontWeight="700"
+                        className="pointer-events-none"
+                      >
+                        C
+                      </text>
+                    </g>
+                  );
+                })()}
+
+                {/* Hover edit icon (pencil) — desktop only */}
+                {hoveredRowId === act.id && onEditActivity && (
+                  <g
+                    className="cursor-pointer"
+                    onClick={() => onEditActivity(act.id)}
+                  >
+                    <rect
+                      x={LEFT_MARGIN - 8 + 4}
+                      y={y + ROW_HEIGHT / 2 - 7}
+                      width={14}
+                      height={14}
+                      rx={2}
+                      fill={c.bg}
+                      stroke={c.gridLine}
+                      strokeWidth="0.5"
+                    />
+                    <text
+                      x={LEFT_MARGIN - 8 + 11}
+                      y={y + ROW_HEIGHT / 2}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize="9"
+                      fill={c.textMuted}
+                    >
+                      {"\u270E"}
+                    </text>
+                  </g>
                 )}
               </g>
             );
@@ -738,6 +809,7 @@ export function GanttChart({
           showToday={showToday}
           todayVisible={todayX !== null}
           hasMilestones={milestones.length > 0}
+          hasConstraints={activities.some((a) => a.constraintType != null)}
           datePrepared={formatDate(formatDateISO(new Date()))}
         />
       </div>

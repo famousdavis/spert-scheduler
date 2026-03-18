@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -46,6 +46,21 @@ export const ACTIVITY_STATUSES = [
 ] as const;
 
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
+
+export const CONSTRAINT_TYPES = [
+  "MSO",
+  "MFO",
+  "SNET",
+  "SNLT",
+  "FNET",
+  "FNLT",
+] as const;
+
+export type ConstraintType = (typeof CONSTRAINT_TYPES)[number];
+
+export const CONSTRAINT_MODES = ["hard", "soft"] as const;
+
+export type ConstraintMode = (typeof CONSTRAINT_MODES)[number];
 
 export const DEPENDENCY_TYPES = ["FS"] as const;
 
@@ -109,6 +124,9 @@ export interface Activity {
   actualDuration?: number; // filled when status is "complete"
   milestoneId?: string; // which milestone this activity must finish before
   startsAtMilestoneId?: string; // activity starts on this milestone's target date
+  constraintType?: ConstraintType | null; // scheduling constraint type
+  constraintDate?: string | null; // ISO "YYYY-MM-DD" constraint date
+  constraintMode?: ConstraintMode | null; // "hard" overrides, "soft" is advisory
 }
 
 export interface ActivityDependency {
@@ -200,12 +218,31 @@ export interface ScheduledActivity {
   startDate: string; // "YYYY-MM-DD"
   endDate: string; // "YYYY-MM-DD"
   isActual: boolean; // true if from actualDuration
+  lateStart?: string; // constraint-adjusted late start (display only)
+  lateFinish?: string; // constraint-adjusted late finish (display only)
+  lateStartNet?: string; // network-driven late start (for SNLT/FNLT eval)
+  lateFinishNet?: string; // network-driven late finish (for SNLT/FNLT eval)
+  totalFloat?: number; // lateStartNet − ES_net (network-driven CPM float)
+}
+
+export interface ConstraintConflict {
+  type: "constraint-conflict" | "constraint-violation";
+  activityId: string;
+  activityName: string;
+  constraintType: ConstraintType;
+  constraintDate: string;
+  constraintMode: ConstraintMode;
+  computedDate: string;
+  deltaWorkingDays: number;
+  severity: "error" | "warning";
+  message: string;
 }
 
 export interface DeterministicSchedule {
   activities: ScheduledActivity[];
   totalDurationDays: number;
   projectEndDate: string; // "YYYY-MM-DD"
+  constraintConflicts?: ConstraintConflict[];
 }
 
 export interface MilestoneBufferInfo {
@@ -239,7 +276,7 @@ export const BASELINE_SCENARIO_NAME = "Baseline";
 
 // -- Date Format Preference ---------------------------------------------------
 
-export const DATE_FORMATS = ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD"] as const;
+export const DATE_FORMATS = ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY/MM/DD"] as const;
 
 export type DateFormatPreference = (typeof DATE_FORMATS)[number];
 

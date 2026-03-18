@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 // --- Interactive Gantt layout constants ---
-export const LEFT_MARGIN = 180;
+export const LEFT_MARGIN = 260;
 export const RIGHT_MARGIN = 40;
 export const TOP_MARGIN = 32;
 export const ROW_HEIGHT = 32;
@@ -15,7 +15,7 @@ export const MIN_TICK_SPACING_PX = 70;
 export const PROJECT_NAME_HEIGHT = 28;
 
 // --- Print Gantt layout constants ---
-export const PRINT_LEFT = 120;
+export const PRINT_LEFT = 170;
 export const PRINT_RIGHT = 20;
 export const PRINT_TOP = 24;
 export const PRINT_ROW = 18;
