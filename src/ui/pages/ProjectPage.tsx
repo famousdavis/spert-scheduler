@@ -37,7 +37,6 @@ import { useScenarioComparison } from "@ui/hooks/use-scenario-comparison";
 import { PrintableReport } from "@ui/components/PrintableReport";
 import { SensitivityPanel } from "@ui/components/SensitivityPanel";
 import { SharingSection } from "@ui/components/SharingSection";
-import { ScheduleExportButton } from "@ui/components/ScheduleExportButton";
 import { ActivityEditModal } from "@ui/components/ActivityEditModal";
 import { WarningsPanel } from "@ui/components/WarningsPanel";
 
@@ -514,6 +513,12 @@ export function ProjectPage() {
             isLocked={scenario.locked}
             onToggleLock={() => toggleScenarioLock(id!, scenario.id)}
             milestoneBuffers={milestoneBuffers}
+            projectName={project.name}
+            scenarioName={scenario.name}
+            activities={scenario.activities}
+            dependencies={scenario.dependencies}
+            milestones={scenario.milestones}
+            onRunSimulation={handleRunSimulation}
           />
 
           {/* Validation errors */}
@@ -549,21 +554,6 @@ export function ProjectPage() {
             dependencyMode={scenario.settings.dependencyMode}
             onEditActivity={setEditingActivityId}
             constraintWarningIds={constraintWarningIds}
-          />
-
-          {/* Schedule Export — XLSX / CSV */}
-          <ScheduleExportButton
-            projectName={project.name}
-            scenarioName={scenario.name}
-            activities={scenario.activities}
-            schedule={schedule}
-            buffer={buffer}
-            settings={scenario.settings}
-            dependencies={scenario.dependencies}
-            milestones={scenario.milestones}
-            calendar={workCalendar}
-            hasSimulationResults={!!scenario.simulationResults}
-            onRunSimulation={handleRunSimulation}
           />
 
           {/* Milestone Panel — only shown when dependency mode is on */}

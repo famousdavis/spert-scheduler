@@ -1,8 +1,8 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect } from "react";
-import type { DeterministicSchedule, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
+import { useState, useEffect, useCallback } from "react";
+import type { Activity, ActivityDependency, DeterministicSchedule, Milestone, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
@@ -15,7 +15,14 @@ import {
   PROJECT_PERCENTILE_OPTIONS,
 } from "@ui/helpers/percentile-options";
 import { useDateFormat } from "@ui/hooks/use-date-format";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { toast } from "@ui/hooks/use-notification-store";
+import {
+  exportScheduleXlsx,
+  exportScheduleCsv,
+} from "@app/api/schedule-export-service";
+import type { ScheduleExportParams } from "@app/api/schedule-export-service";
+import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
 
 interface ScenarioSummaryCardProps {
   startDate: string;
@@ -30,6 +37,13 @@ interface ScenarioSummaryCardProps {
   isLocked?: boolean;
   onToggleLock?: () => void;
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
+  // Export props
+  projectName: string;
+  scenarioName: string;
+  activities: Activity[];
+  dependencies: ActivityDependency[];
+  milestones: Milestone[];
+  onRunSimulation?: () => void;
 }
 
 export function ScenarioSummaryCard({
@@ -45,6 +59,12 @@ export function ScenarioSummaryCard({
   isLocked,
   onToggleLock,
   milestoneBuffers,
+  projectName,
+  scenarioName,
+  activities,
+  dependencies,
+  milestones,
+  onRunSimulation,
 }: ScenarioSummaryCardProps) {
   const formatDate = useDateFormat();
   const actPct = Math.round(settings.probabilityTarget * 100);
@@ -53,8 +73,39 @@ export function ScenarioSummaryCard({
   // Local string state for heuristic % inputs — allows free typing, validates on blur
   const [localMinPct, setLocalMinPct] = useState(String(settings.heuristicMinPercent));
   const [localMaxPct, setLocalMaxPct] = useState(String(settings.heuristicMaxPercent));
-  useEffect(() => { setLocalMinPct(String(settings.heuristicMinPercent)); }, [settings.heuristicMinPercent]); // eslint-disable-line react-hooks/set-state-in-effect
-  useEffect(() => { setLocalMaxPct(String(settings.heuristicMaxPercent)); }, [settings.heuristicMaxPercent]); // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { setLocalMinPct(String(settings.heuristicMinPercent)); }, [settings.heuristicMinPercent]);
+  useEffect(() => { setLocalMaxPct(String(settings.heuristicMaxPercent)); }, [settings.heuristicMaxPercent]);
+
+  // Schedule export state
+  const dateFormat = usePreferencesStore((s) => s.preferences.dateFormat);
+  const [exporting, setExporting] = useState(false);
+  const exportDisabled = !hasSimulationResults || !schedule || activities.length === 0;
+
+  const buildExportParams = useCallback((): ScheduleExportParams | null => {
+    if (!schedule) return null;
+    return { projectName, scenarioName, activities, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat };
+  }, [projectName, scenarioName, activities, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat]);
+
+  const handleExportXlsx = useCallback(async () => {
+    const params = buildExportParams();
+    if (!params) return;
+    setExporting(true);
+    try {
+      const arrayBuffer = await exportScheduleXlsx(params);
+      const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatDateISO(new Date())}.xlsx`;
+      downloadFile(arrayBuffer, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    } finally {
+      setExporting(false);
+    }
+  }, [buildExportParams, projectName, scenarioName]);
+
+  const handleExportCsv = useCallback(() => {
+    const params = buildExportParams();
+    if (!params) return;
+    const csv = exportScheduleCsv(params);
+    const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatDateISO(new Date())}.csv`;
+    downloadFile(csv, filename, "text/csv");
+  }, [buildExportParams, projectName, scenarioName]);
 
   // Compute buffered finish date by adding buffer working days to the deterministic end date
   const bufferedEndDate =
@@ -361,32 +412,65 @@ export function ScenarioSummaryCard({
         </div>
       </div>
 
-      {/* Row 3: Schedule Buffer */}
+      {/* Row 3: Schedule Buffer + Export */}
       <div className="pt-1 border-t border-gray-100 dark:border-gray-700">
-        {buffer ? (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">Schedule Buffer:</span>
-            <span
-              className={`font-semibold tabular-nums ${
-                buffer.bufferDays >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-600 dark:text-red-400"
-              }`}
-            >
-              {buffer.bufferDays > 0 ? "+" : ""}
-              {buffer.bufferDays} days
-            </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {buffer ? (
+            <>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Schedule Buffer:</span>
+              <span
+                className={`font-semibold tabular-nums ${
+                  buffer.bufferDays >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+                }`}
+              >
+                {buffer.bufferDays > 0 ? "+" : ""}
+                {buffer.bufferDays} days
+              </span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                (P{actPct} schedule → P{projPct} project confidence)
+              </span>
+            </>
+          ) : hasSimulationResults ? (
             <span className="text-xs text-gray-400 dark:text-gray-500">
-              (P{actPct} schedule → P{projPct} project confidence)
+              Buffer unavailable — P{projPct} not found in simulation results
             </span>
+          ) : (
+            <span className="text-xs text-gray-400 dark:text-gray-500 italic">
+              Run simulation to calculate schedule buffer
+            </span>
+          )}
+
+          {/* Export buttons — right-aligned */}
+          <div className="flex items-center gap-2 ml-auto no-print">
+            <div className="border-l border-gray-200 dark:border-gray-600 h-4" />
+            <span className="text-xs text-gray-500 dark:text-gray-400">Export:</span>
+            <button
+              onClick={handleExportXlsx}
+              disabled={exportDisabled || exporting}
+              className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={exportDisabled ? "Run simulation first to enable export" : "Download as formatted Excel file"}
+            >
+              {exporting ? "Exporting…" : "XLSX"}
+            </button>
+            <button
+              onClick={handleExportCsv}
+              disabled={exportDisabled}
+              className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={exportDisabled ? "Run simulation first to enable export" : "Download as CSV file"}
+            >
+              CSV
+            </button>
+            {exportDisabled && onRunSimulation && (
+              <button
+                type="button"
+                onClick={onRunSimulation}
+                className="text-xs text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+              >
+                Run simulation
+              </button>
+            )}
           </div>
-        ) : hasSimulationResults ? (
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            Buffer unavailable — P{projPct} not found in simulation results
-          </span>
-        ) : (
-          <span className="text-xs text-gray-400 dark:text-gray-500 italic">
-            Run simulation to calculate schedule buffer
-          </span>
-        )}
+        </div>
       </div>
 
       {/* Row 4: Milestone Health (only when milestones exist) */}
