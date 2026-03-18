@@ -310,7 +310,7 @@ export function ActivityEditModal({
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                    className="text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
                   >
                     Clear constraint
                   </button>
