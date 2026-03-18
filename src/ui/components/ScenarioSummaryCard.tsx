@@ -1,6 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
+import { useState, useEffect } from "react";
 import type { DeterministicSchedule, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
@@ -48,6 +49,12 @@ export function ScenarioSummaryCard({
   const formatDate = useDateFormat();
   const actPct = Math.round(settings.probabilityTarget * 100);
   const projPct = Math.round(settings.projectProbabilityTarget * 100);
+
+  // Local string state for heuristic % inputs — allows free typing, validates on blur
+  const [localMinPct, setLocalMinPct] = useState(String(settings.heuristicMinPercent));
+  const [localMaxPct, setLocalMaxPct] = useState(String(settings.heuristicMaxPercent));
+  useEffect(() => { setLocalMinPct(String(settings.heuristicMinPercent)); }, [settings.heuristicMinPercent]); // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { setLocalMaxPct(String(settings.heuristicMaxPercent)); }, [settings.heuristicMaxPercent]); // eslint-disable-line react-hooks/set-state-in-effect
 
   // Compute buffered finish date by adding buffer working days to the deterministic end date
   const bufferedEndDate =
@@ -287,11 +294,14 @@ export function ScenarioSummaryCard({
           <span className="text-gray-500 dark:text-gray-400 text-xs">Min</span>
           <input
             type="number"
-            value={settings.heuristicMinPercent}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
+            value={localMinPct}
+            onChange={(e) => setLocalMinPct(e.target.value)}
+            onBlur={() => {
+              const val = parseInt(localMinPct, 10);
               if (!isNaN(val) && val >= 1 && val <= 99) {
                 onSettingsChange({ heuristicMinPercent: val });
+              } else {
+                setLocalMinPct(String(settings.heuristicMinPercent));
               }
             }}
             disabled={isLocked || !settings.heuristicEnabled}
@@ -304,11 +314,14 @@ export function ScenarioSummaryCard({
           <span className="text-gray-500 dark:text-gray-400 text-xs ml-1">Max</span>
           <input
             type="number"
-            value={settings.heuristicMaxPercent}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
+            value={localMaxPct}
+            onChange={(e) => setLocalMaxPct(e.target.value)}
+            onBlur={() => {
+              const val = parseInt(localMaxPct, 10);
               if (!isNaN(val) && val >= 101 && val <= 1000) {
                 onSettingsChange({ heuristicMaxPercent: val });
+              } else {
+                setLocalMaxPct(String(settings.heuristicMaxPercent));
               }
             }}
             disabled={isLocked || !settings.heuristicEnabled}

@@ -1,6 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
+import { useState, useEffect } from "react";
 import {
   RSM_LEVELS,
   RSM_LABELS,
@@ -37,6 +38,12 @@ export function PreferencesSection() {
       resetPreferences: s.resetPreferences,
     }))
   );
+
+  // Local string state for heuristic % inputs — allows free typing, validates on blur
+  const [localMinPct, setLocalMinPct] = useState(String(preferences.defaultHeuristicMinPercent));
+  const [localMaxPct, setLocalMaxPct] = useState(String(preferences.defaultHeuristicMaxPercent));
+  useEffect(() => { setLocalMinPct(String(preferences.defaultHeuristicMinPercent)); }, [preferences.defaultHeuristicMinPercent]); // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { setLocalMaxPct(String(preferences.defaultHeuristicMaxPercent)); }, [preferences.defaultHeuristicMaxPercent]); // eslint-disable-line react-hooks/set-state-in-effect
 
   const handleReset = () => {
     if (window.confirm("Reset all preferences to defaults?")) {
@@ -324,11 +331,14 @@ export function PreferencesSection() {
           </label>
           <input
             type="number"
-            value={preferences.defaultHeuristicMinPercent}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
+            value={localMinPct}
+            onChange={(e) => setLocalMinPct(e.target.value)}
+            onBlur={() => {
+              const val = parseInt(localMinPct, 10);
               if (!isNaN(val) && val >= 1 && val <= 99) {
                 updatePreferences({ defaultHeuristicMinPercent: val });
+              } else {
+                setLocalMinPct(String(preferences.defaultHeuristicMinPercent));
               }
             }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -348,14 +358,18 @@ export function PreferencesSection() {
           </label>
           <input
             type="number"
-            value={preferences.defaultHeuristicMaxPercent}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
+            value={localMaxPct}
+            onChange={(e) => setLocalMaxPct(e.target.value)}
+            onBlur={() => {
+              const val = parseInt(localMaxPct, 10);
               if (!isNaN(val) && val >= 101 && val <= 1000) {
                 updatePreferences({ defaultHeuristicMaxPercent: val });
+              } else {
+                setLocalMaxPct(String(preferences.defaultHeuristicMaxPercent));
               }
             }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            min={101}
             max={1000}
             step={1}
           />
