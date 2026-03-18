@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.1 — 2026-03-17
+
+### Refactoring
+
+- Extract `useScenarioComparison` hook from ProjectPage (comparison mode state + handlers)
+- Extract `EstimateInputs` component from UnifiedActivityRow (Min/ML/Max numeric inputs)
+- Extract `BulkActionToolbar` component from UnifiedActivityGrid (bulk selection UI)
+
 ## 0.20.0 — 2026-03-17
 
 ### New Features

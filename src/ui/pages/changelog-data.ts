@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.20.1",
+    date: "2026-03-17",
+    sections: [
+      {
+        title: "Refactoring",
+        items: [
+          "Extract useScenarioComparison hook from ProjectPage (comparison mode state + handlers)",
+          "Extract EstimateInputs component from UnifiedActivityRow (Min/ML/Max numeric inputs)",
+          "Extract BulkActionToolbar component from UnifiedActivityGrid (bulk selection UI)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.20.0",
     date: "2026-03-17",
     sections: [

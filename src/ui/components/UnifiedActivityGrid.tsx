@@ -24,14 +24,9 @@ import type {
   DistributionType,
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
-import {
-  RSM_LEVELS,
-  RSM_LABELS,
-  DISTRIBUTION_TYPES,
-} from "@domain/models/types";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
+import { BulkActionToolbar } from "./BulkActionToolbar";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
-import { distributionLabel } from "@domain/helpers/format-labels";
 
 interface UnifiedActivityGridProps {
   activities: Activity[];
@@ -273,72 +268,15 @@ export function UnifiedActivityGrid({
     >
       {/* Bulk action toolbar - hidden when scenario is locked */}
       {hasSelection && !isScenarioLocked && (
-        <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800">
-          <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-            {selectedIds.size} selected
-          </span>
-
-          {/* Confidence level dropdown */}
-          <select
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) {
-                handleBulkConfidenceChange(e.target.value as RSMLevel);
-                e.target.value = "";
-              }
-            }}
-            className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"
-          >
-            <option value="" disabled>Set Confidence...</option>
-            {RSM_LEVELS.map((level) => (
-              <option key={level} value={level}>
-                {RSM_LABELS[level]}
-              </option>
-            ))}
-          </select>
-
-          {/* Distribution type dropdown */}
-          <select
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) {
-                handleBulkDistributionChange(e.target.value as DistributionType);
-                e.target.value = "";
-              }
-            }}
-            className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"
-          >
-            <option value="" disabled>Set Distribution...</option>
-            {DISTRIBUTION_TYPES.map((dt) => (
-              <option key={dt} value={dt}>
-                {distributionLabel(dt)}
-              </option>
-            ))}
-          </select>
-
-          {incompleteSelectedCount > 0 && (
-            <button
-              onClick={handleBulkComplete}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-            >
-              Mark Complete
-            </button>
-          )}
-
-          <button
-            onClick={handleBulkDelete}
-            className="px-3 py-1 text-red-600 dark:text-red-400 text-sm hover:text-red-800 dark:hover:text-red-300"
-          >
-            Delete
-          </button>
-
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="px-3 py-1 text-blue-600 dark:text-blue-400 text-sm hover:text-blue-800 dark:hover:text-blue-300"
-          >
-            Clear
-          </button>
-        </div>
+        <BulkActionToolbar
+          selectedCount={selectedIds.size}
+          incompleteSelectedCount={incompleteSelectedCount}
+          onBulkConfidenceChange={handleBulkConfidenceChange}
+          onBulkDistributionChange={handleBulkDistributionChange}
+          onBulkComplete={handleBulkComplete}
+          onBulkDelete={handleBulkDelete}
+          onClearSelection={() => setSelectedIds(new Set())}
+        />
       )}
 
       {/* Header row */}
