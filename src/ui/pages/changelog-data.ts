@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.20.4",
+    date: "2026-03-18",
+    sections: [
+      {
+        title: "Enhancements",
+        items: [
+          "Add optional constraint note field (up to 500 characters) to document constraint rationale",
+          "Add Constraints section to print report with Type, Date, Mode, and Note columns",
+          "Add Constraint Note column to XLSX/CSV schedule exports",
+          "Add SPERT® branding to print report header and footer",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.20.3",
     date: "2026-03-18",
     sections: [

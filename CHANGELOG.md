@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.4 — 2026-03-18
+
+### Enhancements
+
+- Add optional constraint note field (up to 500 characters) to document why a scheduling constraint exists
+- Add Constraints section to print report with Type, Date, Mode, and Note columns
+- Add Constraint Note column to XLSX/CSV schedule exports
+- Add SPERT® branding to print report header and footer
+
 ## 0.20.3 — 2026-03-18
 
 ### Bug Fixes

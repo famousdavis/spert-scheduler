@@ -81,6 +81,7 @@ export const ActivitySchema = z
     constraintType: z.enum(CONSTRAINT_TYPES).nullable().optional(),
     constraintDate: ISODateString.nullable().optional(),
     constraintMode: z.enum(CONSTRAINT_MODES).nullable().optional(),
+    constraintNote: z.string().max(500).nullable().optional(),
   })
   .refine((a) => a.min <= a.mostLikely, {
     message: "Min must be <= Most Likely",

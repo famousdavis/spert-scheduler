@@ -127,6 +127,7 @@ export interface Activity {
   constraintType?: ConstraintType | null; // scheduling constraint type
   constraintDate?: string | null; // ISO "YYYY-MM-DD" constraint date
   constraintMode?: ConstraintMode | null; // "hard" overrides, "soft" is advisory
+  constraintNote?: string | null; // optional rationale for the constraint
 }
 
 export interface ActivityDependency {

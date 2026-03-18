@@ -63,6 +63,9 @@ export function ActivityEditModal({
   const [constraintMode, setConstraintMode] = useState<ConstraintMode | null>(
     activity?.constraintMode ?? null
   );
+  const [constraintNote, setConstraintNote] = useState<string | null>(
+    activity?.constraintNote ?? null
+  );
   const [dateAdjustedNote, setDateAdjustedNote] = useState<string | null>(null);
 
   // -- Conflict preview (200ms debounce) --
@@ -148,6 +151,7 @@ export function ActivityEditModal({
         setConstraintType(null);
         setConstraintMode(null);
         setConstraintDate(null);
+        setConstraintNote(null);
         setDateAdjustedNote(null);
         setConflictPreview(null);
         return;
@@ -167,6 +171,7 @@ export function ActivityEditModal({
       constraintType: constraintType ?? null,
       constraintDate: constraintType ? (constraintDate ?? null) : null,
       constraintMode: constraintType ? (constraintMode ?? null) : null,
+      constraintNote: constraintType ? (constraintNote?.trim() || null) : null,
     });
     onClose();
   }, [
@@ -177,6 +182,7 @@ export function ActivityEditModal({
     constraintType,
     constraintDate,
     constraintMode,
+    constraintNote,
     onClose,
   ]);
 
@@ -185,6 +191,7 @@ export function ActivityEditModal({
     setConstraintType(null);
     setConstraintDate(null);
     setConstraintMode(null);
+    setConstraintNote(null);
     setDateAdjustedNote(null);
     setConflictPreview(null);
   }, []);
@@ -301,6 +308,26 @@ export function ActivityEditModal({
                       {constraintMode === "hard"
                         ? "Hard: overrides computed dates. May cause conflicts."
                         : "Soft: advisory only. Violations shown as warnings."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Note (optional) */}
+                {constraintType && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Note <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+                    </label>
+                    <textarea
+                      value={constraintNote ?? ""}
+                      onChange={(e) => setConstraintNote(e.target.value || null)}
+                      maxLength={500}
+                      rows={2}
+                      placeholder="Why does this constraint exist?"
+                      className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none"
+                    />
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-0.5">
+                      {(constraintNote ?? "").length}/500
                     </p>
                   </div>
                 )}
