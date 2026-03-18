@@ -117,10 +117,10 @@ export function GanttLegend({
       {/* Constraint */}
       {hasConstraints && (
         <span>
-          <span
-            className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5"
-            style={{ backgroundColor: "#3b82f6" }}
-          />
+          <svg width="12" height="12" className="inline-block align-middle mr-1.5">
+            <rect width="12" height="12" rx="2" fill="#3b82f6" opacity="0.9" />
+            <text x="6" y="6" textAnchor="middle" dominantBaseline="central" fontSize="8" fill="#ffffff" fontWeight="700">C</text>
+          </svg>
           <span className="align-middle">Constraint</span>
         </span>
       )}
