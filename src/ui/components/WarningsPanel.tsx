@@ -68,7 +68,7 @@ export function WarningsPanel({ conflicts }: WarningsPanelProps) {
                 <span className="text-red-600 dark:text-red-400 ml-1">
                   {c.constraintType} {formatDate(c.constraintDate)} ({c.constraintMode})
                 </span>
-                <p className="text-red-600 dark:text-red-400 mt-0.5">{c.message}</p>
+                <p className="text-red-600 dark:text-red-400 mt-0.5">{c.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}</p>
               </div>
             </div>
           ))}
@@ -87,7 +87,7 @@ export function WarningsPanel({ conflicts }: WarningsPanelProps) {
                 <span className="text-amber-600 dark:text-amber-400 ml-1">
                   {c.constraintType} {formatDate(c.constraintDate)} ({c.constraintMode})
                 </span>
-                <p className="text-amber-600 dark:text-amber-400 mt-0.5">{c.message}</p>
+                <p className="text-amber-600 dark:text-amber-400 mt-0.5">{c.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}</p>
               </div>
             </div>
           ))}

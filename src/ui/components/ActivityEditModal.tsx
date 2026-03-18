@@ -328,7 +328,9 @@ export function ActivityEditModal({
                     <p className="font-medium text-xs mb-1">
                       {conflictPreview.severity === "error" ? "Conflict" : "Warning"}
                     </p>
-                    <p className="text-xs">{conflictPreview.message}</p>
+                    <p className="text-xs">
+                      {conflictPreview.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}
+                    </p>
                   </div>
                 )}
               </div>
