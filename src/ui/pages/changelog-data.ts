@@ -12,6 +12,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.20.3",
+    date: "2026-03-18",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fix heuristic Min/Max % inputs rejecting intermediate keystrokes (now validates on blur)",
+          "Format constraint warning dates to match user's date format preference",
+          "Change Clear constraint button color from red to green (no-error semantic)",
+          "Use unique blue C icon for constraint legend indicator (was identical to Planned)",
+          "Remove misleading hover pencil icon from Gantt chart rows",
+        ],
+      },
+      {
+        title: "Enhancements",
+        items: [
+          "Move schedule export (XLSX/CSV) buttons into summary card buffer row, reclaiming vertical space",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.20.2",
     date: "2026-03-17",
     sections: [

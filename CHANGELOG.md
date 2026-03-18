@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.20.3 — 2026-03-18
+
+### Bug Fixes
+
+- Fix heuristic Min/Max % inputs rejecting intermediate keystrokes — now validates on blur (ScenarioSummaryCard, PreferencesSection)
+- Format constraint warning dates to match user's date format preference (ActivityEditModal, WarningsPanel)
+- Change Clear constraint button color from red to green (no-error semantic)
+- Use unique blue C icon for constraint legend indicator (was identical to Planned)
+- Remove misleading hover pencil icon from Gantt chart rows
+
+### Enhancements
+
+- Move schedule export (XLSX/CSV) buttons into summary card buffer row, reclaiming vertical space between activity grid and dependency panel
+
 ## 0.20.2 — 2026-03-17
 
 ### Security
