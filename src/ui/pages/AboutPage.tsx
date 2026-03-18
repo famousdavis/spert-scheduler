@@ -41,7 +41,7 @@ export function AboutPage() {
             SPERT® Scheduler&apos;s features and workflow.
           </p>
           <a
-            href="/SPERTScheduler_Quick_Reference_Guide.pdf"
+            href="https://raw.githubusercontent.com/famousdavis/spert-scheduler/main/SPERTScheduler_Quick_Reference_Guide.pdf"
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 inline-block rounded bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
