@@ -25,6 +25,7 @@ import {
   statusLabel,
 } from "@domain/helpers/format-labels";
 import { focusField, focusNextRow, focusPrevRow, computeElapsedDays } from "./activity-row-helpers";
+import { EstimateInputs } from "./EstimateInputs";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
@@ -270,6 +271,15 @@ export function UnifiedActivityRow({
     [activity.id, activity.distributionType, isComplete, isInProgress, heuristicEnabled]
   );
 
+  const estimateFields = useMemo(
+    () => [
+      { dataField: "min", activityKey: "min", defaultValue: activity.min, error: errors["min"], title: "Optimistic estimate (days)" },
+      { dataField: "ml", activityKey: "mostLikely", defaultValue: activity.mostLikely, error: errors["mostLikely"], title: "Most likely estimate (days)" },
+      { dataField: "max", activityKey: "max", defaultValue: activity.max, error: errors["max"], title: "Pessimistic estimate (days)" },
+    ],
+    [activity.min, activity.mostLikely, activity.max, errors]
+  );
+
   const recommendation = useMemo(
     () =>
       recommendDistribution(
@@ -400,67 +410,14 @@ export function UnifiedActivityRow({
         </div>
       )}
 
-      {/* Min */}
-      <div>
-        <input
-          data-row-id={activity.id}
-          data-field="min"
-          type="number"
-          defaultValue={activity.min}
-          onFocus={(e) => e.target.select()}
-          onBlur={(e) => handleBlur("min", e.target.value)}
-          onKeyDown={(e) => handleTabNav(e, "min")}
-          disabled={isLocked}
-          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
-            errors["min"] ? "border-red-400 bg-red-50 dark:bg-red-900/30" : "border-gray-200 dark:border-gray-600"
-          } focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
-          step="1"
-          min="0"
-          title={errors["min"] ?? "Optimistic estimate (days)"}
-        />
-      </div>
-
-      {/* ML */}
-      <div>
-        <input
-          data-row-id={activity.id}
-          data-field="ml"
-          type="number"
-          defaultValue={activity.mostLikely}
-          onFocus={(e) => e.target.select()}
-          onBlur={(e) => handleBlur("mostLikely", e.target.value)}
-          onKeyDown={(e) => handleTabNav(e, "ml")}
-          disabled={isLocked}
-          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
-            errors["mostLikely"]
-              ? "border-red-400 bg-red-50 dark:bg-red-900/30"
-              : "border-gray-200 dark:border-gray-600"
-          } focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
-          step="1"
-          min="0"
-          title={errors["mostLikely"] ?? "Most likely estimate (days)"}
-        />
-      </div>
-
-      {/* Max */}
-      <div>
-        <input
-          data-row-id={activity.id}
-          data-field="max"
-          type="number"
-          defaultValue={activity.max}
-          onFocus={(e) => e.target.select()}
-          onBlur={(e) => handleBlur("max", e.target.value)}
-          onKeyDown={(e) => handleTabNav(e, "max")}
-          disabled={isLocked}
-          className={`w-full px-1 py-1 border rounded text-sm tabular-nums text-right dark:bg-gray-700 dark:text-gray-100 ${
-            errors["max"] ? "border-red-400 bg-red-50 dark:bg-red-900/30" : "border-gray-200 dark:border-gray-600"
-          } focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
-          step="1"
-          min="0"
-          title={errors["max"] ?? "Pessimistic estimate (days)"}
-        />
-      </div>
+      {/* Min / ML / Max */}
+      <EstimateInputs
+        activityId={activity.id}
+        fields={estimateFields}
+        onBlur={handleBlur as (field: string, value: string) => void}
+        onKeyDown={handleTabNav as (e: React.KeyboardEvent, field: string) => void}
+        disabled={isLocked}
+      />
 
       {/* Confidence */}
       <div>

@@ -33,6 +33,7 @@ import { InlineEdit } from "@ui/components/InlineEdit";
 
 import { ValidationSummary } from "@ui/components/ValidationSummary";
 import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
+import { useScenarioComparison } from "@ui/hooks/use-scenario-comparison";
 import { PrintableReport } from "@ui/components/PrintableReport";
 import { SensitivityPanel } from "@ui/components/SensitivityPanel";
 import { SharingSection } from "@ui/components/SharingSection";
@@ -123,11 +124,7 @@ export function ProjectPage() {
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
   const [allActivitiesValid, setAllActivitiesValid] = useState(true);
   const [calendarError, setCalendarError] = useState<string | null>(null);
-  const [compareMode, setCompareMode] = useState(false);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
-  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(
-    () => new Set()
-  );
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -363,32 +360,13 @@ export function ProjectPage() {
     updateScenarioSettings(id, scenario.id, { rngSeed: newSeed });
   }, [id, scenario, updateScenarioSettings]);
 
-  const handleToggleCompare = useCallback((scenarioId: string) => {
-    setSelectedForCompare((prev) => {
-      const next = new Set(prev);
-      if (next.has(scenarioId)) {
-        next.delete(scenarioId);
-      } else if (next.size < 3) {
-        next.add(scenarioId);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleToggleCompareMode = useCallback(() => {
-    setCompareMode((prev) => {
-      if (!prev) {
-        // Entering compare mode: clear selection
-        setSelectedForCompare(new Set());
-      }
-      return !prev;
-    });
-  }, []);
-
-  const compareScenarios =
-    compareMode && project
-      ? project.scenarios.filter((s) => selectedForCompare.has(s.id))
-      : [];
+  const {
+    compareMode,
+    selectedForCompare,
+    handleToggleCompare,
+    handleToggleCompareMode,
+    compareScenarios,
+  } = useScenarioComparison(project?.scenarios ?? []);
 
   if (!project) {
     return (
