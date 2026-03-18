@@ -488,9 +488,9 @@ describe("date boundary conditions", () => {
     expect(formatDateDisplay("2025-12-25", "DD/MM/YYYY")).toBe("25/12/2025");
   });
 
-  it("formatDateDisplay for YYYY-MM-DD format (passthrough)", () => {
-    expect(formatDateDisplay("2025-01-06", "YYYY-MM-DD")).toBe("2025-01-06");
-    expect(formatDateDisplay("2025-12-25", "YYYY-MM-DD")).toBe("2025-12-25");
+  it("formatDateDisplay for YYYY/MM/DD format", () => {
+    expect(formatDateDisplay("2025-01-06", "YYYY/MM/DD")).toBe("2025/01/06");
+    expect(formatDateDisplay("2025-12-25", "YYYY/MM/DD")).toBe("2025/12/25");
   });
 });
 

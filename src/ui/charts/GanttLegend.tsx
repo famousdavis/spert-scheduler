@@ -27,6 +27,7 @@ interface GanttLegendProps {
   showToday: boolean;
   todayVisible: boolean;
   hasMilestones: boolean;
+  hasConstraints?: boolean;
   datePrepared?: string;
 }
 
@@ -40,6 +41,7 @@ export function GanttLegend({
   showToday,
   todayVisible,
   hasMilestones,
+  hasConstraints,
   datePrepared,
 }: GanttLegendProps) {
   return (
@@ -109,6 +111,17 @@ export function GanttLegend({
             <polygon points="6,1 11,6 6,11 1,6" fill={mc.diamond} />
           </svg>
           <span className="align-middle">Milestone</span>
+        </span>
+      )}
+
+      {/* Constraint */}
+      {hasConstraints && (
+        <span>
+          <span
+            className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5"
+            style={{ backgroundColor: "#3b82f6" }}
+          />
+          <span className="align-middle">Constraint</span>
         </span>
       )}
 

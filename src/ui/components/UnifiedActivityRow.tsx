@@ -27,7 +27,7 @@ import {
 import { focusField, focusNextRow, focusPrevRow, computeElapsedDays } from "./activity-row-helpers";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";
-import { GRID_COLUMNS } from "./grid-columns";
+import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
 
 interface UnifiedActivityRowProps {
   activity: Activity;
@@ -38,13 +38,15 @@ interface UnifiedActivityRowProps {
   onToggleSelect?: (activityId: string) => void;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
-  onDuplicate: (activityId: string) => void;
   onValidityChange: (activityId: string, isValid: boolean) => void;
   isLocked?: boolean;
   heuristicEnabled?: boolean;
   heuristicMinPercent?: number;
   heuristicMaxPercent?: number;
   calendar?: WorkCalendar | Calendar;
+  dependencyMode?: boolean;
+  onEditActivity?: (activityId: string) => void;
+  hasConstraintWarning?: boolean;
 }
 
 type FieldErrors = Partial<Record<string, string>>;
@@ -58,16 +60,19 @@ export function UnifiedActivityRow({
   onToggleSelect,
   onUpdate,
   onDelete,
-  onDuplicate,
   onValidityChange,
   isLocked,
   heuristicEnabled,
   heuristicMinPercent = 50,
   heuristicMaxPercent = 200,
   calendar,
+  dependencyMode,
+  onEditActivity,
+  hasConstraintWarning,
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formatDate = useDateFormat();
+  const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
 
   useEffect(() => {
     if (autoFocusName && nameInputRef.current) {
@@ -287,7 +292,7 @@ export function UnifiedActivityRow({
         hasErrors ? "bg-red-50/30 dark:bg-red-900/20" : ""
       } ${isDragging ? "opacity-80 bg-blue-50 dark:bg-blue-900/30 z-10 shadow-md" : ""}`}
       style={{
-        gridTemplateColumns: GRID_COLUMNS,
+        gridTemplateColumns: gridCols,
         ...sortableStyle,
       }}
     >
@@ -366,6 +371,34 @@ export function UnifiedActivityRow({
           <span className="text-gray-300 dark:text-gray-600">&mdash;</span>
         )}
       </div>
+
+      {/* Constraint badge (dependency mode only) */}
+      {dependencyMode && (
+        <div className="px-0.5">
+          <button
+            type="button"
+            onClick={() => onEditActivity?.(activity.id)}
+            className={`w-full text-[10px] leading-tight rounded px-1 py-0.5 truncate text-center ${
+              activity.constraintType
+                ? activity.constraintMode === "hard"
+                  ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-600"
+                  : hasConstraintWarning
+                    ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-dashed border-amber-300 dark:border-amber-600"
+                    : "bg-transparent text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600"
+                : "text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400"
+            }`}
+            title={
+              activity.constraintType
+                ? `${activity.constraintType} ${activity.constraintDate ?? ""} (${activity.constraintMode ?? ""})`
+                : "Click to add a constraint"
+            }
+          >
+            {activity.constraintType
+              ? `${activity.constraintType}${activity.constraintMode === "soft" ? " S" : ""}`
+              : "\u2014"}
+          </button>
+        </div>
+      )}
 
       {/* Min */}
       <div>
@@ -591,8 +624,8 @@ export function UnifiedActivityRow({
         ) : null}
       </div>
 
-      {/* Actions: Duplicate and Delete */}
-      <div className="flex items-center justify-center gap-1">
+      {/* Actions: Delete */}
+      <div className="flex items-center justify-center">
         {isLocked ? (
           <span className="text-gray-300 dark:text-gray-600" title="Scenario is locked">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -601,32 +634,19 @@ export function UnifiedActivityRow({
             </svg>
           </span>
         ) : (
-          <>
-            <button
-              onClick={() => onDuplicate(activity.id)}
-              className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm transition-colors"
-              title="Duplicate activity"
-              tabIndex={-1}
-              aria-label="Duplicate activity"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                if (window.confirm("Are you sure you want to delete this activity?")) {
-                  onDelete(activity.id);
-                }
-              }}
-              className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 text-sm transition-colors"
-              title="Delete activity"
-              tabIndex={-1}
-              aria-label="Delete activity"
-            >
-              &#10005;
-            </button>
-          </>
+          <button
+            onClick={() => {
+              if (window.confirm("Are you sure you want to delete this activity?")) {
+                onDelete(activity.id);
+              }
+            }}
+            className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 text-sm transition-colors"
+            title="Delete activity"
+            tabIndex={-1}
+            aria-label="Delete activity"
+          >
+            &#10005;
+          </button>
         )}
       </div>
     </div>

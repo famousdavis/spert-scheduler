@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.20.0 — 2026-03-17
+
+### New Features
+
+- Activity scheduling constraints: MSO, MFO, SNET, SNLT, FNET, FNLT with Hard/Soft modes
+- Activity Edit Modal for managing scheduling constraints
+- Warnings Panel showing constraint conflicts and violations with severity levels
+- Constraint column in activity grid (dependency mode) with clickable badges
+- Constraint indicators on Gantt chart bars (interactive and print)
+- Dual backward pass: constraint-adjusted late dates + network-driven late dates (CPM float)
+- Monte Carlo simulation respects hard constraints per trial
+- Schema v10 to v11 migration with write-forward for Firestore
+
+### Enhancements
+
+- Schedule export (XLSX/CSV) includes constraint type, date, and mode columns
+- Gantt legend includes constraint indicator when constraints are present
+- Sequential-mode banner when constraints exist but dependency mode is off
+- totalFloat computed from network-driven backward pass
+- Soft constraint badges in activity grid show amber shading when a warning condition exists
+- Wider activity name column in grid (reclaimed 70px from Distribution, Min/ML/Max, Confidence, Actions columns)
+- Wider activity name area in Gantt chart (interactive: 260px, print: 170px) — shows up to 38 characters
+- Date format option changed from YYYY-MM-DD to YYYY/MM/DD to prevent line-wrapping in grid cells
+- Removed duplicate activity button from grid rows (available via scenario clone instead)
+
 ## 0.19.3 — 2026-03-17
 
 ### Enhancements

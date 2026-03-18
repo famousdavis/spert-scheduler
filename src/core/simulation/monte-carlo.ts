@@ -101,6 +101,8 @@ export interface DependencyMonteCarloInput {
   milestoneActivityIds?: Map<string, string[]>;
   /** Map of activityId → earliest start offset in working days (from startsAtMilestoneId). */
   activityEarliestStart?: Map<string, number>;
+  /** Map of activityId → constraint info for per-trial clamping. */
+  constraintMap?: Map<string, { type: string; offsetFromStart: number; mode: string }>;
   /** Optional progress callback. */
   onProgress?: (completedTrials: number, totalTrials: number) => void;
   /** How often to report progress (default: 10000). */
@@ -128,6 +130,7 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
     deterministicDurationMap,
     milestoneActivityIds,
     activityEarliestStart,
+    constraintMap,
     onProgress,
     progressInterval = 10000,
   } = input;
@@ -188,12 +191,23 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
         graph,
         trialDurations,
         milestoneActivityIds,
-        activityEarliestStart
+        activityEarliestStart,
+        constraintMap,
       );
       samples[trial] = result.projectDuration;
       for (const [milestoneId, duration] of result.milestoneDurations) {
         milestoneSamples!.get(milestoneId)![trial] = duration;
       }
+    } else if (constraintMap && constraintMap.size > 0) {
+      // Use milestone-aware path for constraint support (empty milestones)
+      const result = computeCriticalPathWithMilestones(
+        graph,
+        trialDurations,
+        new Map(),
+        activityEarliestStart,
+        constraintMap,
+      );
+      samples[trial] = result.projectDuration;
     } else {
       samples[trial] = computeCriticalPathDuration(graph, trialDurations);
     }

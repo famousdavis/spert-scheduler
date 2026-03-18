@@ -5,6 +5,7 @@ import type {
   Activity,
   ActivityDependency,
   Calendar,
+  ConstraintConflict,
   DeterministicSchedule,
   Milestone,
   ScheduledActivity,
@@ -14,11 +15,17 @@ import { createDistributionForActivity } from "@core/distributions/factory";
 import {
   addWorkingDays,
   subtractWorkingDays,
+  countWorkingDays,
   formatDateISO,
   parseDateISO,
   isWorkingDay,
 } from "@core/calendar/calendar";
 import { buildDependencyGraph, computeCriticalPathDuration } from "./dependency-graph";
+import {
+  applyForwardConstraint,
+  applyBackwardConstraint,
+  detectConstraintConflict,
+} from "./constraint-utils";
 
 // -- Shared helper for duration resolution ------------------------------------
 
@@ -199,37 +206,37 @@ export function computeDependencySchedule(
     projectStart.setDate(projectStart.getDate() + 1);
   }
 
-  // Schedule each activity in topological order
-  const startDates = new Map<string, Date>();
-  const endDates = new Map<string, Date>();
-  const scheduledActivities: ScheduledActivity[] = [];
+  // -- Forward pass (with constraint tracking) --------------------------------
+  // For each activity, compute:
+  // - networkStart/networkEnd: ES/EF before this activity's local constraint
+  // - startDates/endDates: ES/EF after constraint (propagates to successors)
+
+  const startDates = new Map<string, Date>();    // constrained ES
+  const endDates = new Map<string, Date>();      // constrained EF
+  const networkStart = new Map<string, string>(); // network ES (ISO)
+  const networkEnd = new Map<string, string>();   // network EF (ISO)
+  const conflicts: ConstraintConflict[] = [];
 
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
     const duration = durationMap.get(id) ?? 1;
-    const isActual = activity.status === "complete" && activity.actualDuration != null;
 
     const preds = graph.predecessors.get(id) ?? [];
     let activityStart: Date;
 
     if (preds.length === 0) {
-      // Root activity: starts at project start
       activityStart = new Date(projectStart);
     } else {
-      // Starts after all predecessors finish + lag
-      let latestDate = new Date(0); // epoch
+      // Starts after all predecessors' CONSTRAINED finish + lag
+      let latestDate = new Date(0);
       for (const pred of preds) {
         const predEnd = endDates.get(pred.id)!;
-        // Next working day after predecessor ends, plus lag days
-        // offset = 1 (next day after end) + lagDays
         const offset = 1 + pred.lagDays;
         let candidateStart: Date;
         if (offset >= 0) {
           candidateStart = addWorkingDays(predEnd, offset, calendar);
         } else {
-          // Negative offset (lead time): subtract working days from predecessor end
           candidateStart = subtractWorkingDays(predEnd, -offset, calendar);
-          // Don't start before project start
           if (candidateStart < projectStart) {
             candidateStart = new Date(projectStart);
           }
@@ -241,7 +248,7 @@ export function computeDependencySchedule(
       activityStart = latestDate;
     }
 
-    // Apply startsAtMilestoneId constraint: activity cannot start before milestone target date
+    // Apply startsAtMilestoneId floor
     if (activity.startsAtMilestoneId && milestones) {
       const milestone = milestones.find((m) => m.id === activity.startsAtMilestoneId);
       if (milestone) {
@@ -262,23 +269,152 @@ export function computeDependencySchedule(
 
     const activityEnd = addWorkingDays(activityStart, duration, calendar);
 
-    startDates.set(id, activityStart);
-    endDates.set(id, activityEnd);
+    // Save network dates (before local constraint adjustment)
+    const esNetISO = formatDateISO(activityStart);
+    const efNetISO = formatDateISO(activityEnd);
+    networkStart.set(id, esNetISO);
+    networkEnd.set(id, efNetISO);
+
+    // Apply scheduling constraint (forward pass)
+    if (activity.constraintType && activity.constraintDate && activity.constraintMode) {
+      const result = applyForwardConstraint(
+        esNetISO, efNetISO, duration,
+        activity.constraintType, activity.constraintDate,
+        activity.constraintMode, activity.id, activity.name, calendar,
+      );
+      startDates.set(id, parseDateISO(result.es));
+      endDates.set(id, parseDateISO(result.ef));
+      if (result.conflict) conflicts.push(result.conflict);
+    } else {
+      startDates.set(id, activityStart);
+      endDates.set(id, activityEnd);
+    }
+  }
+
+  // Project end is the latest constrained end date
+  let projectEndDate = projectStart;
+  for (const endDate of endDates.values()) {
+    if (endDate > projectEndDate) projectEndDate = endDate;
+  }
+  const projectEndISO = formatDateISO(projectEndDate);
+
+  // -- Backward pass #1 (constraint-adjusted, for display) --------------------
+
+  const lateStartCon = new Map<string, string>();  // ISO dates
+  const lateFinishCon = new Map<string, string>(); // ISO dates
+
+  for (let i = graph.topologicalOrder.length - 1; i >= 0; i--) {
+    const id = graph.topologicalOrder[i]!;
+    const activity = activityMap.get(id)!;
+    const duration = durationMap.get(id) ?? 1;
+    const succs = graph.successors.get(id) ?? [];
+
+    let lf: Date;
+    if (succs.length === 0) {
+      lf = new Date(projectEndDate);
+    } else {
+      lf = new Date(8640000000000000); // max date
+      for (const succ of succs) {
+        const succLS = parseDateISO(lateStartCon.get(succ.id)!);
+        const offset = 1 + succ.lagDays;
+        const candidateLF = offset >= 0
+          ? subtractWorkingDays(succLS, offset, calendar)
+          : addWorkingDays(succLS, -offset, calendar);
+        if (candidateLF < lf) lf = candidateLF;
+      }
+    }
+
+    let ls = subtractWorkingDays(lf, duration, calendar);
+
+    // Apply backward constraint adjustment
+    if (activity.constraintType && activity.constraintDate && activity.constraintMode) {
+      const backResult = applyBackwardConstraint(
+        formatDateISO(ls), formatDateISO(lf), duration,
+        activity.constraintType, activity.constraintDate,
+        activity.constraintMode, calendar,
+      );
+      ls = parseDateISO(backResult.ls);
+      lf = parseDateISO(backResult.lf);
+    }
+
+    lateStartCon.set(id, formatDateISO(ls));
+    lateFinishCon.set(id, formatDateISO(lf));
+  }
+
+  // -- Backward pass #2 (network-driven, no constraint adjustments) -----------
+
+  const lateStartNet = new Map<string, string>();
+  const lateFinishNet = new Map<string, string>();
+
+  for (let i = graph.topologicalOrder.length - 1; i >= 0; i--) {
+    const id = graph.topologicalOrder[i]!;
+    const duration = durationMap.get(id) ?? 1;
+    const succs = graph.successors.get(id) ?? [];
+
+    let lf: Date;
+    if (succs.length === 0) {
+      lf = new Date(projectEndDate);
+    } else {
+      lf = new Date(8640000000000000);
+      for (const succ of succs) {
+        const succLS = parseDateISO(lateStartNet.get(succ.id)!);
+        const offset = 1 + succ.lagDays;
+        const candidateLF = offset >= 0
+          ? subtractWorkingDays(succLS, offset, calendar)
+          : addWorkingDays(succLS, -offset, calendar);
+        if (candidateLF < lf) lf = candidateLF;
+      }
+    }
+
+    const ls = subtractWorkingDays(lf, duration, calendar);
+    lateStartNet.set(id, formatDateISO(ls));
+    lateFinishNet.set(id, formatDateISO(lf));
+  }
+
+  // -- Float, critical path, conflict detection --------------------------------
+
+  const totalFloatMap = new Map<string, number>();
+  for (const id of graph.topologicalOrder) {
+    const esDate = parseDateISO(networkStart.get(id)!);
+    const lsDate = parseDateISO(lateStartNet.get(id)!);
+    totalFloatMap.set(id, countWorkingDays(esDate, lsDate, calendar));
+  }
+
+  // Detect SNLT/FNLT and soft constraint conflicts using network-driven late dates
+  for (const id of graph.topologicalOrder) {
+    const activity = activityMap.get(id)!;
+    if (!activity.constraintType || !activity.constraintDate || !activity.constraintMode) continue;
+
+    const conflict = detectConstraintConflict(
+      networkStart.get(id)!, networkEnd.get(id)!,
+      lateStartNet.get(id)!, lateFinishNet.get(id)!,
+      activity.constraintType, activity.constraintDate,
+      activity.constraintMode, activity.id, activity.name, calendar,
+    );
+    if (conflict) conflicts.push(conflict);
+  }
+
+  // -- Build result -----------------------------------------------------------
+
+  const scheduledActivities: ScheduledActivity[] = [];
+  for (const id of graph.topologicalOrder) {
+    const activity = activityMap.get(id)!;
+    const duration = durationMap.get(id) ?? 1;
+    const isActual = activity.status === "complete" && activity.actualDuration != null;
 
     scheduledActivities.push({
       activityId: id,
       name: activity.name,
       duration,
-      startDate: formatDateISO(activityStart),
-      endDate: formatDateISO(activityEnd),
+      startDate: formatDateISO(startDates.get(id)!),
+      endDate: formatDateISO(endDates.get(id)!),
       isActual,
+      lateStart: lateStartCon.get(id),
+      lateFinish: lateFinishCon.get(id),
+      lateStartNet: lateStartNet.get(id),
+      lateFinishNet: lateFinishNet.get(id),
+      totalFloat: totalFloatMap.get(id),
     });
-  }
-
-  // Project end is the latest end date among all activities
-  let projectEndDate = projectStart;
-  for (const endDate of endDates.values()) {
-    if (endDate > projectEndDate) projectEndDate = endDate;
   }
 
   // Total duration is the critical path length (consistent with Monte Carlo computation)
@@ -287,6 +423,7 @@ export function computeDependencySchedule(
   return {
     activities: scheduledActivities,
     totalDurationDays,
-    projectEndDate: formatDateISO(projectEndDate),
+    projectEndDate: projectEndISO,
+    constraintConflicts: conflicts.length > 0 ? conflicts : undefined,
   };
 }

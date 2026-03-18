@@ -7,6 +7,8 @@ import {
   DISTRIBUTION_TYPES,
   ACTIVITY_STATUSES,
   DEPENDENCY_TYPES,
+  CONSTRAINT_TYPES,
+  CONSTRAINT_MODES,
 } from "../models/types";
 
 // -- Primitive Schemas -------------------------------------------------------
@@ -76,6 +78,9 @@ export const ActivitySchema = z
     actualDuration: z.number().nonnegative().optional(),
     milestoneId: z.string().max(64).optional(),
     startsAtMilestoneId: z.string().max(64).optional(),
+    constraintType: z.enum(CONSTRAINT_TYPES).nullable().optional(),
+    constraintDate: ISODateString.nullable().optional(),
+    constraintMode: z.enum(CONSTRAINT_MODES).nullable().optional(),
   })
   .refine((a) => a.min <= a.mostLikely, {
     message: "Min must be <= Most Likely",
@@ -84,6 +89,19 @@ export const ActivitySchema = z
   .refine((a) => a.mostLikely <= a.max, {
     message: "Most Likely must be <= Max",
     path: ["mostLikely"],
+  })
+  .superRefine((a, ctx) => {
+    const hasType = a.constraintType != null;
+    const hasDate = a.constraintDate != null;
+    const hasMode = a.constraintMode != null;
+    if (hasType !== hasDate || hasType !== hasMode) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Constraint fields must be all set or all null: constraintType, constraintDate, and constraintMode",
+        path: ["constraintType"],
+      });
+    }
   });
 
 // -- Activity Dependency -----------------------------------------------------

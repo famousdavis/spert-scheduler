@@ -102,6 +102,9 @@ export interface GridRow {
   endDate: string;
   predecessors?: string;
   successors?: string;
+  constraintType?: string;
+  constraintDate?: string;
+  constraintMode?: string;
 }
 
 function buildActivityIndexMap(activities: Activity[]): Map<string, number> {
@@ -188,6 +191,11 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
     };
     if (predMap) row.predecessors = predMap.get(activity.id) ?? "";
     if (succMap) row.successors = succMap.get(activity.id) ?? "";
+    if (settings.dependencyMode) {
+      row.constraintType = activity.constraintType ?? "";
+      row.constraintDate = activity.constraintDate ? fmt(activity.constraintDate) : "";
+      row.constraintMode = activity.constraintMode ?? "";
+    }
     return row;
   });
 }
@@ -233,7 +241,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
     "End Date",
   ];
   if (hasDeps) {
-    headers.push("Predecessors", "Successors");
+    headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode");
   }
   lines.push(headers.map(csvEscape).join(","));
 
@@ -254,7 +262,10 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
       row.endDate,
     ];
     if (hasDeps) {
-      cells.push(row.predecessors ?? "", row.successors ?? "");
+      cells.push(
+        row.predecessors ?? "", row.successors ?? "",
+        row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
+      );
     }
     lines.push(cells.map(csvEscape).join(","));
   }
@@ -359,7 +370,7 @@ export async function exportScheduleXlsx(
     "End Date",
   ];
   if (hasDeps) {
-    headers.push("Predecessors", "Successors");
+    headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode");
   }
 
   const headerRow = ws.getRow(rowNum);
@@ -389,7 +400,10 @@ export async function exportScheduleXlsx(
       row.endDate,
     ];
     if (hasDeps) {
-      cells.push(row.predecessors ?? "", row.successors ?? "");
+      cells.push(
+        row.predecessors ?? "", row.successors ?? "",
+        row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
+      );
     }
     const dataRow = ws.getRow(rowNum);
     cells.forEach((val, i) => {

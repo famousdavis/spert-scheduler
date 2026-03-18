@@ -30,7 +30,7 @@ import {
   DISTRIBUTION_TYPES,
 } from "@domain/models/types";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
-import { GRID_COLUMNS } from "./grid-columns";
+import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
 import { distributionLabel } from "@domain/helpers/format-labels";
 
 interface UnifiedActivityGridProps {
@@ -39,7 +39,6 @@ interface UnifiedActivityGridProps {
   activityProbabilityTarget: number;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
-  onDuplicate: (activityId: string) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
   onAdd: (name: string) => void;
   onValidityChange: (allValid: boolean) => void;
@@ -54,6 +53,9 @@ interface UnifiedActivityGridProps {
   heuristicMinPercent?: number;
   heuristicMaxPercent?: number;
   calendar?: WorkCalendar | Calendar;
+  dependencyMode?: boolean;
+  onEditActivity?: (activityId: string) => void;
+  constraintWarningIds?: Set<string>;
 }
 
 export function UnifiedActivityGrid({
@@ -62,7 +64,6 @@ export function UnifiedActivityGrid({
   activityProbabilityTarget,
   onUpdate,
   onDelete,
-  onDuplicate,
   onMove,
   onAdd,
   onValidityChange,
@@ -74,7 +75,11 @@ export function UnifiedActivityGrid({
   heuristicMinPercent,
   heuristicMaxPercent,
   calendar,
+  dependencyMode,
+  onEditActivity,
+  constraintWarningIds,
 }: UnifiedActivityGridProps) {
+  const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
   const [, setInvalidIds] = useState<Set<string>>(new Set());
   const [focusActivityId, setFocusActivityId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -340,7 +345,7 @@ export function UnifiedActivityGrid({
       <div
         className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
         style={{
-          gridTemplateColumns: GRID_COLUMNS,
+          gridTemplateColumns: gridCols,
         }}
       >
         <div className="flex items-center justify-center">
@@ -359,6 +364,7 @@ export function UnifiedActivityGrid({
         <div className="text-right px-1">Dur.</div>
         <div className="px-1">Start</div>
         <div className="px-1">End</div>
+        {dependencyMode && <div className="px-1">Constraint</div>}
         <div className="text-right px-1.5">Min</div>
         <div className="text-right px-1.5">ML</div>
         <div className="text-right px-1.5">Max</div>
@@ -378,7 +384,7 @@ export function UnifiedActivityGrid({
       <div
         className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-[9px] text-gray-400 dark:text-gray-500"
         style={{
-          gridTemplateColumns: GRID_COLUMNS,
+          gridTemplateColumns: gridCols,
         }}
       >
         <div />
@@ -389,6 +395,7 @@ export function UnifiedActivityGrid({
         </div>
         <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
         <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
+        {dependencyMode && <div />}
         <div />
         <div />
         <div />
@@ -422,13 +429,15 @@ export function UnifiedActivityGrid({
               onToggleSelect={toggleSelect}
               onUpdate={onUpdate}
               onDelete={onDelete}
-              onDuplicate={onDuplicate}
               onValidityChange={handleValidityChange}
               isLocked={isScenarioLocked}
               heuristicEnabled={heuristicEnabled}
               heuristicMinPercent={heuristicMinPercent}
               heuristicMaxPercent={heuristicMaxPercent}
               calendar={calendar}
+              dependencyMode={dependencyMode}
+              onEditActivity={onEditActivity}
+              hasConstraintWarning={constraintWarningIds?.has(activity.id)}
             />
           ))}
         </SortableContext>
@@ -445,7 +454,7 @@ export function UnifiedActivityGrid({
         <div
           className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300"
           style={{
-            gridTemplateColumns: GRID_COLUMNS,
+            gridTemplateColumns: gridCols,
           }}
         >
           <div />
@@ -458,6 +467,7 @@ export function UnifiedActivityGrid({
           </div>
           <div />
           <div />
+          {dependencyMode && <div />}
           <div className="text-right tabular-nums px-1">{summary.totalMin}</div>
           <div className="text-right tabular-nums px-1">{summary.totalML}</div>
           <div className="text-right tabular-nums px-1">{summary.totalMax}</div>

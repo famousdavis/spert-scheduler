@@ -37,6 +37,8 @@ import { PrintableReport } from "@ui/components/PrintableReport";
 import { SensitivityPanel } from "@ui/components/SensitivityPanel";
 import { SharingSection } from "@ui/components/SharingSection";
 import { ScheduleExportButton } from "@ui/components/ScheduleExportButton";
+import { ActivityEditModal } from "@ui/components/ActivityEditModal";
+import { WarningsPanel } from "@ui/components/WarningsPanel";
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -48,7 +50,6 @@ export function ProjectPage() {
     deleteScenario,
     duplicateScenario,
     addActivity,
-    duplicateActivity,
     deleteActivity,
     updateActivityField,
     moveActivity,
@@ -80,7 +81,6 @@ export function ProjectPage() {
       deleteScenario: s.deleteScenario,
       duplicateScenario: s.duplicateScenario,
       addActivity: s.addActivity,
-      duplicateActivity: s.duplicateActivity,
       deleteActivity: s.deleteActivity,
       updateActivityField: s.updateActivityField,
       moveActivity: s.moveActivity,
@@ -124,6 +124,7 @@ export function ProjectPage() {
   const [allActivitiesValid, setAllActivitiesValid] = useState(true);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [compareMode, setCompareMode] = useState(false);
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(
     () => new Set()
   );
@@ -219,6 +220,19 @@ export function ProjectPage() {
     scenario?.settings.probabilityTarget ?? 0.5,
     scenario?.settings.projectProbabilityTarget ?? 0.95
   );
+
+  // Activity IDs with soft constraint warnings (for grid badge highlighting)
+  const constraintWarningIds = useMemo(() => {
+    const conflicts = schedule?.constraintConflicts;
+    if (!conflicts || conflicts.length === 0) return undefined;
+    const ids = new Set<string>();
+    for (const c of conflicts) {
+      if (c.constraintMode === "soft" && c.severity === "warning") {
+        ids.add(c.activityId);
+      }
+    }
+    return ids.size > 0 ? ids : undefined;
+  }, [schedule?.constraintConflicts]);
 
   // Milestone buffers
   const milestoneBuffers = useMilestoneBuffers(
@@ -489,6 +503,20 @@ export function ProjectPage() {
         </div>
       )}
 
+      {/* Constraint conflict warnings */}
+      {schedule?.constraintConflicts && schedule.constraintConflicts.length > 0 && (
+        <WarningsPanel conflicts={schedule.constraintConflicts} />
+      )}
+
+      {/* Sequential-mode banner when constraints exist */}
+      {scenario && !scenario.settings.dependencyMode && scenario.activities.some((a) => a.constraintType != null) && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            Scheduling constraints are inactive in sequential mode. Switch to dependency mode to enable constraint scheduling.
+          </p>
+        </div>
+      )}
+
       {/* Active scenario content */}
       {scenario ? (
         <div className="space-y-6">
@@ -526,9 +554,6 @@ export function ProjectPage() {
             onDelete={(activityId) =>
               deleteActivity(id!, scenario.id, activityId)
             }
-            onDuplicate={(activityId) =>
-              duplicateActivity(id!, scenario.id, activityId)
-            }
             onMove={(from, to) => moveActivity(id!, scenario.id, from, to)}
             onAdd={(name) => addActivity(id!, scenario.id, name)}
             onValidityChange={setAllActivitiesValid}
@@ -543,6 +568,9 @@ export function ProjectPage() {
             heuristicMinPercent={scenario.settings.heuristicMinPercent}
             heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
             calendar={workCalendar}
+            dependencyMode={scenario.settings.dependencyMode}
+            onEditActivity={setEditingActivityId}
+            constraintWarningIds={constraintWarningIds}
           />
 
           {/* Schedule Export — XLSX / CSV */}
@@ -620,6 +648,7 @@ export function ProjectPage() {
               milestones={scenario.milestones}
               milestoneBuffers={milestoneBuffers}
               criticalPathIds={criticalPathIds}
+              onEditActivity={setEditingActivityId}
             />
           )}
 
@@ -670,6 +699,17 @@ export function ProjectPage() {
           onOpenChange={setCloneDialogOpen}
           sourceName={cloneSource.name}
           onClone={handleClone}
+        />
+      )}
+
+      {/* Activity Edit Modal (constraints) */}
+      {editingActivityId && scenario && (
+        <ActivityEditModal
+          activityId={editingActivityId}
+          scenarioId={scenario.id}
+          projectId={id!}
+          onClose={() => setEditingActivityId(null)}
+          schedule={schedule ?? undefined}
         />
       )}
 

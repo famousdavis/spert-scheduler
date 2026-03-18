@@ -22,6 +22,8 @@ export interface SimulationRequest {
     milestoneActivityIds?: Record<string, string[]>;
     /** Map of activityId → earliest start offset in working days (serialized as Record). */
     activityEarliestStart?: Record<string, number>;
+    /** Map of activityId → constraint info for MC per-trial clamping (serialized as Record). */
+    constraintMap?: Record<string, { type: string; offsetFromStart: number; mode: string }>;
   };
 }
 

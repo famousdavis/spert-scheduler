@@ -227,8 +227,8 @@ describe("buildGridRows", () => {
   });
 
   it("formats dates according to dateFormat preference", () => {
-    const rows = buildGridRows(makeParams({ dateFormat: "YYYY-MM-DD" }));
-    expect(rows[0]!.startDate).toBe("2026-03-16");
+    const rows = buildGridRows(makeParams({ dateFormat: "YYYY/MM/DD" }));
+    expect(rows[0]!.startDate).toBe("2026/03/16");
 
     const rows2 = buildGridRows(makeParams({ dateFormat: "DD/MM/YYYY" }));
     expect(rows2[0]!.startDate).toBe("16/03/2026");

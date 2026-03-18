@@ -9,7 +9,8 @@
  * Critical path computed via forward pass in topological order.
  */
 
-import type { ActivityDependency } from "@domain/models/types";
+import type { ActivityDependency, ConstraintType, ConstraintMode } from "@domain/models/types";
+import { applyForwardConstraintInt } from "./constraint-utils";
 
 // -- Types -------------------------------------------------------------------
 
@@ -363,17 +364,21 @@ export function computeCriticalPathWithMilestones(
   graph: DependencyGraph,
   durations: Map<string, number>,
   milestoneActivityIds: Map<string, string[]>,
-  activityEarliestStart?: Map<string, number>
+  activityEarliestStart?: Map<string, number>,
+  constraintMap?: Map<string, { type: string; offsetFromStart: number; mode: string }>,
 ): { projectDuration: number; milestoneDurations: Map<string, number> } {
   const earlyStart = new Map<string, number>();
   const earlyFinish = new Map<string, number>();
 
   for (const id of graph.topologicalOrder) {
+    const dur = durations.get(id) ?? 0;
     const preds = graph.predecessors.get(id) ?? [];
     let es = 0;
+    let maxPredEF = 0;
     for (const pred of preds) {
       const predFinish = earlyFinish.get(pred.id) ?? 0;
       es = Math.max(es, predFinish + pred.lagDays);
+      maxPredEF = Math.max(maxPredEF, predFinish);
     }
     // Apply earliest-start constraint (from startsAtMilestoneId)
     if (activityEarliestStart) {
@@ -382,8 +387,24 @@ export function computeCriticalPathWithMilestones(
         es = floor;
       }
     }
+    let ef = es + dur;
+
+    // Apply scheduling constraint (hard only; soft has no per-trial effect)
+    const constraint = constraintMap?.get(id);
+    if (constraint && constraint.mode === "hard") {
+      const result = applyForwardConstraintInt(
+        es, ef, dur,
+        constraint.type as ConstraintType,
+        constraint.offsetFromStart,
+        constraint.mode as ConstraintMode,
+        maxPredEF,
+      );
+      es = result.es;
+      ef = result.ef;
+    }
+
     earlyStart.set(id, es);
-    earlyFinish.set(id, es + (durations.get(id) ?? 0));
+    earlyFinish.set(id, ef);
   }
 
   let projectDuration = 0;

@@ -30,6 +30,7 @@ interface GanttSectionProps {
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;
   projectName?: string;
+  onEditActivity?: (activityId: string) => void;
 }
 
 export function GanttSection(props: GanttSectionProps) {

@@ -29,11 +29,40 @@ export function formatDateDisplay(
   switch (format) {
     case "DD/MM/YYYY":
       return `${d}/${m}/${y}`;
-    case "YYYY-MM-DD":
-      return isoDate;
+    case "YYYY/MM/DD":
+      return `${y}/${m}/${d}`;
     case "MM/DD/YYYY":
     default:
       return `${m}/${d}/${y}`;
+  }
+}
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Format a "YYYY-MM-DD" ISO string for short display in constraint badges.
+ * Pure string transform — no Date object construction.
+ *
+ * - MM/DD/YYYY preference → "Apr 7"
+ * - DD/MM/YYYY preference → "7 Apr"
+ * - YYYY/MM/DD preference → "04/07"
+ */
+export function formatDateShort(
+  isoDate: string,
+  format: DateFormatPreference = "MM/DD/YYYY"
+): string {
+  const [_y, mStr, dStr] = isoDate.split("-");
+  const m = Number(mStr);
+  const d = Number(dStr);
+  const month = MONTH_ABBR[m - 1]!;
+  switch (format) {
+    case "DD/MM/YYYY":
+      return `${d} ${month}`;
+    case "YYYY/MM/DD":
+      return `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}`;
+    case "MM/DD/YYYY":
+    default:
+      return `${month} ${d}`;
   }
 }
 

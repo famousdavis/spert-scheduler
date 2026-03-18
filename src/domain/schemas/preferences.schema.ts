@@ -17,7 +17,10 @@ export const UserPreferencesSchema = z.object({
   defaultConfidenceLevel: z.enum(RSM_LEVELS),
   defaultActivityTarget: z.number().min(0.01).max(0.99),
   defaultProjectTarget: z.number().min(0.01).max(0.99),
-  dateFormat: z.enum(DATE_FORMATS),
+  dateFormat: z.preprocess(
+    (v) => (v === "YYYY-MM-DD" ? "YYYY/MM/DD" : v),
+    z.enum(DATE_FORMATS)
+  ),
   autoRunSimulation: z.boolean(),
   theme: z.enum(THEME_OPTIONS).optional(),
   storeFullSimulationData: z.boolean().optional(),

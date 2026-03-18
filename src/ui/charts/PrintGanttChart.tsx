@@ -232,7 +232,7 @@ export function PrintGanttChart({
             <g key={act.id}>
               <text x={PRINT_LEFT - 4} y={y + PRINT_ROW / 2} textAnchor="end"
                 dominantBaseline="central" fontSize="7" fill={c.text}>
-                {act.name.length > 18 ? act.name.slice(0, 16) + "\u2026" : act.name}
+                {act.name.length > 26 ? act.name.slice(0, 24) + "\u2026" : act.name}
               </text>
               <rect x={x1} y={barY} width={w} height={PRINT_BAR_H}
                 rx={PRINT_BAR_RADIUS} fill={barColor} />
@@ -247,6 +247,16 @@ export function PrintGanttChart({
                   {sa.duration}d
                 </text>
               )}
+              {/* Constraint indicator */}
+              {act.constraintType && (() => {
+                const isStart = act.constraintType === "MSO" || act.constraintType === "SNET" || act.constraintType === "SNLT";
+                const iconX = isStart ? x1 - 1 : x1 + w - 4;
+                return (
+                  <rect x={iconX} y={barY - 2} width={5} height={5} rx={1}
+                    fill={act.constraintMode === "hard" ? "#3b82f6" : "#9ca3af"}
+                    opacity={act.constraintMode === "soft" ? 0.5 : 0.9} />
+                );
+              })()}
             </g>
           );
         })}
