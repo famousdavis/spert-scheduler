@@ -121,8 +121,10 @@ export function ActivityEditModal({
       }
 
       const date = parseDateISO(raw);
-      while (!isWorkingDay(date, calendar)) {
+      let guard = 0;
+      while (!isWorkingDay(date, calendar) && guard < 10000) {
         date.setDate(date.getDate() + 1);
+        guard++;
       }
       const normalized = formatDateISO(date);
 

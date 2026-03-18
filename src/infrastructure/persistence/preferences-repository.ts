@@ -17,6 +17,7 @@ export function loadPreferences(): UserPreferences {
     if (result.success) {
       return result.data as UserPreferences;
     }
+    console.warn("User preferences failed schema validation; resetting to defaults:", result.error.issues);
     return { ...DEFAULT_USER_PREFERENCES };
   } catch {
     return { ...DEFAULT_USER_PREFERENCES };

@@ -100,6 +100,18 @@ Work week and calendar inputs are validated at multiple layers:
 - **Holiday range limit:** Multi-day holidays spanning more than 366 days are rejected by `buildHolidaySet()` to prevent denial-of-service via unbounded date expansion. Zod schema enforces this at the validation layer.
 - **Iteration guards:** `addWorkingDays` and related calendar functions have a 10,000 iteration safety limit to prevent infinite loops from degenerate calendars.
 
+## v0.20.2 Security Audit (Constraint Feature)
+
+Targeted audit of the v0.20.0 constraint feature additions and surrounding code:
+
+- **Write-forward migration error escalation:** `firestore-driver.ts` `loadAll()` and `load()` now surface write-forward migration failures via the `onSaveError` callback instead of silently logging. This ensures the UI can display a toast when a migration write fails.
+- **Worker constraint validation:** `simulation.worker.ts` validates constraint `type` and `mode` values against known enum domains (`MSO|MFO|SNET|SNLT|FNET|FNLT` and `hard|soft`) before processing. Previously only `offsetFromStart` was type-checked.
+- **Import schema version bounds:** `export-import-service.ts` rejects `schemaVersion < 1` on import, preventing negative or zero versions from bypassing migration logic.
+- **Constraint date picker guard:** `ActivityEditModal.tsx` date picker's non-working-day snap loop has a 10,000 iteration guard, consistent with `calendar.ts` limits.
+- **localStorage namespace:** `scenario-memory.ts` key changed from `spert:active-scenarios` to `spert-scheduler:active-scenarios` to prevent cross-app collision on shared origins.
+- **Filename sanitization hardening:** `sanitizeFilename()` now returns `"Untitled"` for empty results and truncates to 200 characters.
+- **Preferences parse logging:** `preferences-repository.ts` logs Zod validation issues on parse failure for diagnostic visibility.
+
 ## Defensive Measures
 
 - **No `eval()` or `Function()`** — no dynamic code execution

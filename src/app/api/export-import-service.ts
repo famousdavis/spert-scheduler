@@ -153,10 +153,10 @@ function migrateAndValidateProjects(
         ? projectData.schemaVersion
         : 1;
 
-    if (typeof projectVersion !== "number") {
+    if (typeof projectVersion !== "number" || projectVersion < 1) {
       return {
         success: false,
-        error: `Project at index ${i} has an invalid schema version.`,
+        error: `Project "${projectData.name ?? `#${i + 1}`}" has an invalid schema version.`,
       };
     }
 

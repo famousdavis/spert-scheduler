@@ -119,8 +119,9 @@ export class FirestoreDriver {
       if (wasMigrated) {
         try {
           await this.doSave(project);
-        } catch {
-          console.warn("Write-forward migration save failed for project:", docSnap.id);
+        } catch (e) {
+          console.error("Write-forward migration save failed for project:", docSnap.id);
+          this.onSaveErrorCb?.(e);
         }
       }
     }
@@ -164,9 +165,10 @@ export class FirestoreDriver {
     if (wasMigrated) {
       try {
         await this.doSave(project);
-      } catch {
+      } catch (e) {
         // Non-blocking: log but don't prevent the user from using the app
-        console.warn("Write-forward migration save failed for project:", id);
+        console.error("Write-forward migration save failed for project:", id);
+        this.onSaveErrorCb?.(e);
       }
     }
 
