@@ -684,8 +684,8 @@ export function GanttChart({
                   );
                 })()}
 
-                {/* Hover edit icon (pencil) — desktop only */}
-                {hoveredRowId === act.id && onEditActivity && (
+                {/* Hover constraint edit icon — only for activities with constraints */}
+                {hoveredRowId === act.id && onEditActivity && act.constraintType && (
                   <g
                     className="cursor-pointer"
                     onClick={() => onEditActivity(act.id)}
@@ -696,19 +696,19 @@ export function GanttChart({
                       width={14}
                       height={14}
                       rx={2}
-                      fill={c.bg}
-                      stroke={c.gridLine}
-                      strokeWidth="0.5"
+                      fill="#3b82f6"
+                      opacity={0.9}
                     />
                     <text
                       x={LEFT_MARGIN - 8 + 11}
                       y={y + ROW_HEIGHT / 2}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      fontSize="9"
-                      fill={c.textMuted}
+                      fontSize="8"
+                      fill="#ffffff"
+                      fontWeight="700"
                     >
-                      {"\u270E"}
+                      C
                     </text>
                   </g>
                 )}
