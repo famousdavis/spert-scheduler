@@ -276,7 +276,7 @@ export function ScenarioSummaryCard({
               })
             }
             disabled={isLocked}
-            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {[1000, 5000, 10000, 25000, 50000].map((n) => (
               <option key={n} value={n}>
@@ -370,28 +370,29 @@ export function ScenarioSummaryCard({
 
         <div className="border-l border-gray-200 dark:border-gray-600 h-5" />
 
-        {/* Dependencies */}
-        <div className="flex items-center gap-1.5" title="Dependency mode: schedule activities using a dependency graph instead of sequential order">
-          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
-            Dependencies:
-          </label>
-          <ToggleSwitch
-            checked={settings.dependencyMode}
-            onChange={(val) => onSettingsChange({ dependencyMode: val })}
-            disabled={isLocked}
-          />
-        </div>
+        {/* Dependencies + Parkinson's Law — grouped to prevent orphan wrapping */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5" title="Dependency mode: schedule activities using a dependency graph instead of sequential order">
+            <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+              Dependencies:
+            </label>
+            <ToggleSwitch
+              checked={settings.dependencyMode}
+              onChange={(val) => onSettingsChange({ dependencyMode: val })}
+              disabled={isLocked}
+            />
+          </div>
 
-        {/* Parkinson's Law */}
-        <div className="flex items-center gap-1.5" title="Parkinson's Law: when enabled, simulated activity durations are never less than the deterministic (P50) duration">
-          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
-            Parkinson&apos;s Law:
-          </label>
-          <ToggleSwitch
-            checked={settings.parkinsonsLawEnabled ?? true}
-            onChange={(val) => onSettingsChange({ parkinsonsLawEnabled: val })}
-            disabled={isLocked}
-          />
+          <div className="flex items-center gap-1.5" title="Parkinson's Law: when enabled, simulated activity durations are never less than the deterministic (P50) duration">
+            <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+              Parkinson&apos;s Law:
+            </label>
+            <ToggleSwitch
+              checked={settings.parkinsonsLawEnabled ?? true}
+              onChange={(val) => onSettingsChange({ parkinsonsLawEnabled: val })}
+              disabled={isLocked}
+            />
+          </div>
         </div>
       </div>
       {!(settings.parkinsonsLawEnabled ?? true) && (
