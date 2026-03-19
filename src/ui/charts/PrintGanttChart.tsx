@@ -227,6 +227,60 @@ export function PrintGanttChart({
           </g>
         )}
 
+        {/* Dependency arrows — rendered before bars so bars paint on top */}
+        {dependencyMode && dependencies.map((dep, i) => {
+          const fromRow = rowIndex.get(dep.fromActivityId);
+          const toRow = rowIndex.get(dep.toActivityId);
+          const fromSa = scheduleMap.get(dep.fromActivityId);
+          const toSa = scheduleMap.get(dep.toActivityId);
+          if (fromRow === undefined || toRow === undefined || !fromSa || !toSa) return null;
+
+          const fromDate = dep.type === "SS" ? fromSa.startDate : fromSa.endDate;
+          const toDate = dep.type === "FF" ? toSa.endDate : toSa.startDate;
+          const barEndX = toX(fromDate);
+          const fromY = topMargin + fromRow * PRINT_ROW + PRINT_ROW / 2;
+          const toStartX = toX(toDate);
+          const toY = topMargin + toRow * PRINT_ROW + PRINT_ROW / 2;
+
+          const STUB = 4;
+          const stubX = barEndX + STUB;
+          const dyAbs = Math.abs(toY - fromY);
+          const dySigned = toY - fromY;
+
+          let path: string;
+          if (dep.type === "FF") {
+            const endX = toStartX + PRINT_ARROW_SIZE;
+            const rightX = Math.max(stubX, endX) + Math.max(10, dyAbs * 0.3);
+            path = `M${barEndX},${fromY} L${stubX},${fromY} C${rightX},${fromY} ${rightX},${toY} ${endX},${toY}`;
+          } else {
+            const endX = toStartX - PRINT_ARROW_SIZE;
+            if (endX >= stubX + 6) {
+              const spread = Math.max(12, dyAbs * 0.45);
+              path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + spread},${fromY} ${endX - spread},${toY} ${endX},${toY}`;
+            } else {
+              const loopExt = Math.max(18, dyAbs * 0.5);
+              path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + loopExt},${fromY + dySigned * 0.3} ${endX - loopExt},${toY} ${endX},${toY}`;
+            }
+          }
+
+          const isCriticalEdge = hasCriticalPath &&
+            criticalPathIds!.has(dep.fromActivityId) && criticalPathIds!.has(dep.toActivityId);
+          const arrowColor = isCriticalEdge ? c.criticalPath : c.arrow;
+          const arrowMarker = isCriticalEdge ? "url(#print-arrowhead-critical)" : "url(#print-arrowhead)";
+
+          return (
+            <g key={`dep-${i}`}>
+              <path d={path} stroke={arrowColor} strokeWidth="1" fill="none" markerEnd={arrowMarker} />
+              {dep.lagDays !== 0 && (
+                <text x={(barEndX + toStartX) / 2} y={(fromY + toY) / 2 - 2}
+                  textAnchor="middle" fontSize="4" fill={arrowColor} fontWeight="600">
+                  {dep.lagDays > 0 ? "+" : ""}{dep.lagDays}d
+                </text>
+              )}
+            </g>
+          );
+        })}
+
         {/* Activity rows */}
         {ordered.map((act, idx) => {
           const sa = scheduleMap.get(act.id);
@@ -333,59 +387,6 @@ export function PrintGanttChart({
           );
         })}
 
-        {/* Dependency arrows */}
-        {dependencyMode && dependencies.map((dep, i) => {
-          const fromRow = rowIndex.get(dep.fromActivityId);
-          const toRow = rowIndex.get(dep.toActivityId);
-          const fromSa = scheduleMap.get(dep.fromActivityId);
-          const toSa = scheduleMap.get(dep.toActivityId);
-          if (fromRow === undefined || toRow === undefined || !fromSa || !toSa) return null;
-
-          const fromDate = dep.type === "SS" ? fromSa.startDate : fromSa.endDate;
-          const toDate = dep.type === "FF" ? toSa.endDate : toSa.startDate;
-          const barEndX = toX(fromDate);
-          const fromY = topMargin + fromRow * PRINT_ROW + PRINT_ROW / 2;
-          const toStartX = toX(toDate);
-          const toY = topMargin + toRow * PRINT_ROW + PRINT_ROW / 2;
-
-          const STUB = 4;
-          const stubX = barEndX + STUB;
-          const dyAbs = Math.abs(toY - fromY);
-          const dySigned = toY - fromY;
-
-          let path: string;
-          if (dep.type === "FF") {
-            const endX = toStartX + PRINT_ARROW_SIZE;
-            const rightX = Math.max(stubX, endX) + Math.max(10, dyAbs * 0.3);
-            path = `M${barEndX},${fromY} L${stubX},${fromY} C${rightX},${fromY} ${rightX},${toY} ${endX},${toY}`;
-          } else {
-            const endX = toStartX - PRINT_ARROW_SIZE;
-            if (endX >= stubX + 6) {
-              const spread = Math.max(12, dyAbs * 0.45);
-              path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + spread},${fromY} ${endX - spread},${toY} ${endX},${toY}`;
-            } else {
-              const loopExt = Math.max(18, dyAbs * 0.5);
-              path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + loopExt},${fromY + dySigned * 0.3} ${endX - loopExt},${toY} ${endX},${toY}`;
-            }
-          }
-
-          const isCriticalEdge = hasCriticalPath &&
-            criticalPathIds!.has(dep.fromActivityId) && criticalPathIds!.has(dep.toActivityId);
-          const arrowColor = isCriticalEdge ? c.criticalPath : c.arrow;
-          const arrowMarker = isCriticalEdge ? "url(#print-arrowhead-critical)" : "url(#print-arrowhead)";
-
-          return (
-            <g key={`dep-${i}`}>
-              <path d={path} stroke={arrowColor} strokeWidth="1" fill="none" markerEnd={arrowMarker} />
-              {dep.lagDays !== 0 && (
-                <text x={(barEndX + toStartX) / 2} y={(fromY + toY) / 2 - 2}
-                  textAnchor="middle" fontSize="4" fill={arrowColor} fontWeight="600">
-                  {dep.lagDays > 0 ? "+" : ""}{dep.lagDays}d
-                </text>
-              )}
-            </g>
-          );
-        })}
       </svg>
 
       {/* Legend */}
