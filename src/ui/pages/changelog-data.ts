@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.2",
+    date: "2026-03-19",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Add hasOnly() field constraints to Firestore users/{uid} write rule to prevent arbitrary field injection",
+          "Add hasOnly() field constraints to Firestore spertscheduler_settings write rule to restrict writable keys",
+          "Add defensive ?? true fallback to Parkinson's Law preference read in Settings page",
+          "Harden schema migration v12→v13 to normalize non-boolean parkinsonsLawEnabled values via typeof check",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.22.1",
     date: "2026-03-18",
     sections: [

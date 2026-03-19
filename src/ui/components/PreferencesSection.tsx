@@ -339,7 +339,7 @@ export function PreferencesSection() {
             Enable Parkinson&apos;s Law by Default
           </label>
           <ToggleSwitch
-            checked={preferences.defaultParkinsonsLawEnabled}
+            checked={preferences.defaultParkinsonsLawEnabled ?? true}
             onChange={(val) => updatePreferences({ defaultParkinsonsLawEnabled: val })}
           />
           <span className="text-xs text-gray-500 dark:text-gray-400">

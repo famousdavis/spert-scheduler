@@ -239,7 +239,7 @@ function migrateV12toV13(data: unknown): unknown {
     for (const scenario of scenarios) {
       const settings = scenario.settings as Record<string, unknown> | undefined;
       if (settings) {
-        if (settings.parkinsonsLawEnabled === undefined || settings.parkinsonsLawEnabled === null) {
+        if (typeof settings.parkinsonsLawEnabled !== 'boolean') {
           settings.parkinsonsLawEnabled = true;
         }
       }

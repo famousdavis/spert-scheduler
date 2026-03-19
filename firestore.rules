@@ -40,12 +40,27 @@ service cloud.firestore {
 
     // ── User settings ──
     match /spertscheduler_settings/{userId} {
-      allow read, write: if isAuth() && request.auth.uid == userId;
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow write: if isAuth() && request.auth.uid == userId
+                   && request.resource.data.keys().hasOnly([
+                        'defaultTrialCount', 'defaultDistributionType', 'defaultConfidenceLevel',
+                        'defaultActivityTarget', 'defaultProjectTarget', 'dateFormat',
+                        'autoRunSimulation', 'theme', 'storeFullSimulationData',
+                        'defaultHeuristicEnabled', 'defaultHeuristicMinPercent', 'defaultHeuristicMaxPercent',
+                        'defaultDependencyMode', 'defaultParkinsonsLawEnabled',
+                        'globalCalendar', 'ganttViewMode', 'ganttShowToday',
+                        'ganttShowCriticalPath', 'ganttShowProjectName', 'ganttShowArrows',
+                        'defaultHolidayCountry', 'workDays'
+                      ]);
     }
 
     // ── ToS acceptance records (shared across all SPERT apps) ──
     match /users/{uid} {
-      allow read, write: if isAuth() && request.auth.uid == uid;
+      allow read: if isAuth() && request.auth.uid == uid;
+      allow write: if isAuth() && request.auth.uid == uid
+                   && request.resource.data.keys().hasOnly([
+                        'acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'
+                      ]);
     }
   }
 }

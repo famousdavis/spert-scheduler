@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.22.2 — 2026-03-19
+
+### Security
+
+- Add `hasOnly()` field constraints to Firestore `users/{uid}` write rule to prevent arbitrary field injection
+- Add `hasOnly()` field constraints to Firestore `spertscheduler_settings` write rule to restrict writable keys
+- Add defensive `?? true` fallback to Parkinson's Law preference read in Settings page
+- Harden schema migration v12→v13 to normalize non-boolean `parkinsonsLawEnabled` values via `typeof` check
+
 ## 0.22.1 — 2026-03-18
 
 ### Refactoring
