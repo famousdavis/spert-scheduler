@@ -741,4 +741,60 @@ describe("applyMigrations", () => {
     const result = applyMigrations(v1Data, 1, 9) as Record<string, unknown>;
     expect(result.schemaVersion).toBe(9);
   });
+
+  // -- v12 → v13: Parkinson's Law toggle ------------------------------------
+
+  it("v12→v13: sets parkinsonsLawEnabled = true on scenarios missing the field", () => {
+    const v12Data = {
+      schemaVersion: 12,
+      scenarios: [
+        { settings: { trialCount: 10000 }, activities: [] },
+        { settings: { trialCount: 50000 }, activities: [] },
+      ],
+    };
+
+    const result = applyMigrations(v12Data, 12, 13) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(13);
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    for (const s of scenarios) {
+      const settings = s.settings as Record<string, unknown>;
+      expect(settings.parkinsonsLawEnabled).toBe(true);
+    }
+  });
+
+  it("v12→v13: does not overwrite existing parkinsonsLawEnabled = false", () => {
+    const v12Data = {
+      schemaVersion: 12,
+      scenarios: [
+        { settings: { trialCount: 10000, parkinsonsLawEnabled: false }, activities: [] },
+      ],
+    };
+
+    const result = applyMigrations(v12Data, 12, 13) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(13);
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+    expect(settings.parkinsonsLawEnabled).toBe(false);
+  });
+
+  it("v1→v13: full sequential migration", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      scenarios: [
+        {
+          settings: { probabilityTarget: 0.85 },
+          activities: [],
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 13) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(13);
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const settings = scenarios[0]!.settings as Record<string, unknown>;
+    expect(settings.parkinsonsLawEnabled).toBe(true);
+  });
 });

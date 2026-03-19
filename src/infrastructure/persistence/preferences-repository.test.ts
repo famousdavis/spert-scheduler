@@ -85,6 +85,7 @@ describe("savePreferences", () => {
       defaultHeuristicMinPercent: 50,
       defaultHeuristicMaxPercent: 200,
       defaultDependencyMode: false,
+      defaultParkinsonsLawEnabled: true,
       ganttViewMode: "uncertainty",
       ganttShowToday: false,
       ganttShowCriticalPath: false,

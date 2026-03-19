@@ -62,6 +62,7 @@ const settings: ScenarioSettings = {
   heuristicMinPercent: 50,
   heuristicMaxPercent: 200,
   dependencyMode: false,
+  parkinsonsLawEnabled: true,
 };
 
 const buffer: ScheduleBuffer = {

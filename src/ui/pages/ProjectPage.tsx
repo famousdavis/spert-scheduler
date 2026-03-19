@@ -334,6 +334,7 @@ export function ProjectPage() {
       scenario.milestones,
       scenario.startDate,
       workCalendar,
+      scenario.settings.parkinsonsLawEnabled ?? true,
     );
     simulation.run(
       scenario.activities,

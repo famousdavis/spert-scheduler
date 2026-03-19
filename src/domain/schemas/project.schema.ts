@@ -135,6 +135,7 @@ export const ScenarioSettingsSchema = z.object({
   heuristicMinPercent: z.number().int().min(1).max(99).optional(),
   heuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
   dependencyMode: z.boolean().optional(),
+  parkinsonsLawEnabled: z.boolean().optional(),
 });
 
 // -- Histogram / CDF ---------------------------------------------------------

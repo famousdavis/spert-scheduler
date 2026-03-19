@@ -68,6 +68,7 @@ export function useAutoRunSimulation({
         scenario.milestones,
         scenario.startDate,
         workCalendar,
+        scenario.settings.parkinsonsLawEnabled ?? true,
       );
       runSimulation(
         activitiesRef.current,
@@ -93,6 +94,7 @@ export function useAutoRunSimulation({
     scenario?.settings.projectProbabilityTarget,
     scenario?.settings.trialCount,
     scenario?.settings.rngSeed,
+    scenario?.settings.parkinsonsLawEnabled,
     scenario?.milestones,
   ]);
 }

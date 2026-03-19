@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -154,6 +154,7 @@ export interface ScenarioSettings {
   heuristicMinPercent: number; // 1-99, percentage of ML for min estimate (default 50)
   heuristicMaxPercent: number; // 101-1000, percentage of ML for max estimate (default 200)
   dependencyMode: boolean; // when true, use dependency graph instead of sequential order (default false)
+  parkinsonsLawEnabled: boolean; // when true, clamp MC samples to deterministic floor (default true)
 }
 
 export interface HistogramBin {
@@ -282,6 +283,7 @@ export const DEFAULT_SCENARIO_SETTINGS: ScenarioSettings = {
   heuristicMinPercent: 50, // min = ML * 50%
   heuristicMaxPercent: 200, // max = ML * 200%
   dependencyMode: false,
+  parkinsonsLawEnabled: true,
 };
 
 export const STANDARD_PERCENTILES = [5, 10, 25, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 96, 97, 98, 99] as const;
@@ -321,6 +323,7 @@ export interface UserPreferences {
   defaultHeuristicMinPercent: number;
   defaultHeuristicMaxPercent: number;
   defaultDependencyMode: boolean;
+  defaultParkinsonsLawEnabled: boolean;
   /** Company-wide holidays that apply to all projects */
   globalCalendar?: Calendar;
   /** Gantt chart view mode: deterministic bars or with uncertainty hatching */
@@ -353,6 +356,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   defaultHeuristicMinPercent: 50,
   defaultHeuristicMaxPercent: 200,
   defaultDependencyMode: false,
+  defaultParkinsonsLawEnabled: true,
   ganttViewMode: "deterministic",
   ganttShowToday: true,
   ganttShowCriticalPath: true,

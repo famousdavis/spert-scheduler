@@ -217,11 +217,11 @@ export function ScenarioSummaryCard({
       </div>
 
       {/* Row 2: Targets, trials, seed */}
-      <div className="flex items-center gap-4 flex-wrap text-sm">
-        {/* Activity Target */}
+      <div className="flex items-center gap-3 flex-wrap text-sm">
+        {/* Targets */}
         <div className="flex items-center gap-1.5">
           <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
-            Activity Target:
+            Activity
           </label>
           <select
             value={settings.probabilityTarget}
@@ -239,12 +239,8 @@ export function ScenarioSummaryCard({
               </option>
             ))}
           </select>
-        </div>
-
-        {/* Project Target */}
-        <div className="flex items-center gap-1.5">
-          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
-            Project Target:
+          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap ml-1.5">
+            Project
           </label>
           <select
             value={settings.projectProbabilityTarget}
@@ -320,7 +316,7 @@ export function ScenarioSummaryCard({
         <div className="border-l border-gray-200 dark:border-gray-600 h-5" />
 
         {/* Heuristic */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5" title="Heuristic estimation: auto-generate Min and Max estimates from the Most Likely value using percentage multipliers">
           <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Heuristic:
           </label>
@@ -356,7 +352,7 @@ export function ScenarioSummaryCard({
               }
             }}
             disabled={isLocked || !settings.heuristicEnabled}
-            className="w-14 px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-10 px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             min={1}
             max={99}
             step={1}
@@ -376,7 +372,7 @@ export function ScenarioSummaryCard({
               }
             }}
             disabled={isLocked || !settings.heuristicEnabled}
-            className="w-16 px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-12 px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             min={101}
             max={1000}
             step={1}
@@ -387,7 +383,7 @@ export function ScenarioSummaryCard({
         <div className="border-l border-gray-200 dark:border-gray-600 h-5" />
 
         {/* Dependencies */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5" title="Dependency mode: schedule activities using a dependency graph instead of sequential order">
           <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Dependencies:
           </label>
@@ -410,7 +406,37 @@ export function ScenarioSummaryCard({
             />
           </button>
         </div>
+
+        {/* Parkinson's Law */}
+        <div className="flex items-center gap-1.5" title="Parkinson's Law: when enabled, simulated activity durations are never less than the deterministic (P50) duration">
+          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+            Parkinson&apos;s Law:
+          </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.parkinsonsLawEnabled ?? true}
+            onClick={() => onSettingsChange({ parkinsonsLawEnabled: !(settings.parkinsonsLawEnabled ?? true) })}
+            disabled={isLocked}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+              (settings.parkinsonsLawEnabled ?? true)
+                ? "bg-blue-600"
+                : "bg-gray-300 dark:bg-gray-600"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                (settings.parkinsonsLawEnabled ?? true) ? "translate-x-4" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
       </div>
+      {!(settings.parkinsonsLawEnabled ?? true) && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+          Simulated durations may be shorter than the deterministic schedule.
+        </p>
+      )}
 
       {/* Row 3: Schedule Buffer + Export */}
       <div className="pt-1 border-t border-gray-100 dark:border-gray-700">

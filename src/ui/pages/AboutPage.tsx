@@ -78,9 +78,9 @@ export function AboutPage() {
               the schedule buffer needed for your desired confidence
             </li>
             <li>
-              Parkinson&apos;s Law modeling: simulated activity durations are
-              never less than the scheduled duration, because work expands to
-              fill the time allotted
+              Parkinson&apos;s Law modeling (configurable): when enabled,
+              simulated activity durations are never less than the scheduled
+              duration, because work expands to fill the time allotted
             </li>
           </ul>
         </section>

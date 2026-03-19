@@ -29,7 +29,7 @@ describe("buildSimulationParams", () => {
 
   it("returns deterministicDurations and no dependencyParams in sequential mode", () => {
     const result = buildSimulationParams(
-      activities, false, 0.5, dependencies, milestones, "2026-01-05", undefined,
+      activities, false, 0.5, dependencies, milestones, "2026-01-05", undefined, true,
     );
     expect(result.deterministicDurations).toBeDefined();
     expect(result.deterministicDurations).toHaveLength(2);
@@ -41,15 +41,15 @@ describe("buildSimulationParams", () => {
       { fromActivityId: "a1", toActivityId: "a2", type: "FS", lagDays: 0 },
     ];
     const result = buildSimulationParams(
-      activities, true, 0.5, deps, milestones, "2026-01-05", undefined,
+      activities, true, 0.5, deps, milestones, "2026-01-05", undefined, true,
     );
     expect(result.deterministicDurations).toBeUndefined();
     expect(result.dependencyParams).toBeDefined();
     expect(result.dependencyParams!.dependencyMode).toBe(true);
     expect(result.dependencyParams!.dependencies).toBe(deps);
     expect(result.dependencyParams!.deterministicDurationMap).toBeDefined();
-    expect(typeof result.dependencyParams!.deterministicDurationMap["a1"]).toBe("number");
-    expect(typeof result.dependencyParams!.deterministicDurationMap["a2"]).toBe("number");
+    expect(typeof result.dependencyParams!.deterministicDurationMap!["a1"]).toBe("number");
+    expect(typeof result.dependencyParams!.deterministicDurationMap!["a2"]).toBe("number");
   });
 
   it("includes milestone sim params in dependency mode", () => {
@@ -62,9 +62,41 @@ describe("buildSimulationParams", () => {
       { fromActivityId: "a1", toActivityId: "a2", type: "FS", lagDays: 0 },
     ];
     const result = buildSimulationParams(
-      acts, true, 0.5, deps, ms, "2026-01-05", undefined,
+      acts, true, 0.5, deps, ms, "2026-01-05", undefined, true,
     );
     expect(result.dependencyParams!.milestoneActivityIds).toBeDefined();
     expect(result.dependencyParams!.milestoneActivityIds!["m1"]).toContain("a1");
+  });
+
+  // -- Parkinson's Law toggle ------------------------------------------------
+
+  it("sequential: parkinsonsLawEnabled=false produces undefined deterministicDurations", () => {
+    const result = buildSimulationParams(
+      activities, false, 0.5, dependencies, milestones, "2026-01-05", undefined, false,
+    );
+    expect(result.deterministicDurations).toBeUndefined();
+    expect(result.dependencyParams).toBeUndefined();
+  });
+
+  it("dependency: parkinsonsLawEnabled=false produces undefined deterministicDurationMap", () => {
+    const deps: ActivityDependency[] = [
+      { fromActivityId: "a1", toActivityId: "a2", type: "FS", lagDays: 0 },
+    ];
+    const result = buildSimulationParams(
+      activities, true, 0.5, deps, milestones, "2026-01-05", undefined, false,
+    );
+    expect(result.dependencyParams).toBeDefined();
+    expect(result.dependencyParams!.deterministicDurationMap).toBeUndefined();
+    // Other dependency params should still be present
+    expect(result.dependencyParams!.dependencyMode).toBe(true);
+    expect(result.dependencyParams!.dependencies).toBe(deps);
+  });
+
+  it("sequential: parkinsonsLawEnabled=true produces defined deterministicDurations", () => {
+    const result = buildSimulationParams(
+      activities, false, 0.5, dependencies, milestones, "2026-01-05", undefined, true,
+    );
+    expect(result.deterministicDurations).toBeDefined();
+    expect(result.deterministicDurations).toHaveLength(2);
   });
 });

@@ -28,6 +28,7 @@ export const UserPreferencesSchema = z.object({
   defaultHeuristicMinPercent: z.number().int().min(1).max(99).optional(),
   defaultHeuristicMaxPercent: z.number().int().min(101).max(1000).optional(),
   defaultDependencyMode: z.boolean().optional(),
+  defaultParkinsonsLawEnabled: z.boolean().optional(),
   globalCalendar: CalendarSchema.optional(),
   ganttViewMode: z.enum(GANTT_VIEW_MODES).optional(),
   ganttShowToday: z.boolean().optional(),

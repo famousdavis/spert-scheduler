@@ -45,6 +45,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
           heuristicMinPercent: 50,
           heuristicMaxPercent: 200,
           dependencyMode: false,
+          parkinsonsLawEnabled: true,
         },
       },
     ],

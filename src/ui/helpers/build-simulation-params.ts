@@ -25,6 +25,7 @@ export function buildSimulationParams(
   milestones: Milestone[],
   startDate: string,
   calendar: WorkCalendar | Calendar | undefined,
+  parkinsonsLawEnabled: boolean,
 ): SimulationParams {
   if (dependencyMode) {
     const durationMap = computeDependencyDurations(activities, probabilityTarget);
@@ -62,7 +63,7 @@ export function buildSimulationParams(
       dependencyParams: {
         dependencyMode: true,
         dependencies,
-        deterministicDurationMap: durMapRecord,
+        deterministicDurationMap: parkinsonsLawEnabled ? durMapRecord : undefined,
         ...msParams,
         constraintMap,
       },
@@ -70,7 +71,7 @@ export function buildSimulationParams(
   }
 
   return {
-    deterministicDurations: computeDeterministicDurations(activities, probabilityTarget),
+    deterministicDurations: parkinsonsLawEnabled ? computeDeterministicDurations(activities, probabilityTarget) : undefined,
     dependencyParams: undefined,
   };
 }

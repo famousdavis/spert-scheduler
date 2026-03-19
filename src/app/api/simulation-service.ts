@@ -45,11 +45,13 @@ export function runSimulation(
       let result: SimulationRun;
 
       if (dependencyParams?.dependencyMode) {
-        const durMap = new Map(
-          Object.entries(dependencyParams.deterministicDurationMap).map(
-            ([k, v]) => [k, v as number]
-          )
-        );
+        const durMap = dependencyParams.deterministicDurationMap
+          ? new Map(
+              Object.entries(dependencyParams.deterministicDurationMap).map(
+                ([k, v]) => [k, v as number]
+              )
+            )
+          : undefined;
         const milestoneActivityIds = dependencyParams.milestoneActivityIds
           ? new Map(Object.entries(dependencyParams.milestoneActivityIds))
           : undefined;

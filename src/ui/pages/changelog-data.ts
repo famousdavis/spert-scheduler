@@ -12,6 +12,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.0",
+    date: "2026-03-18",
+    sections: [
+      {
+        title: "Features",
+        items: [
+          "Add configurable Parkinson's Law toggle — disable per-scenario to allow simulated activity durations below the deterministic schedule",
+        ],
+      },
+      {
+        title: "Enhancements",
+        items: [
+          "Add Parkinson's Law status to printed project report",
+          "Add Parkinson's Law default toggle to user preferences",
+          "Compact scenario summary card layout — consolidate target labels, shrink heuristic inputs, add tooltips to all toggles",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.21.2",
     date: "2026-03-18",
     sections: [

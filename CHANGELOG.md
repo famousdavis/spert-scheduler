@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.0 — 2026-03-18
+
+### Features
+
+- Add configurable Parkinson's Law toggle — disable per-scenario to allow simulated activity durations below the deterministic schedule
+
+### Enhancements
+
+- Add Parkinson's Law status to printed project report
+- Add Parkinson's Law default toggle to user preferences
+- Compact scenario summary card layout — consolidate target labels, shrink heuristic inputs, add tooltips to all toggles
+
 ## 0.21.2 — 2026-03-18
 
 ### Bug Fixes

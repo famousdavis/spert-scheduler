@@ -228,6 +228,27 @@ function migrateV11toV12(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v12 → v13: Add Parkinson's Law toggle.
+ * Defensive write-forward: set parkinsonsLawEnabled = true on any scenario missing the field.
+ */
+function migrateV12toV13(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (scenarios) {
+    for (const scenario of scenarios) {
+      const settings = scenario.settings as Record<string, unknown> | undefined;
+      if (settings) {
+        if (settings.parkinsonsLawEnabled === undefined || settings.parkinsonsLawEnabled === null) {
+          settings.parkinsonsLawEnabled = true;
+        }
+      }
+    }
+  }
+  project.schemaVersion = 13;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -240,6 +261,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   9: migrateV9toV10,
   10: migrateV10toV11,
   11: migrateV11toV12,
+  12: migrateV12toV13,
 };
 
 /**

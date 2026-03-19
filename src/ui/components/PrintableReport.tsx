@@ -157,6 +157,12 @@ export function PrintableReport({
                     {scenario.settings.rngSeed.slice(0, 16)}...
                   </td>
                 </tr>
+                <tr>
+                  <td className="py-0.5 text-gray-600">Parkinson&apos;s Law:</td>
+                  <td className="py-0.5 font-medium">
+                    {(scenario.settings.parkinsonsLawEnabled ?? true) ? "Enabled" : "Disabled"}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

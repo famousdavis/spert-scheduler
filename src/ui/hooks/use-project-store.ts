@@ -423,6 +423,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       heuristicMinPercent: prefs.defaultHeuristicMinPercent,
       heuristicMaxPercent: prefs.defaultHeuristicMaxPercent,
       dependencyMode: prefs.defaultDependencyMode,
+      parkinsonsLawEnabled: prefs.defaultParkinsonsLawEnabled ?? true,
     });
     repo.save(project);
     set((state) => ({ projects: [...state.projects, project] }));

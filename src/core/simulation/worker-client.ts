@@ -20,7 +20,7 @@ export interface SimulationHandle {
 export interface DependencySimulationParams {
   dependencyMode: boolean;
   dependencies: ActivityDependency[];
-  deterministicDurationMap: Record<string, number>;
+  deterministicDurationMap?: Record<string, number>;
   milestoneActivityIds?: Record<string, string[]>;
   activityEarliestStart?: Record<string, number>;
   constraintMap?: Record<string, { type: string; offsetFromStart: number; mode: string }>;
