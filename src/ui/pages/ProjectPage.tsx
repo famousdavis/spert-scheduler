@@ -627,6 +627,10 @@ export function ProjectPage() {
               milestoneBuffers={milestoneBuffers}
               criticalPathIds={criticalPathIds}
               onEditActivity={setEditingActivityId}
+              onRenameActivity={(activityId, newName) =>
+                updateActivityField(id!, scenario.id, activityId, { name: newName })
+              }
+              isLocked={scenario.locked}
             />
           )}
 

@@ -31,6 +31,8 @@ interface GanttSectionProps {
   criticalPathIds?: Set<string> | null;
   projectName?: string;
   onEditActivity?: (activityId: string) => void;
+  onRenameActivity?: (activityId: string, newName: string) => void;
+  isLocked?: boolean;
 }
 
 export function GanttSection(props: GanttSectionProps) {

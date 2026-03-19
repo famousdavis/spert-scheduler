@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useMemo, useCallback, type RefObject } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type RefObject } from "react";
 import type {
   Activity,
   ActivityDependency,
@@ -51,6 +51,8 @@ interface GanttChartProps {
   projectName?: string;
   svgContainerRef?: RefObject<HTMLDivElement | null>;
   onEditActivity?: (activityId: string) => void;
+  onRenameActivity?: (activityId: string, newName: string) => void;
+  isLocked?: boolean;
 }
 
 export function GanttChart({
@@ -70,6 +72,8 @@ export function GanttChart({
   projectName,
   svgContainerRef,
   onEditActivity,
+  onRenameActivity,
+  isLocked,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
   const viewMode: GanttViewMode = usePreferencesStore((s) => s.preferences.ganttViewMode) ?? "deterministic";
@@ -103,6 +107,30 @@ export function GanttChart({
     y: number;
     text: string;
   } | null>(null);
+
+  // Inline name editing state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Cancel editing if scenario becomes locked
+  useEffect(() => {
+    if (isLocked) setEditingId(null);
+  }, [isLocked]);
+
+  const commitRename = useCallback(() => {
+    if (!editingId) return;
+    const trimmed = editValue.trim();
+    const original = activities.find((a) => a.id === editingId)?.name;
+    if (trimmed && trimmed !== original) {
+      onRenameActivity?.(editingId, trimmed);
+    }
+    setEditingId(null);
+  }, [editingId, editValue, activities, onRenameActivity]);
+
+  const cancelRename = useCallback(() => {
+    setEditingId(null);
+  }, []);
 
   // Detect dark mode
   const isDark =
@@ -272,7 +300,7 @@ export function GanttChart({
       </div>
 
       {/* Chart SVG — horizontally scrollable */}
-      <div ref={svgContainerRef} className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div ref={svgContainerRef} className="relative overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
         <svg
           width={chartWidth}
           height={chartHeight}
@@ -599,7 +627,7 @@ export function GanttChart({
                   onMouseLeave={() => setTooltip(null)}
                 />
 
-                {/* Activity name */}
+                {/* Activity name — clickable for inline rename when unlocked */}
                 <text
                   x={LEFT_MARGIN - 8}
                   y={y + ROW_HEIGHT / 2}
@@ -607,7 +635,12 @@ export function GanttChart({
                   dominantBaseline="central"
                   fontSize="12"
                   fill={c.text}
-                  className="pointer-events-none"
+                  className={!isLocked && onRenameActivity ? "cursor-pointer" : "pointer-events-none"}
+                  style={editingId === act.id ? { display: "none" } : undefined}
+                  onClick={!isLocked && onRenameActivity ? () => {
+                    setEditingId(act.id);
+                    setEditValue(act.name);
+                  } : undefined}
                 >
                   {act.name.length > 38
                     ? act.name.slice(0, 36) + "..."
@@ -790,6 +823,37 @@ export function GanttChart({
           )}
 
         </svg>
+
+        {/* Inline name editing overlay — positioned absolutely over the SVG */}
+        {editingId && (() => {
+          const idx = orderedActivities.findIndex((a) => a.id === editingId);
+          if (idx === -1) return null;
+          const inputTop = topMargin + idx * ROW_HEIGHT + (ROW_HEIGHT - 24) / 2;
+          return (
+            <input
+              ref={editInputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={() => commitRename()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); commitRename(); }
+                if (e.key === "Escape") { e.preventDefault(); cancelRename(); }
+              }}
+              autoFocus
+              maxLength={200}
+              className="absolute bg-white dark:bg-gray-800 border border-blue-500 rounded px-1.5 text-sm text-right text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              style={{
+                top: inputTop,
+                left: 4,
+                width: LEFT_MARGIN - 12,
+                height: 24,
+                fontSize: 12,
+                zIndex: 10,
+              }}
+            />
+          );
+        })()}
 
         <GanttLegend
           c={c}

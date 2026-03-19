@@ -374,16 +374,16 @@ export function PrintGanttChart({
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[6px] text-gray-600 print-section-keep">
         <span className="flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
-          Planned
+          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barComplete }} />
+          Complete
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barInProgress }} />
           In Progress
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barComplete }} />
-          Complete
+          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
+          Planned
         </span>
         {hasCriticalPath && (
           <span className="flex items-center gap-1">
@@ -392,12 +392,6 @@ export function PrintGanttChart({
             Critical Path
           </span>
         )}
-        <span className="flex items-center gap-1">
-          <svg width="8" height="8" className="inline-block">
-            <line x1="4" y1="0" x2="4" y2="8" stroke={c.finishLine} strokeWidth="1.5" strokeDasharray="2 1" />
-          </svg>
-          Finish
-        </span>
         {todayInRange && (
           <span className="flex items-center gap-1">
             <svg width="8" height="8" className="inline-block">
@@ -406,6 +400,12 @@ export function PrintGanttChart({
             Today
           </span>
         )}
+        <span className="flex items-center gap-1">
+          <svg width="8" height="8" className="inline-block">
+            <line x1="4" y1="0" x2="4" y2="8" stroke={c.finishLine} strokeWidth="1.5" strokeDasharray="2 1" />
+          </svg>
+          Finish
+        </span>
         {milestones.length > 0 && (
           <span className="flex items-center gap-1">
             <svg width="8" height="8" className="inline-block">

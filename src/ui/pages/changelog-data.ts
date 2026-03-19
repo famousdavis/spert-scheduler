@@ -12,6 +12,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.3",
+    date: "2026-03-19",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Click activity names in the Gantt chart to rename them inline — saves on blur or Enter, cancel with Escape",
+        ],
+      },
+      {
+        title: "UI Improvements",
+        items: [
+          "Gantt legend reordered: Complete, In Progress, Planned (matches workflow progression)",
+          "Gantt legend: Today now appears before Finish to match left-to-right reading order on chart",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.22.2",
     date: "2026-03-19",
     sections: [

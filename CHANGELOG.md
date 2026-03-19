@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.3 — 2026-03-19
+
+### Features
+
+- Click activity names in the Gantt chart to rename them inline — saves on blur or Enter, cancel with Escape
+
+### UI Improvements
+
+- Gantt legend reordered: Complete, In Progress, Planned (matches workflow progression)
+- Gantt legend: Today now appears before Finish to match left-to-right reading order on chart
+
 ## 0.22.2 — 2026-03-19
 
 ### Bug Fixes

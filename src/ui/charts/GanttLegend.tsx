@@ -48,16 +48,16 @@ export function GanttLegend({
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
       {/* Status colors — use inline vertical-align (not flex) for html2canvas compatibility */}
       <span>
-        <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: c.barPlanned }} />
-        <span className="align-middle">Planned</span>
+        <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: c.barComplete }} />
+        <span className="align-middle">Complete</span>
       </span>
       <span>
         <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: c.barInProgress }} />
         <span className="align-middle">In Progress</span>
       </span>
       <span>
-        <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: c.barComplete }} />
-        <span className="align-middle">Complete</span>
+        <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: c.barPlanned }} />
+        <span className="align-middle">Planned</span>
       </span>
 
       {/* Critical path */}
@@ -86,14 +86,6 @@ export function GanttLegend({
         </span>
       )}
 
-      {/* Finish line */}
-      <span>
-        <svg width="12" height="12" className="inline-block align-middle mr-1.5">
-          <line x1="6" y1="0" x2="6" y2="12" stroke={c.finishLine} strokeWidth="2" strokeDasharray="3 1.5" />
-        </svg>
-        <span className="align-middle">Finish</span>
-      </span>
-
       {/* Today line */}
       {showToday && todayVisible && (
         <span>
@@ -103,6 +95,14 @@ export function GanttLegend({
           <span className="align-middle">Today</span>
         </span>
       )}
+
+      {/* Finish line */}
+      <span>
+        <svg width="12" height="12" className="inline-block align-middle mr-1.5">
+          <line x1="6" y1="0" x2="6" y2="12" stroke={c.finishLine} strokeWidth="2" strokeDasharray="3 1.5" />
+        </svg>
+        <span className="align-middle">Finish</span>
+      </span>
 
       {/* Milestones */}
       {hasMilestones && (
