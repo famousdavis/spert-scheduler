@@ -232,7 +232,7 @@ export function ScenarioSummaryCard({
               })
             }
             disabled={isLocked}
-            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {ACTIVITY_PERCENTILE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -251,7 +251,7 @@ export function ScenarioSummaryCard({
               })
             }
             disabled={isLocked}
-            className="px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {PROJECT_PERCENTILE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
