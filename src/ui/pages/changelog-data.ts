@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.1",
+    date: "2026-03-18",
+    sections: [
+      {
+        title: "Refactoring",
+        items: [
+          "Extract shared ToggleSwitch component from ScenarioSummaryCard and PreferencesSection (6 duplicated toggle instances → 1 reusable component)",
+        ],
+      },
+      {
+        title: "Dependencies",
+        items: [
+          "Upgrade zustand 5.0.11→5.0.12, tailwindcss 4.2.1→4.2.2, @tailwindcss/vite 4.2.1→4.2.2, typescript-eslint 8.57.0→8.57.1, @types/react 19.2.10→19.2.14",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.22.0",
     date: "2026-03-18",
     sections: [

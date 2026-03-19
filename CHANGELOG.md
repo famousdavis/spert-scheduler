@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.1 — 2026-03-18
+
+### Refactoring
+
+- Extract shared ToggleSwitch component from ScenarioSummaryCard and PreferencesSection (6 duplicated toggle instances → 1 reusable component)
+
+### Dependencies
+
+- Upgrade zustand 5.0.11→5.0.12, tailwindcss 4.2.1→4.2.2, @tailwindcss/vite 4.2.1→4.2.2, typescript-eslint 8.57.0→8.57.1, @types/react 19.2.10→19.2.14
+
 ## 0.22.0 — 2026-03-18
 
 ### Features

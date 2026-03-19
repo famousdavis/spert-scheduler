@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useState, useEffect, useCallback } from "react";
+import { ToggleSwitch } from "./ToggleSwitch";
 import type { Activity, ActivityDependency, DeterministicSchedule, Milestone, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
@@ -320,24 +321,11 @@ export function ScenarioSummaryCard({
           <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Heuristic:
           </label>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={settings.heuristicEnabled}
-            onClick={() => onSettingsChange({ heuristicEnabled: !settings.heuristicEnabled })}
+          <ToggleSwitch
+            checked={settings.heuristicEnabled}
+            onChange={(val) => onSettingsChange({ heuristicEnabled: val })}
             disabled={isLocked}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-              settings.heuristicEnabled
-                ? "bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-600"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                settings.heuristicEnabled ? "translate-x-4" : "translate-x-0"
-              }`}
-            />
-          </button>
+          />
           <span className="text-gray-500 dark:text-gray-400 text-xs">Min</span>
           <input
             type="number"
@@ -387,24 +375,11 @@ export function ScenarioSummaryCard({
           <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Dependencies:
           </label>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={settings.dependencyMode}
-            onClick={() => onSettingsChange({ dependencyMode: !settings.dependencyMode })}
+          <ToggleSwitch
+            checked={settings.dependencyMode}
+            onChange={(val) => onSettingsChange({ dependencyMode: val })}
             disabled={isLocked}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-              settings.dependencyMode
-                ? "bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-600"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                settings.dependencyMode ? "translate-x-4" : "translate-x-0"
-              }`}
-            />
-          </button>
+          />
         </div>
 
         {/* Parkinson's Law */}
@@ -412,24 +387,11 @@ export function ScenarioSummaryCard({
           <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Parkinson&apos;s Law:
           </label>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={settings.parkinsonsLawEnabled ?? true}
-            onClick={() => onSettingsChange({ parkinsonsLawEnabled: !(settings.parkinsonsLawEnabled ?? true) })}
+          <ToggleSwitch
+            checked={settings.parkinsonsLawEnabled ?? true}
+            onChange={(val) => onSettingsChange({ parkinsonsLawEnabled: val })}
             disabled={isLocked}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-              (settings.parkinsonsLawEnabled ?? true)
-                ? "bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-600"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                (settings.parkinsonsLawEnabled ?? true) ? "translate-x-4" : "translate-x-0"
-              }`}
-            />
-          </button>
+          />
         </div>
       </div>
       {!(settings.parkinsonsLawEnabled ?? true) && (

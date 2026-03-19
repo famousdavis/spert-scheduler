@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useState, useEffect } from "react";
+import { ToggleSwitch } from "./ToggleSwitch";
 import {
   RSM_LEVELS,
   RSM_LABELS,
@@ -271,25 +272,10 @@ export function PreferencesSection() {
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Enable Dependencies by Default
           </label>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={preferences.defaultDependencyMode}
-            onClick={() =>
-              updatePreferences({ defaultDependencyMode: !preferences.defaultDependencyMode })
-            }
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
-              preferences.defaultDependencyMode
-                ? "bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-600"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                preferences.defaultDependencyMode ? "translate-x-4" : "translate-x-0"
-              }`}
-            />
-          </button>
+          <ToggleSwitch
+            checked={preferences.defaultDependencyMode}
+            onChange={(val) => updatePreferences({ defaultDependencyMode: val })}
+          />
           <span className="text-xs text-gray-500 dark:text-gray-400">
             Use dependency-aware scheduling for new scenarios
           </span>
@@ -300,25 +286,10 @@ export function PreferencesSection() {
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Enable Heuristic by Default
           </label>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={preferences.defaultHeuristicEnabled}
-            onClick={() =>
-              updatePreferences({ defaultHeuristicEnabled: !preferences.defaultHeuristicEnabled })
-            }
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
-              preferences.defaultHeuristicEnabled
-                ? "bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-600"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                preferences.defaultHeuristicEnabled ? "translate-x-4" : "translate-x-0"
-              }`}
-            />
-          </button>
+          <ToggleSwitch
+            checked={preferences.defaultHeuristicEnabled}
+            onChange={(val) => updatePreferences({ defaultHeuristicEnabled: val })}
+          />
           <span className="text-xs text-gray-500 dark:text-gray-400">
             Auto-calculate min/max from Most Likely for new scenarios
           </span>
@@ -367,25 +338,10 @@ export function PreferencesSection() {
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Enable Parkinson&apos;s Law by Default
           </label>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={preferences.defaultParkinsonsLawEnabled}
-            onClick={() =>
-              updatePreferences({ defaultParkinsonsLawEnabled: !preferences.defaultParkinsonsLawEnabled })
-            }
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
-              preferences.defaultParkinsonsLawEnabled
-                ? "bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-600"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                preferences.defaultParkinsonsLawEnabled ? "translate-x-4" : "translate-x-0"
-              }`}
-            />
-          </button>
+          <ToggleSwitch
+            checked={preferences.defaultParkinsonsLawEnabled}
+            onChange={(val) => updatePreferences({ defaultParkinsonsLawEnabled: val })}
+          />
           <span className="text-xs text-gray-500 dark:text-gray-400">
             Clamp simulated activity durations to at least the deterministic (P50) duration for new scenarios
           </span>

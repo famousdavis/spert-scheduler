@@ -1,7 +1,7 @@
 {
   "name": "spert-scheduler",
   "private": true,
-  "version": "0.22.0",
+  "version": "0.22.1",
   "type": "module",
   "license": "GPL-3.0",
   "engines": {
@@ -31,15 +31,15 @@
     "recharts": "^3.8.0",
     "seedrandom": "^3.0.5",
     "zod": "^4.3.6",
-    "zustand": "^5.0.11"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@tailwindcss/vite": "^4.2.1",
+    "@tailwindcss/vite": "^4.2.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22",
-    "@types/react": "^19.2.10",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/seedrandom": "^3.0.8",
     "@vitejs/plugin-react": "^5.1.4",
@@ -49,9 +49,9 @@
     "fast-check": "^4.6.0",
     "globals": "^17.4.0",
     "jsdom": "^28.1.0",
-    "tailwindcss": "^4.2.1",
+    "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.57.0",
+    "typescript-eslint": "^8.57.1",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"
   }
