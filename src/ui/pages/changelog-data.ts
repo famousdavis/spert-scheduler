@@ -12,6 +12,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.23.0",
+    date: "2026-03-19",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Click any Gantt chart bar to open the expanded Activity Edit modal — edit name, status, estimates, constraints, and dependencies all in one place",
+          "Click any dependency arrow in the Gantt chart to edit its relationship type, lag days, or delete it via a new Dependency Edit modal",
+          "Hover over dependency arrows to highlight them with thicker strokes and brighter colors for easy identification",
+          "Add new dependencies directly from the Activity Edit modal's Dependencies section",
+          "Terminal activity markers on Gantt chart — right-edge stripe automatically marks activities with no successor in dependency mode",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.22.3",
     date: "2026-03-19",
     sections: [

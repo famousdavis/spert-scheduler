@@ -9,6 +9,8 @@ interface ColorSet {
   hatchActivity: string;
   hatchBuffer: string;
   arrow: string;
+  arrowHover: string;
+  arrowHoverCritical: string;
   criticalPath: string;
 }
 
@@ -98,6 +100,35 @@ export function GanttSvgDefs({
           />
         </marker>
       )}
+      {/* Hover arrowhead markers */}
+      <marker
+        id="arrowhead-hover"
+        markerUnits="userSpaceOnUse"
+        markerWidth={ARROW_HEAD_SIZE}
+        markerHeight={ARROW_HEAD_SIZE}
+        refX="0"
+        refY={ARROW_HEAD_SIZE / 2}
+        orient="auto"
+      >
+        <polygon
+          points={`0 0, ${ARROW_HEAD_SIZE} ${ARROW_HEAD_SIZE / 2}, 0 ${ARROW_HEAD_SIZE}`}
+          fill={c.arrowHover}
+        />
+      </marker>
+      <marker
+        id="arrowhead-critical-hover"
+        markerUnits="userSpaceOnUse"
+        markerWidth={ARROW_HEAD_SIZE}
+        markerHeight={ARROW_HEAD_SIZE}
+        refX="0"
+        refY={ARROW_HEAD_SIZE / 2}
+        orient="auto"
+      >
+        <polygon
+          points={`0 0, ${ARROW_HEAD_SIZE} ${ARROW_HEAD_SIZE / 2}, 0 ${ARROW_HEAD_SIZE}`}
+          fill={c.arrowHoverCritical}
+        />
+      </marker>
     </defs>
   );
 }

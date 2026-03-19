@@ -38,6 +38,7 @@ import { PrintableReport } from "@ui/components/PrintableReport";
 import { SensitivityPanel } from "@ui/components/SensitivityPanel";
 import { SharingSection } from "@ui/components/SharingSection";
 import { ActivityEditModal } from "@ui/components/ActivityEditModal";
+import { DependencyEditModal } from "@ui/components/DependencyEditModal";
 import { WarningsPanel } from "@ui/components/WarningsPanel";
 
 export function ProjectPage() {
@@ -126,6 +127,8 @@ export function ProjectPage() {
   const [allActivitiesValid, setAllActivitiesValid] = useState(true);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
+  const [editingDependency, setEditingDependency] = useState<{ fromActivityId: string; toActivityId: string } | null>(null);
+  const [addingDependencyFromId, setAddingDependencyFromId] = useState<string | null>(null);
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -630,6 +633,7 @@ export function ProjectPage() {
               onRenameActivity={(activityId, newName) =>
                 updateActivityField(id!, scenario.id, activityId, { name: newName })
               }
+              onEditDependency={(fromId, toId) => setEditingDependency({ fromActivityId: fromId, toActivityId: toId })}
               isLocked={scenario.locked}
             />
           )}
@@ -685,7 +689,7 @@ export function ProjectPage() {
         />
       )}
 
-      {/* Activity Edit Modal (constraints) */}
+      {/* Activity Edit Modal (full editor) */}
       {editingActivityId && scenario && (
         <ActivityEditModal
           activityId={editingActivityId}
@@ -693,6 +697,47 @@ export function ProjectPage() {
           projectId={id!}
           onClose={() => setEditingActivityId(null)}
           schedule={schedule ?? undefined}
+          dependencyMode={scenario.settings.dependencyMode}
+          onEditDependency={(fromId, toId) => {
+            setEditingActivityId(null);
+            setEditingDependency({ fromActivityId: fromId, toActivityId: toId });
+          }}
+          onAddDependency={(fromId) => {
+            setEditingActivityId(null);
+            setAddingDependencyFromId(fromId);
+          }}
+        />
+      )}
+
+      {/* Dependency Edit Modal (edit mode — from arrow click or activity modal) */}
+      {editingDependency && scenario && (
+        <DependencyEditModal
+          fromActivityId={editingDependency.fromActivityId}
+          toActivityId={editingDependency.toActivityId}
+          activities={scenario.activities}
+          dependencies={scenario.dependencies}
+          onSave={(fromId, toId, type, lagDays) => {
+            // Update type and lag on existing dependency
+            updateDependencyType(id!, scenario.id, fromId, toId, type);
+            updateDependencyLag(id!, scenario.id, fromId, toId, lagDays);
+          }}
+          onDelete={(fromId, toId) => {
+            removeDependency(id!, scenario.id, fromId, toId);
+          }}
+          onClose={() => setEditingDependency(null)}
+        />
+      )}
+
+      {/* Dependency Edit Modal (add mode — from activity modal) */}
+      {addingDependencyFromId && scenario && (
+        <DependencyEditModal
+          fromActivityId={addingDependencyFromId}
+          activities={scenario.activities}
+          dependencies={scenario.dependencies}
+          onSave={(fromId, toId, type, lagDays) => {
+            addDependency(id!, scenario.id, fromId, toId, type, lagDays);
+          }}
+          onClose={() => setAddingDependencyFromId(null)}
         />
       )}
 

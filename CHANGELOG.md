@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.23.0 — 2026-03-19
+
+### Features
+
+- Click Gantt chart bars to open expanded Activity Edit modal with four sections: General, Estimates, Scheduling Constraint, and Dependencies
+- Click dependency arrows to edit relationship type, lag days, or delete via new Dependency Edit modal
+- Hover dependency arrows for visual highlighting with thicker strokes and brighter colors
+- Add dependencies directly from the Activity Edit modal's Dependencies section
+- Terminal activity markers on Gantt chart — right-edge stripe automatically marks activities with no successor in dependency mode
+
 ## 0.22.3 — 2026-03-19
 
 ### Features

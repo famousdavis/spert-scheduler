@@ -32,6 +32,7 @@ interface GanttSectionProps {
   projectName?: string;
   onEditActivity?: (activityId: string) => void;
   onRenameActivity?: (activityId: string, newName: string) => void;
+  onEditDependency?: (fromId: string, toId: string) => void;
   isLocked?: boolean;
 }
 

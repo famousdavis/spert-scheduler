@@ -51,6 +51,7 @@ interface GanttChartProps {
   projectName?: string;
   svgContainerRef?: RefObject<HTMLDivElement | null>;
   onEditActivity?: (activityId: string) => void;
+  onEditDependency?: (fromActivityId: string, toActivityId: string) => void;
   onRenameActivity?: (activityId: string, newName: string) => void;
   isLocked?: boolean;
 }
@@ -72,6 +73,7 @@ export function GanttChart({
   projectName,
   svgContainerRef,
   onEditActivity,
+  onEditDependency,
   onRenameActivity,
   isLocked,
 }: GanttChartProps) {
@@ -131,6 +133,9 @@ export function GanttChart({
   const cancelRename = useCallback(() => {
     setEditingId(null);
   }, []);
+
+  // Arrow hover state for dependency interactivity
+  const [hoveredDep, setHoveredDep] = useState<{ from: string; to: string } | null>(null);
 
   // Detect dark mode
   const isDark =
@@ -220,6 +225,65 @@ export function GanttChart({
     minTimestamp, dateRange, finishX, finishDate,
     todayX, ticks, rowIndex,
   } = layout;
+
+  // Pre-compute arrow path geometry so both visual and hit-area passes share it
+  const arrowPaths = useMemo(() => {
+    if (!dependencyMode) return [];
+    return dependencies.map((dep) => {
+      const fromRow = rowIndex.get(dep.fromActivityId);
+      const toRow = rowIndex.get(dep.toActivityId);
+      const fromSa = scheduleMap.get(dep.fromActivityId);
+      const toSa = scheduleMap.get(dep.toActivityId);
+      if (fromRow === undefined || toRow === undefined || !fromSa || !toSa) return null;
+
+      const fromDate = dep.type === "SS" ? fromSa.startDate : fromSa.endDate;
+      const toDate = dep.type === "FF" ? toSa.endDate : toSa.startDate;
+      const barEndX = dateToX(fromDate, minTimestamp, dateRange, chartAreaWidth);
+      const fromY = topMargin + fromRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const toX = dateToX(toDate, minTimestamp, dateRange, chartAreaWidth);
+      const toY = topMargin + toRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+
+      const STUB = 7;
+      const stubX = barEndX + STUB;
+      const dyAbs = Math.abs(toY - fromY);
+      const dySigned = toY - fromY;
+
+      let path: string;
+      if (dep.type === "FF") {
+        const endX = toX + ARROW_HEAD_SIZE;
+        const rightX = Math.max(stubX, endX) + Math.max(15, dyAbs * 0.3);
+        path = `M${barEndX},${fromY} L${stubX},${fromY} C${rightX},${fromY} ${rightX},${toY} ${endX},${toY}`;
+      } else {
+        const endX = toX - ARROW_HEAD_SIZE;
+        if (endX >= stubX + 10) {
+          const spread = Math.max(20, dyAbs * 0.45);
+          path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + spread},${fromY} ${endX - spread},${toY} ${endX},${toY}`;
+        } else {
+          const loopExt = Math.max(30, dyAbs * 0.5);
+          path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + loopExt},${fromY + dySigned * 0.3} ${endX - loopExt},${toY} ${endX},${toY}`;
+        }
+      }
+
+      const isCriticalEdge = showCriticalPath &&
+        criticalPathIds?.has(dep.fromActivityId) && criticalPathIds?.has(dep.toActivityId);
+      const fromName = activities.find((a) => a.id === dep.fromActivityId)?.name ?? "";
+      const toName = activities.find((a) => a.id === dep.toActivityId)?.name ?? "";
+      const label = `${fromName} → ${toName}, ${dep.type}${dep.lagDays !== 0 ? (dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`) : ""}`;
+
+      return { dep, path, barEndX, toX, fromY, toY, isCriticalEdge, label };
+    }).filter(Boolean) as Array<{
+      dep: ActivityDependency; path: string; barEndX: number; toX: number;
+      fromY: number; toY: number; isCriticalEdge: boolean; label: string;
+    }>;
+  }, [dependencyMode, dependencies, rowIndex, scheduleMap, minTimestamp, dateRange,
+    chartAreaWidth, topMargin, showCriticalPath, criticalPathIds, activities]);
+
+  // Terminal activities: no successor dependency (only meaningful when deps exist)
+  const terminalIds = useMemo(() => {
+    if (!dependencyMode || dependencies.length === 0) return null;
+    const hasSuccessor = new Set(dependencies.map(d => d.fromActivityId));
+    return new Set(activities.filter(a => !hasSuccessor.has(a.id)).map(a => a.id));
+  }, [dependencyMode, dependencies, activities]);
 
   if (activities.length === 0) {
     return (
@@ -463,101 +527,30 @@ export function GanttChart({
             );
           })}
 
-          {/* Dependency arrows (rendered before bars so bars paint on top) */}
-          {dependencyMode && showArrows &&
-            dependencies.map((dep, i) => {
-              const fromRow = rowIndex.get(dep.fromActivityId);
-              const toRow = rowIndex.get(dep.toActivityId);
-              const fromSa = scheduleMap.get(dep.fromActivityId);
-              const toSa = scheduleMap.get(dep.toActivityId);
-
-              if (
-                fromRow === undefined ||
-                toRow === undefined ||
-                !fromSa ||
-                !toSa
-              )
-                return null;
-
-              // Arrow anchors depend on dependency type
-              const fromDate = dep.type === "SS" ? fromSa.startDate : fromSa.endDate;
-              const toDate = dep.type === "FF" ? toSa.endDate : toSa.startDate;
-              const barEndX = dateToX(
-                fromDate,
-                minTimestamp,
-                dateRange,
-                chartAreaWidth
-              );
-              const fromY =
-                topMargin + fromRow * ROW_HEIGHT + ROW_HEIGHT / 2;
-              const toX = dateToX(
-                toDate,
-                minTimestamp,
-                dateRange,
-                chartAreaWidth
-              );
-              const toY =
-                topMargin + toRow * ROW_HEIGHT + ROW_HEIGHT / 2;
-
-              // Stub right from bar end, then curve to arrowhead
-              const STUB = 7;
-              const stubX = barEndX + STUB;
-              const dyAbs = Math.abs(toY - fromY);
-              const dySigned = toY - fromY; // positive = going down
-
-              let path: string;
-              if (dep.type === "FF") {
-                // FF: U-turn — exit right, curve out, approach target's right end from right
-                const endX = toX + ARROW_HEAD_SIZE;
-                const rightX = Math.max(stubX, endX) + Math.max(15, dyAbs * 0.3);
-                path = `M${barEndX},${fromY} L${stubX},${fromY} C${rightX},${fromY} ${rightX},${toY} ${endX},${toY}`;
-              } else {
-                const endX = toX - ARROW_HEAD_SIZE;
-                if (endX >= stubX + 10) {
-                  // Normal case: enough horizontal room for a wide S-curve
-                  const spread = Math.max(20, dyAbs * 0.45);
-                  path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + spread},${fromY} ${endX - spread},${toY} ${endX},${toY}`;
-                } else {
-                  // Overlap case: bars overlap in time — flat descent then turn
-                  // right into arrowhead from the left
-                  const loopExt = Math.max(30, dyAbs * 0.5);
-                  path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + loopExt},${fromY + dySigned * 0.3} ${endX - loopExt},${toY} ${endX},${toY}`;
-                }
-              }
-
-              const isCriticalEdge =
-                showCriticalPath &&
-                criticalPathIds?.has(dep.fromActivityId) &&
-                criticalPathIds?.has(dep.toActivityId);
-              const arrowColor = isCriticalEdge ? c.criticalPath : c.arrow;
-              const arrowMarker = isCriticalEdge ? "url(#arrowhead-critical)" : "url(#arrowhead)";
-
-              return (
-                <g key={`dep-${i}`}>
-                  <path
-                    d={path}
-                    stroke={arrowColor}
-                    strokeWidth="2"
-                    fill="none"
-                    markerEnd={arrowMarker}
-                  />
-                  {dep.lagDays !== 0 && (
-                    <text
-                      x={(barEndX + toX) / 2}
-                      y={(fromY + toY) / 2 - 4}
-                      textAnchor="middle"
-                      fontSize="9"
-                      fill={arrowColor}
-                      fontWeight="600"
-                      className="pointer-events-none"
-                    >
-                      {dep.lagDays > 0 ? "+" : ""}
-                      {dep.lagDays}d
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+          {/* Dependency arrows — visible paths only (rendered before bars so bars paint on top) */}
+          {showArrows && arrowPaths.map((ap, i) => {
+            const isHovered = hoveredDep?.from === ap.dep.fromActivityId && hoveredDep?.to === ap.dep.toActivityId;
+            const arrowColor = isHovered
+              ? (ap.isCriticalEdge ? c.arrowHoverCritical : c.arrowHover)
+              : (ap.isCriticalEdge ? c.criticalPath : c.arrow);
+            const arrowMarker = isHovered
+              ? (ap.isCriticalEdge ? "url(#arrowhead-critical-hover)" : "url(#arrowhead-hover)")
+              : (ap.isCriticalEdge ? "url(#arrowhead-critical)" : "url(#arrowhead)");
+            return (
+              <g key={`dep-${i}`}>
+                <path d={ap.path} stroke={arrowColor} strokeWidth={isHovered ? "3" : "2"}
+                  fill="none" markerEnd={arrowMarker}
+                  className="pointer-events-none transition-all duration-100" />
+                {ap.dep.lagDays !== 0 && (
+                  <text x={(ap.barEndX + ap.toX) / 2} y={(ap.fromY + ap.toY) / 2 - 4}
+                    textAnchor="middle" fontSize="9" fill={arrowColor} fontWeight="600"
+                    className="pointer-events-none">
+                    {ap.dep.lagDays > 0 ? "+" : ""}{ap.dep.lagDays}d
+                  </text>
+                )}
+              </g>
+            );
+          })}
 
           {/* Activity rows */}
           {orderedActivities.map((act, idx) => {
@@ -661,7 +654,7 @@ export function GanttChart({
                   />
                 )}
 
-                {/* Solid bar */}
+                {/* Solid bar — clickable to open activity editor */}
                 <rect
                   x={barX}
                   y={barY}
@@ -671,6 +664,11 @@ export function GanttChart({
                   fill={barColor}
                   stroke={barColor}
                   strokeWidth="1"
+                  className={!isLocked && onEditActivity ? "cursor-pointer" : ""}
+                  onClick={!isLocked && onEditActivity ? (e) => {
+                    e.stopPropagation();
+                    onEditActivity(act.id);
+                  } : undefined}
                 />
 
                 {/* Critical path indicator — left stripe */}
@@ -682,6 +680,19 @@ export function GanttChart({
                     height={BAR_HEIGHT}
                     rx={BAR_RADIUS}
                     fill={c.criticalPath}
+                    className="pointer-events-none"
+                  />
+                )}
+
+                {/* Terminal activity indicator — right stripe */}
+                {terminalIds?.has(act.id) && (
+                  <rect
+                    x={barX + barWidth - 4}
+                    y={barY}
+                    width={4}
+                    height={BAR_HEIGHT}
+                    rx={BAR_RADIUS}
+                    fill={c.terminal}
                     className="pointer-events-none"
                   />
                 )}
@@ -710,7 +721,7 @@ export function GanttChart({
                   return (
                     <g
                       className="cursor-pointer"
-                      onClick={() => onEditActivity?.(act.id)}
+                      onClick={(e) => { e.stopPropagation(); onEditActivity?.(act.id); }}
                     >
                       <rect
                         x={iconX}
@@ -822,6 +833,30 @@ export function GanttChart({
             </g>
           )}
 
+          {/* Dependency arrow hit areas — rendered AFTER bars so they sit on top for mouse events */}
+          {showArrows && arrowPaths.map((ap, i) => (
+            <path
+              key={`dep-hit-${i}`}
+              d={ap.path}
+              stroke="transparent"
+              strokeWidth="10"
+              fill="none"
+              style={{ pointerEvents: "stroke" }}
+              className={!isLocked && onEditDependency ? "cursor-pointer" : ""}
+              onMouseEnter={(e) => {
+                setHoveredDep({ from: ap.dep.fromActivityId, to: ap.dep.toActivityId });
+                setTooltip({ x: e.clientX, y: e.clientY, text: ap.label });
+              }}
+              onMouseMove={(e) =>
+                setTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)
+              }
+              onMouseLeave={() => { setHoveredDep(null); setTooltip(null); }}
+              onClick={!isLocked && onEditDependency ? () =>
+                onEditDependency(ap.dep.fromActivityId, ap.dep.toActivityId)
+              : undefined}
+            />
+          ))}
+
         </svg>
 
         {/* Inline name editing overlay — positioned absolutely over the SVG */}
@@ -866,6 +901,7 @@ export function GanttChart({
           todayVisible={todayX !== null}
           hasMilestones={milestones.length > 0}
           hasConstraints={activities.some((a) => a.constraintType != null)}
+          hasTerminals={terminalIds !== null && terminalIds.size > 0}
           datePrepared={formatDate(formatDateISO(new Date()))}
         />
       </div>

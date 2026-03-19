@@ -8,6 +8,7 @@ interface ColorSet {
   barInProgress: string;
   barComplete: string;
   criticalPath: string;
+  terminal: string;
   hatchActivity: string;
   finishLine: string;
   todayLine: string;
@@ -28,6 +29,7 @@ interface GanttLegendProps {
   todayVisible: boolean;
   hasMilestones: boolean;
   hasConstraints?: boolean;
+  hasTerminals?: boolean;
   datePrepared?: string;
 }
 
@@ -42,6 +44,7 @@ export function GanttLegend({
   todayVisible,
   hasMilestones,
   hasConstraints,
+  hasTerminals,
   datePrepared,
 }: GanttLegendProps) {
   return (
@@ -68,6 +71,17 @@ export function GanttLegend({
             style={{ backgroundColor: c.barPlanned, borderLeft: `4px solid ${c.criticalPath}` }}
           />
           <span className="align-middle">Critical Path</span>
+        </span>
+      )}
+
+      {/* Terminal activity */}
+      {dependencyMode && hasTerminals && (
+        <span>
+          <span
+            className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5"
+            style={{ backgroundColor: c.barPlanned, borderRight: `4px solid ${c.terminal}` }}
+          />
+          <span className="align-middle">Terminal</span>
         </span>
       )}
 

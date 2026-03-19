@@ -36,6 +36,8 @@ export const COLORS = {
     hatchInProgress: "#fdba74",
     hatchBuffer: "#fbbf24",
     arrow: "#6b7280",
+    arrowHover: "#374151",
+    arrowHoverCritical: "#991b1b",
     gridLine: "#e5e7eb",
     text: "#111827",
     textMuted: "#6b7280",
@@ -47,6 +49,7 @@ export const COLORS = {
     criticalPath: "#dc2626",
     todayLine: "#8b5cf6",
     todayText: "#7c3aed",
+    terminal: "#111827",
   },
   dark: {
     barPlanned: "#60a5fa",
@@ -56,6 +59,8 @@ export const COLORS = {
     hatchInProgress: "#f97316",
     hatchBuffer: "#f59e0b",
     arrow: "#6b7280",
+    arrowHover: "#d1d5db",
+    arrowHoverCritical: "#fca5a5",
     gridLine: "#374151",
     text: "#f3f4f6",
     textMuted: "#9ca3af",
@@ -67,6 +72,7 @@ export const COLORS = {
     criticalPath: "#f87171",
     todayLine: "#a78bfa",
     todayText: "#a78bfa",
+    terminal: "#d1d5db",
   },
 } as const;
 

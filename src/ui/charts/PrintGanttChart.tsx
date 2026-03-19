@@ -140,6 +140,14 @@ export function PrintGanttChart({
 
   const hasCriticalPath = dependencyMode && criticalPathIds && criticalPathIds.size > 0;
 
+  // Terminal activities: no successor dependency
+  const terminalIds = useMemo(() => {
+    if (!dependencyMode || dependencies.length === 0) return null;
+    const hasSuccessor = new Set(dependencies.map(d => d.fromActivityId));
+    return new Set(activities.filter(a => !hasSuccessor.has(a.id)).map(a => a.id));
+  }, [dependencyMode, dependencies, activities]);
+  const hasTerminals = terminalIds !== null && terminalIds.size > 0;
+
   return (
     <section className="mb-3 print-section-keep">
       <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
@@ -240,6 +248,11 @@ export function PrintGanttChart({
               {hasCriticalPath && criticalPathIds!.has(act.id) && (
                 <rect x={x1} y={barY} width={3} height={PRINT_BAR_H}
                   rx={PRINT_BAR_RADIUS} fill={c.criticalPath} />
+              )}
+              {/* Terminal activity right stripe */}
+              {hasTerminals && terminalIds!.has(act.id) && (
+                <rect x={x1 + w - 3} y={barY} width={3} height={PRINT_BAR_H}
+                  rx={PRINT_BAR_RADIUS} fill={c.terminal} />
               )}
               {w > 20 && (
                 <text x={x1 + w / 2} y={barY + PRINT_BAR_H / 2} textAnchor="middle"
@@ -390,6 +403,13 @@ export function PrintGanttChart({
             <span className="inline-block w-2 h-2 rounded-sm"
               style={{ backgroundColor: c.barPlanned, borderLeft: `2px solid ${c.criticalPath}` }} />
             Critical Path
+          </span>
+        )}
+        {hasTerminals && (
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-sm"
+              style={{ backgroundColor: c.barPlanned, borderRight: `2px solid ${c.terminal}` }} />
+            Terminal
           </span>
         )}
         {todayInRange && (

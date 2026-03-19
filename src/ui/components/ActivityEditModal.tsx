@@ -1,20 +1,32 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import type {
   ConstraintType,
   ConstraintMode,
   ConstraintConflict,
   DeterministicSchedule,
+  RSMLevel,
+  DistributionType,
+  ActivityStatus,
+  Activity,
 } from "@domain/models/types";
-import { CONSTRAINT_TYPES, CONSTRAINT_MODES } from "@domain/models/types";
+import {
+  CONSTRAINT_TYPES,
+  CONSTRAINT_MODES,
+  RSM_LEVELS,
+  RSM_LABELS,
+  DISTRIBUTION_TYPES,
+  ACTIVITY_STATUSES,
+} from "@domain/models/types";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { parseDateISO, isWorkingDay, formatDateISO } from "@core/calendar/calendar";
 import { detectConstraintConflict } from "@core/schedule/constraint-utils";
+import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 
 /** Human-readable labels for constraint types. */
 const CONSTRAINT_LABELS: Record<ConstraintType, string> = {
@@ -32,6 +44,42 @@ interface ActivityEditModalProps {
   projectId: string;
   onClose: () => void;
   schedule: DeterministicSchedule | undefined;
+  dependencyMode?: boolean;
+  onEditDependency?: (fromId: string, toId: string) => void;
+  onAddDependency?: (fromId: string) => void;
+}
+
+/** Collapsible section wrapper */
+function Section({
+  title,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-t border-gray-200 dark:border-gray-700">
+      <button
+        type="button"
+        className="w-full flex items-center gap-2 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <svg
+          className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        {title}
+      </button>
+      {open && <div className="pb-3 space-y-3">{children}</div>}
+    </div>
+  );
 }
 
 export function ActivityEditModal({
@@ -40,6 +88,9 @@ export function ActivityEditModal({
   projectId,
   onClose,
   schedule,
+  dependencyMode,
+  onEditDependency,
+  onAddDependency,
 }: ActivityEditModalProps) {
   // -- Store selectors --
   const activity = useProjectStore((s) => {
@@ -48,12 +99,36 @@ export function ActivityEditModal({
     return scenario?.activities.find((a) => a.id === activityId);
   });
 
+  const allActivities = useProjectStore((s) => {
+    const project = s.projects.find((p) => p.id === projectId);
+    const scenario = project?.scenarios.find((sc) => sc.id === scenarioId);
+    return scenario?.activities ?? [];
+  });
+
+  const dependencies = useProjectStore((s) => {
+    const project = s.projects.find((p) => p.id === projectId);
+    const scenario = project?.scenarios.find((sc) => sc.id === scenarioId);
+    return scenario?.dependencies ?? [];
+  });
+
   const updateActivityField = useProjectStore((s) => s.updateActivityField);
 
   const calendar = useWorkCalendar(projectId);
   const formatDate = useDateFormat();
 
-  // -- Local draft state --
+  // -- Local draft state: General --
+  const [name, setName] = useState(activity?.name ?? "");
+  const [status, setStatus] = useState<ActivityStatus>(activity?.status ?? "planned");
+  const [actualDuration, setActualDuration] = useState<number | "">(activity?.actualDuration ?? "");
+
+  // -- Local draft state: Estimates --
+  const [min, setMin] = useState<number | "">(activity?.min ?? "");
+  const [mostLikely, setMostLikely] = useState<number | "">(activity?.mostLikely ?? "");
+  const [max, setMax] = useState<number | "">(activity?.max ?? "");
+  const [confidenceLevel, setConfidenceLevel] = useState<RSMLevel>(activity?.confidenceLevel ?? "mediumConfidence");
+  const [distributionType, setDistributionType] = useState<DistributionType>(activity?.distributionType ?? "normal");
+
+  // -- Local draft state: Constraint --
   const [constraintType, setConstraintType] = useState<ConstraintType | null>(
     activity?.constraintType ?? null
   );
@@ -80,7 +155,6 @@ export function ActivityEditModal({
 
     clearTimeout(conflictTimerRef.current);
     conflictTimerRef.current = setTimeout(() => {
-      // Find this activity's scheduled entry
       const sa = schedule?.activities.find((a) => a.activityId === activityId);
       if (!sa) {
         setConflictPreview(null);
@@ -112,6 +186,18 @@ export function ActivityEditModal({
 
   // -- Milestone anchor guard --
   const hasMilestoneAnchor = !!activity?.startsAtMilestoneId;
+
+  // -- Dependencies involving this activity --
+  const relatedDeps = useMemo(() => {
+    return dependencies.filter(
+      (d) => d.fromActivityId === activityId || d.toActivityId === activityId
+    );
+  }, [dependencies, activityId]);
+
+  const activityNameById = useCallback(
+    (id: string) => allActivities.find((a) => a.id === id)?.name ?? id,
+    [allActivities]
+  );
 
   // -- Date picker handler: snap non-working days --
   const handleDateChange = useCallback(
@@ -165,29 +251,58 @@ export function ActivityEditModal({
     [constraintMode]
   );
 
-  // -- Save --
+  // -- Save: only send changed fields --
   const handleSave = useCallback(() => {
-    updateActivityField(projectId, scenarioId, activityId, {
-      constraintType: constraintType ?? null,
-      constraintDate: constraintType ? (constraintDate ?? null) : null,
-      constraintMode: constraintType ? (constraintMode ?? null) : null,
-      constraintNote: constraintType ? (constraintNote?.trim() || null) : null,
-    });
+    if (!activity) return;
+
+    const updates: Partial<Activity> = {};
+
+    // General
+    if (name.trim() && name.trim() !== activity.name) updates.name = name.trim();
+    if (status !== activity.status) updates.status = status;
+    if (status === "complete" && actualDuration !== "" && actualDuration !== activity.actualDuration) {
+      updates.actualDuration = Number(actualDuration);
+    }
+    if (status !== "complete") updates.actualDuration = undefined;
+
+    // Estimates
+    if (min !== "" && Number(min) !== activity.min) updates.min = Number(min);
+    if (mostLikely !== "" && Number(mostLikely) !== activity.mostLikely) updates.mostLikely = Number(mostLikely);
+    if (max !== "" && Number(max) !== activity.max) updates.max = Number(max);
+    if (confidenceLevel !== activity.confidenceLevel) updates.confidenceLevel = confidenceLevel;
+    if (distributionType !== activity.distributionType) updates.distributionType = distributionType;
+
+    // Constraint
+    updates.constraintType = constraintType ?? null;
+    updates.constraintDate = constraintType ? (constraintDate ?? null) : null;
+    updates.constraintMode = constraintType ? (constraintMode ?? null) : null;
+    updates.constraintNote = constraintType ? (constraintNote?.trim() || null) : null;
+
+    updateActivityField(projectId, scenarioId, activityId, updates);
     onClose();
   }, [
-    updateActivityField,
-    projectId,
-    scenarioId,
-    activityId,
+    activity,
+    name,
+    status,
+    actualDuration,
+    min,
+    mostLikely,
+    max,
+    confidenceLevel,
+    distributionType,
     constraintType,
     constraintDate,
     constraintMode,
     constraintNote,
+    updateActivityField,
+    projectId,
+    scenarioId,
+    activityId,
     onClose,
   ]);
 
-  // -- Clear --
-  const handleClear = useCallback(() => {
+  // -- Clear constraint --
+  const handleClearConstraint = useCallback(() => {
     setConstraintType(null);
     setConstraintDate(null);
     setConstraintMode(null);
@@ -196,9 +311,10 @@ export function ActivityEditModal({
     setConflictPreview(null);
   }, []);
 
-  // Determine if save is valid (either cleared or all three set)
+  // Determine if save is valid
   const isValid =
-    !constraintType || (!!constraintType && !!constraintDate && !!constraintMode);
+    name.trim().length > 0 &&
+    (!constraintType || (!!constraintType && !!constraintDate && !!constraintMode));
 
   if (!activity) return null;
 
@@ -209,17 +325,14 @@ export function ActivityEditModal({
     <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg z-50">
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-xl z-50 max-h-[85vh] overflow-y-auto">
           <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Edit Activity
           </Dialog.Title>
-          <Dialog.Description className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {activity.name}
-          </Dialog.Description>
 
           {/* Scheduled dates context */}
           {sa && (
-            <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 flex gap-4">
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex gap-4">
               <span>Start: {formatDate(sa.startDate)}</span>
               <span>End: {formatDate(sa.endDate)}</span>
               {sa.totalFloat != null && (
@@ -228,144 +341,329 @@ export function ActivityEditModal({
             </div>
           )}
 
-          <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-              Scheduling Constraint
-            </h3>
-
-            {hasMilestoneAnchor ? (
-              <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Scheduling constraints are not available when a milestone anchor is set.
-                  Remove the milestone anchor in the Milestone panel to enable constraints.
-                </p>
+          <div className="mt-3 space-y-0">
+            {/* ── Section 1: General ── */}
+            <Section title="General" defaultOpen>
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={200}
+                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
+                />
               </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Constraint Type */}
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Status
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as ActivityStatus)}
+                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  {ACTIVITY_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {statusLabel(s)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Actual Duration (only when complete) */}
+              {status === "complete" && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Type
+                    Actual Duration (working days)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={actualDuration}
+                    onChange={(e) => setActualDuration(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+              )}
+            </Section>
+
+            {/* ── Section 2: Estimates ── */}
+            <Section title="Estimates" defaultOpen>
+              <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 1fr 1fr 2fr 2fr" }}>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Min
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={min}
+                    onChange={(e) => setMin(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    ML
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={mostLikely}
+                    onChange={(e) => setMostLikely(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Max
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={max}
+                    onChange={(e) => setMax(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Confidence
                   </label>
                   <select
-                    value={constraintType ?? ""}
-                    onChange={handleTypeChange}
+                    value={confidenceLevel}
+                    onChange={(e) => setConfidenceLevel(e.target.value as RSMLevel)}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
-                    <option value="">None</option>
-                    {CONSTRAINT_TYPES.map((ct) => (
-                      <option key={ct} value={ct}>
-                        {ct} — {CONSTRAINT_LABELS[ct]}
+                    {RSM_LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {RSM_LABELS[level]}
                       </option>
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Distribution
+                  </label>
+                  <select
+                    value={distributionType}
+                    onChange={(e) => setDistributionType(e.target.value as DistributionType)}
+                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    {DISTRIBUTION_TYPES.map((dt) => (
+                      <option key={dt} value={dt}>
+                        {distributionLabel(dt)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </Section>
 
-                {/* Constraint Date (only when type selected) */}
-                {constraintType && (
+            {/* ── Section 3: Scheduling Constraint ── */}
+            <Section title="Scheduling Constraint" defaultOpen={false}>
+              {hasMilestoneAnchor ? (
+                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Scheduling constraints are not available when a milestone anchor is set.
+                    Remove the milestone anchor in the Milestone panel to enable constraints.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Constraint Type */}
                   <div>
                     <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Date
+                      Type
                     </label>
-                    <input
-                      type="date"
-                      value={constraintDate ?? ""}
-                      onChange={handleDateChange}
+                    <select
+                      value={constraintType ?? ""}
+                      onChange={handleTypeChange}
                       className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                    {dateAdjustedNote && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                        {dateAdjustedNote}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Constraint Mode (only when type selected) */}
-                {constraintType && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Mode
-                    </label>
-                    <div className="flex gap-4">
-                      {CONSTRAINT_MODES.map((mode) => (
-                        <label key={mode} className="flex items-center gap-1.5 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="constraintMode"
-                            value={mode}
-                            checked={constraintMode === mode}
-                            onChange={() => setConstraintMode(mode)}
-                            className="text-blue-600"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
-                            {mode}
-                          </span>
-                        </label>
+                    >
+                      <option value="">None</option>
+                      {CONSTRAINT_TYPES.map((ct) => (
+                        <option key={ct} value={ct}>
+                          {ct} — {CONSTRAINT_LABELS[ct]}
+                        </option>
                       ))}
+                    </select>
+                  </div>
+
+                  {/* Constraint Date */}
+                  {constraintType && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        value={constraintDate ?? ""}
+                        onChange={handleDateChange}
+                        className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                      {dateAdjustedNote && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          {dateAdjustedNote}
+                        </p>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      {constraintMode === "hard"
-                        ? "Hard: overrides computed dates. May cause conflicts."
-                        : "Soft: advisory only. Violations shown as warnings."}
-                    </p>
+                  )}
+
+                  {/* Constraint Mode */}
+                  {constraintType && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Mode
+                      </label>
+                      <div className="flex gap-4">
+                        {CONSTRAINT_MODES.map((mode) => (
+                          <label key={mode} className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="constraintMode"
+                              value={mode}
+                              checked={constraintMode === mode}
+                              onChange={() => setConstraintMode(mode)}
+                              className="text-blue-600"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
+                              {mode}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        {constraintMode === "hard"
+                          ? "Hard: overrides computed dates. May cause conflicts."
+                          : "Soft: advisory only. Violations shown as warnings."}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Note */}
+                  {constraintType && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Note <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+                      </label>
+                      <textarea
+                        value={constraintNote ?? ""}
+                        onChange={(e) => setConstraintNote(e.target.value || null)}
+                        maxLength={500}
+                        rows={2}
+                        placeholder="Why does this constraint exist?"
+                        className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none"
+                      />
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-0.5">
+                        {(constraintNote ?? "").length}/500
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Clear button */}
+                  {constraintType && (
+                    <button
+                      type="button"
+                      onClick={handleClearConstraint}
+                      className="text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                    >
+                      Clear constraint
+                    </button>
+                  )}
+
+                  {/* Conflict preview */}
+                  {conflictPreview && (
+                    <div
+                      className={`rounded p-3 text-sm ${
+                        conflictPreview.severity === "error"
+                          ? "bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300"
+                          : "bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                      }`}
+                    >
+                      <p className="font-medium text-xs mb-1">
+                        {conflictPreview.severity === "error" ? "Conflict" : "Warning"}
+                      </p>
+                      <p className="text-xs">
+                        {conflictPreview.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Section>
+
+            {/* ── Section 4: Dependencies (only in dependency mode) ── */}
+            {dependencyMode && (
+              <Section title="Dependencies" defaultOpen={false}>
+                {relatedDeps.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    No dependencies involving this activity.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {relatedDeps.map((dep) => {
+                      const isPred = dep.toActivityId === activityId;
+                      const otherId = isPred ? dep.fromActivityId : dep.toActivityId;
+                      return (
+                        <div
+                          key={`${dep.fromActivityId}-${dep.toActivityId}`}
+                          className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-gray-50 dark:bg-gray-700/50 text-sm"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              {isPred ? "Pred:" : "Succ:"}
+                            </span>{" "}
+                            <span className="text-gray-700 dark:text-gray-300 truncate">
+                              {activityNameById(otherId)}
+                            </span>
+                            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                              {dep.type}{dep.lagDays !== 0 ? ` ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""}
+                            </span>
+                          </div>
+                          {onEditDependency && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onClose();
+                                onEditDependency(dep.fromActivityId, dep.toActivityId);
+                              }}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 shrink-0"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
-
-                {/* Note (optional) */}
-                {constraintType && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Note <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
-                    </label>
-                    <textarea
-                      value={constraintNote ?? ""}
-                      onChange={(e) => setConstraintNote(e.target.value || null)}
-                      maxLength={500}
-                      rows={2}
-                      placeholder="Why does this constraint exist?"
-                      className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none"
-                    />
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-0.5">
-                      {(constraintNote ?? "").length}/500
-                    </p>
-                  </div>
-                )}
-
-                {/* Clear button */}
-                {constraintType && (
+                {onAddDependency && (
                   <button
                     type="button"
-                    onClick={handleClear}
-                    className="text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                    onClick={() => {
+                      onClose();
+                      onAddDependency(activityId);
+                    }}
+                    className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                   >
-                    Clear constraint
+                    + Add Dependency
                   </button>
                 )}
-
-                {/* Conflict preview callout */}
-                {conflictPreview && (
-                  <div
-                    className={`rounded p-3 text-sm ${
-                      conflictPreview.severity === "error"
-                        ? "bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300"
-                        : "bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300"
-                    }`}
-                  >
-                    <p className="font-medium text-xs mb-1">
-                      {conflictPreview.severity === "error" ? "Conflict" : "Warning"}
-                    </p>
-                    <p className="text-xs">
-                      {conflictPreview.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}
-                    </p>
-                  </div>
-                )}
-              </div>
+              </Section>
             )}
           </div>
 
           {/* Actions */}
-          <div className="mt-6 flex justify-end gap-2">
+          <div className="mt-5 flex justify-end gap-2">
             <Dialog.Close asChild>
               <button
                 type="button"
