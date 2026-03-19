@@ -281,6 +281,7 @@ export {
   addDependency,
   removeDependency,
   updateDependencyLag,
+  updateDependencyType,
   removeActivitiesDeps,
 } from "./dependency-service";
 

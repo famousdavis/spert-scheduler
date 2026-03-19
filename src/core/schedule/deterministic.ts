@@ -6,6 +6,7 @@ import type {
   ActivityDependency,
   Calendar,
   ConstraintConflict,
+  DependencyConflict,
   DeterministicSchedule,
   Milestone,
   ScheduledActivity,
@@ -227,20 +228,50 @@ export function computeDependencySchedule(
     if (preds.length === 0) {
       activityStart = new Date(projectStart);
     } else {
-      // Starts after all predecessors' CONSTRAINED finish + lag
+      // Starts after all predecessors' constraints are satisfied (type-aware)
       let latestDate = new Date(0);
       for (const pred of preds) {
-        const predEnd = endDates.get(pred.id)!;
-        const offset = 1 + pred.lagDays;
         let candidateStart: Date;
-        if (offset >= 0) {
-          candidateStart = addWorkingDays(predEnd, offset, calendar);
-        } else {
-          candidateStart = subtractWorkingDays(predEnd, -offset, calendar);
+
+        if (pred.type === "SS") {
+          // SS: read predecessor's START date, offset = lag (no +1)
+          const predStart = startDates.get(pred.id)!;
+          const offset = pred.lagDays;
+          if (offset >= 0) {
+            candidateStart = addWorkingDays(predStart, offset, calendar);
+          } else {
+            candidateStart = subtractWorkingDays(predStart, -offset, calendar);
+            if (candidateStart < projectStart) {
+              candidateStart = new Date(projectStart);
+            }
+          }
+        } else if (pred.type === "FF") {
+          // FF: constrained EF = pred END + lag, then back-calculate ES
+          const predEnd = endDates.get(pred.id)!;
+          let constrainedEF: Date;
+          if (pred.lagDays >= 0) {
+            constrainedEF = addWorkingDays(predEnd, pred.lagDays, calendar);
+          } else {
+            constrainedEF = subtractWorkingDays(predEnd, -pred.lagDays, calendar);
+          }
+          candidateStart = subtractWorkingDays(constrainedEF, duration, calendar);
           if (candidateStart < projectStart) {
             candidateStart = new Date(projectStart);
           }
+        } else {
+          // FS (existing behavior)
+          const predEnd = endDates.get(pred.id)!;
+          const offset = 1 + pred.lagDays;
+          if (offset >= 0) {
+            candidateStart = addWorkingDays(predEnd, offset, calendar);
+          } else {
+            candidateStart = subtractWorkingDays(predEnd, -offset, calendar);
+            if (candidateStart < projectStart) {
+              candidateStart = new Date(projectStart);
+            }
+          }
         }
+
         if (candidateStart > latestDate) {
           latestDate = candidateStart;
         }
@@ -309,22 +340,40 @@ export function computeDependencySchedule(
     const duration = durationMap.get(id) ?? 1;
     const succs = graph.successors.get(id) ?? [];
 
-    let lf: Date;
+    let ls: Date;
     if (succs.length === 0) {
-      lf = new Date(projectEndDate);
+      ls = subtractWorkingDays(new Date(projectEndDate), duration, calendar);
     } else {
-      lf = new Date(8640000000000000); // max date
+      ls = new Date(8640000000000000); // max date
       for (const succ of succs) {
-        const succLS = parseDateISO(lateStartCon.get(succ.id)!);
-        const offset = 1 + succ.lagDays;
-        const candidateLF = offset >= 0
-          ? subtractWorkingDays(succLS, offset, calendar)
-          : addWorkingDays(succLS, -offset, calendar);
-        if (candidateLF < lf) lf = candidateLF;
+        let candidateLS: Date;
+
+        if (succ.type === "SS") {
+          const succLS = parseDateISO(lateStartCon.get(succ.id)!);
+          const offset = succ.lagDays;
+          candidateLS = offset >= 0
+            ? subtractWorkingDays(succLS, offset, calendar)
+            : addWorkingDays(succLS, -offset, calendar);
+        } else if (succ.type === "FF") {
+          const succLF = parseDateISO(lateFinishCon.get(succ.id)!);
+          const combined = succ.lagDays + duration;
+          candidateLS = combined >= 0
+            ? subtractWorkingDays(succLF, combined, calendar)
+            : addWorkingDays(succLF, -combined, calendar);
+        } else {
+          // FS
+          const succLS = parseDateISO(lateStartCon.get(succ.id)!);
+          const combined = 1 + succ.lagDays + duration;
+          candidateLS = combined >= 0
+            ? subtractWorkingDays(succLS, combined, calendar)
+            : addWorkingDays(succLS, -combined, calendar);
+        }
+
+        if (candidateLS < ls) ls = candidateLS;
       }
     }
 
-    let ls = subtractWorkingDays(lf, duration, calendar);
+    let lf = addWorkingDays(ls, duration, calendar);
 
     // Apply backward constraint adjustment
     if (activity.constraintType && activity.constraintDate && activity.constraintMode) {
@@ -351,22 +400,40 @@ export function computeDependencySchedule(
     const duration = durationMap.get(id) ?? 1;
     const succs = graph.successors.get(id) ?? [];
 
-    let lf: Date;
+    let ls: Date;
     if (succs.length === 0) {
-      lf = new Date(projectEndDate);
+      ls = subtractWorkingDays(new Date(projectEndDate), duration, calendar);
     } else {
-      lf = new Date(8640000000000000);
+      ls = new Date(8640000000000000);
       for (const succ of succs) {
-        const succLS = parseDateISO(lateStartNet.get(succ.id)!);
-        const offset = 1 + succ.lagDays;
-        const candidateLF = offset >= 0
-          ? subtractWorkingDays(succLS, offset, calendar)
-          : addWorkingDays(succLS, -offset, calendar);
-        if (candidateLF < lf) lf = candidateLF;
+        let candidateLS: Date;
+
+        if (succ.type === "SS") {
+          const succLS = parseDateISO(lateStartNet.get(succ.id)!);
+          const offset = succ.lagDays;
+          candidateLS = offset >= 0
+            ? subtractWorkingDays(succLS, offset, calendar)
+            : addWorkingDays(succLS, -offset, calendar);
+        } else if (succ.type === "FF") {
+          const succLF = parseDateISO(lateFinishNet.get(succ.id)!);
+          const combined = succ.lagDays + duration;
+          candidateLS = combined >= 0
+            ? subtractWorkingDays(succLF, combined, calendar)
+            : addWorkingDays(succLF, -combined, calendar);
+        } else {
+          // FS
+          const succLS = parseDateISO(lateStartNet.get(succ.id)!);
+          const combined = 1 + succ.lagDays + duration;
+          candidateLS = combined >= 0
+            ? subtractWorkingDays(succLS, combined, calendar)
+            : addWorkingDays(succLS, -combined, calendar);
+        }
+
+        if (candidateLS < ls) ls = candidateLS;
       }
     }
 
-    const ls = subtractWorkingDays(lf, duration, calendar);
+    const lf = addWorkingDays(ls, duration, calendar);
     lateStartNet.set(id, formatDateISO(ls));
     lateFinishNet.set(id, formatDateISO(lf));
   }
@@ -392,6 +459,52 @@ export function computeDependencySchedule(
       activity.constraintMode, activity.id, activity.name, calendar,
     );
     if (conflict) conflicts.push(conflict);
+  }
+
+  // -- Post-pass dependency constraint validation -----------------------------
+
+  const dependencyConflicts: DependencyConflict[] = [];
+
+  function computeRequired(baseDate: Date, offset: number): Date {
+    return offset >= 0
+      ? addWorkingDays(baseDate, offset, calendar)
+      : subtractWorkingDays(baseDate, -offset, calendar);
+  }
+
+  for (const dep of dependencies) {
+    const succES = startDates.get(dep.toActivityId);
+    const succEF = endDates.get(dep.toActivityId);
+    const predES = startDates.get(dep.fromActivityId);
+    const predEF = endDates.get(dep.fromActivityId);
+    if (!succES || !succEF || !predES || !predEF) continue;
+
+    let violated = false;
+    if (dep.type === "FS") {
+      const required = computeRequired(predEF, 1 + dep.lagDays);
+      violated = succES < required;
+    } else if (dep.type === "SS") {
+      const required = computeRequired(predES, dep.lagDays);
+      violated = succES < required;
+    } else if (dep.type === "FF") {
+      const required = computeRequired(predEF, dep.lagDays);
+      violated = succEF < required;
+    }
+
+    if (violated) {
+      const fromName = activityMap.get(dep.fromActivityId)?.name ?? "";
+      const toName = activityMap.get(dep.toActivityId)?.name ?? "";
+      dependencyConflicts.push({
+        type: "dependency-violation",
+        fromActivityId: dep.fromActivityId,
+        fromActivityName: fromName,
+        toActivityId: dep.toActivityId,
+        toActivityName: toName,
+        dependencyType: dep.type,
+        lagDays: dep.lagDays,
+        severity: "warning",
+        message: `${dep.type} constraint violated: ${toName} does not satisfy ${dep.type} relationship with ${fromName}`,
+      });
+    }
   }
 
   // -- Build result -----------------------------------------------------------
@@ -425,5 +538,6 @@ export function computeDependencySchedule(
     totalDurationDays,
     projectEndDate: projectEndISO,
     constraintConflicts: conflicts.length > 0 ? conflicts : undefined,
+    dependencyConflicts: dependencyConflicts.length > 0 ? dependencyConflicts : undefined,
   };
 }

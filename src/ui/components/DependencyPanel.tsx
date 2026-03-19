@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import type { Activity, ActivityDependency, DependencyType } from "@domain/models/types";
+import { DEPENDENCY_TYPES } from "@domain/models/types";
 import { validateDependencies, detectCycle } from "@core/schedule/dependency-graph";
 
 interface DependencyPanelProps {
@@ -16,6 +17,7 @@ interface DependencyPanelProps {
   ) => void;
   onRemoveDependency: (fromActivityId: string, toActivityId: string) => void;
   onUpdateLag: (fromActivityId: string, toActivityId: string, lagDays: number) => void;
+  onUpdateType: (fromActivityId: string, toActivityId: string, type: DependencyType) => void;
   isLocked?: boolean;
 }
 
@@ -64,10 +66,12 @@ export function DependencyPanel({
   onAddDependency,
   onRemoveDependency,
   onUpdateLag,
+  onUpdateType,
   isLocked,
 }: DependencyPanelProps) {
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
+  const [depType, setDepType] = useState<DependencyType>("FS");
   const [lagDays, setLagDays] = useState(0);
 
   const activityMap = useMemo(
@@ -110,9 +114,10 @@ export function DependencyPanel({
 
   const handleAdd = () => {
     if (!canAdd) return;
-    onAddDependency(fromId, toId, "FS", lagDays);
+    onAddDependency(fromId, toId, depType, lagDays);
     setFromId("");
     setToId("");
+    setDepType("FS");
     setLagDays(0);
   };
 
@@ -180,11 +185,20 @@ export function DependencyPanel({
                 {getActivityName(dep.toActivityId)}
               </span>
               <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-                (FS{dep.lagDays !== 0 ? `, ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""})
+                ({dep.type}{dep.lagDays !== 0 ? `${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""})
               </span>
               {/* Editable lag */}
               {!isLocked && (
                 <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                  <select
+                    value={dep.type}
+                    onChange={(e) => onUpdateType(dep.fromActivityId, dep.toActivityId, e.target.value as DependencyType)}
+                    className="w-14 px-0.5 py-0.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none"
+                  >
+                    {DEPENDENCY_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
                   <label className="text-xs text-gray-400 dark:text-gray-500">Lag:</label>
                   <LagInput
                     value={dep.lagDays}
@@ -234,6 +248,15 @@ export function DependencyPanel({
               <option key={a.id} value={a.id} disabled={a.id === fromId}>
                 {a.name}
               </option>
+            ))}
+          </select>
+          <select
+            value={depType}
+            onChange={(e) => setDepType(e.target.value as DependencyType)}
+            className="w-16 px-1 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none shrink-0"
+          >
+            {DEPENDENCY_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
             ))}
           </select>
           <div className="flex items-center gap-1 shrink-0">

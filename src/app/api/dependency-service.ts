@@ -49,6 +49,23 @@ export function updateDependencyLag(
   };
 }
 
+export function updateDependencyType(
+  scenario: Scenario,
+  fromActivityId: string,
+  toActivityId: string,
+  type: DependencyType
+): Scenario {
+  return {
+    ...scenario,
+    dependencies: scenario.dependencies.map((d) =>
+      d.fromActivityId === fromActivityId && d.toActivityId === toActivityId
+        ? { ...d, type }
+        : d
+    ),
+    simulationResults: undefined,
+  };
+}
+
 /**
  * Remove all dependencies referencing any of the given activity IDs.
  * Used by bulk delete.

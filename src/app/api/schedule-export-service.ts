@@ -116,11 +116,12 @@ function buildActivityIndexMap(activities: Activity[]): Map<string, number> {
 
 function formatDepRef(
   activityIndex: number,
-  lagDays: number
+  lagDays: number,
+  type: string
 ): string {
-  if (lagDays === 0) return `${activityIndex}`;
+  if (lagDays === 0) return `${activityIndex}${type}`;
   const sign = lagDays > 0 ? "+" : "";
-  return `${activityIndex} ${sign}${lagDays}d`;
+  return `${activityIndex}${type}${sign}${lagDays}d`;
 }
 
 export function buildPredecessorMap(
@@ -132,7 +133,7 @@ export function buildPredecessorMap(
   for (const dep of dependencies) {
     const fromIdx = indexMap.get(dep.fromActivityId);
     if (fromIdx === undefined) continue;
-    const ref = formatDepRef(fromIdx, dep.lagDays);
+    const ref = formatDepRef(fromIdx, dep.lagDays, dep.type);
     const existing = result.get(dep.toActivityId);
     result.set(dep.toActivityId, existing ? `${existing}, ${ref}` : ref);
   }
@@ -148,7 +149,7 @@ export function buildSuccessorMap(
   for (const dep of dependencies) {
     const toIdx = indexMap.get(dep.toActivityId);
     if (toIdx === undefined) continue;
-    const ref = formatDepRef(toIdx, dep.lagDays);
+    const ref = formatDepRef(toIdx, dep.lagDays, dep.type);
     const existing = result.get(dep.fromActivityId);
     result.set(dep.fromActivityId, existing ? `${existing}, ${ref}` : ref);
   }

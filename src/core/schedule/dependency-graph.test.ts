@@ -19,6 +19,14 @@ function fsDep(from: string, to: string, lag = 0): ActivityDependency {
   return { fromActivityId: from, toActivityId: to, type: "FS", lagDays: lag };
 }
 
+function ssDep(from: string, to: string, lag = 0): ActivityDependency {
+  return { fromActivityId: from, toActivityId: to, type: "SS", lagDays: lag };
+}
+
+function ffDep(from: string, to: string, lag = 0): ActivityDependency {
+  return { fromActivityId: from, toActivityId: to, type: "FF", lagDays: lag };
+}
+
 // -- buildDependencyGraph ----------------------------------------------------
 
 describe("buildDependencyGraph", () => {
@@ -41,8 +49,8 @@ describe("buildDependencyGraph", () => {
     );
     expect(graph.topologicalOrder).toEqual(["a", "b", "c"]);
     expect(graph.roots).toEqual(["a"]);
-    expect(graph.predecessors.get("b")).toEqual([{ id: "a", lagDays: 0 }]);
-    expect(graph.successors.get("a")).toEqual([{ id: "b", lagDays: 0 }]);
+    expect(graph.predecessors.get("b")).toEqual([{ id: "a", lagDays: 0, type: "FS" }]);
+    expect(graph.successors.get("a")).toEqual([{ id: "b", lagDays: 0, type: "FS" }]);
   });
 
   it("handles diamond: A → B, A → C, B → D, C → D", () => {
@@ -72,8 +80,8 @@ describe("buildDependencyGraph", () => {
       ["a", "b"],
       [fsDep("a", "b", 3)]
     );
-    expect(graph.predecessors.get("b")).toEqual([{ id: "a", lagDays: 3 }]);
-    expect(graph.successors.get("a")).toEqual([{ id: "b", lagDays: 3 }]);
+    expect(graph.predecessors.get("b")).toEqual([{ id: "a", lagDays: 3, type: "FS" }]);
+    expect(graph.successors.get("a")).toEqual([{ id: "b", lagDays: 3, type: "FS" }]);
   });
 
   it("skips self-loops silently", () => {
@@ -84,7 +92,7 @@ describe("buildDependencyGraph", () => {
   it("skips deps referencing unknown activities silently", () => {
     const graph = buildDependencyGraph(["a", "b"], [fsDep("a", "x"), fsDep("a", "b")]);
     expect(graph.topologicalOrder).toEqual(["a", "b"]);
-    expect(graph.predecessors.get("b")).toEqual([{ id: "a", lagDays: 0 }]);
+    expect(graph.predecessors.get("b")).toEqual([{ id: "a", lagDays: 0, type: "FS" }]);
   });
 
   it("throws on cycle", () => {
@@ -602,5 +610,299 @@ describe("property-based tests", () => {
         }
       })
     );
+  });
+});
+
+// -- SS and FF dependency types (integer domain) -----------------------------
+
+describe("SS forward pass (computeCriticalPathDuration)", () => {
+  it("SS lag=0: A(5) SS→ B(3) — B starts when A starts, project = max(5, 0+3) = 5", () => {
+    const ids = ["a", "b"];
+    const deps = [ssDep("a", "b")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    // A: ES=0, EF=5; B: ES=max(0, predStart(0)+0)=0, EF=3; project=max(5,3)=5
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+  });
+
+  it("SS lag=2: A(5) SS+2→ B(3) — B starts 2 after A starts, project = max(5, 2+3) = 5", () => {
+    const ids = ["a", "b"];
+    const deps = [ssDep("a", "b", 2)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    // B: ES=0+2=2, EF=5; project=max(5,5)=5
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+  });
+
+  it("SS lag=-1: A(5) SS-1→ B(3) — floor ES to 0", () => {
+    const ids = ["a", "b"];
+    const deps = [ssDep("a", "b", -1)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    // B: ES=max(0, 0+(-1))=max(0,-1)=0, EF=3; project=max(5,3)=5
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+  });
+
+  it("SS chain: A(4) SS+1→ B(3) SS+2→ C(2)", () => {
+    const ids = ["a", "b", "c"];
+    const deps = [ssDep("a", "b", 1), ssDep("b", "c", 2)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 4], ["b", 3], ["c", 2]]);
+    // A: ES=0, EF=4; B: ES=0+1=1, EF=4; C: ES=1+2=3, EF=5
+    // project=max(4,4,5)=5
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+  });
+});
+
+describe("FF forward pass (computeCriticalPathDuration)", () => {
+  it("FF lag=0: A(5) FF→ B(3) — B finishes when A finishes, B: ES=5-3=2, project=5", () => {
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    // B: ES=max(0, predFinish(5)+0-3)=max(0,2)=2, EF=5; project=max(5,5)=5
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+  });
+
+  it("FF lag=2: A(5) FF+2→ B(3) — B finishes 2 after A, B: ES=5+2-3=4, project=7", () => {
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b", 2)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    // B: ES=max(0, 5+2-3)=4, EF=7; project=max(5,7)=7
+    expect(computeCriticalPathDuration(graph, durations)).toBe(7);
+  });
+
+  it("FF lag=-1: A(5) FF-1→ B(3) — B finishes 1 before A, B: ES=5-1-3=1, project=5", () => {
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b", -1)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    // B: ES=max(0, 5+(-1)-3)=max(0,1)=1, EF=4; project=max(5,4)=5
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+  });
+});
+
+describe("SS backward pass (computeCriticalPathActivities)", () => {
+  it("SS lag=0: A(5) SS→ B(3) — neither is critical (SS-only constraint)", () => {
+    const ids = ["a", "b"];
+    const deps = [ssDep("a", "b")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // Forward: A: ES=0, EF=5; B: ES=0, EF=3; project=5
+    // Backward: B no succs: LS=2, LF=5; A: succ B(SS), candidateLS=2-0=2 → float=2
+    // CPM correctly shows float>0 for both activities in an SS-only pair
+    expect(result.projectDuration).toBe(5);
+    expect(result.criticalActivityIds.has("a")).toBe(false);
+    expect(result.criticalActivityIds.has("b")).toBe(false);
+  });
+
+  it("SS critical chain: A(3) SS+2→ B(5) — B is critical", () => {
+    const ids = ["a", "b"];
+    const deps = [ssDep("a", "b", 2)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 5]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A: ES=0, EF=3; B: ES=0+2=2, EF=7; project=max(3,7)=7
+    // Backward: B no succs: LS=7-5=2, LF=7; float=2-2=0 → critical
+    // A: succ B(SS), candidateLS=LS(B)-lag=2-2=0; LS=0, LF=3; float=0-0=0 → critical
+    expect(result.projectDuration).toBe(7);
+    expect(result.criticalActivityIds.has("a")).toBe(true);
+    expect(result.criticalActivityIds.has("b")).toBe(true);
+  });
+});
+
+describe("FF backward pass (computeCriticalPathActivities)", () => {
+  it("FF lag=0: A(5) FF→ B(3) — both critical", () => {
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A: ES=0, EF=5; B: ES=max(0, 5-3)=2, EF=5; project=5
+    // Backward: B no succs: LS=5-3=2, LF=5; float=2-2=0 → critical
+    // A: succ B(FF), candidateLS=LF(B)-lag-dur=5-0-5=0; LS=0, LF=5; float=0 → critical
+    expect(result.projectDuration).toBe(5);
+    expect(result.criticalActivityIds.has("a")).toBe(true);
+    expect(result.criticalActivityIds.has("b")).toBe(true);
+  });
+
+  it("FF critical chain: A(5) FF+2→ B(3) — B is critical, A has float", () => {
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b", 2)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A: ES=0, EF=5; B: ES=max(0, 5+2-3)=4, EF=7; project=7
+    // Backward: B no succs: LS=7-3=4, LF=7; float=4-4=0 → critical
+    // A: succ B(FF), candidateLS=LF(B)-lag-dur=7-2-5=0; LS=0, LF=5; float=0 → critical
+    expect(result.projectDuration).toBe(7);
+    expect(result.criticalActivityIds.has("a")).toBe(true);
+    expect(result.criticalActivityIds.has("b")).toBe(true);
+  });
+});
+
+describe("Mixed-type backward pass", () => {
+  it("FS+SS: A(3) FS→ C(2), B(4) SS→ C(2) — critical path through B", () => {
+    const ids = ["a", "b", "c"];
+    const deps = [fsDep("a", "c"), ssDep("b", "c")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 4], ["c", 2]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A: ES=0, EF=3; B: ES=0, EF=4
+    // C: predecessors A(FS): ES=EF(A)+0=3; B(SS): ES=ES(B)+0=0; max=3; EF=5
+    // project=max(3,4,5)=5
+    // Backward: C no succs: LS=5-2=3, LF=5; float=3-3=0 → critical
+    // A: succ C(FS), candidateLS=LS(C)-0-dur=3-0-3=0; LS=0; float=0 → critical
+    // B: succ C(SS), candidateLS=LS(C)-0=3; LS=3; dur=4, LF=7; float=3-0=3 → not critical
+    expect(result.projectDuration).toBe(5);
+    expect(result.criticalActivityIds.has("a")).toBe(true);
+    expect(result.criticalActivityIds.has("c")).toBe(true);
+    expect(result.criticalActivityIds.has("b")).toBe(false);
+  });
+
+  it("FS+FF: A(3) FS→ C(2), B(5) FF→ C(2)", () => {
+    const ids = ["a", "b", "c"];
+    const deps = [fsDep("a", "c"), ffDep("b", "c")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 5], ["c", 2]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A: ES=0, EF=3; B: ES=0, EF=5
+    // C: pred A(FS): ES=3; pred B(FF): ES=EF(B)+0-dur(C)=5-2=3; max=3; EF=5
+    // project=max(3,5,5)=5
+    expect(result.projectDuration).toBe(5);
+  });
+
+  it("SS+FF: A(4) SS+1→ C(3), B(5) FF→ C(3)", () => {
+    const ids = ["a", "b", "c"];
+    const deps = [ssDep("a", "c", 1), ffDep("b", "c")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 4], ["b", 5], ["c", 3]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A: ES=0, EF=4; B: ES=0, EF=5
+    // C: pred A(SS+1): ES=0+1=1; pred B(FF): ES=5+0-3=2; max=2; EF=5
+    // project=max(4,5,5)=5
+    expect(result.projectDuration).toBe(5);
+  });
+});
+
+// -- Pathological cases (P1-P10) ---------------------------------------------
+
+describe("Pathological SS/FF cases", () => {
+  it("P1: SS+FF conflict diamond — 4 activities", () => {
+    // A(3)→B(4) SS, A(3)→C(2) FS, B(4)→D(3) FS, C(2)→D(3) FF
+    const ids = ["a", "b", "c", "d"];
+    const deps = [ssDep("a", "b"), fsDep("a", "c"), fsDep("b", "d"), ffDep("c", "d")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 4], ["c", 2], ["d", 3]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A: ES=0, EF=3; B: ES(SS from A)=0, EF=4; C: ES(FS from A)=3, EF=5
+    // D: pred B(FS): ES=EF(B)+0=4; pred C(FF): ES=EF(C)+0-dur(D)=5-3=2; max=4; EF=7
+    // project=max(3,4,5,7)=7
+    expect(result.projectDuration).toBe(7);
+  });
+
+  it("P2: FF pulling ES before project start — floor to 0", () => {
+    // A(2) FF-3→ B(5): B would need ES = EF(A) + (-3) - 5 = 2 - 3 - 5 = -6 → floor to 0
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b", -3)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 2], ["b", 5]]);
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+    // B: ES=max(0, 2+(-3)-5)=max(0,-6)=0, EF=5
+  });
+
+  it("P3: Mixed SS+FF+FS predecessors", () => {
+    // A(3)→D FS, B(4)→D SS+1, C(5)→D FF
+    const ids = ["a", "b", "c", "d"];
+    const deps = [fsDep("a", "d"), ssDep("b", "d", 1), ffDep("c", "d")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 4], ["c", 5], ["d", 2]]);
+    // A: ES=0, EF=3; B: ES=0, EF=4; C: ES=0, EF=5
+    // D: pred A(FS): ES=3; pred B(SS+1): ES=0+1=1; pred C(FF): ES=5-2=3; max=3; EF=5
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+  });
+
+  it("P4: Backward pass asymmetry — SS and FS on same successor", () => {
+    // A(5) SS→ B(3), A(5) FS→ C(2)
+    const ids = ["a", "b", "c"];
+    const deps = [ssDep("a", "b"), fsDep("a", "c")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3], ["c", 2]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    // A: ES=0, EF=5; B: ES=0, EF=3; C: ES=5, EF=7; project=7
+    // Backward: C no succs: LS=7-2=5, LF=7; float=0 → critical
+    // B no succs: LS=7-3=4, LF=7; float=4-0=4 → not critical
+    // A: succ B(SS): candidateLS=4-0=4; succ C(FS): candidateLS=5-0-5=0; min=0; LS=0; float=0 → critical
+    expect(result.projectDuration).toBe(7);
+    expect(result.criticalActivityIds.has("a")).toBe(true);
+    expect(result.criticalActivityIds.has("c")).toBe(true);
+    expect(result.criticalActivityIds.has("b")).toBe(false);
+  });
+
+  it("P5: Negative lag floor on SS", () => {
+    // A(3) SS-5→ B(4): B would start at 0+(-5)=-5 → floor to 0
+    const ids = ["a", "b"];
+    const deps = [ssDep("a", "b", -5)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 4]]);
+    expect(computeCriticalPathDuration(graph, durations)).toBe(4);
+  });
+
+  it("P6: Long alternating-type chain", () => {
+    // A(2) SS+1→ B(3) FF→ C(2) FS→ D(4)
+    const ids = ["a", "b", "c", "d"];
+    const deps = [ssDep("a", "b", 1), ffDep("b", "c"), fsDep("c", "d")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 2], ["b", 3], ["c", 2], ["d", 4]]);
+    // A: ES=0, EF=2; B: ES=0+1=1, EF=4; C: ES=max(0, EF(B)+0-dur(C))=max(0,4-2)=2, EF=4
+    // D: ES=EF(C)+0=4, EF=8; project=8
+    expect(computeCriticalPathDuration(graph, durations)).toBe(8);
+  });
+
+  it("P7: Parallel paths with competing constraints", () => {
+    // Path 1: A(3) FS→ C(2) = 3+2 = 5
+    // Path 2: B(4) FF+1→ C(2): C must finish after B+1: ES=4+1-2=3, EF=5
+    // Path 1 says ES=3 for C; Path 2 says ES=3 for C; max=3; project=5
+    const ids = ["a", "b", "c"];
+    const deps = [fsDep("a", "c"), ffDep("b", "c", 1)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 4], ["c", 2]]);
+    expect(computeCriticalPathDuration(graph, durations)).toBe(5);
+  });
+
+  it("P8: Zero-duration activity with FF (integer domain only)", () => {
+    // A(3) FF→ B(0): B ES=max(0, 3+0-0)=3, EF=3; project=3
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 0]]);
+    expect(computeCriticalPathDuration(graph, durations)).toBe(3);
+  });
+
+  it("P9: Negative lag exceeding predecessor duration", () => {
+    // A(2) FF-5→ B(3): ES=max(0, 2+(-5)-3)=max(0,-6)=0, EF=3
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b", -5)];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 2], ["b", 3]]);
+    expect(computeCriticalPathDuration(graph, durations)).toBe(3);
+  });
+
+  it("P10: FF backward pass reads lateFinish not lateStart", () => {
+    // A(5) FF→ B(3) — verify backward pass correctness
+    // Forward: A: ES=0, EF=5; B: ES=2, EF=5; project=5
+    // Backward: B: LS=2, LF=5; A: succ B(FF), candidateLS=LF(B)-lag-dur=5-0-5=0
+    // If incorrectly reads LS(B)=2: candidateLS=2-0-5=-3 → WRONG
+    const ids = ["a", "b"];
+    const deps = [ffDep("a", "b")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 3]]);
+    const result = computeCriticalPathActivities(graph, durations);
+    expect(result.projectDuration).toBe(5);
+    // Both should be critical (float=0)
+    expect(result.criticalActivityIds.has("a")).toBe(true);
+    expect(result.criticalActivityIds.has("b")).toBe(true);
   });
 });

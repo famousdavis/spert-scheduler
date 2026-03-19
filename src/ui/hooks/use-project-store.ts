@@ -30,6 +30,7 @@ import {
   addDependency as addDependencyFn,
   removeDependency as removeDependencyFn,
   updateDependencyLag as updateDependencyLagFn,
+  updateDependencyType as updateDependencyTypeFn,
   removeActivitiesDeps,
   addMilestone as addMilestoneFn,
   removeMilestone as removeMilestoneFn,
@@ -235,6 +236,13 @@ export interface ProjectStore {
     fromActivityId: string,
     toActivityId: string,
     lagDays: number
+  ) => void;
+  updateDependencyType: (
+    projectId: string,
+    scenarioId: string,
+    fromActivityId: string,
+    toActivityId: string,
+    type: DependencyType
   ) => void;
 
   // Milestones
@@ -776,6 +784,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   updateDependencyLag: (projectId, scenarioId, fromActivityId, toActivityId, lagDays) =>
     mutateScenario(projectId, scenarioId, (s) =>
       updateDependencyLagFn(s, fromActivityId, toActivityId, lagDays)
+    ),
+
+  updateDependencyType: (projectId, scenarioId, fromActivityId, toActivityId, type) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      updateDependencyTypeFn(s, fromActivityId, toActivityId, type)
     ),
 
   addMilestone: (projectId, scenarioId, name, targetDate) =>

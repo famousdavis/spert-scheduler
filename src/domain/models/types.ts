@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -62,7 +62,7 @@ export const CONSTRAINT_MODES = ["hard", "soft"] as const;
 
 export type ConstraintMode = (typeof CONSTRAINT_MODES)[number];
 
-export const DEPENDENCY_TYPES = ["FS"] as const;
+export const DEPENDENCY_TYPES = ["FS", "SS", "FF"] as const;
 
 export type DependencyType = (typeof DEPENDENCY_TYPES)[number];
 
@@ -239,11 +239,24 @@ export interface ConstraintConflict {
   message: string;
 }
 
+export interface DependencyConflict {
+  type: "dependency-violation";
+  fromActivityId: string;
+  fromActivityName: string;
+  toActivityId: string;
+  toActivityName: string;
+  dependencyType: DependencyType;
+  lagDays: number;
+  severity: "warning";
+  message: string;
+}
+
 export interface DeterministicSchedule {
   activities: ScheduledActivity[];
   totalDurationDays: number;
   projectEndDate: string; // "YYYY-MM-DD"
   constraintConflicts?: ConstraintConflict[];
+  dependencyConflicts?: DependencyConflict[];
 }
 
 export interface MilestoneBufferInfo {
@@ -318,6 +331,8 @@ export interface UserPreferences {
   ganttShowCriticalPath: boolean;
   /** Show project name header on Gantt chart */
   ganttShowProjectName: boolean;
+  /** Show dependency arrows on Gantt chart */
+  ganttShowArrows: boolean;
   /** ISO 3166-1 alpha-2 country code for holiday loader (default: "US") */
   defaultHolidayCountry?: string;
   /** Active work days: array of day indices (0=Sun, 1=Mon, ..., 6=Sat). Default: [1,2,3,4,5] (Mon–Fri) */
@@ -342,6 +357,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   ganttShowToday: true,
   ganttShowCriticalPath: true,
   ganttShowProjectName: false,
+  ganttShowArrows: true,
   workDays: [1, 2, 3, 4, 5], // Mon–Fri
 };
 

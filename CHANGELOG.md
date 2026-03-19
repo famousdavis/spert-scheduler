@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.21.0 — 2026-03-18
+
+### New Features
+
+- Add Start-to-Start (SS) and Finish-to-Finish (FF) dependency relationship types alongside existing Finish-to-Start (FS)
+- Type-aware forward/backward pass scheduling in both integer and date domains
+- Dependency type selector in add form and inline editing on existing dependencies
+- Type-aware Gantt chart arrow anchors: SS left-to-left, FF right-to-right, FS right-to-left
+- Dependency constraint violation detection and display in Warnings panel
+- Schedule export (XLSX/CSV) shows dependency type in predecessor/successor references (e.g., 1FS+2d, 2SS, 3FF)
+- Gantt chart toggle to show/hide dependency arrows (persisted preference)
+- FF arrows use U-turn path (exit right, curve out, approach target from right with left-pointing arrowhead)
+
+### Technical
+
+- Schema v11→v12 migration with defensive type write-forward
+- Unified LS-based backward pass for all dependency types
+- Post-pass dependency validation with sign-dispatch for negative lag
+
 ## 0.20.4 — 2026-03-18
 
 ### Enhancements

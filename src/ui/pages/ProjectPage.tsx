@@ -68,6 +68,7 @@ export function ProjectPage() {
     addDependency,
     removeDependency,
     updateDependencyLag,
+    updateDependencyType,
     addMilestone,
     removeMilestone,
     updateMilestone,
@@ -99,6 +100,7 @@ export function ProjectPage() {
       addDependency: s.addDependency,
       removeDependency: s.removeDependency,
       updateDependencyLag: s.updateDependencyLag,
+      updateDependencyType: s.updateDependencyType,
       addMilestone: s.addMilestone,
       removeMilestone: s.removeMilestone,
       updateMilestone: s.updateMilestone,
@@ -480,9 +482,13 @@ export function ProjectPage() {
         </div>
       )}
 
-      {/* Constraint conflict warnings */}
-      {schedule?.constraintConflicts && schedule.constraintConflicts.length > 0 && (
-        <WarningsPanel conflicts={schedule.constraintConflicts} />
+      {/* Constraint conflict / dependency violation warnings */}
+      {((schedule?.constraintConflicts && schedule.constraintConflicts.length > 0) ||
+        (schedule?.dependencyConflicts && schedule.dependencyConflicts.length > 0)) && (
+        <WarningsPanel
+          conflicts={schedule?.constraintConflicts ?? []}
+          dependencyConflicts={schedule?.dependencyConflicts}
+        />
       )}
 
       {/* Sequential-mode banner when constraints exist */}
@@ -594,6 +600,9 @@ export function ProjectPage() {
               }
               onUpdateLag={(fromId, toId, lag) =>
                 updateDependencyLag(id!, scenario.id, fromId, toId, lag)
+              }
+              onUpdateType={(fromId, toId, type) =>
+                updateDependencyType(id!, scenario.id, fromId, toId, type)
               }
               isLocked={scenario.locked}
             />

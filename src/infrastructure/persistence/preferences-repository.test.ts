@@ -89,6 +89,7 @@ describe("savePreferences", () => {
       ganttShowToday: false,
       ganttShowCriticalPath: false,
       ganttShowProjectName: true,
+      ganttShowArrows: true,
     };
     savePreferences(prefs);
     expect(loadPreferences()).toEqual(prefs);

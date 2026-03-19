@@ -9,7 +9,7 @@
  * Critical path computed via forward pass in topological order.
  */
 
-import type { ActivityDependency, ConstraintType, ConstraintMode } from "@domain/models/types";
+import type { ActivityDependency, ConstraintType, ConstraintMode, DependencyType } from "@domain/models/types";
 import { applyForwardConstraintInt } from "./constraint-utils";
 
 // -- Types -------------------------------------------------------------------
@@ -17,10 +17,10 @@ import { applyForwardConstraintInt } from "./constraint-utils";
 export interface DependencyGraph {
   /** Activity IDs in topological order (predecessors before successors) */
   topologicalOrder: string[];
-  /** Map: activityId → list of predecessor { id, lagDays } */
-  predecessors: Map<string, { id: string; lagDays: number }[]>;
-  /** Map: activityId → list of successor { id, lagDays } */
-  successors: Map<string, { id: string; lagDays: number }[]>;
+  /** Map: activityId → list of predecessor { id, lagDays, type } */
+  predecessors: Map<string, { id: string; lagDays: number; type: DependencyType }[]>;
+  /** Map: activityId → list of successor { id, lagDays, type } */
+  successors: Map<string, { id: string; lagDays: number; type: DependencyType }[]>;
   /** Activity IDs with no predecessors */
   roots: string[];
 }
@@ -41,8 +41,8 @@ export function buildDependencyGraph(
   deps: ActivityDependency[]
 ): DependencyGraph {
   const idSet = new Set(activityIds);
-  const predecessors = new Map<string, { id: string; lagDays: number }[]>();
-  const successors = new Map<string, { id: string; lagDays: number }[]>();
+  const predecessors = new Map<string, { id: string; lagDays: number; type: DependencyType }[]>();
+  const successors = new Map<string, { id: string; lagDays: number; type: DependencyType }[]>();
   const inDegree = new Map<string, number>();
 
   // Initialize
@@ -60,10 +60,12 @@ export function buildDependencyGraph(
     predecessors.get(dep.toActivityId)!.push({
       id: dep.fromActivityId,
       lagDays: dep.lagDays,
+      type: dep.type,
     });
     successors.get(dep.fromActivityId)!.push({
       id: dep.toActivityId,
       lagDays: dep.lagDays,
+      type: dep.type,
     });
     inDegree.set(dep.toActivityId, (inDegree.get(dep.toActivityId) ?? 0) + 1);
   }
@@ -246,14 +248,25 @@ export function computeCriticalPathDuration(
   const earlyFinish = new Map<string, number>();
 
   for (const id of graph.topologicalOrder) {
+    const dur = durations.get(id) ?? 0;
     const preds = graph.predecessors.get(id) ?? [];
     let es = 0;
     for (const pred of preds) {
-      const predFinish = earlyFinish.get(pred.id) ?? 0;
-      es = Math.max(es, predFinish + pred.lagDays);
+      if (pred.type === "SS") {
+        const predStart = earlyStart.get(pred.id) ?? 0;
+        es = Math.max(es, predStart + pred.lagDays);
+      } else if (pred.type === "FF") {
+        const predFinish = earlyFinish.get(pred.id) ?? 0;
+        es = Math.max(es, predFinish + pred.lagDays - dur);
+      } else {
+        // FS (default)
+        const predFinish = earlyFinish.get(pred.id) ?? 0;
+        es = Math.max(es, predFinish + pred.lagDays);
+      }
     }
+    es = Math.max(0, es); // Floor to project start
     earlyStart.set(id, es);
-    earlyFinish.set(id, es + (durations.get(id) ?? 0));
+    earlyFinish.set(id, es + dur);
   }
 
   let maxFinish = 0;
@@ -297,14 +310,25 @@ export function computeCriticalPathActivities(
   const earlyFinish = new Map<string, number>();
 
   for (const id of graph.topologicalOrder) {
+    const dur = durations.get(id) ?? 0;
     const preds = graph.predecessors.get(id) ?? [];
     let es = 0;
     for (const pred of preds) {
-      const predFinish = earlyFinish.get(pred.id) ?? 0;
-      es = Math.max(es, predFinish + pred.lagDays);
+      if (pred.type === "SS") {
+        const predStart = earlyStart.get(pred.id) ?? 0;
+        es = Math.max(es, predStart + pred.lagDays);
+      } else if (pred.type === "FF") {
+        const predFinish = earlyFinish.get(pred.id) ?? 0;
+        es = Math.max(es, predFinish + pred.lagDays - dur);
+      } else {
+        // FS (default)
+        const predFinish = earlyFinish.get(pred.id) ?? 0;
+        es = Math.max(es, predFinish + pred.lagDays);
+      }
     }
+    es = Math.max(0, es); // Floor to project start
     earlyStart.set(id, es);
-    earlyFinish.set(id, es + (durations.get(id) ?? 0));
+    earlyFinish.set(id, es + dur);
   }
 
   let maxFinish = 0;
@@ -312,27 +336,39 @@ export function computeCriticalPathActivities(
     if (ef > maxFinish) maxFinish = ef;
   }
 
-  // -- Backward pass ---------------------------------------------------------
+  // -- Backward pass (unified LS-based) -------------------------------------
   const lateStart = new Map<string, number>();
   const lateFinish = new Map<string, number>();
 
   for (let i = graph.topologicalOrder.length - 1; i >= 0; i--) {
     const id = graph.topologicalOrder[i]!;
+    const dur = durations.get(id) ?? 0;
     const succs = graph.successors.get(id) ?? [];
 
-    let lf: number;
+    let ls: number;
     if (succs.length === 0) {
-      lf = maxFinish;
+      ls = maxFinish - dur;
     } else {
-      lf = Infinity;
+      ls = Infinity;
       for (const succ of succs) {
-        const succStart = lateStart.get(succ.id) ?? maxFinish;
-        lf = Math.min(lf, succStart - succ.lagDays);
+        let candidateLS: number;
+        if (succ.type === "SS") {
+          const succLS = lateStart.get(succ.id) ?? maxFinish;
+          candidateLS = succLS - succ.lagDays;
+        } else if (succ.type === "FF") {
+          const succLF = lateFinish.get(succ.id) ?? maxFinish;
+          candidateLS = succLF - succ.lagDays - dur;
+        } else {
+          // FS
+          const succLS = lateStart.get(succ.id) ?? maxFinish;
+          candidateLS = succLS - succ.lagDays - dur;
+        }
+        ls = Math.min(ls, candidateLS);
       }
     }
 
-    lateFinish.set(id, lf);
-    lateStart.set(id, lf - (durations.get(id) ?? 0));
+    lateStart.set(id, ls);
+    lateFinish.set(id, ls + dur);
   }
 
   // -- Float → critical set --------------------------------------------------
@@ -377,9 +413,18 @@ export function computeCriticalPathWithMilestones(
     let maxPredEF = 0;
     for (const pred of preds) {
       const predFinish = earlyFinish.get(pred.id) ?? 0;
-      es = Math.max(es, predFinish + pred.lagDays);
       maxPredEF = Math.max(maxPredEF, predFinish);
+      if (pred.type === "SS") {
+        const predStart = earlyStart.get(pred.id) ?? 0;
+        es = Math.max(es, predStart + pred.lagDays);
+      } else if (pred.type === "FF") {
+        es = Math.max(es, predFinish + pred.lagDays - dur);
+      } else {
+        // FS (default)
+        es = Math.max(es, predFinish + pred.lagDays);
+      }
     }
+    es = Math.max(0, es); // Floor to project start
     // Apply earliest-start constraint (from startsAtMilestoneId)
     if (activityEarliestStart) {
       const floor = activityEarliestStart.get(id);

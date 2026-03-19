@@ -76,6 +76,7 @@ export function GanttChart({
   const showToday = usePreferencesStore((s) => s.preferences.ganttShowToday) ?? true;
   const showCriticalPath = usePreferencesStore((s) => s.preferences.ganttShowCriticalPath) ?? true;
   const showProjectName = usePreferencesStore((s) => s.preferences.ganttShowProjectName) ?? false;
+  const showArrows = usePreferencesStore((s) => s.preferences.ganttShowArrows) ?? true;
   const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
   const setViewMode = useCallback(
     (mode: GanttViewMode) => updatePreferences({ ganttViewMode: mode }),
@@ -91,6 +92,10 @@ export function GanttChart({
   );
   const setShowProjectName = useCallback(
     (v: boolean) => updatePreferences({ ganttShowProjectName: v }),
+    [updatePreferences],
+  );
+  const setShowArrows = useCallback(
+    (v: boolean) => updatePreferences({ ganttShowArrows: v }),
     [updatePreferences],
   );
   const [tooltip, setTooltip] = useState<{
@@ -231,6 +236,17 @@ export function GanttChart({
               className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
             />
             Critical path
+          </label>
+        )}
+        {dependencyMode && (
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showArrows}
+              onChange={(e) => setShowArrows(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600 text-gray-600 focus:ring-gray-500"
+            />
+            Arrows
           </label>
         )}
         <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
@@ -420,7 +436,7 @@ export function GanttChart({
           })}
 
           {/* Dependency arrows (rendered before bars so bars paint on top) */}
-          {dependencyMode &&
+          {dependencyMode && showArrows &&
             dependencies.map((dep, i) => {
               const fromRow = rowIndex.get(dep.fromActivityId);
               const toRow = rowIndex.get(dep.toActivityId);
@@ -435,9 +451,11 @@ export function GanttChart({
               )
                 return null;
 
-              // Arrow from right edge of predecessor bar to left side of successor bar
+              // Arrow anchors depend on dependency type
+              const fromDate = dep.type === "SS" ? fromSa.startDate : fromSa.endDate;
+              const toDate = dep.type === "FF" ? toSa.endDate : toSa.startDate;
               const barEndX = dateToX(
-                fromSa.endDate,
+                fromDate,
                 minTimestamp,
                 dateRange,
                 chartAreaWidth
@@ -445,7 +463,7 @@ export function GanttChart({
               const fromY =
                 topMargin + fromRow * ROW_HEIGHT + ROW_HEIGHT / 2;
               const toX = dateToX(
-                toSa.startDate,
+                toDate,
                 minTimestamp,
                 dateRange,
                 chartAreaWidth
@@ -453,23 +471,30 @@ export function GanttChart({
               const toY =
                 topMargin + toRow * ROW_HEIGHT + ROW_HEIGHT / 2;
 
-              // Stub right from bar end, then cubic Bezier swerve down to arrowhead
+              // Stub right from bar end, then curve to arrowhead
               const STUB = 7;
               const stubX = barEndX + STUB;
-              const endX = toX - ARROW_HEAD_SIZE;
               const dyAbs = Math.abs(toY - fromY);
               const dySigned = toY - fromY; // positive = going down
 
               let path: string;
-              if (endX >= stubX + 10) {
-                // Normal case: enough horizontal room for a wide S-curve
-                const spread = Math.max(20, dyAbs * 0.45);
-                path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + spread},${fromY} ${endX - spread},${toY} ${endX},${toY}`;
+              if (dep.type === "FF") {
+                // FF: U-turn — exit right, curve out, approach target's right end from right
+                const endX = toX + ARROW_HEAD_SIZE;
+                const rightX = Math.max(stubX, endX) + Math.max(15, dyAbs * 0.3);
+                path = `M${barEndX},${fromY} L${stubX},${fromY} C${rightX},${fromY} ${rightX},${toY} ${endX},${toY}`;
               } else {
-                // Overlap case: bars overlap in time — flat descent then turn
-                // right into arrowhead from the left
-                const loopExt = Math.max(30, dyAbs * 0.5);
-                path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + loopExt},${fromY + dySigned * 0.3} ${endX - loopExt},${toY} ${endX},${toY}`;
+                const endX = toX - ARROW_HEAD_SIZE;
+                if (endX >= stubX + 10) {
+                  // Normal case: enough horizontal room for a wide S-curve
+                  const spread = Math.max(20, dyAbs * 0.45);
+                  path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + spread},${fromY} ${endX - spread},${toY} ${endX},${toY}`;
+                } else {
+                  // Overlap case: bars overlap in time — flat descent then turn
+                  // right into arrowhead from the left
+                  const loopExt = Math.max(30, dyAbs * 0.5);
+                  path = `M${barEndX},${fromY} L${stubX},${fromY} C${stubX + loopExt},${fromY + dySigned * 0.3} ${endX - loopExt},${toY} ${endX},${toY}`;
+                }
               }
 
               const isCriticalEdge =

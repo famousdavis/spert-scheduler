@@ -2,18 +2,19 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useState } from "react";
-import type { ConstraintConflict } from "@domain/models/types";
+import type { ConstraintConflict, DependencyConflict } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 
 interface WarningsPanelProps {
   conflicts: ConstraintConflict[];
+  dependencyConflicts?: DependencyConflict[];
 }
 
-export function WarningsPanel({ conflicts }: WarningsPanelProps) {
+export function WarningsPanel({ conflicts, dependencyConflicts = [] }: WarningsPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const formatDate = useDateFormat();
 
-  if (conflicts.length === 0) return null;
+  if (conflicts.length === 0 && dependencyConflicts.length === 0) return null;
 
   const errors = conflicts.filter((c) => c.severity === "error");
   const warnings = conflicts.filter((c) => c.severity === "warning");
@@ -38,6 +39,11 @@ export function WarningsPanel({ conflicts }: WarningsPanelProps) {
             {warnings.length > 0 && (
               <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">
                 {warnings.length} warning{warnings.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            {dependencyConflicts.length > 0 && (
+              <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">
+                {dependencyConflicts.length} dep violation{dependencyConflicts.length !== 1 ? "s" : ""}
               </span>
             )}
           </span>
@@ -88,6 +94,25 @@ export function WarningsPanel({ conflicts }: WarningsPanelProps) {
                   {c.constraintType} {formatDate(c.constraintDate)} ({c.constraintMode})
                 </span>
                 <p className="text-amber-600 dark:text-amber-400 mt-0.5">{c.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}</p>
+              </div>
+            </div>
+          ))}
+
+          {/* Dependency violations */}
+          {dependencyConflicts.map((dc, i) => (
+            <div
+              key={`dep-${i}`}
+              className="flex items-start gap-2 text-xs bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded p-2"
+            >
+              <span className="text-amber-500 dark:text-amber-400 mt-0.5 shrink-0">!</span>
+              <div>
+                <span className="font-medium text-amber-700 dark:text-amber-300">
+                  {dc.fromActivityName} → {dc.toActivityName}
+                </span>
+                <span className="text-amber-600 dark:text-amber-400 ml-1">
+                  ({dc.dependencyType}{dc.lagDays !== 0 ? `${dc.lagDays > 0 ? "+" : ""}${dc.lagDays}d` : ""})
+                </span>
+                <p className="text-amber-600 dark:text-amber-400 mt-0.5">{dc.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}</p>
               </div>
             </div>
           ))}

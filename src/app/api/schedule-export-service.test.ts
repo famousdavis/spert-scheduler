@@ -218,12 +218,12 @@ describe("buildGridRows", () => {
         settings: { ...settings, dependencyMode: true },
       })
     );
-    // a2 has predecessor a1 (index 1, lag 0)
-    expect(rows[1]!.predecessors).toBe("1");
-    // a3 has predecessors a1 (index 1, lag +2d) and a2 (index 2, lag -1d)
-    expect(rows[2]!.predecessors).toBe("1 +2d, 2 -1d");
-    // a1 has successors a2 (index 2, lag 0) and a3 (index 3, lag +2d)
-    expect(rows[0]!.successors).toBe("2, 3 +2d");
+    // a2 has predecessor a1 (index 1, FS, lag 0)
+    expect(rows[1]!.predecessors).toBe("1FS");
+    // a3 has predecessors a1 (index 1, FS, lag +2d) and a2 (index 2, FS, lag -1d)
+    expect(rows[2]!.predecessors).toBe("1FS+2d, 2FS-1d");
+    // a1 has successors a2 (index 2, FS, lag 0) and a3 (index 3, FS, lag +2d)
+    expect(rows[0]!.successors).toBe("2FS, 3FS+2d");
   });
 
   it("formats dates according to dateFormat preference", () => {
@@ -242,8 +242,8 @@ describe("buildGridRows", () => {
 describe("buildPredecessorMap", () => {
   it("maps activity IDs to predecessor display strings", () => {
     const map = buildPredecessorMap(activities, dependencies);
-    expect(map.get("a2")).toBe("1");
-    expect(map.get("a3")).toBe("1 +2d, 2 -1d");
+    expect(map.get("a2")).toBe("1FS");
+    expect(map.get("a3")).toBe("1FS+2d, 2FS-1d");
     expect(map.has("a1")).toBe(false);
   });
 });
@@ -251,8 +251,8 @@ describe("buildPredecessorMap", () => {
 describe("buildSuccessorMap", () => {
   it("maps activity IDs to successor display strings", () => {
     const map = buildSuccessorMap(activities, dependencies);
-    expect(map.get("a1")).toBe("2, 3 +2d");
-    expect(map.get("a2")).toBe("3 -1d");
+    expect(map.get("a1")).toBe("2FS, 3FS+2d");
+    expect(map.get("a2")).toBe("3FS-1d");
     expect(map.has("a3")).toBe(false);
   });
 });

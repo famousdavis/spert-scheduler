@@ -10,6 +10,7 @@ import {
   addDependency,
   removeDependency,
   updateDependencyLag,
+  updateDependencyType,
   removeActivityFromScenario,
   removeActivitiesDeps,
   cloneScenario,
@@ -238,5 +239,98 @@ describe("Dependency round-trip integration", () => {
     expect(clone.dependencies).toHaveLength(1);
     expect(clone.dependencies[0]!.fromActivityId).toBe(clone.activities[0]!.id);
     expect(clone.dependencies[0]!.toActivityId).toBe(clone.activities[1]!.id);
+  });
+
+  it("updateDependencyType changes type and invalidates simulation results", () => {
+    const { scenario, a1Id, a2Id } = buildScenarioWithDeps();
+    // Simulate having results
+    const withResults = { ...scenario, simulationResults: { id: "fake" } as never };
+    const updated = updateDependencyType(withResults, a1Id, a2Id, "SS");
+    expect(updated.dependencies[0]!.type).toBe("SS");
+    expect(updated.simulationResults).toBeUndefined();
+  });
+
+  it("export/import round-trip preserves SS and FF dependency types", () => {
+    let scenario = createScenario("Mixed Types", "2025-01-06", { dependencyMode: true });
+    const settings = scenario.settings;
+
+    const a1 = { ...createActivity("Design", settings), min: 3, mostLikely: 5, max: 10 };
+    const a2 = { ...createActivity("Build", settings), min: 5, mostLikely: 8, max: 15 };
+    const a3 = { ...createActivity("Test", settings), min: 2, mostLikely: 3, max: 5 };
+
+    scenario = addActivityToScenario(scenario, a1);
+    scenario = addActivityToScenario(scenario, a2);
+    scenario = addActivityToScenario(scenario, a3);
+
+    scenario = addDependency(scenario, a1.id, a2.id, "SS", 1);
+    scenario = addDependency(scenario, a2.id, a3.id, "FF", 0);
+
+    const project = createProject("SS/FF Test", "2025-01-06");
+    const fullProject: Project = { ...project, scenarios: [scenario] };
+
+    const json = serializeExport([fullProject]);
+    const result = validateImport(json, []);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const imported = result.projects[0]!;
+    const importedScenario = imported.scenarios[0]!;
+    expect(importedScenario.dependencies).toHaveLength(2);
+    expect(importedScenario.dependencies[0]!.type).toBe("SS");
+    expect(importedScenario.dependencies[0]!.lagDays).toBe(1);
+    expect(importedScenario.dependencies[1]!.type).toBe("FF");
+    expect(importedScenario.dependencies[1]!.lagDays).toBe(0);
+  });
+
+  it("cloning preserves SS and FF dependency types", () => {
+    let scenario = createScenario("Mixed Types", "2025-01-06", { dependencyMode: true });
+    const settings = scenario.settings;
+
+    const a1 = { ...createActivity("A", settings), min: 3, mostLikely: 5, max: 10 };
+    const a2 = { ...createActivity("B", settings), min: 5, mostLikely: 8, max: 15 };
+
+    scenario = addActivityToScenario(scenario, a1);
+    scenario = addActivityToScenario(scenario, a2);
+    scenario = addDependency(scenario, a1.id, a2.id, "FF", 3);
+
+    const clone = cloneScenario(scenario, "Clone");
+    expect(clone.dependencies).toHaveLength(1);
+    expect(clone.dependencies[0]!.type).toBe("FF");
+    expect(clone.dependencies[0]!.lagDays).toBe(3);
+  });
+
+  it("Monte Carlo runs correctly with SS/FF dependencies", () => {
+    let scenario = createScenario("MC Mixed", "2025-01-06", { dependencyMode: true });
+    const settings = scenario.settings;
+
+    const a1 = { ...createActivity("A", settings), min: 3, mostLikely: 5, max: 10 };
+    const a2 = { ...createActivity("B", settings), min: 2, mostLikely: 3, max: 5 };
+    const a3 = { ...createActivity("C", settings), min: 1, mostLikely: 2, max: 4 };
+
+    scenario = addActivityToScenario(scenario, a1);
+    scenario = addActivityToScenario(scenario, a2);
+    scenario = addActivityToScenario(scenario, a3);
+
+    // A SS→ B, B FF→ C
+    scenario = addDependency(scenario, a1.id, a2.id, "SS", 1);
+    scenario = addDependency(scenario, a2.id, a3.id, "FF", 0);
+
+    const durationMap = computeDependencyDurations(
+      scenario.activities,
+      scenario.settings.probabilityTarget,
+    );
+
+    const samples = runDependencyTrials({
+      activities: scenario.activities,
+      dependencies: scenario.dependencies,
+      trialCount: 500,
+      rngSeed: scenario.settings.rngSeed,
+      deterministicDurationMap: durationMap,
+    });
+
+    const stats = computeSimulationStats(samples.samples, 500, scenario.settings.rngSeed);
+    expect(stats.mean).toBeGreaterThan(0);
+    expect(stats.trialCount).toBe(500);
   });
 });

@@ -205,6 +205,29 @@ function migrateV10toV11(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v11 → v12: Add SS/FF dependency relationship types.
+ * Defensive write-forward: set type = "FS" on any dependency missing the field.
+ */
+function migrateV11toV12(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (scenarios) {
+    for (const scenario of scenarios) {
+      const deps = scenario.dependencies as Array<Record<string, unknown>> | undefined;
+      if (deps) {
+        for (const dep of deps) {
+          if (dep.type === undefined || dep.type === null) {
+            dep.type = "FS";
+          }
+        }
+      }
+    }
+  }
+  project.schemaVersion = 12;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -216,6 +239,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   8: migrateV8toV9,
   9: migrateV9toV10,
   10: migrateV10toV11,
+  11: migrateV11toV12,
 };
 
 /**

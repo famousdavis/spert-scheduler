@@ -304,6 +304,18 @@ function fsDep(from: string, to: string, lag = 0): ActivityDependency {
   return { fromActivityId: from, toActivityId: to, type: "FS", lagDays: lag };
 }
 
+function ssDep(from: string, to: string, lag = 0): ActivityDependency {
+  return { fromActivityId: from, toActivityId: to, type: "SS", lagDays: lag };
+}
+
+function ffDep(from: string, to: string, lag = 0): ActivityDependency {
+  return { fromActivityId: from, toActivityId: to, type: "FF", lagDays: lag };
+}
+
+function fixedActivity(id: string, name: string, days: number): Activity {
+  return makeActivity({ id, name, min: days, mostLikely: days, max: days });
+}
+
 describe("computeDependencySchedule", () => {
   it("schedules parallel activities starting on the same day", () => {
     const activities = [
@@ -660,5 +672,131 @@ describe("scheduling date boundary conditions", () => {
     const gapEnd = parseDateISO(a2.startDate);
     const gap = countWorkingDays(gapStart, gapEnd);
     expect(gap).toBeGreaterThanOrEqual(50);
+  });
+});
+
+// -- SS and FF dependency types (date domain) --------------------------------
+
+describe("computeDependencySchedule — SS type", () => {
+  // Date convention: endDate = addWorkingDays(startDate, duration) — exclusive end marker
+  // A 3-day activity starting Mon Jan 6 → end Thu Jan 9 (Mon,Tue,Wed worked)
+  // A 5-day activity starting Mon Jan 6 → end Mon Jan 13 (Mon-Fri worked)
+
+  it("SS lag=0: A(3d) SS→ B(2d) — B starts same day as A", () => {
+    const activities = [fixedActivity("a", "A", 3), fixedActivity("b", "B", 2)];
+    const deps = [ssDep("a", "b")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const a = schedule.activities.find((s) => s.activityId === "a")!;
+    const b = schedule.activities.find((s) => s.activityId === "b")!;
+    expect(a.startDate).toBe("2025-01-06");
+    expect(b.startDate).toBe("2025-01-06");
+    expect(a.endDate).toBe("2025-01-09"); // Thu
+    expect(b.endDate).toBe("2025-01-08"); // Wed
+  });
+
+  it("SS lag=2: A(3d) SS+2→ B(2d) — B starts 2 working days after A starts", () => {
+    const activities = [fixedActivity("a", "A", 3), fixedActivity("b", "B", 2)];
+    const deps = [ssDep("a", "b", 2)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const b = schedule.activities.find((s) => s.activityId === "b")!;
+    // B starts addWorkingDays(Mon Jan 6, 2) = Wed Jan 8
+    expect(b.startDate).toBe("2025-01-08");
+    // B ends addWorkingDays(Wed Jan 8, 2) = Fri Jan 10
+    expect(b.endDate).toBe("2025-01-10");
+  });
+
+  it("SS lag=-1: floor to project start", () => {
+    const activities = [fixedActivity("a", "A", 3), fixedActivity("b", "B", 2)];
+    const deps = [ssDep("a", "b", -1)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const b = schedule.activities.find((s) => s.activityId === "b")!;
+    expect(b.startDate).toBe("2025-01-06");
+  });
+});
+
+describe("computeDependencySchedule — FF type", () => {
+  it("FF lag=0: A(5d) FF→ B(3d) — B end matches A end", () => {
+    const activities = [fixedActivity("a", "A", 5), fixedActivity("b", "B", 3)];
+    const deps = [ffDep("a", "b")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const a = schedule.activities.find((s) => s.activityId === "a")!;
+    const b = schedule.activities.find((s) => s.activityId === "b")!;
+    // A: 5d from Mon Jan 6 → end Mon Jan 13
+    expect(a.startDate).toBe("2025-01-06");
+    expect(a.endDate).toBe("2025-01-13");
+    // FF lag=0: constrainedEF = addWD(Mon Jan 13, 0) = Mon Jan 13
+    // B start = subtractWD(Mon Jan 13, 3) = Wed Jan 8
+    // B end = addWD(Wed Jan 8, 3) = Mon Jan 13
+    expect(b.endDate).toBe("2025-01-13");
+    expect(b.startDate).toBe("2025-01-08");
+  });
+
+  it("FF lag=2: A(5d) FF+2→ B(3d) — B finishes 2 days after A", () => {
+    const activities = [fixedActivity("a", "A", 5), fixedActivity("b", "B", 3)];
+    const deps = [ffDep("a", "b", 2)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const a = schedule.activities.find((s) => s.activityId === "a")!;
+    const b = schedule.activities.find((s) => s.activityId === "b")!;
+    // A end = Mon Jan 13
+    expect(a.endDate).toBe("2025-01-13");
+    // constrainedEF = addWD(Mon Jan 13, 2) = Wed Jan 15
+    // B start = subtractWD(Wed Jan 15, 3) = Fri Jan 10
+    // B end = addWD(Fri Jan 10, 3) = Wed Jan 15
+    expect(b.endDate).toBe("2025-01-15");
+    expect(b.startDate).toBe("2025-01-10");
+  });
+
+  it("FF lag=-1: A(5d) FF-1→ B(3d) — B finishes 1 day before A", () => {
+    const activities = [fixedActivity("a", "A", 5), fixedActivity("b", "B", 3)];
+    const deps = [ffDep("a", "b", -1)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const a = schedule.activities.find((s) => s.activityId === "a")!;
+    const b = schedule.activities.find((s) => s.activityId === "b")!;
+    // A end = Mon Jan 13
+    expect(a.endDate).toBe("2025-01-13");
+    // constrainedEF = subtractWD(Mon Jan 13, 1) = Fri Jan 10
+    // B start = subtractWD(Fri Jan 10, 3) = Tue Jan 7
+    // B end = addWD(Tue Jan 7, 3) = Fri Jan 10
+    expect(b.endDate).toBe("2025-01-10");
+    expect(b.startDate).toBe("2025-01-07");
+  });
+});
+
+describe("computeDependencySchedule — mixed types", () => {
+  it("FS + SS: A(3d) FS→ C(2d), B(4d) SS→ C(2d)", () => {
+    const activities = [
+      fixedActivity("a", "A", 3),
+      fixedActivity("b", "B", 4),
+      fixedActivity("c", "C", 2),
+    ];
+    const deps = [fsDep("a", "c"), ssDep("b", "c")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const c = schedule.activities.find((s) => s.activityId === "c")!;
+    // A end = addWD(Mon, 3) = Thu Jan 9; C via FS: start = addWD(Thu Jan 9, 1+0) = Fri Jan 10
+    // B start = Mon Jan 6; C via SS: start = addWD(Mon, 0) = Mon Jan 6
+    // max → Fri Jan 10
+    expect(c.startDate).toBe("2025-01-10");
+  });
+
+  it("FS + FF: A(3d) FS→ C(2d), B(5d) FF→ C(2d)", () => {
+    const activities = [
+      fixedActivity("a", "A", 3),
+      fixedActivity("b", "B", 5),
+      fixedActivity("c", "C", 2),
+    ];
+    const deps = [fsDep("a", "c"), ffDep("b", "c")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const c = schedule.activities.find((s) => s.activityId === "c")!;
+    // A end = Thu Jan 9; C via FS: start = addWD(Thu, 1) = Fri Jan 10
+    // B end = Mon Jan 13; C via FF: constrainedEF = Mon Jan 13, start = subtractWD(Mon, 2) = Thu Jan 9
+    // max(Fri Jan 10, Thu Jan 9) → Fri Jan 10
+    expect(c.startDate).toBe("2025-01-10");
+  });
+
+  it("no dependency conflict for satisfied FF constraint", () => {
+    const activities = [fixedActivity("a", "A", 5), fixedActivity("b", "B", 3)];
+    const deps = [ffDep("a", "b", 5)]; // FF+5: B must finish 5 days after A
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    expect(schedule.dependencyConflicts?.length ?? 0).toBe(0);
   });
 });
