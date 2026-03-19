@@ -116,16 +116,16 @@ function generateBellCurve(
     // Bell curve: peak at mlNorm
     let y: number;
     if (skewed) {
-      // Log-normal: asymmetric with longer right tail
-      const skewFactor = 0.3;
-      const peakPos = Math.max(0.15, mlNorm * 0.7);
-      const distFromPeak = t - peakPos;
+      // Log-normal: asymmetric with peak at mlNorm, longer right tail
+      const leftWidth = Math.max(0.08, mlNorm * 0.6);
+      const rightWidth = Math.max(0.25, (1 - mlNorm) * 0.6);
+      const distFromPeak = t - mlNorm;
       if (distFromPeak < 0) {
         // Left side - steeper
-        y = Math.exp(-Math.pow(distFromPeak / (0.15), 2) * 3);
+        y = Math.exp(-Math.pow(distFromPeak / leftWidth, 2) * 3);
       } else {
         // Right side - longer tail
-        y = Math.exp(-Math.pow(distFromPeak / (0.35 + skewFactor), 2) * 2);
+        y = Math.exp(-Math.pow(distFromPeak / rightWidth, 2) * 2);
       }
     } else {
       // Normal: symmetric bell curve centered at mlNorm

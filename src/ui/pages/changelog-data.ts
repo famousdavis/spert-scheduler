@@ -16,6 +16,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-03-18",
     sections: [
       {
+        title: "Bug Fixes",
+        items: [
+          "Fix LogNormal distribution sparkline curve peaking at wrong position — peak now aligns with the most-likely (mode) marker",
+        ],
+      },
+      {
         title: "Security",
         items: [
           "Add CSV formula injection guard for schedule exports",

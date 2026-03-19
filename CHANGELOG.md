@@ -2,6 +2,10 @@
 
 ## 0.21.2 — 2026-03-18
 
+### Bug Fixes
+
+- Fix LogNormal distribution sparkline curve peaking at wrong position — peak now aligns with the most-likely (mode) marker
+
 ### Security
 
 - Add CSV formula injection guard: prefix cells starting with `=`, `+`, `@`, or `-` with a single quote
