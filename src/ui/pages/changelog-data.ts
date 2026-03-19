@@ -16,6 +16,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-03-19",
     sections: [
       {
+        title: "Bug Fixes",
+        items: [
+          "Fix histogram buffer shading not appearing when Parkinson's Law clamps all trials above deterministic duration",
+        ],
+      },
+      {
         title: "Security",
         items: [
           "Add hasOnly() field constraints to Firestore users/{uid} write rule to prevent arbitrary field injection",

@@ -2,6 +2,10 @@
 
 ## 0.22.2 — 2026-03-19
 
+### Bug Fixes
+
+- Fix histogram buffer shading not appearing when Parkinson's Law clamps all trials above deterministic duration
+
 ### Security
 
 - Add `hasOnly()` field constraints to Firestore `users/{uid}` write rule to prevent arbitrary field injection
