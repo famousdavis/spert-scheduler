@@ -55,18 +55,22 @@ export function DistributionSparkline({
         strokeLinejoin="round"
       />
       {/* Mode marker (vertical line at most likely) */}
-      {distributionType !== "uniform" && (
+      {distributionType !== "uniform" && (() => {
+        const pad = 2;
+        const markerX = pad + mlNorm * (width - 2 * pad);
+        return (
         <line
-          x1={mlNorm * width}
+          x1={markerX}
           y1={height - 2}
-          x2={mlNorm * width}
+          x2={markerX}
           y2={2}
           className="stroke-blue-600 dark:stroke-blue-300"
           strokeWidth="1"
           strokeDasharray="2 1"
           opacity="0.6"
         />
-      )}
+        );
+      })()}
     </svg>
   );
 }

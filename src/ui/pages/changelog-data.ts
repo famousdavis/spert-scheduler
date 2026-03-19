@@ -19,6 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: "Bug Fixes",
         items: [
           "Fix LogNormal distribution sparkline curve peaking at wrong position — peak now aligns with the most-likely (mode) marker",
+          "Fix mode marker vertical line offset in all distribution sparklines — now accounts for SVG padding to align with curve peak",
         ],
       },
       {
