@@ -92,7 +92,7 @@ export function HistogramChart({
             />
             {showBufferZone && (
               <ReferenceArea
-                x1={Number(bufferLeft.toFixed(1))}
+                x1={Number(Math.max(bufferLeft, xMin).toFixed(1))}
                 x2={Number(percentileValue.toFixed(1))}
                 fill="#3b82f6"
                 fillOpacity={0.1}
