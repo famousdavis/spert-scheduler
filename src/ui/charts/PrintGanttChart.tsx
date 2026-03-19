@@ -164,6 +164,10 @@ export function PrintGanttChart({
               fill={c.arrow}
             />
           </marker>
+          {/* Buffer hatching pattern */}
+          <pattern id="print-hatch-buffer" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="4" stroke={c.hatchBuffer} strokeWidth="2" />
+          </pattern>
           {hasCriticalPath && (
             <marker id="print-arrowhead-critical" markerUnits="userSpaceOnUse"
               markerWidth={PRINT_ARROW_SIZE} markerHeight={PRINT_ARROW_SIZE}
@@ -287,10 +291,10 @@ export function PrintGanttChart({
                 <>
                   <text x={PRINT_LEFT - 4} y={y + PRINT_ROW / 2} textAnchor="end"
                     dominantBaseline="central" fontSize="7" fill={c.textMuted} fontStyle="italic">
-                    Buffer
+                    Schedule Buffer
                   </text>
                   <rect x={x1} y={barY} width={w} height={PRINT_BAR_H}
-                    rx={PRINT_BAR_RADIUS} fill="#fbbf24" fillOpacity="0.7" stroke="#fbbf24" strokeWidth="0.5" />
+                    rx={PRINT_BAR_RADIUS} fill="url(#print-hatch-buffer)" stroke={c.hatchBuffer} strokeWidth="0.5" />
                   {w > 20 && (
                     <text x={x1 + w / 2} y={barY + PRINT_BAR_H / 2} textAnchor="middle"
                       dominantBaseline="central" fontSize="6" fill="#92400e" fontWeight="600">
