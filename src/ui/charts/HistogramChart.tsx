@@ -22,6 +22,7 @@ interface HistogramChartProps {
   percentileTarget: number;
   percentileValue: number;
   activityPercentileValue?: number;
+  deterministicDuration?: number;
 }
 
 export function HistogramChart({
@@ -30,6 +31,7 @@ export function HistogramChart({
   percentileTarget,
   percentileValue,
   activityPercentileValue,
+  deterministicDuration,
 }: HistogramChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -46,9 +48,12 @@ export function HistogramChart({
       count: bin.count,
     }));
 
+  // Buffer left edge: deterministic duration (P50 schedule total) when available,
+  // otherwise fall back to MC activity percentile value
+  const bufferLeft = deterministicDuration ?? activityPercentileValue;
   const showBufferZone =
-    activityPercentileValue !== undefined &&
-    activityPercentileValue < percentileValue;
+    bufferLeft !== undefined &&
+    bufferLeft < percentileValue;
 
   // Determine x-axis range so we can detect label proximity
   const xMin = data.length > 0 ? data[0]!.binMid : 0;
@@ -87,7 +92,7 @@ export function HistogramChart({
             />
             {showBufferZone && (
               <ReferenceArea
-                x1={Number(activityPercentileValue.toFixed(1))}
+                x1={Number(bufferLeft.toFixed(1))}
                 x2={Number(percentileValue.toFixed(1))}
                 fill="#3b82f6"
                 fillOpacity={0.1}

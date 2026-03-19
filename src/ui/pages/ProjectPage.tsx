@@ -641,6 +641,7 @@ export function ProjectPage() {
             allActivitiesValid={allActivitiesValid}
             hasActivities={scenario.activities.length > 0}
             autoRunEnabled={autoRunSimulation}
+            deterministicDuration={schedule?.totalDurationDays}
             projectName={project.name}
             scenarioName={scenario.name}
             onRun={handleRunSimulation}

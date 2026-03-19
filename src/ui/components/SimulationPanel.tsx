@@ -22,6 +22,7 @@ interface SimulationPanelProps {
   allActivitiesValid: boolean;
   hasActivities: boolean;
   autoRunEnabled?: boolean;
+  deterministicDuration?: number;
   projectName?: string;
   scenarioName?: string;
   onRun: () => void;
@@ -39,6 +40,7 @@ export function SimulationPanel({
   allActivitiesValid,
   hasActivities,
   autoRunEnabled,
+  deterministicDuration,
   projectName,
   scenarioName,
   onRun,
@@ -201,6 +203,7 @@ export function SimulationPanel({
                   simulationResults.percentiles[targetPct] ?? simulationResults.mean
                 }
                 activityPercentileValue={activityPercentileValue}
+                deterministicDuration={deterministicDuration}
               />
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">

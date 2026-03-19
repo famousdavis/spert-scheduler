@@ -20,6 +20,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Fix LogNormal distribution sparkline curve peaking at wrong position — peak now aligns with the most-likely (mode) marker",
           "Fix mode marker vertical line offset in all distribution sparklines — now accounts for SVG padding to align with curve peak",
+          "Fix histogram Buffer shading starting at Monte Carlo mean instead of deterministic P50 duration — shaded region now matches the summary card buffer",
         ],
       },
       {
