@@ -23,6 +23,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Enhancements",
+        items: [
+          "Make \"Run simulation\" text clickable in schedule buffer placeholder, giving users a third trigger point for simulation",
+        ],
+      },
+      {
         title: "Security",
         items: [
           "Add CSV formula injection guard for schedule exports",

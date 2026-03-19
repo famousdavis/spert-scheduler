@@ -436,7 +436,18 @@ export function ScenarioSummaryCard({
             </span>
           ) : (
             <span className="text-xs text-gray-400 dark:text-gray-500 italic">
-              Run simulation to calculate schedule buffer
+              {onRunSimulation ? (
+                <button
+                  type="button"
+                  onClick={onRunSimulation}
+                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 not-italic"
+                >
+                  Run simulation
+                </button>
+              ) : (
+                "Run simulation"
+              )}{" "}
+              to calculate schedule buffer
             </span>
           )}
 

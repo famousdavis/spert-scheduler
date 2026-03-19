@@ -7,6 +7,10 @@
 - Fix LogNormal distribution sparkline curve peaking at wrong position — peak now aligns with the most-likely (mode) marker
 - Fix mode marker vertical line offset in all distribution sparklines — now accounts for SVG padding to align with curve peak
 
+### Enhancements
+
+- Make "Run simulation" text clickable in schedule buffer placeholder (ScenarioSummaryCard), giving users a third trigger point for simulation
+
 ### Security
 
 - Add CSV formula injection guard: prefix cells starting with `=`, `+`, `@`, or `-` with a single quote
