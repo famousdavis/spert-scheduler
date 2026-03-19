@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.2 — 2026-03-18
+
+### Security
+
+- Add CSV formula injection guard: prefix cells starting with `=`, `+`, `@`, or `-` with a single quote
+- Add 10 MB file size guard at the import service layer (was UI-only)
+- Filter scenario memory localStorage entries to string values only
+- Gate preferences validation logging behind development mode
+- Document Firestore enum validation limitations and list rule workaround in SECURITY.md
+
 ## 0.21.1 — 2026-03-18
 
 ### Refactoring

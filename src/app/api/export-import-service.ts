@@ -224,6 +224,8 @@ function validatePreferences(raw: unknown): UserPreferences | undefined {
   return { ...DEFAULT_USER_PREFERENCES, ...result.data };
 }
 
+const MAX_IMPORT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 /**
  * Parse, migrate, validate, and detect conflicts for an imported JSON string.
  */
@@ -231,6 +233,10 @@ export function validateImport(
   jsonString: string,
   existingProjects: Project[]
 ): ImportResult {
+  if (jsonString.length > MAX_IMPORT_SIZE_BYTES) {
+    return { success: false, error: "Import file is too large (maximum 10 MB)." };
+  }
+
   const parsed = parseJSON(jsonString);
   if ("success" in parsed) return parsed;
 

@@ -16,7 +16,11 @@ function loadMap(): Record<string, string> {
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-      return parsed as Record<string, string>;
+      const map: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v === "string") map[k] = v;
+      }
+      return map;
     }
     return {};
   } catch {

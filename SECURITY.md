@@ -112,6 +112,17 @@ Targeted audit of the v0.20.0 constraint feature additions and surrounding code:
 - **Filename sanitization hardening:** `sanitizeFilename()` now returns `"Untitled"` for empty results and truncates to 200 characters.
 - **Preferences parse logging:** `preferences-repository.ts` logs Zod validation issues on parse failure for diagnostic visibility.
 
+## v0.21.2 Security Audit (SS/FF Dependencies)
+
+Targeted audit of the v0.21.0 SS/FF dependency type additions, Firestore rules, and export/import paths:
+
+- **CSV formula injection guard:** `csvEscape()` in `schedule-export-service.ts` now prefixes cell values starting with `=`, `+`, `@`, or `-` with a single quote, preventing spreadsheet formula execution when CSV files are opened in Excel or Google Sheets.
+- **Import file size guard:** `validateImport()` in `export-import-service.ts` enforces a 10 MB size limit at the service layer (was previously only enforced in the UI component).
+- **Scenario memory type safety:** `loadMap()` in `scenario-memory.ts` now filters parsed entries to include only string values, preventing type confusion from tampered localStorage.
+- **Preferences logging gated:** `preferences-repository.ts` Zod validation warnings are now logged only in development mode (`import.meta.env.DEV`), reducing information disclosure in production.
+- **Firestore enum validation documented:** `ActivityDependency.type`, `constraintType`, and `constraintMode` are validated client-side via Zod strict enums but not at the Firestore rules level. Documented as an accepted risk in Known Limitations.
+- **Firestore list rule documented:** The `spertscheduler_projects` list rule's `resource.data` limitation and the `where()` query workaround are documented in Known Limitations.
+
 ## Defensive Measures
 
 - **No `eval()` or `Function()`** — no dynamic code execution
@@ -124,8 +135,12 @@ Targeted audit of the v0.20.0 constraint feature additions and surrounding code:
 
 ## Known Limitations
 
-- **Firestore field validation:** Firestore security rules validate document-level access control (ownership, membership, roles) but do not replicate the full Zod schema validation performed client-side. Field-level validation (e.g., string length limits, numeric ranges) is enforced only by the client. This is a pragmatic tradeoff — duplicating the complete Zod schema in Firestore rules is impractical for marginal security gain, since a malicious client could only corrupt their own project data.
+- **Firestore field validation:** Firestore security rules validate document-level access control (ownership, membership, roles) but do not replicate the full Zod schema validation performed client-side. Field-level validation (e.g., string length limits, numeric ranges) is enforced only by the client. This is a pragmatic tradeoff — duplicating the complete Zod schema in Firestore rules is impractical for marginal security gain, since a malicious client could only corrupt their own project data. Specific enum fields validated client-side only:
+  - `ActivityDependency.type` — restricted to `"FS"`, `"SS"`, `"FF"` via `z.enum(DEPENDENCY_TYPES)`
+  - `Activity.constraintType` — restricted to `"MSO"`, `"MFO"`, `"SNET"`, `"SNLT"`, `"FNET"`, `"FNLT"` via `z.enum()`
+  - `Activity.constraintMode` — restricted to `"hard"`, `"soft"` via `z.enum()`
 - **Email enumeration:** The sharing UI reveals whether an email is registered when attempting to share a project. This is mitigated by requiring authentication and using a uniform error message that does not distinguish between "user not found" and other failure modes.
+- **Firestore list rule:** The `spertscheduler_projects` collection `list` rule checks `request.auth.uid in resource.data.members`, but `resource.data` is not reliably available during collection-level list queries. The application works around this by using `where()` queries in `firestore-driver.ts`, which are evaluated under the document-level `get` rule instead. The `list` rule is retained as a defense-in-depth guard against direct collection enumeration.
 
 ## Reporting Vulnerabilities
 

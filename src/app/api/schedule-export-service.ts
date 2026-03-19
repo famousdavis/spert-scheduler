@@ -208,7 +208,11 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
 // ---------------------------------------------------------------------------
 
 function csvEscape(value: string | number): string {
-  const str = String(value);
+  let str = String(value);
+  // Guard against CSV formula injection: prefix cells starting with =, +, @, or -
+  if (/^[=+@-]/.test(str)) {
+    str = "'" + str;
+  }
   if (str.includes(",") || str.includes('"') || str.includes("\n")) {
     return `"${str.replace(/"/g, '""')}"`;
   }

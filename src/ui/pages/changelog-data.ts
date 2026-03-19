@@ -12,6 +12,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.21.2",
+    date: "2026-03-18",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Add CSV formula injection guard for schedule exports",
+          "Add 10 MB file size guard at the import service layer",
+          "Filter scenario memory localStorage entries to string values only",
+          "Gate preferences validation logging behind development mode",
+          "Document Firestore enum validation limitations in SECURITY.md",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.21.1",
     date: "2026-03-18",
     sections: [
