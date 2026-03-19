@@ -5,6 +5,47 @@ import { useState } from "react";
 import type { ConstraintConflict, DependencyConflict } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 
+// -- Shared warning item component --------------------------------------------
+
+const VARIANT_CLASSES = {
+  error: {
+    bg: "bg-red-50 dark:bg-red-900/20",
+    border: "border-red-200 dark:border-red-700",
+    icon: "text-red-500 dark:text-red-400",
+    title: "text-red-700 dark:text-red-300",
+    text: "text-red-600 dark:text-red-400",
+  },
+  warning: {
+    bg: "bg-amber-50 dark:bg-amber-900/20",
+    border: "border-amber-200 dark:border-amber-700",
+    icon: "text-amber-500 dark:text-amber-400",
+    title: "text-amber-700 dark:text-amber-300",
+    text: "text-amber-600 dark:text-amber-400",
+  },
+} as const;
+
+function WarningItem({ variant, title, detail, message, formatDate }: {
+  variant: "error" | "warning";
+  title: string;
+  detail: string;
+  message: string;
+  formatDate: (d: string) => string;
+}) {
+  const c = VARIANT_CLASSES[variant];
+  return (
+    <div className={`flex items-start gap-2 text-xs ${c.bg} border ${c.border} rounded p-2`}>
+      <span className={`${c.icon} mt-0.5 shrink-0`}>!</span>
+      <div>
+        <span className={`font-medium ${c.title}`}>{title}</span>
+        <span className={`${c.text} ml-1`}>{detail}</span>
+        <p className={`${c.text} mt-0.5`}>{message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}</p>
+      </div>
+    </div>
+  );
+}
+
+// -- Panel --------------------------------------------------------------------
+
 interface WarningsPanelProps {
   conflicts: ConstraintConflict[];
   dependencyConflicts?: DependencyConflict[];
@@ -60,61 +101,35 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [] }: WarningsP
 
       {!collapsed && (
         <div className="px-4 pb-3 space-y-2">
-          {/* Errors first */}
           {errors.map((c, i) => (
-            <div
+            <WarningItem
               key={`err-${i}`}
-              className="flex items-start gap-2 text-xs bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded p-2"
-            >
-              <span className="text-red-500 dark:text-red-400 mt-0.5 shrink-0">!</span>
-              <div>
-                <span className="font-medium text-red-700 dark:text-red-300">
-                  {c.activityName}
-                </span>
-                <span className="text-red-600 dark:text-red-400 ml-1">
-                  {c.constraintType} {formatDate(c.constraintDate)} ({c.constraintMode})
-                </span>
-                <p className="text-red-600 dark:text-red-400 mt-0.5">{c.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}</p>
-              </div>
-            </div>
+              variant="error"
+              title={c.activityName}
+              detail={`${c.constraintType} ${formatDate(c.constraintDate)} (${c.constraintMode})`}
+              message={c.message}
+              formatDate={formatDate}
+            />
           ))}
-
-          {/* Then warnings */}
           {warnings.map((c, i) => (
-            <div
+            <WarningItem
               key={`warn-${i}`}
-              className="flex items-start gap-2 text-xs bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded p-2"
-            >
-              <span className="text-amber-500 dark:text-amber-400 mt-0.5 shrink-0">!</span>
-              <div>
-                <span className="font-medium text-amber-700 dark:text-amber-300">
-                  {c.activityName}
-                </span>
-                <span className="text-amber-600 dark:text-amber-400 ml-1">
-                  {c.constraintType} {formatDate(c.constraintDate)} ({c.constraintMode})
-                </span>
-                <p className="text-amber-600 dark:text-amber-400 mt-0.5">{c.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}</p>
-              </div>
-            </div>
+              variant="warning"
+              title={c.activityName}
+              detail={`${c.constraintType} ${formatDate(c.constraintDate)} (${c.constraintMode})`}
+              message={c.message}
+              formatDate={formatDate}
+            />
           ))}
-
-          {/* Dependency violations */}
           {dependencyConflicts.map((dc, i) => (
-            <div
+            <WarningItem
               key={`dep-${i}`}
-              className="flex items-start gap-2 text-xs bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded p-2"
-            >
-              <span className="text-amber-500 dark:text-amber-400 mt-0.5 shrink-0">!</span>
-              <div>
-                <span className="font-medium text-amber-700 dark:text-amber-300">
-                  {dc.fromActivityName} → {dc.toActivityName}
-                </span>
-                <span className="text-amber-600 dark:text-amber-400 ml-1">
-                  ({dc.dependencyType}{dc.lagDays !== 0 ? `${dc.lagDays > 0 ? "+" : ""}${dc.lagDays}d` : ""})
-                </span>
-                <p className="text-amber-600 dark:text-amber-400 mt-0.5">{dc.message.replace(/\d{4}-\d{2}-\d{2}/g, (m) => formatDate(m))}</p>
-              </div>
-            </div>
+              variant="warning"
+              title={`${dc.fromActivityName} → ${dc.toActivityName}`}
+              detail={`(${dc.dependencyType}${dc.lagDays !== 0 ? `${dc.lagDays > 0 ? "+" : ""}${dc.lagDays}d` : ""})`}
+              message={dc.message}
+              formatDate={formatDate}
+            />
           ))}
         </div>
       )}

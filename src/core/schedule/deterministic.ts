@@ -155,6 +155,41 @@ export function computeActivityUncertaintyDays(
   return result;
 }
 
+// -- Backward-pass type-dispatch helper (date domain) -------------------------
+
+/**
+ * Compute candidate late start date for a predecessor from a single successor.
+ * SS: succLS − lag, FF: succLF − (lag + predDuration), FS: succLS − (1 + lag + predDuration).
+ */
+function computeCandidateLSDate(
+  type: string,
+  succLSISO: string,
+  succLFISO: string,
+  lagDays: number,
+  predDuration: number,
+  calendar?: WorkCalendar | Calendar,
+): Date {
+  if (type === "SS") {
+    const succLS = parseDateISO(succLSISO);
+    return lagDays >= 0
+      ? subtractWorkingDays(succLS, lagDays, calendar)
+      : addWorkingDays(succLS, -lagDays, calendar);
+  }
+  if (type === "FF") {
+    const succLF = parseDateISO(succLFISO);
+    const combined = lagDays + predDuration;
+    return combined >= 0
+      ? subtractWorkingDays(succLF, combined, calendar)
+      : addWorkingDays(succLF, -combined, calendar);
+  }
+  // FS
+  const succLS = parseDateISO(succLSISO);
+  const combined = 1 + lagDays + predDuration;
+  return combined >= 0
+    ? subtractWorkingDays(succLS, combined, calendar)
+    : addWorkingDays(succLS, -combined, calendar);
+}
+
 // -- Dependency-aware scheduling ---------------------------------------------
 
 /**
@@ -346,29 +381,10 @@ export function computeDependencySchedule(
     } else {
       ls = new Date(8640000000000000); // max date
       for (const succ of succs) {
-        let candidateLS: Date;
-
-        if (succ.type === "SS") {
-          const succLS = parseDateISO(lateStartCon.get(succ.id)!);
-          const offset = succ.lagDays;
-          candidateLS = offset >= 0
-            ? subtractWorkingDays(succLS, offset, calendar)
-            : addWorkingDays(succLS, -offset, calendar);
-        } else if (succ.type === "FF") {
-          const succLF = parseDateISO(lateFinishCon.get(succ.id)!);
-          const combined = succ.lagDays + duration;
-          candidateLS = combined >= 0
-            ? subtractWorkingDays(succLF, combined, calendar)
-            : addWorkingDays(succLF, -combined, calendar);
-        } else {
-          // FS
-          const succLS = parseDateISO(lateStartCon.get(succ.id)!);
-          const combined = 1 + succ.lagDays + duration;
-          candidateLS = combined >= 0
-            ? subtractWorkingDays(succLS, combined, calendar)
-            : addWorkingDays(succLS, -combined, calendar);
-        }
-
+        const candidateLS = computeCandidateLSDate(
+          succ.type, lateStartCon.get(succ.id)!, lateFinishCon.get(succ.id)!,
+          succ.lagDays, duration, calendar,
+        );
         if (candidateLS < ls) ls = candidateLS;
       }
     }
@@ -406,29 +422,10 @@ export function computeDependencySchedule(
     } else {
       ls = new Date(8640000000000000);
       for (const succ of succs) {
-        let candidateLS: Date;
-
-        if (succ.type === "SS") {
-          const succLS = parseDateISO(lateStartNet.get(succ.id)!);
-          const offset = succ.lagDays;
-          candidateLS = offset >= 0
-            ? subtractWorkingDays(succLS, offset, calendar)
-            : addWorkingDays(succLS, -offset, calendar);
-        } else if (succ.type === "FF") {
-          const succLF = parseDateISO(lateFinishNet.get(succ.id)!);
-          const combined = succ.lagDays + duration;
-          candidateLS = combined >= 0
-            ? subtractWorkingDays(succLF, combined, calendar)
-            : addWorkingDays(succLF, -combined, calendar);
-        } else {
-          // FS
-          const succLS = parseDateISO(lateStartNet.get(succ.id)!);
-          const combined = 1 + succ.lagDays + duration;
-          candidateLS = combined >= 0
-            ? subtractWorkingDays(succLS, combined, calendar)
-            : addWorkingDays(succLS, -combined, calendar);
-        }
-
+        const candidateLS = computeCandidateLSDate(
+          succ.type, lateStartNet.get(succ.id)!, lateFinishNet.get(succ.id)!,
+          succ.lagDays, duration, calendar,
+        );
         if (candidateLS < ls) ls = candidateLS;
       }
     }

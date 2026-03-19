@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.21.1 — 2026-03-18
+
+### Refactoring
+
+- Extract type-dispatch helpers in scheduling core to deduplicate SS/FF/FS forward and backward pass logic
+- Extract shared WarningItem component in WarningsPanel for consistent constraint/dependency conflict rendering
+
 ## 0.21.0 — 2026-03-18
 
 ### New Features

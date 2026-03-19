@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.21.1",
+    date: "2026-03-18",
+    sections: [
+      {
+        title: "Refactoring",
+        items: [
+          "Extract type-dispatch helpers in scheduling core to deduplicate SS/FF/FS forward and backward pass logic",
+          "Extract shared WarningItem component in WarningsPanel for consistent constraint/dependency conflict rendering",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.21.0",
     date: "2026-03-18",
     sections: [

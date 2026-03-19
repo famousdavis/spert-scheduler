@@ -231,6 +231,40 @@ export function validateDependencies(
   return errors;
 }
 
+// -- Type-dispatch helpers (integer domain) -----------------------------------
+
+/**
+ * Compute candidate early start for a successor from a single predecessor.
+ * SS: predES + lag, FF: predEF + lag − succDuration, FS: predEF + lag.
+ */
+function computeEarlyStartFromPred(
+  type: DependencyType,
+  predES: number,
+  predEF: number,
+  lagDays: number,
+  succDuration: number,
+): number {
+  if (type === "SS") return predES + lagDays;
+  if (type === "FF") return predEF + lagDays - succDuration;
+  return predEF + lagDays; // FS
+}
+
+/**
+ * Compute candidate late start for a predecessor from a single successor.
+ * SS: succLS − lag, FF: succLF − lag − predDuration, FS: succLS − lag − predDuration.
+ */
+function computeLateStartFromSucc(
+  type: DependencyType,
+  succLS: number,
+  succLF: number,
+  lagDays: number,
+  predDuration: number,
+): number {
+  if (type === "SS") return succLS - lagDays;
+  if (type === "FF") return succLF - lagDays - predDuration;
+  return succLS - lagDays - predDuration; // FS
+}
+
 // -- Critical Path -----------------------------------------------------------
 
 /**
@@ -252,17 +286,9 @@ export function computeCriticalPathDuration(
     const preds = graph.predecessors.get(id) ?? [];
     let es = 0;
     for (const pred of preds) {
-      if (pred.type === "SS") {
-        const predStart = earlyStart.get(pred.id) ?? 0;
-        es = Math.max(es, predStart + pred.lagDays);
-      } else if (pred.type === "FF") {
-        const predFinish = earlyFinish.get(pred.id) ?? 0;
-        es = Math.max(es, predFinish + pred.lagDays - dur);
-      } else {
-        // FS (default)
-        const predFinish = earlyFinish.get(pred.id) ?? 0;
-        es = Math.max(es, predFinish + pred.lagDays);
-      }
+      const predES = earlyStart.get(pred.id) ?? 0;
+      const predEF = earlyFinish.get(pred.id) ?? 0;
+      es = Math.max(es, computeEarlyStartFromPred(pred.type, predES, predEF, pred.lagDays, dur));
     }
     es = Math.max(0, es); // Floor to project start
     earlyStart.set(id, es);
@@ -314,17 +340,9 @@ export function computeCriticalPathActivities(
     const preds = graph.predecessors.get(id) ?? [];
     let es = 0;
     for (const pred of preds) {
-      if (pred.type === "SS") {
-        const predStart = earlyStart.get(pred.id) ?? 0;
-        es = Math.max(es, predStart + pred.lagDays);
-      } else if (pred.type === "FF") {
-        const predFinish = earlyFinish.get(pred.id) ?? 0;
-        es = Math.max(es, predFinish + pred.lagDays - dur);
-      } else {
-        // FS (default)
-        const predFinish = earlyFinish.get(pred.id) ?? 0;
-        es = Math.max(es, predFinish + pred.lagDays);
-      }
+      const predES = earlyStart.get(pred.id) ?? 0;
+      const predEF = earlyFinish.get(pred.id) ?? 0;
+      es = Math.max(es, computeEarlyStartFromPred(pred.type, predES, predEF, pred.lagDays, dur));
     }
     es = Math.max(0, es); // Floor to project start
     earlyStart.set(id, es);
@@ -351,19 +369,9 @@ export function computeCriticalPathActivities(
     } else {
       ls = Infinity;
       for (const succ of succs) {
-        let candidateLS: number;
-        if (succ.type === "SS") {
-          const succLS = lateStart.get(succ.id) ?? maxFinish;
-          candidateLS = succLS - succ.lagDays;
-        } else if (succ.type === "FF") {
-          const succLF = lateFinish.get(succ.id) ?? maxFinish;
-          candidateLS = succLF - succ.lagDays - dur;
-        } else {
-          // FS
-          const succLS = lateStart.get(succ.id) ?? maxFinish;
-          candidateLS = succLS - succ.lagDays - dur;
-        }
-        ls = Math.min(ls, candidateLS);
+        const succLS = lateStart.get(succ.id) ?? maxFinish;
+        const succLF = lateFinish.get(succ.id) ?? maxFinish;
+        ls = Math.min(ls, computeLateStartFromSucc(succ.type, succLS, succLF, succ.lagDays, dur));
       }
     }
 
@@ -412,17 +420,10 @@ export function computeCriticalPathWithMilestones(
     let es = 0;
     let maxPredEF = 0;
     for (const pred of preds) {
-      const predFinish = earlyFinish.get(pred.id) ?? 0;
-      maxPredEF = Math.max(maxPredEF, predFinish);
-      if (pred.type === "SS") {
-        const predStart = earlyStart.get(pred.id) ?? 0;
-        es = Math.max(es, predStart + pred.lagDays);
-      } else if (pred.type === "FF") {
-        es = Math.max(es, predFinish + pred.lagDays - dur);
-      } else {
-        // FS (default)
-        es = Math.max(es, predFinish + pred.lagDays);
-      }
+      const predES = earlyStart.get(pred.id) ?? 0;
+      const predEF = earlyFinish.get(pred.id) ?? 0;
+      maxPredEF = Math.max(maxPredEF, predEF);
+      es = Math.max(es, computeEarlyStartFromPred(pred.type, predES, predEF, pred.lagDays, dur));
     }
     es = Math.max(0, es); // Floor to project start
     // Apply earliest-start constraint (from startsAtMilestoneId)
