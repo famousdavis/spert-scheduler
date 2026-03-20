@@ -12,7 +12,6 @@ import type {
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { STANDARD_PERCENTILES, RSM_LABELS } from "@domain/models/types";
-import type { ConstraintType } from "@domain/models/types";
 import {
   parseDateISO,
   addWorkingDays,
@@ -20,17 +19,8 @@ import {
 } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
+import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { PrintGanttChart } from "@ui/charts/PrintGanttChart";
-
-/** Human-readable labels for constraint types. */
-const CONSTRAINT_LABELS: Record<ConstraintType, string> = {
-  MSO: "Must Start On",
-  MFO: "Must Finish On",
-  SNET: "Start No Earlier Than",
-  SNLT: "Start No Later Than",
-  FNET: "Finish No Earlier Than",
-  FNLT: "Finish No Later Than",
-};
 
 interface PrintableReportProps {
   project: Project;
