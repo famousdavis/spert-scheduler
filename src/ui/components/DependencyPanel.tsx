@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Activity, ActivityDependency, DependencyType } from "@domain/models/types";
 import { DEPENDENCY_TYPES } from "@domain/models/types";
 import { validateDependencies, detectCycle } from "@core/schedule/dependency-graph";
@@ -18,6 +18,7 @@ interface DependencyPanelProps {
   onRemoveDependency: (fromActivityId: string, toActivityId: string) => void;
   onUpdateLag: (fromActivityId: string, toActivityId: string, lagDays: number) => void;
   onUpdateType: (fromActivityId: string, toActivityId: string, type: DependencyType) => void;
+  onEditDependency?: (fromActivityId: string, toActivityId: string) => void;
   isLocked?: boolean;
 }
 
@@ -67,6 +68,7 @@ export function DependencyPanel({
   onRemoveDependency,
   onUpdateLag,
   onUpdateType,
+  onEditDependency,
   isLocked,
 }: DependencyPanelProps) {
   const [fromId, setFromId] = useState("");
@@ -121,8 +123,22 @@ export function DependencyPanel({
     setLagDays(0);
   };
 
-  const getActivityName = (id: string) =>
-    activityMap.get(id)?.name ?? `Unknown (${id.slice(0, 8)})`;
+  const getActivityName = useCallback(
+    (id: string) => activityMap.get(id)?.name ?? `Unknown (${id.slice(0, 8)})`,
+    [activityMap]
+  );
+
+  // Sort dependencies alphabetically by predecessor name, then successor name
+  const sortedDependencies = useMemo(() => {
+    return [...dependencies].sort((a, b) => {
+      const fromA = getActivityName(a.fromActivityId).toLowerCase();
+      const fromB = getActivityName(b.fromActivityId).toLowerCase();
+      if (fromA !== fromB) return fromA.localeCompare(fromB);
+      const toA = getActivityName(a.toActivityId).toLowerCase();
+      const toB = getActivityName(b.toActivityId).toLowerCase();
+      return toA.localeCompare(toB);
+    });
+  }, [dependencies, getActivityName]);
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -172,10 +188,11 @@ export function DependencyPanel({
       {/* Dependency list */}
       {dependencies.length > 0 && (
         <div className="space-y-1">
-          {dependencies.map((dep, i) => (
+          {sortedDependencies.map((dep, i) => (
             <div
               key={`${dep.fromActivityId}-${dep.toActivityId}-${i}`}
-              className="flex items-center gap-2 text-sm py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 group"
+              className={`flex items-center gap-2 text-sm py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 group${onEditDependency ? " cursor-pointer" : ""}`}
+              onClick={onEditDependency ? () => onEditDependency(dep.fromActivityId, dep.toActivityId) : undefined}
             >
               <span className="text-gray-700 dark:text-gray-300 truncate max-w-[180px]" title={getActivityName(dep.fromActivityId)}>
                 {getActivityName(dep.fromActivityId)}
@@ -189,7 +206,7 @@ export function DependencyPanel({
               </span>
               {/* Editable lag */}
               {!isLocked && (
-                <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                   <select
                     value={dep.type}
                     onChange={(e) => onUpdateType(dep.fromActivityId, dep.toActivityId, e.target.value as DependencyType)}
@@ -228,7 +245,7 @@ export function DependencyPanel({
           <select
             value={fromId}
             onChange={(e) => setFromId(e.target.value)}
-            className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none"
+            className={`flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 rounded focus:border-blue-400 focus:outline-none ${fromId ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}`}
           >
             <option value="">Predecessor…</option>
             {activities.map((a) => (
@@ -241,7 +258,7 @@ export function DependencyPanel({
           <select
             value={toId}
             onChange={(e) => setToId(e.target.value)}
-            className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none"
+            className={`flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 rounded focus:border-blue-400 focus:outline-none ${toId ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}`}
           >
             <option value="">Successor…</option>
             {activities.map((a) => (

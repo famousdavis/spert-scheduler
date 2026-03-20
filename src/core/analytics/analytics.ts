@@ -223,9 +223,77 @@ export function computeStandardPercentileCIs(
   samples: Float64Array | number[],
   bootstrapIterations: number = 500 // Lower default for batch
 ): Record<number, PercentileCI> {
+  return computeBatchPercentileCIs(samples, STANDARD_PERCENTILES, bootstrapIterations);
+}
+
+/**
+ * Compute bootstrap CIs for multiple percentiles efficiently.
+ * Sorts each bootstrap resample once and extracts all percentiles from it,
+ * avoiding redundant sorts (N× speedup where N = number of percentiles).
+ */
+export function computeBatchPercentileCIs(
+  samples: Float64Array | number[],
+  percentiles: readonly number[],
+  bootstrapIterations: number = 500,
+  ciLevel: number = 0.95
+): Record<number, PercentileCI> {
+  const n = samples.length;
   const result: Record<number, PercentileCI> = {};
-  for (const p of STANDARD_PERCENTILES) {
-    result[p] = bootstrapPercentileCI(samples, p, bootstrapIterations);
+
+  if (n === 0) {
+    for (const p of percentiles) {
+      result[p] = { percentile: p, point: 0, lower: 0, upper: 0, confidence: ciLevel };
+    }
+    return result;
   }
+
+  // Point estimates from the original sorted samples
+  const sortedOriginal = Float64Array.from(samples).sort();
+  const pointEstimates: Record<number, number> = {};
+  for (const p of percentiles) {
+    pointEstimates[p] = percentile(sortedOriginal, p / 100);
+  }
+
+  // Bootstrap: collect estimates for all percentiles per iteration
+  const bootstrapEstimates: Record<number, number[]> = {};
+  for (const p of percentiles) {
+    bootstrapEstimates[p] = [];
+  }
+
+  for (let b = 0; b < bootstrapIterations; b++) {
+    // Resample with replacement
+    const resample = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      resample[i] = samples[Math.floor(Math.random() * n)]!;
+    }
+    // Sort ONCE per iteration
+    resample.sort();
+    // Extract ALL percentiles from this single sorted resample
+    for (const p of percentiles) {
+      bootstrapEstimates[p]!.push(percentile(resample, p / 100));
+    }
+  }
+
+  // Compute CI bounds for each percentile
+  const alpha = (1 - ciLevel) / 2;
+  const lowerIdx = Math.max(0, Math.floor(alpha * bootstrapIterations));
+  const upperIdx = Math.min(
+    bootstrapIterations - 1,
+    Math.floor((1 - alpha) * bootstrapIterations) - 1
+  );
+
+  for (const p of percentiles) {
+    const estimates = bootstrapEstimates[p]!;
+    estimates.sort((a, b) => a - b);
+    const point = pointEstimates[p]!;
+    result[p] = {
+      percentile: p,
+      point,
+      lower: estimates[Math.max(0, lowerIdx)] ?? point,
+      upper: estimates[Math.max(0, upperIdx)] ?? point,
+      confidence: ciLevel,
+    };
+  }
+
   return result;
 }

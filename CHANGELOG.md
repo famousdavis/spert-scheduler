@@ -7,10 +7,24 @@
 - Fix CDF chart x-axis "Duration (days)" label clipped by insufficient bottom margin
 - Fix print Gantt dependency arrows rendering on top of bars instead of behind them (paint order parity with interactive chart)
 
+### Performance
+
+- Bootstrap CI computation 17× faster — batch all percentiles per sort instead of sorting per percentile
+- Show 95% CI toggle now defers computation via setTimeout(0) to keep checkbox responsive
+
 ### UI Improvements
 
 - Print Gantt buffer row label changed from "Buffer" to "Schedule Buffer" to match interactive chart
 - Print Gantt buffer bar uses hatched yellow fill instead of solid yellow to match interactive chart
+- Gantt buffer bar duration label (+Xd) now has a white halo for readability over hatched pattern
+- Activity Edit modal: Name and Status fields side-by-side for compact layout
+- Dependency Edit modal: Relationship Type and Lag Days side-by-side; predecessor/successor always editable via dropdowns
+- Dependency panel: list sorted alphabetically by predecessor then successor name
+- Dependency panel: click any row to open edit modal for full dependency editing
+- Dependency panel: placeholder text in add-dependency dropdowns styled with muted color
+- Locked scenarios: Gantt chart arrows fully unresponsive (no hover highlight, tooltip, or click)
+- Constraint column dash and tags show pointer cursor to indicate clickability
+- Scenario summary card: improved toggle-to-label spacing
 
 ## 0.23.0 — 2026-03-19
 

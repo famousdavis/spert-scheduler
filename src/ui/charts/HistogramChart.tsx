@@ -72,11 +72,11 @@ export function HistogramChart({
 
   return (
     <div className="relative">
-      <div className="absolute top-0 right-0 z-10">
+      <div className="absolute -top-8 -right-2 z-10">
         <CopyImageButton targetRef={chartRef} title="Copy chart as image" />
       </div>
-      <div ref={chartRef} className="bg-white dark:bg-gray-800 p-2">
-        <ResponsiveContainer width="100%" height={300}>
+      <div ref={chartRef} className="bg-white dark:bg-gray-800">
+        <ResponsiveContainer width="100%" height={350}>
           <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis

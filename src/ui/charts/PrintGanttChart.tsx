@@ -351,7 +351,8 @@ export function PrintGanttChart({
                     rx={PRINT_BAR_RADIUS} fill="url(#print-hatch-buffer)" stroke={c.hatchBuffer} strokeWidth="0.5" />
                   {w > 20 && (
                     <text x={x1 + w / 2} y={barY + PRINT_BAR_H / 2} textAnchor="middle"
-                      dominantBaseline="central" fontSize="6" fill="#92400e" fontWeight="600">
+                      dominantBaseline="central" fontSize="6" fill="#92400e" fontWeight="600"
+                      stroke="#ffffff" strokeWidth="1.5" paintOrder="stroke fill">
                       +{buffer!.bufferDays}d
                     </text>
                   )}

@@ -720,8 +720,8 @@ export function GanttChart({
                   const iconColor = act.constraintMode === "hard" ? "#3b82f6" : "#9ca3af";
                   return (
                     <g
-                      className="cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); onEditActivity?.(act.id); }}
+                      className={!isLocked && onEditActivity ? "cursor-pointer" : ""}
+                      onClick={!isLocked && onEditActivity ? (e) => { e.stopPropagation(); onEditActivity(act.id); } : undefined}
                     >
                       <rect
                         x={iconX}
@@ -822,6 +822,9 @@ export function GanttChart({
                         fontSize="11"
                         fill={isDark ? "#fbbf24" : "#92400e"}
                         fontWeight="700"
+                        stroke={isDark ? "#1f2937" : "#ffffff"}
+                        strokeWidth="3"
+                        paintOrder="stroke fill"
                         className="pointer-events-none"
                       >
                         +{buffer!.bufferDays}d
@@ -841,16 +844,16 @@ export function GanttChart({
               stroke="transparent"
               strokeWidth="10"
               fill="none"
-              style={{ pointerEvents: "stroke" }}
+              style={{ pointerEvents: isLocked ? "none" : "stroke" }}
               className={!isLocked && onEditDependency ? "cursor-pointer" : ""}
-              onMouseEnter={(e) => {
+              onMouseEnter={!isLocked ? (e) => {
                 setHoveredDep({ from: ap.dep.fromActivityId, to: ap.dep.toActivityId });
                 setTooltip({ x: e.clientX, y: e.clientY, text: ap.label });
-              }}
-              onMouseMove={(e) =>
+              } : undefined}
+              onMouseMove={!isLocked ? (e) =>
                 setTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)
-              }
-              onMouseLeave={() => { setHoveredDep(null); setTooltip(null); }}
+              : undefined}
+              onMouseLeave={!isLocked ? () => { setHoveredDep(null); setTooltip(null); } : undefined}
               onClick={!isLocked && onEditDependency ? () =>
                 onEditDependency(ap.dep.fromActivityId, ap.dep.toActivityId)
               : undefined}

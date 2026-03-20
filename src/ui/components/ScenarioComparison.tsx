@@ -200,7 +200,7 @@ export function ScenarioComparisonTable({
       ),
     },
     {
-      label: "Std Dev",
+      label: "Standard Deviation",
       values: stdDevs.map((s) => (s !== null ? s.toFixed(1) : null)),
     },
     ...percentileKeys.map((pct) => ({

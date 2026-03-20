@@ -51,12 +51,6 @@ export function DependencyEditModal({
   const [lagDays, setLagDays] = useState<number>(existingDep?.lagDays ?? 0);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Activity name lookup
-  const activityName = useCallback(
-    (id: string) => activities.find((a) => a.id === id)?.name ?? id,
-    [activities]
-  );
-
   // Validation
   const validate = useCallback(
     (from: string, to: string): string | null => {
@@ -131,24 +125,18 @@ export function DependencyEditModal({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Predecessor
               </label>
-              {isEditMode ? (
-                <p className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-300 rounded-md text-sm bg-gray-50 text-gray-700">
-                  {activityName(fromId)}
-                </p>
-              ) : (
-                <select
-                  value={fromId}
-                  onChange={(e) => handleFromChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="">Select activity...</option>
-                  {activities.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <select
+                value={fromId}
+                onChange={(e) => handleFromChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select activity...</option>
+                {activities.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Successor */}
@@ -156,59 +144,53 @@ export function DependencyEditModal({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Successor
               </label>
-              {isEditMode ? (
-                <p className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-300 rounded-md text-sm bg-gray-50 text-gray-700">
-                  {activityName(toId)}
-                </p>
-              ) : (
-                <select
-                  value={toId}
-                  onChange={(e) => handleToChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="">Select activity...</option>
-                  {activities.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* Relationship Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Relationship Type
-              </label>
               <select
-                value={type}
-                onChange={(e) => setType(e.target.value as DependencyType)}
+                value={toId}
+                onChange={(e) => handleToChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
               >
-                {DEPENDENCY_TYPES.map((dt) => (
-                  <option key={dt} value={dt}>
-                    {dt} — {DEPENDENCY_LABELS[dt]}
+                <option value="">Select activity...</option>
+                {activities.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Lag Days */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Lag Days
-              </label>
-              <input
-                type="number"
-                value={lagDays}
-                onChange={(e) => setLagDays(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
-              />
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Positive values add delay; negative values represent lead time.
-              </p>
+            {/* Relationship Type + Lag Days (side-by-side) */}
+            <div className="flex gap-3">
+              <div className="flex-1 min-w-0">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Relationship Type
+                </label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value as DependencyType)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
+                >
+                  {DEPENDENCY_TYPES.map((dt) => (
+                    <option key={dt} value={dt}>
+                      {dt} — {DEPENDENCY_LABELS[dt]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-24 shrink-0">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Lag Days
+                </label>
+                <input
+                  type="number"
+                  value={lagDays}
+                  onChange={(e) => setLagDays(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
             </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 -mt-2">
+              Positive values add delay; negative values represent lead time.
+            </p>
 
             {/* Validation Error */}
             {validationError && (

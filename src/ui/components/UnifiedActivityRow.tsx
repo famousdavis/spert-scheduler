@@ -388,7 +388,7 @@ export function UnifiedActivityRow({
           <button
             type="button"
             onClick={() => onEditActivity?.(activity.id)}
-            className={`w-full text-[10px] leading-tight rounded px-1 py-0.5 truncate text-center ${
+            className={`w-full text-[10px] leading-tight rounded px-1 py-0.5 truncate text-center cursor-pointer ${
               activity.constraintType
                 ? activity.constraintMode === "hard"
                   ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-600"

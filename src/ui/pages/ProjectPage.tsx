@@ -608,6 +608,7 @@ export function ProjectPage() {
               onUpdateType={(fromId, toId, type) =>
                 updateDependencyType(id!, scenario.id, fromId, toId, type)
               }
+              onEditDependency={(fromId, toId) => setEditingDependency({ fromActivityId: fromId, toActivityId: toId })}
               isLocked={scenario.locked}
             />
           )}
@@ -717,9 +718,16 @@ export function ProjectPage() {
           activities={scenario.activities}
           dependencies={scenario.dependencies}
           onSave={(fromId, toId, type, lagDays) => {
-            // Update type and lag on existing dependency
-            updateDependencyType(id!, scenario.id, fromId, toId, type);
-            updateDependencyLag(id!, scenario.id, fromId, toId, lagDays);
+            const pairChanged = fromId !== editingDependency.fromActivityId || toId !== editingDependency.toActivityId;
+            if (pairChanged) {
+              // Predecessor/successor changed: delete old, add new
+              removeDependency(id!, scenario.id, editingDependency.fromActivityId, editingDependency.toActivityId);
+              addDependency(id!, scenario.id, fromId, toId, type, lagDays);
+            } else {
+              // Same pair: just update type and lag
+              updateDependencyType(id!, scenario.id, fromId, toId, type);
+              updateDependencyLag(id!, scenario.id, fromId, toId, lagDays);
+            }
           }}
           onDelete={(fromId, toId) => {
             removeDependency(id!, scenario.id, fromId, toId);

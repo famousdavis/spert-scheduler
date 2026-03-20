@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STANDARD_PERCENTILES } from "@domain/models/types";
 import {
   computeStandardPercentileCIs,
@@ -25,11 +25,31 @@ export function PercentileTable({
 }: PercentileTableProps) {
   const targetPct = Math.round(probabilityTarget * 100);
   const [showCI, setShowCI] = useState(false);
+  const [cis, setCIs] = useState<Record<number, PercentileCI> | null>(null);
+  const [computing, setComputing] = useState(false);
+  const samplesRef = useRef(samples);
+  samplesRef.current = samples;
 
-  // Compute CIs lazily when toggled on
-  const cis = useMemo<Record<number, PercentileCI> | null>(() => {
-    if (!showCI || !samples || samples.length === 0) return null;
-    return computeStandardPercentileCIs(samples, 500);
+  // Compute CIs asynchronously when toggled on (deferred to unblock the checkbox)
+  useEffect(() => {
+    if (!showCI || !samples || samples.length === 0) {
+      setCIs(null);
+      setComputing(false);
+      return;
+    }
+
+    setComputing(true);
+    const captured = samples;
+    const timer = setTimeout(() => {
+      const result = computeStandardPercentileCIs(captured, 500);
+      // Only apply if samples haven't changed while computing
+      if (samplesRef.current === captured) {
+        setCIs(result);
+        setComputing(false);
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [showCI, samples]);
 
   const canShowCI = samples && samples.length > 0;
@@ -37,7 +57,12 @@ export function PercentileTable({
   return (
     <div>
       {canShowCI && (
-        <div className="flex items-center justify-end mb-2">
+        <div className="flex items-center justify-end mb-2 gap-2">
+          {computing && (
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 animate-pulse">
+              Computing...
+            </span>
+          )}
           <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
             <input
               type="checkbox"

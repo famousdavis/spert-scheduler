@@ -218,7 +218,7 @@ export function ScenarioSummaryCard({
       </div>
 
       {/* Row 2: Targets, trials, seed */}
-      <div className="flex items-center gap-3 flex-wrap text-sm">
+      <div className="flex items-center gap-2 flex-wrap text-sm">
         {/* Targets */}
         <div className="flex items-center gap-1.5">
           <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
@@ -317,7 +317,7 @@ export function ScenarioSummaryCard({
         <div className="border-l border-gray-200 dark:border-gray-600 h-5" />
 
         {/* Heuristic */}
-        <div className="flex items-center gap-1.5" title="Heuristic estimation: auto-generate Min and Max estimates from the Most Likely value using percentage multipliers">
+        <div className="flex items-center gap-1" title="Heuristic estimation: auto-generate Min and Max estimates from the Most Likely value using percentage multipliers">
           <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Heuristic:
           </label>
@@ -326,7 +326,7 @@ export function ScenarioSummaryCard({
             onChange={(val) => onSettingsChange({ heuristicEnabled: val })}
             disabled={isLocked}
           />
-          <span className="text-gray-500 dark:text-gray-400 text-xs">Min</span>
+          <span className="text-gray-500 dark:text-gray-400 text-xs ml-1.5">Min</span>
           <input
             type="number"
             value={localMinPct}
@@ -340,13 +340,13 @@ export function ScenarioSummaryCard({
               }
             }}
             disabled={isLocked || !settings.heuristicEnabled}
-            className="w-10 px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-8 px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             min={1}
             max={99}
             step={1}
           />
           <span className="text-gray-500 dark:text-gray-400 text-xs">%</span>
-          <span className="text-gray-500 dark:text-gray-400 text-xs ml-1">Max</span>
+          <span className="text-gray-500 dark:text-gray-400 text-xs ml-1.5">Max</span>
           <input
             type="number"
             value={localMaxPct}
@@ -360,7 +360,7 @@ export function ScenarioSummaryCard({
               }
             }}
             disabled={isLocked || !settings.heuristicEnabled}
-            className="w-12 px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-10 px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm text-right tabular-nums focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             min={101}
             max={1000}
             step={1}
@@ -371,7 +371,7 @@ export function ScenarioSummaryCard({
         <div className="border-l border-gray-200 dark:border-gray-600 h-5" />
 
         {/* Dependencies + Parkinson's Law — grouped to prevent orphan wrapping */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5" title="Dependency mode: schedule activities using a dependency graph instead of sequential order">
             <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
               Dependencies:

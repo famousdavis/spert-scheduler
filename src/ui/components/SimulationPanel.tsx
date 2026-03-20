@@ -162,7 +162,7 @@ export function SimulationPanel({
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Std Dev</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Standard Deviation</p>
               <p className="text-lg font-semibold tabular-nums dark:text-gray-100">
                 {simulationResults.standardDeviation.toFixed(1)} days
               </p>
@@ -188,8 +188,8 @@ export function SimulationPanel({
 
           {/* Charts */}
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 pb-2">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Distribution Histogram{" "}
                 <span className="font-normal italic text-gray-400 dark:text-gray-500">
                   (outlier values &gt; P99 omitted)
@@ -206,20 +206,26 @@ export function SimulationPanel({
                 deterministicDuration={deterministicDuration}
               />
             </div>
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 pb-2">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Cumulative Distribution
               </h4>
-              <CDFChart
-                points={cdf(
-                  new Float64Array(simulationResults.samples),
-                  500
-                )}
-                probabilityTarget={probabilityTarget}
-                percentileValue={
-                  simulationResults.percentiles[targetPct] ?? simulationResults.mean
-                }
-              />
+              {simulationResults.samples.length > 0 ? (
+                <CDFChart
+                  points={cdf(
+                    new Float64Array(simulationResults.samples),
+                    500
+                  )}
+                  probabilityTarget={probabilityTarget}
+                  percentileValue={
+                    simulationResults.percentiles[targetPct] ?? simulationResults.mean
+                  }
+                />
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-sm text-gray-400 dark:text-gray-500">
+                  Re-run simulation to view CDF (sample data not stored)
+                </div>
+              )}
             </div>
           </div>
 
