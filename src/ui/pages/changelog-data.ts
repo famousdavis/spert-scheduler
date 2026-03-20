@@ -12,6 +12,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.24.1",
+    date: "2026-03-20",
+    sections: [
+      {
+        title: "Refactoring",
+        items: [
+          "Extract ChecklistSection component from ActivityEditModal (~130 LOC reduction) with controlled component pattern",
+          "Deduplicate CONSTRAINT_LABELS — shared constant and constraintLabel() helper now in @domain/helpers/constraint-labels.ts",
+        ],
+      },
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fix handleAddTask stale closure — checklist.length in useCallback dependency array caused unnecessary recreations",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.24.0",
     date: "2026-03-20",
     sections: [

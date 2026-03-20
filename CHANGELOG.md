@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.24.1 — 2026-03-20
+
+### Refactoring
+
+- Extract `ChecklistSection` component from ActivityEditModal (~130 LOC reduction) with controlled component pattern
+- Deduplicate `CONSTRAINT_LABELS` — shared constant + `constraintLabel()` helper in `@domain/helpers/constraint-labels.ts` (was duplicated in ActivityEditModal and PrintableReport)
+
+### Bug Fixes
+
+- Fix `handleAddTask` stale closure — `checklist.length` in useCallback dependency array caused unnecessary recreations; now reads prop directly in controlled component
+
+### Dependencies
+
+- All available upgrades (firebase 12.11.0, vitest 4.1.0, @vitejs/plugin-react 5.2.0, eslint 9.39.4) deferred — released within 60-day freshness window
+
 ## 0.24.0 — 2026-03-20
 
 ### New Features
