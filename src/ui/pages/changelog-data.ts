@@ -12,6 +12,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.23.1",
+    date: "2026-03-19",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fix CDF chart x-axis \"Duration (days)\" label clipped by insufficient bottom margin",
+          "Fix print Gantt dependency arrows rendering on top of bars instead of behind them",
+        ],
+      },
+      {
+        title: "UI Improvements",
+        items: [
+          "Print Gantt buffer row label changed from \"Buffer\" to \"Schedule Buffer\" to match interactive chart",
+          "Print Gantt buffer bar uses hatched yellow fill instead of solid yellow to match interactive chart",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.23.0",
     date: "2026-03-19",
     sections: [

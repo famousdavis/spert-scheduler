@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.23.1 — 2026-03-19
+
+### Bug Fixes
+
+- Fix CDF chart x-axis "Duration (days)" label clipped by insufficient bottom margin
+- Fix print Gantt dependency arrows rendering on top of bars instead of behind them (paint order parity with interactive chart)
+
+### UI Improvements
+
+- Print Gantt buffer row label changed from "Buffer" to "Schedule Buffer" to match interactive chart
+- Print Gantt buffer bar uses hatched yellow fill instead of solid yellow to match interactive chart
+
 ## 0.23.0 — 2026-03-19
 
 ### Features
