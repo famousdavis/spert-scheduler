@@ -106,6 +106,8 @@ export interface GridRow {
   constraintDate?: string;
   constraintMode?: string;
   constraintNote?: string;
+  tasks?: string;
+  taskDetails?: string;
 }
 
 function buildActivityIndexMap(activities: Activity[]): Map<string, number> {
@@ -199,6 +201,13 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
       row.constraintMode = activity.constraintMode ?? "";
       row.constraintNote = activity.constraintNote ?? "";
     }
+    if (activity.checklist && activity.checklist.length > 0) {
+      const done = activity.checklist.filter((c) => c.completed).length;
+      row.tasks = `${done}/${activity.checklist.length}`;
+      row.taskDetails = activity.checklist
+        .map((c) => `${c.completed ? "[x]" : "[ ]"} ${c.text}`)
+        .join("; ");
+    }
     return row;
   });
 }
@@ -250,6 +259,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
   if (hasDeps) {
     headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
   }
+  headers.push("Tasks", "Task Details");
   lines.push(headers.map(csvEscape).join(","));
 
   // Data rows
@@ -275,6 +285,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
         row.constraintNote ?? "",
       );
     }
+    cells.push(row.tasks ?? "", row.taskDetails ?? "");
     lines.push(cells.map(csvEscape).join(","));
   }
 
@@ -300,6 +311,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
   if (hasDeps) {
     totalCells.push("", "", "", "", "", "");
   }
+  totalCells.push("", "");
   lines.push(totalCells.map(csvEscape).join(","));
 
   return lines.join("\n");
@@ -341,7 +353,7 @@ export async function exportScheduleXlsx(
 
   // ---- Title row ----
   let rowNum = 1;
-  const lastCol = hasDeps ? 18 : 12;
+  const lastCol = hasDeps ? 20 : 14;
   ws.mergeCells(rowNum, 1, rowNum, lastCol);
   const titleCell = ws.getCell(rowNum, 1);
   titleCell.value = `${params.projectName} — ${params.scenarioName}`;
@@ -380,6 +392,7 @@ export async function exportScheduleXlsx(
   if (hasDeps) {
     headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
   }
+  headers.push("Tasks", "Task Details");
 
   const headerRow = ws.getRow(rowNum);
   headers.forEach((h, i) => {
@@ -414,6 +427,13 @@ export async function exportScheduleXlsx(
         row.constraintNote ?? "",
       );
     }
+    // Task details use newlines in XLSX (multiline cells supported)
+    cells.push(row.tasks ?? "");
+    cells.push(
+      row.taskDetails
+        ? row.taskDetails.replace(/; /g, "\n")
+        : ""
+    );
     const dataRow = ws.getRow(rowNum);
     cells.forEach((val, i) => {
       const cell = dataRow.getCell(i + 1);
@@ -446,6 +466,7 @@ export async function exportScheduleXlsx(
   const colAWidth = Math.min(28, Math.max(5, ...summary.map((r) => r.key.length + 4)));
   const widths = [colAWidth, 30, 8, 12, 8, 16, 14, 12, 8, 14, 14, 14];
   if (hasDeps) widths.push(16, 16, 16, 14, 10, 30);
+  widths.push(8, 40);
   ws.columns = widths.map((w) => ({ width: w }));
 
   // ---- Freeze pane at column header row ----

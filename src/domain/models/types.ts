@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -111,6 +111,12 @@ export interface Calendar {
   holidays: Holiday[];
 }
 
+export interface ChecklistItem {
+  id: string;
+  text: string; // max 200 chars
+  completed: boolean;
+}
+
 export interface Activity {
   id: string;
   name: string;
@@ -128,6 +134,7 @@ export interface Activity {
   constraintDate?: string | null; // ISO "YYYY-MM-DD" constraint date
   constraintMode?: ConstraintMode | null; // "hard" overrides, "soft" is advisory
   constraintNote?: string | null; // optional rationale for the constraint
+  checklist?: ChecklistItem[]; // task checklist, max 20 items
 }
 
 export interface ActivityDependency {

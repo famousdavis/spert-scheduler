@@ -249,6 +249,16 @@ function migrateV12toV13(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v13 → v14: Add optional checklist field to activities.
+ * No data transformation needed — checklist is optional and defaults to absent.
+ */
+function migrateV13toV14(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 14;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -262,6 +272,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   10: migrateV10toV11,
   11: migrateV11toV12,
   12: migrateV12toV13,
+  13: migrateV13toV14,
 };
 
 /**

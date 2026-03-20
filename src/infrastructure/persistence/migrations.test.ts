@@ -797,4 +797,58 @@ describe("applyMigrations", () => {
     const settings = scenarios[0]!.settings as Record<string, unknown>;
     expect(settings.parkinsonsLawEnabled).toBe(true);
   });
+
+  // -- v13 → v14: Activity checklist field ------------------------------------
+
+  it("v13→v14: bumps schema version to 14", () => {
+    const v13Data = {
+      schemaVersion: 13,
+      scenarios: [
+        { settings: { parkinsonsLawEnabled: true }, activities: [{ id: "a1" }] },
+      ],
+    };
+
+    const result = applyMigrations(v13Data, 13, 14) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(14);
+  });
+
+  it("v13→v14: preserves existing activity data unchanged", () => {
+    const v13Data = {
+      schemaVersion: 13,
+      scenarios: [
+        {
+          settings: { parkinsonsLawEnabled: true },
+          activities: [
+            { id: "a1", name: "Test Activity", min: 1, max: 5 },
+          ],
+        },
+      ],
+    };
+
+    const result = applyMigrations(v13Data, 13, 14) as Record<string, unknown>;
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const activities = scenarios[0]!.activities as Array<Record<string, unknown>>;
+    expect(activities[0]!.name).toBe("Test Activity");
+    expect(activities[0]!.min).toBe(1);
+    // checklist field not added — it's optional
+    expect(activities[0]!.checklist).toBeUndefined();
+  });
+
+  it("v1→v14: full sequential migration", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      scenarios: [
+        {
+          settings: { probabilityTarget: 0.85 },
+          activities: [],
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 14) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(14);
+  });
 });
