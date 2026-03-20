@@ -245,7 +245,7 @@ export class FirestoreDriver {
 
       // Check document size
       const jsonSize = new Blob([JSON.stringify(data)]).size;
-      if (jsonSize > DOC_SIZE_WARNING_BYTES) {
+      if (import.meta.env.DEV && jsonSize > DOC_SIZE_WARNING_BYTES) {
         console.warn(
           `Project "${project.name}" is ${(jsonSize / 1024).toFixed(0)} KB — approaching Firestore 1 MB limit.`
         );
