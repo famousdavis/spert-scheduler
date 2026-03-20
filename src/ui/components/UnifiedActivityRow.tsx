@@ -353,6 +353,23 @@ export function UnifiedActivityRow({
           className="w-full px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           placeholder="Add an activity name"
         />
+        {activity.checklist && activity.checklist.length > 0 && (() => {
+          const done = activity.checklist.filter((c) => c.completed).length;
+          const total = activity.checklist.length;
+          const allDone = done === total;
+          return (
+            <div
+              className="mt-0.5 h-0.5 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden cursor-pointer"
+              onClick={() => onEditActivity?.(activity.id)}
+              title={`Tasks: ${done}/${total}`}
+            >
+              <div
+                className={`h-full rounded-full transition-all ${allDone ? "bg-green-500 dark:bg-green-400" : "bg-blue-500 dark:bg-blue-400"}`}
+                style={{ width: `${(done / total) * 100}%` }}
+              />
+            </div>
+          );
+        })()}
       </div>
 
       {/* Schedule: Duration */}

@@ -62,6 +62,14 @@ export const CalendarSchema = z.object({
   holidays: z.array(HolidaySchema).max(1000),
 });
 
+// -- Checklist ---------------------------------------------------------------
+
+export const ChecklistItemSchema = z.object({
+  id: z.string().min(1).max(64),
+  text: z.string().min(1).max(200),
+  completed: z.boolean(),
+});
+
 // -- Activity ----------------------------------------------------------------
 
 export const ActivitySchema = z
@@ -82,6 +90,7 @@ export const ActivitySchema = z
     constraintDate: ISODateString.nullable().optional(),
     constraintMode: z.enum(CONSTRAINT_MODES).nullable().optional(),
     constraintNote: z.string().max(500).nullable().optional(),
+    checklist: z.array(ChecklistItemSchema).max(20).optional(),
   })
   .refine((a) => a.min <= a.mostLikely, {
     message: "Min must be <= Most Likely",

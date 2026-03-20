@@ -105,7 +105,11 @@ export function cloneScenario(
   let activities = scenario.activities.map((a) => {
     const newId = generateId();
     oldToNewId.set(a.id, newId);
-    return { ...a, id: newId };
+    return {
+      ...a,
+      id: newId,
+      checklist: a.checklist?.map((item) => ({ ...item, id: generateId() })),
+    };
   });
 
   if (options.dropCompleted) {

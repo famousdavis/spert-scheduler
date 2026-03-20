@@ -7,6 +7,7 @@ import type {
   Scenario,
   Activity,
   Calendar,
+  ChecklistItem,
   DependencyType,
   Milestone,
   ScenarioSettings,
@@ -182,6 +183,12 @@ export interface ProjectStore {
     scenarioId: string,
     activityId: string,
     updates: Partial<Activity>
+  ) => void;
+  updateActivityChecklist: (
+    projectId: string,
+    scenarioId: string,
+    activityId: string,
+    checklist: ChecklistItem[] | undefined
   ) => void;
   moveActivity: (
     projectId: string,
@@ -552,6 +559,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         name: `${activity.name} (copy)`,
         status: "planned",
         actualDuration: undefined,
+        checklist: activity.checklist?.map((item) => ({
+          ...item,
+          id: generateId(),
+        })),
       };
 
       const projects = state.projects.map((p) =>
@@ -575,6 +586,26 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     mutateScenario(projectId, scenarioId, (s) =>
       updateActivity(s, activityId, updates)
     ),
+
+  updateActivityChecklist: (projectId, scenarioId, activityId, checklist) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId
+          ? updateScenario(p, scenarioId, (s) => ({
+              ...s,
+              activities: s.activities.map((a) =>
+                a.id === activityId ? { ...a, checklist } : a
+              ),
+              // NOTE: simulationResults NOT cleared — checklist is qualitative only
+            }))
+          : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
 
   moveActivity: (projectId, scenarioId, fromIndex, toIndex) =>
     mutateScenario(projectId, scenarioId, (s) =>

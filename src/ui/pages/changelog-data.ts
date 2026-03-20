@@ -12,6 +12,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.24.0",
+    date: "2026-03-20",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Activity task checklists — add, toggle, reorder, and remove tasks within each activity via the Activity Edit modal",
+          "New \"Tasks\" section in Activity Edit modal with drag-and-drop reordering (max 20 tasks per activity)",
+          "Thin progress bar under activity name in grid — color-coded: blue for in-progress, green when all tasks complete; clickable to open Activity Edit modal",
+          "Checklist progress visible in print report as \"Activity Tasks\" section with per-activity completion counts",
+          "Schedule export (XLSX/CSV) includes Tasks summary and Task Details columns",
+        ],
+      },
+      {
+        title: "UI Improvements",
+        items: [
+          "Task input retains focus after adding a task for rapid entry of multiple tasks",
+        ],
+      },
+      {
+        title: "Technical",
+        items: [
+          "Schema v13 → v14 migration (optional checklist field on Activity)",
+          "Dedicated store method for checklist updates preserves simulation results (no unnecessary re-runs)",
+          "Activity duplication and scenario cloning generate fresh checklist item IDs",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.23.1",
     date: "2026-03-19",
     sections: [
