@@ -42,8 +42,13 @@ export function exportSimulationCSV(
 }
 
 function csvEscape(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
+  let str = value;
+  // Guard against CSV formula injection: prefix cells starting with =, +, @, or -
+  if (/^[=+@-]/.test(str)) {
+    str = "'" + str;
   }
-  return value;
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
 }

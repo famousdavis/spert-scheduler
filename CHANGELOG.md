@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.2 — 2026-03-20
+
+### Security
+
+- Gate project name console.warn behind `import.meta.env.DEV` in Firestore driver (prevents project name leakage to browser console in production)
+- Add CSV formula injection guard (`^[=+@-]` prefix) to simulation CSV export `csvEscape()` — matches schedule-export-service pattern for suite consistency
+
 ## 0.24.1 — 2026-03-20
 
 ### Refactoring

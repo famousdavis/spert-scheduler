@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.24.2",
+    date: "2026-03-20",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Gate project name console.warn behind import.meta.env.DEV in Firestore driver",
+          "Add CSV formula injection guard to simulation CSV export csvEscape() for suite consistency",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.24.1",
     date: "2026-03-20",
     sections: [
