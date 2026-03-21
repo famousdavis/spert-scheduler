@@ -20,6 +20,7 @@ interface UseAutoRunSimulationArgs {
     deterministicDurations: number[] | undefined,
     onComplete: (result: SimulationRun, elapsedMs: number) => void,
     dependencyParams?: import("@core/simulation/worker-client").DependencySimulationParams,
+    sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
   ) => void;
   setSimulationResults: (projectId: string, scenarioId: string, result: SimulationRun) => void;
 }
@@ -79,6 +80,7 @@ export function useAutoRunSimulation({
           setSimulationResults(projectId, scenario.id, result);
         },
         params.dependencyParams,
+        params.sequentialConstraints,
       );
     }, 500);
 

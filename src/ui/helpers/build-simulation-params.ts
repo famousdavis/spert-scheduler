@@ -8,9 +8,13 @@ import { computeDeterministicDurations, computeDependencyDurations } from "@core
 import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
 import { parseDateISO, isWorkingDay, countWorkingDays } from "@core/calendar/calendar";
 
+/** Per-activity constraint info for sequential MC (parallel to activities array). */
+export type SequentialConstraintEntry = { type: string; offsetFromStart: number; mode: string } | null;
+
 export interface SimulationParams {
   deterministicDurations: number[] | undefined;
   dependencyParams: DependencySimulationParams | undefined;
+  sequentialConstraints: SequentialConstraintEntry[] | undefined;
 }
 
 /**
@@ -67,11 +71,37 @@ export function buildSimulationParams(
         ...msParams,
         constraintMap,
       },
+      sequentialConstraints: undefined,
     };
+  }
+
+  // Build sequential constraints if any activities have them
+  let sequentialConstraints: SequentialConstraintEntry[] | undefined;
+  const constrainedActivities = activities.filter(
+    (a) => a.constraintType && a.constraintDate && a.constraintMode
+  );
+  if (constrainedActivities.length > 0) {
+    const projStart = parseDateISO(startDate);
+    while (!isWorkingDay(projStart, calendar)) {
+      projStart.setDate(projStart.getDate() + 1);
+    }
+    sequentialConstraints = activities.map((a) => {
+      if (!a.constraintType || !a.constraintDate || !a.constraintMode) return null;
+      const cDate = parseDateISO(a.constraintDate);
+      while (!isWorkingDay(cDate, calendar)) {
+        cDate.setDate(cDate.getDate() + 1);
+      }
+      return {
+        type: a.constraintType,
+        offsetFromStart: countWorkingDays(projStart, cDate, calendar),
+        mode: a.constraintMode,
+      };
+    });
   }
 
   return {
     deterministicDurations: parkinsonsLawEnabled ? computeDeterministicDurations(activities, probabilityTarget) : undefined,
     dependencyParams: undefined,
+    sequentialConstraints,
   };
 }

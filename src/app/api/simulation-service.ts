@@ -26,7 +26,8 @@ export function runSimulation(
   rngSeed: string,
   deterministicDurations: number[] | undefined,
   callbacks: SimulationServiceCallbacks,
-  dependencyParams?: DependencySimulationParams
+  dependencyParams?: DependencySimulationParams,
+  sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
 ): SimulationHandle {
   const simulationId = generateId();
 
@@ -37,7 +38,7 @@ export function runSimulation(
         callbacks.onComplete({ ...result, id: simulationId }, elapsedMs);
       },
       onError: callbacks.onError,
-    }, dependencyParams);
+    }, dependencyParams, sequentialConstraints);
   } catch {
     // Worker creation failed — synchronous fallback
     try {
@@ -78,6 +79,7 @@ export function runSimulation(
           trialCount,
           rngSeed,
           deterministicDurations,
+          sequentialConstraints: sequentialConstraints ?? undefined,
         });
       }
 

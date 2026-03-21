@@ -348,6 +348,7 @@ export function ProjectPage() {
         setSimulationResults(id, scenario.id, result);
       },
       params.dependencyParams,
+      params.sequentialConstraints,
     );
   }, [id, scenario, simulation, setSimulationResults, workCalendar]);
 

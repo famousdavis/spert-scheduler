@@ -68,6 +68,7 @@ export function computeDeterministicDurations(
 /**
  * Compute a deterministic schedule for a linear activity chain at a given percentile.
  * Activities are executed in array order (finish-to-start linear chain).
+ * Scheduling constraints (SNET, MSO, MFO, FNET) are applied when present.
  *
  * @param activities - Activities in execution order
  * @param startDate - Project start date ("YYYY-MM-DD")
@@ -81,6 +82,7 @@ export function computeDeterministicSchedule(
   calendar?: WorkCalendar | Calendar
 ): DeterministicSchedule {
   const scheduledActivities: ScheduledActivity[] = [];
+  const conflicts: ConstraintConflict[] = [];
 
   let currentDate = parseDateISO(startDate);
 
@@ -96,17 +98,32 @@ export function computeDeterministicSchedule(
     const activityStartDate = currentDate;
     const activityEndDate = addWorkingDays(activityStartDate, duration, calendar);
 
+    let finalStartISO = formatDateISO(activityStartDate);
+    let finalEndISO = formatDateISO(activityEndDate);
+
+    // Apply scheduling constraint (forward pass)
+    if (activity.constraintType && activity.constraintDate && activity.constraintMode) {
+      const result = applyForwardConstraint(
+        finalStartISO, finalEndISO, duration,
+        activity.constraintType, activity.constraintDate,
+        activity.constraintMode, activity.id, activity.name, calendar,
+      );
+      finalStartISO = result.es;
+      finalEndISO = result.ef;
+      if (result.conflict) conflicts.push(result.conflict);
+    }
+
     scheduledActivities.push({
       activityId: activity.id,
       name: activity.name,
       duration,
-      startDate: formatDateISO(activityStartDate),
-      endDate: formatDateISO(activityEndDate),
+      startDate: finalStartISO,
+      endDate: finalEndISO,
       isActual,
     });
 
-    // Next activity starts the working day after this one ends
-    currentDate = addWorkingDays(activityEndDate, 1, calendar);
+    // Next activity starts the working day after this one's (possibly constrained) end
+    currentDate = addWorkingDays(parseDateISO(finalEndISO), 1, calendar);
   }
 
   const lastActivity = scheduledActivities[scheduledActivities.length - 1];
@@ -119,6 +136,7 @@ export function computeDeterministicSchedule(
     activities: scheduledActivities,
     totalDurationDays: totalDuration,
     projectEndDate: lastActivity ? lastActivity.endDate : formatDateISO(currentDate),
+    constraintConflicts: conflicts.length > 0 ? conflicts : undefined,
   };
 }
 

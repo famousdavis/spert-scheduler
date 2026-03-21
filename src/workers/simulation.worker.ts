@@ -111,12 +111,27 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
           milestoneResults = computeMilestoneStats(depResult.milestoneSamples, payload.trialCount);
         }
       } else {
-        // Sequential simulation (original behavior)
+        // Sequential simulation (with optional constraint support)
+        const VALID_SEQ_TYPES = ["MSO", "MFO", "SNET", "SNLT", "FNET", "FNLT"];
+        const VALID_SEQ_MODES = ["hard", "soft"];
+        const seqConstraints = payload.sequentialConstraints?.map((c) => {
+          if (
+            c != null &&
+            typeof c.offsetFromStart === "number" &&
+            VALID_SEQ_TYPES.includes(c.type) &&
+            VALID_SEQ_MODES.includes(c.mode)
+          ) {
+            return c;
+          }
+          return null;
+        });
+
         samples = runTrials({
           activities: payload.activities,
           trialCount: payload.trialCount,
           rngSeed: payload.rngSeed,
           deterministicDurations: payload.deterministicDurations,
+          sequentialConstraints: seqConstraints,
           onProgress: postProgress,
           progressInterval: PROGRESS_INTERVAL,
         });

@@ -36,7 +36,8 @@ export function runSimulationInWorker(
   rngSeed: string,
   deterministicDurations: number[] | undefined,
   callbacks: SimulationCallbacks,
-  dependencyParams?: DependencySimulationParams
+  dependencyParams?: DependencySimulationParams,
+  sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
 ): SimulationHandle {
   const worker = new Worker(
     new URL("../../workers/simulation.worker.ts", import.meta.url),
@@ -92,6 +93,7 @@ export function runSimulationInWorker(
       trialCount,
       rngSeed,
       deterministicDurations,
+      sequentialConstraints: sequentialConstraints ?? undefined,
       ...(dependencyParams && {
         dependencyMode: dependencyParams.dependencyMode,
         dependencies: dependencyParams.dependencies,

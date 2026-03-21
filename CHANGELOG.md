@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.3 — 2026-03-20
+
+### Bug Fixes
+
+- Scheduling constraints (SNET, MSO, MFO, FNET) now work in sequential (non-dependency) mode — previously constraints were silently ignored when dependency mode was off
+- Monte Carlo simulation in sequential mode now respects constraint-induced schedule gaps (position-tracking path with per-trial constraint application)
+
 ## 0.24.2 — 2026-03-20
 
 ### Security

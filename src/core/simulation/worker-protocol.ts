@@ -12,6 +12,8 @@ export interface SimulationRequest {
     trialCount: number;
     rngSeed: string;
     deterministicDurations?: number[];
+    /** Per-activity constraint info for sequential mode (parallel to activities array). */
+    sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[];
     /** When true, use dependency-aware simulation. */
     dependencyMode?: boolean;
     /** Dependencies for dependency-aware simulation. */

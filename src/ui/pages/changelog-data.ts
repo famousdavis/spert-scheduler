@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.24.3",
+    date: "2026-03-20",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Scheduling constraints (SNET, MSO, MFO, FNET) now work in sequential (non-dependency) mode — previously constraints were silently ignored when dependency mode was off",
+          "Monte Carlo simulation in sequential mode now respects constraint-induced schedule gaps (position-tracking path with per-trial constraint application)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.24.2",
     date: "2026-03-20",
     sections: [

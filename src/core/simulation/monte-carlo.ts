@@ -20,12 +20,21 @@ import {
   computeCriticalPathWithMilestones,
 } from "@core/schedule/dependency-graph";
 
+/** Per-activity constraint info for sequential mode (parallel to activities array). */
+export interface SequentialConstraintEntry {
+  type: string;          // ConstraintType
+  offsetFromStart: number;
+  mode: string;          // ConstraintMode
+}
+
 export interface MonteCarloInput {
   activities: Activity[];
   trialCount: number;
   rngSeed: string;
   /** Per non-complete activity deterministic duration (Parkinson's Law floor). */
   deterministicDurations?: number[];
+  /** Per-activity constraint info for sequential mode (parallel to activities array, null = no constraint). */
+  sequentialConstraints?: (SequentialConstraintEntry | null)[];
   /** Optional progress callback, called every `progressInterval` trials. */
   onProgress?: (completedTrials: number, totalTrials: number) => void;
   /** How often to report progress (default: 10000). */
@@ -45,11 +54,13 @@ export function runTrials(input: MonteCarloInput): Float64Array {
     trialCount,
     rngSeed,
     deterministicDurations,
+    sequentialConstraints,
     onProgress,
     progressInterval = 10000,
   } = input;
 
   const rng = createSeededRng(rngSeed);
+  const hasConstraints = sequentialConstraints?.some((c) => c !== null) ?? false;
 
   // Separate completed activities from active ones
   let completedSum = 0;
@@ -67,21 +78,100 @@ export function runTrials(input: MonteCarloInput): Float64Array {
   const samples = new Float64Array(trialCount);
   const shouldReportProgress = onProgress && trialCount >= progressInterval;
 
-  for (let trial = 0; trial < trialCount; trial++) {
-    let totalDays = completedSum;
-    for (let i = 0; i < distributions.length; i++) {
-      const sampled = distributions[i]!.sample(rng);
-      const floor = deterministicDurations?.[i] ?? 0;
-      totalDays += Math.max(floor, sampled);
+  if (hasConstraints) {
+    // Position-tracking path: constraints can insert idle gaps
+    // Build per-activity info array (preserves activity order for constraint alignment)
+    const activityInfos: Array<
+      | { type: "complete"; duration: number }
+      | { type: "active"; distIndex: number; floor: number }
+    > = [];
+    let distIdx = 0;
+    for (const activity of activities) {
+      if (activity.status === "complete" && activity.actualDuration != null) {
+        activityInfos.push({ type: "complete", duration: activity.actualDuration });
+      } else {
+        activityInfos.push({
+          type: "active",
+          distIndex: distIdx,
+          floor: deterministicDurations?.[distIdx] ?? 0,
+        });
+        distIdx++;
+      }
     }
-    samples[trial] = totalDays;
 
-    if (
-      shouldReportProgress &&
-      (trial + 1) % progressInterval === 0 &&
-      trial + 1 < trialCount
-    ) {
-      onProgress(trial + 1, trialCount);
+    for (let trial = 0; trial < trialCount; trial++) {
+      let currentPos = 0; // cumulative working-day offset from project start
+
+      for (let a = 0; a < activityInfos.length; a++) {
+        const info = activityInfos[a]!;
+        let duration: number;
+
+        if (info.type === "complete") {
+          duration = info.duration;
+        } else {
+          const sampled = distributions[info.distIndex]!.sample(rng);
+          duration = Math.max(info.floor, sampled);
+        }
+
+        // Apply hard constraint (soft constraints have no per-trial effect)
+        const constraint = sequentialConstraints![a];
+        if (constraint && constraint.mode === "hard") {
+          const offset = constraint.offsetFromStart;
+          switch (constraint.type) {
+            case "MSO":
+            case "SNET":
+              // Push start to at least the constraint offset
+              currentPos = Math.max(currentPos, offset);
+              break;
+            case "MFO": {
+              // Pin finish at constraint offset; back-calculate start
+              const es = Math.max(offset - duration, currentPos);
+              currentPos = es;
+              break;
+            }
+            case "FNET": {
+              // Push finish to at least constraint offset
+              const naturalEnd = currentPos + duration;
+              if (offset > naturalEnd) {
+                currentPos = offset - duration;
+              }
+              break;
+            }
+            // SNLT, FNLT: no per-trial effect
+          }
+        }
+
+        currentPos += duration;
+      }
+
+      samples[trial] = currentPos;
+
+      if (
+        shouldReportProgress &&
+        (trial + 1) % progressInterval === 0 &&
+        trial + 1 < trialCount
+      ) {
+        onProgress(trial + 1, trialCount);
+      }
+    }
+  } else {
+    // Fast path: no constraints, simple sum of durations
+    for (let trial = 0; trial < trialCount; trial++) {
+      let totalDays = completedSum;
+      for (let i = 0; i < distributions.length; i++) {
+        const sampled = distributions[i]!.sample(rng);
+        const floor = deterministicDurations?.[i] ?? 0;
+        totalDays += Math.max(floor, sampled);
+      }
+      samples[trial] = totalDays;
+
+      if (
+        shouldReportProgress &&
+        (trial + 1) % progressInterval === 0 &&
+        trial + 1 < trialCount
+      ) {
+        onProgress(trial + 1, trialCount);
+      }
     }
   }
 

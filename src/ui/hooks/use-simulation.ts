@@ -30,7 +30,8 @@ export function useSimulation() {
       rngSeed: string,
       deterministicDurations: number[] | undefined,
       onComplete: (result: SimulationRun, elapsedMs: number) => void,
-      dependencyParams?: DependencySimulationParams
+      dependencyParams?: DependencySimulationParams,
+      sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
     ) => {
       setState({
         isRunning: true,
@@ -65,7 +66,7 @@ export function useSimulation() {
           });
           handleRef.current = null;
         },
-      }, dependencyParams);
+      }, dependencyParams, sequentialConstraints);
     },
     []
   );
