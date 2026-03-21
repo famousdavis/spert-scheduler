@@ -496,15 +496,6 @@ export function ProjectPage() {
         />
       )}
 
-      {/* Sequential-mode banner when constraints exist */}
-      {scenario && !scenario.settings.dependencyMode && scenario.activities.some((a) => a.constraintType != null) && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-          <p className="text-sm text-blue-700 dark:text-blue-300">
-            Scheduling constraints are inactive in sequential mode. Switch to dependency mode to enable constraint scheduling.
-          </p>
-        </div>
-      )}
-
       {/* Active scenario content */}
       {scenario ? (
         <div className="space-y-6">
