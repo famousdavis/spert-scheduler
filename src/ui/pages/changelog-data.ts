@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.24.4",
+    date: "2026-03-21",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Dependency panel sort toggle — switch between alphabetical (A→Z) and schedule order (by predecessor start date) to view dependencies in the order they appear in the schedule",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.24.3",
     date: "2026-03-20",
     sections: [

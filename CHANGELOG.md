@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.4 — 2026-03-21
+
+### New Features
+
+- Dependency panel sort toggle — switch between alphabetical (A→Z) and schedule order (by predecessor start date) to view dependencies in the order they appear in the schedule
+
 ## 0.24.3 — 2026-03-20
 
 ### Bug Fixes

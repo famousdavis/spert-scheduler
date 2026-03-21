@@ -588,6 +588,7 @@ export function ProjectPage() {
             <DependencyPanel
               activities={scenario.activities}
               dependencies={scenario.dependencies}
+              schedule={schedule ?? undefined}
               onAddDependency={(fromId, toId, type, lag) =>
                 addDependency(id!, scenario.id, fromId, toId, type, lag)
               }

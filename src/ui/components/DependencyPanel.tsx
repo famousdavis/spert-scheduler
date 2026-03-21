@@ -2,13 +2,16 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import type { Activity, ActivityDependency, DependencyType } from "@domain/models/types";
+import type { Activity, ActivityDependency, DependencyType, DeterministicSchedule } from "@domain/models/types";
 import { DEPENDENCY_TYPES } from "@domain/models/types";
 import { validateDependencies, detectCycle } from "@core/schedule/dependency-graph";
+
+type DependencySortMode = "alpha" | "schedule";
 
 interface DependencyPanelProps {
   activities: Activity[];
   dependencies: ActivityDependency[];
+  schedule?: DeterministicSchedule;
   onAddDependency: (
     fromActivityId: string,
     toActivityId: string,
@@ -64,6 +67,7 @@ function LagInput({
 export function DependencyPanel({
   activities,
   dependencies,
+  schedule,
   onAddDependency,
   onRemoveDependency,
   onUpdateLag,
@@ -128,9 +132,31 @@ export function DependencyPanel({
     [activityMap]
   );
 
-  // Sort dependencies alphabetically by predecessor name, then successor name
+  const [sortMode, setSortMode] = useState<DependencySortMode>("alpha");
+
+  // Build schedule start-date lookup for schedule sort
+  const scheduleStartMap = useMemo(() => {
+    if (!schedule) return undefined;
+    const map = new Map<string, string>();
+    for (const sa of schedule.activities) {
+      map.set(sa.activityId, sa.startDate);
+    }
+    return map;
+  }, [schedule]);
+
+  // Sort dependencies by selected mode
   const sortedDependencies = useMemo(() => {
     return [...dependencies].sort((a, b) => {
+      if (sortMode === "schedule" && scheduleStartMap) {
+        // Sort by predecessor start date, then successor start date
+        const fromStartA = scheduleStartMap.get(a.fromActivityId) ?? "";
+        const fromStartB = scheduleStartMap.get(b.fromActivityId) ?? "";
+        if (fromStartA !== fromStartB) return fromStartA.localeCompare(fromStartB);
+        const toStartA = scheduleStartMap.get(a.toActivityId) ?? "";
+        const toStartB = scheduleStartMap.get(b.toActivityId) ?? "";
+        return toStartA.localeCompare(toStartB);
+      }
+      // Alphabetical: predecessor name, then successor name
       const fromA = getActivityName(a.fromActivityId).toLowerCase();
       const fromB = getActivityName(b.fromActivityId).toLowerCase();
       if (fromA !== fromB) return fromA.localeCompare(fromB);
@@ -138,7 +164,7 @@ export function DependencyPanel({
       const toB = getActivityName(b.toActivityId).toLowerCase();
       return toA.localeCompare(toB);
     });
-  }, [dependencies, getActivityName]);
+  }, [dependencies, sortMode, scheduleStartMap, getActivityName]);
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -165,11 +191,42 @@ export function DependencyPanel({
           </svg>
           Dependencies
         </button>
-        <span className="text-xs text-gray-400 dark:text-gray-500">
-          {dependencies.length === 0
-            ? "No dependencies — all activities will start in parallel"
-            : `${dependencies.length} ${dependencies.length === 1 ? "dependency" : "dependencies"}`}
-        </span>
+        <div className="flex items-center gap-3">
+          {/* Sort toggle (only when there are 2+ dependencies) */}
+          {dependencies.length >= 2 && (
+            <div className="flex items-center gap-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setSortMode("alpha")}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  sortMode === "alpha"
+                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium"
+                    : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                }`}
+                title="Sort alphabetically"
+              >
+                A→Z
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortMode("schedule")}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  sortMode === "schedule"
+                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium"
+                    : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                }`}
+                title="Sort by schedule order"
+              >
+                Schedule
+              </button>
+            </div>
+          )}
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {dependencies.length === 0
+              ? "No dependencies — all activities will start in parallel"
+              : `${dependencies.length} ${dependencies.length === 1 ? "dependency" : "dependencies"}`}
+          </span>
+        </div>
       </div>
 
       {!collapsed && (<div className="p-4 space-y-3">
