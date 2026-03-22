@@ -306,13 +306,23 @@ export function ActivityImportSection({
             Upload a CSV file or paste data from a spreadsheet to create a new scenario.
           </p>
         </div>
-        <a
-          href="/spert-activity-import-template.csv"
-          download="spert-activity-import-template.csv"
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap ml-4"
-        >
-          Download template
-        </a>
+        <div className="flex flex-col items-end gap-1 ml-4">
+          <a
+            href="/spert-activity-import-template.csv"
+            download="spert-activity-import-template.csv"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
+          >
+            Download template
+          </a>
+          <a
+            href="/SPERTScheduler_Import_Quick_Reference_Guide.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
+          >
+            Import guide (PDF)
+          </a>
+        </div>
       </div>
 
       <div className="mt-4 space-y-4">
