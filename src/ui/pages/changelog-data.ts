@@ -12,6 +12,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.25.0",
+    date: "2026-03-22",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Import activities from CSV file or clipboard paste — parse spreadsheet data into a new scenario with full validation, dependency resolution, and cycle detection",
+          "Download CSV template with 10 example activities demonstrating all four distribution types (T-Normal, LogNormal, Triangular, Uniform) with realistic dependency chains",
+          "Live preview with debounced parsing, row-level error/warning display, and summary statistics",
+          "Import to a new project or add as a scenario to an existing project, with one-click navigation to the imported project",
+          "Confidence Level is optional for Triangular and Uniform distributions (only affects T-Normal and LogNormal)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.24.4",
     date: "2026-03-21",
     sections: [

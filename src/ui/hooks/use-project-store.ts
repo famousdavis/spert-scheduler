@@ -217,6 +217,7 @@ export interface ProjectStore {
 
   // Import
   importProjects: (projects: Project[], replaceIds?: string[]) => void;
+  importScenarioToProject: (projectId: string, scenario: Scenario) => void;
 
   // Archive
   archiveProject: (id: string) => void;
@@ -747,6 +748,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     for (const project of projects) {
       cloudSyncBus.emitCreate(project.id);
     }
+  },
+
+  importScenarioToProject: (projectId, scenario) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId ? addScenarioToProject(p, scenario) : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
   },
 
   archiveProject: (id: string) => {
