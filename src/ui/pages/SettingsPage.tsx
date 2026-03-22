@@ -7,14 +7,20 @@ import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { ExportSection } from "@ui/components/ExportSection";
 import { ImportSection } from "@ui/components/ImportSection";
+import { ActivityImportSection } from "@ui/components/ActivityImportSection";
 import { PreferencesSection } from "@ui/components/PreferencesSection";
 import { LocalStorageSection } from "@ui/components/LocalStorageSection";
 import { StorageModeSection } from "@ui/components/StorageModeSection";
 import { ScheduleExportSection } from "@ui/components/ScheduleExportSection";
 
 export function SettingsPage() {
-  const { projects, loadProjects, importProjects } = useProjectStore(
-    useShallow((s) => ({ projects: s.projects, loadProjects: s.loadProjects, importProjects: s.importProjects }))
+  const { projects, loadProjects, importProjects, importScenarioToProject } = useProjectStore(
+    useShallow((s) => ({
+      projects: s.projects,
+      loadProjects: s.loadProjects,
+      importProjects: s.importProjects,
+      importScenarioToProject: s.importScenarioToProject,
+    }))
   );
   const loadPrefs = usePreferencesStore((s) => s.loadPreferences);
 
@@ -34,6 +40,11 @@ export function SettingsPage() {
       <ExportSection projects={projects} />
       <ScheduleExportSection projects={projects} />
       <ImportSection projects={projects} importProjects={importProjects} />
+      <ActivityImportSection
+        projects={projects}
+        importProjects={importProjects}
+        importScenarioToProject={importScenarioToProject}
+      />
     </div>
   );
 }

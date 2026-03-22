@@ -1,0 +1,18 @@
+# SPERT Scheduler Activity Import Template v1
+# Confidence Level: Near Certainty, Very High, High, Medium High, Medium, Medium Low, Low, Very Low, Extremely Low, Guesstimate
+#   Note: Confidence Level only affects T-Normal and LogNormal distributions. It is ignored for Triangular and Uniform.
+# Distribution: normal (T-Normal), logNormal, triangular, uniform  (default: normal)
+# Status: planned, inProgress, complete  (default: planned)
+# Predecessors: comma-separated Activity IDs, with optional lag - A1, A2+3, A3-1
+# Save this file as "CSV UTF-8" (not "CSV Windows") to preserve special characters
+Activity ID,Activity Name,Optimistic (Min),Most Likely,Pessimistic (Max),Confidence Level,Distribution,Status,Predecessors
+A1,Define Requirements,3,5,7,Medium,normal,planned,
+A2,Design Database,4,7,10,High,normal,planned,A1
+A3,Build API,5,10,30,Low,logNormal,planned,A2
+A4,Frontend Development,4,8,15,,triangular,planned,A2
+A5,Vendor Integration,3,8,25,Very Low,logNormal,planned,A3
+A6,Testing,3,5,10,,triangular,planned,A3,A4
+A7,Security Review,2,2,5,,uniform,planned,A5,A6
+A8,Code Review,1,2,3,High,normal,planned,A6
+A9,Data Migration,5,12,40,Guesstimate,logNormal,planned,A5
+A10,Deploy to Production,1,1,1,,uniform,planned,A7,A8,A9
