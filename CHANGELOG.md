@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.25.1 — 2026-03-23
+
+### Bug Fixes
+
+- Fixed copy image button failing in Firefox due to Content-Security-Policy blocking stylesheet loads in html2canvas cloned DOM
+
+### Improvements
+
+- Added Import Activities quick reference guide (PDF) link to the import section
+- Updated Quick Reference Guide for v0.25.0
+- PDF links now open in a new browser tab instead of triggering a download
+
 ## 0.25.0 — 2026-03-22
 
 ### New Features

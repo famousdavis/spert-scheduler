@@ -15,6 +15,10 @@ import html2canvas from "html2canvas";
  *     (both HTML and SVG — SVG elements inherit color from parent HTML).
  */
 function neutralizeOklch(doc: Document, clonedEl: HTMLElement): void {
+  // Strip external stylesheets — prevents Firefox CSP violations in cloned DOM.
+  // Computed styles are already resolved inline; external sheets are not needed.
+  doc.querySelectorAll('link[rel="stylesheet"]').forEach((link) => link.remove());
+
   // Single reusable canvas to convert oklch → rgb
   const cvs = document.createElement("canvas");
   cvs.width = 1;
