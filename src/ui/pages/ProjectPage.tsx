@@ -692,6 +692,9 @@ export function ProjectPage() {
           onClose={() => setEditingActivityId(null)}
           schedule={schedule ?? undefined}
           dependencyMode={scenario.settings.dependencyMode}
+          heuristicEnabled={scenario.settings.heuristicEnabled}
+          heuristicMinPercent={scenario.settings.heuristicMinPercent}
+          heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
           onEditDependency={(fromId, toId) => {
             setEditingActivityId(null);
             setEditingDependency({ fromActivityId: fromId, toActivityId: toId });

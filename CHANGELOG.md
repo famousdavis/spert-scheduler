@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.3 — 2026-03-23
+
+### Bug Fixes
+
+- Activity Edit Modal now applies heuristic min/max auto-fill when the Most Likely value is changed, matching the behavior of the activity grid. Previously, editing ML in the modal with heuristics enabled did not recalculate min and max.
+
 ## 0.25.2 — 2026-03-23
 
 ### Enhancements

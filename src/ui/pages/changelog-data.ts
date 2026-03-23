@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.25.3",
+    date: "2026-03-23",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Activity Edit Modal now applies heuristic min/max auto-fill when the Most Likely value is changed, matching the behavior of the activity grid. Previously, editing ML in the modal with heuristics enabled did not recalculate min and max.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.25.2",
     date: "2026-03-23",
     sections: [

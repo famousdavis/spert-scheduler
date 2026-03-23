@@ -30,6 +30,7 @@ import { detectConstraintConflict } from "@core/schedule/constraint-utils";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { ChecklistSection } from "@ui/components/ChecklistSection";
+import { computeHeuristic } from "@core/estimation/heuristic";
 
 interface ActivityEditModalProps {
   activityId: string;
@@ -38,6 +39,9 @@ interface ActivityEditModalProps {
   onClose: () => void;
   schedule: DeterministicSchedule | undefined;
   dependencyMode?: boolean;
+  heuristicEnabled?: boolean;
+  heuristicMinPercent?: number;
+  heuristicMaxPercent?: number;
   onEditDependency?: (fromId: string, toId: string) => void;
   onAddDependency?: (fromId: string) => void;
 }
@@ -82,6 +86,9 @@ export function ActivityEditModal({
   onClose,
   schedule,
   dependencyMode,
+  heuristicEnabled,
+  heuristicMinPercent = 50,
+  heuristicMaxPercent = 200,
   onEditDependency,
   onAddDependency,
 }: ActivityEditModalProps) {
@@ -139,6 +146,16 @@ export function ActivityEditModal({
 
   // -- Local draft state: Checklist --
   const [checklist, setChecklist] = useState<ChecklistItem[]>(activity?.checklist ?? []);
+
+  // -- Heuristic auto-fill: when ML changes, recalculate min/max --
+  const handleMostLikelyBlur = useCallback(() => {
+    if (!heuristicEnabled || mostLikely === "") return;
+    const ml = Number(mostLikely);
+    if (isNaN(ml) || ml <= 0) return;
+    const { min: newMin, max: newMax } = computeHeuristic(ml, heuristicMinPercent, heuristicMaxPercent);
+    setMin(newMin);
+    setMax(newMax);
+  }, [heuristicEnabled, mostLikely, heuristicMinPercent, heuristicMaxPercent]);
 
   // -- Conflict preview (200ms debounce) --
   const [conflictPreview, setConflictPreview] = useState<ConstraintConflict | null>(null);
@@ -433,6 +450,7 @@ export function ActivityEditModal({
                     step={0.5}
                     value={mostLikely}
                     onChange={(e) => setMostLikely(e.target.value === "" ? "" : Number(e.target.value))}
+                    onBlur={handleMostLikelyBlur}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
                   />
                 </div>
