@@ -15,10 +15,6 @@ import html2canvas from "html2canvas";
  *     (both HTML and SVG — SVG elements inherit color from parent HTML).
  */
 function neutralizeOklch(doc: Document, clonedEl: HTMLElement): void {
-  // Strip external stylesheets — prevents Firefox CSP violations in cloned DOM.
-  // Computed styles are already resolved inline; external sheets are not needed.
-  doc.querySelectorAll('link[rel="stylesheet"]').forEach((link) => link.remove());
-
   // Single reusable canvas to convert oklch → rgb
   const cvs = document.createElement("canvas");
   cvs.width = 1;
@@ -76,12 +72,33 @@ function neutralizeOklch(doc: Document, clonedEl: HTMLElement): void {
 export async function copyChartAsPng(
   element: HTMLElement
 ): Promise<void> {
-  const canvas = await html2canvas(element, {
-    backgroundColor: "#ffffff",
-    scale: 2, // Higher resolution
-    ignoreElements: (el) => el.classList.contains("copy-image-button"),
-    onclone: neutralizeOklch,
+  // Strip external stylesheets BEFORE html2canvas clones the DOM.
+  // Firefox CSP blocks stylesheet loads in the cloned iframe context because
+  // 'self' doesn't match the iframe's null origin. Stripping before the clone
+  // prevents the CSP violation entirely. Computed styles are already resolved
+  // inline on all elements, so the stylesheets aren't needed for rendering.
+  const removedLinks: { link: HTMLLinkElement; parent: Node; next: Node | null }[] = [];
+  document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+    if (link.parentNode) {
+      removedLinks.push({ link: link as HTMLLinkElement, parent: link.parentNode, next: link.nextSibling });
+      link.remove();
+    }
   });
+
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(element, {
+      backgroundColor: "#ffffff",
+      scale: 2, // Higher resolution
+      ignoreElements: (el) => el.classList.contains("copy-image-button"),
+      onclone: neutralizeOklch,
+    });
+  } finally {
+    // Restore stylesheets immediately after cloning
+    for (const { link, parent, next } of removedLinks) {
+      parent.insertBefore(link, next);
+    }
+  }
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
