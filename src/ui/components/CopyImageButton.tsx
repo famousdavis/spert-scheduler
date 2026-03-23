@@ -49,7 +49,7 @@ export function CopyImageButton({
   }, [targetRef]);
 
   const unsupportedTitle =
-    "Not supported in this browser — try Chrome, Edge, or Safari";
+    "Copy image is not supported in this browser — try Chrome, Edge, or Safari";
 
   return (
     <button
