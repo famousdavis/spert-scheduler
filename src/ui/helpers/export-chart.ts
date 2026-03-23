@@ -72,17 +72,35 @@ function neutralizeOklch(doc: Document, clonedEl: HTMLElement): void {
 export async function copyChartAsPng(
   element: HTMLElement
 ): Promise<void> {
-  // Strip external stylesheets BEFORE html2canvas clones the DOM.
-  // Firefox CSP blocks stylesheet loads in the cloned iframe context because
-  // 'self' doesn't match the iframe's null origin. Stripping before the clone
-  // prevents the CSP violation entirely. Computed styles are already resolved
-  // inline on all elements, so the stylesheets aren't needed for rendering.
-  const removedLinks: { link: HTMLLinkElement; parent: Node; next: Node | null }[] = [];
-  document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
-    if (link.parentNode) {
-      removedLinks.push({ link: link as HTMLLinkElement, parent: link.parentNode, next: link.nextSibling });
-      link.remove();
+  // Inline external stylesheets BEFORE html2canvas clones the DOM.
+  // html2canvas clones into an iframe. Firefox CSP blocks the cloned <link>
+  // from fetching the stylesheet because the iframe's origin doesn't match
+  // 'self'. By converting <link> to inline <style> (same CSS rules, no fetch),
+  // the clone inherits styles without triggering CSP. Computed styles on the
+  // live document remain unchanged because the same rules are still applied.
+  const swaps: { link: HTMLLinkElement; style: HTMLStyleElement; parent: Node; next: Node | null }[] = [];
+  document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]').forEach((link) => {
+    if (!link.parentNode) return;
+    // Find the matching CSSStyleSheet and extract its rules
+    const sheet = [...document.styleSheets].find(
+      (s) => s.ownerNode === link
+    );
+    if (!sheet) return;
+    let cssText = "";
+    try {
+      for (const rule of sheet.cssRules) {
+        cssText += rule.cssText + "\n";
+      }
+    } catch {
+      // Cross-origin sheet — skip (shouldn't happen for same-origin Vite bundles)
+      return;
     }
+    const style = document.createElement("style");
+    style.textContent = cssText;
+    const parent = link.parentNode;
+    const next = link.nextSibling;
+    parent.replaceChild(style, link);
+    swaps.push({ link, style, parent, next });
   });
 
   let canvas: HTMLCanvasElement;
@@ -94,9 +112,9 @@ export async function copyChartAsPng(
       onclone: neutralizeOklch,
     });
   } finally {
-    // Restore stylesheets immediately after cloning
-    for (const { link, parent, next } of removedLinks) {
-      parent.insertBefore(link, next);
+    // Restore original <link> elements
+    for (const { link, style, parent } of swaps) {
+      parent.replaceChild(link, style);
     }
   }
 
