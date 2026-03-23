@@ -232,6 +232,7 @@ export interface ScheduledActivity {
   lateStartNet?: string; // network-driven late start (for SNLT/FNLT eval)
   lateFinishNet?: string; // network-driven late finish (for SNLT/FNLT eval)
   totalFloat?: number; // lateStartNet − ES_net (network-driven CPM float)
+  freeFloat?: number;  // min gap to successors' early start (working days)
 }
 
 export interface ConstraintConflict {

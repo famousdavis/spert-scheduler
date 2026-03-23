@@ -609,7 +609,9 @@ export function GanttChart({
                     setTooltip({
                       x: e.clientX,
                       y: e.clientY,
-                      text: `${act.name}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`,
+                      text: dependencyMode && sa.totalFloat != null
+                        ? `${act.name}\n${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)\nTotal Float: ${sa.totalFloat === 0 ? "Critical path" : `${sa.totalFloat}d`}${sa.freeFloat != null && sa.freeFloat < sa.totalFloat ? `\nFree Float: ${sa.freeFloat}d` : ""}`
+                        : `${act.name}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`,
                     });
                   }}
                   onMouseMove={(e) =>
@@ -912,7 +914,7 @@ export function GanttChart({
       {/* Tooltip portal */}
       {tooltip && (
         <div
-          className="fixed z-50 px-2 py-1 text-xs bg-gray-900 text-white rounded shadow-lg pointer-events-none"
+          className="fixed z-50 px-2 py-1 text-xs bg-gray-900 text-white rounded shadow-lg pointer-events-none whitespace-pre-line"
           style={{ left: tooltip.x + 12, top: tooltip.y - 20 }}
         >
           {tooltip.text}

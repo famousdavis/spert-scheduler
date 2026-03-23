@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.25.2",
+    date: "2026-03-23",
+    sections: [
+      {
+        title: "Enhancements",
+        items: [
+          "Total Float and Free Float are now surfaced in three places in Dependency Mode: the schedule export (XLSX and CSV) includes new float columns; hovering over a Gantt activity bar shows a tooltip with scheduled dates and float values; and the Activity Edit Modal includes a new read-only Schedule Analysis section. Activities on the critical path are identified as such (Total Float = 0). Float values are only shown in Dependency Mode and do not appear in sequential mode schedules.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.25.1",
     date: "2026-03-23",
     sections: [

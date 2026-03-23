@@ -375,3 +375,87 @@ describe("exportScheduleXlsx", () => {
     expect((ws.views[0] as { ySplit?: number }).ySplit).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Float column tests
+// ---------------------------------------------------------------------------
+
+describe("float columns in export", () => {
+  const depSettings: ScenarioSettings = { ...settings, dependencyMode: true };
+  const depSchedule: DeterministicSchedule = {
+    activities: [
+      { activityId: "a1", name: "Design", duration: 12, startDate: "2026-03-16", endDate: "2026-03-31", isActual: false, totalFloat: 0, freeFloat: 0 },
+      { activityId: "a2", name: "Develop", duration: 10, startDate: "2026-04-01", endDate: "2026-04-14", isActual: false, totalFloat: 3, freeFloat: 1 },
+      { activityId: "a3", name: "Test", duration: 8, startDate: "2026-04-15", endDate: "2026-04-24", isActual: true, totalFloat: 5, freeFloat: 5 },
+    ],
+    totalDurationDays: 30,
+    projectEndDate: "2026-04-24",
+  };
+  const depParams: ScheduleExportParams = {
+    projectName: "Float Test",
+    scenarioName: "Baseline",
+    activities,
+    schedule: depSchedule,
+    buffer,
+    settings: depSettings,
+    dependencies,
+    milestones: [],
+    dateFormat: "MM/DD/YYYY",
+  };
+
+  it("dependency mode CSV includes Total Float and Free Float columns", () => {
+    const csv = exportScheduleCsv(depParams);
+    const lines = csv.split("\n");
+    const headerLine = lines.find((l) => l.startsWith("#,"));
+    expect(headerLine).toBeDefined();
+    expect(headerLine).toContain("Total Float (days)");
+    expect(headerLine).toContain("Free Float (days)");
+  });
+
+  it("dependency mode CSV has correct float values", () => {
+    const csv = exportScheduleCsv(depParams);
+    const lines = csv.split("\n");
+    const headerLine = lines.find((l) => l.startsWith("#,"))!;
+    const headers = headerLine.split(",");
+    const tfIdx = headers.indexOf("Total Float (days)");
+    const ffIdx = headers.indexOf("Free Float (days)");
+    expect(tfIdx).toBeGreaterThan(-1);
+    expect(ffIdx).toBeGreaterThan(-1);
+
+    // First data row (Design): totalFloat=0, freeFloat=0
+    const dataLine = lines[lines.indexOf(headerLine) + 1]!;
+    const cells = dataLine.split(",");
+    expect(cells[tfIdx]).toBe("0");
+    expect(cells[ffIdx]).toBe("0");
+  });
+
+  it("sequential mode CSV does NOT include float columns", () => {
+    const seqParams: ScheduleExportParams = {
+      ...depParams,
+      settings,
+      schedule,
+    };
+    const csv = exportScheduleCsv(seqParams);
+    expect(csv).not.toContain("Total Float (days)");
+    expect(csv).not.toContain("Free Float (days)");
+  });
+
+  it("buildGridRows includes float in dependency mode", () => {
+    const rows = buildGridRows(depParams);
+    expect(rows[0]!.totalFloat).toBe(0);
+    expect(rows[0]!.freeFloat).toBe(0);
+    expect(rows[1]!.totalFloat).toBe(3);
+    expect(rows[1]!.freeFloat).toBe(1);
+  });
+
+  it("buildGridRows omits float in sequential mode", () => {
+    const seqParams: ScheduleExportParams = {
+      ...depParams,
+      settings,
+      schedule,
+    };
+    const rows = buildGridRows(seqParams);
+    expect(rows[0]!.totalFloat).toBeUndefined();
+    expect(rows[0]!.freeFloat).toBeUndefined();
+  });
+});

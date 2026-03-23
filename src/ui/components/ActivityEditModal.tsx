@@ -348,14 +348,11 @@ export function ActivityEditModal({
             Edit Activity
           </Dialog.Title>
 
-          {/* Scheduled dates context */}
-          {sa && (
+          {/* Scheduled dates context (sequential mode only — dependency mode uses Schedule Analysis section) */}
+          {sa && !dependencyMode && (
             <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex gap-4">
               <span>Start: {formatDate(sa.startDate)}</span>
               <span>End: {formatDate(sa.endDate)}</span>
-              {sa.totalFloat != null && (
-                <span>Float: {sa.totalFloat}d</span>
-              )}
             </div>
           )}
 
@@ -687,6 +684,32 @@ export function ActivityEditModal({
             >
               <ChecklistSection checklist={checklist} onChange={setChecklist} />
             </Section>
+
+            {/* ── Section 6: Schedule Analysis (dependency mode only) ── */}
+            {dependencyMode && sa && (
+              <Section title="Schedule Analysis" defaultOpen={false}>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div className="text-gray-500 dark:text-gray-400">Scheduled Start</div>
+                  <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.startDate)}</div>
+                  <div className="text-gray-500 dark:text-gray-400">Scheduled Finish</div>
+                  <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.endDate)}</div>
+                  <div className="text-gray-500 dark:text-gray-400">Duration</div>
+                  <div className="text-gray-900 dark:text-gray-100">{sa.duration} working days</div>
+                  <div className="text-gray-500 dark:text-gray-400">Total Float</div>
+                  <div className="text-gray-900 dark:text-gray-100">
+                    {sa.totalFloat === 0
+                      ? "Critical path \u2014 0 days float"
+                      : `${sa.totalFloat} days`}
+                  </div>
+                  {sa.freeFloat != null && (
+                    <>
+                      <div className="text-gray-500 dark:text-gray-400">Free Float</div>
+                      <div className="text-gray-900 dark:text-gray-100">{sa.freeFloat} days</div>
+                    </>
+                  )}
+                </div>
+              </Section>
+            )}
           </div>
 
           {/* Actions */}

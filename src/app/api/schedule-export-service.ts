@@ -106,6 +106,8 @@ export interface GridRow {
   constraintDate?: string;
   constraintMode?: string;
   constraintNote?: string;
+  totalFloat?: number | "";
+  freeFloat?: number | "";
   tasks?: string;
   taskDetails?: string;
 }
@@ -193,6 +195,10 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
       startDate: sa ? fmt(sa.startDate) : "",
       endDate: sa ? fmt(sa.endDate) : "",
     };
+    if (settings.dependencyMode) {
+      row.totalFloat = sa?.totalFloat ?? "";
+      row.freeFloat = sa?.freeFloat ?? "";
+    }
     if (predMap) row.predecessors = predMap.get(activity.id) ?? "";
     if (succMap) row.successors = succMap.get(activity.id) ?? "";
     if (settings.dependencyMode) {
@@ -257,6 +263,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
     "End Date",
   ];
   if (hasDeps) {
+    headers.push("Total Float (days)", "Free Float (days)");
     headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
   }
   headers.push("Tasks", "Task Details");
@@ -279,6 +286,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
       row.endDate,
     ];
     if (hasDeps) {
+      cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
       cells.push(
         row.predecessors ?? "", row.successors ?? "",
         row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
@@ -309,7 +317,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
     "",
   ];
   if (hasDeps) {
-    totalCells.push("", "", "", "", "", "");
+    totalCells.push("", "", "", "", "", "", "", "");
   }
   totalCells.push("", "");
   lines.push(totalCells.map(csvEscape).join(","));
@@ -353,7 +361,7 @@ export async function exportScheduleXlsx(
 
   // ---- Title row ----
   let rowNum = 1;
-  const lastCol = hasDeps ? 20 : 14;
+  const lastCol = hasDeps ? 22 : 14;
   ws.mergeCells(rowNum, 1, rowNum, lastCol);
   const titleCell = ws.getCell(rowNum, 1);
   titleCell.value = `${params.projectName} — ${params.scenarioName}`;
@@ -390,6 +398,7 @@ export async function exportScheduleXlsx(
     "End Date",
   ];
   if (hasDeps) {
+    headers.push("Total Float (days)", "Free Float (days)");
     headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
   }
   headers.push("Tasks", "Task Details");
@@ -421,6 +430,7 @@ export async function exportScheduleXlsx(
       row.endDate,
     ];
     if (hasDeps) {
+      cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
       cells.push(
         row.predecessors ?? "", row.successors ?? "",
         row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
@@ -465,7 +475,7 @@ export async function exportScheduleXlsx(
   // Auto-fit to the longest summary key with bold font padding, capped at 28.
   const colAWidth = Math.min(28, Math.max(5, ...summary.map((r) => r.key.length + 4)));
   const widths = [colAWidth, 30, 8, 12, 8, 16, 14, 12, 8, 14, 14, 14];
-  if (hasDeps) widths.push(16, 16, 16, 14, 10, 30);
+  if (hasDeps) widths.push(14, 14, 16, 16, 16, 14, 10, 30);
   widths.push(8, 40);
   ws.columns = widths.map((w) => ({ width: w }));
 

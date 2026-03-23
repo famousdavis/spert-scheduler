@@ -462,6 +462,36 @@ export function computeDependencySchedule(
     totalFloatMap.set(id, countWorkingDays(esDate, lsDate, calendar));
   }
 
+  // -- Free float computation -------------------------------------------------
+  // Free float = min gap to any successor's early start, measured in working days.
+  // For terminal activities (no successors), free float equals total float.
+  const freeFloatMap = new Map<string, number>();
+  for (const id of graph.topologicalOrder) {
+    const succs = graph.successors.get(id) ?? [];
+    if (succs.length === 0) {
+      freeFloatMap.set(id, totalFloatMap.get(id) ?? 0);
+    } else {
+      let minGap = Infinity;
+      const predES = startDates.get(id)!;
+      const predEF = endDates.get(id)!;
+      for (const succ of succs) {
+        const succES = startDates.get(succ.id)!;
+        const succEF = endDates.get(succ.id)!;
+        let gap: number;
+        if (succ.type === "SS") {
+          gap = countWorkingDays(predES, succES, calendar) - succ.lagDays;
+        } else if (succ.type === "FF") {
+          gap = countWorkingDays(predEF, succEF, calendar) - succ.lagDays;
+        } else {
+          // FS
+          gap = countWorkingDays(predEF, succES, calendar) - 1 - succ.lagDays;
+        }
+        if (gap < minGap) minGap = gap;
+      }
+      freeFloatMap.set(id, Math.max(0, minGap));
+    }
+  }
+
   // Detect SNLT/FNLT and soft constraint conflicts using network-driven late dates
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
@@ -542,6 +572,7 @@ export function computeDependencySchedule(
       lateStartNet: lateStartNet.get(id),
       lateFinishNet: lateFinishNet.get(id),
       totalFloat: totalFloatMap.get(id),
+      freeFloat: freeFloatMap.get(id),
     });
   }
 
