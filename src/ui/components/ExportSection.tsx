@@ -43,7 +43,7 @@ export function ExportSection({ projects }: ExportSectionProps) {
     const toExport = projects.filter((p) => selectedIds.has(p.id));
     if (toExport.length === 0) return;
     const json = serializeExport(toExport, { includeSimulationResults });
-    const filename = `spert-export-${formatDateISO(new Date())}.json`;
+    const filename = `spert-scheduler-export-${formatDateISO(new Date())}.json`;
     downloadFile(json, filename, "application/json");
   }, [projects, selectedIds, includeSimulationResults]);
 

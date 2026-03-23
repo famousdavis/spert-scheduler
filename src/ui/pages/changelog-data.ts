@@ -19,6 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: "Enhancements",
         items: [
           "Total Float and Free Float are now surfaced in three places in Dependency Mode: the schedule export (XLSX and CSV) includes new float columns; hovering over a Gantt activity bar shows a tooltip with scheduled dates and float values; and the Activity Edit Modal includes a new read-only Schedule Analysis section. Activities on the critical path are identified as such (Total Float = 0). Float values are only shown in Dependency Mode and do not appear in sequential mode schedules.",
+          "Schedule export filenames now prefixed with \"spert-scheduler\" for easy identification.",
         ],
       },
     ],
