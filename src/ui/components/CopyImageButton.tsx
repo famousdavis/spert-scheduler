@@ -5,8 +5,16 @@ import { useState, useCallback, type RefObject } from "react";
 import { toast } from "@ui/hooks/use-notification-store";
 import { copyChartAsPng } from "@ui/helpers/export-chart";
 
-/** Browser supports clipboard.write() with image data (Firefox does not). */
+/**
+ * Browser supports clipboard.write() with image data.
+ * Firefox exposes ClipboardItem and clipboard.write in the API surface but
+ * they silently fail for image/png without a hidden about:config flag
+ * (dom.events.asyncClipboard.clipboardItem). UA detection is the only
+ * reliable way to distinguish "API exists" from "API actually works."
+ */
+const IS_FIREFOX = /Firefox\//i.test(navigator.userAgent);
 const CLIPBOARD_IMAGE_SUPPORTED =
+  !IS_FIREFOX &&
   typeof ClipboardItem !== "undefined" &&
   typeof navigator.clipboard?.write === "function";
 
