@@ -15,6 +15,11 @@ import html2canvas from "html2canvas";
  *     (both HTML and SVG — SVG elements inherit color from parent HTML).
  */
 function neutralizeOklch(doc: Document, clonedEl: HTMLElement): void {
+  // Strip external stylesheets from the cloned DOM — Firefox CSP blocks
+  // <link> fetches in the cloned iframe. The computed styles are already
+  // resolved on all elements, so the external sheets aren't needed.
+  doc.querySelectorAll('link[rel="stylesheet"]').forEach((link) => link.remove());
+
   // Single reusable canvas to convert oklch → rgb
   const cvs = document.createElement("canvas");
   cvs.width = 1;
@@ -72,51 +77,14 @@ function neutralizeOklch(doc: Document, clonedEl: HTMLElement): void {
 export async function copyChartAsPng(
   element: HTMLElement
 ): Promise<void> {
-  // Inline external stylesheets BEFORE html2canvas clones the DOM.
-  // html2canvas clones into an iframe. Firefox CSP blocks the cloned <link>
-  // from fetching the stylesheet because the iframe's origin doesn't match
-  // 'self'. By converting <link> to inline <style> (same CSS rules, no fetch),
-  // the clone inherits styles without triggering CSP. Computed styles on the
-  // live document remain unchanged because the same rules are still applied.
-  const swaps: { link: HTMLLinkElement; style: HTMLStyleElement; parent: Node; next: Node | null }[] = [];
-  document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]').forEach((link) => {
-    if (!link.parentNode) return;
-    // Find the matching CSSStyleSheet and extract its rules
-    const sheet = [...document.styleSheets].find(
-      (s) => s.ownerNode === link
-    );
-    if (!sheet) return;
-    let cssText = "";
-    try {
-      for (const rule of sheet.cssRules) {
-        cssText += rule.cssText + "\n";
-      }
-    } catch {
-      // Cross-origin sheet — skip (shouldn't happen for same-origin Vite bundles)
-      return;
-    }
-    const style = document.createElement("style");
-    style.textContent = cssText;
-    const parent = link.parentNode;
-    const next = link.nextSibling;
-    parent.replaceChild(style, link);
-    swaps.push({ link, style, parent, next });
+  // Render to canvas — no live DOM manipulation needed.
+  // onclone handles oklch neutralization and stylesheet stripping on the clone.
+  const canvas = await html2canvas(element, {
+    backgroundColor: "#ffffff",
+    scale: 2, // Higher resolution
+    ignoreElements: (el) => el.classList.contains("copy-image-button"),
+    onclone: neutralizeOklch,
   });
-
-  let canvas: HTMLCanvasElement;
-  try {
-    canvas = await html2canvas(element, {
-      backgroundColor: "#ffffff",
-      scale: 2, // Higher resolution
-      ignoreElements: (el) => el.classList.contains("copy-image-button"),
-      onclone: neutralizeOklch,
-    });
-  } finally {
-    // Restore original <link> elements
-    for (const { link, style, parent } of swaps) {
-      parent.replaceChild(link, style);
-    }
-  }
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -125,7 +93,33 @@ export async function copyChartAsPng(
     );
   });
 
-  await navigator.clipboard.write([
-    new ClipboardItem({ "image/png": blob }),
-  ]);
+  // Use Promise-based ClipboardItem so the clipboard.write() call starts
+  // synchronously within the user gesture. Firefox revokes clipboard
+  // permission after the gesture expires; this pattern keeps it alive.
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({ "image/png": blob }),
+    ]);
+  } catch {
+    // Fallback: re-render with Promise-based ClipboardItem for Firefox.
+    // The first attempt may fail if the user gesture expired during rendering.
+    const blobPromise = html2canvas(element, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      ignoreElements: (el) => el.classList.contains("copy-image-button"),
+      onclone: neutralizeOklch,
+    }).then(
+      (c) =>
+        new Promise<Blob>((resolve, reject) => {
+          c.toBlob(
+            (b) =>
+              b ? resolve(b) : reject(new Error("Failed to create PNG blob")),
+            "image/png"
+          );
+        })
+    );
+    await navigator.clipboard.write([
+      new ClipboardItem({ "image/png": blobPromise }),
+    ]);
+  }
 }
