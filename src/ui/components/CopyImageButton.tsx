@@ -5,6 +5,11 @@ import { useState, useCallback, type RefObject } from "react";
 import { toast } from "@ui/hooks/use-notification-store";
 import { copyChartAsPng } from "@ui/helpers/export-chart";
 
+/** Browser supports clipboard.write() with image data (Firefox does not). */
+const CLIPBOARD_IMAGE_SUPPORTED =
+  typeof ClipboardItem !== "undefined" &&
+  typeof navigator.clipboard?.write === "function";
+
 type CopyStatus = "idle" | "copying" | "success" | "error";
 
 interface CopyImageButtonProps {
@@ -19,8 +24,7 @@ export function CopyImageButton({
   const [status, setStatus] = useState<CopyStatus>("idle");
 
   const handleCopy = useCallback(async () => {
-    if (!targetRef.current) {
-      toast.error("Failed to copy: element not found");
+    if (!CLIPBOARD_IMAGE_SUPPORTED || !targetRef.current) {
       return;
     }
 
@@ -36,19 +40,24 @@ export function CopyImageButton({
     }
   }, [targetRef]);
 
+  const unsupportedTitle =
+    "Copy image is not supported in this browser. Use Chrome or Edge for this feature.";
+
   return (
     <button
       className={`copy-image-button bg-transparent border-0 p-1 shrink-0 transition-opacity duration-200 ${
-        status === "copying"
-          ? "cursor-wait opacity-100"
-          : status === "idle"
-            ? "opacity-50 hover:opacity-100 cursor-pointer"
-            : "opacity-100"
+        !CLIPBOARD_IMAGE_SUPPORTED
+          ? "opacity-30 cursor-not-allowed"
+          : status === "copying"
+            ? "cursor-wait opacity-100"
+            : status === "idle"
+              ? "opacity-50 hover:opacity-100 cursor-pointer"
+              : "opacity-100"
       }`}
       onClick={handleCopy}
-      disabled={status === "copying"}
-      title={title}
-      aria-label={title}
+      disabled={!CLIPBOARD_IMAGE_SUPPORTED || status === "copying"}
+      title={CLIPBOARD_IMAGE_SUPPORTED ? title : unsupportedTitle}
+      aria-label={CLIPBOARD_IMAGE_SUPPORTED ? title : unsupportedTitle}
     >
       {status === "copying" && (
         <svg

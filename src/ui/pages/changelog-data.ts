@@ -18,7 +18,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Bug Fixes",
         items: [
-          "Fixed copy image button failing in Firefox due to Content-Security-Policy blocking stylesheet loads in html2canvas cloned DOM",
+          "Copy image button now shows a disabled state with an explanatory tooltip in browsers that do not support image clipboard writes (Firefox). Chrome, Edge, and Brave are unaffected.",
         ],
       },
       {

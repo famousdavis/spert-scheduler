@@ -4,51 +4,18 @@
 import html2canvas from "html2canvas";
 
 /**
- * Prepare the cloned DOM for html2canvas rendering:
- *  1. Replace <link rel="stylesheet"> with inline <style> tags in the clone.
- *     Firefox CSP blocks <link> fetches in the cloned iframe because the
- *     iframe's null origin doesn't match 'self'. Inlining the CSS rules from
- *     the LIVE document's stylesheets into the CLONE preserves all styles
- *     without any external fetch. The live DOM is never touched.
- *  2. Neutralize oklch() colors that html2canvas cannot parse.
+ * Neutralize oklch() colors in cloned DOM tree.
+ * html2canvas cannot parse oklch() (Tailwind CSS v4 default).
+ * Uses a canvas to resolve oklch → rgb so colors are preserved visually.
+ *
+ * Two-pass approach:
+ *  1. Fix CSS custom properties on :root (Tailwind v4 stores colors there).
+ *     This causes var() references everywhere to resolve to rgb automatically.
+ *  2. Fix any remaining oklch in computed standard properties on all elements
+ *     (both HTML and SVG — SVG elements inherit color from parent HTML).
  */
-function prepareClone(doc: Document, clonedEl: HTMLElement): void {
-  // -- Step 1: Inline stylesheets in the clone --
-  // Read CSS rules from the LIVE document's sheets, inject as <style> into
-  // the CLONE, then remove the <link> elements from the clone.
-  doc.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
-    // Match the cloned <link> to its live counterpart by href
-    const href = link.getAttribute("href");
-    const liveSheet = href
-      ? [...document.styleSheets].find(
-          (s) =>
-            s.href === href ||
-            s.href?.endsWith(href) ||
-            (s.ownerNode as HTMLLinkElement)?.getAttribute?.("href") === href
-        )
-      : null;
-    if (liveSheet) {
-      let cssText = "";
-      try {
-        for (const rule of liveSheet.cssRules) {
-          cssText += rule.cssText + "\n";
-        }
-      } catch {
-        // Cross-origin — can't read rules, leave the <link> in place
-        return;
-      }
-      const style = doc.createElement("style");
-      style.textContent = cssText;
-      link.parentNode?.replaceChild(style, link);
-    } else {
-      // No matching live sheet — remove to prevent CSP fetch attempt
-      link.remove();
-    }
-  });
-
-  // -- Step 2: Neutralize oklch() colors --
-  // html2canvas cannot parse oklch() (Tailwind CSS v4 default).
-  // Uses a canvas to resolve oklch → rgb so colors are preserved visually.
+function neutralizeOklch(doc: Document, clonedEl: HTMLElement): void {
+  // Single reusable canvas to convert oklch → rgb
   const cvs = document.createElement("canvas");
   cvs.width = 1;
   cvs.height = 1;
@@ -84,7 +51,7 @@ function prepareClone(doc: Document, clonedEl: HTMLElement): void {
     const s = getComputedStyle(el);
     for (let i = 0; i < s.length; i++) {
       const prop = s[i]!;
-      if (prop.startsWith("--")) continue;
+      if (prop.startsWith("--")) continue; // already handled on :root
       const val = s.getPropertyValue(prop);
       if (val.includes("oklch")) {
         el.style.setProperty(prop, resolve(val));
@@ -98,48 +65,28 @@ function prepareClone(doc: Document, clonedEl: HTMLElement): void {
 }
 
 /**
- * Render a DOM element to a PNG blob via html2canvas.
- * No live DOM manipulation — all work happens on the clone via onclone.
- */
-function renderToBlob(element: HTMLElement): Promise<Blob> {
-  return html2canvas(element, {
-    backgroundColor: "#ffffff",
-    scale: 2,
-    ignoreElements: (el) => el.classList.contains("copy-image-button"),
-    onclone: prepareClone,
-  }).then(
-    (canvas) =>
-      new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (b) =>
-            b ? resolve(b) : reject(new Error("Failed to create PNG blob")),
-          "image/png"
-        );
-      })
-  );
-}
-
-/**
  * Copy a DOM element as a PNG image to the clipboard.
  * Elements with the `copy-image-button` class are excluded from the capture.
- *
- * Uses Promise-based ClipboardItem: clipboard.write() is called synchronously
- * within the user gesture (before any await), and the blob Promise resolves
- * asynchronously when html2canvas finishes. This prevents Firefox from
- * revoking clipboard permission due to gesture expiration.
- *
  * @param element The element to capture
  */
 export async function copyChartAsPng(
   element: HTMLElement
 ): Promise<void> {
-  // Start rendering immediately (returns a Promise<Blob>).
-  const blobPromise = renderToBlob(element);
+  const canvas = await html2canvas(element, {
+    backgroundColor: "#ffffff",
+    scale: 2, // Higher resolution
+    ignoreElements: (el) => el.classList.contains("copy-image-button"),
+    onclone: neutralizeOklch,
+  });
 
-  // Call clipboard.write() SYNCHRONOUSLY — before any await — so the user
-  // gesture is still active when the browser checks permission.
-  // ClipboardItem accepts a Promise<Blob> which resolves later.
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Failed to create PNG blob"))),
+      "image/png"
+    );
+  });
+
   await navigator.clipboard.write([
-    new ClipboardItem({ "image/png": blobPromise }),
+    new ClipboardItem({ "image/png": blob }),
   ]);
 }
