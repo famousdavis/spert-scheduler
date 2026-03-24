@@ -20,9 +20,9 @@ import type {
   Activity,
   Calendar,
   ScheduledActivity,
-  RSMLevel,
-  DistributionType,
 } from "@domain/models/types";
+import { computeHeuristic } from "@core/estimation/heuristic";
+import type { BulkApplyPayload } from "./BulkActionToolbar";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
 import { BulkActionToolbar } from "./BulkActionToolbar";
@@ -39,10 +39,6 @@ interface UnifiedActivityGridProps {
   onValidityChange: (allValid: boolean) => void;
   onBulkUpdate?: (activityIds: string[], updates: Partial<Activity>) => void;
   onBulkDelete?: (activityIds: string[]) => void;
-  onBulkMarkComplete?: (
-    activityIds: string[],
-    scheduledDurations: Map<string, number>
-  ) => void;
   isScenarioLocked?: boolean;
   heuristicEnabled?: boolean;
   heuristicMinPercent?: number;
@@ -65,7 +61,6 @@ export function UnifiedActivityGrid({
   onValidityChange,
   onBulkUpdate,
   onBulkDelete,
-  onBulkMarkComplete,
   isScenarioLocked,
   heuristicEnabled,
   heuristicMinPercent,
@@ -151,25 +146,60 @@ export function UnifiedActivityGrid({
     });
   }, [activities]);
 
-  const handleBulkComplete = useCallback(() => {
-    if (selectedIds.size === 0) return;
-    const scheduledDurations = new Map<string, number>();
-    for (const sa of scheduledActivities) {
-      scheduledDurations.set(sa.activityId, sa.duration);
-    }
-    if (onBulkMarkComplete) {
-      onBulkMarkComplete(Array.from(selectedIds), scheduledDurations);
-    } else {
-      for (const activityId of selectedIds) {
-        const duration = scheduledDurations.get(activityId);
-        onUpdate(activityId, {
-          status: "complete",
-          actualDuration: duration ?? undefined,
-        });
+  const handleBulkApply = useCallback(
+    (staged: BulkApplyPayload) => {
+      if (selectedIds.size === 0) return;
+      const ids = Array.from(selectedIds);
+
+      // Build partial updates from staged selections
+      const updates: Partial<Activity> = {};
+      if (staged.confidenceLevel) updates.confidenceLevel = staged.confidenceLevel;
+      if (staged.distributionType) updates.distributionType = staged.distributionType;
+      if (staged.status && staged.status !== "complete") updates.status = staged.status;
+
+      // Apply bulk field updates (non-complete status)
+      if (Object.keys(updates).length > 0) {
+        if (onBulkUpdate) {
+          onBulkUpdate(ids, updates);
+        } else {
+          for (const id of ids) onUpdate(id, updates);
+        }
       }
-    }
-    setSelectedIds(new Set());
-  }, [selectedIds, scheduledActivities, onBulkMarkComplete, onUpdate]);
+
+      // Handle "complete" status separately (needs per-activity actualDuration)
+      if (staged.status === "complete") {
+        const scheduledDurations = new Map<string, number>();
+        for (const sa of scheduledActivities) {
+          scheduledDurations.set(sa.activityId, sa.duration);
+        }
+        for (const id of ids) {
+          onUpdate(id, {
+            status: "complete",
+            actualDuration: scheduledDurations.get(id) ?? undefined,
+          });
+        }
+      }
+
+      // Heuristic recalculation pass (per-activity, needs individual mostLikely)
+      if (staged.recalculateHeuristic && heuristicEnabled) {
+        for (const id of ids) {
+          const activity = activities.find((a) => a.id === id);
+          if (activity && activity.mostLikely > 0) {
+            const { min, max } = computeHeuristic(
+              activity.mostLikely,
+              heuristicMinPercent ?? 50,
+              heuristicMaxPercent ?? 200,
+            );
+            onUpdate(id, { min, max });
+          }
+        }
+      }
+
+      setSelectedIds(new Set());
+    },
+    [selectedIds, scheduledActivities, activities, onBulkUpdate, onUpdate,
+     heuristicEnabled, heuristicMinPercent, heuristicMaxPercent],
+  );
 
   // Build a lookup map from activityId to ScheduledActivity
   const scheduleMap = useMemo(() => {
@@ -215,37 +245,6 @@ export function UnifiedActivityGrid({
   };
 
   const hasSelection = selectedIds.size > 0;
-  const incompleteSelectedCount = Array.from(selectedIds).filter(
-    (id) => activities.find((a) => a.id === id)?.status !== "complete"
-  ).length;
-
-  const handleBulkConfidenceChange = useCallback(
-    (level: RSMLevel) => {
-      if (selectedIds.size === 0) return;
-      if (onBulkUpdate) {
-        onBulkUpdate(Array.from(selectedIds), { confidenceLevel: level });
-      } else {
-        for (const activityId of selectedIds) {
-          onUpdate(activityId, { confidenceLevel: level });
-        }
-      }
-    },
-    [selectedIds, onBulkUpdate, onUpdate]
-  );
-
-  const handleBulkDistributionChange = useCallback(
-    (type: DistributionType) => {
-      if (selectedIds.size === 0) return;
-      if (onBulkUpdate) {
-        onBulkUpdate(Array.from(selectedIds), { distributionType: type });
-      } else {
-        for (const activityId of selectedIds) {
-          onUpdate(activityId, { distributionType: type });
-        }
-      }
-    },
-    [selectedIds, onBulkUpdate, onUpdate]
-  );
 
   const handleBulkDelete = useCallback(() => {
     if (selectedIds.size === 0) return;
@@ -272,12 +271,12 @@ export function UnifiedActivityGrid({
       {hasSelection && !isScenarioLocked && (
         <BulkActionToolbar
           selectedCount={selectedIds.size}
-          incompleteSelectedCount={incompleteSelectedCount}
-          onBulkConfidenceChange={handleBulkConfidenceChange}
-          onBulkDistributionChange={handleBulkDistributionChange}
-          onBulkComplete={handleBulkComplete}
+          onApply={handleBulkApply}
           onBulkDelete={handleBulkDelete}
           onClearSelection={() => setSelectedIds(new Set())}
+          heuristicEnabled={heuristicEnabled}
+          heuristicMinPercent={heuristicMinPercent}
+          heuristicMaxPercent={heuristicMaxPercent}
         />
       )}
 
