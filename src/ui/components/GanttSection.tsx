@@ -34,6 +34,8 @@ interface GanttSectionProps {
   onRenameActivity?: (activityId: string, newName: string) => void;
   onEditDependency?: (fromId: string, toId: string) => void;
   isLocked?: boolean;
+  showActivityNumbers?: boolean;
+  onToggleActivityNumbers?: (v: boolean) => void;
 }
 
 export function GanttSection(props: GanttSectionProps) {

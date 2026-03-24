@@ -44,6 +44,7 @@ interface ActivityEditModalProps {
   heuristicMaxPercent?: number;
   onEditDependency?: (fromId: string, toId: string) => void;
   onAddDependency?: (fromId: string) => void;
+  activityNumberMap?: Map<string, number> | null;
 }
 
 /** Collapsible section wrapper */
@@ -91,6 +92,7 @@ export function ActivityEditModal({
   heuristicMaxPercent = 200,
   onEditDependency,
   onAddDependency,
+  activityNumberMap,
 }: ActivityEditModalProps) {
   // -- Store selectors --
   const activity = useProjectStore((s) => {
@@ -209,8 +211,13 @@ export function ActivityEditModal({
   }, [dependencies, activityId]);
 
   const activityNameById = useCallback(
-    (id: string) => allActivities.find((a) => a.id === id)?.name ?? id,
-    [allActivities]
+    (id: string) => {
+      const a = allActivities.find((act) => act.id === id);
+      const name = a?.name ?? id;
+      const num = activityNumberMap?.get(id);
+      return num ? `#${num} ${name}` : name;
+    },
+    [allActivities, activityNumberMap]
   );
 
   // -- Date picker handler: snap non-working days --

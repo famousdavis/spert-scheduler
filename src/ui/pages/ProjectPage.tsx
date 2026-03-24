@@ -12,7 +12,7 @@ import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
-import type { ScenarioSettings } from "@domain/models/types";
+import type { Activity, ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
@@ -129,6 +129,7 @@ export function ProjectPage() {
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [editingDependency, setEditingDependency] = useState<{ fromActivityId: string; toActivityId: string } | null>(null);
   const [addingDependencyFromId, setAddingDependencyFromId] = useState<string | null>(null);
+  const [showActivityNumbers, setShowActivityNumbers] = useState(false);
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -157,6 +158,22 @@ export function ProjectPage() {
   }, [project?.id, project?.scenarios.length, activeScenarioId]);
 
   const scenario = project?.scenarios.find((s) => s.id === activeScenarioId);
+
+  // Activity numbering map — session-only, built when toggle is on
+  const activityNumberMap = useMemo(() => {
+    if (!showActivityNumbers || !scenario) return null;
+    const map = new Map<string, number>();
+    scenario.activities.forEach((a, i) => map.set(a.id, i + 1));
+    return map;
+  }, [showActivityNumbers, scenario]);
+
+  const formatActivityName = useCallback(
+    (a: Activity) => {
+      const num = activityNumberMap?.get(a.id);
+      return num ? `#${num} ${a.name}` : a.name;
+    },
+    [activityNumberMap]
+  );
 
   // Assembled work calendar: work week + holidays + converted work days
   const workCalendar = useWorkCalendar(id ?? "");
@@ -493,6 +510,7 @@ export function ProjectPage() {
         <WarningsPanel
           conflicts={schedule?.constraintConflicts ?? []}
           dependencyConflicts={schedule?.dependencyConflicts}
+          activityNumberMap={activityNumberMap}
         />
       )}
 
@@ -556,6 +574,7 @@ export function ProjectPage() {
             dependencyMode={scenario.settings.dependencyMode}
             onEditActivity={setEditingActivityId}
             constraintWarningIds={constraintWarningIds}
+            activityNumberMap={activityNumberMap}
           />
 
           {/* Milestone Panel — only shown when dependency mode is on */}
@@ -580,6 +599,7 @@ export function ProjectPage() {
                 setActivityStartsAtMilestone(id!, scenario.id, activityId, milestoneId)
               }
               isLocked={scenario.locked}
+              formatActivityName={formatActivityName}
             />
           )}
 
@@ -603,6 +623,7 @@ export function ProjectPage() {
               }
               onEditDependency={(fromId, toId) => setEditingDependency({ fromActivityId: fromId, toActivityId: toId })}
               isLocked={scenario.locked}
+              formatActivityName={formatActivityName}
             />
           )}
 
@@ -629,6 +650,8 @@ export function ProjectPage() {
               }
               onEditDependency={(fromId, toId) => setEditingDependency({ fromActivityId: fromId, toActivityId: toId })}
               isLocked={scenario.locked}
+              showActivityNumbers={showActivityNumbers}
+              onToggleActivityNumbers={setShowActivityNumbers}
             />
           )}
 
@@ -703,6 +726,7 @@ export function ProjectPage() {
             setEditingActivityId(null);
             setAddingDependencyFromId(fromId);
           }}
+          activityNumberMap={activityNumberMap}
         />
       )}
 
@@ -729,6 +753,7 @@ export function ProjectPage() {
             removeDependency(id!, scenario.id, fromId, toId);
           }}
           onClose={() => setEditingDependency(null)}
+          formatActivityName={formatActivityName}
         />
       )}
 
@@ -742,6 +767,7 @@ export function ProjectPage() {
             addDependency(id!, scenario.id, fromId, toId, type, lagDays);
           }}
           onClose={() => setAddingDependencyFromId(null)}
+          formatActivityName={formatActivityName}
         />
       )}
 

@@ -48,6 +48,7 @@ interface UnifiedActivityRowProps {
   dependencyMode?: boolean;
   onEditActivity?: (activityId: string) => void;
   hasConstraintWarning?: boolean;
+  activityNumber?: number;
 }
 
 type FieldErrors = Partial<Record<string, string>>;
@@ -70,6 +71,7 @@ export function UnifiedActivityRow({
   dependencyMode,
   onEditActivity,
   hasConstraintWarning,
+  activityNumber,
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formatDate = useDateFormat();
@@ -341,18 +343,25 @@ export function UnifiedActivityRow({
 
       {/* Name */}
       <div>
-        <input
-          ref={nameInputRef}
-          data-row-id={activity.id}
-          data-field="name"
-          type="text"
-          value={activity.name}
-          onChange={(e) => onUpdate(activity.id, { name: e.target.value })}
-          onKeyDown={(e) => handleTabNav(e, "name")}
-          disabled={isLocked}
-          className="w-full px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-          placeholder="Add an activity name"
-        />
+        <div className="flex items-center">
+          {activityNumber != null && (
+            <span className="text-gray-400 dark:text-gray-500 text-xs font-mono select-none shrink-0 w-7 text-right mr-1">
+              #{activityNumber}
+            </span>
+          )}
+          <input
+            ref={nameInputRef}
+            data-row-id={activity.id}
+            data-field="name"
+            type="text"
+            value={activity.name}
+            onChange={(e) => onUpdate(activity.id, { name: e.target.value })}
+            onKeyDown={(e) => handleTabNav(e, "name")}
+            disabled={isLocked}
+            className="flex-1 min-w-0 px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            placeholder="Add an activity name"
+          />
+        </div>
         {activity.checklist && activity.checklist.length > 0 && (() => {
           const done = activity.checklist.filter((c) => c.completed).length;
           const total = activity.checklist.length;
