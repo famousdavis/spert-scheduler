@@ -19,6 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: "Enhancements",
         items: [
           "Redesigned bulk action toolbar: added Status dropdown (Planned, In Progress, Complete) alongside Confidence and Distribution. All three dropdowns now stage selections until you click \"Apply.\" When applying a distribution change with heuristics enabled, you're prompted to recalculate min/max using current heuristic percentages.",
+          "The browser's \"Save as PDF\" default filename now includes the project name and today's date (e.g., \"SPERT Scheduler for My Project - March 24, 2026.pdf\").",
         ],
       },
     ],
