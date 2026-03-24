@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { ConstraintConflict, DependencyConflict } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 
@@ -49,11 +49,19 @@ function WarningItem({ variant, title, detail, message, formatDate }: {
 interface WarningsPanelProps {
   conflicts: ConstraintConflict[];
   dependencyConflicts?: DependencyConflict[];
+  activityNumberMap?: Map<string, number> | null;
 }
 
-export function WarningsPanel({ conflicts, dependencyConflicts = [] }: WarningsPanelProps) {
+export function WarningsPanel({ conflicts, dependencyConflicts = [], activityNumberMap }: WarningsPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const formatDate = useDateFormat();
+  const prefixName = useCallback(
+    (id: string, name: string) => {
+      const num = activityNumberMap?.get(id);
+      return num ? `#${num} ${name}` : name;
+    },
+    [activityNumberMap]
+  );
 
   if (conflicts.length === 0 && dependencyConflicts.length === 0) return null;
 
@@ -105,7 +113,7 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [] }: WarningsP
             <WarningItem
               key={`err-${i}`}
               variant="error"
-              title={c.activityName}
+              title={prefixName(c.activityId, c.activityName)}
               detail={`${c.constraintType} ${formatDate(c.constraintDate)} (${c.constraintMode})`}
               message={c.message}
               formatDate={formatDate}
@@ -115,7 +123,7 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [] }: WarningsP
             <WarningItem
               key={`warn-${i}`}
               variant="warning"
-              title={c.activityName}
+              title={prefixName(c.activityId, c.activityName)}
               detail={`${c.constraintType} ${formatDate(c.constraintDate)} (${c.constraintMode})`}
               message={c.message}
               formatDate={formatDate}
@@ -125,7 +133,7 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [] }: WarningsP
             <WarningItem
               key={`dep-${i}`}
               variant="warning"
-              title={`${dc.fromActivityName} → ${dc.toActivityName}`}
+              title={`${prefixName(dc.fromActivityId, dc.fromActivityName)} → ${prefixName(dc.toActivityId, dc.toActivityName)}`}
               detail={`(${dc.dependencyType}${dc.lagDays !== 0 ? `${dc.lagDays > 0 ? "+" : ""}${dc.lagDays}d` : ""})`}
               message={dc.message}
               formatDate={formatDate}

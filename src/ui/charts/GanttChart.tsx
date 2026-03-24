@@ -54,6 +54,8 @@ interface GanttChartProps {
   onEditDependency?: (fromActivityId: string, toActivityId: string) => void;
   onRenameActivity?: (activityId: string, newName: string) => void;
   isLocked?: boolean;
+  showActivityNumbers?: boolean;
+  onToggleActivityNumbers?: (v: boolean) => void;
 }
 
 export function GanttChart({
@@ -76,6 +78,8 @@ export function GanttChart({
   onEditDependency,
   onRenameActivity,
   isLocked,
+  showActivityNumbers,
+  onToggleActivityNumbers,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
   const viewMode: GanttViewMode = usePreferencesStore((s) => s.preferences.ganttViewMode) ?? "deterministic";
@@ -163,6 +167,14 @@ export function GanttChart({
     () => buildOrderedActivities(activities, dependencies, dependencyMode),
     [activities, dependencies, dependencyMode],
   );
+
+  // Activity numbering map — uses original array order (not orderedActivities) to match grid
+  const activityIndexMap = useMemo(() => {
+    if (!showActivityNumbers) return null;
+    const map = new Map<string, number>();
+    activities.forEach((a, i) => map.set(a.id, i + 1));
+    return map;
+  }, [showActivityNumbers, activities]);
 
   // Map scheduled activities by ID for quick lookup
   const scheduleMap = useMemo(() => {
@@ -361,6 +373,15 @@ export function GanttChart({
             Project name
           </label>
         )}
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showActivityNumbers ?? false}
+            onChange={(e) => onToggleActivityNumbers?.(e.target.checked)}
+            className="rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500"
+          />
+          Show Activity IDs
+        </label>
       </div>
 
       {/* Chart SVG — horizontally scrollable */}
@@ -606,12 +627,13 @@ export function GanttChart({
                   height={ROW_HEIGHT}
                   fill="transparent"
                   onMouseEnter={(e) => {
+                    const tooltipName = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
                     setTooltip({
                       x: e.clientX,
                       y: e.clientY,
                       text: dependencyMode && sa.totalFloat != null
-                        ? `${act.name}\n${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)\nTotal Float: ${sa.totalFloat === 0 ? "Critical path" : `${sa.totalFloat}d`}${sa.freeFloat != null && sa.freeFloat < sa.totalFloat ? `\nFree Float: ${sa.freeFloat}d` : ""}`
-                        : `${act.name}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`,
+                        ? `${tooltipName}\n${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)\nTotal Float: ${sa.totalFloat === 0 ? "Critical path" : `${sa.totalFloat}d`}${sa.freeFloat != null && sa.freeFloat < sa.totalFloat ? `\nFree Float: ${sa.freeFloat}d` : ""}`
+                        : `${tooltipName}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`,
                     });
                   }}
                   onMouseMove={(e) =>
@@ -637,9 +659,10 @@ export function GanttChart({
                     setEditValue(act.name);
                   } : undefined}
                 >
-                  {act.name.length > 38
-                    ? act.name.slice(0, 36) + "..."
-                    : act.name}
+                  {(() => {
+                    const dn = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
+                    return dn.length > 38 ? dn.slice(0, 36) + "..." : dn;
+                  })()}
                 </text>
 
                 {/* Hatched bar (uncertainty extension) — behind solid */}

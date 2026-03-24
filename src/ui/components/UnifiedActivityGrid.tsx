@@ -51,6 +51,7 @@ interface UnifiedActivityGridProps {
   dependencyMode?: boolean;
   onEditActivity?: (activityId: string) => void;
   constraintWarningIds?: Set<string>;
+  activityNumberMap?: Map<string, number> | null;
 }
 
 export function UnifiedActivityGrid({
@@ -73,6 +74,7 @@ export function UnifiedActivityGrid({
   dependencyMode,
   onEditActivity,
   constraintWarningIds,
+  activityNumberMap,
 }: UnifiedActivityGridProps) {
   const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
   const [, setInvalidIds] = useState<Set<string>>(new Set());
@@ -360,6 +362,7 @@ export function UnifiedActivityGrid({
             <UnifiedActivityRow
               key={activity.id}
               activity={activity}
+              activityNumber={activityNumberMap?.get(activity.id)}
               scheduledActivity={scheduleMap.get(activity.id)}
               activityProbabilityTarget={activityProbabilityTarget}
               autoFocusName={activity.id === focusActivityId}

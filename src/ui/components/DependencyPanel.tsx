@@ -23,6 +23,7 @@ interface DependencyPanelProps {
   onUpdateType: (fromActivityId: string, toActivityId: string, type: DependencyType) => void;
   onEditDependency?: (fromActivityId: string, toActivityId: string) => void;
   isLocked?: boolean;
+  formatActivityName?: (a: Activity) => string;
 }
 
 function LagInput({
@@ -74,6 +75,7 @@ export function DependencyPanel({
   onUpdateType,
   onEditDependency,
   isLocked,
+  formatActivityName,
 }: DependencyPanelProps) {
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
@@ -128,8 +130,12 @@ export function DependencyPanel({
   };
 
   const getActivityName = useCallback(
-    (id: string) => activityMap.get(id)?.name ?? `Unknown (${id.slice(0, 8)})`,
-    [activityMap]
+    (id: string) => {
+      const a = activityMap.get(id);
+      if (!a) return `Unknown (${id.slice(0, 8)})`;
+      return formatActivityName ? formatActivityName(a) : a.name;
+    },
+    [activityMap, formatActivityName]
   );
 
   const [sortMode, setSortMode] = useState<DependencySortMode>("alpha");
@@ -307,7 +313,7 @@ export function DependencyPanel({
             <option value="">Predecessor…</option>
             {activities.map((a) => (
               <option key={a.id} value={a.id} disabled={a.id === toId}>
-                {a.name}
+                {formatActivityName ? formatActivityName(a) : a.name}
               </option>
             ))}
           </select>
@@ -320,7 +326,7 @@ export function DependencyPanel({
             <option value="">Successor…</option>
             {activities.map((a) => (
               <option key={a.id} value={a.id} disabled={a.id === fromId}>
-                {a.name}
+                {formatActivityName ? formatActivityName(a) : a.name}
               </option>
             ))}
           </select>

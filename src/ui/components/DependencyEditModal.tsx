@@ -20,6 +20,7 @@ interface DependencyEditModalProps {
   onSave: (fromId: string, toId: string, type: DependencyType, lagDays: number) => void;
   onDelete?: (fromId: string, toId: string) => void;
   onClose: () => void;
+  formatActivityName?: (a: Activity) => string;
 }
 
 export function DependencyEditModal({
@@ -30,6 +31,7 @@ export function DependencyEditModal({
   onSave,
   onDelete,
   onClose,
+  formatActivityName,
 }: DependencyEditModalProps) {
   const isEditMode = !!(fromActivityId && toActivityId);
 
@@ -133,7 +135,7 @@ export function DependencyEditModal({
                 <option value="">Select activity...</option>
                 {activities.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name}
+                    {formatActivityName ? formatActivityName(a) : a.name}
                   </option>
                 ))}
               </select>
@@ -152,7 +154,7 @@ export function DependencyEditModal({
                 <option value="">Select activity...</option>
                 {activities.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name}
+                    {formatActivityName ? formatActivityName(a) : a.name}
                   </option>
                 ))}
               </select>

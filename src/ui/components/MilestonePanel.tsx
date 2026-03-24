@@ -15,6 +15,7 @@ interface MilestonePanelProps {
   onAssignActivity: (activityId: string, milestoneId: string | null) => void;
   onSetStartsAt: (activityId: string, milestoneId: string | null) => void;
   isLocked?: boolean;
+  formatActivityName?: (a: Activity) => string;
 }
 
 function HealthBadge({ health }: { health: "green" | "amber" | "red" }) {
@@ -41,6 +42,7 @@ export function MilestonePanel({
   onAssignActivity,
   onSetStartsAt,
   isLocked,
+  formatActivityName,
 }: MilestonePanelProps) {
   const [newName, setNewName] = useState("");
   const [newDate, setNewDate] = useState("");
@@ -176,13 +178,13 @@ export function MilestonePanel({
                   {activities
                     .filter((a) => a.milestoneId !== m.id)
                     .map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
+                      <option key={a.id} value={a.id}>{formatActivityName ? formatActivityName(a) : a.name}</option>
                     ))}
                 </select>
               )}
               {assigned.map((a) => (
                 <div key={a.id} className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
-                  <span className="truncate">{a.name}</span>
+                  <span className="truncate">{formatActivityName ? formatActivityName(a) : a.name}</span>
                   {!isLocked && (
                     <button
                       onClick={() => onAssignActivity(a.id, null)}
@@ -216,13 +218,13 @@ export function MilestonePanel({
                   {activities
                     .filter((a) => a.startsAtMilestoneId !== m.id)
                     .map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
+                      <option key={a.id} value={a.id}>{formatActivityName ? formatActivityName(a) : a.name}</option>
                     ))}
                 </select>
               )}
               {startsAt.map((a) => (
                 <div key={a.id} className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
-                  <span className="truncate">{a.name}</span>
+                  <span className="truncate">{formatActivityName ? formatActivityName(a) : a.name}</span>
                   {!isLocked && (
                     <button
                       onClick={() => onSetStartsAt(a.id, null)}

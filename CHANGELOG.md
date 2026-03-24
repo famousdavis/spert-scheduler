@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.26.0 — 2026-03-23
+
+### Enhancements
+
+- New "Show Activity IDs" toggle in the Gantt chart toolbar. When enabled, sequential number prefixes (#1, #2, #3...) appear before activity names across the Gantt chart, activity grid, dependency panel, milestone panel, warnings panel, and modal dialogs — making it easy to reference specific activities by number during team conversations. Numbers match the # column in the schedule export. Toggle is session-only and resets on page reload.
+
 ## 0.25.3 — 2026-03-23
 
 ### Bug Fixes
