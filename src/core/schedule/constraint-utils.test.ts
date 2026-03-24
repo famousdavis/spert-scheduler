@@ -29,8 +29,8 @@ describe("constraint-utils", () => {
         "a1", "Task A",
       );
       expect(result.es).toBe("2026-04-06");
-      // addWorkingDays(Apr 6 Mon, 5) → Apr 13 Mon (exclusive of start)
-      expect(result.ef).toBe("2026-04-13");
+      // addWorkingDays(Apr 6 Mon, 4) → Apr 10 Fri (inclusive end)
+      expect(result.ef).toBe("2026-04-10");
       expect(result.conflict).toBeNull(); // no conflict: esNet (Apr 1) <= constraintDate (Apr 6)
     });
 
@@ -54,8 +54,8 @@ describe("constraint-utils", () => {
         "a1", "Task A",
       );
       expect(result.ef).toBe("2026-04-10");
-      // subtractWorkingDays(Apr 10 Fri, 5) → Apr 3 Fri (exclusive of start)
-      expect(result.es).toBe("2026-04-03");
+      // subtractWorkingDays(Apr 10 Fri, 4) → Apr 6 Mon (inclusive end)
+      expect(result.es).toBe("2026-04-06");
       expect(result.conflict).toBeNull();
     });
 
@@ -77,8 +77,8 @@ describe("constraint-utils", () => {
         "a1", "Task A",
       );
       expect(result.es).toBe("2026-04-06");
-      // addWorkingDays(Apr 6 Mon, 5) → Apr 13 Mon
-      expect(result.ef).toBe("2026-04-13");
+      // addWorkingDays(Apr 6 Mon, 4) → Apr 10 Fri (inclusive end)
+      expect(result.ef).toBe("2026-04-10");
       expect(result.conflict).toBeNull();
     });
 
@@ -99,8 +99,8 @@ describe("constraint-utils", () => {
         "a1", "Task A",
       );
       expect(result.ef).toBe("2026-04-17");
-      // subtractWorkingDays(Apr 17 Fri, 5) → Apr 10 Fri
-      expect(result.es).toBe("2026-04-10");
+      // subtractWorkingDays(Apr 17 Fri, 4) → Apr 13 Mon (inclusive end)
+      expect(result.es).toBe("2026-04-13");
       expect(result.conflict).toBeNull();
     });
 
@@ -111,8 +111,8 @@ describe("constraint-utils", () => {
         "a1", "Task A",
       );
       expect(result.ef).toBe("2026-04-20");
-      // subtractWorkingDays(Apr 20 Mon, 5) → Apr 13 Mon
-      expect(result.es).toBe("2026-04-13");
+      // subtractWorkingDays(Apr 20 Mon, 4) → Apr 14 Tue (inclusive end)
+      expect(result.es).toBe("2026-04-14");
     });
 
     // SNLT/FNLT: no forward-pass effect
@@ -233,8 +233,8 @@ describe("constraint-utils", () => {
         "SNLT", "2026-04-06", "hard",
       );
       expect(result.ls).toBe("2026-04-06");
-      // addWorkingDays(Apr 6 Mon, 5) → Apr 13 Mon
-      expect(result.lf).toBe("2026-04-13");
+      // addWorkingDays(Apr 6 Mon, 4) → Apr 10 Fri (inclusive end)
+      expect(result.lf).toBe("2026-04-10");
     });
 
     it("SNLT hard: no effect when lsNet <= constraintDate", () => {
@@ -243,7 +243,8 @@ describe("constraint-utils", () => {
         "SNLT", "2026-04-06", "hard",
       );
       expect(result.ls).toBe("2026-04-03");
-      expect(result.lf).toBe("2026-04-10");
+      // addWorkingDays(Apr 3 Fri, 4) → Apr 9 Thu (inclusive end)
+      expect(result.lf).toBe("2026-04-09");
     });
 
     it("FNLT hard: clamps LF to min(lfNet, constraintDate)", () => {
@@ -252,8 +253,8 @@ describe("constraint-utils", () => {
         "FNLT", "2026-04-10", "hard",
       );
       expect(result.lf).toBe("2026-04-10");
-      // subtractWorkingDays(Apr 10 Fri, 5) → Apr 3 Fri
-      expect(result.ls).toBe("2026-04-03");
+      // subtractWorkingDays(Apr 10 Fri, 4) → Apr 6 Mon (inclusive end)
+      expect(result.ls).toBe("2026-04-06");
     });
 
     it("MSO hard: pins LS to constraintDate", () => {
@@ -262,8 +263,8 @@ describe("constraint-utils", () => {
         "MSO", "2026-04-06", "hard",
       );
       expect(result.ls).toBe("2026-04-06");
-      // addWorkingDays(Apr 6 Mon, 5) → Apr 13 Mon
-      expect(result.lf).toBe("2026-04-13");
+      // addWorkingDays(Apr 6 Mon, 4) → Apr 10 Fri (inclusive end)
+      expect(result.lf).toBe("2026-04-10");
     });
 
     it("MFO hard: pins LF to constraintDate", () => {
@@ -272,8 +273,8 @@ describe("constraint-utils", () => {
         "MFO", "2026-04-10", "hard",
       );
       expect(result.lf).toBe("2026-04-10");
-      // subtractWorkingDays(Apr 10 Fri, 5) → Apr 3 Fri
-      expect(result.ls).toBe("2026-04-03");
+      // subtractWorkingDays(Apr 10 Fri, 4) → Apr 6 Mon (inclusive end)
+      expect(result.ls).toBe("2026-04-06");
     });
 
     it("SNET hard: no backward-pass effect", () => {

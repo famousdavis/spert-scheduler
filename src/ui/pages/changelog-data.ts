@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.26.2",
+    date: "2026-03-24",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Corrected activity end date calculation. Previously, end dates were computed one working day too late (e.g., a 5-day activity starting Monday showed an end date of the following Monday instead of Friday). This also caused a 1-day gap between sequential activities. All scheduled dates are now consistent with standard project management conventions: the end date is the last working day of the activity. Existing project data is unaffected — only displayed schedule dates change.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.26.1",
     date: "2026-03-24",
     sections: [

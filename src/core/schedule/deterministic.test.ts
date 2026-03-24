@@ -638,8 +638,8 @@ describe("scheduling date boundary conditions", () => {
     // Feb 29 2028 is Tuesday
     const schedule = computeDeterministicSchedule(activities, "2028-02-29", 0.5);
     expect(schedule.activities[0]!.startDate).toBe("2028-02-29");
-    // 5 work days from Tue Feb 29: Wed Mar 1, Thu Mar 2, Fri Mar 3, Mon Mar 6, Tue Mar 7
-    expect(schedule.projectEndDate).toBe("2028-03-07");
+    // 4 more work days from Tue Feb 29: Wed Mar 1, Thu Mar 2, Fri Mar 3, Mon Mar 6 (inclusive end)
+    expect(schedule.projectEndDate).toBe("2028-03-06");
   });
 
   it("dependency lag spanning year boundary", () => {
@@ -690,8 +690,8 @@ describe("computeDependencySchedule — SS type", () => {
     const b = schedule.activities.find((s) => s.activityId === "b")!;
     expect(a.startDate).toBe("2025-01-06");
     expect(b.startDate).toBe("2025-01-06");
-    expect(a.endDate).toBe("2025-01-09"); // Thu
-    expect(b.endDate).toBe("2025-01-08"); // Wed
+    expect(a.endDate).toBe("2025-01-08"); // Wed (inclusive end)
+    expect(b.endDate).toBe("2025-01-07"); // Tue (inclusive end)
   });
 
   it("SS lag=2: A(3d) SS+2→ B(2d) — B starts 2 working days after A starts", () => {
@@ -701,8 +701,8 @@ describe("computeDependencySchedule — SS type", () => {
     const b = schedule.activities.find((s) => s.activityId === "b")!;
     // B starts addWorkingDays(Mon Jan 6, 2) = Wed Jan 8
     expect(b.startDate).toBe("2025-01-08");
-    // B ends addWorkingDays(Wed Jan 8, 2) = Fri Jan 10
-    expect(b.endDate).toBe("2025-01-10");
+    // B ends addWorkingDays(Wed Jan 8, 1) = Thu Jan 9 (inclusive end)
+    expect(b.endDate).toBe("2025-01-09");
   });
 
   it("SS lag=-1: floor to project start", () => {
@@ -721,13 +721,13 @@ describe("computeDependencySchedule — FF type", () => {
     const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
     const a = schedule.activities.find((s) => s.activityId === "a")!;
     const b = schedule.activities.find((s) => s.activityId === "b")!;
-    // A: 5d from Mon Jan 6 → end Mon Jan 13
+    // A: 5d from Mon Jan 6 → end Fri Jan 10 (inclusive end)
     expect(a.startDate).toBe("2025-01-06");
-    expect(a.endDate).toBe("2025-01-13");
-    // FF lag=0: constrainedEF = addWD(Mon Jan 13, 0) = Mon Jan 13
-    // B start = subtractWD(Mon Jan 13, 3) = Wed Jan 8
-    // B end = addWD(Wed Jan 8, 3) = Mon Jan 13
-    expect(b.endDate).toBe("2025-01-13");
+    expect(a.endDate).toBe("2025-01-10");
+    // FF lag=0: constrainedEF = addWD(Fri Jan 10, 0) = Fri Jan 10
+    // B start = subtractWD(Fri Jan 10, 2) = Wed Jan 8
+    // B end = addWD(Wed Jan 8, 2) = Fri Jan 10
+    expect(b.endDate).toBe("2025-01-10");
     expect(b.startDate).toBe("2025-01-08");
   });
 
@@ -737,12 +737,12 @@ describe("computeDependencySchedule — FF type", () => {
     const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
     const a = schedule.activities.find((s) => s.activityId === "a")!;
     const b = schedule.activities.find((s) => s.activityId === "b")!;
-    // A end = Mon Jan 13
-    expect(a.endDate).toBe("2025-01-13");
-    // constrainedEF = addWD(Mon Jan 13, 2) = Wed Jan 15
-    // B start = subtractWD(Wed Jan 15, 3) = Fri Jan 10
-    // B end = addWD(Fri Jan 10, 3) = Wed Jan 15
-    expect(b.endDate).toBe("2025-01-15");
+    // A end = Fri Jan 10 (inclusive end)
+    expect(a.endDate).toBe("2025-01-10");
+    // constrainedEF = addWD(Fri Jan 10, 2) = Tue Jan 14
+    // B start = subtractWD(Tue Jan 14, 2) = Fri Jan 10
+    // B end = addWD(Fri Jan 10, 2) = Tue Jan 14
+    expect(b.endDate).toBe("2025-01-14");
     expect(b.startDate).toBe("2025-01-10");
   });
 
@@ -752,12 +752,12 @@ describe("computeDependencySchedule — FF type", () => {
     const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
     const a = schedule.activities.find((s) => s.activityId === "a")!;
     const b = schedule.activities.find((s) => s.activityId === "b")!;
-    // A end = Mon Jan 13
-    expect(a.endDate).toBe("2025-01-13");
-    // constrainedEF = subtractWD(Mon Jan 13, 1) = Fri Jan 10
-    // B start = subtractWD(Fri Jan 10, 3) = Tue Jan 7
-    // B end = addWD(Tue Jan 7, 3) = Fri Jan 10
-    expect(b.endDate).toBe("2025-01-10");
+    // A end = Fri Jan 10 (inclusive end)
+    expect(a.endDate).toBe("2025-01-10");
+    // constrainedEF = subtractWD(Fri Jan 10, 1) = Thu Jan 9
+    // B start = subtractWD(Thu Jan 9, 2) = Tue Jan 7
+    // B end = addWD(Tue Jan 7, 2) = Thu Jan 9
+    expect(b.endDate).toBe("2025-01-09");
     expect(b.startDate).toBe("2025-01-07");
   });
 });
@@ -772,10 +772,10 @@ describe("computeDependencySchedule — mixed types", () => {
     const deps = [fsDep("a", "c"), ssDep("b", "c")];
     const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
     const c = schedule.activities.find((s) => s.activityId === "c")!;
-    // A end = addWD(Mon, 3) = Thu Jan 9; C via FS: start = addWD(Thu Jan 9, 1+0) = Fri Jan 10
+    // A end = addWD(Mon, 2) = Wed Jan 8; C via FS: start = addWD(Wed Jan 8, 1+0) = Thu Jan 9
     // B start = Mon Jan 6; C via SS: start = addWD(Mon, 0) = Mon Jan 6
-    // max → Fri Jan 10
-    expect(c.startDate).toBe("2025-01-10");
+    // max → Thu Jan 9
+    expect(c.startDate).toBe("2025-01-09");
   });
 
   it("FS + FF: A(3d) FS→ C(2d), B(5d) FF→ C(2d)", () => {
@@ -787,10 +787,10 @@ describe("computeDependencySchedule — mixed types", () => {
     const deps = [fsDep("a", "c"), ffDep("b", "c")];
     const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
     const c = schedule.activities.find((s) => s.activityId === "c")!;
-    // A end = Thu Jan 9; C via FS: start = addWD(Thu, 1) = Fri Jan 10
-    // B end = Mon Jan 13; C via FF: constrainedEF = Mon Jan 13, start = subtractWD(Mon, 2) = Thu Jan 9
-    // max(Fri Jan 10, Thu Jan 9) → Fri Jan 10
-    expect(c.startDate).toBe("2025-01-10");
+    // A end = Wed Jan 8; C via FS: start = addWD(Wed, 1) = Thu Jan 9
+    // B end = Fri Jan 10; C via FF: constrainedEF = Fri Jan 10, start = subtractWD(Fri, 1) = Thu Jan 9
+    // max(Thu Jan 9, Thu Jan 9) → Thu Jan 9
+    expect(c.startDate).toBe("2025-01-09");
   });
 
   it("no dependency conflict for satisfied FF constraint", () => {

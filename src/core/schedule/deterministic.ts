@@ -96,7 +96,7 @@ export function computeDeterministicSchedule(
     const duration = resolveActivityDuration(activity, percentile);
 
     const activityStartDate = currentDate;
-    const activityEndDate = addWorkingDays(activityStartDate, duration, calendar);
+    const activityEndDate = addWorkingDays(activityStartDate, duration - 1, calendar);
 
     let finalStartISO = formatDateISO(activityStartDate);
     let finalEndISO = formatDateISO(activityEndDate);
@@ -195,14 +195,14 @@ function computeCandidateLSDate(
   }
   if (type === "FF") {
     const succLF = parseDateISO(succLFISO);
-    const combined = lagDays + predDuration;
+    const combined = lagDays + predDuration - 1;
     return combined >= 0
       ? subtractWorkingDays(succLF, combined, calendar)
       : addWorkingDays(succLF, -combined, calendar);
   }
   // FS
   const succLS = parseDateISO(succLSISO);
-  const combined = 1 + lagDays + predDuration;
+  const combined = lagDays + predDuration;
   return combined >= 0
     ? subtractWorkingDays(succLS, combined, calendar)
     : addWorkingDays(succLS, -combined, calendar);
@@ -307,7 +307,7 @@ export function computeDependencySchedule(
           } else {
             constrainedEF = subtractWorkingDays(predEnd, -pred.lagDays, calendar);
           }
-          candidateStart = subtractWorkingDays(constrainedEF, duration, calendar);
+          candidateStart = subtractWorkingDays(constrainedEF, duration - 1, calendar);
           if (candidateStart < projectStart) {
             candidateStart = new Date(projectStart);
           }
@@ -351,7 +351,7 @@ export function computeDependencySchedule(
       activityStart.setDate(activityStart.getDate() + 1);
     }
 
-    const activityEnd = addWorkingDays(activityStart, duration, calendar);
+    const activityEnd = addWorkingDays(activityStart, duration - 1, calendar);
 
     // Save network dates (before local constraint adjustment)
     const esNetISO = formatDateISO(activityStart);
@@ -395,7 +395,7 @@ export function computeDependencySchedule(
 
     let ls: Date;
     if (succs.length === 0) {
-      ls = subtractWorkingDays(new Date(projectEndDate), duration, calendar);
+      ls = subtractWorkingDays(new Date(projectEndDate), duration - 1, calendar);
     } else {
       ls = new Date(8640000000000000); // max date
       for (const succ of succs) {
@@ -407,7 +407,7 @@ export function computeDependencySchedule(
       }
     }
 
-    let lf = addWorkingDays(ls, duration, calendar);
+    let lf = addWorkingDays(ls, duration - 1, calendar);
 
     // Apply backward constraint adjustment
     if (activity.constraintType && activity.constraintDate && activity.constraintMode) {
@@ -436,7 +436,7 @@ export function computeDependencySchedule(
 
     let ls: Date;
     if (succs.length === 0) {
-      ls = subtractWorkingDays(new Date(projectEndDate), duration, calendar);
+      ls = subtractWorkingDays(new Date(projectEndDate), duration - 1, calendar);
     } else {
       ls = new Date(8640000000000000);
       for (const succ of succs) {
@@ -448,7 +448,7 @@ export function computeDependencySchedule(
       }
     }
 
-    const lf = addWorkingDays(ls, duration, calendar);
+    const lf = addWorkingDays(ls, duration - 1, calendar);
     lateStartNet.set(id, formatDateISO(ls));
     lateFinishNet.set(id, formatDateISO(lf));
   }

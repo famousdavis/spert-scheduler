@@ -74,7 +74,7 @@ export function useMilestoneBuffers(
 
       const deterministicEndDate = formatDateISO(latestEndDate);
       const projectStart = parseDateISO(projectStartDate);
-      const deterministicDuration = countWorkingDays(projectStart, latestEndDate, calendar);
+      const deterministicDuration = countWorkingDays(projectStart, latestEndDate, calendar) + 1;
 
       // Compute buffer from milestone MC results
       const milestoneResults = simulationResults?.milestoneResults?.[milestone.id];
