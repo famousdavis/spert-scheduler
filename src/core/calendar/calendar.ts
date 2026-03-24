@@ -121,7 +121,13 @@ export function isWorkingDay(
 }
 
 /**
- * Add working days to a start date. Returns the end date.
+ * Advance N working days forward from a date. The start day is NOT counted.
+ *
+ * Example: addWorkingDays(Monday, 1) → Tuesday (not Monday).
+ *
+ * **For activity end dates, use {@link activityEndDate} instead** — it accounts
+ * for the PM convention that the start day counts as day 1 of the duration.
+ *
  * If days is 0, returns the start date unchanged.
  * Always clones the input — never mutates.
  */
@@ -149,7 +155,14 @@ export function addWorkingDays(
 }
 
 /**
- * Subtract working days from a date.
+ * Go back N working days from a date. The start day is NOT counted.
+ *
+ * Example: subtractWorkingDays(Friday, 1) → Thursday (not Friday).
+ *
+ * **For activity start dates from an end date, use {@link activityStartDate}
+ * instead** — it accounts for the PM convention that the end day counts as
+ * the last working day of the duration.
+ *
  * Always clones the input — never mutates.
  */
 export function subtractWorkingDays(
@@ -173,6 +186,42 @@ export function subtractWorkingDays(
     }
   }
   return result;
+}
+
+// -- PM-convention wrappers ---------------------------------------------------
+// These encode the project management convention: the start day counts as
+// day 1 of the duration, so a 5-day activity Mon→Fri has duration=5 and
+// end = addWorkingDays(start, 5 - 1).  The `- 1` lives here so callers
+// don't need to remember it.
+
+/**
+ * Inclusive end date for an activity with a given duration.
+ *
+ * A 5-day activity starting Monday returns Friday (same week).
+ * The start day counts as day 1.  Duration must be ≥ 1.
+ * Always clones the input — never mutates.
+ */
+export function activityEndDate(
+  start: Date,
+  duration: number,
+  calendar?: WorkCalendar | Calendar,
+): Date {
+  return addWorkingDays(start, duration - 1, calendar);
+}
+
+/**
+ * Start date for an activity that ends on `end` (inclusive) with a given duration.
+ *
+ * A 5-day activity ending Friday returns Monday (same week).
+ * Duration must be ≥ 1.
+ * Always clones the input — never mutates.
+ */
+export function activityStartDate(
+  end: Date,
+  duration: number,
+  calendar?: WorkCalendar | Calendar,
+): Date {
+  return subtractWorkingDays(end, duration - 1, calendar);
 }
 
 /**

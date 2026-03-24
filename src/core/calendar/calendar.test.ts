@@ -10,6 +10,8 @@ import {
   isWorkingDay,
   addWorkingDays,
   subtractWorkingDays,
+  activityEndDate,
+  activityStartDate,
   countWorkingDays,
   mergeCalendars,
 } from "./calendar";
@@ -531,5 +533,71 @@ describe("mergeCalendars", () => {
     expect(isWorkingDay(new Date(2026, 0, 2), mergedWc)).toBe(false);
     // Mon Jan 5 2026 — working day
     expect(isWorkingDay(new Date(2026, 0, 5), mergedWc)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PM-convention wrappers: activityEndDate / activityStartDate
+// Regression tests to prevent the off-by-one bug fixed in v0.26.2.
+// ---------------------------------------------------------------------------
+
+describe("activityEndDate", () => {
+  it("5-day activity starting Monday ends on Friday (same week)", () => {
+    const mon = new Date(2025, 0, 6); // Monday Jan 6
+    const end = activityEndDate(mon, 5);
+    expect(end.getDay()).toBe(5); // Friday
+    expect(formatDateISO(end)).toBe("2025-01-10");
+  });
+
+  it("1-day activity starts and ends on the same day", () => {
+    const wed = new Date(2025, 0, 8); // Wednesday
+    const end = activityEndDate(wed, 1);
+    expect(formatDateISO(end)).toBe("2025-01-08");
+  });
+
+  it("10-day activity starting Monday ends on the following Friday", () => {
+    const mon = new Date(2025, 0, 6);
+    const end = activityEndDate(mon, 10);
+    expect(formatDateISO(end)).toBe("2025-01-17"); // Fri Jan 17
+    expect(end.getDay()).toBe(5); // Friday
+  });
+
+  it("skips holidays correctly", () => {
+    // Mon Jan 6, holiday on Tue Jan 7: activity occupies Mon, Wed, Thu, Fri, Mon
+    const calendar = buildWorkCalendar([1, 2, 3, 4, 5], [
+      { id: "h1", name: "Holiday", startDate: "2025-01-07", endDate: "2025-01-07" },
+    ], []);
+    const end = activityEndDate(new Date(2025, 0, 6), 5, calendar);
+    expect(formatDateISO(end)).toBe("2025-01-13"); // Mon Jan 13
+  });
+
+  it("property: round-trips with activityStartDate", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 50 }),
+        (duration) => {
+          const start = new Date(2025, 0, 6); // Monday
+          const end = activityEndDate(start, duration);
+          const recoveredStart = activityStartDate(end, duration);
+          return formatDateISO(recoveredStart) === formatDateISO(start);
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+});
+
+describe("activityStartDate", () => {
+  it("5-day activity ending Friday started on Monday (same week)", () => {
+    const fri = new Date(2025, 0, 10); // Friday Jan 10
+    const start = activityStartDate(fri, 5);
+    expect(start.getDay()).toBe(1); // Monday
+    expect(formatDateISO(start)).toBe("2025-01-06");
+  });
+
+  it("1-day activity starts and ends on the same day", () => {
+    const wed = new Date(2025, 0, 8);
+    const start = activityStartDate(wed, 1);
+    expect(formatDateISO(start)).toBe("2025-01-08");
   });
 });

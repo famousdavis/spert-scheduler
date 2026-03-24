@@ -12,8 +12,8 @@
 import type { Calendar, ConstraintType, ConstraintMode, ConstraintConflict } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import {
-  addWorkingDays,
-  subtractWorkingDays,
+  activityEndDate,
+  activityStartDate,
   countWorkingDays,
   parseDateISO,
   formatDateISO,
@@ -55,9 +55,9 @@ export function applyForwardConstraint(
 
   switch (constraintType) {
     case "MSO": {
-      // ES = constraintDate; EF = ES + duration - 1 (inclusive end)
+      // ES = constraintDate; EF = activityEndDate(ES, duration)
       es = constraintDate;
-      ef = formatDateISO(addWorkingDays(parseDateISO(es), duration - 1, calendar));
+      ef = formatDateISO(activityEndDate(parseDateISO(es), duration, calendar));
       // Conflict: network ES is later than constraint date (predecessor pushes past MSO)
       if (esNet > constraintDate) {
         const delta = countWorkingDays(parseDateISO(constraintDate), parseDateISO(esNet), calendar);
@@ -71,9 +71,9 @@ export function applyForwardConstraint(
     }
 
     case "MFO": {
-      // EF = constraintDate; ES = EF − (duration - 1) (inclusive end)
+      // EF = constraintDate; ES = activityStartDate(EF, duration)
       ef = constraintDate;
-      es = formatDateISO(subtractWorkingDays(parseDateISO(ef), duration - 1, calendar));
+      es = formatDateISO(activityStartDate(parseDateISO(ef), duration, calendar));
       // Conflict: network EF is later than constraint date
       if (efNet > constraintDate) {
         const delta = countWorkingDays(parseDateISO(constraintDate), parseDateISO(efNet), calendar);
@@ -87,20 +87,20 @@ export function applyForwardConstraint(
     }
 
     case "SNET": {
-      // ES = max(ES_net, constraintDate); EF = ES + duration - 1 (inclusive end)
+      // ES = max(ES_net, constraintDate); EF = activityEndDate(ES, duration)
       if (constraintDate > esNet) {
         es = constraintDate;
       }
-      ef = formatDateISO(addWorkingDays(parseDateISO(es), duration - 1, calendar));
+      ef = formatDateISO(activityEndDate(parseDateISO(es), duration, calendar));
       break;
     }
 
     case "FNET": {
-      // EF = max(EF_net, constraintDate); ES = EF − (duration - 1) (inclusive end)
+      // EF = max(EF_net, constraintDate); ES = activityStartDate(EF, duration)
       if (constraintDate > efNet) {
         ef = constraintDate;
       }
-      es = formatDateISO(subtractWorkingDays(parseDateISO(ef), duration - 1, calendar));
+      es = formatDateISO(activityStartDate(parseDateISO(ef), duration, calendar));
       break;
     }
 
@@ -207,34 +207,34 @@ export function applyBackwardConstraint(
 
   switch (constraintType) {
     case "SNLT": {
-      // LS = min(network-driven LS, constraintDate); LF = LS + duration - 1 (inclusive end)
+      // LS = min(network-driven LS, constraintDate); LF = activityEndDate(LS, duration)
       if (constraintDate < lsNet) {
         ls = constraintDate;
       }
-      lf = formatDateISO(addWorkingDays(parseDateISO(ls), duration - 1, calendar));
+      lf = formatDateISO(activityEndDate(parseDateISO(ls), duration, calendar));
       break;
     }
 
     case "FNLT": {
-      // LF = min(network-driven LF, constraintDate); LS = LF − (duration - 1) (inclusive end)
+      // LF = min(network-driven LF, constraintDate); LS = activityStartDate(LF, duration)
       if (constraintDate < lfNet) {
         lf = constraintDate;
       }
-      ls = formatDateISO(subtractWorkingDays(parseDateISO(lf), duration - 1, calendar));
+      ls = formatDateISO(activityStartDate(parseDateISO(lf), duration, calendar));
       break;
     }
 
     case "MSO": {
-      // LS = constraintDate; LF = LS + duration - 1 (inclusive end)
+      // LS = constraintDate; LF = activityEndDate(LS, duration)
       ls = constraintDate;
-      lf = formatDateISO(addWorkingDays(parseDateISO(ls), duration - 1, calendar));
+      lf = formatDateISO(activityEndDate(parseDateISO(ls), duration, calendar));
       break;
     }
 
     case "MFO": {
-      // LF = constraintDate; LS = LF − (duration - 1) (inclusive end)
+      // LF = constraintDate; LS = activityStartDate(LF, duration)
       lf = constraintDate;
-      ls = formatDateISO(subtractWorkingDays(parseDateISO(lf), duration - 1, calendar));
+      ls = formatDateISO(activityStartDate(parseDateISO(lf), duration, calendar));
       break;
     }
 
