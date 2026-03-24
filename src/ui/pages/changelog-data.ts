@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.26.1",
+    date: "2026-03-24",
+    sections: [
+      {
+        title: "Enhancements",
+        items: [
+          "Redesigned bulk action toolbar: added Status dropdown (Planned, In Progress, Complete) alongside Confidence and Distribution. All three dropdowns now stage selections until you click \"Apply.\" When applying a distribution change with heuristics enabled, you're prompted to recalculate min/max using current heuristic percentages.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.26.0",
     date: "2026-03-23",
     sections: [

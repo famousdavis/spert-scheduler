@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.26.1 — 2026-03-24
+
+### Enhancements
+
+- Redesigned bulk action toolbar: added Status dropdown (Planned, In Progress, Complete) alongside Confidence and Distribution. All three dropdowns now stage selections until you click "Apply." When applying a distribution change with heuristics enabled, you're prompted to recalculate min/max using current heuristic percentages.
+
 ## 0.26.0 — 2026-03-23
 
 ### Enhancements
