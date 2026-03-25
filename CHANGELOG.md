@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.27.0 — 2026-03-24
+
+### New Features
+
+- Estimation Heuristics Suggester — new inline panel in Settings that helps you choose informed heuristic min/max percentages by selecting your industry domain and activity subdomain from a curated 73-entry reference table spanning 23 industries. Displays suggested optimistic and pessimistic percentages with rationale, and applies values to your heuristic defaults with one click.
+
 ## 0.26.2 — 2026-03-24
 
 ### Bug Fixes

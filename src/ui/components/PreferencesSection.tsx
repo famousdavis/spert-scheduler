@@ -24,6 +24,7 @@ import {
 import { distributionLabel } from "@domain/helpers/format-labels";
 import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import HeuristicSuggester from "./HeuristicSuggester";
 
 const THEME_LABELS: Record<ThemePreference, string> = {
   light: "Light",
@@ -45,6 +46,15 @@ export function PreferencesSection() {
   const [localMaxPct, setLocalMaxPct] = useState(String(preferences.defaultHeuristicMaxPercent));
   useEffect(() => { setLocalMinPct(String(preferences.defaultHeuristicMinPercent)); }, [preferences.defaultHeuristicMinPercent]); // eslint-disable-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalMaxPct(String(preferences.defaultHeuristicMaxPercent)); }, [preferences.defaultHeuristicMaxPercent]); // eslint-disable-line react-hooks/set-state-in-effect
+
+  const handleHeuristicApply = (minPct: number, maxPct: number) => {
+    setLocalMinPct(String(minPct));
+    setLocalMaxPct(String(maxPct));
+    updatePreferences({
+      defaultHeuristicMinPercent: minPct,
+      defaultHeuristicMaxPercent: maxPct,
+    });
+  };
 
   const handleReset = () => {
     if (window.confirm("Reset all preferences to defaults?")) {
@@ -331,6 +341,7 @@ export function PreferencesSection() {
               step={1}
             />
           </div>
+          <HeuristicSuggester onApply={handleHeuristicApply} />
         </div>
 
         {/* Parkinson's Law Enabled */}
