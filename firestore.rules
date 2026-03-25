@@ -50,7 +50,8 @@ service cloud.firestore {
                         'defaultDependencyMode', 'defaultParkinsonsLawEnabled',
                         'globalCalendar', 'ganttViewMode', 'ganttShowToday',
                         'ganttShowCriticalPath', 'ganttShowProjectName', 'ganttShowArrows',
-                        'defaultHolidayCountry', 'workDays'
+                        'defaultHolidayCountry', 'workDays',
+                        'targetFinishGreenPct', 'targetFinishAmberPct'
                       ]);
     }
 

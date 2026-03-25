@@ -26,6 +26,7 @@ import {
   updateActivity,
   reorderActivities,
   setGlobalCalendar,
+  updateProjectFields as updateProjectFieldsFn,
   renameProject as renameProjectFn,
   renameScenario as renameScenarioFn,
   addDependency as addDependencyFn,
@@ -119,6 +120,12 @@ export interface ProjectStore {
   deleteProject: (id: string) => void;
   reorderProjects: (fromIndex: number, toIndex: number) => void;
   getProject: (id: string) => Project | undefined;
+
+  // Project fields
+  updateProjectField: (
+    projectId: string,
+    updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt">>
+  ) => void;
 
   // Rename
   renameProject: (projectId: string, name: string) => void;
@@ -674,6 +681,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
           convertedWorkDays: (p.convertedWorkDays ?? []).filter((d) => d !== date),
         };
       });
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  updateProjectField: (projectId, updates) => {
+    pushUndo(projectId);
+    set((state) => {
+      const resolved = { ...updates };
+      // Auto-disable Gantt toggle when target date is cleared
+      if (resolved.targetFinishDate === null || resolved.targetFinishDate === undefined) {
+        if ("targetFinishDate" in resolved) {
+          resolved.showTargetOnGantt = false;
+        }
+      }
+      const projects = state.projects.map((p) =>
+        p.id === projectId ? updateProjectFieldsFn(p, resolved) : p
+      );
       persist(projects, projectId);
       return { projects };
     });

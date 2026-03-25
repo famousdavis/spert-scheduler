@@ -834,7 +834,29 @@ describe("applyMigrations", () => {
     expect(activities[0]!.checklist).toBeUndefined();
   });
 
-  it("v1→v14: full sequential migration", () => {
+  // -- v14 → v15: Finish target date fields -----------------------------------
+
+  it("v14→v15: bumps schema version to 15", () => {
+    const data = { schemaVersion: 14, scenarios: [] };
+    const result = applyMigrations(data, 14, 15) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(15);
+  });
+
+  it("v14→v15: sets targetFinishDate to null and showTargetOnGantt to false", () => {
+    const data = { schemaVersion: 14, scenarios: [] };
+    const result = applyMigrations(data, 14, 15) as Record<string, unknown>;
+    expect(result.targetFinishDate).toBe(null);
+    expect(result.showTargetOnGantt).toBe(false);
+  });
+
+  it("v14→v15: preserves existing targetFinishDate if present", () => {
+    const data = { schemaVersion: 14, targetFinishDate: "2026-06-01", showTargetOnGantt: true, scenarios: [] };
+    const result = applyMigrations(data, 14, 15) as Record<string, unknown>;
+    expect(result.targetFinishDate).toBe("2026-06-01");
+    expect(result.showTargetOnGantt).toBe(true);
+  });
+
+  it("v1→v15: full sequential migration", () => {
     const v1Data = {
       schemaVersion: 1,
       scenarios: [
@@ -848,7 +870,9 @@ describe("applyMigrations", () => {
       },
     };
 
-    const result = applyMigrations(v1Data, 1, 14) as Record<string, unknown>;
-    expect(result.schemaVersion).toBe(14);
+    const result = applyMigrations(v1Data, 1, 15) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(15);
+    expect(result.targetFinishDate).toBe(null);
+    expect(result.showTargetOnGantt).toBe(false);
   });
 });

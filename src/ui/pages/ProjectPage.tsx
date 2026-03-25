@@ -14,7 +14,7 @@ import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { Activity, ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
-import { formatDateISO } from "@core/calendar/calendar";
+import { formatDateISO, parseDateISO, addWorkingDays } from "@core/calendar/calendar";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { CalendarConfigurationError } from "@core/calendar/work-calendar";
 import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
@@ -75,6 +75,7 @@ export function ProjectPage() {
     updateMilestone,
     assignActivityToMilestone,
     setActivityStartsAtMilestone,
+    updateProjectField,
   } = useProjectStore(
     useShallow((s) => ({
       projects: s.projects,
@@ -107,6 +108,7 @@ export function ProjectPage() {
       updateMilestone: s.updateMilestone,
       assignActivityToMilestone: s.assignActivityToMilestone,
       setActivityStartsAtMilestone: s.setActivityStartsAtMilestone,
+      updateProjectField: s.updateProjectField,
     }))
   );
 
@@ -280,6 +282,23 @@ export function ProjectPage() {
   const autoRunSimulation = usePreferencesStore(
     (s) => s.preferences.autoRunSimulation,
   );
+  const targetFinishGreenPct = usePreferencesStore((s) => s.preferences.targetFinishGreenPct ?? 80);
+  const targetFinishAmberPct = usePreferencesStore((s) => s.preferences.targetFinishAmberPct ?? 50);
+
+  // Compute Finish Target RAG color
+  const targetRAGColor = (() => {
+    const targetDate = project?.targetFinishDate;
+    if (!targetDate || !scenario?.simulationResults || !scenario.startDate) return "gray";
+    const greenDuration = scenario.simulationResults.percentiles[targetFinishGreenPct];
+    const amberDuration = scenario.simulationResults.percentiles[targetFinishAmberPct];
+    if (greenDuration == null || amberDuration == null) return "gray";
+    const cal = workCalendar;
+    const greenFinish = formatDateISO(addWorkingDays(parseDateISO(scenario.startDate), greenDuration, cal));
+    const amberFinish = formatDateISO(addWorkingDays(parseDateISO(scenario.startDate), amberDuration, cal));
+    if (greenFinish <= targetDate) return "green";
+    if (amberFinish <= targetDate) return "amber";
+    return "red";
+  })();
 
   // Auto-run simulation on activity/settings changes (debounced 500ms)
   useAutoRunSimulation({
@@ -553,6 +572,13 @@ export function ProjectPage() {
             dependencies={scenario.dependencies}
             milestones={scenario.milestones}
             onRunSimulation={handleRunSimulation}
+            targetFinishDate={project.targetFinishDate ?? null}
+            onTargetFinishDateChange={(date) =>
+              updateProjectField(id!, {
+                targetFinishDate: date,
+              })
+            }
+            targetRAGColor={targetRAGColor}
           />
 
           {/* Validation errors */}
@@ -666,6 +692,13 @@ export function ProjectPage() {
               isLocked={scenario.locked}
               showActivityNumbers={showActivityNumbers}
               onToggleActivityNumbers={setShowActivityNumbers}
+              showTargetOnGantt={project.showTargetOnGantt ?? false}
+              onToggleShowTarget={(v) =>
+                updateProjectField(id!, { showTargetOnGantt: v })
+              }
+              hasTargetDate={!!project.targetFinishDate}
+              targetFinishDate={project.targetFinishDate ?? null}
+              targetRAGColor={targetRAGColor}
             />
           )}
 
@@ -796,6 +829,7 @@ export function ProjectPage() {
           milestoneBuffers={milestoneBuffers}
           calendar={workCalendar}
           criticalPathIds={criticalPathIds}
+          targetRAGColor={targetRAGColor}
         />
       )}
     </div>

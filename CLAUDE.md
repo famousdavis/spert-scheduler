@@ -157,13 +157,13 @@ UI (React, Zustand, Recharts)
 
 ## Schema Version
 
-Current: `SCHEMA_VERSION = 14`. Migrations in `src/infrastructure/persistence/migrations.ts`. Bump version + add migration when changing the `Project` schema shape.
+Current: `SCHEMA_VERSION = 15`. Migrations in `src/infrastructure/persistence/migrations.ts`. Bump version + add migration when changing the `Project` schema shape.
 
 User preferences are stored separately (`spert:user-preferences` key) and are NOT part of the Project schema. No schema bump needed for preference changes.
 
 ## Testing Patterns
 
-- **935 tests** across **50 test files**
+- **953 tests** across **51 test files**
 - **Unit tests:** Pure functions in `/core` — known values + property-based (fast-check)
 - **Integration tests:** `src/integration/` — full workflow, persistence round-trip, scenario cloning, export/import, dependency lifecycle, calendar layering
 - **Property-based:** Distribution samples bounded, percentiles monotonic, calendar round-trips, Parkinson floor invariants
@@ -195,7 +195,7 @@ User preferences are stored separately (`spert:user-preferences` key) and are NO
 5. Wire into consuming components via `usePreferencesStore`
 6. Add tests in `preferences-repository.test.ts`
 
-**Current preferences:** `defaultTrialCount`, `defaultDistributionType`, `defaultConfidenceLevel`, `defaultActivityTarget`, `defaultProjectTarget`, `dateFormat`, `autoRunSimulation`, `theme`, `storeFullSimulationData`, `defaultHeuristicMinPercent`, `defaultHeuristicMaxPercent`, `defaultDependencyMode`, `defaultParkinsonsLawEnabled`, `globalCalendar`, `ganttViewMode`, `ganttShowToday`, `ganttShowCriticalPath`, `ganttShowProjectName`, `ganttShowArrows`, `defaultHolidayCountry`, `workDays`
+**Current preferences:** `defaultTrialCount`, `defaultDistributionType`, `defaultConfidenceLevel`, `defaultActivityTarget`, `defaultProjectTarget`, `dateFormat`, `autoRunSimulation`, `theme`, `storeFullSimulationData`, `defaultHeuristicMinPercent`, `defaultHeuristicMaxPercent`, `defaultDependencyMode`, `defaultParkinsonsLawEnabled`, `globalCalendar`, `ganttViewMode`, `ganttShowToday`, `ganttShowCriticalPath`, `ganttShowProjectName`, `ganttShowArrows`, `defaultHolidayCountry`, `workDays`, `targetFinishGreenPct`, `targetFinishAmberPct`
 
 ### Bumping the version
 1. Update `APP_VERSION` in `src/app/constants.ts`

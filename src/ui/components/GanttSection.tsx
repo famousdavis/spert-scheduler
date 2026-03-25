@@ -36,6 +36,11 @@ interface GanttSectionProps {
   isLocked?: boolean;
   showActivityNumbers?: boolean;
   onToggleActivityNumbers?: (v: boolean) => void;
+  showTargetOnGantt?: boolean;
+  onToggleShowTarget?: (v: boolean) => void;
+  hasTargetDate?: boolean;
+  targetFinishDate?: string | null;
+  targetRAGColor?: string;
 }
 
 export function GanttSection(props: GanttSectionProps) {
@@ -73,7 +78,13 @@ export function GanttSection(props: GanttSectionProps) {
       {/* Chart body */}
       {!collapsed && (
         <div className="p-4 bg-white dark:bg-gray-800">
-          <GanttChart {...props} svgContainerRef={chartRef} />
+          <GanttChart
+            {...props}
+            svgContainerRef={chartRef}
+            targetFinishDate={props.targetFinishDate}
+            showTargetOnGantt={props.showTargetOnGantt}
+            targetRAGColor={props.targetRAGColor}
+          />
         </div>
       )}
     </section>

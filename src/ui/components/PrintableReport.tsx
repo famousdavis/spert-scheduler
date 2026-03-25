@@ -31,6 +31,7 @@ interface PrintableReportProps {
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   calendar?: WorkCalendar | Calendar;
   criticalPathIds?: Set<string> | null;
+  targetRAGColor?: string;
 }
 
 export function PrintableReport({
@@ -42,6 +43,7 @@ export function PrintableReport({
   milestoneBuffers,
   calendar,
   criticalPathIds,
+  targetRAGColor,
 }: PrintableReportProps) {
   const formatDate = useDateFormat();
   const actPct = Math.round(scenario.settings.probabilityTarget * 100);
@@ -422,6 +424,9 @@ export function PrintableReport({
           milestoneBuffers={milestoneBuffers}
           criticalPathIds={criticalPathIds}
           projectName={project.name}
+          targetFinishDate={project.targetFinishDate ?? null}
+          showTargetOnGantt={project.showTargetOnGantt ?? false}
+          targetRAGColor={targetRAGColor}
         />
       )}
 

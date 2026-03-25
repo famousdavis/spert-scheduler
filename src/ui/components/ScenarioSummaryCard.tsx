@@ -45,6 +45,9 @@ interface ScenarioSummaryCardProps {
   dependencies: ActivityDependency[];
   milestones: Milestone[];
   onRunSimulation?: () => void;
+  targetFinishDate?: string | null;
+  onTargetFinishDateChange?: (date: string | null) => void;
+  targetRAGColor?: string;
 }
 
 export function ScenarioSummaryCard({
@@ -66,6 +69,9 @@ export function ScenarioSummaryCard({
   dependencies,
   milestones,
   onRunSimulation,
+  targetFinishDate,
+  onTargetFinishDateChange,
+  targetRAGColor,
 }: ScenarioSummaryCardProps) {
   const formatDate = useDateFormat();
   const actPct = Math.round(settings.probabilityTarget * 100);
@@ -160,6 +166,31 @@ export function ScenarioSummaryCard({
               }}
               disabled={isLocked}
               className="text-lg font-semibold text-blue-700 dark:text-blue-400 tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 dark:focus:border-blue-400 rounded px-1 -ml-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent"
+            />
+          </div>
+        </div>
+        <div className="border-l border-gray-200 dark:border-gray-600 self-stretch" />
+        <div>
+          <span className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            Finish Target
+          </span>
+          <div>
+            <input
+              type="date"
+              value={targetFinishDate ?? ""}
+              onChange={(e) => {
+                onTargetFinishDateChange?.(e.target.value || null);
+              }}
+              disabled={isLocked}
+              className={`text-lg font-semibold tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 dark:focus:border-blue-400 rounded px-1 -ml-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent ${
+                targetRAGColor === "green"
+                  ? "text-green-600 dark:text-green-400"
+                  : targetRAGColor === "amber"
+                    ? "text-amber-600 dark:text-amber-400"
+                    : targetRAGColor === "red"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-blue-700 dark:text-blue-400"
+              }`}
             />
           </div>
         </div>

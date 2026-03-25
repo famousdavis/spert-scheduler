@@ -259,6 +259,22 @@ function migrateV13toV14(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v14 → v15: Add finish target date fields to project.
+ * targetFinishDate defaults to null, showTargetOnGantt defaults to false.
+ */
+function migrateV14toV15(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  if (project.targetFinishDate === undefined) {
+    project.targetFinishDate = null;
+  }
+  if (project.showTargetOnGantt === undefined) {
+    project.showTargetOnGantt = false;
+  }
+  project.schemaVersion = 15;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -273,6 +289,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   11: migrateV11toV12,
   12: migrateV12toV13,
   13: migrateV13toV14,
+  14: migrateV14toV15,
 };
 
 /**

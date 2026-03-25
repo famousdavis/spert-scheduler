@@ -37,4 +37,6 @@ export const UserPreferencesSchema = z.object({
   ganttShowArrows: z.boolean().optional(),
   defaultHolidayCountry: z.string().min(2).max(10).optional(),
   workDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
+  targetFinishGreenPct: z.number().int().min(5).max(99).optional(),
+  targetFinishAmberPct: z.number().int().min(5).max(99).optional(),
 });
