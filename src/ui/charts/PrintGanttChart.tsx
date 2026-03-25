@@ -244,9 +244,12 @@ export function PrintGanttChart({
           return (
             <g>
               <line x1={targetX} y1={topMargin} x2={targetX} y2={chartH - 4}
-                stroke={color} strokeWidth="0.75" strokeDasharray={dash} />
+                stroke={color} strokeWidth="0.75" strokeDasharray={dash}>
+                <title>Finish Target: {formatDate(targetFinishDate)}</title>
+              </line>
               <text x={targetX} y={topMargin - 11} textAnchor="middle"
                 fontSize="5" fontWeight="500" fill={color}>
+                <title>Finish Target: {formatDate(targetFinishDate)}</title>
                 Target
               </text>
             </g>

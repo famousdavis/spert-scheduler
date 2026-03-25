@@ -534,7 +534,9 @@ export function GanttChart({
                   stroke={color}
                   strokeWidth="1.5"
                   strokeDasharray={dash}
-                />
+                >
+                  <title>Finish Target: {formatDate(targetFinishDate)}</title>
+                </line>
                 <text
                   x={targetX}
                   y={topMargin - 22}
@@ -543,6 +545,7 @@ export function GanttChart({
                   fontWeight="500"
                   fill={color}
                 >
+                  <title>Finish Target: {formatDate(targetFinishDate)}</title>
                   Target
                 </text>
               </g>
