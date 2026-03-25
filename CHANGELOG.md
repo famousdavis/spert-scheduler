@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.28.2 — 2026-03-25
+
+### Security
+
+- CSV formula injection guard expanded to cover tab (`\t`) and carriage return (`\r`) prefix characters per OWASP guidance.
+- Added dedicated test coverage for CSV formula injection guard across all export paths.
+- Suppressed false-positive ESLint `react-hooks/refs` error in PercentileTable with documented rationale.
+
 ## 0.28.1 — 2026-03-25
 
 ### Refactor

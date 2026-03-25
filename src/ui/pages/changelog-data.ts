@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.28.2",
+    date: "2026-03-25",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "CSV formula injection guard expanded to cover tab and carriage return prefix characters per OWASP guidance.",
+          "Added dedicated test coverage for CSV formula injection guard across all export paths.",
+          "Suppressed false-positive ESLint react-hooks/refs error in PercentileTable with documented rationale.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.28.1",
     date: "2026-03-25",
     sections: [
