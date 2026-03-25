@@ -81,9 +81,6 @@ export function GanttSection(props: GanttSectionProps) {
           <GanttChart
             {...props}
             svgContainerRef={chartRef}
-            targetFinishDate={props.targetFinishDate}
-            showTargetOnGantt={props.showTargetOnGantt}
-            targetRAGColor={props.targetRAGColor}
           />
         </div>
       )}

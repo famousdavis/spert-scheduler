@@ -67,6 +67,7 @@ UI (React, Zustand, Recharts)
 | `src/core/schedule/deterministic.ts` | Deterministic schedule (inverseCDF at percentile), dependency-aware variant, dual backward pass, constraint-aware scheduling |
 | `src/core/schedule/constraint-utils.ts` | Shared constraint evaluation: forward/backward pass, conflict detection, integer-domain MC clamping |
 | `src/core/schedule/buffer.ts` | Schedule buffer calculation |
+| `src/core/schedule/target-rag.ts` | Pure RAG (Red/Amber/Green) schedule health computation for finish target dates |
 | `src/core/analytics/analytics.ts` | Percentiles, histogram, CDF, mean/SD, bootstrap CI (batch + single) |
 | `src/core/simulation/monte-carlo.ts` | Monte Carlo engine (pure function), dependency-aware variant |
 | `src/workers/simulation.worker.ts` | Web Worker wrapper for MC |
@@ -98,6 +99,7 @@ UI (React, Zustand, Recharts)
 | `src/ui/pages/SettingsPage.tsx` | Settings layout wrapper (imports section components) |
 | `src/ui/pages/changelog-data.ts` | Changelog version history data array |
 | `src/ui/components/PreferencesSection.tsx` | User preferences controls (theme, trials, distribution, etc.) |
+| `src/ui/components/ScheduleHealthSection.tsx` | RAG schedule health threshold dropdowns (Green/Amber percentile settings) |
 | `src/ui/components/LocalStorageSection.tsx` | localStorage usage bar and simulation data toggle |
 | `src/ui/components/ExportSection.tsx` | Project export with simulation data toggle |
 | `src/ui/components/ScheduleExportButton.tsx` | Inline XLSX/CSV export buttons for project page (near activity grid) |
@@ -132,6 +134,7 @@ UI (React, Zustand, Recharts)
 | `src/ui/hooks/use-date-format.ts` | Hook returning memoized date formatter from user preferences |
 | `src/ui/hooks/use-milestone-buffers.ts` | Hook computing per-milestone buffer, slack, and health status |
 | `src/ui/hooks/use-gantt-layout.ts` | Hook: ResizeObserver, dimension/scale calculations, tick generation, position computations |
+| `src/ui/hooks/use-gantt-preferences.ts` | Consolidated hook for Gantt chart preferences (viewMode, showToday, etc.) |
 | `src/ui/hooks/use-auto-run-simulation.ts` | Hook: debounced 500ms auto-run simulation effect |
 | `src/ui/hooks/use-scenario-comparison.ts` | Hook: comparison mode state, scenario selection (max 3), filtered scenario list |
 | `src/domain/helpers/format-labels.ts` | Centralized distribution/status label formatters |
@@ -163,7 +166,7 @@ User preferences are stored separately (`spert:user-preferences` key) and are NO
 
 ## Testing Patterns
 
-- **953 tests** across **51 test files**
+- **964 tests** across **52 test files**
 - **Unit tests:** Pure functions in `/core` — known values + property-based (fast-check)
 - **Integration tests:** `src/integration/` — full workflow, persistence round-trip, scenario cloning, export/import, dependency lifecycle, calendar layering
 - **Property-based:** Distribution samples bounded, percentiles monotonic, calendar round-trips, Parkinson floor invariants

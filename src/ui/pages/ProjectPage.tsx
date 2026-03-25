@@ -14,8 +14,9 @@ import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { Activity, ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
-import { formatDateISO, parseDateISO, addWorkingDays } from "@core/calendar/calendar";
+import { formatDateISO } from "@core/calendar/calendar";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
+import { computeTargetRAGColor } from "@core/schedule/target-rag";
 import { CalendarConfigurationError } from "@core/calendar/work-calendar";
 import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
@@ -286,19 +287,18 @@ export function ProjectPage() {
   const targetFinishAmberPct = usePreferencesStore((s) => s.preferences.targetFinishAmberPct ?? 50);
 
   // Compute Finish Target RAG color
-  const targetRAGColor = (() => {
-    const targetDate = project?.targetFinishDate;
-    if (!targetDate || !scenario?.simulationResults || !scenario.startDate) return "gray";
-    const greenDuration = scenario.simulationResults.percentiles[targetFinishGreenPct];
-    const amberDuration = scenario.simulationResults.percentiles[targetFinishAmberPct];
-    if (greenDuration == null || amberDuration == null) return "gray";
-    const cal = workCalendar;
-    const greenFinish = formatDateISO(addWorkingDays(parseDateISO(scenario.startDate), greenDuration, cal));
-    const amberFinish = formatDateISO(addWorkingDays(parseDateISO(scenario.startDate), amberDuration, cal));
-    if (greenFinish <= targetDate) return "green";
-    if (amberFinish <= targetDate) return "amber";
-    return "red";
-  })();
+  const targetRAGColor = useMemo(
+    () =>
+      computeTargetRAGColor({
+        targetFinishDate: project?.targetFinishDate,
+        percentiles: scenario?.simulationResults?.percentiles,
+        startDate: scenario?.startDate,
+        greenPct: targetFinishGreenPct,
+        amberPct: targetFinishAmberPct,
+        calendar: workCalendar,
+      }),
+    [project?.targetFinishDate, scenario?.simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],
+  );
 
   // Auto-run simulation on activity/settings changes (debounced 500ms)
   useAutoRunSimulation({
