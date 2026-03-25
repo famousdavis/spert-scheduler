@@ -12,6 +12,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.28.0",
+    date: "2026-03-25",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Finish Target Date — set a project-level target finish date (e.g., the date promised in your project charter) in the summary card. The target date appears between the Start and Finish dates for quick reference.",
+          "Gantt chart Target line — optionally display the finish target as a vertical dashed line on the Gantt chart. Toggle visibility via the 'Show Finish Target Date' checkbox in the Gantt toolbar.",
+          "RAG schedule health indicator — the Target line and Finish Target date in the summary card reflect schedule health: green (simulation finishes by the green percentile), amber (within the amber threshold), or red (at risk). Gray/blue when no simulation has been run.",
+          "Configurable RAG thresholds — set Green and Amber percentile thresholds in Settings under 'Finish Target — Schedule Health'. Defaults: Green at P80, Amber at P50.",
+          "Monochrome-safe dash patterns — the Target line uses distinct dash patterns per RAG state (long dashes for green, medium for amber, dots for red) so schedule health is distinguishable on black-and-white prints.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.27.0",
     date: "2026-03-24",
     sections: [

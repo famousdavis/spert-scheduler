@@ -26,7 +26,7 @@ import {
   LEFT_MARGIN, ROW_HEIGHT,
   BAR_HEIGHT, BAR_Y_OFFSET, BAR_RADIUS,
   ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT,
-  COLORS, MILESTONE_COLORS,
+  COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
 } from "./gantt-constants";
 import {
   dateToX, longDateLabel, buildOrderedActivities,
@@ -56,6 +56,11 @@ interface GanttChartProps {
   isLocked?: boolean;
   showActivityNumbers?: boolean;
   onToggleActivityNumbers?: (v: boolean) => void;
+  targetFinishDate?: string | null;
+  showTargetOnGantt?: boolean;
+  targetRAGColor?: string;
+  onToggleShowTarget?: (v: boolean) => void;
+  hasTargetDate?: boolean;
 }
 
 export function GanttChart({
@@ -80,6 +85,11 @@ export function GanttChart({
   isLocked,
   showActivityNumbers,
   onToggleActivityNumbers,
+  targetFinishDate,
+  showTargetOnGantt,
+  targetRAGColor,
+  onToggleShowTarget,
+  hasTargetDate,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
   const viewMode: GanttViewMode = usePreferencesStore((s) => s.preferences.ganttViewMode) ?? "deterministic";
@@ -147,6 +157,7 @@ export function GanttChart({
     document.documentElement.classList.contains("dark");
   const c = isDark ? COLORS.dark : COLORS.light;
   const mc = isDark ? MILESTONE_COLORS.dark : MILESTONE_COLORS.light;
+  const tc = isDark ? TARGET_COLORS.dark : TARGET_COLORS.light;
 
   // Uncertainty data
   const uncertaintyMap = useMemo(
@@ -382,6 +393,18 @@ export function GanttChart({
           />
           Show Activity IDs
         </label>
+        {onToggleShowTarget && (
+          <label className={`flex items-center gap-1.5 text-sm cursor-pointer select-none ${hasTargetDate ? "text-gray-600 dark:text-gray-300" : "text-gray-400 dark:text-gray-500 cursor-not-allowed"}`}>
+            <input
+              type="checkbox"
+              checked={!!showTargetOnGantt}
+              onChange={(e) => onToggleShowTarget(e.target.checked)}
+              disabled={!hasTargetDate}
+              className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 disabled:opacity-50"
+            />
+            Show Finish Target Date
+          </label>
+        )}
       </div>
 
       {/* Chart SVG — horizontally scrollable */}
@@ -492,6 +515,39 @@ export function GanttChart({
               </text>
             </g>
           )}
+
+          {/* Finish Target line */}
+          {showTargetOnGantt && targetFinishDate && dateRange > 0 && (() => {
+            const targetX = dateToX(targetFinishDate, minTimestamp, dateRange, chartAreaWidth);
+            // Omit entirely when out of visible chart area
+            if (targetX < LEFT_MARGIN || targetX > LEFT_MARGIN + chartAreaWidth) return null;
+            const ragKey = targetRAGColor ?? "gray";
+            const color = tc[ragKey as keyof typeof tc] ?? tc.gray;
+            const dash = TARGET_DASH_PATTERNS[ragKey] ?? TARGET_DASH_PATTERNS.gray;
+            return (
+              <g>
+                <line
+                  x1={targetX}
+                  y1={topMargin}
+                  x2={targetX}
+                  y2={chartHeight - 10}
+                  stroke={color}
+                  strokeWidth="1.5"
+                  strokeDasharray={dash}
+                />
+                <text
+                  x={targetX}
+                  y={topMargin - 22}
+                  textAnchor="middle"
+                  fontSize="11"
+                  fontWeight="500"
+                  fill={color}
+                >
+                  Target
+                </text>
+              </g>
+            );
+          })()}
 
           {/* Milestone vertical lines and diamonds */}
           {milestones.map((m) => {
@@ -931,6 +987,9 @@ export function GanttChart({
           hasConstraints={activities.some((a) => a.constraintType != null)}
           hasTerminals={terminalIds !== null && terminalIds.size > 0}
           datePrepared={formatDate(formatDateISO(new Date()))}
+          showTarget={showTargetOnGantt && !!targetFinishDate}
+          targetColor={tc[(targetRAGColor ?? "gray") as keyof typeof tc] ?? tc.gray}
+          targetDash={TARGET_DASH_PATTERNS[targetRAGColor ?? "gray"] ?? TARGET_DASH_PATTERNS.gray}
         />
       </div>
 

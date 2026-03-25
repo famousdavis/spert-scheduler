@@ -31,6 +31,9 @@ interface GanttLegendProps {
   hasConstraints?: boolean;
   hasTerminals?: boolean;
   datePrepared?: string;
+  showTarget?: boolean;
+  targetColor?: string;
+  targetDash?: string;
 }
 
 export function GanttLegend({
@@ -46,6 +49,9 @@ export function GanttLegend({
   hasConstraints,
   hasTerminals,
   datePrepared,
+  showTarget,
+  targetColor,
+  targetDash,
 }: GanttLegendProps) {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
@@ -117,6 +123,16 @@ export function GanttLegend({
         </svg>
         <span className="align-middle">Finish</span>
       </span>
+
+      {/* Finish Target line */}
+      {showTarget && targetColor && (
+        <span>
+          <svg width="12" height="12" className="inline-block align-middle mr-1.5">
+            <line x1="6" y1="0" x2="6" y2="12" stroke={targetColor} strokeWidth="1.5" strokeDasharray={targetDash ?? "4 3"} />
+          </svg>
+          <span className="align-middle">Target</span>
+        </span>
+      )}
 
       {/* Milestones */}
       {hasMilestones && (

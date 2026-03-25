@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -214,6 +214,8 @@ export interface Project {
   schemaVersion: number;
   globalCalendarOverride?: Calendar;
   convertedWorkDays?: string[]; // ISO date strings for non-work days converted to work days
+  targetFinishDate?: string | null; // ISO "YYYY-MM-DD", null/undefined = unset
+  showTargetOnGantt?: boolean; // default false
   scenarios: Scenario[];
   archived?: boolean; // default false
 }
@@ -348,6 +350,10 @@ export interface UserPreferences {
   defaultHolidayCountry?: string;
   /** Active work days: array of day indices (0=Sun, 1=Mon, ..., 6=Sat). Default: [1,2,3,4,5] (Mon–Fri) */
   workDays?: number[];
+  /** Finish Target RAG: percentile at or above which the target is green (default 80) */
+  targetFinishGreenPct?: number;
+  /** Finish Target RAG: percentile at or above which the target is amber (default 50) */
+  targetFinishAmberPct?: number;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {

@@ -205,6 +205,8 @@ export const ProjectSchema = z.object({
   schemaVersion: z.number().int().positive(),
   globalCalendarOverride: CalendarSchema.optional(),
   convertedWorkDays: z.array(ISODateString).max(500).optional(),
+  targetFinishDate: ISODateString.nullable().optional(),
+  showTargetOnGantt: z.boolean().optional(),
   scenarios: z.array(ScenarioSchema).max(20),
   archived: z.boolean().optional(),
 });

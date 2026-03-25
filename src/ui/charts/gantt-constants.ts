@@ -93,4 +93,27 @@ export const MILESTONE_COLORS = {
   },
 } as const;
 
+export const TARGET_COLORS = {
+  light: {
+    green: "#16a34a",
+    amber: "#d97706",
+    red: "#dc2626",
+    gray: "#9ca3af",
+  },
+  dark: {
+    green: "#4ade80",
+    amber: "#fbbf24",
+    red: "#f87171",
+    gray: "#6b7280",
+  },
+} as const;
+
+/** Dash pattern per RAG state — distinguishable in monochrome */
+export const TARGET_DASH_PATTERNS: Record<string, string> = {
+  green: "8 4",
+  amber: "4 4",
+  red: "2 3",
+  gray: "4 3",
+};
+
 export type GanttColorTheme = (typeof COLORS)["light"];

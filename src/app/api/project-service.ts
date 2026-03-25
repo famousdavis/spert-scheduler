@@ -267,6 +267,15 @@ export function renameScenario(
   };
 }
 
+// -- Project Fields ----------------------------------------------------------
+
+export function updateProjectFields(
+  project: Project,
+  updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt">>
+): Project {
+  return { ...project, ...updates };
+}
+
 // -- Calendar ----------------------------------------------------------------
 
 export function setGlobalCalendar(

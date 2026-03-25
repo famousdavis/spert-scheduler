@@ -17,7 +17,7 @@ import {
   PRINT_LEFT, PRINT_RIGHT, PRINT_TOP, PRINT_ROW, PRINT_BAR_H,
   PRINT_BAR_RADIUS, PRINT_ARROW_SIZE, PRINT_MIN_TICK_PX,
   PRINT_PROJECT_NAME_H, PRINT_MILESTONE_EXTRA_TOP,
-  COLORS, MILESTONE_COLORS,
+  COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
 } from "./gantt-constants";
 import { dateToX, buildOrderedActivities, generateTicks, longDateLabel } from "./gantt-utils";
 
@@ -38,6 +38,9 @@ export interface PrintGanttChartProps {
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;
   projectName?: string;
+  targetFinishDate?: string | null;
+  showTargetOnGantt?: boolean;
+  targetRAGColor?: string;
 }
 
 export function PrintGanttChart({
@@ -54,9 +57,13 @@ export function PrintGanttChart({
   milestoneBuffers,
   criticalPathIds,
   projectName,
+  targetFinishDate,
+  showTargetOnGantt,
+  targetRAGColor,
 }: PrintGanttChartProps) {
   const c = COLORS.light;
   const mc = MILESTONE_COLORS.light;
+  const tc = TARGET_COLORS.light;
 
   const scheduleMap = useMemo(() => {
     const m = new Map<string, ScheduledActivity>();
@@ -226,6 +233,25 @@ export function PrintGanttChart({
             </text>
           </g>
         )}
+
+        {/* Finish Target line */}
+        {showTargetOnGantt && targetFinishDate && range > 0 && (() => {
+          const targetX = toX(targetFinishDate);
+          if (targetX < PRINT_LEFT || targetX > PRINT_LEFT + areaW) return null;
+          const ragKey = targetRAGColor ?? "gray";
+          const color = tc[ragKey as keyof typeof tc] ?? tc.gray;
+          const dash = TARGET_DASH_PATTERNS[ragKey] ?? TARGET_DASH_PATTERNS.gray;
+          return (
+            <g>
+              <line x1={targetX} y1={topMargin} x2={targetX} y2={chartH - 4}
+                stroke={color} strokeWidth="0.75" strokeDasharray={dash} />
+              <text x={targetX} y={topMargin - 11} textAnchor="middle"
+                fontSize="5" fontWeight="500" fill={color}>
+                Target
+              </text>
+            </g>
+          );
+        })()}
 
         {/* Dependency arrows — rendered before bars so bars paint on top */}
         {dependencyMode && dependencies.map((dep, i) => {
@@ -432,6 +458,19 @@ export function PrintGanttChart({
           </svg>
           Finish
         </span>
+        {showTargetOnGantt && targetFinishDate && (() => {
+          const ragKey = targetRAGColor ?? "gray";
+          const color = tc[ragKey as keyof typeof tc] ?? tc.gray;
+          const dash = TARGET_DASH_PATTERNS[ragKey] ?? TARGET_DASH_PATTERNS.gray;
+          return (
+            <span className="flex items-center gap-1">
+              <svg width="8" height="8" className="inline-block">
+                <line x1="4" y1="0" x2="4" y2="8" stroke={color} strokeWidth="1" strokeDasharray={dash} />
+              </svg>
+              Target
+            </span>
+          );
+        })()}
         {milestones.length > 0 && (
           <span className="flex items-center gap-1">
             <svg width="8" height="8" className="inline-block">
