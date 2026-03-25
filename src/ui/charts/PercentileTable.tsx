@@ -27,7 +27,12 @@ export function PercentileTable({
   const [showCI, setShowCI] = useState(false);
   const [cis, setCIs] = useState<Record<number, PercentileCI> | null>(null);
   const [computing, setComputing] = useState(false);
+  // Standard "latest value ref" pattern: keeps ref in sync so the setTimeout callback in the CI
+  // effect reads fresh data without adding `samples` to the effect deps (which would re-trigger
+  // expensive CI computation on every render). The write is idempotent and the ref is only read
+  // inside the effect's async callback, not during render output.
   const samplesRef = useRef(samples);
+  // eslint-disable-next-line react-hooks/refs
   samplesRef.current = samples;
 
   // Compute CIs asynchronously when toggled on (deferred to unblock the checkbox)
