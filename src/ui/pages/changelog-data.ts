@@ -12,6 +12,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.28.1",
+    date: "2026-03-25",
+    sections: [
+      {
+        title: "Refactor",
+        items: [
+          "Extracted RAG schedule health computation to a pure, testable utility (computeTargetRAGColor) — memoized at call site for better render performance.",
+          "Extracted Gantt chart preferences into a consolidated useGanttPreferences hook, reducing GanttChart.tsx by ~50 lines.",
+          "Extracted Schedule Health threshold UI into a standalone ScheduleHealthSection component.",
+          "Cleaned up redundant prop spread in GanttSection.",
+        ],
+      },
+      {
+        title: "Dependencies",
+        items: [
+          "Updated firebase, react-router-dom, recharts, typescript-eslint, eslint, @eslint/js, @vitejs/plugin-react to latest stable minor/patch releases.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.28.0",
     date: "2026-03-25",
     sections: [

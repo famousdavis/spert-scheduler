@@ -9,7 +9,6 @@ import type {
   MilestoneBufferInfo,
   ScheduledActivity,
   Calendar,
-  GanttViewMode,
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
@@ -20,7 +19,7 @@ import {
 } from "@core/calendar/calendar";
 import { computeActivityUncertaintyDays } from "@core/schedule/deterministic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import { useGanttPreferences } from "@ui/hooks/use-gantt-preferences";
 import { useGanttLayout } from "@ui/hooks/use-gantt-layout";
 import {
   LEFT_MARGIN, ROW_HEIGHT,
@@ -92,32 +91,10 @@ export function GanttChart({
   hasTargetDate,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
-  const viewMode: GanttViewMode = usePreferencesStore((s) => s.preferences.ganttViewMode) ?? "deterministic";
-  const showToday = usePreferencesStore((s) => s.preferences.ganttShowToday) ?? true;
-  const showCriticalPath = usePreferencesStore((s) => s.preferences.ganttShowCriticalPath) ?? true;
-  const showProjectName = usePreferencesStore((s) => s.preferences.ganttShowProjectName) ?? false;
-  const showArrows = usePreferencesStore((s) => s.preferences.ganttShowArrows) ?? true;
-  const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
-  const setViewMode = useCallback(
-    (mode: GanttViewMode) => updatePreferences({ ganttViewMode: mode }),
-    [updatePreferences],
-  );
-  const setShowToday = useCallback(
-    (v: boolean) => updatePreferences({ ganttShowToday: v }),
-    [updatePreferences],
-  );
-  const setShowCriticalPath = useCallback(
-    (v: boolean) => updatePreferences({ ganttShowCriticalPath: v }),
-    [updatePreferences],
-  );
-  const setShowProjectName = useCallback(
-    (v: boolean) => updatePreferences({ ganttShowProjectName: v }),
-    [updatePreferences],
-  );
-  const setShowArrows = useCallback(
-    (v: boolean) => updatePreferences({ ganttShowArrows: v }),
-    [updatePreferences],
-  );
+  const {
+    viewMode, showToday, showCriticalPath, showProjectName, showArrows,
+    setViewMode, setShowToday, setShowCriticalPath, setShowProjectName, setShowArrows,
+  } = useGanttPreferences();
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;

@@ -25,6 +25,7 @@ import { distributionLabel } from "@domain/helpers/format-labels";
 import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import HeuristicSuggester from "./HeuristicSuggester";
+import { ScheduleHealthSection } from "./ScheduleHealthSection";
 
 const THEME_LABELS: Record<ThemePreference, string> = {
   light: "Light",
@@ -359,69 +360,11 @@ export function PreferencesSection() {
         </div>
 
         {/* Finish Target — Schedule Health Thresholds */}
-        {(() => {
-          const ragOptions = [10, 25, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
-          const greenPct = preferences.targetFinishGreenPct ?? 80;
-          const amberPct = preferences.targetFinishAmberPct ?? 50;
-          const greenTooLow = greenPct <= 10;
-          const amberOptions = ragOptions.filter((p) => p < greenPct);
-          return (
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Finish Target — Schedule Health
-              </label>
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Green at</span>
-                  <select
-                    value={greenPct}
-                    onChange={(e) => {
-                      const newGreen = parseInt(e.target.value, 10);
-                      const updates: Record<string, number> = { targetFinishGreenPct: newGreen };
-                      // Auto-correct: if green <= current amber, lower amber
-                      if (newGreen <= amberPct) {
-                        const largestBelow = ragOptions.filter((p) => p < newGreen).pop();
-                        if (largestBelow != null) {
-                          updates.targetFinishAmberPct = largestBelow;
-                        }
-                      }
-                      updatePreferences(updates);
-                    }}
-                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
-                  >
-                    {ragOptions.map((p) => (
-                      <option key={p} value={p}>P{p}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Amber at</span>
-                  <select
-                    value={amberPct}
-                    onChange={(e) => {
-                      updatePreferences({ targetFinishAmberPct: parseInt(e.target.value, 10) });
-                    }}
-                    disabled={greenTooLow}
-                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none disabled:opacity-50"
-                  >
-                    {amberOptions.map((p) => (
-                      <option key={p} value={p}>P{p}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {greenTooLow ? (
-                <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
-                  Green must be P25 or greater so that Amber has a valid option below it.
-                </p>
-              ) : (
-                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  Target date is green if the simulation finishes by that percentile, amber if within the amber threshold, red otherwise.
-                </p>
-              )}
-            </div>
-          );
-        })()}
+        <ScheduleHealthSection
+          greenPct={preferences.targetFinishGreenPct ?? 80}
+          amberPct={preferences.targetFinishAmberPct ?? 50}
+          onUpdate={updatePreferences}
+        />
 
         {/* Auto-Run Simulation */}
         <div className="sm:col-span-2">
