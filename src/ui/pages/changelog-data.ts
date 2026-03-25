@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.27.0",
+    date: "2026-03-24",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Estimation Heuristics Suggester — new inline panel in Settings that helps you choose informed heuristic min/max percentages by selecting your industry domain and activity subdomain from a curated 73-entry reference table spanning 23 industries. Displays suggested optimistic and pessimistic percentages with rationale, and applies values to your heuristic defaults with one click.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.26.2",
     date: "2026-03-24",
     sections: [

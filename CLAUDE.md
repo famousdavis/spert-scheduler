@@ -58,6 +58,8 @@ UI (React, Zustand, Recharts)
 | `src/domain/schemas/preferences.schema.ts` | Zod validation schema for UserPreferences |
 | `src/core/estimation/spert.ts` | SPERT mean/SD computation |
 | `src/core/estimation/heuristic.ts` | Heuristic min/max from most-likely using % multipliers |
+| `src/domain/data/estimation-heuristics.ts` | Static 73-entry heuristic reference table (domain/subdomain min/max % + rationale) |
+| `src/ui/components/HeuristicSuggester.tsx` | Inline heuristic domain/subdomain selector for PreferencesSection |
 | `src/core/distributions/factory.ts` | Creates Normal/LogNormal/Triangular/Uniform per activity |
 | `src/core/import/flat-activity-parser.ts` | CSV/clipboard activity parsing pipeline (header resolution, normalization, Zod validation, dependency resolution, cycle detection) |
 | `src/core/import/types.ts` | FlatActivityRow, CSVImportError, CSVParseResult types |
