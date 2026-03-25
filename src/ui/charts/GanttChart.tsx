@@ -524,8 +524,22 @@ export function GanttChart({
             const ragKey = targetRAGColor ?? "gray";
             const color = tc[ragKey as keyof typeof tc] ?? tc.gray;
             const dash = TARGET_DASH_PATTERNS[ragKey] ?? TARGET_DASH_PATTERNS.gray;
+            const targetTooltip = `Finish Target: ${formatDate(targetFinishDate)}`;
             return (
-              <g>
+              <g
+                onMouseEnter={(e) => setTooltip({ x: e.clientX, y: e.clientY, text: targetTooltip })}
+                onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, text: targetTooltip })}
+                onMouseLeave={() => setTooltip(null)}
+              >
+                {/* Invisible wider hit area for easier hovering */}
+                <line
+                  x1={targetX}
+                  y1={topMargin}
+                  x2={targetX}
+                  y2={chartHeight - 10}
+                  stroke="transparent"
+                  strokeWidth="8"
+                />
                 <line
                   x1={targetX}
                   y1={topMargin}
@@ -534,9 +548,7 @@ export function GanttChart({
                   stroke={color}
                   strokeWidth="1.5"
                   strokeDasharray={dash}
-                >
-                  <title>Finish Target: {formatDate(targetFinishDate)}</title>
-                </line>
+                />
                 <text
                   x={targetX}
                   y={topMargin - 22}
@@ -545,7 +557,6 @@ export function GanttChart({
                   fontWeight="500"
                   fill={color}
                 >
-                  <title>Finish Target: {formatDate(targetFinishDate)}</title>
                   Target
                 </text>
               </g>
