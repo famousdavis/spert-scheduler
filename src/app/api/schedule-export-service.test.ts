@@ -313,6 +313,27 @@ describe("exportScheduleCsv", () => {
     expect(csv).toContain('"Design, Phase ""1"""');
   });
 
+  it("guards against CSV formula injection characters", () => {
+    // Each OWASP-dangerous prefix character should be neutralized with a single-quote prefix
+    const dangerous = ["=SUM(A:A)", "+cmd|'/C calc'!A0", "@IMPORT(url)", "-2+3", "\tmalicious", "\rmalicious"];
+    for (const name of dangerous) {
+      const csv = exportScheduleCsv(
+        makeParams({
+          activities: [makeActivity({ id: "a1", name })],
+          schedule: {
+            activities: [
+              { activityId: "a1", name, duration: 10, startDate: "2026-03-16", endDate: "2026-03-27", isActual: false },
+            ],
+            totalDurationDays: 10,
+            projectEndDate: "2026-03-27",
+          },
+        })
+      );
+      // The data rows should contain the activity name prefixed with a single quote
+      expect(csv).toContain(`'${name}`);
+    }
+  });
+
   it("includes totals row", () => {
     const csv = exportScheduleCsv(makeParams());
     const lines = csv.split("\n");

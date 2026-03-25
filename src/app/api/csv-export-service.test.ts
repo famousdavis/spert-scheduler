@@ -61,6 +61,22 @@ describe("exportSimulationCSV", () => {
     expect(csv).toContain('# Scenario,"Scenario ""quoted"""');
   });
 
+  it("guards against CSV formula injection characters", () => {
+    // Each OWASP-dangerous prefix character should be neutralized with a single-quote prefix
+    const cases = [
+      { input: "=SUM(A:A)", expected: "'=SUM(A:A)" },
+      { input: "+cmd|'/C calc'!A0", expected: "'+cmd|'/C calc'!A0" },
+      { input: "@IMPORT(url)", expected: "'@IMPORT(url)" },
+      { input: "-2+3", expected: "'-2+3" },
+      { input: "\tmalicious", expected: "'\tmalicious" },
+      { input: "\rmalicious", expected: "'\rmalicious" },
+    ];
+    for (const { input, expected } of cases) {
+      const csv = exportSimulationCSV(makeResults(), input, "Project");
+      expect(csv).toContain(`# Scenario,${expected}`);
+    }
+  });
+
   it("only includes percentiles present in results", () => {
     const results = makeResults({ percentiles: { 50: 26.0, 95: 37.5 } });
     const csv = exportSimulationCSV(results, "S", "P");

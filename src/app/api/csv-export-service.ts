@@ -43,8 +43,8 @@ export function exportSimulationCSV(
 
 function csvEscape(value: string): string {
   let str = value;
-  // Guard against CSV formula injection: prefix cells starting with =, +, @, or -
-  if (/^[=+@-]/.test(str)) {
+  // Guard against CSV formula injection (OWASP): prefix cells starting with =, +, @, -, \t, or \r
+  if (/^[=+@\-\t\r]/.test(str)) {
     str = "'" + str;
   }
   if (str.includes(",") || str.includes('"') || str.includes("\n")) {
