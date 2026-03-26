@@ -273,7 +273,7 @@ export function renameScenario(
 
 export function updateProjectFields(
   project: Project,
-  updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt">>
+  updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt" | "showActivityIds">>
 ): Project {
   return { ...project, ...updates };
 }

@@ -285,6 +285,16 @@ function migrateV15toV16(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v16 → v17: Add showActivityIds to Project.
+ * New field is optional — no data transformation needed.
+ */
+function migrateV16toV17(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 17;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -301,6 +311,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   13: migrateV13toV14,
   14: migrateV14toV15,
   15: migrateV15toV16,
+  16: migrateV16toV17,
 };
 
 /**

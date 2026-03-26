@@ -161,13 +161,13 @@ UI (React, Zustand, Recharts)
 
 ## Schema Version
 
-Current: `SCHEMA_VERSION = 16`. Migrations in `src/infrastructure/persistence/migrations.ts`. Bump version + add migration when changing the `Project` schema shape.
+Current: `SCHEMA_VERSION = 17`. Migrations in `src/infrastructure/persistence/migrations.ts`. Bump version + add migration when changing the `Project` schema shape.
 
 User preferences are stored separately (`spert:user-preferences` key) and are NOT part of the Project schema. No schema bump needed for preference changes.
 
 ## Testing Patterns
 
-- **985 tests** across **53 test files**
+- **992 tests** across **53 test files**
 - **Unit tests:** Pure functions in `/core` — known values + property-based (fast-check)
 - **Integration tests:** `src/integration/` — full workflow, persistence round-trip, scenario cloning, export/import, dependency lifecycle, calendar layering
 - **Property-based:** Distribution samples bounded, percentiles monotonic, calendar round-trips, Parkinson floor invariants

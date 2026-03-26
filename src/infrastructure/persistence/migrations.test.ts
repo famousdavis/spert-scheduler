@@ -908,6 +908,48 @@ describe("applyMigrations", () => {
     expect(result.showTargetOnGantt).toBe(false);
   });
 
+  // -- v16 → v17: showActivityIds on Project ----------------------------------
+
+  it("v16→v17: bumps schema version to 17", () => {
+    const data = { schemaVersion: 16, scenarios: [] };
+    const result = applyMigrations(data, 16, 17) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(17);
+  });
+
+  it("v16→v17: preserves existing project data unchanged", () => {
+    const data = {
+      schemaVersion: 16,
+      targetFinishDate: "2026-06-01",
+      showTargetOnGantt: true,
+      scenarios: [{ settings: {}, activities: [{ id: "a1", name: "Test" }] }],
+    };
+    const result = applyMigrations(data, 16, 17) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(17);
+    expect(result.targetFinishDate).toBe("2026-06-01");
+    expect(result.showTargetOnGantt).toBe(true);
+    expect(result.showActivityIds).toBeUndefined();
+  });
+
+  it("v1→v17: full sequential migration", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      scenarios: [
+        {
+          settings: { probabilityTarget: 0.85 },
+          activities: [],
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 17) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(17);
+    expect(result.targetFinishDate).toBe(null);
+    expect(result.showTargetOnGantt).toBe(false);
+  });
+
   it("v1→v15: full sequential migration", () => {
     const v1Data = {
       schemaVersion: 1,

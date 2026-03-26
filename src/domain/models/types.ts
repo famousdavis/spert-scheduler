@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -225,6 +225,7 @@ export interface Project {
   convertedWorkDays?: string[]; // ISO date strings for non-work days converted to work days
   targetFinishDate?: string | null; // ISO "YYYY-MM-DD", null/undefined = unset
   showTargetOnGantt?: boolean; // default false
+  showActivityIds?: boolean; // default false — persist "Show Activity IDs" toggle
   scenarios: Scenario[];
   archived?: boolean; // default false
 }

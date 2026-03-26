@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.29.3 — 2026-03-25
+
+### New Features
+
+- **Persist "Show Activity IDs"**: The Gantt toolbar toggle now persists per project (schema v17) instead of resetting on page navigation.
+- **Finish Target on print report**: Project Summary section now includes the Finish Target date (or "—" if not set).
+- **App version on print report**: The report header now shows the app version (e.g., "SPERT® Scheduler v0.29.3") for traceability.
+- **Gantt timeline months**: Projects spanning 91+ days now show monthly tick marks (month name only) instead of biweekly date ticks. Year is shown on the first tick and at year boundaries.
+- **Disabled toggle tooltip**: "Show Finish Target Date" checkbox shows a tooltip explaining why it's disabled when no target date is set.
+
+### UI Polish
+
+- **Print report tasks/deliverables layout**: Redesigned with activity header rows showing name + progress count, followed by indented item rows — clearer visual hierarchy and consistent column alignment between Tasks and Deliverables tables.
+- **Hide FirstRunBanner from print**: The ToS/Privacy notification banner no longer appears on printed PDF reports.
+
+### Schema
+
+- Schema v16 → v17: Added optional `showActivityIds` field to Project.
+
 ## 0.29.2 — 2026-03-25
 
 ### Refactor

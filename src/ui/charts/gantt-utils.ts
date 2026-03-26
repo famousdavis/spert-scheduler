@@ -34,11 +34,23 @@ export function longDateLabel(dateStr: string): string {
   return `${MONTH_ABBR[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
-/** Compact tick label: "Mar 16" for day-level ticks, "Apr '26" for month-level. */
+/** Compact tick label: "Mar 16" for day-level ticks, "Apr" for month-level. */
 export function compactLabel(d: Date, includeDay: boolean): string {
   const mon = MONTH_ABBR[d.getMonth()];
-  if (!includeDay) return `${mon} '${String(d.getFullYear()).slice(2)}`;
+  if (!includeDay) return mon;
   return `${mon} ${d.getDate()}`;
+}
+
+/**
+ * Month tick label: month name only, with 2-digit year appended on the
+ * first tick or whenever the year changes (e.g. "Apr '26", then "May", "Jun", …, "Jan '27").
+ */
+export function monthTickLabel(d: Date, isFirst: boolean, prevYear: number | null): string {
+  const mon = MONTH_ABBR[d.getMonth()];
+  if (isFirst || (prevYear !== null && d.getFullYear() !== prevYear)) {
+    return `${mon} '${String(d.getFullYear()).slice(2)}`;
+  }
+  return mon;
 }
 
 /** @deprecated Use formatDateISO from @core/calendar/calendar instead */
@@ -72,7 +84,7 @@ export function generateTicks(
       ticks.push({ x: toISO(d), label: compactLabel(d, true) });
       d.setDate(d.getDate() + 7);
     }
-  } else if (rangeDays <= 180) {
+  } else if (rangeDays <= 90) {
     // Biweekly ticks (every other Monday)
     const d = new Date(start);
     while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
@@ -81,10 +93,14 @@ export function generateTicks(
       d.setDate(d.getDate() + 14);
     }
   } else {
-    // Monthly ticks (1st of month) — label without day
+    // Monthly ticks (1st of month) — month name only, year on first tick and year changes
     const d = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    let prevYear: number | null = null;
+    let isFirst = true;
     while (d <= end) {
-      ticks.push({ x: toISO(d), label: compactLabel(d, false) });
+      ticks.push({ x: toISO(d), label: monthTickLabel(d, isFirst, prevYear) });
+      prevYear = d.getFullYear();
+      isFirst = false;
       d.setMonth(d.getMonth() + 1);
     }
   }

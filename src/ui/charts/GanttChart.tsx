@@ -371,7 +371,10 @@ export function GanttChart({
           Show Activity IDs
         </label>
         {onToggleShowTarget && (
-          <label className={`flex items-center gap-1.5 text-sm cursor-pointer select-none ${hasTargetDate ? "text-gray-600 dark:text-gray-300" : "text-gray-400 dark:text-gray-500 cursor-not-allowed"}`}>
+          <label
+            className={`flex items-center gap-1.5 text-sm cursor-pointer select-none ${hasTargetDate ? "text-gray-600 dark:text-gray-300" : "text-gray-400 dark:text-gray-500 cursor-not-allowed"}`}
+            title={hasTargetDate ? undefined : "Set a Finish Target date in the project summary to enable this option"}
+          >
             <input
               type="checkbox"
               checked={!!showTargetOnGantt}
