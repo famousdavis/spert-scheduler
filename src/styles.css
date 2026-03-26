@@ -44,7 +44,12 @@ input[type="number"] {
     display: none !important;
   }
 
-  /* Hide all on-screen project content; show only the print report */
+  /* Hide everything in <main> that isn't an ancestor of .print-report */
+  main > *:not(:has(.print-report)) {
+    display: none !important;
+  }
+
+  /* Within the print report's container, hide non-report siblings */
   .space-y-6 > *:not(.print-report) {
     display: none !important;
   }
