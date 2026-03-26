@@ -87,6 +87,17 @@ export function buildSummaryData(params: ScheduleExportParams): SummaryRow[] {
   ];
 }
 
+function formatItemColumn(
+  items: { completed: boolean; text: string }[] | undefined,
+): { summary: string; details: string } | null {
+  if (!items || items.length === 0) return null;
+  const done = items.filter((i) => i.completed).length;
+  return {
+    summary: `${done}/${items.length}`,
+    details: items.map((i) => `${i.completed ? "[x]" : "[ ]"} ${i.text}`).join("; "),
+  };
+}
+
 export interface GridRow {
   num: number;
   name: string;
@@ -209,20 +220,10 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
       row.constraintMode = activity.constraintMode ?? "";
       row.constraintNote = activity.constraintNote ?? "";
     }
-    if (activity.checklist && activity.checklist.length > 0) {
-      const done = activity.checklist.filter((c) => c.completed).length;
-      row.tasks = `${done}/${activity.checklist.length}`;
-      row.taskDetails = activity.checklist
-        .map((c) => `${c.completed ? "[x]" : "[ ]"} ${c.text}`)
-        .join("; ");
-    }
-    if (activity.deliverables && activity.deliverables.length > 0) {
-      const done = activity.deliverables.filter((d) => d.completed).length;
-      row.deliverables = `${done}/${activity.deliverables.length}`;
-      row.deliverableDetails = activity.deliverables
-        .map((d) => `${d.completed ? "[x]" : "[ ]"} ${d.text}`)
-        .join("; ");
-    }
+    const taskCol = formatItemColumn(activity.checklist);
+    if (taskCol) { row.tasks = taskCol.summary; row.taskDetails = taskCol.details; }
+    const delCol = formatItemColumn(activity.deliverables);
+    if (delCol) { row.deliverables = delCol.summary; row.deliverableDetails = delCol.details; }
     return row;
   });
 }

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.29.2 — 2026-03-25
+
+### Refactor
+
+- Extracted shared `renderItemTable` helper in PrintableReport, eliminating duplicate Activity Tasks / Activity Deliverables table rendering.
+- Extracted `formatItemColumn` helper in schedule-export-service, deduplicating tasks/deliverables column logic in `buildGridRows`.
+- Extracted `ActivityProgressBars` named component in UnifiedActivityRow, replacing the inline IIFE with a clearer sub-component.
+
+### UI Polish
+
+- Deliverables progress bar color changed from teal to indigo for better visual distinction from the green completed-tasks bar.
+- Deliverables checkbox color updated to indigo to match progress bar.
+
+### Security
+
+- Patched 3 high-severity transitive dependency vulnerabilities: `undici` 7.22.0 → 7.24.6, `picomatch` 4.0.3 → 4.0.4, `flatted` 3.3.3 → 3.4.2.
+
 ## 0.29.1 — 2026-03-25
 
 ### UI Polish

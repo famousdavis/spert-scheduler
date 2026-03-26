@@ -12,6 +12,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.29.2",
+    date: "2026-03-25",
+    sections: [
+      {
+        title: "Refactor",
+        items: [
+          "Extracted shared renderItemTable helper in PrintableReport, eliminating duplicate Activity Tasks / Activity Deliverables table rendering.",
+          "Extracted formatItemColumn helper in schedule-export-service, deduplicating tasks/deliverables column logic in buildGridRows.",
+          "Extracted ActivityProgressBars named component in UnifiedActivityRow, replacing the inline IIFE with a clearer sub-component.",
+        ],
+      },
+      {
+        title: "UI Polish",
+        items: [
+          "Deliverables progress bar color changed from teal to indigo for better visual distinction from the green completed-tasks bar.",
+          "Deliverables checkbox color updated to indigo to match progress bar.",
+        ],
+      },
+      {
+        title: "Security",
+        items: [
+          "Patched 3 high-severity transitive dependency vulnerabilities (undici, picomatch, flatted).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.29.1",
     date: "2026-03-25",
     sections: [

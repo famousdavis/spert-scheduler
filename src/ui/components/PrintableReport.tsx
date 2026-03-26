@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type {
+  Activity,
   Project,
   Scenario,
   Calendar,
@@ -32,6 +33,59 @@ interface PrintableReportProps {
   calendar?: WorkCalendar | Calendar;
   criticalPathIds?: Set<string> | null;
   targetRAGColor?: string;
+}
+
+/** Renders a checklist-style table (Tasks or Deliverables) for the print report. */
+function renderItemTable(
+  scenario: Scenario,
+  sectionTitle: string,
+  itemLabel: string,
+  statusLabel: string,
+  getItems: (a: Activity) => { id: string; text: string; completed: boolean }[] | undefined,
+) {
+  const activities = scenario.activities.filter((a) => {
+    const items = getItems(a);
+    return items && items.length > 0;
+  });
+  if (activities.length === 0) return null;
+
+  return (
+    <section className="mb-3 print-section-keep">
+      <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
+        {sectionTitle}
+      </h2>
+      <table className="w-full text-[9px] border-collapse">
+        <thead>
+          <tr className="border-b-2 border-gray-400 text-left">
+            <th className="py-1 pr-1">Activity</th>
+            <th className="py-1 pr-1">{itemLabel}</th>
+            <th className="py-1 pr-1 text-center">{statusLabel}</th>
+            <th className="py-1 text-center">Progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          {activities.flatMap((activity) => {
+            const items = getItems(activity)!;
+            const doneCount = items.filter((i) => i.completed).length;
+            return items.map((item, itemIdx) => (
+              <tr key={`${activity.id}-${item.id}`} className="border-b border-gray-200">
+                <td className="py-0.5 pr-1 font-medium">
+                  {itemIdx === 0 ? activity.name : ""}
+                </td>
+                <td className="py-0.5 pr-1">{item.text}</td>
+                <td className="py-0.5 pr-1 text-center">
+                  {item.completed ? "✓" : "—"}
+                </td>
+                <td className="py-0.5 text-center tabular-nums">
+                  {itemIdx === 0 ? `${doneCount}/${items.length}` : ""}
+                </td>
+              </tr>
+            ));
+          })}
+        </tbody>
+      </table>
+    </section>
+  );
 }
 
 export function PrintableReport({
@@ -310,91 +364,8 @@ export function PrintableReport({
         </section>
       )}
 
-      {/* Activity Tasks (when any activity has checklist items) */}
-      {scenario.activities.some((a) => a.checklist && a.checklist.length > 0) && (
-        <section className="mb-3 print-section-keep">
-          <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
-            Activity Tasks
-          </h2>
-          <table className="w-full text-[9px] border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-400 text-left">
-                <th className="py-1 pr-1">Activity</th>
-                <th className="py-1 pr-1">Task</th>
-                <th className="py-1 pr-1 text-center">Status</th>
-                <th className="py-1 text-center">Progress</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scenario.activities
-                .filter((a) => a.checklist && a.checklist.length > 0)
-                .flatMap((activity) =>
-                  activity.checklist!.map((item, itemIdx) => {
-                    const doneCount = activity.checklist!.filter((c) => c.completed).length;
-                    const total = activity.checklist!.length;
-                    return (
-                      <tr key={`${activity.id}-${item.id}`} className="border-b border-gray-200">
-                        <td className="py-0.5 pr-1 font-medium">
-                          {itemIdx === 0 ? activity.name : ""}
-                        </td>
-                        <td className="py-0.5 pr-1">{item.text}</td>
-                        <td className="py-0.5 pr-1 text-center">
-                          {item.completed ? "✓" : "—"}
-                        </td>
-                        <td className="py-0.5 text-center tabular-nums">
-                          {itemIdx === 0 ? `${doneCount}/${total}` : ""}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      {/* Activity Deliverables (when any activity has deliverable items) */}
-      {scenario.activities.some((a) => a.deliverables && a.deliverables.length > 0) && (
-        <section className="mb-3 print-section-keep">
-          <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
-            Activity Deliverables
-          </h2>
-          <table className="w-full text-[9px] border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-400 text-left">
-                <th className="py-1 pr-1">Activity</th>
-                <th className="py-1 pr-1">Deliverable</th>
-                <th className="py-1 pr-1 text-center">Delivered</th>
-                <th className="py-1 text-center">Progress</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scenario.activities
-                .filter((a) => a.deliverables && a.deliverables.length > 0)
-                .flatMap((activity) =>
-                  activity.deliverables!.map((item, itemIdx) => {
-                    const doneCount = activity.deliverables!.filter((d) => d.completed).length;
-                    const total = activity.deliverables!.length;
-                    return (
-                      <tr key={`${activity.id}-${item.id}`} className="border-b border-gray-200">
-                        <td className="py-0.5 pr-1 font-medium">
-                          {itemIdx === 0 ? activity.name : ""}
-                        </td>
-                        <td className="py-0.5 pr-1">{item.text}</td>
-                        <td className="py-0.5 pr-1 text-center">
-                          {item.completed ? "✓" : "—"}
-                        </td>
-                        <td className="py-0.5 text-center tabular-nums">
-                          {itemIdx === 0 ? `${doneCount}/${total}` : ""}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-            </tbody>
-          </table>
-        </section>
-      )}
+      {renderItemTable(scenario, "Activity Tasks", "Task", "Status", (a) => a.checklist)}
+      {renderItemTable(scenario, "Activity Deliverables", "Deliverable", "Delivered", (a) => a.deliverables)}
 
       {/* Milestones (when dependency mode is on and milestones exist) */}
       {scenario.settings.dependencyMode && scenario.milestones.length > 0 && (

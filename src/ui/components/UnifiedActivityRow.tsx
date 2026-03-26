@@ -53,6 +53,57 @@ interface UnifiedActivityRowProps {
 
 type FieldErrors = Partial<Record<string, string>>;
 
+/** Compact progress bars for tasks and/or deliverables beneath the activity name. */
+function ActivityProgressBars({
+  activity,
+  onEditActivity,
+}: {
+  activity: Activity;
+  onEditActivity?: (id: string) => void;
+}) {
+  const hasTasks = activity.checklist && activity.checklist.length > 0;
+  const hasDeliverables = activity.deliverables && activity.deliverables.length > 0;
+  if (!hasTasks && !hasDeliverables) return null;
+
+  const tasksDone = hasTasks ? activity.checklist!.filter((c) => c.completed).length : 0;
+  const tasksTotal = hasTasks ? activity.checklist!.length : 0;
+  const tasksAllDone = hasTasks && tasksDone === tasksTotal;
+
+  const delDone = hasDeliverables ? activity.deliverables!.filter((d) => d.completed).length : 0;
+  const delTotal = hasDeliverables ? activity.deliverables!.length : 0;
+  const delAllDone = hasDeliverables && delDone === delTotal;
+
+  const both = hasTasks && hasDeliverables;
+
+  return (
+    <div
+      className={`mt-0.5 flex ${both ? "gap-0.5" : ""} cursor-pointer`}
+      onClick={() => onEditActivity?.(activity.id)}
+      title={[
+        hasTasks ? `Tasks: ${tasksDone}/${tasksTotal}` : "",
+        hasDeliverables ? `Deliverables: ${delDone}/${delTotal}` : "",
+      ].filter(Boolean).join(" · ")}
+    >
+      {hasTasks && (
+        <div className={`${both ? "flex-1" : "w-full"} h-0.5 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden`}>
+          <div
+            className={`h-full rounded-full transition-all ${tasksAllDone ? "bg-green-500 dark:bg-green-400" : "bg-blue-500 dark:bg-blue-400"}`}
+            style={{ width: `${(tasksDone / tasksTotal) * 100}%` }}
+          />
+        </div>
+      )}
+      {hasDeliverables && (
+        <div className={`${both ? "flex-1" : "w-full"} h-0.5 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden`}>
+          <div
+            className={`h-full rounded-full transition-all ${delAllDone ? "bg-green-500 dark:bg-green-400" : "bg-indigo-500 dark:bg-indigo-400"}`}
+            style={{ width: `${(delDone / delTotal) * 100}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function UnifiedActivityRow({
   activity,
   scheduledActivity,
@@ -362,49 +413,7 @@ export function UnifiedActivityRow({
             placeholder="Add an activity name"
           />
         </div>
-        {(() => {
-          const hasTasks = activity.checklist && activity.checklist.length > 0;
-          const hasDeliverables = activity.deliverables && activity.deliverables.length > 0;
-          if (!hasTasks && !hasDeliverables) return null;
-
-          const tasksDone = hasTasks ? activity.checklist!.filter((c) => c.completed).length : 0;
-          const tasksTotal = hasTasks ? activity.checklist!.length : 0;
-          const tasksAllDone = hasTasks && tasksDone === tasksTotal;
-
-          const delDone = hasDeliverables ? activity.deliverables!.filter((d) => d.completed).length : 0;
-          const delTotal = hasDeliverables ? activity.deliverables!.length : 0;
-          const delAllDone = hasDeliverables && delDone === delTotal;
-
-          const both = hasTasks && hasDeliverables;
-
-          return (
-            <div
-              className={`mt-0.5 flex ${both ? "gap-0.5" : ""} cursor-pointer`}
-              onClick={() => onEditActivity?.(activity.id)}
-              title={[
-                hasTasks ? `Tasks: ${tasksDone}/${tasksTotal}` : "",
-                hasDeliverables ? `Deliverables: ${delDone}/${delTotal}` : "",
-              ].filter(Boolean).join(" · ")}
-            >
-              {hasTasks && (
-                <div className={`${both ? "flex-1" : "w-full"} h-0.5 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden`}>
-                  <div
-                    className={`h-full rounded-full transition-all ${tasksAllDone ? "bg-green-500 dark:bg-green-400" : "bg-blue-500 dark:bg-blue-400"}`}
-                    style={{ width: `${(tasksDone / tasksTotal) * 100}%` }}
-                  />
-                </div>
-              )}
-              {hasDeliverables && (
-                <div className={`${both ? "flex-1" : "w-full"} h-0.5 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden`}>
-                  <div
-                    className={`h-full rounded-full transition-all ${delAllDone ? "bg-green-500 dark:bg-green-400" : "bg-teal-500 dark:bg-teal-400"}`}
-                    style={{ width: `${(delDone / delTotal) * 100}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        <ActivityProgressBars activity={activity} onEditActivity={onEditActivity} />
       </div>
 
       {/* Schedule: Duration */}
