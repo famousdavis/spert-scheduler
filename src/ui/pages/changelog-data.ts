@@ -12,6 +12,39 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.30.0",
+    date: "2026-03-26",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Per-project Gantt chart appearance controls: name column width, font size, row density, and bar label format.",
+          "Color preset system with 4 built-in themes (Classic, Monochrome, Ocean, Warm) that work in both light and dark mode.",
+          "Custom bar colors: override planned and in-progress bar colors with any color via swatch picker or color input.",
+          "Weekend/non-work day shading: optional gray bands on the Gantt chart highlighting non-working days.",
+          "Appearance settings travel with the project on export/import.",
+          "Print Gantt chart mirrors all appearance settings (layout, colors, font scaling, weekend shading).",
+          "Palette icon toggle button in the Gantt toolbar to show/hide the appearance panel.",
+        ],
+      },
+      {
+        title: "Technical",
+        items: [
+          "New resolveGanttAppearance() pure function maps settings to concrete pixel values and colors.",
+          "Hatch patterns now use strokeOpacity approach with bar colors instead of separate named hatch colors.",
+          "dateToX() no longer has a default leftMargin parameter — all call sites pass it explicitly.",
+          "useGanttLayout hook parameterized with leftMargin, rowHeight, and barHeight.",
+        ],
+      },
+      {
+        title: "Schema",
+        items: [
+          "Schema v17 → v18: Added optional ganttAppearance field to Project.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.29.3",
     date: "2026-03-26",
     sections: [

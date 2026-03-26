@@ -6,7 +6,7 @@ import type { RefObject } from "react";
 import type { Activity, Milestone } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
 import {
-  LEFT_MARGIN, RIGHT_MARGIN, TOP_MARGIN, ROW_HEIGHT,
+  RIGHT_MARGIN, TOP_MARGIN,
   MIN_CHART_WIDTH, MIN_TICK_SPACING_PX, PROJECT_NAME_HEIGHT,
 } from "@ui/charts/gantt-constants";
 import { dateToX, generateTicks } from "@ui/charts/gantt-utils";
@@ -28,6 +28,7 @@ export interface GanttLayout {
   ticks: { x: string; label: string }[];
   milestoneXPositions: number[];
   rowIndex: Map<string, number>;
+  barYOffset: number;
 }
 
 interface UseGanttLayoutArgs {
@@ -41,6 +42,9 @@ interface UseGanttLayoutArgs {
   showProjectName: boolean;
   projectName: string | undefined;
   svgContainerRef: RefObject<HTMLDivElement | null> | undefined;
+  leftMargin: number;
+  rowHeight: number;
+  barHeight: number;
 }
 
 export function useGanttLayout({
@@ -54,6 +58,9 @@ export function useGanttLayout({
   showProjectName,
   projectName,
   svgContainerRef,
+  leftMargin,
+  rowHeight,
+  barHeight,
 }: UseGanttLayoutArgs): GanttLayout {
   // Measure container width for responsive chart sizing
   const [containerWidth, setContainerWidth] = useState(0);
@@ -74,7 +81,7 @@ export function useGanttLayout({
   const totalRows = orderedActivities.length + (showBuffer ? 1 : 0);
   let topMargin = milestones.length > 0 ? TOP_MARGIN + 26 : TOP_MARGIN;
   if (showProjectName && projectName) topMargin += PROJECT_NAME_HEIGHT;
-  const chartHeight = topMargin + totalRows * ROW_HEIGHT + 20;
+  const chartHeight = topMargin + totalRows * rowHeight + 20;
 
   // Scale chart width
   const minTimestamp = new Date(projectStartDate + "T00:00:00").getTime();
@@ -83,32 +90,32 @@ export function useGanttLayout({
   const calendarDays = dateRange / (1000 * 60 * 60 * 24);
   const MIN_PX_PER_DAY = 2;
   const targetWidth = containerWidth > 0 ? containerWidth : MIN_CHART_WIDTH;
-  const availableChartArea = targetWidth - LEFT_MARGIN - RIGHT_MARGIN;
+  const availableChartArea = targetWidth - leftMargin - RIGHT_MARGIN;
   const pxPerDay = calendarDays > 0 ? availableChartArea / calendarDays : 8;
   const chartWidth = pxPerDay < MIN_PX_PER_DAY
-    ? LEFT_MARGIN + RIGHT_MARGIN + Math.ceil(calendarDays * MIN_PX_PER_DAY)
+    ? leftMargin + RIGHT_MARGIN + Math.ceil(calendarDays * MIN_PX_PER_DAY)
     : targetWidth;
-  const chartAreaWidth = chartWidth - LEFT_MARGIN - RIGHT_MARGIN;
+  const chartAreaWidth = chartWidth - leftMargin - RIGHT_MARGIN;
 
   // Finish line
   const finishDate = bufferedEndDate ?? projectEndDate;
   const finishX = dateRange > 0
-    ? dateToX(finishDate, minTimestamp, dateRange, chartAreaWidth)
+    ? dateToX(finishDate, minTimestamp, dateRange, chartAreaWidth, leftMargin)
     : 0;
 
   // Milestone X positions for tick suppression
   const milestoneXPositions = useMemo(() => {
     if (dateRange === 0) return [];
     return milestones.map((m) =>
-      dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth),
+      dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth, leftMargin),
     );
-  }, [milestones, minTimestamp, dateRange, chartAreaWidth]);
+  }, [milestones, minTimestamp, dateRange, chartAreaWidth, leftMargin]);
 
   // Today line
   const todayStr = formatDateISO(new Date());
   const todayInRange = dateRange > 0 && todayStr >= projectStartDate && todayStr <= furthestDate;
   const todayX = todayInRange
-    ? dateToX(todayStr, minTimestamp, dateRange, chartAreaWidth)
+    ? dateToX(todayStr, minTimestamp, dateRange, chartAreaWidth, leftMargin)
     : null;
 
   // Generate ticks with collision suppression
@@ -121,7 +128,7 @@ export function useGanttLayout({
     const filtered: typeof allTicks = [];
     let lastX = -Infinity;
     for (const tick of allTicks) {
-      const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth);
+      const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth, leftMargin);
       if (Math.abs(x - finishX) < MIN_TICK_SPACING_PX * 1.5) continue;
       if (milestoneXPositions.some((mx) => Math.abs(x - mx) < MIN_TICK_SPACING_PX)) continue;
       if (todayX !== null && Math.abs(x - todayX) < MIN_TICK_SPACING_PX) continue;
@@ -131,7 +138,10 @@ export function useGanttLayout({
       }
     }
     return filtered;
-  }, [allTicks, minTimestamp, dateRange, chartAreaWidth, finishX, milestoneXPositions, todayX]);
+  }, [allTicks, minTimestamp, dateRange, chartAreaWidth, leftMargin, finishX, milestoneXPositions, todayX]);
+
+  // Bar Y offset
+  const barYOffset = (rowHeight - barHeight) / 2;
 
   // Row index map for dependency arrows
   const rowIndex = useMemo(() => {
@@ -157,5 +167,6 @@ export function useGanttLayout({
     ticks,
     milestoneXPositions,
     rowIndex,
+    barYOffset,
   };
 }

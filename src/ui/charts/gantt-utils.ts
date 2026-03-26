@@ -3,7 +3,6 @@
 
 import type { Activity, ActivityDependency } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
-import { LEFT_MARGIN } from "./gantt-constants";
 
 export const MONTH_ABBR = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -13,14 +12,13 @@ export const MONTH_ABBR = [
 /**
  * Date string → X coordinate mapping.
  * Uses timestamp ratio within the date range.
- * @param leftMargin Override for print layout (defaults to interactive LEFT_MARGIN)
  */
 export function dateToX(
   dateStr: string,
   minTimestamp: number,
   dateRange: number,
   chartAreaWidth: number,
-  leftMargin: number = LEFT_MARGIN,
+  leftMargin: number,
 ): number {
   const ts = new Date(dateStr + "T00:00:00").getTime();
   if (dateRange === 0) return leftMargin + chartAreaWidth / 2;

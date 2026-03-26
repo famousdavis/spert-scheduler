@@ -21,9 +21,9 @@ import { computeActivityUncertaintyDays } from "@core/schedule/deterministic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useGanttPreferences } from "@ui/hooks/use-gantt-preferences";
 import { useGanttLayout } from "@ui/hooks/use-gantt-layout";
+import type { ResolvedGanttAppearance } from "./gantt-constants";
 import {
-  LEFT_MARGIN, ROW_HEIGHT,
-  BAR_HEIGHT, BAR_Y_OFFSET, BAR_RADIUS,
+  BAR_RADIUS,
   ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
 } from "./gantt-constants";
@@ -60,6 +60,9 @@ interface GanttChartProps {
   targetRAGColor?: string;
   onToggleShowTarget?: (v: boolean) => void;
   hasTargetDate?: boolean;
+  resolvedAppearance: ResolvedGanttAppearance;
+  appearancePanelOpen: boolean;
+  onToggleAppearancePanel: () => void;
 }
 
 export function GanttChart({
@@ -89,6 +92,9 @@ export function GanttChart({
   targetRAGColor,
   onToggleShowTarget,
   hasTargetDate,
+  resolvedAppearance: ra,
+  appearancePanelOpen,
+  onToggleAppearancePanel,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
   const {
@@ -219,11 +225,14 @@ export function GanttChart({
     showProjectName,
     projectName,
     svgContainerRef,
+    leftMargin: ra.leftMargin,
+    rowHeight: ra.rowHeight,
+    barHeight: ra.barHeight,
   });
   const {
     chartWidth, chartHeight, chartAreaWidth, topMargin,
     minTimestamp, dateRange, finishX, finishDate,
-    todayX, todayStr, allTicks, ticks, rowIndex,
+    todayX, todayStr, allTicks, ticks, rowIndex, barYOffset,
   } = layout;
 
   // Pre-compute arrow path geometry so both visual and hit-area passes share it
@@ -238,10 +247,10 @@ export function GanttChart({
 
       const fromDate = dep.type === "SS" ? fromSa.startDate : fromSa.endDate;
       const toDate = dep.type === "FF" ? toSa.endDate : toSa.startDate;
-      const barEndX = dateToX(fromDate, minTimestamp, dateRange, chartAreaWidth);
-      const fromY = topMargin + fromRow * ROW_HEIGHT + ROW_HEIGHT / 2;
-      const toX = dateToX(toDate, minTimestamp, dateRange, chartAreaWidth);
-      const toY = topMargin + toRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const barEndX = dateToX(fromDate, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
+      const fromY = topMargin + fromRow * ra.rowHeight + ra.rowHeight / 2;
+      const toX = dateToX(toDate, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
+      const toY = topMargin + toRow * ra.rowHeight + ra.rowHeight / 2;
 
       const STUB = 7;
       const stubX = barEndX + STUB;
@@ -276,7 +285,7 @@ export function GanttChart({
       fromY: number; toY: number; isCriticalEdge: boolean; label: string;
     }>;
   }, [dependencyMode, dependencies, rowIndex, scheduleMap, minTimestamp, dateRange,
-    chartAreaWidth, topMargin, showCriticalPath, criticalPathIds, activities]);
+    chartAreaWidth, topMargin, ra.leftMargin, ra.rowHeight, showCriticalPath, criticalPathIds, activities]);
 
   // Terminal activities: no successor dependency (only meaningful when deps exist)
   const terminalIds = useMemo(() => {
@@ -284,6 +293,51 @@ export function GanttChart({
     const hasSuccessor = new Set(dependencies.map(d => d.fromActivityId));
     return new Set(activities.filter(a => !hasSuccessor.has(a.id)).map(a => a.id));
   }, [dependencyMode, dependencies, activities]);
+
+  // Weekend / non-work day shading rects (coalesced consecutive days)
+  const weekendShadingRects = useMemo(() => {
+    if (!ra.weekendShading || dateRange === 0) return [];
+    // Need a calendar with isWorkDay
+    if (!calendar || !('isWorkDay' in calendar)) return [];
+    const cal = calendar as WorkCalendar;
+
+    const rects: { x: number; width: number }[] = [];
+    const start = new Date(projectStartDate + "T00:00:00");
+    const end = new Date(furthestDate + "T00:00:00");
+    const oneDay = 1000 * 60 * 60 * 24;
+    let d = new Date(start);
+    let spanStart: Date | null = null;
+
+    while (d <= end) {
+      const iso = formatDateISO(d);
+      if (!cal.isWorkDay(d)) {
+        if (!spanStart) spanStart = new Date(d);
+      } else {
+        if (spanStart) {
+          const x1 = dateToX(formatDateISO(spanStart), minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
+          const x2 = dateToX(iso, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
+          if (x2 - x1 >= 1) rects.push({ x: x1, width: x2 - x1 });
+          spanStart = null;
+        }
+      }
+      d = new Date(d.getTime() + oneDay);
+    }
+    // Close trailing span
+    if (spanStart) {
+      const x1 = dateToX(formatDateISO(spanStart), minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
+      const endNext = new Date(end.getTime() + oneDay);
+      const x2 = dateToX(formatDateISO(endNext), minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
+      if (x2 - x1 >= 1) rects.push({ x: x1, width: x2 - x1 });
+    }
+    return rects;
+  }, [ra.weekendShading, ra.leftMargin, dateRange, calendar, projectStartDate, furthestDate, minTimestamp, chartAreaWidth]);
+
+  // Bar label helper
+  const barLabelText = useCallback((sa: ScheduledActivity): string | null => {
+    if (ra.barLabel === "duration") return `${sa.duration}d`;
+    if (ra.barLabel === "dates") return formatDate(sa.endDate);
+    return null;
+  }, [ra.barLabel, formatDate]);
 
   if (activities.length === 0) {
     return (
@@ -296,7 +350,7 @@ export function GanttChart({
   return (
     <div>
       {/* View toggle */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600 text-sm overflow-hidden">
           <button
             className={`px-3 py-1 transition-colors ${
@@ -385,6 +439,22 @@ export function GanttChart({
             Show Finish Target Date
           </label>
         )}
+        {/* Appearance panel toggle */}
+        <button
+          type="button"
+          className={`ml-auto p-1.5 rounded transition-colors ${
+            appearancePanelOpen
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+          }`}
+          onClick={onToggleAppearancePanel}
+          title="Appearance settings"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+          </svg>
+        </button>
       </div>
 
       {/* Chart SVG — horizontally scrollable */}
@@ -399,11 +469,23 @@ export function GanttChart({
         >
           <GanttSvgDefs
             orderedActivities={orderedActivities}
-            c={c}
+            c={{ barPlanned: ra.barPlanned, barInProgress: ra.barInProgress, hatchBuffer: c.hatchBuffer, arrow: c.arrow, arrowHover: c.arrowHover, arrowHoverCritical: c.arrowHoverCritical, criticalPath: ra.criticalPath }}
             showBuffer={showBuffer}
             showCriticalPath={showCriticalPath}
             hasCriticalPath={!!(dependencyMode && criticalPathIds && criticalPathIds.size > 0)}
           />
+
+          {/* Weekend / non-work day shading — first layer (behind everything) */}
+          {weekendShadingRects.map((rect, i) => (
+            <rect
+              key={`shade-${i}`}
+              x={rect.x}
+              y={topMargin}
+              width={rect.width}
+              height={chartHeight - topMargin - 10}
+              fill={ra.shadingColor}
+            />
+          ))}
 
           {/* Project name header */}
           {showProjectName && projectName && (
@@ -422,7 +504,7 @@ export function GanttChart({
 
           {/* Vertical grid lines at ALL tick positions (including suppressed labels) */}
           {allTicks.map((tick, i) => {
-            const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth);
+            const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
             return (
               <line key={`grid-${i}`}
                 x1={x} y1={topMargin} x2={x} y2={chartHeight - 10}
@@ -432,7 +514,7 @@ export function GanttChart({
           })}
           {/* Tick labels (only where spacing permits) */}
           {ticks.map((tick, i) => {
-            const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth);
+            const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
             return (
               <text key={`label-${i}`}
                 x={x} y={topMargin - 8}
@@ -504,9 +586,9 @@ export function GanttChart({
 
           {/* Finish Target line */}
           {showTargetOnGantt && targetFinishDate && dateRange > 0 && (() => {
-            const targetX = dateToX(targetFinishDate, minTimestamp, dateRange, chartAreaWidth);
+            const targetX = dateToX(targetFinishDate, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
             // Omit entirely when out of visible chart area
-            if (targetX < LEFT_MARGIN || targetX > LEFT_MARGIN + chartAreaWidth) return null;
+            if (targetX < ra.leftMargin || targetX > ra.leftMargin + chartAreaWidth) return null;
             const ragKey = targetRAGColor ?? "gray";
             const color = tc[ragKey as keyof typeof tc] ?? tc.gray;
             const dash = TARGET_DASH_PATTERNS[ragKey] ?? TARGET_DASH_PATTERNS.gray;
@@ -552,7 +634,7 @@ export function GanttChart({
           {/* Milestone vertical lines and diamonds */}
           {milestones.map((m) => {
             if (dateRange === 0) return null;
-            const mx = dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth);
+            const mx = dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
             const bufferInfo = milestoneBuffers?.get(m.id);
             const healthColor = bufferInfo
               ? mc[bufferInfo.health]
@@ -609,7 +691,7 @@ export function GanttChart({
             const isHovered = hoveredDep?.from === ap.dep.fromActivityId && hoveredDep?.to === ap.dep.toActivityId;
             const arrowColor = isHovered
               ? (ap.isCriticalEdge ? c.arrowHoverCritical : c.arrowHover)
-              : (ap.isCriticalEdge ? c.criticalPath : c.arrow);
+              : (ap.isCriticalEdge ? ra.criticalPath : c.arrow);
             const arrowMarker = isHovered
               ? (ap.isCriticalEdge ? "url(#arrowhead-critical-hover)" : "url(#arrowhead-hover)")
               : (ap.isCriticalEdge ? "url(#arrowhead-critical)" : "url(#arrowhead)");
@@ -634,26 +716,28 @@ export function GanttChart({
             const sa = scheduleMap.get(act.id);
             if (!sa) return null;
 
-            const y = topMargin + idx * ROW_HEIGHT;
-            const barY = y + BAR_Y_OFFSET;
+            const y = topMargin + idx * ra.rowHeight;
+            const barY = y + barYOffset;
             const barX = dateToX(
               sa.startDate,
               minTimestamp,
               dateRange,
-              chartAreaWidth
+              chartAreaWidth,
+              ra.leftMargin,
             );
             const barEndX = dateToX(
               sa.endDate,
               minTimestamp,
               dateRange,
-              chartAreaWidth
+              chartAreaWidth,
+              ra.leftMargin,
             );
             const barWidth = Math.max(4, barEndX - barX);
 
             const barColor =
-              act.status === "complete" ? c.barComplete :
-              act.status === "inProgress" ? c.barInProgress :
-              c.barPlanned;
+              act.status === "complete" ? ra.barComplete :
+              act.status === "inProgress" ? ra.barInProgress :
+              ra.barPlanned;
 
             const uncertainty = uncertaintyMap.get(act.id);
             const extEndDate = activityExtendedEndDates.get(act.id);
@@ -669,9 +753,12 @@ export function GanttChart({
                 extEndDate,
                 minTimestamp,
                 dateRange,
-                chartAreaWidth
+                chartAreaWidth,
+                ra.leftMargin,
               );
             }
+
+            const hatchStrokeColor = act.status === "inProgress" ? ra.barInProgress : ra.barPlanned;
 
             return (
               <g key={act.id}>
@@ -680,7 +767,7 @@ export function GanttChart({
                   x={0}
                   y={y}
                   width={chartWidth}
-                  height={ROW_HEIGHT}
+                  height={ra.rowHeight}
                   fill="transparent"
                   onMouseEnter={(e) => {
                     const tooltipName = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
@@ -702,11 +789,11 @@ export function GanttChart({
 
                 {/* Activity name — clickable for inline rename when unlocked */}
                 <text
-                  x={LEFT_MARGIN - 8}
-                  y={y + ROW_HEIGHT / 2}
+                  x={ra.leftMargin - 8}
+                  y={y + ra.rowHeight / 2}
                   textAnchor="end"
                   dominantBaseline="central"
-                  fontSize="12"
+                  fontSize={ra.nameFontSize}
                   fill={c.text}
                   className={!isLocked && onRenameActivity ? "cursor-pointer" : "pointer-events-none"}
                   style={editingId === act.id ? { display: "none" } : undefined}
@@ -717,7 +804,7 @@ export function GanttChart({
                 >
                   {(() => {
                     const dn = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
-                    return dn.length > 38 ? dn.slice(0, 36) + "..." : dn;
+                    return dn.length > ra.nameCharLimit ? dn.slice(0, ra.nameCharLimit - 2) + "..." : dn;
                   })()}
                 </text>
 
@@ -727,11 +814,12 @@ export function GanttChart({
                     x={barEndX}
                     y={barY}
                     width={Math.max(2, hatchEndX - barEndX)}
-                    height={BAR_HEIGHT}
+                    height={ra.barHeight}
                     rx={BAR_RADIUS}
                     fill={`url(#hatch-${act.id})`}
-                    stroke={act.status === "inProgress" ? c.hatchInProgress : c.hatchActivity}
+                    stroke={hatchStrokeColor}
                     strokeWidth="1"
+                    strokeOpacity="0.4"
                   />
                 )}
 
@@ -740,7 +828,7 @@ export function GanttChart({
                   x={barX}
                   y={barY}
                   width={barWidth}
-                  height={BAR_HEIGHT}
+                  height={ra.barHeight}
                   rx={BAR_RADIUS}
                   fill={barColor}
                   stroke={barColor}
@@ -758,9 +846,9 @@ export function GanttChart({
                     x={barX}
                     y={barY}
                     width={4}
-                    height={BAR_HEIGHT}
+                    height={ra.barHeight}
                     rx={BAR_RADIUS}
-                    fill={c.criticalPath}
+                    fill={ra.criticalPath}
                     className="pointer-events-none"
                   />
                 )}
@@ -771,28 +859,32 @@ export function GanttChart({
                     x={barX + barWidth - 4}
                     y={barY}
                     width={4}
-                    height={BAR_HEIGHT}
+                    height={ra.barHeight}
                     rx={BAR_RADIUS}
                     fill={c.terminal}
                     className="pointer-events-none"
                   />
                 )}
 
-                {/* Duration label inside bar */}
-                {barWidth > 30 && (
-                  <text
-                    x={barX + barWidth / 2}
-                    y={barY + BAR_HEIGHT / 2}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontSize="10"
-                    fill="#ffffff"
-                    fontWeight="600"
-                    className="pointer-events-none"
-                  >
-                    {sa.duration}d
-                  </text>
-                )}
+                {/* Bar label */}
+                {barWidth > 30 && (() => {
+                  const label = barLabelText(sa);
+                  if (!label) return null;
+                  return (
+                    <text
+                      x={barX + barWidth / 2}
+                      y={barY + ra.barHeight / 2}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize="10"
+                      fill="#ffffff"
+                      fontWeight="600"
+                      className="pointer-events-none"
+                    >
+                      {label}
+                    </text>
+                  );
+                })()}
 
                 {/* Constraint indicator icon */}
                 {act.constraintType && (() => {
@@ -838,19 +930,21 @@ export function GanttChart({
             <g>
               {(() => {
                 const bufIdx = orderedActivities.length;
-                const y = topMargin + bufIdx * ROW_HEIGHT;
-                const barY = y + BAR_Y_OFFSET;
+                const y = topMargin + bufIdx * ra.rowHeight;
+                const barY = y + barYOffset;
                 const bufStartX = dateToX(
                   projectEndDate,
                   minTimestamp,
                   dateRange,
-                  chartAreaWidth
+                  chartAreaWidth,
+                  ra.leftMargin,
                 );
                 const bufEndX = dateToX(
                   bufferedEndDate,
                   minTimestamp,
                   dateRange,
-                  chartAreaWidth
+                  chartAreaWidth,
+                  ra.leftMargin,
                 );
                 const bufWidth = Math.max(4, bufEndX - bufStartX);
 
@@ -869,11 +963,11 @@ export function GanttChart({
 
                     {/* Label */}
                     <text
-                      x={LEFT_MARGIN - 8}
-                      y={y + ROW_HEIGHT / 2}
+                      x={ra.leftMargin - 8}
+                      y={y + ra.rowHeight / 2}
                       textAnchor="end"
                       dominantBaseline="central"
-                      fontSize="12"
+                      fontSize={ra.nameFontSize}
                       fill={c.textMuted}
                       fontStyle="italic"
                       className="pointer-events-none"
@@ -886,7 +980,7 @@ export function GanttChart({
                       x={bufStartX}
                       y={barY}
                       width={bufWidth}
-                      height={BAR_HEIGHT}
+                      height={ra.barHeight}
                       rx={BAR_RADIUS}
                       fill="url(#hatch-buffer)"
                       stroke={c.hatchBuffer}
@@ -897,7 +991,7 @@ export function GanttChart({
                     {bufWidth > 30 && (
                       <text
                         x={bufStartX + bufWidth / 2}
-                        y={barY + BAR_HEIGHT / 2}
+                        y={barY + ra.barHeight / 2}
                         textAnchor="middle"
                         dominantBaseline="central"
                         fontSize="11"
@@ -947,7 +1041,7 @@ export function GanttChart({
         {editingId && (() => {
           const idx = orderedActivities.findIndex((a) => a.id === editingId);
           if (idx === -1) return null;
-          const inputTop = topMargin + idx * ROW_HEIGHT + (ROW_HEIGHT - 24) / 2;
+          const inputTop = topMargin + idx * ra.rowHeight + (ra.rowHeight - 24) / 2;
           return (
             <input
               ref={editInputRef}
@@ -965,9 +1059,9 @@ export function GanttChart({
               style={{
                 top: inputTop,
                 left: 4,
-                width: LEFT_MARGIN - 12,
+                width: ra.leftMargin - 12,
                 height: 24,
-                fontSize: 12,
+                fontSize: ra.nameFontSize,
                 zIndex: 10,
               }}
             />
@@ -975,7 +1069,7 @@ export function GanttChart({
         })()}
 
         <GanttLegend
-          c={c}
+          c={{ ...c, barPlanned: ra.barPlanned, barInProgress: ra.barInProgress, barComplete: ra.barComplete, criticalPath: ra.criticalPath }}
           mc={mc}
           viewMode={viewMode}
           showCriticalPath={showCriticalPath}
@@ -990,6 +1084,7 @@ export function GanttChart({
           showTarget={showTargetOnGantt && !!targetFinishDate}
           targetColor={tc[(targetRAGColor ?? "gray") as keyof typeof tc] ?? tc.gray}
           targetDash={TARGET_DASH_PATTERNS[targetRAGColor ?? "gray"] ?? TARGET_DASH_PATTERNS.gray}
+          weekendShading={ra.weekendShading}
         />
       </div>
 

@@ -9,7 +9,6 @@ interface ColorSet {
   barComplete: string;
   criticalPath: string;
   terminal: string;
-  hatchActivity: string;
   finishLine: string;
   todayLine: string;
 }
@@ -34,6 +33,7 @@ interface GanttLegendProps {
   showTarget?: boolean;
   targetColor?: string;
   targetDash?: string;
+  weekendShading?: boolean;
 }
 
 export function GanttLegend({
@@ -52,6 +52,7 @@ export function GanttLegend({
   showTarget,
   targetColor,
   targetDash,
+  weekendShading,
 }: GanttLegendProps) {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
@@ -97,12 +98,21 @@ export function GanttLegend({
           <svg width="12" height="12" className="inline-block align-middle mr-1.5">
             <defs>
               <pattern id="legend-hatch" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
-                <line x1="0" y1="0" x2="0" y2="4" stroke={c.hatchActivity} strokeWidth="2" />
+                <rect width="4" height="4" fill="white" fillOpacity="0.3" />
+                <line x1="0" y1="0" x2="0" y2="4" stroke={c.barPlanned} strokeWidth="2" strokeOpacity="0.4" />
               </pattern>
             </defs>
-            <rect width="12" height="12" rx="1" fill="url(#legend-hatch)" stroke={c.hatchActivity} strokeWidth="0.5" />
+            <rect width="12" height="12" rx="1" fill="url(#legend-hatch)" stroke={c.barPlanned} strokeWidth="0.5" strokeOpacity="0.4" />
           </svg>
           <span className="align-middle">Uncertainty</span>
+        </span>
+      )}
+
+      {/* Weekend / non-work day shading */}
+      {weekendShading && (
+        <span>
+          <span className="inline-block align-middle w-3 h-3 rounded-sm mr-1.5 border border-gray-200 dark:border-gray-600" style={{ backgroundColor: "rgba(0,0,0,0.04)" }} />
+          <span className="align-middle">Non-work day</span>
         </span>
       )}
 

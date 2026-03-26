@@ -120,6 +120,7 @@ UI (React, Zustand, Recharts)
 | `src/ui/components/CopyImageButton.tsx` | Stateful copy-to-clipboard button for charts (idle/copying/success/error) |
 | `src/ui/components/DependencyPanel.tsx` | Dependency management UI (add/remove/edit deps, cycle prevention, collapsible) |
 | `src/ui/components/MilestonePanel.tsx` | Milestone management UI (add/remove/edit milestones, activity assignment, collapsible) |
+| `src/ui/components/GanttAppearancePanel.tsx` | Per-project Gantt appearance controls (layout, colors, weekend shading) |
 | `src/ui/components/PrintableReport.tsx` | Print-optimized project report layout |
 | `src/ui/charts/PrintGanttChart.tsx` | Print-only Gantt chart (**print parity**: must stay in sync with interactive GanttChart.tsx) |
 | `src/ui/charts/GanttChart.tsx` | Interactive Gantt chart with dependency arrows, uncertainty, finish line, critical path, today line, legend |
@@ -161,13 +162,13 @@ UI (React, Zustand, Recharts)
 
 ## Schema Version
 
-Current: `SCHEMA_VERSION = 17`. Migrations in `src/infrastructure/persistence/migrations.ts`. Bump version + add migration when changing the `Project` schema shape.
+Current: `SCHEMA_VERSION = 18`. Migrations in `src/infrastructure/persistence/migrations.ts`. Bump version + add migration when changing the `Project` schema shape.
 
 User preferences are stored separately (`spert:user-preferences` key) and are NOT part of the Project schema. No schema bump needed for preference changes.
 
 ## Testing Patterns
 
-- **992 tests** across **53 test files**
+- **1015 tests** across **53 test files**
 - **Unit tests:** Pure functions in `/core` — known values + property-based (fast-check)
 - **Integration tests:** `src/integration/` — full workflow, persistence round-trip, scenario cloning, export/import, dependency lifecycle, calendar layering
 - **Property-based:** Distribution samples bounded, percentiles monotonic, calendar round-trips, Parkinson floor invariants

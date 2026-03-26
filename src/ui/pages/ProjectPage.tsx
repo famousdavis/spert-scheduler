@@ -13,7 +13,7 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { Activity, ScenarioSettings } from "@domain/models/types";
-import { BASELINE_SCENARIO_NAME } from "@domain/models/types";
+import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { computeTargetRAGColor } from "@core/schedule/target-rag";
@@ -77,6 +77,7 @@ export function ProjectPage() {
     assignActivityToMilestone,
     setActivityStartsAtMilestone,
     updateProjectField,
+    updateGanttAppearance,
     updateScenarioNotes,
   } = useProjectStore(
     useShallow((s) => ({
@@ -111,6 +112,7 @@ export function ProjectPage() {
       assignActivityToMilestone: s.assignActivityToMilestone,
       setActivityStartsAtMilestone: s.setActivityStartsAtMilestone,
       updateProjectField: s.updateProjectField,
+      updateGanttAppearance: s.updateGanttAppearance,
       updateScenarioNotes: s.updateScenarioNotes,
     }))
   );
@@ -707,6 +709,8 @@ export function ProjectPage() {
               hasTargetDate={!!project.targetFinishDate}
               targetFinishDate={project.targetFinishDate ?? null}
               targetRAGColor={targetRAGColor}
+              ganttAppearance={project.ganttAppearance ?? DEFAULT_GANTT_APPEARANCE}
+              onAppearanceChange={(a) => updateGanttAppearance(id!, a)}
             />
           )}
 

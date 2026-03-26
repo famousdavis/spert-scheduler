@@ -930,7 +930,31 @@ describe("applyMigrations", () => {
     expect(result.showActivityIds).toBeUndefined();
   });
 
-  it("v1→v17: full sequential migration", () => {
+  // -- v17 → v18: ganttAppearance on Project -----------------------------------
+
+  it("v17→v18: bumps schema version to 18", () => {
+    const data = { schemaVersion: 17, scenarios: [] };
+    const result = applyMigrations(data, 17, 18) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(18);
+  });
+
+  it("v17→v18: preserves existing project data unchanged", () => {
+    const data = {
+      schemaVersion: 17,
+      targetFinishDate: "2026-06-01",
+      showTargetOnGantt: true,
+      showActivityIds: true,
+      scenarios: [{ settings: {}, activities: [{ id: "a1", name: "Test" }] }],
+    };
+    const result = applyMigrations(data, 17, 18) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(18);
+    expect(result.targetFinishDate).toBe("2026-06-01");
+    expect(result.showTargetOnGantt).toBe(true);
+    expect(result.showActivityIds).toBe(true);
+    expect(result.ganttAppearance).toBeUndefined();
+  });
+
+  it("v1→v18: full sequential migration", () => {
     const v1Data = {
       schemaVersion: 1,
       scenarios: [
@@ -944,8 +968,8 @@ describe("applyMigrations", () => {
       },
     };
 
-    const result = applyMigrations(v1Data, 1, 17) as Record<string, unknown>;
-    expect(result.schemaVersion).toBe(17);
+    const result = applyMigrations(v1Data, 1, 18) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(18);
     expect(result.targetFinishDate).toBe(null);
     expect(result.showTargetOnGantt).toBe(false);
   });

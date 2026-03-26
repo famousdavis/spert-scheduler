@@ -4,9 +4,9 @@
 import type { Activity } from "@domain/models/types";
 import { ARROW_HEAD_SIZE } from "./gantt-constants";
 
-interface ColorSet {
-  hatchInProgress: string;
-  hatchActivity: string;
+export interface ColorSet {
+  barPlanned: string;
+  barInProgress: string;
   hatchBuffer: string;
   arrow: string;
   arrowHover: string;
@@ -31,25 +31,30 @@ export function GanttSvgDefs({
 }: GanttSvgDefsProps) {
   return (
     <defs>
-      {orderedActivities.map((act) => (
-        <pattern
-          key={`hatch-${act.id}`}
-          id={`hatch-${act.id}`}
-          patternUnits="userSpaceOnUse"
-          width="8"
-          height="8"
-          patternTransform="rotate(45)"
-        >
-          <line
-            x1="0"
-            y1="0"
-            x2="0"
-            y2="8"
-            stroke={act.status === "inProgress" ? c.hatchInProgress : c.hatchActivity}
-            strokeWidth="4"
-          />
-        </pattern>
-      ))}
+      {orderedActivities.map((act) => {
+        const barColor = act.status === "inProgress" ? c.barInProgress : c.barPlanned;
+        return (
+          <pattern
+            key={`hatch-${act.id}`}
+            id={`hatch-${act.id}`}
+            patternUnits="userSpaceOnUse"
+            width="8"
+            height="8"
+            patternTransform="rotate(45)"
+          >
+            <rect width="8" height="8" fill="white" fillOpacity="0.3" />
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="8"
+              stroke={barColor}
+              strokeWidth="4"
+              strokeOpacity="0.4"
+            />
+          </pattern>
+        );
+      })}
       {showBuffer && (
         <pattern
           id="hatch-buffer"

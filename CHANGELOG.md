@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.30.0 — 2026-03-26
+
+### New Features
+
+- **Gantt appearance controls**: Per-project Gantt chart appearance panel with name column width (narrow/normal/wide), font size (small/normal/large/XL), row density (compact/normal/comfortable), and bar label format (duration/dates/none).
+- **Color presets**: 4 built-in color themes (Classic, Monochrome, Ocean, Warm) with light and dark mode variants. Classic matches the existing Gantt colors exactly.
+- **Custom bar colors**: Override planned and in-progress bar colors with any color via a swatch picker or native color input. Custom colors clear when switching presets.
+- **Weekend/non-work day shading**: Optional gray bands on the Gantt chart highlighting non-working days (uses the project's work calendar).
+- **Settings travel with project**: Appearance settings are stored on the project and survive export/import round-trips.
+- **Print parity**: Print Gantt chart mirrors all appearance settings — layout dimensions, bar colors, font scaling, weekend shading, and bar labels.
+- **Palette toggle**: New palette icon button in the Gantt toolbar shows/hides the collapsible appearance panel.
+
+### Technical
+
+- `resolveGanttAppearance()` pure function maps `GanttAppearanceSettings` to concrete pixel values and colors.
+- Hatch patterns now use `strokeOpacity` approach with bar colors instead of separate named `hatchActivity`/`hatchInProgress` colors.
+- `dateToX()` no longer has a default `leftMargin` parameter — all call sites pass it explicitly.
+- `useGanttLayout` hook parameterized with `leftMargin`, `rowHeight`, and `barHeight`.
+- New `GanttAppearancePanel` component with segmented controls and inline color pickers.
+- `updateGanttAppearance` store action (pushUndo, no lock guard, no simulation invalidation).
+
+### Schema
+
+- v17 → v18: Added optional `ganttAppearance` field to `Project` interface.
+
 ## 0.29.3 — 2026-03-26
 
 ### New Features
