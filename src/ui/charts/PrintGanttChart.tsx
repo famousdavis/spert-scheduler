@@ -227,9 +227,13 @@ export function PrintGanttChart({
           <g>
             <line x1={todayX} y1={topMargin} x2={todayX} y2={chartH - 4}
               stroke={c.todayLine} strokeWidth="0.75" strokeDasharray="3 1.5" />
-            <text x={todayX} y={topMargin - 4} textAnchor="middle"
+            <text x={todayX} y={topMargin - 9} textAnchor="middle"
               fontSize="5" fontWeight="500" fill={c.todayText}>
               Today
+            </text>
+            <text x={todayX} y={topMargin - 3} textAnchor="middle"
+              fontSize="4" fill={c.todayText}>
+              {formatDate(todayStr)}
             </text>
           </g>
         )}

@@ -223,7 +223,7 @@ export function GanttChart({
   const {
     chartWidth, chartHeight, chartAreaWidth, topMargin,
     minTimestamp, dateRange, finishX, finishDate,
-    todayX, ticks, rowIndex,
+    todayX, todayStr, ticks, rowIndex,
   } = layout;
 
   // Pre-compute arrow path geometry so both visual and hit-area passes share it
@@ -485,13 +485,22 @@ export function GanttChart({
               />
               <text
                 x={todayX}
-                y={topMargin - 8}
+                y={topMargin - 18}
                 textAnchor="middle"
                 fontSize="11"
                 fontWeight="500"
                 fill={c.todayText}
               >
                 Today
+              </text>
+              <text
+                x={todayX}
+                y={topMargin - 6}
+                textAnchor="middle"
+                fontSize="10"
+                fill={c.todayText}
+              >
+                {formatDate(todayStr)}
               </text>
             </g>
           )}
