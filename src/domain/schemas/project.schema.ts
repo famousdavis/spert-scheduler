@@ -216,6 +216,7 @@ export const ProjectSchema = z.object({
   convertedWorkDays: z.array(ISODateString).max(500).optional(),
   targetFinishDate: ISODateString.nullable().optional(),
   showTargetOnGantt: z.boolean().optional(),
+  showActivityIds: z.boolean().optional(),
   scenarios: z.array(ScenarioSchema).max(20),
   archived: z.boolean().optional(),
 });

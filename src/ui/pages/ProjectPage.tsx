@@ -134,7 +134,7 @@ export function ProjectPage() {
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [editingDependency, setEditingDependency] = useState<{ fromActivityId: string; toActivityId: string } | null>(null);
   const [addingDependencyFromId, setAddingDependencyFromId] = useState<string | null>(null);
-  const [showActivityNumbers, setShowActivityNumbers] = useState(false);
+  const showActivityNumbers = project?.showActivityIds ?? false;
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -697,7 +697,9 @@ export function ProjectPage() {
               onEditDependency={(fromId, toId) => setEditingDependency({ fromActivityId: fromId, toActivityId: toId })}
               isLocked={scenario.locked}
               showActivityNumbers={showActivityNumbers}
-              onToggleActivityNumbers={setShowActivityNumbers}
+              onToggleActivityNumbers={(v) =>
+                updateProjectField(id!, { showActivityIds: v })
+              }
               showTargetOnGantt={project.showTargetOnGantt ?? false}
               onToggleShowTarget={(v) =>
                 updateProjectField(id!, { showTargetOnGantt: v })

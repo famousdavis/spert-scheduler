@@ -13,6 +13,7 @@ import type {
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { STANDARD_PERCENTILES, RSM_LABELS } from "@domain/models/types";
+import { APP_VERSION } from "@app/constants";
 import {
   parseDateISO,
   addWorkingDays,
@@ -57,30 +58,32 @@ function renderItemTable(
       <table className="w-full text-[9px] border-collapse">
         <thead>
           <tr className="border-b-2 border-gray-400 text-left">
-            <th className="py-1 pr-1">Activity</th>
-            <th className="py-1 pr-1">{itemLabel}</th>
-            <th className="py-1 pr-1 text-center">{statusLabel}</th>
-            <th className="py-1 text-center">Progress</th>
+            <th className="py-1 pr-1 w-[70%]">{itemLabel}</th>
+            <th className="py-1 text-center w-[30%]">{statusLabel}</th>
           </tr>
         </thead>
         <tbody>
           {activities.flatMap((activity) => {
             const items = getItems(activity)!;
             const doneCount = items.filter((i) => i.completed).length;
-            return items.map((item, itemIdx) => (
-              <tr key={`${activity.id}-${item.id}`} className="border-b border-gray-200">
-                <td className="py-0.5 pr-1 font-medium">
-                  {itemIdx === 0 ? activity.name : ""}
+            return [
+              <tr key={`${activity.id}-header`} className="border-b border-gray-300 bg-gray-50">
+                <td colSpan={2} className="py-0.5 pr-1 font-medium">
+                  {activity.name}
+                  <span className="ml-2 text-gray-500 font-normal tabular-nums">
+                    ({doneCount}/{items.length})
+                  </span>
                 </td>
-                <td className="py-0.5 pr-1">{item.text}</td>
-                <td className="py-0.5 pr-1 text-center">
-                  {item.completed ? "✓" : "—"}
-                </td>
-                <td className="py-0.5 text-center tabular-nums">
-                  {itemIdx === 0 ? `${doneCount}/${items.length}` : ""}
-                </td>
-              </tr>
-            ));
+              </tr>,
+              ...items.map((item) => (
+                <tr key={`${activity.id}-${item.id}`} className="border-b border-gray-200">
+                  <td className="py-0.5 pr-1 pl-3">{item.text}</td>
+                  <td className="py-0.5 text-center">
+                    {item.completed ? "✓" : "—"}
+                  </td>
+                </tr>
+              )),
+            ];
           })}
         </tbody>
       </table>
@@ -121,7 +124,7 @@ export function PrintableReport({
       {/* Header */}
       <div className="border-b-2 border-gray-800 pb-2 mb-3">
         <p className="text-[9px] text-gray-400 tracking-wide uppercase mb-0.5">
-          SPERT<span className="text-[6px] align-super">®</span> Scheduler
+          SPERT<span className="text-[6px] align-super">®</span> Scheduler v{APP_VERSION}
         </p>
         <h1 className="text-xl font-bold">{project.name}</h1>
         <p className="text-gray-600 text-xs">Scenario: {scenario.name}</p>
@@ -142,6 +145,12 @@ export function PrintableReport({
                 <tr>
                   <td className="py-0.5 text-gray-600">Start Date:</td>
                   <td className="py-0.5 font-medium">{formatDate(scenario.startDate)}</td>
+                </tr>
+                <tr>
+                  <td className="py-0.5 text-gray-600">Finish Target:</td>
+                  <td className="py-0.5 font-medium">
+                    {project.targetFinishDate ? formatDate(project.targetFinishDate) : "—"}
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-0.5 text-gray-600">Finish (w/o Buffer):</td>

@@ -12,6 +12,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.29.3",
+    date: "2026-03-25",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "\"Show Activity IDs\" toggle now persists per project instead of resetting on page navigation.",
+          "Print report now includes Finish Target date in the Project Summary section.",
+          "Print report header shows the app version for traceability.",
+          "Gantt timeline now shows monthly tick marks for projects spanning 91+ days, with year shown on first tick and at year boundaries.",
+          "\"Show Finish Target Date\" checkbox shows a tooltip explaining why it's disabled when no target date is set.",
+        ],
+      },
+      {
+        title: "UI Polish",
+        items: [
+          "Print report tasks/deliverables tables redesigned with activity header rows and indented items for clearer visual hierarchy.",
+          "ToS/Privacy notification banner no longer appears on printed PDF reports.",
+        ],
+      },
+      {
+        title: "Schema",
+        items: [
+          "Schema v16 → v17: Added optional showActivityIds field to Project.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.29.2",
     date: "2026-03-25",
     sections: [

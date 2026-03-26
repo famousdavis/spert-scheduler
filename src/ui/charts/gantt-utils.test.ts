@@ -9,6 +9,7 @@ import {
   compactLabel,
   toISO,
   generateTicks,
+  monthTickLabel,
   buildOrderedActivities,
 } from "./gantt-utils";
 import { LEFT_MARGIN } from "./gantt-constants";
@@ -73,8 +74,24 @@ describe("compactLabel", () => {
     expect(compactLabel(new Date(2026, 2, 16), true)).toBe("Mar 16");
   });
 
-  it("uses abbreviated year when includeDay is false", () => {
-    expect(compactLabel(new Date(2026, 3, 1), false)).toBe("Apr '26");
+  it("returns month name only when includeDay is false", () => {
+    expect(compactLabel(new Date(2026, 3, 1), false)).toBe("Apr");
+  });
+});
+
+// -- monthTickLabel -----------------------------------------------------------
+
+describe("monthTickLabel", () => {
+  it("includes year on first tick", () => {
+    expect(monthTickLabel(new Date(2026, 3, 1), true, null)).toBe("Apr '26");
+  });
+
+  it("shows month only for subsequent ticks in same year", () => {
+    expect(monthTickLabel(new Date(2026, 4, 1), false, 2026)).toBe("May");
+  });
+
+  it("includes year when year changes", () => {
+    expect(monthTickLabel(new Date(2027, 0, 1), false, 2026)).toBe("Jan '27");
   });
 });
 
@@ -118,8 +135,8 @@ describe("generateTicks", () => {
     }
   });
 
-  it("generates biweekly ticks for ranges 61-180 days", () => {
-    const ticks = generateTicks("2026-01-01", "2026-05-01");
+  it("generates biweekly ticks for ranges 61-90 days", () => {
+    const ticks = generateTicks("2026-01-01", "2026-03-15");
     expect(ticks.length).toBeGreaterThan(0);
     // First tick should be on a Monday
     const firstTickDate = new Date(ticks[0]!.x + "T00:00:00");
@@ -136,10 +153,22 @@ describe("generateTicks", () => {
     }
   });
 
-  it("generates monthly ticks for ranges > 180 days", () => {
-    const ticks = generateTicks("2026-01-01", "2026-12-31");
+  it("generates monthly ticks for ranges > 90 days", () => {
+    const ticks = generateTicks("2026-01-01", "2026-05-01");
     // Monthly ticks on 1st of month, starting from Feb
     expect(ticks[0]).toEqual({ x: "2026-02-01", label: "Feb '26" });
+    // Subsequent ticks in same year show month only
+    expect(ticks[1]).toEqual({ x: "2026-03-01", label: "Mar" });
+    for (const tick of ticks) {
+      expect(tick.x.endsWith("-01")).toBe(true);
+    }
+  });
+
+  it("generates monthly ticks with year on year boundary", () => {
+    const ticks = generateTicks("2026-01-01", "2026-12-31");
+    expect(ticks[0]).toEqual({ x: "2026-02-01", label: "Feb '26" });
+    // All subsequent same-year ticks are month-only
+    expect(ticks[1]!.label).toBe("Mar");
     for (const tick of ticks) {
       expect(tick.x.endsWith("-01")).toBe(true);
     }
