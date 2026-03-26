@@ -152,9 +152,9 @@ UI (React, Zustand, Recharts)
 | `src/app/legal-constants.ts` | ToS/Privacy URLs, version strings, localStorage keys, APP_ID |
 | `src/ui/components/FirstRunBanner.tsx` | Dismissible first-run informational banner (localStorage: `spert_firstRun_seen`) |
 | `src/ui/components/ConsentModal.tsx` | Clickwrap consent modal for Cloud Storage sign-in gate (Radix UI Dialog) |
-| `src/ui/components/ActivityEditModal.tsx` | Full activity edit modal with 5 sections: General, Estimates, Constraint, Dependencies, Tasks |
-| `src/ui/components/ChecklistSection.tsx` | Controlled checklist sub-component: SortableChecklistRow, add/toggle/reorder/remove tasks (dnd-kit) |
-| `src/ui/components/DeliverablesSection.tsx` | Controlled deliverables sub-component: SortableDeliverableRow, add/toggle/reorder/remove deliverables (dnd-kit) |
+| `src/ui/components/ActivityEditModal.tsx` | Full activity edit modal with 8 sections: General, Estimates, Constraint, Dependencies, Tasks, Deliverables, Notes, Schedule Analysis |
+| `src/ui/components/ChecklistSection.tsx` | Controlled checklist sub-component: SortableChecklistRow, add/toggle/reorder/remove tasks (dnd-kit). **Keep separate from DeliverablesSection** — they are semantically distinct and are the most likely places to grow feature-specific UI (task priorities, deliverable due dates, different sort options). Merging into a generic would require forking back on divergence, which is more disruptive than never merging. |
+| `src/ui/components/DeliverablesSection.tsx` | Controlled deliverables sub-component: SortableDeliverableRow, add/toggle/reorder/remove deliverables (dnd-kit). See ChecklistSection note — keep these two files separate by design. |
 | `src/ui/components/DependencyEditModal.tsx` | Dependency edit/add modal (Radix Dialog, edit type/lag, delete, or add new) |
 | `src/ui/components/WarningsPanel.tsx` | Constraint conflict/violation display panel (grouped by severity) |
 | `src/ui/components/grid-columns.ts` | Grid column definitions (standard + with-constraint variants) |
