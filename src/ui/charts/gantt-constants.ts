@@ -1,6 +1,9 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
+import type { GanttAppearanceSettings } from "@domain/models/types";
+import { DEFAULT_GANTT_APPEARANCE } from "@domain/models/types";
+
 // --- Interactive Gantt layout constants ---
 export const LEFT_MARGIN = 260;
 export const RIGHT_MARGIN = 40;
@@ -32,8 +35,6 @@ export const COLORS = {
     barPlanned: "#3b82f6",
     barInProgress: "#f97316",
     barComplete: "#9ca3af",
-    hatchActivity: "#93c5fd",
-    hatchInProgress: "#fdba74",
     hatchBuffer: "#fbbf24",
     arrow: "#6b7280",
     arrowHover: "#374151",
@@ -55,8 +56,6 @@ export const COLORS = {
     barPlanned: "#60a5fa",
     barInProgress: "#fb923c",
     barComplete: "#6b7280",
-    hatchActivity: "#3b82f6",
-    hatchInProgress: "#f97316",
     hatchBuffer: "#f59e0b",
     arrow: "#6b7280",
     arrowHover: "#d1d5db",
@@ -117,3 +116,136 @@ export const TARGET_DASH_PATTERNS: Record<string, string> = {
 };
 
 export type GanttColorTheme = (typeof COLORS)["light"];
+
+// --- Gantt Color Presets ---
+
+export interface GanttPresetColors {
+  barPlanned: string;
+  barInProgress: string;
+  barComplete: string;
+  criticalPath: string;
+}
+
+export const GANTT_COLOR_PRESETS: Record<string, { light: GanttPresetColors; dark: GanttPresetColors }> = {
+  classic: {
+    light: { barPlanned: "#3b82f6", barInProgress: "#f97316", barComplete: "#9ca3af", criticalPath: "#dc2626" },
+    dark: { barPlanned: "#60a5fa", barInProgress: "#fb923c", barComplete: "#6b7280", criticalPath: "#f87171" },
+  },
+  monochrome: {
+    light: { barPlanned: "#475569", barInProgress: "#64748b", barComplete: "#94a3b8", criticalPath: "#1e293b" },
+    dark: { barPlanned: "#94a3b8", barInProgress: "#cbd5e1", barComplete: "#64748b", criticalPath: "#e2e8f0" },
+  },
+  ocean: {
+    light: { barPlanned: "#0891b2", barInProgress: "#0d9488", barComplete: "#94a3b8", criticalPath: "#be123c" },
+    dark: { barPlanned: "#22d3ee", barInProgress: "#2dd4bf", barComplete: "#64748b", criticalPath: "#fb7185" },
+  },
+  warm: {
+    light: { barPlanned: "#d97706", barInProgress: "#dc2626", barComplete: "#9ca3af", criticalPath: "#7c2d12" },
+    dark: { barPlanned: "#fbbf24", barInProgress: "#f87171", barComplete: "#6b7280", criticalPath: "#fca5a5" },
+  },
+};
+
+export const KNOWN_PRESET_KEYS = Object.keys(GANTT_COLOR_PRESETS);
+
+/** Standard color swatch palette for the custom color picker */
+export const GANTT_STANDARD_COLORS = [
+  "#dc2626", "#ea580c", "#d97706", "#ca8a04", "#65a30d",
+  "#16a34a", "#0d9488", "#0891b2", "#0284c7", "#2563eb",
+  "#4f46e5", "#7c3aed", "#9333ea", "#c026d3", "#db2777",
+  "#475569", "#1e293b", "#78716c", "#57534e", "#0f172a",
+];
+
+// --- Resolved Gantt Appearance ---
+
+export interface ResolvedGanttAppearance {
+  // Layout
+  leftMargin: number;
+  nameCharLimit: number;
+  nameFontSize: number;
+  rowHeight: number;
+  barHeight: number;
+  barYOffset: number;
+  // Print layout
+  printLeftMargin: number;
+  printNameCharLimit: number;
+  printRowHeight: number;
+  printBarHeight: number;
+  // Colors
+  barPlanned: string;
+  barInProgress: string;
+  barComplete: string;
+  criticalPath: string;
+  // Bar label
+  barLabel: "duration" | "dates" | "none";
+  // Weekend shading
+  weekendShading: boolean;
+  shadingColor: string;
+}
+
+/**
+ * Pure function: resolves GanttAppearanceSettings into concrete pixel values and colors.
+ * When settings is undefined, returns defaults matching current hardcoded constants.
+ */
+export function resolveGanttAppearance(
+  settings: GanttAppearanceSettings | undefined,
+  isDark: boolean,
+): ResolvedGanttAppearance {
+  const s = settings ?? DEFAULT_GANTT_APPEARANCE;
+
+  // Name column width → leftMargin + charLimit
+  const nameColumnMap = {
+    narrow:  { leftMargin: 180, nameCharLimit: 24, printLeftMargin: 120, printNameCharLimit: 18 },
+    normal:  { leftMargin: 260, nameCharLimit: 38, printLeftMargin: 170, printNameCharLimit: 26 },
+    wide:    { leftMargin: 360, nameCharLimit: 54, printLeftMargin: 230, printNameCharLimit: 36 },
+  } as const;
+  const col = nameColumnMap[s.nameColumnWidth];
+
+  // Font size
+  const fontSizeMap = { small: 10, normal: 12, large: 14, xl: 16 } as const;
+  const nameFontSize = fontSizeMap[s.activityFontSize];
+
+  // Row density
+  const densityMap = {
+    compact:     { rowHeight: 24, barHeight: 16 },
+    normal:      { rowHeight: 32, barHeight: 22 },
+    comfortable: { rowHeight: 42, barHeight: 30 },
+  } as const;
+  const density = densityMap[s.rowDensity];
+
+  // Print row density (proportionally scaled)
+  const printDensityMap = {
+    compact:     { printRowHeight: 14, printBarHeight: 9 },
+    normal:      { printRowHeight: 18, printBarHeight: 12 },
+    comfortable: { printRowHeight: 24, printBarHeight: 17 },
+  } as const;
+  const printDensity = printDensityMap[s.rowDensity];
+
+  // Colors from preset (fall back to classic if unknown)
+  const presetKey = s.colorPreset in GANTT_COLOR_PRESETS ? s.colorPreset : "classic";
+  const preset = GANTT_COLOR_PRESETS[presetKey]!;
+  const presetColors = isDark ? preset.dark : preset.light;
+
+  // Custom colors override preset
+  const barPlanned = s.customPlannedColor ?? presetColors.barPlanned;
+  const barInProgress = s.customInProgressColor ?? presetColors.barInProgress;
+
+  return {
+    leftMargin: col.leftMargin,
+    nameCharLimit: col.nameCharLimit,
+    nameFontSize,
+    rowHeight: density.rowHeight,
+    barHeight: density.barHeight,
+    barYOffset: (density.rowHeight - density.barHeight) / 2,
+    printLeftMargin: col.printLeftMargin,
+    printNameCharLimit: col.printNameCharLimit,
+    printRowHeight: printDensity.printRowHeight,
+    printBarHeight: printDensity.printBarHeight,
+    barPlanned,
+    barInProgress,
+    barComplete: presetColors.barComplete,
+    criticalPath: presetColors.criticalPath,
+    barLabel: s.barLabel,
+    weekendShading: s.weekendShading,
+    shadingColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+  };
+}

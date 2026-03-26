@@ -205,6 +205,26 @@ export const ScenarioSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
+// -- Gantt Appearance Settings ------------------------------------------------
+
+const hexColorRegex = /^#[0-9a-fA-F]{6}$/;
+
+const KNOWN_PRESET_KEYS = ["classic", "monochrome", "ocean", "warm"];
+
+export const GanttAppearanceSettingsSchema = z.object({
+  nameColumnWidth: z.enum(["narrow", "normal", "wide"]),
+  activityFontSize: z.enum(["small", "normal", "large", "xl"]),
+  rowDensity: z.enum(["compact", "normal", "comfortable"]),
+  barLabel: z.enum(["duration", "dates", "none"]),
+  colorPreset: z.string().min(1).max(64).refine(
+    (s) => KNOWN_PRESET_KEYS.includes(s),
+    { message: "Unknown color preset" },
+  ),
+  customPlannedColor: z.string().regex(hexColorRegex, "Must be #RRGGBB").optional(),
+  customInProgressColor: z.string().regex(hexColorRegex, "Must be #RRGGBB").optional(),
+  weekendShading: z.boolean(),
+});
+
 // -- Project -----------------------------------------------------------------
 
 export const ProjectSchema = z.object({
@@ -217,6 +237,7 @@ export const ProjectSchema = z.object({
   targetFinishDate: ISODateString.nullable().optional(),
   showTargetOnGantt: z.boolean().optional(),
   showActivityIds: z.boolean().optional(),
+  ganttAppearance: GanttAppearanceSettingsSchema.optional(),
   scenarios: z.array(ScenarioSchema).max(20),
   archived: z.boolean().optional(),
 });

@@ -12,7 +12,11 @@ import {
   monthTickLabel,
   buildOrderedActivities,
 } from "./gantt-utils";
-import { LEFT_MARGIN } from "./gantt-constants";
+import {
+  LEFT_MARGIN, ROW_HEIGHT, BAR_HEIGHT, BAR_Y_OFFSET,
+  PRINT_LEFT, PRINT_ROW, PRINT_BAR_H,
+  resolveGanttAppearance, GANTT_COLOR_PRESETS,
+} from "./gantt-constants";
 
 // -- dateToX ------------------------------------------------------------------
 
@@ -23,20 +27,20 @@ describe("dateToX", () => {
   const areaW = 600;
 
   it("maps start date to leftMargin", () => {
-    expect(dateToX("2026-01-01", min, range, areaW)).toBe(LEFT_MARGIN);
+    expect(dateToX("2026-01-01", min, range, areaW, LEFT_MARGIN)).toBe(LEFT_MARGIN);
   });
 
   it("maps end date to leftMargin + chartAreaWidth", () => {
-    expect(dateToX("2026-01-31", min, range, areaW)).toBe(LEFT_MARGIN + areaW);
+    expect(dateToX("2026-01-31", min, range, areaW, LEFT_MARGIN)).toBe(LEFT_MARGIN + areaW);
   });
 
   it("returns midpoint when dateRange is 0", () => {
-    expect(dateToX("2026-01-15", min, 0, areaW)).toBe(LEFT_MARGIN + areaW / 2);
+    expect(dateToX("2026-01-15", min, 0, areaW, LEFT_MARGIN)).toBe(LEFT_MARGIN + areaW / 2);
   });
 
   it("interpolates intermediate dates linearly", () => {
     const midDate = "2026-01-16"; // 15 days into 30-day range = 50%
-    const x = dateToX(midDate, min, range, areaW);
+    const x = dateToX(midDate, min, range, areaW, LEFT_MARGIN);
     expect(x).toBeCloseTo(LEFT_MARGIN + areaW * (15 / 30), 0);
   });
 
@@ -232,5 +236,114 @@ describe("buildOrderedActivities", () => {
     );
     // Cycle causes buildDependencyGraph to throw; fallback returns original
     expect(result.map((x) => x.id)).toEqual(["a", "b"]);
+  });
+});
+
+// -- resolveGanttAppearance ---------------------------------------------------
+
+describe("resolveGanttAppearance", () => {
+  it("undefined settings produces defaults matching hardcoded constants", () => {
+    const ra = resolveGanttAppearance(undefined, false);
+    expect(ra.leftMargin).toBe(LEFT_MARGIN);
+    expect(ra.rowHeight).toBe(ROW_HEIGHT);
+    expect(ra.barHeight).toBe(BAR_HEIGHT);
+    expect(ra.barYOffset).toBe(BAR_Y_OFFSET);
+    expect(ra.printLeftMargin).toBe(PRINT_LEFT);
+    expect(ra.printRowHeight).toBe(PRINT_ROW);
+    expect(ra.printBarHeight).toBe(PRINT_BAR_H);
+    expect(ra.nameFontSize).toBe(12);
+    expect(ra.nameCharLimit).toBe(38);
+    expect(ra.barLabel).toBe("duration");
+    expect(ra.weekendShading).toBe(false);
+  });
+
+  it("classic preset light matches COLORS.light bar colors", () => {
+    const ra = resolveGanttAppearance(undefined, false);
+    expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS.classic!.light.barPlanned);
+    expect(ra.barInProgress).toBe(GANTT_COLOR_PRESETS.classic!.light.barInProgress);
+    expect(ra.barComplete).toBe(GANTT_COLOR_PRESETS.classic!.light.barComplete);
+    expect(ra.criticalPath).toBe(GANTT_COLOR_PRESETS.classic!.light.criticalPath);
+  });
+
+  it("classic preset dark uses dark variant colors", () => {
+    const ra = resolveGanttAppearance(undefined, true);
+    expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS.classic!.dark.barPlanned);
+    expect(ra.barInProgress).toBe(GANTT_COLOR_PRESETS.classic!.dark.barInProgress);
+  });
+
+  it.each(["classic", "monochrome", "ocean", "warm"] as const)("preset %s light resolves", (preset) => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: preset, weekendShading: false }, false);
+    expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS[preset]!.light.barPlanned);
+  });
+
+  it.each(["classic", "monochrome", "ocean", "warm"] as const)("preset %s dark resolves", (preset) => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: preset, weekendShading: false }, true);
+    expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS[preset]!.dark.barPlanned);
+  });
+
+  it("narrow name column reduces leftMargin and charLimit", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "narrow", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    expect(ra.leftMargin).toBe(180);
+    expect(ra.nameCharLimit).toBe(24);
+    expect(ra.printLeftMargin).toBe(120);
+    expect(ra.printNameCharLimit).toBe(18);
+  });
+
+  it("wide name column increases leftMargin and charLimit", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "wide", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    expect(ra.leftMargin).toBe(360);
+    expect(ra.nameCharLimit).toBe(54);
+  });
+
+  it("compact row density produces smaller dimensions", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    expect(ra.rowHeight).toBe(24);
+    expect(ra.barHeight).toBe(16);
+    expect(ra.barYOffset).toBe(4);
+    expect(ra.printRowHeight).toBe(14);
+    expect(ra.printBarHeight).toBe(9);
+  });
+
+  it("comfortable row density produces larger dimensions", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "comfortable", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    expect(ra.rowHeight).toBe(42);
+    expect(ra.barHeight).toBe(30);
+    expect(ra.barYOffset).toBe(6);
+  });
+
+  it("all font sizes map correctly", () => {
+    const sizes = { small: 10, normal: 12, large: 14, xl: 16 } as const;
+    for (const [key, expected] of Object.entries(sizes)) {
+      const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: key as "small" | "normal" | "large" | "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+      expect(ra.nameFontSize).toBe(expected);
+    }
+  });
+
+  it("customPlannedColor overrides preset barPlanned", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", customPlannedColor: "#ff0000", weekendShading: false }, false);
+    expect(ra.barPlanned).toBe("#ff0000");
+    // barInProgress still from preset
+    expect(ra.barInProgress).toBe(GANTT_COLOR_PRESETS.classic!.light.barInProgress);
+  });
+
+  it("customInProgressColor overrides preset barInProgress", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", customInProgressColor: "#00ff00", weekendShading: false }, false);
+    expect(ra.barInProgress).toBe("#00ff00");
+  });
+
+  it("unknown colorPreset falls back to classic", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "nonexistent", weekendShading: false }, false);
+    expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS.classic!.light.barPlanned);
+  });
+
+  it("weekendShading flag is passed through", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: true }, false);
+    expect(ra.weekendShading).toBe(true);
+  });
+
+  it("shading color differs for dark mode", () => {
+    const light = resolveGanttAppearance(undefined, false);
+    const dark = resolveGanttAppearance(undefined, true);
+    expect(light.shadingColor).not.toBe(dark.shadingColor);
   });
 });

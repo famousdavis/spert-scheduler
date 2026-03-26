@@ -5,6 +5,7 @@ import { useCallback, useMemo } from "react";
 import type {
   Activity,
   ActivityDependency,
+  GanttAppearanceSettings,
   Milestone,
   MilestoneBufferInfo,
   ScheduledActivity,
@@ -14,10 +15,11 @@ import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { formatDateISO } from "@core/calendar/calendar";
 import {
-  PRINT_LEFT, PRINT_RIGHT, PRINT_TOP, PRINT_ROW, PRINT_BAR_H,
+  PRINT_RIGHT, PRINT_TOP,
   PRINT_BAR_RADIUS, PRINT_ARROW_SIZE, PRINT_MIN_TICK_PX,
   PRINT_PROJECT_NAME_H, PRINT_MILESTONE_EXTRA_TOP,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
+  resolveGanttAppearance,
 } from "./gantt-constants";
 import { dateToX, buildOrderedActivities, generateTicks, longDateLabel } from "./gantt-utils";
 
@@ -41,6 +43,7 @@ export interface PrintGanttChartProps {
   targetFinishDate?: string | null;
   showTargetOnGantt?: boolean;
   targetRAGColor?: string;
+  ganttAppearance?: GanttAppearanceSettings;
 }
 
 export function PrintGanttChart({
@@ -53,6 +56,7 @@ export function PrintGanttChart({
   dependencyMode,
   bufferedEndDate,
   formatDate,
+  calendar,
   milestones = [],
   milestoneBuffers,
   criticalPathIds,
@@ -60,10 +64,17 @@ export function PrintGanttChart({
   targetFinishDate,
   showTargetOnGantt,
   targetRAGColor,
+  ganttAppearance,
 }: PrintGanttChartProps) {
+  // Resolve appearance (print is always light mode)
+  const ra = resolveGanttAppearance(ganttAppearance, false);
+
   const c = COLORS.light;
   const mc = MILESTONE_COLORS.light;
   const tc = TARGET_COLORS.light;
+
+  // Font size scale factor relative to default (12)
+  const fontScale = ra.nameFontSize / 12;
 
   const scheduleMap = useMemo(() => {
     const m = new Map<string, ScheduledActivity>();
@@ -96,16 +107,16 @@ export function PrintGanttChart({
 
   const totalRows = ordered.length + (showBuffer ? 1 : 0);
   const chartW = 700;
-  const chartH = topMargin + totalRows * PRINT_ROW + 8;
-  const areaW = chartW - PRINT_LEFT - PRINT_RIGHT;
+  const chartH = topMargin + totalRows * ra.printRowHeight + 8;
+  const areaW = chartW - ra.printLeftMargin - PRINT_RIGHT;
 
   const minTs = new Date(projectStartDate + "T00:00:00").getTime();
   const maxTs = new Date(endDate + "T00:00:00").getTime();
   const range = maxTs - minTs;
 
   const toX = useCallback(
-    (d: string) => dateToX(d, minTs, range, areaW, PRINT_LEFT),
-    [minTs, range, areaW],
+    (d: string) => dateToX(d, minTs, range, areaW, ra.printLeftMargin),
+    [minTs, range, areaW, ra.printLeftMargin],
   );
 
   // Finish line
@@ -155,6 +166,58 @@ export function PrintGanttChart({
   }, [dependencyMode, dependencies, activities]);
   const hasTerminals = terminalIds !== null && terminalIds.size > 0;
 
+  // Weekend / non-work day shading rects
+  const weekendShadingRects = useMemo(() => {
+    if (!ra.weekendShading || range === 0) return [];
+    if (!calendar || !('isWorkDay' in calendar)) return [];
+    const cal = calendar as WorkCalendar;
+    // Skip when day width is too small for print
+    const dayWidth = areaW / (range / (1000 * 60 * 60 * 24));
+    if (dayWidth < 1.5) return [];
+
+    const rects: { x: number; width: number }[] = [];
+    const start = new Date(projectStartDate + "T00:00:00");
+    const end = new Date(endDate + "T00:00:00");
+    const oneDay = 1000 * 60 * 60 * 24;
+    let d = new Date(start);
+    let spanStart: Date | null = null;
+
+    while (d <= end) {
+      const iso = formatDateISO(d);
+      if (!cal.isWorkDay(d)) {
+        if (!spanStart) spanStart = new Date(d);
+      } else {
+        if (spanStart) {
+          const x1 = toX(formatDateISO(spanStart));
+          const x2 = toX(iso);
+          if (x2 - x1 >= 0.5) rects.push({ x: x1, width: x2 - x1 });
+          spanStart = null;
+        }
+      }
+      d = new Date(d.getTime() + oneDay);
+    }
+    if (spanStart) {
+      const x1 = toX(formatDateISO(spanStart));
+      const endNext = new Date(end.getTime() + oneDay);
+      const x2 = toX(formatDateISO(endNext));
+      if (x2 - x1 >= 0.5) rects.push({ x: x1, width: x2 - x1 });
+    }
+    return rects;
+  }, [ra.weekendShading, range, calendar, projectStartDate, endDate, toX, areaW]);
+
+  // Bar label helper
+  const barLabelText = useCallback((sa: ScheduledActivity): string | null => {
+    if (ra.barLabel === "duration") return `${sa.duration}d`;
+    if (ra.barLabel === "dates") return formatDate(sa.endDate);
+    return null;
+  }, [ra.barLabel, formatDate]);
+
+  // Scaled font sizes
+  const fs7 = Math.round(7 * fontScale);
+  const fs6 = Math.round(6 * fontScale);
+  const fs5 = Math.round(5 * fontScale);
+  const fs4 = Math.round(4 * fontScale);
+
   return (
     <section className="mb-3 print-section-keep">
       <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
@@ -175,17 +238,38 @@ export function PrintGanttChart({
           <pattern id="print-hatch-buffer" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="4" stroke={c.hatchBuffer} strokeWidth="2" />
           </pattern>
+          {/* Activity hatching patterns */}
+          <pattern id="print-hatch-planned" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+            <rect width="4" height="4" fill="white" fillOpacity="0.3" />
+            <line x1="0" y1="0" x2="0" y2="4" stroke={ra.barPlanned} strokeWidth="2" strokeOpacity="0.4" />
+          </pattern>
+          <pattern id="print-hatch-inprogress" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+            <rect width="4" height="4" fill="white" fillOpacity="0.3" />
+            <line x1="0" y1="0" x2="0" y2="4" stroke={ra.barInProgress} strokeWidth="2" strokeOpacity="0.4" />
+          </pattern>
           {hasCriticalPath && (
             <marker id="print-arrowhead-critical" markerUnits="userSpaceOnUse"
               markerWidth={PRINT_ARROW_SIZE} markerHeight={PRINT_ARROW_SIZE}
               refX="0" refY={PRINT_ARROW_SIZE / 2} orient="auto">
               <polygon
                 points={`0 0, ${PRINT_ARROW_SIZE} ${PRINT_ARROW_SIZE / 2}, 0 ${PRINT_ARROW_SIZE}`}
-                fill={c.criticalPath}
+                fill={ra.criticalPath}
               />
             </marker>
           )}
         </defs>
+
+        {/* Weekend / non-work day shading — first layer */}
+        {weekendShadingRects.map((rect, i) => (
+          <rect
+            key={`shade-${i}`}
+            x={rect.x}
+            y={topMargin}
+            width={rect.width}
+            height={chartH - topMargin - 4}
+            fill="rgba(0,0,0,0.04)"
+          />
+        ))}
 
         {/* Project name header */}
         {projectName && (
@@ -208,7 +292,7 @@ export function PrintGanttChart({
           const x = toX(tick.x);
           return (
             <text key={`label-${i}`} x={x} y={topMargin - 4} textAnchor="middle"
-              fontSize="5" fill={c.textMuted}>
+              fontSize={fs5} fill={c.textMuted}>
               {tick.label}
             </text>
           );
@@ -220,7 +304,7 @@ export function PrintGanttChart({
             <line x1={finishX} y1={topMargin} x2={finishX} y2={chartH - 4}
               stroke={c.finishLine} strokeWidth="1" strokeDasharray="4 2" />
             <text x={finishX} y={topMargin - 4} textAnchor="middle"
-              fontSize="5" fontWeight="600" fill={c.finishText}>
+              fontSize={fs5} fontWeight="600" fill={c.finishText}>
               {longDateLabel(finishDate)}
             </text>
           </g>
@@ -232,11 +316,11 @@ export function PrintGanttChart({
             <line x1={todayX} y1={topMargin} x2={todayX} y2={chartH - 4}
               stroke={c.todayLine} strokeWidth="0.75" strokeDasharray="3 1.5" />
             <text x={todayX} y={topMargin - 9} textAnchor="middle"
-              fontSize="5" fontWeight="500" fill={c.todayText}>
+              fontSize={fs5} fontWeight="500" fill={c.todayText}>
               Today
             </text>
             <text x={todayX} y={topMargin - 3} textAnchor="middle"
-              fontSize="4" fill={c.todayText}>
+              fontSize={fs4} fill={c.todayText}>
               {formatDate(todayStr)}
             </text>
           </g>
@@ -245,7 +329,7 @@ export function PrintGanttChart({
         {/* Finish Target line */}
         {showTargetOnGantt && targetFinishDate && range > 0 && (() => {
           const targetX = toX(targetFinishDate);
-          if (targetX < PRINT_LEFT || targetX > PRINT_LEFT + areaW) return null;
+          if (targetX < ra.printLeftMargin || targetX > ra.printLeftMargin + areaW) return null;
           const ragKey = targetRAGColor ?? "gray";
           const color = tc[ragKey as keyof typeof tc] ?? tc.gray;
           const dash = TARGET_DASH_PATTERNS[ragKey] ?? TARGET_DASH_PATTERNS.gray;
@@ -254,7 +338,7 @@ export function PrintGanttChart({
               <line x1={targetX} y1={topMargin} x2={targetX} y2={chartH - 4}
                 stroke={color} strokeWidth="0.75" strokeDasharray={dash} />
               <text x={targetX} y={topMargin - 11} textAnchor="middle"
-                fontSize="5" fontWeight="500" fill={color}>
+                fontSize={fs5} fontWeight="500" fill={color}>
                 Target
               </text>
             </g>
@@ -272,9 +356,9 @@ export function PrintGanttChart({
           const fromDate = dep.type === "SS" ? fromSa.startDate : fromSa.endDate;
           const toDate = dep.type === "FF" ? toSa.endDate : toSa.startDate;
           const barEndX = toX(fromDate);
-          const fromY = topMargin + fromRow * PRINT_ROW + PRINT_ROW / 2;
+          const fromY = topMargin + fromRow * ra.printRowHeight + ra.printRowHeight / 2;
           const toStartX = toX(toDate);
-          const toY = topMargin + toRow * PRINT_ROW + PRINT_ROW / 2;
+          const toY = topMargin + toRow * ra.printRowHeight + ra.printRowHeight / 2;
 
           const STUB = 4;
           const stubX = barEndX + STUB;
@@ -299,7 +383,7 @@ export function PrintGanttChart({
 
           const isCriticalEdge = hasCriticalPath &&
             criticalPathIds!.has(dep.fromActivityId) && criticalPathIds!.has(dep.toActivityId);
-          const arrowColor = isCriticalEdge ? c.criticalPath : c.arrow;
+          const arrowColor = isCriticalEdge ? ra.criticalPath : c.arrow;
           const arrowMarker = isCriticalEdge ? "url(#print-arrowhead-critical)" : "url(#print-arrowhead)";
 
           return (
@@ -319,39 +403,43 @@ export function PrintGanttChart({
         {ordered.map((act, idx) => {
           const sa = scheduleMap.get(act.id);
           if (!sa) return null;
-          const y = topMargin + idx * PRINT_ROW;
-          const barY = y + (PRINT_ROW - PRINT_BAR_H) / 2;
+          const y = topMargin + idx * ra.printRowHeight;
+          const barY = y + (ra.printRowHeight - ra.printBarHeight) / 2;
           const x1 = toX(sa.startDate);
           const x2 = toX(sa.endDate);
           const w = Math.max(2, x2 - x1);
           const barColor =
-            act.status === "complete" ? c.barComplete :
-            act.status === "inProgress" ? c.barInProgress :
-            c.barPlanned;
+            act.status === "complete" ? ra.barComplete :
+            act.status === "inProgress" ? ra.barInProgress :
+            ra.barPlanned;
           return (
             <g key={act.id}>
-              <text x={PRINT_LEFT - 4} y={y + PRINT_ROW / 2} textAnchor="end"
-                dominantBaseline="central" fontSize="7" fill={c.text}>
-                {act.name.length > 26 ? act.name.slice(0, 24) + "\u2026" : act.name}
+              <text x={ra.printLeftMargin - 4} y={y + ra.printRowHeight / 2} textAnchor="end"
+                dominantBaseline="central" fontSize={fs7} fill={c.text}>
+                {act.name.length > ra.printNameCharLimit ? act.name.slice(0, ra.printNameCharLimit - 2) + "\u2026" : act.name}
               </text>
-              <rect x={x1} y={barY} width={w} height={PRINT_BAR_H}
+              <rect x={x1} y={barY} width={w} height={ra.printBarHeight}
                 rx={PRINT_BAR_RADIUS} fill={barColor} />
               {/* Critical path left stripe */}
               {hasCriticalPath && criticalPathIds!.has(act.id) && (
-                <rect x={x1} y={barY} width={3} height={PRINT_BAR_H}
-                  rx={PRINT_BAR_RADIUS} fill={c.criticalPath} />
+                <rect x={x1} y={barY} width={3} height={ra.printBarHeight}
+                  rx={PRINT_BAR_RADIUS} fill={ra.criticalPath} />
               )}
               {/* Terminal activity right stripe */}
               {hasTerminals && terminalIds!.has(act.id) && (
-                <rect x={x1 + w - 3} y={barY} width={3} height={PRINT_BAR_H}
+                <rect x={x1 + w - 3} y={barY} width={3} height={ra.printBarHeight}
                   rx={PRINT_BAR_RADIUS} fill={c.terminal} />
               )}
-              {w > 20 && (
-                <text x={x1 + w / 2} y={barY + PRINT_BAR_H / 2} textAnchor="middle"
-                  dominantBaseline="central" fontSize="6" fill="#fff" fontWeight="600">
-                  {sa.duration}d
-                </text>
-              )}
+              {w > 20 && (() => {
+                const label = barLabelText(sa);
+                if (!label) return null;
+                return (
+                  <text x={x1 + w / 2} y={barY + ra.printBarHeight / 2} textAnchor="middle"
+                    dominantBaseline="central" fontSize={fs6} fill="#fff" fontWeight="600">
+                    {label}
+                  </text>
+                );
+              })()}
               {/* Constraint indicator */}
               {act.constraintType && (() => {
                 const isStart = act.constraintType === "MSO" || act.constraintType === "SNET" || act.constraintType === "SNLT";
@@ -370,22 +458,22 @@ export function PrintGanttChart({
         {showBuffer && bufferedEndDate && (
           <g>
             {(() => {
-              const y = topMargin + ordered.length * PRINT_ROW;
-              const barY = y + (PRINT_ROW - PRINT_BAR_H) / 2;
+              const y = topMargin + ordered.length * ra.printRowHeight;
+              const barY = y + (ra.printRowHeight - ra.printBarHeight) / 2;
               const x1 = toX(projectEndDate);
               const x2 = toX(bufferedEndDate);
               const w = Math.max(2, x2 - x1);
               return (
                 <>
-                  <text x={PRINT_LEFT - 4} y={y + PRINT_ROW / 2} textAnchor="end"
-                    dominantBaseline="central" fontSize="7" fill={c.textMuted} fontStyle="italic">
+                  <text x={ra.printLeftMargin - 4} y={y + ra.printRowHeight / 2} textAnchor="end"
+                    dominantBaseline="central" fontSize={fs7} fill={c.textMuted} fontStyle="italic">
                     Schedule Buffer
                   </text>
-                  <rect x={x1} y={barY} width={w} height={PRINT_BAR_H}
+                  <rect x={x1} y={barY} width={w} height={ra.printBarHeight}
                     rx={PRINT_BAR_RADIUS} fill="url(#print-hatch-buffer)" stroke={c.hatchBuffer} strokeWidth="0.5" />
                   {w > 20 && (
-                    <text x={x1 + w / 2} y={barY + PRINT_BAR_H / 2} textAnchor="middle"
-                      dominantBaseline="central" fontSize="6" fill="#92400e" fontWeight="600"
+                    <text x={x1 + w / 2} y={barY + ra.printBarHeight / 2} textAnchor="middle"
+                      dominantBaseline="central" fontSize={fs6} fill="#92400e" fontWeight="600"
                       stroke="#ffffff" strokeWidth="1.5" paintOrder="stroke fill">
                       +{buffer!.bufferDays}d
                     </text>
@@ -404,18 +492,18 @@ export function PrintGanttChart({
           const ds = 4;
           return (
             <g key={`ms-${ms.id}`}>
-              <line x1={x} y1={topMargin - 2} x2={x} y2={topMargin + totalRows * PRINT_ROW}
+              <line x1={x} y1={topMargin - 2} x2={x} y2={topMargin + totalRows * ra.printRowHeight}
                 stroke={healthColor} strokeWidth="0.5" strokeDasharray="2 2" opacity={0.7} />
               <polygon
                 points={`${x},${topMargin - 2 - ds} ${x + ds},${topMargin - 2} ${x},${topMargin - 2 + ds} ${x - ds},${topMargin - 2}`}
                 fill={healthColor}
               />
               <text x={x} y={topMargin - 2 - ds - 10} textAnchor="middle"
-                fontSize="5" fill={healthColor} fontWeight="600">
+                fontSize={fs5} fill={healthColor} fontWeight="600">
                 {ms.name}
               </text>
               <text x={x} y={topMargin - 2 - ds - 4} textAnchor="middle"
-                fontSize="4" fill={healthColor}>
+                fontSize={fs4} fill={healthColor}>
                 {formatDate(ms.targetDate)}
               </text>
             </g>
@@ -427,28 +515,28 @@ export function PrintGanttChart({
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[6px] text-gray-600 print-section-keep">
         <span className="flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barComplete }} />
+          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: ra.barComplete }} />
           Complete
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barInProgress }} />
+          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: ra.barInProgress }} />
           In Progress
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: c.barPlanned }} />
+          <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: ra.barPlanned }} />
           Planned
         </span>
         {hasCriticalPath && (
           <span className="flex items-center gap-1">
             <span className="inline-block w-2 h-2 rounded-sm"
-              style={{ backgroundColor: c.barPlanned, borderLeft: `2px solid ${c.criticalPath}` }} />
+              style={{ backgroundColor: ra.barPlanned, borderLeft: `2px solid ${ra.criticalPath}` }} />
             Critical Path
           </span>
         )}
         {hasTerminals && (
           <span className="flex items-center gap-1">
             <span className="inline-block w-2 h-2 rounded-sm"
-              style={{ backgroundColor: c.barPlanned, borderRight: `2px solid ${c.terminal}` }} />
+              style={{ backgroundColor: ra.barPlanned, borderRight: `2px solid ${c.terminal}` }} />
             Terminal
           </span>
         )}
@@ -485,6 +573,12 @@ export function PrintGanttChart({
               <polygon points="4,0.5 7.5,4 4,7.5 0.5,4" fill={mc.diamond} />
             </svg>
             Milestone
+          </span>
+        )}
+        {ra.weekendShading && (
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-sm border border-gray-300" style={{ backgroundColor: "rgba(0,0,0,0.04)" }} />
+            Non-work day
           </span>
         )}
         <span className="ml-auto text-gray-400">

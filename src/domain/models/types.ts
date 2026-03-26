@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -216,6 +216,30 @@ export interface Scenario {
   notes?: string; // free-text scenario notes, max 2000 chars
 }
 
+// -- Gantt Appearance Settings ------------------------------------------------
+
+export interface GanttAppearanceSettings {
+  nameColumnWidth: "narrow" | "normal" | "wide";
+  activityFontSize: "small" | "normal" | "large" | "xl";
+  rowDensity: "compact" | "normal" | "comfortable";
+  barLabel: "duration" | "dates" | "none";
+  colorPreset: string;
+  customPlannedColor?: string;
+  customInProgressColor?: string;
+  weekendShading: boolean;
+}
+
+export const DEFAULT_GANTT_APPEARANCE: GanttAppearanceSettings = {
+  nameColumnWidth: "normal",
+  activityFontSize: "normal",
+  rowDensity: "normal",
+  barLabel: "duration",
+  colorPreset: "classic",
+  weekendShading: false,
+};
+
+// -- Project -----------------------------------------------------------------
+
 export interface Project {
   id: string;
   name: string;
@@ -226,6 +250,7 @@ export interface Project {
   targetFinishDate?: string | null; // ISO "YYYY-MM-DD", null/undefined = unset
   showTargetOnGantt?: boolean; // default false
   showActivityIds?: boolean; // default false — persist "Show Activity IDs" toggle
+  ganttAppearance?: GanttAppearanceSettings;
   scenarios: Scenario[];
   archived?: boolean; // default false
 }

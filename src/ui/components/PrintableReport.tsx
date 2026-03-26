@@ -450,6 +450,7 @@ export function PrintableReport({
           targetFinishDate={project.targetFinishDate ?? null}
           showTargetOnGantt={project.showTargetOnGantt ?? false}
           targetRAGColor={targetRAGColor}
+          ganttAppearance={project.ganttAppearance}
         />
       )}
 

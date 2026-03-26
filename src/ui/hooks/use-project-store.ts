@@ -10,6 +10,7 @@ import type {
   ChecklistItem,
   DeliverableItem,
   DependencyType,
+  GanttAppearanceSettings,
   Milestone,
   ScenarioSettings,
   SimulationRun,
@@ -127,6 +128,7 @@ export interface ProjectStore {
     projectId: string,
     updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt" | "showActivityIds">>
   ) => void;
+  updateGanttAppearance: (projectId: string, appearance: GanttAppearanceSettings) => void;
 
   // Rename
   renameProject: (projectId: string, name: string) => void;
@@ -778,6 +780,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       }
       const projects = state.projects.map((p) =>
         p.id === projectId ? updateProjectFieldsFn(p, resolved) : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  updateGanttAppearance: (projectId, appearance) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId ? { ...p, ganttAppearance: appearance } : p
       );
       persist(projects, projectId);
       return { projects };

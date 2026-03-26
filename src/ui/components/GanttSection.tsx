@@ -5,6 +5,7 @@ import { useState, useRef } from "react";
 import type {
   Activity,
   ActivityDependency,
+  GanttAppearanceSettings,
   Milestone,
   MilestoneBufferInfo,
   ScheduledActivity,
@@ -12,7 +13,9 @@ import type {
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
+import { resolveGanttAppearance } from "@ui/charts/gantt-constants";
 import { GanttChart } from "@ui/charts/GanttChart";
+import { GanttAppearancePanel } from "./GanttAppearancePanel";
 import { CopyImageButton } from "./CopyImageButton";
 
 interface GanttSectionProps {
@@ -41,11 +44,22 @@ interface GanttSectionProps {
   hasTargetDate?: boolean;
   targetFinishDate?: string | null;
   targetRAGColor?: string;
+  ganttAppearance: GanttAppearanceSettings;
+  onAppearanceChange: (a: GanttAppearanceSettings) => void;
 }
 
 export function GanttSection(props: GanttSectionProps) {
+  const { ganttAppearance, onAppearanceChange, ...chartProps } = props;
   const [collapsed, setCollapsed] = useState(false);
+  const [appearancePanelOpen, setAppearancePanelOpen] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
+
+  // Detect dark mode for appearance resolution
+  const isDark =
+    typeof document !== "undefined" &&
+    document.documentElement.classList.contains("dark");
+
+  const resolvedAppearance = resolveGanttAppearance(ganttAppearance, isDark);
 
   return (
     <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -79,9 +93,21 @@ export function GanttSection(props: GanttSectionProps) {
       {!collapsed && (
         <div className="p-4 bg-white dark:bg-gray-800">
           <GanttChart
-            {...props}
+            {...chartProps}
             svgContainerRef={chartRef}
+            resolvedAppearance={resolvedAppearance}
+            appearancePanelOpen={appearancePanelOpen}
+            onToggleAppearancePanel={() => setAppearancePanelOpen((o) => !o)}
           />
+          {appearancePanelOpen && (
+            <div className="mt-3">
+              <GanttAppearancePanel
+                appearance={ganttAppearance}
+                onChange={onAppearanceChange}
+                isDark={isDark}
+              />
+            </div>
+          )}
         </div>
       )}
     </section>
