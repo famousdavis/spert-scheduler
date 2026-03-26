@@ -13,7 +13,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.29.3",
-    date: "2026-03-25",
+    date: "2026-03-26",
     sections: [
       {
         title: "New Features",
@@ -22,6 +22,8 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Print report now includes Finish Target date in the Project Summary section.",
           "Print report header shows the app version for traceability.",
           "Gantt timeline now shows monthly tick marks for projects spanning 91+ days, with year shown on first tick and at year boundaries.",
+          "Gantt \"Today\" line now shows the formatted date beneath the label, matching milestone label style.",
+          "Month gridlines are always visible even when labels are suppressed by collision with Today/Finish/Milestone markers.",
           "\"Show Finish Target Date\" checkbox shows a tooltip explaining why it's disabled when no target date is set.",
         ],
       },
@@ -30,6 +32,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Print report tasks/deliverables tables redesigned with activity header rows and indented items for clearer visual hierarchy.",
           "ToS/Privacy notification banner no longer appears on printed PDF reports.",
+          "Fixed Chrome print quirk where fixed-position elements ignored display: none.",
         ],
       },
       {
