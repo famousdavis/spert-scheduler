@@ -72,7 +72,7 @@ function SortableDeliverableRow({
         type="checkbox"
         checked={item.completed}
         onChange={() => onToggle(item.id)}
-        className="shrink-0 rounded border-gray-300 dark:border-gray-600 text-teal-600"
+        className="shrink-0 rounded border-gray-300 dark:border-gray-600 text-indigo-600"
       />
       <input
         type="text"
