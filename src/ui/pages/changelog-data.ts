@@ -12,6 +12,56 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.29.1",
+    date: "2026-03-25",
+    sections: [
+      {
+        title: "UI Polish",
+        items: [
+          "Activity edit modal section counts (Tasks, Deliverables) now render in a smaller, lighter font for softer visual hierarchy.",
+          "Blue dot indicators added to Scheduling Constraint and Dependencies section headers when content is present, matching the existing Notes indicator.",
+          "Unsaved changes guard on activity edit modal: clicking outside with pending changes prompts to save. The explicit Cancel button always discards without prompting.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.29.0",
+    date: "2026-03-25",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Activity Deliverables — track deliverables (documents, artifacts, sign-offs) per activity with a checklist-style UI. Appears in activity edit modal, schedule export, and print report.",
+          "Activity Notes — free-text notes field per activity (up to 2,000 characters) in the activity edit modal. Blue dot indicator when notes are present.",
+          "Scenario Notes — free-text notes per scenario via memo icon in the summary card. Blue dot indicator when non-empty.",
+          "Finish Target placeholder styling — lighter font weight when no date is set for clearer visual distinction.",
+        ],
+      },
+      {
+        title: "Progress Bars",
+        items: [
+          "Activity row progress bars now support deliverables: teal bar for in-progress, green when all delivered.",
+          "When both tasks and deliverables are present, two half-width bars display side by side.",
+        ],
+      },
+      {
+        title: "Export & Print",
+        items: [
+          "Schedule export (XLSX/CSV) includes two new columns: Deliverables and Deliverable Details.",
+          "Print report includes an Activity Deliverables table.",
+        ],
+      },
+      {
+        title: "Schema",
+        items: [
+          "Schema version bumped from 15 to 16 (passthrough migration).",
+          "Checklist item limit raised from 20 to 50 per activity.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.28.2",
     date: "2026-03-25",
     sections: [

@@ -13,6 +13,7 @@ import type {
   ActivityStatus,
   Activity,
   ChecklistItem,
+  DeliverableItem,
 } from "@domain/models/types";
 import {
   CONSTRAINT_TYPES,
@@ -30,6 +31,7 @@ import { detectConstraintConflict } from "@core/schedule/constraint-utils";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { ChecklistSection } from "@ui/components/ChecklistSection";
+import { DeliverablesSection } from "@ui/components/DeliverablesSection";
 import { computeHeuristic } from "@core/estimation/heuristic";
 
 interface ActivityEditModalProps {
@@ -50,11 +52,15 @@ interface ActivityEditModalProps {
 /** Collapsible section wrapper */
 function Section({
   title,
+  subtitle,
   defaultOpen = true,
+  indicator,
   children,
 }: {
   title: string;
+  subtitle?: string;
   defaultOpen?: boolean;
+  indicator?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -74,6 +80,12 @@ function Section({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
         {title}
+        {subtitle && (
+          <span className="text-xs font-normal text-gray-400 dark:text-gray-500">{subtitle}</span>
+        )}
+        {indicator && (
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+        )}
       </button>
       {open && <div className="pb-3 space-y-3">{children}</div>}
     </div>
@@ -115,6 +127,8 @@ export function ActivityEditModal({
 
   const updateActivityField = useProjectStore((s) => s.updateActivityField);
   const updateActivityChecklist = useProjectStore((s) => s.updateActivityChecklist);
+  const updateActivityDeliverables = useProjectStore((s) => s.updateActivityDeliverables);
+  const updateActivityNotes = useProjectStore((s) => s.updateActivityNotes);
 
   const calendar = useWorkCalendar(projectId);
   const formatDate = useDateFormat();
@@ -148,6 +162,12 @@ export function ActivityEditModal({
 
   // -- Local draft state: Checklist --
   const [checklist, setChecklist] = useState<ChecklistItem[]>(activity?.checklist ?? []);
+
+  // -- Local draft state: Deliverables --
+  const [deliverables, setDeliverables] = useState<DeliverableItem[]>(activity?.deliverables ?? []);
+
+  // -- Local draft state: Notes --
+  const [notes, setNotes] = useState<string>(activity?.notes ?? "");
 
   // -- Heuristic auto-fill: when ML changes, recalculate min/max --
   const handleMostLikelyBlur = useCallback(() => {
@@ -314,6 +334,22 @@ export function ActivityEditModal({
       updateActivityChecklist(projectId, scenarioId, activityId, newChecklist);
     }
 
+    // Deliverables — same split-save pattern as checklist
+    const origDeliverables = activity.deliverables ?? [];
+    const deliverablesChanged = JSON.stringify(deliverables) !== JSON.stringify(origDeliverables);
+    const newDeliverables = deliverables.length > 0 ? deliverables : undefined;
+    if (deliverablesChanged) {
+      updateActivityDeliverables(projectId, scenarioId, activityId, newDeliverables);
+    }
+
+    // Notes — same split-save pattern
+    const origNotes = activity.notes ?? "";
+    const notesChanged = notes !== origNotes;
+    const newNotes = notes.trim() || undefined;
+    if (notesChanged) {
+      updateActivityNotes(projectId, scenarioId, activityId, newNotes);
+    }
+
     onClose();
   }, [
     activity,
@@ -330,8 +366,12 @@ export function ActivityEditModal({
     constraintMode,
     constraintNote,
     checklist,
+    deliverables,
+    notes,
     updateActivityField,
     updateActivityChecklist,
+    updateActivityDeliverables,
+    updateActivityNotes,
     projectId,
     scenarioId,
     activityId,
@@ -353,10 +393,49 @@ export function ActivityEditModal({
     [checklist]
   );
 
+  const deliverablesDoneCount = useMemo(
+    () => deliverables.filter((item) => item.completed).length,
+    [deliverables]
+  );
+
   // Determine if save is valid
   const isValid =
     name.trim().length > 0 &&
     (!constraintType || (!!constraintType && !!constraintDate && !!constraintMode));
+
+  // -- Dirty check: detect any unsaved changes --
+  const hasChanges = useMemo(() => {
+    if (!activity) return false;
+    if (name.trim() !== activity.name) return true;
+    if (status !== activity.status) return true;
+    if (status === "complete" && actualDuration !== "" && actualDuration !== activity.actualDuration) return true;
+    if (min !== "" && Number(min) !== activity.min) return true;
+    if (mostLikely !== "" && Number(mostLikely) !== activity.mostLikely) return true;
+    if (max !== "" && Number(max) !== activity.max) return true;
+    if (confidenceLevel !== activity.confidenceLevel) return true;
+    if (distributionType !== activity.distributionType) return true;
+    if ((constraintType ?? null) !== (activity.constraintType ?? null)) return true;
+    if ((constraintDate ?? null) !== (activity.constraintDate ?? null)) return true;
+    if ((constraintMode ?? null) !== (activity.constraintMode ?? null)) return true;
+    if ((constraintNote?.trim() || null) !== (activity.constraintNote ?? null)) return true;
+    if (JSON.stringify(checklist) !== JSON.stringify(activity.checklist ?? [])) return true;
+    if (JSON.stringify(deliverables) !== JSON.stringify(activity.deliverables ?? [])) return true;
+    if (notes !== (activity.notes ?? "")) return true;
+    return false;
+  }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, checklist, deliverables, notes]);
+
+  const handleDismiss = useCallback(() => {
+    if (hasChanges && isValid) {
+      const shouldSave = window.confirm("You have unsaved changes. Save them?");
+      if (shouldSave) {
+        handleSave();
+        return;
+      }
+      // Cancel → return to modal (do nothing)
+      return;
+    }
+    onClose();
+  }, [hasChanges, isValid, handleSave, onClose]);
 
   if (!activity) return null;
 
@@ -364,7 +443,7 @@ export function ActivityEditModal({
   const sa = schedule?.activities.find((a) => a.activityId === activityId);
 
   return (
-    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) handleDismiss(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
         <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-xl z-50 max-h-[85vh] overflow-y-auto">
@@ -510,7 +589,7 @@ export function ActivityEditModal({
             </Section>
 
             {/* ── Section 3: Scheduling Constraint ── */}
-            <Section title="Scheduling Constraint" defaultOpen={false}>
+            <Section title="Scheduling Constraint" defaultOpen={false} indicator={!!constraintType}>
               {hasMilestoneAnchor ? (
                 <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -644,7 +723,7 @@ export function ActivityEditModal({
 
             {/* ── Section 4: Dependencies (only in dependency mode) ── */}
             {dependencyMode && (
-              <Section title="Dependencies" defaultOpen={false}>
+              <Section title="Dependencies" defaultOpen={false} indicator={relatedDeps.length > 0}>
                 {relatedDeps.length === 0 ? (
                   <p className="text-sm text-gray-400 dark:text-gray-500">
                     No dependencies involving this activity.
@@ -704,13 +783,42 @@ export function ActivityEditModal({
 
             {/* ── Section 5: Tasks (Checklist) ── */}
             <Section
-              title={`Tasks${checklist.length > 0 ? ` (${checklistDoneCount}/${checklist.length})` : ""}`}
+              title="Tasks"
+              subtitle={checklist.length > 0 ? `(${checklistDoneCount}/${checklist.length})` : undefined}
               defaultOpen={false}
             >
               <ChecklistSection checklist={checklist} onChange={setChecklist} />
             </Section>
 
-            {/* ── Section 6: Schedule Analysis (dependency mode only) ── */}
+            {/* ── Section 6: Deliverables ── */}
+            <Section
+              title="Deliverables"
+              subtitle={deliverables.length > 0 ? `(${deliverablesDoneCount}/${deliverables.length})` : undefined}
+              defaultOpen={false}
+            >
+              <DeliverablesSection deliverables={deliverables} onChange={setDeliverables} />
+            </Section>
+
+            {/* ── Section 7: Notes ── */}
+            <Section
+              title="Notes"
+              defaultOpen={false}
+              indicator={!!notes.trim()}
+            >
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                maxLength={2000}
+                rows={3}
+                placeholder="Add notes about this activity…"
+                className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none"
+              />
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-0.5">
+                {notes.length}/2000
+              </p>
+            </Section>
+
+            {/* ── Section 8: Schedule Analysis (dependency mode only) ── */}
             {dependencyMode && sa && (
               <Section title="Schedule Analysis" defaultOpen={false}>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -739,14 +847,13 @@ export function ActivityEditModal({
 
           {/* Actions */}
           <div className="mt-5 flex justify-end gap-2">
-            <Dialog.Close asChild>
-              <button
-                type="button"
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-              >
-                Cancel
-              </button>
-            </Dialog.Close>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
             <button
               type="button"
               disabled={!isValid}

@@ -70,6 +70,12 @@ export const ChecklistItemSchema = z.object({
   completed: z.boolean(),
 });
 
+export const DeliverableItemSchema = z.object({
+  id: z.string().min(1).max(64),
+  text: z.string().min(1).max(200),
+  completed: z.boolean(),
+});
+
 // -- Activity ----------------------------------------------------------------
 
 export const ActivitySchema = z
@@ -90,7 +96,9 @@ export const ActivitySchema = z
     constraintDate: ISODateString.nullable().optional(),
     constraintMode: z.enum(CONSTRAINT_MODES).nullable().optional(),
     constraintNote: z.string().max(500).nullable().optional(),
-    checklist: z.array(ChecklistItemSchema).max(20).optional(),
+    checklist: z.array(ChecklistItemSchema).max(50).optional(),
+    deliverables: z.array(DeliverableItemSchema).max(50).optional(),
+    notes: z.string().max(2000).optional(),
   })
   .refine((a) => a.min <= a.mostLikely, {
     message: "Min must be <= Most Likely",
@@ -194,6 +202,7 @@ export const ScenarioSchema = z.object({
   settings: ScenarioSettingsSchema,
   simulationResults: SimulationRunSchema.optional(),
   locked: z.boolean().optional(), // default false
+  notes: z.string().max(2000).optional(),
 });
 
 // -- Project -----------------------------------------------------------------

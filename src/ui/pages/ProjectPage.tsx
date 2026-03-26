@@ -77,6 +77,7 @@ export function ProjectPage() {
     assignActivityToMilestone,
     setActivityStartsAtMilestone,
     updateProjectField,
+    updateScenarioNotes,
   } = useProjectStore(
     useShallow((s) => ({
       projects: s.projects,
@@ -110,6 +111,7 @@ export function ProjectPage() {
       assignActivityToMilestone: s.assignActivityToMilestone,
       setActivityStartsAtMilestone: s.setActivityStartsAtMilestone,
       updateProjectField: s.updateProjectField,
+      updateScenarioNotes: s.updateScenarioNotes,
     }))
   );
 
@@ -579,6 +581,10 @@ export function ProjectPage() {
               })
             }
             targetRAGColor={targetRAGColor}
+            scenarioNotes={scenario.notes}
+            onScenarioNotesChange={(notes) =>
+              updateScenarioNotes(id!, scenario.id, notes)
+            }
           />
 
           {/* Validation errors */}

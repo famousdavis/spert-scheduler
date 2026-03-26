@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -117,6 +117,12 @@ export interface ChecklistItem {
   completed: boolean;
 }
 
+export interface DeliverableItem {
+  id: string;
+  text: string; // max 200 chars
+  completed: boolean;
+}
+
 export interface Activity {
   id: string;
   name: string;
@@ -134,7 +140,9 @@ export interface Activity {
   constraintDate?: string | null; // ISO "YYYY-MM-DD" constraint date
   constraintMode?: ConstraintMode | null; // "hard" overrides, "soft" is advisory
   constraintNote?: string | null; // optional rationale for the constraint
-  checklist?: ChecklistItem[]; // task checklist, max 20 items
+  checklist?: ChecklistItem[]; // task checklist, max 50 items
+  deliverables?: DeliverableItem[]; // deliverable checklist, max 50 items
+  notes?: string; // free-text activity notes, max 2000 chars
 }
 
 export interface ActivityDependency {
@@ -205,6 +213,7 @@ export interface Scenario {
   settings: ScenarioSettings;
   simulationResults?: SimulationRun;
   locked?: boolean; // default false - prevents modifications when true
+  notes?: string; // free-text scenario notes, max 2000 chars
 }
 
 export interface Project {

@@ -109,6 +109,7 @@ export function cloneScenario(
       ...a,
       id: newId,
       checklist: a.checklist?.map((item) => ({ ...item, id: generateId() })),
+      deliverables: a.deliverables?.map((item) => ({ ...item, id: generateId() })),
     };
   });
 
@@ -167,6 +168,7 @@ export function cloneScenario(
       ...scenario.settings,
       rngSeed: generateId(), // New seed for clone
     },
+    notes: scenario.notes,
     // simulationResults are NOT cloned — stale
   };
 }

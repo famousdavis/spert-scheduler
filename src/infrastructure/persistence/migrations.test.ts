@@ -856,6 +856,58 @@ describe("applyMigrations", () => {
     expect(result.showTargetOnGantt).toBe(true);
   });
 
+  // -- v15 → v16: Activity deliverables/notes, scenario notes ----------------
+
+  it("v15→v16: bumps schema version to 16", () => {
+    const data = { schemaVersion: 15, scenarios: [] };
+    const result = applyMigrations(data, 15, 16) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(16);
+  });
+
+  it("v15→v16: preserves existing activity and scenario data unchanged", () => {
+    const data = {
+      schemaVersion: 15,
+      scenarios: [
+        {
+          settings: { parkinsonsLawEnabled: true },
+          activities: [
+            { id: "a1", name: "Test", min: 1, max: 5, checklist: [{ id: "c1", text: "Task", completed: false }] },
+          ],
+        },
+      ],
+    };
+    const result = applyMigrations(data, 15, 16) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(16);
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const activities = scenarios[0]!.activities as Array<Record<string, unknown>>;
+    expect(activities[0]!.name).toBe("Test");
+    expect(activities[0]!.checklist).toHaveLength(1);
+    // New optional fields not added — they're optional
+    expect(activities[0]!.deliverables).toBeUndefined();
+    expect(activities[0]!.notes).toBeUndefined();
+    expect(scenarios[0]!.notes).toBeUndefined();
+  });
+
+  it("v1→v16: full sequential migration", () => {
+    const v1Data = {
+      schemaVersion: 1,
+      scenarios: [
+        {
+          settings: { probabilityTarget: 0.85 },
+          activities: [],
+        },
+      ],
+      globalCalendarOverride: {
+        holidays: ["2025-07-04"],
+      },
+    };
+
+    const result = applyMigrations(v1Data, 1, 16) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(16);
+    expect(result.targetFinishDate).toBe(null);
+    expect(result.showTargetOnGantt).toBe(false);
+  });
+
   it("v1→v15: full sequential migration", () => {
     const v1Data = {
       schemaVersion: 1,
