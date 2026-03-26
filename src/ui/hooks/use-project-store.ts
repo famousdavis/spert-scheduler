@@ -125,7 +125,7 @@ export interface ProjectStore {
   // Project fields
   updateProjectField: (
     projectId: string,
-    updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt">>
+    updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt" | "showActivityIds">>
   ) => void;
 
   // Rename

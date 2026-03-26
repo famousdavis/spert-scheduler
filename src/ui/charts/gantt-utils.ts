@@ -36,7 +36,7 @@ export function longDateLabel(dateStr: string): string {
 
 /** Compact tick label: "Mar 16" for day-level ticks, "Apr" for month-level. */
 export function compactLabel(d: Date, includeDay: boolean): string {
-  const mon = MONTH_ABBR[d.getMonth()];
+  const mon = MONTH_ABBR[d.getMonth()]!;
   if (!includeDay) return mon;
   return `${mon} ${d.getDate()}`;
 }
@@ -46,7 +46,7 @@ export function compactLabel(d: Date, includeDay: boolean): string {
  * first tick or whenever the year changes (e.g. "Apr '26", then "May", "Jun", …, "Jan '27").
  */
 export function monthTickLabel(d: Date, isFirst: boolean, prevYear: number | null): string {
-  const mon = MONTH_ABBR[d.getMonth()];
+  const mon = MONTH_ABBR[d.getMonth()]!;
   if (isFirst || (prevYear !== null && d.getFullYear() !== prevYear)) {
     return `${mon} '${String(d.getFullYear()).slice(2)}`;
   }

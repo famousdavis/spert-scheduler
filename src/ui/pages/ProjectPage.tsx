@@ -134,7 +134,6 @@ export function ProjectPage() {
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [editingDependency, setEditingDependency] = useState<{ fromActivityId: string; toActivityId: string } | null>(null);
   const [addingDependencyFromId, setAddingDependencyFromId] = useState<string | null>(null);
-  const showActivityNumbers = project?.showActivityIds ?? false;
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -143,6 +142,7 @@ export function ProjectPage() {
   }, [projects.length, loadProjects]);
 
   const project = projects.find((p) => p.id === id);
+  const showActivityNumbers = project?.showActivityIds ?? false;
 
   // Backfill legacy projects that have no scenarios
   useEffect(() => {
