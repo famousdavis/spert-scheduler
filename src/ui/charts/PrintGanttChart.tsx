@@ -195,18 +195,22 @@ export function PrintGanttChart({
           </text>
         )}
 
-        {/* Tick grid lines + labels */}
+        {/* Tick grid lines (all ticks, including label-suppressed) */}
+        {allTicks.map((tick, i) => {
+          const x = toX(tick.x);
+          return (
+            <line key={`grid-${i}`} x1={x} y1={topMargin} x2={x} y2={chartH - 4}
+              stroke={c.gridLine} strokeWidth="0.5" />
+          );
+        })}
+        {/* Tick labels (only where spacing permits) */}
         {ticks.map((tick, i) => {
           const x = toX(tick.x);
           return (
-            <g key={`tick-${i}`}>
-              <line x1={x} y1={topMargin} x2={x} y2={chartH - 4}
-                stroke={c.gridLine} strokeWidth="0.5" />
-              <text x={x} y={topMargin - 4} textAnchor="middle"
-                fontSize="5" fill={c.textMuted}>
-                {tick.label}
-              </text>
-            </g>
+            <text key={`label-${i}`} x={x} y={topMargin - 4} textAnchor="middle"
+              fontSize="5" fill={c.textMuted}>
+              {tick.label}
+            </text>
           );
         })}
 

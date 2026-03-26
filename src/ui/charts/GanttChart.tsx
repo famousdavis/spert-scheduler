@@ -223,7 +223,7 @@ export function GanttChart({
   const {
     chartWidth, chartHeight, chartAreaWidth, topMargin,
     minTimestamp, dateRange, finishX, finishDate,
-    todayX, todayStr, ticks, rowIndex,
+    todayX, todayStr, allTicks, ticks, rowIndex,
   } = layout;
 
   // Pre-compute arrow path geometry so both visual and hit-area passes share it
@@ -420,29 +420,26 @@ export function GanttChart({
             </text>
           )}
 
-          {/* Vertical grid lines at tick positions */}
+          {/* Vertical grid lines at ALL tick positions (including suppressed labels) */}
+          {allTicks.map((tick, i) => {
+            const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth);
+            return (
+              <line key={`grid-${i}`}
+                x1={x} y1={topMargin} x2={x} y2={chartHeight - 10}
+                stroke={c.gridLine} strokeWidth="1"
+              />
+            );
+          })}
+          {/* Tick labels (only where spacing permits) */}
           {ticks.map((tick, i) => {
             const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth);
             return (
-              <g key={i}>
-                <line
-                  x1={x}
-                  y1={topMargin}
-                  x2={x}
-                  y2={chartHeight - 10}
-                  stroke={c.gridLine}
-                  strokeWidth="1"
-                />
-                <text
-                  x={x}
-                  y={topMargin - 8}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fill={c.textMuted}
-                >
-                  {tick.label}
-                </text>
-              </g>
+              <text key={`label-${i}`}
+                x={x} y={topMargin - 8}
+                textAnchor="middle" fontSize="11" fill={c.textMuted}
+              >
+                {tick.label}
+              </text>
             );
           })}
 

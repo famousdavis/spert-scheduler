@@ -24,6 +24,7 @@ export interface GanttLayout {
   todayStr: string;
   todayInRange: boolean;
   todayX: number | null;
+  allTicks: { x: string; label: string }[];
   ticks: { x: string; label: string }[];
   milestoneXPositions: number[];
   rowIndex: Map<string, number>;
@@ -152,6 +153,7 @@ export function useGanttLayout({
     todayStr,
     todayInRange,
     todayX,
+    allTicks,
     ticks,
     milestoneXPositions,
     rowIndex,
