@@ -48,6 +48,8 @@ interface ScenarioSummaryCardProps {
   targetFinishDate?: string | null;
   onTargetFinishDateChange?: (date: string | null) => void;
   targetRAGColor?: string;
+  scenarioNotes?: string;
+  onScenarioNotesChange?: (notes: string | undefined) => void;
 }
 
 export function ScenarioSummaryCard({
@@ -72,6 +74,8 @@ export function ScenarioSummaryCard({
   targetFinishDate,
   onTargetFinishDateChange,
   targetRAGColor,
+  scenarioNotes,
+  onScenarioNotesChange,
 }: ScenarioSummaryCardProps) {
   const formatDate = useDateFormat();
   const actPct = Math.round(settings.probabilityTarget * 100);
@@ -82,6 +86,9 @@ export function ScenarioSummaryCard({
   const [localMaxPct, setLocalMaxPct] = useState(String(settings.heuristicMaxPercent));
   useEffect(() => { setLocalMinPct(String(settings.heuristicMinPercent)); }, [settings.heuristicMinPercent]);
   useEffect(() => { setLocalMaxPct(String(settings.heuristicMaxPercent)); }, [settings.heuristicMaxPercent]);
+
+  // Scenario notes state
+  const [notesOpen, setNotesOpen] = useState(false);
 
   // Schedule export state
   const dateFormat = usePreferencesStore((s) => s.preferences.dateFormat);
@@ -182,14 +189,18 @@ export function ScenarioSummaryCard({
                 onTargetFinishDateChange?.(e.target.value || null);
               }}
               disabled={isLocked}
-              className={`text-lg font-semibold tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 dark:focus:border-blue-400 rounded px-1 -ml-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent ${
-                targetRAGColor === "green"
-                  ? "text-green-600 dark:text-green-400"
-                  : targetRAGColor === "amber"
-                    ? "text-amber-600 dark:text-amber-400"
-                    : targetRAGColor === "red"
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-blue-700 dark:text-blue-400"
+              className={`text-lg tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 dark:focus:border-blue-400 rounded px-1 -ml-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent ${
+                targetFinishDate
+                  ? `font-semibold ${
+                      targetRAGColor === "green"
+                        ? "text-green-600 dark:text-green-400"
+                        : targetRAGColor === "amber"
+                          ? "text-amber-600 dark:text-amber-400"
+                          : targetRAGColor === "red"
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-blue-700 dark:text-blue-400"
+                    }`
+                  : "font-normal text-gray-400 dark:text-gray-500"
               }`}
             />
           </div>
@@ -246,7 +257,39 @@ export function ScenarioSummaryCard({
             )}
           </p>
         </div>
+        <div className="border-l border-gray-200 dark:border-gray-600 self-stretch" />
+        <button
+          type="button"
+          onClick={() => setNotesOpen((o) => !o)}
+          className="self-center relative text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
+          title="Scenario notes"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          {scenarioNotes && scenarioNotes.trim() && (
+            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-blue-500" />
+          )}
+        </button>
       </div>
+
+      {/* Scenario notes textarea (collapsible) */}
+      {notesOpen && (
+        <div className="mt-2">
+          <textarea
+            value={scenarioNotes ?? ""}
+            onChange={(e) => onScenarioNotesChange?.(e.target.value || undefined)}
+            maxLength={2000}
+            rows={3}
+            disabled={isLocked}
+            placeholder="Add notes about this scenario…"
+            className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-0.5">
+            {(scenarioNotes ?? "").length}/2000
+          </p>
+        </div>
+      )}
 
       {/* Row 2: Targets, trials, seed */}
       <div className="flex items-center gap-2 flex-wrap text-sm">

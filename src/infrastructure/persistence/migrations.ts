@@ -275,6 +275,16 @@ function migrateV14toV15(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v15 → v16: Add deliverables, notes to activities and notes to scenarios.
+ * All new fields are optional — no data transformation needed.
+ */
+function migrateV15toV16(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 16;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -290,6 +300,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   12: migrateV12toV13,
   13: migrateV13toV14,
   14: migrateV14toV15,
+  15: migrateV15toV16,
 };
 
 /**

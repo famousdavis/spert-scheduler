@@ -110,6 +110,8 @@ export interface GridRow {
   freeFloat?: number | "";
   tasks?: string;
   taskDetails?: string;
+  deliverables?: string;
+  deliverableDetails?: string;
 }
 
 function buildActivityIndexMap(activities: Activity[]): Map<string, number> {
@@ -214,6 +216,13 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
         .map((c) => `${c.completed ? "[x]" : "[ ]"} ${c.text}`)
         .join("; ");
     }
+    if (activity.deliverables && activity.deliverables.length > 0) {
+      const done = activity.deliverables.filter((d) => d.completed).length;
+      row.deliverables = `${done}/${activity.deliverables.length}`;
+      row.deliverableDetails = activity.deliverables
+        .map((d) => `${d.completed ? "[x]" : "[ ]"} ${d.text}`)
+        .join("; ");
+    }
     return row;
   });
 }
@@ -266,7 +275,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
     headers.push("Total Float (days)", "Free Float (days)");
     headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
   }
-  headers.push("Tasks", "Task Details");
+  headers.push("Tasks", "Task Details", "Deliverables", "Deliverable Details");
   lines.push(headers.map(csvEscape).join(","));
 
   // Data rows
@@ -293,7 +302,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
         row.constraintNote ?? "",
       );
     }
-    cells.push(row.tasks ?? "", row.taskDetails ?? "");
+    cells.push(row.tasks ?? "", row.taskDetails ?? "", row.deliverables ?? "", row.deliverableDetails ?? "");
     lines.push(cells.map(csvEscape).join(","));
   }
 
@@ -319,7 +328,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
   if (hasDeps) {
     totalCells.push("", "", "", "", "", "", "", "");
   }
-  totalCells.push("", "");
+  totalCells.push("", "", "", "");
   lines.push(totalCells.map(csvEscape).join(","));
 
   return lines.join("\n");
@@ -361,7 +370,7 @@ export async function exportScheduleXlsx(
 
   // ---- Title row ----
   let rowNum = 1;
-  const lastCol = hasDeps ? 22 : 14;
+  const lastCol = hasDeps ? 24 : 16;
   ws.mergeCells(rowNum, 1, rowNum, lastCol);
   const titleCell = ws.getCell(rowNum, 1);
   titleCell.value = `${params.projectName} — ${params.scenarioName}`;
@@ -401,7 +410,7 @@ export async function exportScheduleXlsx(
     headers.push("Total Float (days)", "Free Float (days)");
     headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
   }
-  headers.push("Tasks", "Task Details");
+  headers.push("Tasks", "Task Details", "Deliverables", "Deliverable Details");
 
   const headerRow = ws.getRow(rowNum);
   headers.forEach((h, i) => {
@@ -444,6 +453,12 @@ export async function exportScheduleXlsx(
         ? row.taskDetails.replace(/; /g, "\n")
         : ""
     );
+    cells.push(row.deliverables ?? "");
+    cells.push(
+      row.deliverableDetails
+        ? row.deliverableDetails.replace(/; /g, "\n")
+        : ""
+    );
     const dataRow = ws.getRow(rowNum);
     cells.forEach((val, i) => {
       const cell = dataRow.getCell(i + 1);
@@ -476,7 +491,7 @@ export async function exportScheduleXlsx(
   const colAWidth = Math.min(28, Math.max(5, ...summary.map((r) => r.key.length + 4)));
   const widths = [colAWidth, 30, 8, 12, 8, 16, 14, 12, 8, 14, 14, 14];
   if (hasDeps) widths.push(14, 14, 16, 16, 16, 14, 10, 30);
-  widths.push(8, 40);
+  widths.push(8, 40, 12, 40);
   ws.columns = widths.map((w) => ({ width: w }));
 
   // ---- Freeze pane at column header row ----

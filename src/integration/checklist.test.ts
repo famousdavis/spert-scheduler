@@ -68,8 +68,8 @@ describe("ActivitySchema with checklist", () => {
     expect(result.checklist).toEqual([]);
   });
 
-  it("rejects checklist with more than 20 items", () => {
-    const checklist = Array.from({ length: 21 }, (_, i) => ({
+  it("rejects checklist with more than 50 items", () => {
+    const checklist = Array.from({ length: 51 }, (_, i) => ({
       id: `c${i}`,
       text: `Task ${i}`,
       completed: false,
@@ -77,14 +77,14 @@ describe("ActivitySchema with checklist", () => {
     expect(() => ActivitySchema.parse({ ...baseActivity, checklist })).toThrow();
   });
 
-  it("accepts checklist with exactly 20 items", () => {
-    const checklist = Array.from({ length: 20 }, (_, i) => ({
+  it("accepts checklist with exactly 50 items", () => {
+    const checklist = Array.from({ length: 50 }, (_, i) => ({
       id: `c${i}`,
       text: `Task ${i}`,
       completed: false,
     }));
     const result = ActivitySchema.parse({ ...baseActivity, checklist });
-    expect(result.checklist).toHaveLength(20);
+    expect(result.checklist).toHaveLength(50);
   });
 });
 

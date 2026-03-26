@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.29.1 — 2026-03-25
+
+### UI Polish
+
+- Activity edit modal section counts (Tasks, Deliverables) now render in a smaller, lighter font for softer visual hierarchy.
+- Blue dot indicators added to Scheduling Constraint and Dependencies section headers when content is present, matching the existing Notes indicator.
+- Unsaved changes guard on activity edit modal: clicking outside with pending changes prompts "Save them?" — OK saves, Cancel returns to the modal. The explicit Cancel button always discards without prompting.
+
+## 0.29.0 — 2026-03-25
+
+### New Features
+
+- Activity Deliverables — track deliverables (documents, artifacts, sign-offs) per activity with a checklist-style UI. Deliverables appear in the activity edit modal, schedule export (XLSX/CSV), and print report.
+- Activity Notes — free-text notes field per activity (up to 2,000 characters) in the activity edit modal. Blue dot indicator on the Notes section header when notes are present.
+- Scenario Notes — free-text notes field per scenario accessible via a memo icon in the summary card. Blue dot indicator when notes are non-empty.
+- Finish Target placeholder styling — the Finish Target date input now shows lighter font weight when no date is set, providing a clear visual distinction from populated dates.
+
+### Progress Bars
+
+- Activity row progress bars now support deliverables: teal bar for in-progress deliverables, green when all delivered.
+- When both tasks and deliverables are present, two half-width bars display side by side.
+
+### Export & Print
+
+- Schedule export (XLSX/CSV) includes two new columns: "Deliverables" and "Deliverable Details".
+- Print report includes an "Activity Deliverables" table (same format as Activity Tasks).
+
+### Schema
+
+- Schema version bumped from 15 to 16 (passthrough migration — no data transformation needed).
+- Checklist item limit raised from 20 to 50 per activity.
+
 ## 0.28.2 — 2026-03-25
 
 ### Security

@@ -154,19 +154,20 @@ UI (React, Zustand, Recharts)
 | `src/ui/components/ConsentModal.tsx` | Clickwrap consent modal for Cloud Storage sign-in gate (Radix UI Dialog) |
 | `src/ui/components/ActivityEditModal.tsx` | Full activity edit modal with 5 sections: General, Estimates, Constraint, Dependencies, Tasks |
 | `src/ui/components/ChecklistSection.tsx` | Controlled checklist sub-component: SortableChecklistRow, add/toggle/reorder/remove tasks (dnd-kit) |
+| `src/ui/components/DeliverablesSection.tsx` | Controlled deliverables sub-component: SortableDeliverableRow, add/toggle/reorder/remove deliverables (dnd-kit) |
 | `src/ui/components/DependencyEditModal.tsx` | Dependency edit/add modal (Radix Dialog, edit type/lag, delete, or add new) |
 | `src/ui/components/WarningsPanel.tsx` | Constraint conflict/violation display panel (grouped by severity) |
 | `src/ui/components/grid-columns.ts` | Grid column definitions (standard + with-constraint variants) |
 
 ## Schema Version
 
-Current: `SCHEMA_VERSION = 15`. Migrations in `src/infrastructure/persistence/migrations.ts`. Bump version + add migration when changing the `Project` schema shape.
+Current: `SCHEMA_VERSION = 16`. Migrations in `src/infrastructure/persistence/migrations.ts`. Bump version + add migration when changing the `Project` schema shape.
 
 User preferences are stored separately (`spert:user-preferences` key) and are NOT part of the Project schema. No schema bump needed for preference changes.
 
 ## Testing Patterns
 
-- **966 tests** across **52 test files**
+- **985 tests** across **53 test files**
 - **Unit tests:** Pure functions in `/core` — known values + property-based (fast-check)
 - **Integration tests:** `src/integration/` — full workflow, persistence round-trip, scenario cloning, export/import, dependency lifecycle, calendar layering
 - **Property-based:** Distribution samples bounded, percentiles monotonic, calendar round-trips, Parkinson floor invariants
