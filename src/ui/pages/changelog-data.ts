@@ -12,6 +12,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.30.2",
+    date: "2026-03-26",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed CDF comparison chart legend overlap: scenario names were clipped by the x-axis label. Consolidated axis label into caption below the chart.",
+        ],
+      },
+      {
+        title: "Testing",
+        items: [
+          "Added 67 mutation-testing gap-closure tests across constraint-utils, dependency-graph, and deterministic scheduler modules.",
+          "Boundary equality tests for all 6 constraint types (MSO, MFO, SNET, FNET, SNLT, FNLT) in forward pass, backward pass, and conflict detection.",
+          "SS/FF dependency backward pass tests: late dates, total float, and lag accounting.",
+          "SS/FF forward pass tests: negative lag clamping to project start, positive lag offsets.",
+          "SS/FF dependency violation detection coverage.",
+          "Working-day skip loop tests: Saturday, Sunday, and holiday start date advancement.",
+          "actualDuration guard tests: complete and inProgress activities with/without actualDuration.",
+          "Conflict result shape tests: undefined vs array for constraintConflicts and dependencyConflicts.",
+          "Critical path tests: maxPredEF correctness with hard MFO constraints, empty graph, milestone floor, cycle path structure.",
+          "Invalid dependency filtering: non-existent IDs, self-loops, validateDependencies error types.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.30.1",
     date: "2026-03-26",
     sections: [

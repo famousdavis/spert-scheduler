@@ -583,3 +583,260 @@ describe("formatDateShort", () => {
     expect(formatDateShort("2026-01-05", "YYYY/MM/DD")).toBe("01/05");
   });
 });
+
+// ===========================================================================
+// Gap 4 — Boundary equality tests for constraint comparisons
+// ===========================================================================
+
+describe("applyForwardConstraint — boundary equality", () => {
+  it("MSO hard: no conflict when esNet equals constraintDate", () => {
+    // esNet === constraintDate → no conflict (> not >=)
+    const result = applyForwardConstraint(
+      "2026-04-06", "2026-04-10", 5,
+      "MSO", "2026-04-06", "hard",
+      "a1", "Task A",
+    );
+    expect(result.conflict).toBeNull();
+    expect(result.es).toBe("2026-04-06");
+  });
+
+  it("MSO hard: conflict when esNet is one day after constraintDate", () => {
+    const result = applyForwardConstraint(
+      "2026-04-07", "2026-04-11", 5,
+      "MSO", "2026-04-06", "hard",
+      "a1", "Task A",
+    );
+    expect(result.conflict).not.toBeNull();
+  });
+
+  it("MFO hard: no conflict when efNet equals constraintDate", () => {
+    // efNet === constraintDate → no conflict
+    const result = applyForwardConstraint(
+      "2026-04-06", "2026-04-10", 5,
+      "MFO", "2026-04-10", "hard",
+      "a1", "Task A",
+    );
+    expect(result.conflict).toBeNull();
+  });
+
+  it("MFO hard: conflict when efNet is one day after constraintDate", () => {
+    const result = applyForwardConstraint(
+      "2026-04-06", "2026-04-11", 5,
+      "MFO", "2026-04-10", "hard",
+      "a1", "Task A",
+    );
+    expect(result.conflict).not.toBeNull();
+  });
+
+  it("SNET hard: no push when esNet equals constraintDate", () => {
+    // constraintDate === esNet → no push (> not >=)
+    const result = applyForwardConstraint(
+      "2026-04-06", "2026-04-10", 5,
+      "SNET", "2026-04-06", "hard",
+      "a1", "Task A",
+    );
+    expect(result.es).toBe("2026-04-06");
+  });
+
+  it("SNET hard: pushes when constraintDate is one day after esNet", () => {
+    const result = applyForwardConstraint(
+      "2026-04-06", "2026-04-10", 5,
+      "SNET", "2026-04-07", "hard",
+      "a1", "Task A",
+    );
+    expect(result.es).toBe("2026-04-07");
+  });
+
+  it("FNET hard: no push when efNet equals constraintDate", () => {
+    const result = applyForwardConstraint(
+      "2026-04-06", "2026-04-10", 5,
+      "FNET", "2026-04-10", "hard",
+      "a1", "Task A",
+    );
+    expect(result.es).toBe("2026-04-06");
+    expect(result.ef).toBe("2026-04-10");
+  });
+
+  it("FNET hard: pushes when constraintDate is one day after efNet", () => {
+    const result = applyForwardConstraint(
+      "2026-04-06", "2026-04-10", 5,
+      "FNET", "2026-04-13", "hard",
+      "a1", "Task A",
+    );
+    expect(result.ef).toBe("2026-04-13");
+  });
+
+  it("SNLT/FNLT hard: no forward-pass effect at boundary", () => {
+    for (const type of ["SNLT", "FNLT"] as const) {
+      const result = applyForwardConstraint(
+        "2026-04-06", "2026-04-10", 5,
+        type, "2026-04-06", "hard",
+        "a1", "Task A",
+      );
+      expect(result.es).toBe("2026-04-06");
+      expect(result.ef).toBe("2026-04-10");
+      expect(result.conflict).toBeNull();
+    }
+  });
+
+  it("soft constraint: no forward-pass effect regardless of dates", () => {
+    for (const type of ["MSO", "MFO", "SNET", "FNET", "SNLT", "FNLT"] as const) {
+      const result = applyForwardConstraint(
+        "2026-04-06", "2026-04-10", 5,
+        type, "2026-04-01", "soft",
+        "a1", "Task A",
+      );
+      expect(result.es).toBe("2026-04-06");
+      expect(result.ef).toBe("2026-04-10");
+      expect(result.conflict).toBeNull();
+    }
+  });
+});
+
+describe("applyForwardConstraintInt — boundary equality", () => {
+  it("MSO hard: es at boundary equals constraintOffset", () => {
+    // esNet === constraintOffset → es = max(5, 5) = 5
+    const result = applyForwardConstraintInt(5, 10, 5, "MSO", 5, "hard", 0);
+    expect(result.es).toBe(5);
+  });
+
+  it("MSO hard: es pushed when constraintOffset > esNet", () => {
+    const result = applyForwardConstraintInt(5, 10, 5, "MSO", 8, "hard", 0);
+    expect(result.es).toBe(8);
+  });
+
+  it("MFO hard: maxPredEF clamp at exact boundary", () => {
+    // ef = 5; es = 5-3=2; es = max(2, maxPredEF=2) = 2
+    const result = applyForwardConstraintInt(5, 8, 3, "MFO", 5, "hard", 2);
+    expect(result.es).toBe(2);
+    expect(result.ef).toBe(5);
+  });
+
+  it("MFO hard: maxPredEF clamp raises es above computed", () => {
+    // ef = 5; es = 5-3=2; es = max(2, maxPredEF=4) = 4
+    const result = applyForwardConstraintInt(5, 8, 3, "MFO", 5, "hard", 4);
+    expect(result.es).toBe(4);
+  });
+
+  it("FNET hard: ef pushed when constraintOffset > efNet", () => {
+    const result = applyForwardConstraintInt(5, 8, 3, "FNET", 12, "hard", 3);
+    expect(result.ef).toBe(12);
+    expect(result.es).toBe(9); // 12 - 3
+  });
+
+  it("FNET hard: no push when constraintOffset equals efNet", () => {
+    const result = applyForwardConstraintInt(5, 8, 3, "FNET", 8, "hard", 3);
+    expect(result.ef).toBe(8);
+    expect(result.es).toBe(5);
+  });
+
+  it("soft mode returns unchanged values for all constraint types", () => {
+    for (const type of ["MSO", "MFO", "SNET", "FNET", "SNLT", "FNLT"] as const) {
+      const result = applyForwardConstraintInt(5, 10, 5, type, 3, "soft", 0);
+      expect(result.es).toBe(5);
+      expect(result.ef).toBe(10);
+    }
+  });
+});
+
+describe("detectConstraintConflict — boundary equality", () => {
+  it("hard SNLT: no conflict when lsNet equals constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-10",
+      "SNLT", "2026-04-06", "hard",
+      "a1", "Task A",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("hard SNLT: conflict when lsNet is one day after constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-08", "2026-04-12",
+      "SNLT", "2026-04-07", "hard",
+      "a1", "Task A",
+    );
+    expect(result).not.toBeNull();
+  });
+
+  it("hard FNLT: no conflict when lfNet equals constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-10",
+      "FNLT", "2026-04-10", "hard",
+      "a1", "Task A",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("hard FNLT: conflict when lfNet is one day after constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-11",
+      "FNLT", "2026-04-10", "hard",
+      "a1", "Task A",
+    );
+    expect(result).not.toBeNull();
+  });
+
+  it("soft SNET: no violation when esNet equals constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-10",
+      "SNET", "2026-04-06", "soft",
+      "a1", "Task A",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("soft SNET: violation when esNet is before constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-10",
+      "SNET", "2026-04-07", "soft",
+      "a1", "Task A",
+    );
+    expect(result).not.toBeNull();
+  });
+
+  it("soft SNLT: no violation when lsNet equals constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-10",
+      "SNLT", "2026-04-06", "soft",
+      "a1", "Task A",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("soft MSO: no violation when esNet equals constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-10",
+      "MSO", "2026-04-06", "soft",
+      "a1", "Task A",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("soft MFO: no violation when efNet equals constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-10",
+      "MFO", "2026-04-10", "soft",
+      "a1", "Task A",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("soft MFO: violation when efNet differs from constraintDate", () => {
+    const result = detectConstraintConflict(
+      "2026-04-06", "2026-04-10",
+      "2026-04-06", "2026-04-10",
+      "MFO", "2026-04-09", "soft",
+      "a1", "Task A",
+    );
+    expect(result).not.toBeNull();
+  });
+});

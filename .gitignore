@@ -30,5 +30,9 @@ coverage/
 CLAUDE.md
 .claude/
 
+# Stryker mutation testing output
+reports/mutation/
+.stryker-tmp/
+
 # Vercel
 .vercel

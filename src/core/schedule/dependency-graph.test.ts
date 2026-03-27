@@ -906,3 +906,175 @@ describe("Pathological SS/FF cases", () => {
     expect(result.criticalActivityIds.has("b")).toBe(true);
   });
 });
+
+// ===========================================================================
+// Gap 1 — Math.max → Math.min mutant killers (L425 in computeCriticalPathWithMilestones)
+// ===========================================================================
+
+describe("computeCriticalPathWithMilestones — maxPredEF correctness", () => {
+  it("hard MFO constraint: maxPredEF clamps es above forced finish", () => {
+    // A(5) FS→ B(1); B has hard MFO at offset 2; B SS→ C(1)
+    // A: EF=5; maxPredEF for B = 5
+    // B network: ES=5, EF=6
+    // MFO: ef=2; es=2-1=1; es=max(1, maxPredEF=5)=5. {es:5, ef:2}
+    // C via SS from B: ES=5, EF=6. Project=max(5,2,6)=6.
+    // Math.min mutant: maxPredEF=0; es=max(1,0)=1; B ES=1; C ES=1, EF=2. Project=max(5,2,2)=5.
+    const ids = ["a", "b", "c"];
+    const deps = [fsDep("a", "b"), ssDep("b", "c")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 5], ["b", 1], ["c", 1]]);
+    const constraintMap = new Map([
+      ["b", { type: "MFO", offsetFromStart: 2, mode: "hard" }],
+    ]);
+    const milestoneIds = new Map<string, string[]>();
+    const result = computeCriticalPathWithMilestones(
+      graph, durations, milestoneIds, undefined, constraintMap,
+    );
+    expect(result.projectDuration).toBe(6);
+  });
+
+  it("two predecessors with different EFs: maxPredEF selects the larger", () => {
+    // A(2) FS→ C(1), B(10) FS→ C(1); C has hard MFO at offset 3; C SS→ D(1)
+    // A: EF=2; B: EF=10; maxPredEF=10
+    // C network: ES=10, EF=11; MFO: ef=3, es=3-1=2, es=max(2,10)=10
+    // D via SS from C: ES=10, EF=11. Project=max(2,10,3,11)=11.
+    // Math.min: maxPredEF=min(0,2)=0 (init 0, first pred A EF=2, min=0; then B EF=10, min=0)
+    //   → es=max(2,0)=2; C ES=2; D ES=2, EF=3. Project=max(2,10,3,3)=10.
+    const ids = ["a", "b", "c", "d"];
+    const deps = [fsDep("a", "c"), fsDep("b", "c"), ssDep("c", "d")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 2], ["b", 10], ["c", 1], ["d", 1]]);
+    const constraintMap = new Map([
+      ["c", { type: "MFO", offsetFromStart: 3, mode: "hard" }],
+    ]);
+    const milestoneIds = new Map<string, string[]>();
+    const result = computeCriticalPathWithMilestones(
+      graph, durations, milestoneIds, undefined, constraintMap,
+    );
+    expect(result.projectDuration).toBe(11);
+  });
+});
+
+// ===========================================================================
+// Gap 3 — Invalid dependency filtering (L116)
+// ===========================================================================
+
+describe("buildDependencyGraph — invalid dependency filtering", () => {
+  it("deps referencing non-existent activity IDs are silently dropped", () => {
+    const ids = ["a", "b"];
+    const deps = [
+      fsDep("a", "b"),
+      fsDep("a", "z"),   // z doesn't exist
+      fsDep("x", "b"),   // x doesn't exist
+      fsDep("x", "z"),   // neither exists
+    ];
+    const graph = buildDependencyGraph(ids, deps);
+    expect(graph.topologicalOrder).toHaveLength(2);
+    expect(graph.predecessors.get("b")!.length).toBe(1);
+    expect(graph.predecessors.get("b")![0]!.id).toBe("a");
+  });
+
+  it("self-referencing dependency is filtered out", () => {
+    const ids = ["a", "b"];
+    const deps = [
+      fsDep("a", "b"),
+      fsDep("a", "a"), // self-loop
+    ];
+    const graph = buildDependencyGraph(ids, deps);
+    expect(graph.topologicalOrder).toHaveLength(2);
+    expect(graph.predecessors.get("a")!.length).toBe(0);
+  });
+
+  it("validateDependencies reports missing activity IDs", () => {
+    const errors = validateDependencies(["a", "b"], [fsDep("a", "z")]);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]!.type).toBe("missing-ref");
+  });
+
+  it("validateDependencies reports self-loop", () => {
+    const errors = validateDependencies(["a", "b"], [fsDep("a", "a")]);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]!.type).toBe("self-loop");
+  });
+});
+
+// ===========================================================================
+// Gap 10 — Edge cases: empty graph, cycle path order, milestone floor
+// ===========================================================================
+
+describe("computeCriticalPathActivities — empty graph", () => {
+  it("returns zero duration and empty critical set for empty graph", () => {
+    const graph = buildDependencyGraph([], []);
+    const durations = new Map<string, number>();
+    const result = computeCriticalPathActivities(graph, durations);
+    expect(result.projectDuration).toBe(0);
+    expect(result.criticalActivityIds.size).toBe(0);
+  });
+});
+
+describe("computeCriticalPathDuration — empty graph", () => {
+  it("returns 0 for empty graph", () => {
+    const graph = buildDependencyGraph([], []);
+    expect(computeCriticalPathDuration(graph, new Map())).toBe(0);
+  });
+});
+
+describe("detectCycle — cycle path structure", () => {
+  it("returned cycle path starts and ends with the same node", () => {
+    const cycle = detectCycle(["a", "b", "c"], [fsDep("a", "b"), fsDep("b", "c"), fsDep("c", "a")]);
+    expect(cycle).not.toBeNull();
+    expect(cycle![0]).toBe(cycle![cycle!.length - 1]);
+  });
+
+  it("cycle path contains all nodes in the cycle", () => {
+    const cycle = detectCycle(["a", "b", "c"], [fsDep("a", "b"), fsDep("b", "c"), fsDep("c", "a")]);
+    expect(cycle).not.toBeNull();
+    const inner = cycle!.slice(0, -1);
+    expect(inner).toContain("a");
+    expect(inner).toContain("b");
+    expect(inner).toContain("c");
+  });
+
+  it("2-node cycle returns correct path", () => {
+    const cycle = detectCycle(["a", "b"], [fsDep("a", "b"), fsDep("b", "a")]);
+    expect(cycle).not.toBeNull();
+    expect(cycle!.length).toBeGreaterThanOrEqual(3); // [x, y, x]
+    expect(cycle![0]).toBe(cycle![cycle!.length - 1]);
+  });
+});
+
+describe("computeCriticalPathWithMilestones — milestone and floor", () => {
+  it("milestone duration equals max EF of assigned activities", () => {
+    const ids = ["a", "b"];
+    const deps = [fsDep("a", "b")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 5]]);
+    const milestoneIds = new Map([["m1", ["a", "b"]]]);
+    const result = computeCriticalPathWithMilestones(graph, durations, milestoneIds);
+    expect(result.milestoneDurations.get("m1")).toBe(8);
+    expect(result.projectDuration).toBe(8);
+  });
+
+  it("milestone with only early-finishing activity gets correct duration", () => {
+    const ids = ["a", "b", "c"];
+    const deps = [fsDep("a", "c"), fsDep("b", "c")];
+    const graph = buildDependencyGraph(ids, deps);
+    const durations = new Map([["a", 3], ["b", 10], ["c", 1]]);
+    const milestoneIds = new Map([["m1", ["a"]]]);
+    const result = computeCriticalPathWithMilestones(graph, durations, milestoneIds);
+    expect(result.milestoneDurations.get("m1")).toBe(3);
+    expect(result.projectDuration).toBe(11);
+  });
+
+  it("activityEarliestStart floor raises ES above network-computed value", () => {
+    const ids = ["a"];
+    const graph = buildDependencyGraph(ids, []);
+    const durations = new Map([["a", 3]]);
+    const milestoneIds = new Map<string, string[]>();
+    const activityEarliestStart = new Map([["a", 5]]);
+    const result = computeCriticalPathWithMilestones(
+      graph, durations, milestoneIds, activityEarliestStart,
+    );
+    expect(result.projectDuration).toBe(8);
+  });
+});
