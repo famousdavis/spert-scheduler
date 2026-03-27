@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.30.4",
+    date: "2026-03-27",
+    sections: [
+      {
+        title: "Enhancements",
+        items: [
+          "Gantt bar label font size now scales with the activity font size selection (Small/Normal/Large/XL). Small is the minimum — larger settings increase readability.",
+          "Bar labels (dates or durations) are hidden when they don't fit inside the bar, preventing clipped or overlapping text.",
+          "Bar label font is automatically capped to fit within the bar height when compact row density is combined with large/XL font sizes.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.30.3",
     date: "2026-03-26",
     sections: [

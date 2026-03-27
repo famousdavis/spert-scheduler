@@ -177,6 +177,8 @@ export interface ResolvedGanttAppearance {
   criticalPath: string;
   // Bar label
   barLabel: "duration" | "dates" | "none";
+  barLabelFontSize: number;
+  printBarLabelFontSize: number;
   // Weekend shading
   weekendShading: boolean;
   shadingColor: string;
@@ -232,6 +234,16 @@ export function resolveGanttAppearance(
   const barPlanned = s.customPlannedColor ?? presetColors.barPlanned;
   const barInProgress = s.customInProgressColor ?? presetColors.barInProgress;
 
+  // Bar label font size: scales with activity font, capped to fit bar height
+  const barLabelFontMap = { small: 10, normal: 10, large: 11, xl: 13 } as const;
+  const barLabelFontSize = Math.min(barLabelFontMap[s.activityFontSize], density.barHeight - 6);
+
+  const printBarLabelFontMap = { small: 5, normal: 6, large: 7, xl: 8 } as const;
+  const printBarLabelFontSize = Math.min(
+    printBarLabelFontMap[s.activityFontSize],
+    printDensity.printBarHeight - 4,
+  );
+
   return {
     leftMargin: col.leftMargin,
     nameCharLimit,
@@ -248,6 +260,8 @@ export function resolveGanttAppearance(
     barComplete: presetColors.barComplete,
     criticalPath: presetColors.criticalPath,
     barLabel: s.barLabel,
+    barLabelFontSize,
+    printBarLabelFontSize,
     weekendShading: s.weekendShading,
     shadingColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
   };

@@ -404,12 +404,14 @@ export function PrintGanttChart({
                 <rect x={x1 + w - 3} y={barY} width={3} height={ra.printBarHeight}
                   rx={PRINT_BAR_RADIUS} fill={c.terminal} />
               )}
-              {w > 20 && (() => {
+              {(() => {
                 const label = barLabelText(sa);
                 if (!label) return null;
+                const estWidth = label.length * ra.printBarLabelFontSize * 0.6 + 4;
+                if (estWidth > w) return null;
                 return (
                   <text x={x1 + w / 2} y={barY + ra.printBarHeight / 2} textAnchor="middle"
-                    dominantBaseline="central" fontSize={fs6} fill="#fff" fontWeight="600">
+                    dominantBaseline="central" fontSize={ra.printBarLabelFontSize} fill="#fff" fontWeight="600">
                     {label}
                   </text>
                 );
