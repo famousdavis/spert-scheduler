@@ -52,47 +52,123 @@ export function monthTickLabel(d: Date, isFirst: boolean, prevYear: number | nul
   return mon;
 }
 
+/**
+ * Quarterly tick label: quarter name with 2-digit year on the first
+ * tick or whenever the year changes — e.g. "Q1 '26", "Q2", "Q3", "Q4",
+ * "Q1 '27". Quarter from month: Jan=Q1, Apr=Q2, Jul=Q3, Oct=Q4.
+ */
+export function quarterlyTickLabel(d: Date, isFirst: boolean, prevYear: number | null): string {
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  if (isFirst || (prevYear !== null && d.getFullYear() !== prevYear)) {
+    return `Q${q} '${String(d.getFullYear()).slice(2)}`;
+  }
+  return `Q${q}`;
+}
+
+/**
+ * Semi-annual tick label: "H1 '26" (Jan–Jun), "H2" (Jul–Dec).
+ * Year on first tick and year-change boundaries.
+ */
+export function semiannualTickLabel(d: Date, isFirst: boolean, prevYear: number | null): string {
+  const h = d.getMonth() < 6 ? 1 : 2;
+  if (isFirst || (prevYear !== null && d.getFullYear() !== prevYear)) {
+    return `H${h} '${String(d.getFullYear()).slice(2)}`;
+  }
+  return `H${h}`;
+}
+
 /** @deprecated Use formatDateISO from @core/calendar/calendar instead */
 export const toISO = formatDateISO;
 
+export type TickLevel = "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "semiannual" | "annual";
+
 /**
- * Generate tick marks for the time axis.
- * Chooses daily/weekly/biweekly/monthly ticks depending on date range.
+ * Count the number of quarterly ticks (Jan 1, Apr 1, Jul 1, Oct 1) that
+ * would be generated between start and end dates.
+ */
+export function countQuarterlyTicks(startDate: string, endDate: string): number {
+  const start = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
+  const d = new Date(start);
+  while (d.getDate() !== 1 || d.getMonth() % 3 !== 0) {
+    d.setDate(1);
+    d.setMonth(d.getMonth() + 1);
+  }
+  let count = 0;
+  while (d <= end) {
+    count++;
+    d.setMonth(d.getMonth() + 3);
+  }
+  return count;
+}
+
+/**
+ * Count the number of semi-annual ticks (Jan 1 and Jul 1) that
+ * would be generated between start and end dates.
+ */
+export function countSemiannualTicks(startDate: string, endDate: string): number {
+  const start = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
+  const d = new Date(start);
+  // Advance to first Jan 1 or Jul 1 on or after start
+  while (d.getDate() !== 1 || (d.getMonth() !== 0 && d.getMonth() !== 6)) {
+    d.setDate(1);
+    d.setMonth(d.getMonth() + 1);
+  }
+  let count = 0;
+  while (d <= end) {
+    count++;
+    d.setMonth(d.getMonth() + 6);
+  }
+  return count;
+}
+
+/**
+ * Generate tick marks for the time axis at a given tick level.
+ * Levels ≤ monthly are auto-selected from date range.
+ * Levels > monthly (quarterly, semiannual, annual) are passed in by the
+ * layout hook, which decides density based on available pixel width.
  */
 export function generateTicks(
   startDate: string,
   endDate: string,
+  tickLevel?: TickLevel,
 ): { x: string; label: string }[] {
   const start = new Date(startDate + "T00:00:00");
   const end = new Date(endDate + "T00:00:00");
   const rangeDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
   const ticks: { x: string; label: string }[] = [];
 
-  if (rangeDays <= 14) {
-    // Daily ticks
+  // Auto-select level for short ranges when not explicitly provided
+  const level: TickLevel = tickLevel ?? (
+    rangeDays <= 14 ? "daily" :
+    rangeDays <= 60 ? "weekly" :
+    rangeDays <= 90 ? "biweekly" :
+    rangeDays <= 540 ? "monthly" :
+    "quarterly" // fallback; layout hook should always provide for >540
+  );
+
+  if (level === "daily") {
     const d = new Date(start);
     while (d <= end) {
       ticks.push({ x: toISO(d), label: compactLabel(d, true) });
       d.setDate(d.getDate() + 1);
     }
-  } else if (rangeDays <= 60) {
-    // Weekly ticks (Monday)
+  } else if (level === "weekly") {
     const d = new Date(start);
     while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
     while (d <= end) {
       ticks.push({ x: toISO(d), label: compactLabel(d, true) });
       d.setDate(d.getDate() + 7);
     }
-  } else if (rangeDays <= 90) {
-    // Biweekly ticks (every other Monday)
+  } else if (level === "biweekly") {
     const d = new Date(start);
     while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
     while (d <= end) {
       ticks.push({ x: toISO(d), label: compactLabel(d, true) });
       d.setDate(d.getDate() + 14);
     }
-  } else {
-    // Monthly ticks (1st of month) — month name only, year on first tick and year changes
+  } else if (level === "monthly") {
     const d = new Date(start.getFullYear(), start.getMonth() + 1, 1);
     let prevYear: number | null = null;
     let isFirst = true;
@@ -101,6 +177,43 @@ export function generateTicks(
       prevYear = d.getFullYear();
       isFirst = false;
       d.setMonth(d.getMonth() + 1);
+    }
+  } else if (level === "quarterly") {
+    const firstQ = new Date(start);
+    while (firstQ.getDate() !== 1 || firstQ.getMonth() % 3 !== 0) {
+      firstQ.setDate(1);
+      firstQ.setMonth(firstQ.getMonth() + 1);
+    }
+    const d = new Date(firstQ);
+    let prevYear: number | null = null;
+    let isFirst = true;
+    while (d <= end) {
+      ticks.push({ x: toISO(d), label: quarterlyTickLabel(d, isFirst, prevYear) });
+      prevYear = d.getFullYear();
+      isFirst = false;
+      d.setMonth(d.getMonth() + 3);
+    }
+  } else if (level === "semiannual") {
+    const d = new Date(start);
+    // Advance to first Jan 1 or Jul 1 on or after start
+    while (d.getDate() !== 1 || (d.getMonth() !== 0 && d.getMonth() !== 6)) {
+      d.setDate(1);
+      d.setMonth(d.getMonth() + 1);
+    }
+    let prevYear: number | null = null;
+    let isFirst = true;
+    while (d <= end) {
+      ticks.push({ x: toISO(d), label: semiannualTickLabel(d, isFirst, prevYear) });
+      prevYear = d.getFullYear();
+      isFirst = false;
+      d.setMonth(d.getMonth() + 6);
+    }
+  } else {
+    // annual
+    const d = new Date(start.getFullYear() + 1, 0, 1);
+    while (d <= end) {
+      ticks.push({ x: toISO(d), label: String(d.getFullYear()) });
+      d.setFullYear(d.getFullYear() + 1);
     }
   }
 

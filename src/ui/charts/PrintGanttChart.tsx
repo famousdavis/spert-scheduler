@@ -16,12 +16,13 @@ import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { formatDateISO } from "@core/calendar/calendar";
 import {
   PRINT_RIGHT, PRINT_TOP,
-  PRINT_BAR_RADIUS, PRINT_ARROW_SIZE, PRINT_MIN_TICK_PX,
+  PRINT_BAR_RADIUS, PRINT_ARROW_SIZE, PRINT_MIN_TICK_PX, TODAY_PROXIMITY_PX,
   PRINT_PROJECT_NAME_H, PRINT_MILESTONE_EXTRA_TOP,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
 import { dateToX, buildOrderedActivities, generateTicks, longDateLabel, computeWeekendShadingRects } from "./gantt-utils";
+import type { TickLevel } from "./gantt-utils";
 
 export interface PrintGanttChartProps {
   activities: Activity[];
@@ -134,27 +135,43 @@ export function PrintGanttChart({
     [milestones, toX],
   );
 
+  // Compute tick level — direct mapping for ranges >540 days
+  const printRangeDays = range / (1000 * 60 * 60 * 24);
+  const printDensityPx = Math.max(ra.timelineDensityPx, PRINT_MIN_TICK_PX);
+  const tickLevel: TickLevel | undefined = useMemo(() => {
+    if (printRangeDays <= 540) return undefined;
+    // Dense = monthly, Normal = quarterly, Sparse = semiannual
+    if (ra.timelineDensityPx <= 50) return "monthly";
+    if (ra.timelineDensityPx >= 90) return "semiannual";
+    return "quarterly";
+  }, [printRangeDays, ra.timelineDensityPx]);
+
   // Ticks with suppression
   const allTicks = useMemo(
-    () => generateTicks(projectStartDate, endDate),
-    [projectStartDate, endDate],
+    () => generateTicks(projectStartDate, endDate, tickLevel),
+    [projectStartDate, endDate, tickLevel],
   );
   const ticks = useMemo(() => {
     if (allTicks.length === 0 || range === 0) return allTicks;
     const filtered: typeof allTicks = [];
     let lastX = -Infinity;
-    for (const tick of allTicks) {
+    const PRINT_ELEMENT_PROXIMITY_PX = 25;
+    const PRINT_TODAY_PROXIMITY_PX = Math.round(TODAY_PROXIMITY_PX * 0.56);
+    for (let i = 0; i < allTicks.length; i++) {
+      const tick = allTicks[i]!;
       const x = toX(tick.x);
-      if (Math.abs(x - finishX) < PRINT_MIN_TICK_PX * 1.5) continue;
-      if (milestoneXPositions.some((mx) => Math.abs(x - mx) < PRINT_MIN_TICK_PX)) continue;
-      if (todayX !== null && Math.abs(x - todayX) < PRINT_MIN_TICK_PX) continue;
-      if (x - lastX >= PRINT_MIN_TICK_PX) {
-        filtered.push(tick);
-        lastX = x;
+      // Today proximity — all ticks (see use-gantt-layout.ts for rationale)
+      if (todayX !== null && Math.abs(x - todayX) < PRINT_TODAY_PROXIMITY_PX) continue;
+      if (i > 0) {
+        if (Math.abs(x - finishX) < PRINT_ELEMENT_PROXIMITY_PX) continue;
+        if (milestoneXPositions.some((mx) => Math.abs(x - mx) < PRINT_ELEMENT_PROXIMITY_PX)) continue;
+        if (x - lastX < printDensityPx) continue;
       }
+      filtered.push(tick);
+      lastX = x;
     }
     return filtered;
-  }, [allTicks, range, toX, finishX, milestoneXPositions, todayX]);
+  }, [allTicks, range, toX, finishX, milestoneXPositions, todayX, printDensityPx]);
 
   const hasCriticalPath = dependencyMode && criticalPathIds && criticalPathIds.size > 0;
 
@@ -263,9 +280,10 @@ export function PrintGanttChart({
         {/* Tick labels (only where spacing permits) */}
         {ticks.map((tick, i) => {
           const x = toX(tick.x);
+          const hasYear = tick.label.includes("'") || /^\d{4}$/.test(tick.label);
           return (
             <text key={`label-${i}`} x={x} y={topMargin - 4} textAnchor="middle"
-              fontSize={fs5} fill={c.textMuted}>
+              fontSize={fs5} fill={c.textMuted} fontWeight={hasYear ? "bold" : undefined}>
               {tick.label}
             </text>
           );

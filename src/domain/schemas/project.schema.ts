@@ -223,6 +223,8 @@ export const GanttAppearanceSettingsSchema = z.object({
   customPlannedColor: z.string().regex(hexColorRegex, "Must be #RRGGBB").optional(),
   customInProgressColor: z.string().regex(hexColorRegex, "Must be #RRGGBB").optional(),
   weekendShading: z.boolean(),
+  fitToWindow: z.boolean(),
+  timelineDensity: z.enum(["sparse", "normal", "dense"]).optional(),
 });
 
 // -- Project -----------------------------------------------------------------

@@ -301,6 +301,23 @@ function migrateV17toV18(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v18 → v19: Add fitToWindow field to GanttAppearanceSettings.
+ * Unlike passthrough migrations, this actively writes fitToWindow: false
+ * onto existing ganttAppearance objects where the field is absent.
+ * This is required because fitToWindow is a required Zod field.
+ * Projects without ganttAppearance are unaffected (the whole object is optional).
+ */
+function migrateV18toV19(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const ga = project.ganttAppearance as Record<string, unknown> | undefined;
+  if (ga && ga.fitToWindow === undefined) {
+    ga.fitToWindow = false;
+  }
+  project.schemaVersion = 19;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -319,6 +336,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   15: migrateV15toV16,
   16: migrateV16toV17,
   17: migrateV17toV18,
+  18: migrateV18toV19,
 };
 
 /**

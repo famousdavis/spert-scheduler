@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -227,6 +227,8 @@ export interface GanttAppearanceSettings {
   customPlannedColor?: string;
   customInProgressColor?: string;
   weekendShading: boolean;
+  fitToWindow: boolean;
+  timelineDensity?: "sparse" | "normal" | "dense";
 }
 
 export const DEFAULT_GANTT_APPEARANCE: GanttAppearanceSettings = {
@@ -236,6 +238,8 @@ export const DEFAULT_GANTT_APPEARANCE: GanttAppearanceSettings = {
   barLabel: "duration",
   colorPreset: "classic",
   weekendShading: false,
+  fitToWindow: false,
+  timelineDensity: "normal",
 };
 
 // -- Project -----------------------------------------------------------------
