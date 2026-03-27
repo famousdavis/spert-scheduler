@@ -10,6 +10,10 @@ import {
   toISO,
   generateTicks,
   monthTickLabel,
+  quarterlyTickLabel,
+  semiannualTickLabel,
+  countQuarterlyTicks,
+  countSemiannualTicks,
   buildOrderedActivities,
   computeWeekendShadingRects,
 } from "./gantt-utils";
@@ -100,6 +104,71 @@ describe("monthTickLabel", () => {
   });
 });
 
+// -- quarterlyTickLabel -------------------------------------------------------
+
+describe("quarterlyTickLabel", () => {
+  it("includes year on first tick", () => {
+    expect(quarterlyTickLabel(new Date(2026, 0, 1), true, null)).toBe("Q1 '26");
+  });
+
+  it("shows quarter only for subsequent ticks in same year", () => {
+    expect(quarterlyTickLabel(new Date(2026, 3, 1), false, 2026)).toBe("Q2");
+    expect(quarterlyTickLabel(new Date(2026, 6, 1), false, 2026)).toBe("Q3");
+    expect(quarterlyTickLabel(new Date(2026, 9, 1), false, 2026)).toBe("Q4");
+  });
+
+  it("includes year when year changes", () => {
+    expect(quarterlyTickLabel(new Date(2027, 0, 1), false, 2026)).toBe("Q1 '27");
+    expect(quarterlyTickLabel(new Date(2029, 9, 1), false, 2028)).toBe("Q4 '29");
+  });
+});
+
+// -- semiannualTickLabel ------------------------------------------------------
+
+describe("semiannualTickLabel", () => {
+  it("includes year on first tick", () => {
+    expect(semiannualTickLabel(new Date(2026, 0, 1), true, null)).toBe("H1 '26");
+  });
+
+  it("shows half only for subsequent ticks in same year", () => {
+    expect(semiannualTickLabel(new Date(2026, 6, 1), false, 2026)).toBe("H2");
+  });
+
+  it("includes year when year changes", () => {
+    expect(semiannualTickLabel(new Date(2027, 0, 1), false, 2026)).toBe("H1 '27");
+  });
+
+  it("correctly maps months to halves", () => {
+    // H1 = Jan–Jun (months 0–5), H2 = Jul–Dec (months 6–11)
+    expect(semiannualTickLabel(new Date(2026, 5, 1), true, null)).toBe("H1 '26");
+    expect(semiannualTickLabel(new Date(2026, 6, 1), true, null)).toBe("H2 '26");
+  });
+});
+
+// -- countQuarterlyTicks / countSemiannualTicks --------------------------------
+
+describe("countQuarterlyTicks", () => {
+  it("counts quarterly boundaries in range", () => {
+    // 2026-01-01 to 2027-08-24 → Q1'26, Q2'26, Q3'26, Q4'26, Q1'27, Q2'27, Q3'27 = 7
+    expect(countQuarterlyTicks("2026-01-01", "2027-08-24")).toBe(7);
+  });
+
+  it("returns 0 for very short ranges with no quarter boundary", () => {
+    expect(countQuarterlyTicks("2026-02-01", "2026-03-15")).toBe(0);
+  });
+});
+
+describe("countSemiannualTicks", () => {
+  it("counts semi-annual boundaries in range", () => {
+    // 2026-01-01 to 2028-12-31 → Jan'26, Jul'26, Jan'27, Jul'27, Jan'28, Jul'28 = 6
+    expect(countSemiannualTicks("2026-01-01", "2028-12-31")).toBe(6);
+  });
+
+  it("returns 0 for short ranges with no semi-annual boundary", () => {
+    expect(countSemiannualTicks("2026-02-01", "2026-06-15")).toBe(0);
+  });
+});
+
 // -- toISO --------------------------------------------------------------------
 
 describe("toISO", () => {
@@ -183,6 +252,84 @@ describe("generateTicks", () => {
     const ticks = generateTicks("2026-03-01", "2026-03-01");
     // 0 days = daily mode, 1 tick (the single day)
     expect(ticks.length).toBe(1);
+  });
+
+  it("generates monthly ticks for ranges 91-540 days", () => {
+    // ~400 days — should be monthly, not quarterly
+    const ticks = generateTicks("2026-01-01", "2027-02-05");
+    expect(ticks.length).toBeGreaterThan(0);
+    // All ticks on 1st of month
+    for (const tick of ticks) {
+      expect(tick.x.endsWith("-01")).toBe(true);
+    }
+    // First label includes year
+    expect(ticks[0]!.label).toBe("Feb '26");
+  });
+
+  it("generates quarterly ticks when tickLevel is quarterly", () => {
+    const ticks = generateTicks("2026-01-01", "2027-08-24", "quarterly");
+    expect(ticks.length).toBeGreaterThan(0);
+    // All ticks on quarter starts (month 0, 3, 6, or 9)
+    for (const tick of ticks) {
+      const month = Number(tick.x.split("-")[1]);
+      expect([1, 4, 7, 10]).toContain(month);
+      expect(tick.x.endsWith("-01")).toBe(true);
+    }
+    // First label includes year, subsequent same-year labels omit it
+    expect(ticks[0]!.label).toMatch(/^Q\d '26$/);
+    const q2_26 = ticks.find((t) => t.x === "2026-04-01");
+    expect(q2_26?.label).toBe("Q2");
+    // Year reappears on Q1 '27
+    const q1_27 = ticks.find((t) => t.x === "2027-01-01");
+    expect(q1_27?.label).toBe("Q1 '27");
+  });
+
+  it("generates semi-annual ticks when tickLevel is semiannual", () => {
+    const ticks = generateTicks("2026-01-01", "2028-12-31", "semiannual");
+    expect(ticks.length).toBeGreaterThan(0);
+    // All ticks on Jan 1 or Jul 1
+    for (const tick of ticks) {
+      const month = Number(tick.x.split("-")[1]);
+      expect([1, 7]).toContain(month);
+      expect(tick.x.endsWith("-01")).toBe(true);
+    }
+    // First label includes year
+    expect(ticks[0]!.label).toBe("H1 '26");
+    // Subsequent same-year labels omit year
+    const h2_26 = ticks.find((t) => t.x === "2026-07-01");
+    expect(h2_26?.label).toBe("H2");
+    // Year reappears on H1 '27
+    const h1_27 = ticks.find((t) => t.x === "2027-01-01");
+    expect(h1_27?.label).toBe("H1 '27");
+  });
+
+  it("generates annual ticks when tickLevel is annual", () => {
+    const ticks = generateTicks("2026-01-01", "2032-08-01", "annual");
+    expect(ticks.length).toBeGreaterThan(0);
+    // All ticks on Jan 1
+    for (const tick of ticks) {
+      expect(tick.x.endsWith("-01-01")).toBe(true);
+    }
+    // Labels are 4-digit years
+    expect(ticks[0]!.label).toBe("2027");
+    if (ticks.length > 1) {
+      expect(ticks[1]!.label).toBe("2028");
+    }
+  });
+
+  it("quarterly ticks show year on year boundary", () => {
+    // Range spanning 2026-2027
+    const ticks = generateTicks("2026-06-01", "2028-01-01", "quarterly");
+    // Find the Q1 '27 tick
+    const yearChangeTick = ticks.find((t) => t.x === "2027-01-01");
+    expect(yearChangeTick).toBeDefined();
+    expect(yearChangeTick!.label).toBe("Q1 '27");
+  });
+
+  it("auto-selects quarterly as default fallback for >540 days without tickLevel", () => {
+    // Without explicit tickLevel, >540 days defaults to quarterly
+    const ticks = generateTicks("2026-01-01", "2027-08-24");
+    expect(ticks.some((t) => t.label.startsWith("Q"))).toBe(true);
   });
 });
 
@@ -273,17 +420,17 @@ describe("resolveGanttAppearance", () => {
   });
 
   it.each(["classic", "monochrome", "ocean", "warm"] as const)("preset %s light resolves", (preset) => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: preset, weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: preset, weekendShading: false, fitToWindow: false }, false);
     expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS[preset]!.light.barPlanned);
   });
 
   it.each(["classic", "monochrome", "ocean", "warm"] as const)("preset %s dark resolves", (preset) => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: preset, weekendShading: false }, true);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: preset, weekendShading: false, fitToWindow: false }, true);
     expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS[preset]!.dark.barPlanned);
   });
 
   it("narrow name column reduces leftMargin and charLimit", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "narrow", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "narrow", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(ra.leftMargin).toBe(180);
     expect(ra.nameCharLimit).toBe(24);
     expect(ra.printLeftMargin).toBe(120);
@@ -291,13 +438,13 @@ describe("resolveGanttAppearance", () => {
   });
 
   it("wide name column increases leftMargin and charLimit", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "wide", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "wide", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(ra.leftMargin).toBe(360);
     expect(ra.nameCharLimit).toBe(54);
   });
 
   it("compact row density produces smaller dimensions", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(ra.rowHeight).toBe(24);
     expect(ra.barHeight).toBe(16);
     expect(ra.barYOffset).toBe(4);
@@ -306,7 +453,7 @@ describe("resolveGanttAppearance", () => {
   });
 
   it("comfortable row density produces larger dimensions", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "comfortable", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "comfortable", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(ra.rowHeight).toBe(44);
     expect(ra.barHeight).toBe(30);
     expect(ra.barYOffset).toBe(7);
@@ -317,31 +464,66 @@ describe("resolveGanttAppearance", () => {
   it("all font sizes map correctly", () => {
     const sizes = { small: 11, normal: 12, large: 14, xl: 16 } as const;
     for (const [key, expected] of Object.entries(sizes)) {
-      const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: key as "small" | "normal" | "large" | "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+      const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: key as "small" | "normal" | "large" | "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
       expect(ra.nameFontSize).toBe(expected);
     }
   });
 
   it("customPlannedColor overrides preset barPlanned", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", customPlannedColor: "#ff0000", weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", customPlannedColor: "#ff0000", weekendShading: false, fitToWindow: false }, false);
     expect(ra.barPlanned).toBe("#ff0000");
     // barInProgress still from preset
     expect(ra.barInProgress).toBe(GANTT_COLOR_PRESETS.classic!.light.barInProgress);
   });
 
   it("customInProgressColor overrides preset barInProgress", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", customInProgressColor: "#00ff00", weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", customInProgressColor: "#00ff00", weekendShading: false, fitToWindow: false }, false);
     expect(ra.barInProgress).toBe("#00ff00");
   });
 
   it("unknown colorPreset falls back to classic", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "nonexistent", weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "nonexistent", weekendShading: false, fitToWindow: false }, false);
     expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS.classic!.light.barPlanned);
   });
 
   it("weekendShading flag is passed through", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: true }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: true, fitToWindow: false }, false);
     expect(ra.weekendShading).toBe(true);
+  });
+
+  it("fitToWindow defaults to false when settings undefined", () => {
+    const ra = resolveGanttAppearance(undefined, false);
+    expect(ra.fitToWindow).toBe(false);
+  });
+
+  it("fitToWindow passes through true value", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: true }, false);
+    expect(ra.fitToWindow).toBe(true);
+  });
+
+  it("fitToWindow passes through false value", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    expect(ra.fitToWindow).toBe(false);
+  });
+
+  it("timelineDensityPx defaults to 70 when undefined settings", () => {
+    const ra = resolveGanttAppearance(undefined, false);
+    expect(ra.timelineDensityPx).toBe(70);
+  });
+
+  it("timelineDensityPx maps sparse to 90", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false, timelineDensity: "sparse" }, false);
+    expect(ra.timelineDensityPx).toBe(90);
+  });
+
+  it("timelineDensityPx maps normal to 70", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false, timelineDensity: "normal" }, false);
+    expect(ra.timelineDensityPx).toBe(70);
+  });
+
+  it("timelineDensityPx maps dense to 50", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false, timelineDensity: "dense" }, false);
+    expect(ra.timelineDensityPx).toBe(50);
   });
 
   it("shading color differs for dark mode", () => {
@@ -351,8 +533,8 @@ describe("resolveGanttAppearance", () => {
   });
 
   it("nameCharLimit scales inversely with font size", () => {
-    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     // normal: 38 * 12/12 = 38, xl: 38 * 12/16 = 28
     expect(normal.nameCharLimit).toBe(38);
     expect(xl.nameCharLimit).toBe(28);
@@ -360,15 +542,15 @@ describe("resolveGanttAppearance", () => {
   });
 
   it("printNameCharLimit scales inversely with font size", () => {
-    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     // normal: 26 * 12/12 = 26, large: 26 * 12/14 = 22
     expect(normal.printNameCharLimit).toBe(26);
     expect(large.printNameCharLimit).toBe(22);
   });
 
   it("narrow + XL font produces reduced char limits", () => {
-    const ra = resolveGanttAppearance({ nameColumnWidth: "narrow", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const ra = resolveGanttAppearance({ nameColumnWidth: "narrow", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     // narrow base: 24, XL scale: 24 * 12/16 = 18
     expect(ra.nameCharLimit).toBe(18);
     expect(ra.leftMargin).toBe(180);
@@ -377,10 +559,10 @@ describe("resolveGanttAppearance", () => {
   // -- barLabelFontSize scaling -------------------------------------------------
 
   it("bar label font size scales with activity font size (normal density)", () => {
-    const small = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "small", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const small = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "small", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     // Small and Normal both get 10px minimum
     expect(small.barLabelFontSize).toBe(10);
     expect(normal.barLabelFontSize).toBe(10);
@@ -391,17 +573,17 @@ describe("resolveGanttAppearance", () => {
 
   it("bar label font size is capped by bar height in compact density", () => {
     // Compact barHeight=16, so cap = 16-6 = 10
-    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(xl.barLabelFontSize).toBe(10); // capped from 13 to 10
-    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(large.barLabelFontSize).toBe(10); // capped from 11 to 10
   });
 
   it("print bar label font size scales with activity font size", () => {
-    const small = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "small", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const small = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "small", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(small.printBarLabelFontSize).toBe(5);
     expect(normal.printBarLabelFontSize).toBe(6);
     expect(large.printBarLabelFontSize).toBe(7);
@@ -410,7 +592,7 @@ describe("resolveGanttAppearance", () => {
 
   it("print bar label font size is capped by print bar height in compact density", () => {
     // Compact printBarHeight=9, cap = 9-4 = 5
-    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(xl.printBarLabelFontSize).toBe(5); // capped from 8 to 5
   });
 });

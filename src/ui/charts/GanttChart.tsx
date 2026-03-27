@@ -229,6 +229,8 @@ export function GanttChart({
     leftMargin: ra.leftMargin,
     rowHeight: ra.rowHeight,
     barHeight: ra.barHeight,
+    fitToWindow: ra.fitToWindow,
+    timelineDensityPx: ra.timelineDensityPx,
   });
   const {
     chartWidth, chartHeight, chartAreaWidth, topMargin,
@@ -431,7 +433,7 @@ export function GanttChart({
       </div>
 
       {/* Chart SVG — horizontally scrollable */}
-      <div ref={svgContainerRef} className="relative overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div ref={svgContainerRef} className={`relative border border-gray-200 dark:border-gray-700 rounded-lg${ra.fitToWindow ? "" : " overflow-x-auto"}`}>
         <svg
           width={chartWidth}
           height={chartHeight}
@@ -488,10 +490,12 @@ export function GanttChart({
           {/* Tick labels (only where spacing permits) */}
           {ticks.map((tick, i) => {
             const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
+            const hasYear = tick.label.includes("'") || /^\d{4}$/.test(tick.label);
             return (
               <text key={`label-${i}`}
                 x={x} y={topMargin - 8}
                 textAnchor="middle" fontSize="11" fill={c.textMuted}
+                fontWeight={hasYear ? "bold" : undefined}
               >
                 {tick.label}
               </text>

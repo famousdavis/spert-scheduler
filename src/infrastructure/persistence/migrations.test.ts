@@ -954,7 +954,52 @@ describe("applyMigrations", () => {
     expect(result.ganttAppearance).toBeUndefined();
   });
 
-  it("v1→v18: full sequential migration", () => {
+  // -- v18 → v19: fitToWindow on GanttAppearanceSettings -----------------------
+
+  it("v18→v19: bumps schema version when no ganttAppearance exists", () => {
+    const data = { schemaVersion: 18, scenarios: [] };
+    const result = applyMigrations(data, 18, 19) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(19);
+    expect(result.ganttAppearance).toBeUndefined();
+  });
+
+  it("v18→v19: sets fitToWindow false on existing ganttAppearance", () => {
+    const data = {
+      schemaVersion: 18,
+      ganttAppearance: {
+        nameColumnWidth: "normal",
+        activityFontSize: "normal",
+        rowDensity: "normal",
+        barLabel: "duration",
+        colorPreset: "classic",
+        weekendShading: true,
+      },
+      scenarios: [],
+    };
+    const result = applyMigrations(data, 18, 19) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(19);
+    const ga = result.ganttAppearance as Record<string, unknown>;
+    expect(ga.fitToWindow).toBe(false);
+    expect(ga.weekendShading).toBe(true);
+    expect(ga.nameColumnWidth).toBe("normal");
+  });
+
+  it("v18→v19: does not overwrite existing fitToWindow value", () => {
+    const data = {
+      schemaVersion: 18,
+      ganttAppearance: {
+        nameColumnWidth: "wide",
+        fitToWindow: true,
+      },
+      scenarios: [],
+    };
+    const result = applyMigrations(data, 18, 19) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(19);
+    const ga = result.ganttAppearance as Record<string, unknown>;
+    expect(ga.fitToWindow).toBe(true);
+  });
+
+  it("v1→v19: full sequential migration", () => {
     const v1Data = {
       schemaVersion: 1,
       scenarios: [
@@ -968,8 +1013,8 @@ describe("applyMigrations", () => {
       },
     };
 
-    const result = applyMigrations(v1Data, 1, 18) as Record<string, unknown>;
-    expect(result.schemaVersion).toBe(18);
+    const result = applyMigrations(v1Data, 1, 19) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(19);
     expect(result.targetFinishDate).toBe(null);
     expect(result.showTargetOnGantt).toBe(false);
   });

@@ -7,9 +7,10 @@ import type { Activity, Milestone } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
 import {
   RIGHT_MARGIN, TOP_MARGIN,
-  MIN_CHART_WIDTH, MIN_TICK_SPACING_PX, PROJECT_NAME_HEIGHT,
+  MIN_CHART_WIDTH, MIN_TICK_SPACING_PX, TODAY_PROXIMITY_PX, PROJECT_NAME_HEIGHT,
 } from "@ui/charts/gantt-constants";
 import { dateToX, generateTicks } from "@ui/charts/gantt-utils";
+import type { TickLevel } from "@ui/charts/gantt-utils";
 
 export interface GanttLayout {
   chartWidth: number;
@@ -45,6 +46,8 @@ interface UseGanttLayoutArgs {
   leftMargin: number;
   rowHeight: number;
   barHeight: number;
+  fitToWindow?: boolean;
+  timelineDensityPx?: number;
 }
 
 export function useGanttLayout({
@@ -61,6 +64,8 @@ export function useGanttLayout({
   leftMargin,
   rowHeight,
   barHeight,
+  fitToWindow,
+  timelineDensityPx,
 }: UseGanttLayoutArgs): GanttLayout {
   // Measure container width for responsive chart sizing
   const [containerWidth, setContainerWidth] = useState(0);
@@ -92,9 +97,16 @@ export function useGanttLayout({
   const targetWidth = containerWidth > 0 ? containerWidth : MIN_CHART_WIDTH;
   const availableChartArea = targetWidth - leftMargin - RIGHT_MARGIN;
   const pxPerDay = calendarDays > 0 ? availableChartArea / calendarDays : 8;
-  const chartWidth = pxPerDay < MIN_PX_PER_DAY
-    ? leftMargin + RIGHT_MARGIN + Math.ceil(calendarDays * MIN_PX_PER_DAY)
-    : targetWidth;
+  let chartWidth: number;
+  if (fitToWindow) {
+    // Fit to Window: compress the full timeline into the container.
+    // Bypasses MIN_PX_PER_DAY floor — no horizontal scroll.
+    chartWidth = targetWidth;
+  } else {
+    chartWidth = pxPerDay < MIN_PX_PER_DAY
+      ? leftMargin + RIGHT_MARGIN + Math.ceil(calendarDays * MIN_PX_PER_DAY)
+      : targetWidth;
+  }
   const chartAreaWidth = chartWidth - leftMargin - RIGHT_MARGIN;
 
   // Finish line
@@ -118,24 +130,42 @@ export function useGanttLayout({
     ? dateToX(todayStr, minTimestamp, dateRange, chartAreaWidth, leftMargin)
     : null;
 
+  // Compute tick level — direct mapping for ranges >540 days
+  const rangeDays = calendarDays;
+  const densityPx = timelineDensityPx ?? MIN_TICK_SPACING_PX;
+  const tickLevel: TickLevel | undefined = useMemo(() => {
+    if (rangeDays <= 540) return undefined; // auto-select in generateTicks
+    // Dense = monthly, Normal = quarterly, Sparse = semiannual
+    if (densityPx <= 50) return "monthly";
+    if (densityPx >= 90) return "semiannual";
+    return "quarterly";
+  }, [rangeDays, densityPx]);
+
   // Generate ticks with collision suppression
   const allTicks = useMemo(
-    () => generateTicks(projectStartDate, furthestDate),
-    [projectStartDate, furthestDate],
+    () => generateTicks(projectStartDate, furthestDate, tickLevel),
+    [projectStartDate, furthestDate, tickLevel],
   );
   const ticks = useMemo(() => {
     if (allTicks.length === 0 || dateRange === 0) return allTicks;
     const filtered: typeof allTicks = [];
     let lastX = -Infinity;
-    for (const tick of allTicks) {
+    const MIN_LABEL_PX = 40;
+    for (let i = 0; i < allTicks.length; i++) {
+      const tick = allTicks[i]!;
       const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth, leftMargin);
-      if (Math.abs(x - finishX) < MIN_TICK_SPACING_PX * 1.5) continue;
-      if (milestoneXPositions.some((mx) => Math.abs(x - mx) < MIN_TICK_SPACING_PX)) continue;
-      if (todayX !== null && Math.abs(x - todayX) < MIN_TICK_SPACING_PX) continue;
-      if (x - lastX >= MIN_TICK_SPACING_PX) {
-        filtered.push(tick);
-        lastX = x;
+      // Today proximity — checked for ALL ticks including the first.
+      // Today's label already shows the full date and year; suppress any
+      // tick that would crowd it regardless of its position in the sequence.
+      if (todayX !== null && Math.abs(x - todayX) < TODAY_PROXIMITY_PX) continue;
+      // Remaining checks — first tick is exempt to preserve year indicator
+      if (i > 0) {
+        if (Math.abs(x - finishX) < MIN_LABEL_PX) continue;
+        if (milestoneXPositions.some((mx) => Math.abs(x - mx) < MIN_LABEL_PX)) continue;
+        if (x - lastX < MIN_LABEL_PX) continue;
       }
+      filtered.push(tick);
+      lastX = x;
     }
     return filtered;
   }, [allTicks, minTimestamp, dateRange, chartAreaWidth, leftMargin, finishX, milestoneXPositions, todayX]);

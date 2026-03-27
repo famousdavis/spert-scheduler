@@ -12,6 +12,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.32.0",
+    date: "2026-03-27",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Gantt chart Fit to Window toggle: compresses the full project timeline into the visible container width with no horizontal scrolling. Enables the copy-image button to capture the complete chart for presentations.",
+          "Gantt chart Timeline Labels control (Sparse / Normal / Dense): directly selects tick granularity for multi-year projects. Dense = monthly, Normal = quarterly (Q1-Q4), Sparse = semi-annual (H1/H2). Works with or without Fit to Window.",
+        ],
+      },
+      {
+        title: "Enhancements",
+        items: [
+          "Quarterly and semi-annual tick labels show year on first tick and year-change boundaries (e.g. Q2 '26, Q3, Q4, Q1 '27).",
+          "Year-carrying tick labels render in bold for easy year-break identification.",
+          "Today line proximity suppression prevents tick labels from crowding the Today date label.",
+          "Print chart parity for all tick density, bold year labels, and collision suppression changes.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Schema version 18 → 19 (migration adds fitToWindow to Gantt appearance settings).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.31.0",
     date: "2026-03-27",
     sections: [

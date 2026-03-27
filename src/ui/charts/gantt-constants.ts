@@ -15,6 +15,13 @@ export const BAR_RADIUS = 4;
 export const MIN_CHART_WIDTH = 900;
 export const ARROW_HEAD_SIZE = 10;
 export const MIN_TICK_SPACING_PX = 70;
+/** Minimum pixel distance between a tick label and the Today line label.
+ *  Applied to ALL ticks including the first (unlike other suppression checks).
+ *  Today's label is prominent (two lines: name + date) and already provides
+ *  year context, so nearby ticks are suppressed more aggressively.
+ *  60px is chosen to suppress at most one quarterly tick at typical spacing
+ *  (~59px apart), avoiding suppression of ticks on both sides of Today. */
+export const TODAY_PROXIMITY_PX = 60;
 export const PROJECT_NAME_HEIGHT = 28;
 
 // --- Print Gantt layout constants ---
@@ -182,6 +189,10 @@ export interface ResolvedGanttAppearance {
   // Weekend shading
   weekendShading: boolean;
   shadingColor: string;
+  // Fit to window
+  fitToWindow: boolean;
+  // Timeline label density — pixel threshold for tick level selection
+  timelineDensityPx: number;
 }
 
 /**
@@ -264,5 +275,7 @@ export function resolveGanttAppearance(
     printBarLabelFontSize,
     weekendShading: s.weekendShading,
     shadingColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+    fitToWindow: s.fitToWindow ?? false,
+    timelineDensityPx: ({ sparse: 90, normal: 70, dense: 50 } as const)[s.timelineDensity ?? "normal"],
   };
 }

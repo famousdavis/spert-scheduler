@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.32.0 — 2026-03-27
+
+### New Features
+
+- Gantt chart **Fit to Window** toggle: compresses the full project timeline into the visible container width with no horizontal scrolling. Enables the copy-image button to capture the complete chart — including multi-year programs — for presentations.
+- Gantt chart **Timeline Labels** control (Sparse / Normal / Dense): directly selects tick granularity for multi-year projects (>540 days). Dense shows monthly ticks, Normal shows quarterly (Q1–Q4), Sparse shows semi-annual (H1/H2). Works with or without Fit to Window.
+
+### Enhancements
+
+- Quarterly tick labels follow the `monthTickLabel` pattern: year shown on first tick and year-change boundaries only (e.g. "Q2 '26", "Q3", "Q4", "Q1 '27").
+- Semi-annual tick labels: "H1 '26", "H2", "H1 '27" etc., with year on first tick and year boundaries.
+- Year-carrying tick labels (e.g. "Q1 '27", "H1 '28", "Jan '26") render in **bold** for easy year-break identification.
+- Today line proximity suppression: ticks within 60px of the Today line are suppressed for all ticks (including the first) since Today's label already shows the full date and year. Other chart elements (finish line, milestones) use a tighter 40px threshold.
+- Print chart parity: all tick density, bold year labels, and collision suppression changes mirrored in PrintGanttChart.
+
+### Internal
+
+- Schema version 18 → 19 (migration adds `fitToWindow` to existing Gantt appearance settings; `timelineDensity` is optional — no additional migration needed).
+- New exports in `gantt-utils.ts`: `quarterlyTickLabel`, `semiannualTickLabel`, `countQuarterlyTicks`, `countSemiannualTicks`.
+- New constant `TODAY_PROXIMITY_PX` (60px) in `gantt-constants.ts` for Today-specific tick suppression.
+- `generateTicks` accepts optional `tickLevel` parameter; `TickLevel` type extended with `"semiannual"`.
+- Collision suppression decoupled: tick-to-tick uses 40px minimum, Today proximity uses 60px, density setting controls only tick level selection.
+
 ## 0.31.0 — 2026-03-27
 
 ### New Features

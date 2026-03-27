@@ -173,6 +173,28 @@ export function GanttAppearancePanel({
           value={appearance.barLabel}
           onChange={(v) => update({ barLabel: v })}
         />
+        <SegmentedControl
+          label="Timeline Labels"
+          options={[
+            { value: "sparse" as const, label: "Sparse" },
+            { value: "normal" as const, label: "Normal" },
+            { value: "dense" as const, label: "Dense" },
+          ]}
+          value={appearance.timelineDensity ?? "normal"}
+          onChange={(v) => update({ timelineDensity: v })}
+        />
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-gray-500 dark:text-gray-400">Layout</span>
+          <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={appearance.fitToWindow}
+              onChange={(e) => update({ fitToWindow: e.target.checked })}
+              className="rounded"
+            />
+            Fit to window
+          </label>
+        </div>
         <div className="flex flex-col gap-1">
           <span className="text-xs text-gray-500 dark:text-gray-400">Shading</span>
           <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
