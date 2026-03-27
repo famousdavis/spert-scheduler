@@ -79,6 +79,7 @@ export function ProjectPage() {
     updateProjectField,
     updateGanttAppearance,
     updateScenarioNotes,
+    reorderScenarios,
   } = useProjectStore(
     useShallow((s) => ({
       projects: s.projects,
@@ -114,6 +115,7 @@ export function ProjectPage() {
       updateProjectField: s.updateProjectField,
       updateGanttAppearance: s.updateGanttAppearance,
       updateScenarioNotes: s.updateScenarioNotes,
+      reorderScenarios: s.reorderScenarios,
     }))
   );
 
@@ -498,6 +500,7 @@ export function ProjectPage() {
           onDelete={handleDeleteScenario}
           onRename={(scenarioId, name) => renameScenario(id!, scenarioId, name)}
           onToggleLock={(scenarioId) => toggleScenarioLock(id!, scenarioId)}
+          onReorder={(from, to) => reorderScenarios(id!, from, to)}
           compareMode={compareMode}
           selectedForCompare={selectedForCompare}
           onToggleCompare={handleToggleCompare}
