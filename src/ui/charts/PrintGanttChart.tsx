@@ -21,7 +21,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, buildOrderedActivities, generateTicks, longDateLabel } from "./gantt-utils";
+import { dateToX, buildOrderedActivities, generateTicks, longDateLabel, computeWeekendShadingRects } from "./gantt-utils";
 
 export interface PrintGanttChartProps {
   activities: Activity[];
@@ -170,40 +170,14 @@ export function PrintGanttChart({
   const weekendShadingRects = useMemo(() => {
     if (!ra.weekendShading || range === 0) return [];
     if (!calendar || !('isWorkDay' in calendar)) return [];
-    const cal = calendar as WorkCalendar;
     // Skip when day width is too small for print
     const dayWidth = areaW / (range / (1000 * 60 * 60 * 24));
     if (dayWidth < 1.5) return [];
-
-    const rects: { x: number; width: number }[] = [];
-    const start = new Date(projectStartDate + "T00:00:00");
-    const end = new Date(endDate + "T00:00:00");
-    const oneDay = 1000 * 60 * 60 * 24;
-    let d = new Date(start);
-    let spanStart: Date | null = null;
-
-    while (d <= end) {
-      const iso = formatDateISO(d);
-      if (!cal.isWorkDay(d)) {
-        if (!spanStart) spanStart = new Date(d);
-      } else {
-        if (spanStart) {
-          const x1 = toX(formatDateISO(spanStart));
-          const x2 = toX(iso);
-          if (x2 - x1 >= 0.5) rects.push({ x: x1, width: x2 - x1 });
-          spanStart = null;
-        }
-      }
-      d = new Date(d.getTime() + oneDay);
-    }
-    if (spanStart) {
-      const x1 = toX(formatDateISO(spanStart));
-      const endNext = new Date(end.getTime() + oneDay);
-      const x2 = toX(formatDateISO(endNext));
-      if (x2 - x1 >= 0.5) rects.push({ x: x1, width: x2 - x1 });
-    }
-    return rects;
-  }, [ra.weekendShading, range, calendar, projectStartDate, endDate, toX, areaW]);
+    return computeWeekendShadingRects(
+      calendar as WorkCalendar, projectStartDate, endDate,
+      minTs, range, areaW, ra.printLeftMargin, 0.5,
+    );
+  }, [ra.weekendShading, range, calendar, projectStartDate, endDate, minTs, areaW, ra.printLeftMargin]);
 
   // Bar label helper
   const barLabelText = useCallback((sa: ScheduledActivity): string | null => {
@@ -391,7 +365,7 @@ export function PrintGanttChart({
               <path d={path} stroke={arrowColor} strokeWidth="1" fill="none" markerEnd={arrowMarker} />
               {dep.lagDays !== 0 && (
                 <text x={(barEndX + toStartX) / 2} y={(fromY + toY) / 2 - 2}
-                  textAnchor="middle" fontSize="4" fill={arrowColor} fontWeight="600">
+                  textAnchor="middle" fontSize={fs4} fill={arrowColor} fontWeight="600">
                   {dep.lagDays > 0 ? "+" : ""}{dep.lagDays}d
                 </text>
               )}

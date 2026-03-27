@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Activity, ActivityDependency } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { formatDateISO } from "@core/calendar/calendar";
 
 export const MONTH_ABBR = [
@@ -104,6 +105,54 @@ export function generateTicks(
   }
 
   return ticks;
+}
+
+/**
+ * Compute coalesced non-work-day shading rectangles for the Gantt chart.
+ * Iterates the visible date range, groups consecutive non-work days into
+ * single spans, and converts each span to an {x, width} pair in chart
+ * coordinates. Spans narrower than minRectWidth (default 1px) are dropped.
+ */
+export function computeWeekendShadingRects(
+  calendar: WorkCalendar,
+  projectStartDate: string,
+  furthestDate: string,
+  minTimestamp: number,
+  dateRange: number,
+  chartAreaWidth: number,
+  leftMargin: number,
+  minRectWidth = 1,
+): { x: number; width: number }[] {
+  if (dateRange === 0) return [];
+  const rects: { x: number; width: number }[] = [];
+  const start = new Date(projectStartDate + "T00:00:00");
+  const end = new Date(furthestDate + "T00:00:00");
+  const oneDay = 1000 * 60 * 60 * 24;
+  let d = new Date(start);
+  let spanStart: Date | null = null;
+
+  while (d <= end) {
+    const iso = formatDateISO(d);
+    if (!calendar.isWorkDay(d)) {
+      if (!spanStart) spanStart = new Date(d);
+    } else {
+      if (spanStart) {
+        const x1 = dateToX(formatDateISO(spanStart), minTimestamp, dateRange, chartAreaWidth, leftMargin);
+        const x2 = dateToX(iso, minTimestamp, dateRange, chartAreaWidth, leftMargin);
+        if (x2 - x1 >= minRectWidth) rects.push({ x: x1, width: x2 - x1 });
+        spanStart = null;
+      }
+    }
+    d = new Date(d.getTime() + oneDay);
+  }
+  // Close trailing span
+  if (spanStart) {
+    const x1 = dateToX(formatDateISO(spanStart), minTimestamp, dateRange, chartAreaWidth, leftMargin);
+    const endNext = new Date(end.getTime() + oneDay);
+    const x2 = dateToX(formatDateISO(endNext), minTimestamp, dateRange, chartAreaWidth, leftMargin);
+    if (x2 - x1 >= minRectWidth) rects.push({ x: x1, width: x2 - x1 });
+  }
+  return rects;
 }
 
 /**

@@ -12,6 +12,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.30.1",
+    date: "2026-03-26",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Fixed activity name overflow at larger font sizes: character limits now scale inversely with font size.",
+          "Fixed small font size mapping (was 10px, now 11px as designed).",
+          "Fixed comfortable row density dimensions (rowHeight 42→44px, printRowHeight 24→25px).",
+          "Fixed print Gantt dependency lag label using hardcoded font size instead of scaled value.",
+        ],
+      },
+      {
+        title: "Refactoring",
+        items: [
+          "Extracted weekend shading computation to shared computeWeekendShadingRects() pure function in gantt-utils.ts.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.30.0",
     date: "2026-03-26",
     sections: [

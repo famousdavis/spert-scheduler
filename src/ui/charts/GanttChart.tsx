@@ -28,7 +28,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
 } from "./gantt-constants";
 import {
-  dateToX, longDateLabel, buildOrderedActivities,
+  dateToX, longDateLabel, buildOrderedActivities, computeWeekendShadingRects,
 } from "./gantt-utils";
 import { GanttSvgDefs } from "./GanttSvgDefs";
 import { GanttLegend } from "./GanttLegend";
@@ -297,39 +297,11 @@ export function GanttChart({
   // Weekend / non-work day shading rects (coalesced consecutive days)
   const weekendShadingRects = useMemo(() => {
     if (!ra.weekendShading || dateRange === 0) return [];
-    // Need a calendar with isWorkDay
     if (!calendar || !('isWorkDay' in calendar)) return [];
-    const cal = calendar as WorkCalendar;
-
-    const rects: { x: number; width: number }[] = [];
-    const start = new Date(projectStartDate + "T00:00:00");
-    const end = new Date(furthestDate + "T00:00:00");
-    const oneDay = 1000 * 60 * 60 * 24;
-    let d = new Date(start);
-    let spanStart: Date | null = null;
-
-    while (d <= end) {
-      const iso = formatDateISO(d);
-      if (!cal.isWorkDay(d)) {
-        if (!spanStart) spanStart = new Date(d);
-      } else {
-        if (spanStart) {
-          const x1 = dateToX(formatDateISO(spanStart), minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
-          const x2 = dateToX(iso, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
-          if (x2 - x1 >= 1) rects.push({ x: x1, width: x2 - x1 });
-          spanStart = null;
-        }
-      }
-      d = new Date(d.getTime() + oneDay);
-    }
-    // Close trailing span
-    if (spanStart) {
-      const x1 = dateToX(formatDateISO(spanStart), minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
-      const endNext = new Date(end.getTime() + oneDay);
-      const x2 = dateToX(formatDateISO(endNext), minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
-      if (x2 - x1 >= 1) rects.push({ x: x1, width: x2 - x1 });
-    }
-    return rects;
+    return computeWeekendShadingRects(
+      calendar as WorkCalendar, projectStartDate, furthestDate,
+      minTimestamp, dateRange, chartAreaWidth, ra.leftMargin,
+    );
   }, [ra.weekendShading, ra.leftMargin, dateRange, calendar, projectStartDate, furthestDate, minTimestamp, chartAreaWidth]);
 
   // Bar label helper
