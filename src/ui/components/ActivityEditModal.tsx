@@ -26,13 +26,14 @@ import {
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { parseDateISO, isWorkingDay, formatDateISO } from "@core/calendar/calendar";
+import { parseDateISO, isWorkingDay, formatDateISO, countWorkingDays, activityEndDate } from "@core/calendar/calendar";
 import { detectConstraintConflict } from "@core/schedule/constraint-utils";
 import { distributionLabel, statusLabel, dependencyLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { ChecklistSection } from "@ui/components/ChecklistSection";
 import { DeliverablesSection } from "@ui/components/DeliverablesSection";
 import { computeHeuristic } from "@core/estimation/heuristic";
+import { computeElapsedDays } from "./activity-row-helpers";
 
 interface ActivityEditModalProps {
   activityId: string;
@@ -133,10 +134,34 @@ export function ActivityEditModal({
   const calendar = useWorkCalendar(projectId);
   const formatDate = useDateFormat();
 
+  // Computed before state declarations — needed for actualFinishDate initializer
+  const sa = schedule?.activities.find((a) => a.activityId === activityId);
+  const scheduledStartDate = sa?.startDate ?? null;
+
   // -- Local draft state: General --
   const [name, setName] = useState(activity?.name ?? "");
   const [status, setStatus] = useState<ActivityStatus>(activity?.status ?? "planned");
   const [actualDuration, setActualDuration] = useState<number | "">(activity?.actualDuration ?? "");
+
+  // Actual finish date — ephemeral UI state only, never persisted.
+  // Back-calculated from actualDuration on mount when all prerequisites are present.
+  // Two pieces of state: `actualFinishDate` is the raw input value (updates on every keystroke),
+  // `committedFinishDate` is the post-blur validated value (used for error display).
+  const [actualFinishDate, setActualFinishDate] = useState<string>(() => {
+    if (
+      activity?.status !== "complete" ||
+      activity?.actualDuration == null ||
+      !scheduledStartDate
+    ) {
+      return "";
+    }
+    // activityEndDate(start, duration) = addWorkingDays(start, duration - 1)
+    // The PM convention (start day = day 1) is encapsulated inside activityEndDate.
+    return formatDateISO(
+      activityEndDate(parseDateISO(scheduledStartDate), activity.actualDuration, calendar)
+    );
+  });
+  const [committedFinishDate, setCommittedFinishDate] = useState(actualFinishDate);
 
   // -- Local draft state: Estimates --
   const [min, setMin] = useState<number | "">(activity?.min ?? "");
@@ -270,6 +295,77 @@ export function ActivityEditModal({
     [calendar, formatDate]
   );
 
+  // -- Actual finish date → duration (bidirectional sync) --
+  // onChange buffers the raw value; onBlur runs snapping + duration computation.
+  // This prevents computation errors from intermediate partial dates when typing.
+  const handleActualFinishDateChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setActualFinishDate(e.target.value);
+    },
+    []
+  );
+
+  const handleActualFinishDateBlur = useCallback(
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      if (!raw || !scheduledStartDate) {
+        setActualFinishDate("");
+        setCommittedFinishDate("");
+        return;
+      }
+
+      // Snap non-working days forward — same pattern as constraint date handler
+      const date = parseDateISO(raw);
+      let guard = 0;
+      while (!isWorkingDay(date, calendar) && guard < 10000) {
+        date.setDate(date.getDate() + 1);
+        guard++;
+      }
+      const snapped = formatDateISO(date);
+      setActualFinishDate(snapped);
+      setCommittedFinishDate(snapped);
+
+      // Validate: finish must not precede scheduled start
+      if (snapped < scheduledStartDate) return;
+
+      // The + 1 corrects for countWorkingDays being exclusive of the end date,
+      // combined with the PM convention that the start day counts as day 1.
+      // Example: start=Monday, finish=Friday → countWorkingDays=4 → duration=5. ✓
+      // Round-trip: activityEndDate(Monday, 5) = addWorkingDays(Monday, 4) = Friday. ✓
+      const computed =
+        countWorkingDays(parseDateISO(scheduledStartDate), date, calendar) + 1;
+      setActualDuration(Math.max(1, computed));
+    },
+    [scheduledStartDate, calendar]
+  );
+
+  // -- Actual duration → finish date (bidirectional sync) --
+  const handleActualDurationChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      if (raw === "") {
+        setActualDuration("");
+        setActualFinishDate("");
+        setCommittedFinishDate("");
+        return;
+      }
+      const val = Number(raw);
+      setActualDuration(val);
+      if (!scheduledStartDate || val < 1) {
+        setActualFinishDate("");
+        setCommittedFinishDate("");
+        return;
+      }
+      // activityEndDate encapsulates the PM convention; no adjustment needed here.
+      const computed = formatDateISO(
+        activityEndDate(parseDateISO(scheduledStartDate), val, calendar)
+      );
+      setActualFinishDate(computed);
+      setCommittedFinishDate(computed);
+    },
+    [scheduledStartDate, calendar]
+  );
+
   // -- Type change: auto-set mode to "hard" if first selection --
   const handleTypeChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -301,10 +397,14 @@ export function ActivityEditModal({
     // General
     if (name.trim() && name.trim() !== activity.name) updates.name = name.trim();
     if (status !== activity.status) updates.status = status;
-    if (status === "complete" && actualDuration !== "" && actualDuration !== activity.actualDuration) {
-      updates.actualDuration = Number(actualDuration);
+    if (status === "complete" || status === "inProgress") {
+      if (actualDuration !== "" && actualDuration !== activity.actualDuration) {
+        updates.actualDuration = Number(actualDuration);
+      }
+    } else {
+      // Planned — clear actualDuration
+      updates.actualDuration = undefined;
     }
-    if (status !== "complete") updates.actualDuration = undefined;
 
     // Estimates
     if (min !== "" && Number(min) !== activity.min) updates.min = Number(min);
@@ -408,7 +508,7 @@ export function ActivityEditModal({
     if (!activity) return false;
     if (name.trim() !== activity.name) return true;
     if (status !== activity.status) return true;
-    if (status === "complete" && actualDuration !== "" && actualDuration !== activity.actualDuration) return true;
+    if ((status === "complete" || status === "inProgress") && actualDuration !== "" && actualDuration !== activity.actualDuration) return true;
     if (min !== "" && Number(min) !== activity.min) return true;
     if (mostLikely !== "" && Number(mostLikely) !== activity.mostLikely) return true;
     if (max !== "" && Number(max) !== activity.max) return true;
@@ -439,9 +539,6 @@ export function ActivityEditModal({
 
   if (!activity) return null;
 
-  // Scheduled dates for context display
-  const sa = schedule?.activities.find((a) => a.activityId === activityId);
-
   return (
     <Dialog.Root open onOpenChange={(open) => { if (!open) handleDismiss(); }}>
       <Dialog.Portal>
@@ -450,14 +547,6 @@ export function ActivityEditModal({
           <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Edit Activity
           </Dialog.Title>
-
-          {/* Scheduled dates context (sequential mode only — dependency mode uses Schedule Analysis section) */}
-          {sa && !dependencyMode && (
-            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex gap-4">
-              <span>Start: {formatDate(sa.startDate)}</span>
-              <span>End: {formatDate(sa.endDate)}</span>
-            </div>
-          )}
 
           <div className="mt-3 space-y-0">
             {/* ── Section 1: General ── */}
@@ -482,7 +571,21 @@ export function ActivityEditModal({
                   </label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as ActivityStatus)}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as ActivityStatus;
+                      setStatus(newStatus);
+                      if (newStatus === "inProgress" && scheduledStartDate && actualDuration === "") {
+                        // Mirror grid behavior: compute elapsed on transition to inProgress
+                        setActualDuration(
+                          computeElapsedDays(scheduledStartDate, calendar ?? undefined)
+                        );
+                      }
+                      if (newStatus === "planned") {
+                        setActualDuration("");
+                        setActualFinishDate("");
+                        setCommittedFinishDate("");
+                      }
+                    }}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     {ACTIVITY_STATUSES.map((s) => (
@@ -493,25 +596,86 @@ export function ActivityEditModal({
                   </select>
                 </div>
               </div>
-              {/* Actual Duration (only when complete) */}
-              {status === "complete" && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Actual Duration (working days)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={actualDuration}
-                    onChange={(e) => setActualDuration(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
-                  />
+              {/* Schedule context + Actual Duration/Finish (visible when schedule exists) */}
+              {scheduledStartDate && (
+                <div className={`grid gap-3 ${status === "complete" ? "grid-cols-4" : "grid-cols-3"}`}>
+                  {/* Col 1: Scheduled Finish (display only — always) */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Sched. Finish
+                    </label>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
+                      {formatDate(sa!.endDate)}
+                    </p>
+                  </div>
+
+                  {/* Col 2: Scheduled Duration (display only — always) */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Sched. Duration
+                    </label>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
+                      {sa!.duration}d
+                    </p>
+                  </div>
+
+                  {/* Col 3: Actual Duration — disabled for planned, editable for inProgress + complete */}
+                  <div title={
+                    status === "planned"
+                      ? "Set status to In Progress or Complete to enter actual duration"
+                      : status === "inProgress"
+                        ? "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials."
+                        : "Total working days from scheduled start to actual finish"
+                  }>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Actual Duration
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={actualDuration}
+                      placeholder={status === "inProgress" ? "Elapsed" : undefined}
+                      onChange={
+                        status === "complete"
+                          ? handleActualDurationChange
+                          : (e) => setActualDuration(e.target.value === "" ? "" : Number(e.target.value))
+                      }
+                      disabled={status === "planned"}
+                      className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  {/* Col 4: Actual Finish Date — complete only */}
+                  {status === "complete" && (
+                    <div title="Entering a date auto-calculates duration; entering a duration auto-calculates this date">
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Actual Finish
+                      </label>
+                      <input
+                        type="date"
+                        value={actualFinishDate}
+                        onChange={handleActualFinishDateChange}
+                        onBlur={handleActualFinishDateBlur}
+                        min={scheduledStartDate}
+                        className={`w-full text-sm border rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none ${
+                          committedFinishDate && committedFinishDate < scheduledStartDate
+                            ? "border-red-400 dark:border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                      />
+                      {committedFinishDate && committedFinishDate < scheduledStartDate && (
+                        <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+                          Finish date cannot be before the scheduled start.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </Section>
 
             {/* ── Section 2: Estimates ── */}
-            <Section title="Estimates" defaultOpen>
+            <Section title="Estimates" defaultOpen={false}>
               <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 1fr 1fr 2fr 2fr" }}>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">

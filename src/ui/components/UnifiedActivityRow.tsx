@@ -583,6 +583,10 @@ export function UnifiedActivityRow({
             data-row-id={activity.id}
             data-field="actual"
             type="number"
+            title={isInProgress
+              ? "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials."
+              : "Total working days from scheduled start to actual finish"
+            }
             defaultValue={activity.actualDuration ?? ""}
             key={`${activity.id}-actual-${activity.status}-${activity.actualDuration ?? "empty"}`}
             onFocus={(e) => e.target.select()}
