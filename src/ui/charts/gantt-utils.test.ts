@@ -11,6 +11,7 @@ import {
   generateTicks,
   monthTickLabel,
   buildOrderedActivities,
+  computeWeekendShadingRects,
 } from "./gantt-utils";
 import {
   LEFT_MARGIN, ROW_HEIGHT, BAR_HEIGHT, BAR_Y_OFFSET,
@@ -306,13 +307,15 @@ describe("resolveGanttAppearance", () => {
 
   it("comfortable row density produces larger dimensions", () => {
     const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "comfortable", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
-    expect(ra.rowHeight).toBe(42);
+    expect(ra.rowHeight).toBe(44);
     expect(ra.barHeight).toBe(30);
-    expect(ra.barYOffset).toBe(6);
+    expect(ra.barYOffset).toBe(7);
+    expect(ra.printRowHeight).toBe(25);
+    expect(ra.printBarHeight).toBe(17);
   });
 
   it("all font sizes map correctly", () => {
-    const sizes = { small: 10, normal: 12, large: 14, xl: 16 } as const;
+    const sizes = { small: 11, normal: 12, large: 14, xl: 16 } as const;
     for (const [key, expected] of Object.entries(sizes)) {
       const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: key as "small" | "normal" | "large" | "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
       expect(ra.nameFontSize).toBe(expected);
@@ -345,5 +348,81 @@ describe("resolveGanttAppearance", () => {
     const light = resolveGanttAppearance(undefined, false);
     const dark = resolveGanttAppearance(undefined, true);
     expect(light.shadingColor).not.toBe(dark.shadingColor);
+  });
+
+  it("nameCharLimit scales inversely with font size", () => {
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    // normal: 38 * 12/12 = 38, xl: 38 * 12/16 = 28
+    expect(normal.nameCharLimit).toBe(38);
+    expect(xl.nameCharLimit).toBe(28);
+    expect(xl.nameCharLimit).toBeLessThan(normal.nameCharLimit);
+  });
+
+  it("printNameCharLimit scales inversely with font size", () => {
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    // normal: 26 * 12/12 = 26, large: 26 * 12/14 = 22
+    expect(normal.printNameCharLimit).toBe(26);
+    expect(large.printNameCharLimit).toBe(22);
+  });
+
+  it("narrow + XL font produces reduced char limits", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "narrow", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    // narrow base: 24, XL scale: 24 * 12/16 = 18
+    expect(ra.nameCharLimit).toBe(18);
+    expect(ra.leftMargin).toBe(180);
+  });
+});
+
+// -- computeWeekendShadingRects -----------------------------------------------
+
+describe("computeWeekendShadingRects", () => {
+  // Simple mock calendar: weekdays are work days, weekends are not
+  const mockCalendar = {
+    isWorkDay(d: Date) {
+      const day = d.getDay();
+      return day !== 0 && day !== 6; // Mon-Fri
+    },
+    nextWorkDay(d: Date) {
+      const next = new Date(d);
+      do { next.setDate(next.getDate() + 1); } while (!this.isWorkDay(next));
+      return next;
+    },
+    addWorkDays(d: Date, n: number) {
+      const result = new Date(d);
+      let remaining = n;
+      while (remaining > 0) { result.setDate(result.getDate() + 1); if (this.isWorkDay(result)) remaining--; }
+      return result;
+    },
+  };
+
+  it("returns empty array when dateRange is 0", () => {
+    const rects = computeWeekendShadingRects(mockCalendar, "2026-03-01", "2026-03-01", 0, 0, 600, 260);
+    expect(rects).toEqual([]);
+  });
+
+  it("coalesces consecutive non-work days into single rects", () => {
+    // Mon Mar 2 to Sun Mar 8, 2026 — Sat+Sun (7-8) are one span
+    const start = "2026-03-02";
+    const end = "2026-03-08";
+    const minTs = new Date(start + "T00:00:00").getTime();
+    const maxTs = new Date(end + "T00:00:00").getTime();
+    const rects = computeWeekendShadingRects(mockCalendar, start, end, minTs, maxTs - minTs, 600, 0);
+    // Should have exactly 1 rect for Sat-Sun
+    expect(rects.length).toBe(1);
+    expect(rects[0]!.width).toBeGreaterThan(0);
+  });
+
+  it("respects custom minRectWidth parameter", () => {
+    // Very short range with tiny chart area → rects may be < 1px
+    const start = "2026-03-01";
+    const end = "2026-12-31";
+    const minTs = new Date(start + "T00:00:00").getTime();
+    const maxTs = new Date(end + "T00:00:00").getTime();
+    const rectsDefault = computeWeekendShadingRects(mockCalendar, start, end, minTs, maxTs - minTs, 10, 0);
+    const rectsSmall = computeWeekendShadingRects(mockCalendar, start, end, minTs, maxTs - minTs, 10, 0, 0.1);
+    // With smaller minRectWidth, should get at least as many rects
+    expect(rectsSmall.length).toBeGreaterThanOrEqual(rectsDefault.length);
   });
 });

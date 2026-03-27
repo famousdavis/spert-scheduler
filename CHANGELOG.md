@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.30.1 — 2026-03-26
+
+### Bug Fixes
+
+- Fixed activity name overflow at larger font sizes: `nameCharLimit` and `printNameCharLimit` now scale inversely with font size (`Math.floor(baseLimit * 12 / nameFontSize)`).
+- Fixed small font size mapping (was 10px, now 11px as designed).
+- Fixed comfortable row density dimensions (`rowHeight` 42→44px, `printRowHeight` 24→25px).
+- Fixed print Gantt dependency lag label using hardcoded `fontSize="4"` instead of scaled `fs4`.
+
+### Refactoring
+
+- Extracted weekend shading computation to shared `computeWeekendShadingRects()` pure function in `gantt-utils.ts` (used by both interactive and print Gantt charts).
+
 ## 0.30.0 — 2026-03-26
 
 ### New Features

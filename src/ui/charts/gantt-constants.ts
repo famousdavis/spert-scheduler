@@ -192,23 +192,26 @@ export function resolveGanttAppearance(
 ): ResolvedGanttAppearance {
   const s = settings ?? DEFAULT_GANTT_APPEARANCE;
 
-  // Name column width → leftMargin + charLimit
+  // Font size (resolve first — char limits depend on it)
+  const fontSizeMap = { small: 11, normal: 12, large: 14, xl: 16 } as const;
+  const nameFontSize = fontSizeMap[s.activityFontSize];
+
+  // Name column width → leftMargin + charLimit (base limits calibrated for 12px)
   const nameColumnMap = {
-    narrow:  { leftMargin: 180, nameCharLimit: 24, printLeftMargin: 120, printNameCharLimit: 18 },
-    normal:  { leftMargin: 260, nameCharLimit: 38, printLeftMargin: 170, printNameCharLimit: 26 },
-    wide:    { leftMargin: 360, nameCharLimit: 54, printLeftMargin: 230, printNameCharLimit: 36 },
+    narrow:  { leftMargin: 180, baseCharLimit: 24, printLeftMargin: 120, basePrintCharLimit: 18 },
+    normal:  { leftMargin: 260, baseCharLimit: 38, printLeftMargin: 170, basePrintCharLimit: 26 },
+    wide:    { leftMargin: 360, baseCharLimit: 54, printLeftMargin: 230, basePrintCharLimit: 36 },
   } as const;
   const col = nameColumnMap[s.nameColumnWidth];
-
-  // Font size
-  const fontSizeMap = { small: 10, normal: 12, large: 14, xl: 16 } as const;
-  const nameFontSize = fontSizeMap[s.activityFontSize];
+  const fontScale = 12 / nameFontSize;
+  const nameCharLimit = Math.floor(col.baseCharLimit * fontScale);
+  const printNameCharLimit = Math.floor(col.basePrintCharLimit * fontScale);
 
   // Row density
   const densityMap = {
     compact:     { rowHeight: 24, barHeight: 16 },
     normal:      { rowHeight: 32, barHeight: 22 },
-    comfortable: { rowHeight: 42, barHeight: 30 },
+    comfortable: { rowHeight: 44, barHeight: 30 },
   } as const;
   const density = densityMap[s.rowDensity];
 
@@ -216,7 +219,7 @@ export function resolveGanttAppearance(
   const printDensityMap = {
     compact:     { printRowHeight: 14, printBarHeight: 9 },
     normal:      { printRowHeight: 18, printBarHeight: 12 },
-    comfortable: { printRowHeight: 24, printBarHeight: 17 },
+    comfortable: { printRowHeight: 25, printBarHeight: 17 },
   } as const;
   const printDensity = printDensityMap[s.rowDensity];
 
@@ -231,13 +234,13 @@ export function resolveGanttAppearance(
 
   return {
     leftMargin: col.leftMargin,
-    nameCharLimit: col.nameCharLimit,
+    nameCharLimit,
     nameFontSize,
     rowHeight: density.rowHeight,
     barHeight: density.barHeight,
     barYOffset: (density.rowHeight - density.barHeight) / 2,
     printLeftMargin: col.printLeftMargin,
-    printNameCharLimit: col.printNameCharLimit,
+    printNameCharLimit,
     printRowHeight: printDensity.printRowHeight,
     printBarHeight: printDensity.printBarHeight,
     barPlanned,
