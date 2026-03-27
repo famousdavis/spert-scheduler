@@ -18,6 +18,7 @@ import {
   formatDateISO,
 } from "@core/calendar/calendar";
 import { computeActivityUncertaintyDays } from "@core/schedule/deterministic";
+import { dependencyLabel } from "@domain/helpers/format-labels";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useGanttPreferences } from "@ui/hooks/use-gantt-preferences";
 import { useGanttLayout } from "@ui/hooks/use-gantt-layout";
@@ -277,7 +278,7 @@ export function GanttChart({
         criticalPathIds?.has(dep.fromActivityId) && criticalPathIds?.has(dep.toActivityId);
       const fromName = activities.find((a) => a.id === dep.fromActivityId)?.name ?? "";
       const toName = activities.find((a) => a.id === dep.toActivityId)?.name ?? "";
-      const label = `${fromName} → ${toName}, ${dep.type}${dep.lagDays !== 0 ? (dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`) : ""}`;
+      const label = `${fromName} → ${toName}, ${dependencyLabel(dep.type)}${dep.lagDays !== 0 ? (dep.lagDays > 0 ? `, +${dep.lagDays}d` : `, ${dep.lagDays}d`) : ""}`;
 
       return { dep, path, barEndX, toX, fromY, toY, isCriticalEdge, label };
     }).filter(Boolean) as Array<{

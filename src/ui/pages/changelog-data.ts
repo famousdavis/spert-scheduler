@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.30.5",
+    date: "2026-03-27",
+    sections: [
+      {
+        title: "Enhancements",
+        items: [
+          "Dependency type dropdowns and labels now show full names (Finish-to-Start, Start-to-Start, Finish-to-Finish) instead of two-letter abbreviations for improved clarity.",
+        ],
+      },
+      {
+        title: "Refactoring",
+        items: [
+          "Centralized dependency type labels into dependencyLabel() formatter in format-labels.ts, replacing the local constant in DependencyEditModal.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.30.4",
     date: "2026-03-27",
     sections: [

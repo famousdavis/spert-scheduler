@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.5 — 2026-03-27
+
+### Enhancements
+
+- Dependency type dropdowns and labels now show full names (Finish-to-Start, Start-to-Start, Finish-to-Finish) instead of two-letter abbreviations for improved clarity.
+
+### Refactoring
+
+- Centralized dependency type labels into `dependencyLabel()` formatter in `format-labels.ts`, replacing the local constant in `DependencyEditModal`.
+
 ## 0.30.4 — 2026-03-27
 
 ### Enhancements

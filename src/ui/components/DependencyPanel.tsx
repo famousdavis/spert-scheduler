@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Activity, ActivityDependency, DependencyType, DeterministicSchedule } from "@domain/models/types";
 import { DEPENDENCY_TYPES } from "@domain/models/types";
+import { dependencyLabel } from "@domain/helpers/format-labels";
 import { validateDependencies, detectCycle } from "@core/schedule/dependency-graph";
 
 type DependencySortMode = "alpha" | "schedule";
@@ -265,7 +266,7 @@ export function DependencyPanel({
                 {getActivityName(dep.toActivityId)}
               </span>
               <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-                ({dep.type}{dep.lagDays !== 0 ? `${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""})
+                ({dependencyLabel(dep.type)}{dep.lagDays !== 0 ? `, ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""})
               </span>
               {/* Editable lag */}
               {!isLocked && (
@@ -273,10 +274,10 @@ export function DependencyPanel({
                   <select
                     value={dep.type}
                     onChange={(e) => onUpdateType(dep.fromActivityId, dep.toActivityId, e.target.value as DependencyType)}
-                    className="w-14 px-0.5 py-0.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none"
+                    className="w-32 px-0.5 py-0.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none"
                   >
                     {DEPENDENCY_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                      <option key={t} value={t}>{dependencyLabel(t)}</option>
                     ))}
                   </select>
                   <label className="text-xs text-gray-400 dark:text-gray-500">Lag:</label>
@@ -333,10 +334,10 @@ export function DependencyPanel({
           <select
             value={depType}
             onChange={(e) => setDepType(e.target.value as DependencyType)}
-            className="w-16 px-1 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none shrink-0"
+            className="px-1 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none shrink-0"
           >
             {DEPENDENCY_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <option key={t} value={t}>{dependencyLabel(t)}</option>
             ))}
           </select>
           <div className="flex items-center gap-1 shrink-0">

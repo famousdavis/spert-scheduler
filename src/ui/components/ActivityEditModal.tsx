@@ -28,7 +28,7 @@ import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { parseDateISO, isWorkingDay, formatDateISO } from "@core/calendar/calendar";
 import { detectConstraintConflict } from "@core/schedule/constraint-utils";
-import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
+import { distributionLabel, statusLabel, dependencyLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { ChecklistSection } from "@ui/components/ChecklistSection";
 import { DeliverablesSection } from "@ui/components/DeliverablesSection";
@@ -746,7 +746,7 @@ export function ActivityEditModal({
                               {activityNameById(otherId)}
                             </span>
                             <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                              {dep.type}{dep.lagDays !== 0 ? ` ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""}
+                              {dependencyLabel(dep.type)}{dep.lagDays !== 0 ? `, ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""}
                             </span>
                           </div>
                           {onEditDependency && (

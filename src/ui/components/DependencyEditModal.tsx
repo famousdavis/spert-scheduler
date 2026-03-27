@@ -5,12 +5,7 @@ import { useState, useCallback, useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import type { Activity, ActivityDependency, DependencyType } from "@domain/models/types";
 import { DEPENDENCY_TYPES } from "@domain/models/types";
-
-const DEPENDENCY_LABELS: Record<DependencyType, string> = {
-  FS: "Finish-to-Start",
-  SS: "Start-to-Start",
-  FF: "Finish-to-Finish",
-};
+import { dependencyLabel } from "@domain/helpers/format-labels";
 
 interface DependencyEditModalProps {
   fromActivityId?: string;
@@ -173,7 +168,7 @@ export function DependencyEditModal({
                 >
                   {DEPENDENCY_TYPES.map((dt) => (
                     <option key={dt} value={dt}>
-                      {dt} — {DEPENDENCY_LABELS[dt]}
+                      {dependencyLabel(dt)}
                     </option>
                   ))}
                 </select>
