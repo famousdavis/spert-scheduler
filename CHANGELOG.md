@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.3 — 2026-03-26
+
+### New Features
+
+- Drag-and-drop scenario tab reordering: grab the grip handle on any scenario tab to drag it to a new position.
+
 ## 0.30.2 — 2026-03-26
 
 ### Bug Fixes

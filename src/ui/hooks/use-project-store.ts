@@ -27,6 +27,7 @@ import {
   removeActivityFromScenario,
   updateActivity,
   reorderActivities,
+  reorderScenarios,
   setGlobalCalendar,
   updateProjectFields as updateProjectFieldsFn,
   renameProject as renameProjectFn,
@@ -159,6 +160,7 @@ export interface ProjectStore {
     settingsOverrides?: Partial<ScenarioSettings>
   ) => void;
   deleteScenario: (projectId: string, scenarioId: string) => void;
+  reorderScenarios: (projectId: string, fromIndex: number, toIndex: number) => void;
   duplicateScenario: (
     projectId: string,
     scenarioId: string,
@@ -510,6 +512,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
       const projects = state.projects.map((p) =>
         p.id === projectId ? removeScenarioFromProject(p, scenarioId) : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  reorderScenarios: (projectId, fromIndex, toIndex) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId ? reorderScenarios(p, fromIndex, toIndex) : p
       );
       persist(projects, projectId);
       return { projects };

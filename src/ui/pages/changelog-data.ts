@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.30.3",
+    date: "2026-03-26",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Drag-and-drop scenario tab reordering: grab the grip handle on any scenario tab to drag it to a new position.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.30.2",
     date: "2026-03-26",
     sections: [

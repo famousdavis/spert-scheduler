@@ -250,6 +250,18 @@ export function reorderActivities(
   };
 }
 
+export function reorderScenarios(
+  project: Project,
+  fromIndex: number,
+  toIndex: number
+): Project {
+  const scenarios = [...project.scenarios];
+  const [moved] = scenarios.splice(fromIndex, 1);
+  if (!moved) return project;
+  scenarios.splice(toIndex, 0, moved);
+  return { ...project, scenarios };
+}
+
 // -- Rename ------------------------------------------------------------------
 
 export function renameProject(project: Project, name: string): Project {
