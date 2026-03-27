@@ -188,7 +188,6 @@ export function PrintGanttChart({
 
   // Scaled font sizes
   const fs7 = Math.round(7 * fontScale);
-  const fs6 = Math.round(6 * fontScale);
   const fs5 = Math.round(5 * fontScale);
   const fs4 = Math.round(4 * fontScale);
 
@@ -447,13 +446,19 @@ export function PrintGanttChart({
                   </text>
                   <rect x={x1} y={barY} width={w} height={ra.printBarHeight}
                     rx={PRINT_BAR_RADIUS} fill="url(#print-hatch-buffer)" stroke={c.hatchBuffer} strokeWidth="0.5" />
-                  {w > 20 && (
-                    <text x={x1 + w / 2} y={barY + ra.printBarHeight / 2} textAnchor="middle"
-                      dominantBaseline="central" fontSize={fs6} fill="#92400e" fontWeight="600"
-                      stroke="#ffffff" strokeWidth="1.5" paintOrder="stroke fill">
-                      +{buffer!.bufferDays}d
-                    </text>
-                  )}
+                  {(() => {
+                    const bufLabel = `+${buffer!.bufferDays}d`;
+                    const bufFontSize = Math.min(ra.printBarLabelFontSize + 1, ra.printBarHeight - 4);
+                    const estW = bufLabel.length * bufFontSize * 0.6 + 4;
+                    if (estW > w) return null;
+                    return (
+                      <text x={x1 + w / 2} y={barY + ra.printBarHeight / 2} textAnchor="middle"
+                        dominantBaseline="central" fontSize={bufFontSize} fill="#92400e" fontWeight="600"
+                        stroke="#ffffff" strokeWidth="1.5" paintOrder="stroke fill">
+                        {bufLabel}
+                      </text>
+                    );
+                  })()}
                 </>
               );
             })()}

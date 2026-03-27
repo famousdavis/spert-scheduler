@@ -961,24 +961,30 @@ export function GanttChart({
                       strokeWidth="1"
                     />
 
-                    {/* Buffer duration label */}
-                    {bufWidth > 30 && (
-                      <text
-                        x={bufStartX + bufWidth / 2}
-                        y={barY + ra.barHeight / 2}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fontSize="11"
-                        fill={isDark ? "#fbbf24" : "#92400e"}
-                        fontWeight="700"
-                        stroke={isDark ? "#1f2937" : "#ffffff"}
-                        strokeWidth="3"
-                        paintOrder="stroke fill"
-                        className="pointer-events-none"
-                      >
-                        +{buffer!.bufferDays}d
-                      </text>
-                    )}
+                    {/* Buffer duration label — only render if text fits */}
+                    {(() => {
+                      const bufLabel = `+${buffer!.bufferDays}d`;
+                      const bufFontSize = Math.min(ra.barLabelFontSize + 1, ra.barHeight - 6);
+                      const estW = bufLabel.length * bufFontSize * 0.6 + 8;
+                      if (estW > bufWidth) return null;
+                      return (
+                        <text
+                          x={bufStartX + bufWidth / 2}
+                          y={barY + ra.barHeight / 2}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize={bufFontSize}
+                          fill={isDark ? "#fbbf24" : "#92400e"}
+                          fontWeight="700"
+                          stroke={isDark ? "#1f2937" : "#ffffff"}
+                          strokeWidth="3"
+                          paintOrder="stroke fill"
+                          className="pointer-events-none"
+                        >
+                          {bufLabel}
+                        </text>
+                      );
+                    })()}
                   </>
                 );
               })()}
