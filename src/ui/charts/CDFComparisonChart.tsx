@@ -77,14 +77,13 @@ export function CDFComparisonChart({
         <ResponsiveContainer width="100%" height={300}>
           <LineChart
             data={mergedData}
-            margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+            margin={{ top: 10, right: 30, left: 0, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="value"
               type="number"
               tick={{ fontSize: 11 }}
-              label={{ value: "Duration (days)", position: "insideBottom", offset: -5, fontSize: 12 }}
               domain={["dataMin", "dataMax"]}
             />
             <YAxis
@@ -124,7 +123,7 @@ export function CDFComparisonChart({
         </ResponsiveContainer>
         {/* Target label */}
         <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
-          Dashed line: P{Math.round(probabilityTarget * 100)} target
+          Duration (days) &middot; Dashed line: P{Math.round(probabilityTarget * 100)} target
         </div>
       </div>
     </div>

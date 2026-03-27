@@ -168,7 +168,7 @@ User preferences are stored separately (`spert:user-preferences` key) and are NO
 
 ## Testing Patterns
 
-- **1021 tests** across **53 test files**
+- **1088 tests** across **53 test files**
 - **Unit tests:** Pure functions in `/core` — known values + property-based (fast-check)
 - **Integration tests:** `src/integration/` — full workflow, persistence round-trip, scenario cloning, export/import, dependency lifecycle, calendar layering
 - **Property-based:** Distribution samples bounded, percentiles monotonic, calendar round-trips, Parkinson floor invariants
