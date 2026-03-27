@@ -12,6 +12,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.31.0",
+    date: "2026-03-27",
+    sections: [
+      {
+        title: "New Features",
+        items: [
+          "Activity Edit Modal: bidirectional Actual Finish Date field for completed activities. Enter a finish date to auto-calculate duration, or enter a duration to auto-calculate the finish date. Uses the project work calendar for accurate working-day math.",
+        ],
+      },
+      {
+        title: "Enhancements",
+        items: [
+          "Activity Edit Modal: Actual Duration field now editable for in-progress activities, matching the activity grid behavior. Shows 'Elapsed' placeholder when empty; falls back to computed elapsed working days on save if cleared.",
+          "Estimates section in Activity Edit Modal now defaults to collapsed, reducing visual noise on modal open.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.30.5",
     date: "2026-03-27",
     sections: [

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.31.0 — 2026-03-27
+
+### New Features
+
+- Activity Edit Modal: bidirectional Actual Finish Date field for completed activities. Enter a finish date to auto-calculate duration, or enter a duration to auto-calculate the finish date. Uses the project work calendar for accurate working-day math.
+
+### Enhancements
+
+- Activity Edit Modal: Actual Duration field now editable for in-progress activities, matching the activity grid behavior. Shows "Elapsed" placeholder when empty; falls back to computed elapsed working days on save if cleared.
+- Estimates section in Activity Edit Modal now defaults to collapsed, reducing visual noise on modal open.
+
 ## 0.30.5 — 2026-03-27
 
 ### Enhancements
