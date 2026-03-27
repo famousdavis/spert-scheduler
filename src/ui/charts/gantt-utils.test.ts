@@ -373,6 +373,46 @@ describe("resolveGanttAppearance", () => {
     expect(ra.nameCharLimit).toBe(18);
     expect(ra.leftMargin).toBe(180);
   });
+
+  // -- barLabelFontSize scaling -------------------------------------------------
+
+  it("bar label font size scales with activity font size (normal density)", () => {
+    const small = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "small", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    // Small and Normal both get 10px minimum
+    expect(small.barLabelFontSize).toBe(10);
+    expect(normal.barLabelFontSize).toBe(10);
+    // Large and XL scale up
+    expect(large.barLabelFontSize).toBe(11);
+    expect(xl.barLabelFontSize).toBe(13);
+  });
+
+  it("bar label font size is capped by bar height in compact density", () => {
+    // Compact barHeight=16, so cap = 16-6 = 10
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    expect(xl.barLabelFontSize).toBe(10); // capped from 13 to 10
+    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    expect(large.barLabelFontSize).toBe(10); // capped from 11 to 10
+  });
+
+  it("print bar label font size scales with activity font size", () => {
+    const small = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "small", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    expect(small.printBarLabelFontSize).toBe(5);
+    expect(normal.printBarLabelFontSize).toBe(6);
+    expect(large.printBarLabelFontSize).toBe(7);
+    expect(xl.printBarLabelFontSize).toBe(8);
+  });
+
+  it("print bar label font size is capped by print bar height in compact density", () => {
+    // Compact printBarHeight=9, cap = 9-4 = 5
+    const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false }, false);
+    expect(xl.printBarLabelFontSize).toBe(5); // capped from 8 to 5
+  });
 });
 
 // -- computeWeekendShadingRects -----------------------------------------------

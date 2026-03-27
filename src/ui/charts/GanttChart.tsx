@@ -838,17 +838,19 @@ export function GanttChart({
                   />
                 )}
 
-                {/* Bar label */}
-                {barWidth > 30 && (() => {
+                {/* Bar label — only render if text fits within bar width */}
+                {(() => {
                   const label = barLabelText(sa);
                   if (!label) return null;
+                  const estWidth = label.length * ra.barLabelFontSize * 0.6 + 8;
+                  if (estWidth > barWidth) return null;
                   return (
                     <text
                       x={barX + barWidth / 2}
                       y={barY + ra.barHeight / 2}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      fontSize="10"
+                      fontSize={ra.barLabelFontSize}
                       fill="#ffffff"
                       fontWeight="600"
                       className="pointer-events-none"
