@@ -6,6 +6,7 @@ import {
   distributionLabel,
   distributionShortLabel,
   statusLabel,
+  dependencyLabel,
 } from "./format-labels";
 
 describe("distributionLabel", () => {
@@ -55,5 +56,19 @@ describe("statusLabel", () => {
 
   it("formats complete correctly", () => {
     expect(statusLabel("complete")).toBe("Complete");
+  });
+});
+
+describe("dependencyLabel", () => {
+  it("formats FS correctly", () => {
+    expect(dependencyLabel("FS")).toBe("Finish-to-Start");
+  });
+
+  it("formats SS correctly", () => {
+    expect(dependencyLabel("SS")).toBe("Start-to-Start");
+  });
+
+  it("formats FF correctly", () => {
+    expect(dependencyLabel("FF")).toBe("Finish-to-Finish");
   });
 });

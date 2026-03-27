@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import type { DistributionType, ActivityStatus } from "@domain/models/types";
+import type { DistributionType, ActivityStatus, DependencyType } from "@domain/models/types";
 
 /** Full display label for distribution types. */
 export function distributionLabel(dt: DistributionType): string {
@@ -40,5 +40,17 @@ export function statusLabel(status: ActivityStatus): string {
       return "Planned";
     case "complete":
       return "Complete";
+  }
+}
+
+/** Full display label for dependency types. */
+export function dependencyLabel(dt: DependencyType): string {
+  switch (dt) {
+    case "FS":
+      return "Finish-to-Start";
+    case "SS":
+      return "Start-to-Start";
+    case "FF":
+      return "Finish-to-Finish";
   }
 }
