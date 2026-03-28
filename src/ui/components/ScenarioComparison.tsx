@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import type {
   Scenario,
   DeterministicSchedule,
@@ -91,6 +91,19 @@ export function ScenarioComparisonTable({
 }: ScenarioComparisonProps) {
   const formatDate = useDateFormat();
   const entries = scenarios.map((s) => computeEntry(s, calendar));
+
+  // Format duration as finish date for CDF tooltip (uses first scenario's start date)
+  const firstStartDate = scenarios[0]?.startDate;
+  const formatDurationAsDate = useCallback(
+    (days: number): string => {
+      if (!firstStartDate) return "";
+      const rounded = Math.round(days);
+      if (rounded <= 0) return "";
+      const finish = addWorkingDays(parseDateISO(firstStartDate), rounded - 1, calendar);
+      return formatDate(formatDateISO(finish));
+    },
+    [firstStartDate, calendar, formatDate]
+  );
 
   // Build CDF datasets for scenarios with simulation results
   const cdfDatasets = useMemo<CDFDataset[]>(() => {
@@ -275,6 +288,7 @@ export function ScenarioComparisonTable({
           <CDFComparisonChart
             datasets={cdfDatasets}
             probabilityTarget={probabilityTarget}
+            formatDurationAsDate={formatDurationAsDate}
           />
         </div>
       )}
