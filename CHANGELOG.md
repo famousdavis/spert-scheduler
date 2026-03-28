@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.32.3 — 2026-03-28
+
+### Bug Fixes
+
+- Gantt chart: reduced Today proximity suppression threshold (`TODAY_PROXIMITY_PX`) from 60px to 44px. On compressed fit-to-window timelines (~1,500+ day projects in ~900px chart area), the previous threshold suppressed quarterly ticks that had adequate visual clearance, leaving visible gaps in the timeline header (e.g. Q2 → Q4 with no Q3 label).
+
 ## 0.32.2 — 2026-03-27
 
 ### Security

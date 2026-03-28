@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.32.3",
+    date: "2026-03-28",
+    sections: [
+      {
+        title: "Bug Fixes",
+        items: [
+          "Gantt chart: reduced Today proximity suppression threshold from 60px to 44px. On compressed fit-to-window timelines (1,500+ day projects), the previous threshold suppressed quarterly ticks that had adequate visual clearance, leaving gaps in the timeline header (e.g. Q2 → Q4 with no Q3 label).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.32.2",
     date: "2026-03-27",
     sections: [
