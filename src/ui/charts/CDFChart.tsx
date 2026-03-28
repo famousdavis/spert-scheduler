@@ -55,6 +55,7 @@ export function CDFChart({
             <XAxis
               dataKey="value"
               tick={{ fontSize: 11 }}
+              tickFormatter={(v) => String(Math.round(v))}
               label={{ value: "Duration (days)", position: "insideBottom", offset: -5, fontSize: 12 }}
             />
             <YAxis

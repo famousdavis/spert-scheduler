@@ -86,6 +86,7 @@ export function CDFComparisonChart({
               dataKey="value"
               type="number"
               tick={{ fontSize: 11 }}
+              tickFormatter={(v) => String(Math.round(v))}
               domain={["dataMin", "dataMax"]}
             />
             <YAxis
