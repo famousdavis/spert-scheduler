@@ -13,6 +13,9 @@ export const TOS_URL = "https://spert-landing.vercel.app/TOS.pdf";
 /** Canonical URL for the Privacy Policy PDF. */
 export const PRIVACY_URL = "https://spert-landing.vercel.app/PRIVACY.pdf";
 
+/** Canonical URL for the project LICENSE file on GitHub. */
+export const LICENSE_URL = "https://github.com/famousdavis/spert-scheduler/blob/main/LICENSE";
+
 /** App identifier written to Firestore ToS acceptance records. */
 export const APP_ID = "spert-scheduler";
 

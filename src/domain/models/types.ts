@@ -323,13 +323,13 @@ export interface MilestoneBufferInfo {
 
 export const DEFAULT_SCENARIO_SETTINGS: ScenarioSettings = {
   defaultConfidenceLevel: "mediumConfidence",
-  defaultDistributionType: "normal",
+  defaultDistributionType: "triangular",
   trialCount: 50000,
   rngSeed: "placeholder", // overridden at createScenario() time
   probabilityTarget: 0.5, // P50 per-activity (deterministic schedule)
   projectProbabilityTarget: 0.95, // P95 project-level (MC confidence)
   heuristicEnabled: false,
-  heuristicMinPercent: 50, // min = ML * 50%
+  heuristicMinPercent: 75, // min = ML * 75%
   heuristicMaxPercent: 200, // max = ML * 200%
   dependencyMode: false,
   parkinsonsLawEnabled: true,
@@ -397,7 +397,7 @@ export interface UserPreferences {
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   defaultTrialCount: 10000,
-  defaultDistributionType: "normal",
+  defaultDistributionType: "triangular",
   defaultConfidenceLevel: "mediumConfidence",
   defaultActivityTarget: 0.5,
   defaultProjectTarget: 0.95,
@@ -406,7 +406,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   theme: "system",
   storeFullSimulationData: false, // Save storage by default
   defaultHeuristicEnabled: false,
-  defaultHeuristicMinPercent: 50,
+  defaultHeuristicMinPercent: 75,
   defaultHeuristicMaxPercent: 200,
   defaultDependencyMode: false,
   defaultParkinsonsLawEnabled: true,

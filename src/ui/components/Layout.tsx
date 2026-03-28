@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { APP_VERSION } from "@app/constants";
-import { TOS_URL, PRIVACY_URL } from "@app/legal-constants";
+import { TOS_URL, PRIVACY_URL, LICENSE_URL } from "@app/legal-constants";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useTheme } from "@ui/hooks/use-theme";
 import { ToastContainer } from "./ToastContainer";
@@ -129,6 +129,15 @@ export function Layout() {
             className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
           >
             Privacy Policy
+          </a>
+          {" | "}
+          <a
+            href={LICENSE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+          >
+            License
           </a>
         </div>
       </footer>

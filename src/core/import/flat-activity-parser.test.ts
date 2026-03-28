@@ -135,13 +135,13 @@ describe("Normalization", () => {
     }
   });
 
-  it("warns on unrecognized distribution and defaults to normal", () => {
+  it("warns on unrecognized distribution and defaults to triangular", () => {
     const rows = [HEADER_ROW, validRow("A1", "Task", "2", "4", "8", "Medium", "beta")];
     const result = parseFlatActivityTable(rows, makeIdGen());
     expect(result.errors).toHaveLength(0);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]!.message).toContain("Unrecognized distribution");
-    expect(result.activities[0]!.distributionType).toBe("normal");
+    expect(result.activities[0]!.distributionType).toBe("triangular");
   });
 
   it("normalizes status variants", () => {
@@ -501,7 +501,7 @@ describe("Edge cases", () => {
     ];
     const result = parseFlatActivityTable(rows, makeIdGen());
     expect(result.errors).toHaveLength(0);
-    expect(result.activities[0]!.distributionType).toBe("normal");
+    expect(result.activities[0]!.distributionType).toBe("triangular");
   });
 
   it("defaults status to planned when column is absent", () => {
