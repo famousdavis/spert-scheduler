@@ -1,7 +1,6 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import type { Activity, ActivityDependency } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { formatDateISO } from "@core/calendar/calendar";
 
@@ -41,15 +40,22 @@ export function compactLabel(d: Date, includeDay: boolean): string {
 }
 
 /**
+ * Shared helper: appends 2-digit year on the first tick or when the year changes.
+ * Used by monthTickLabel, quarterlyTickLabel, and semiannualTickLabel.
+ */
+function tickLabelWithYear(period: string, d: Date, isFirst: boolean, prevYear: number | null): string {
+  if (isFirst || (prevYear !== null && d.getFullYear() !== prevYear)) {
+    return `${period} '${String(d.getFullYear()).slice(2)}`;
+  }
+  return period;
+}
+
+/**
  * Month tick label: month name only, with 2-digit year appended on the
  * first tick or whenever the year changes (e.g. "Apr '26", then "May", "Jun", …, "Jan '27").
  */
 export function monthTickLabel(d: Date, isFirst: boolean, prevYear: number | null): string {
-  const mon = MONTH_ABBR[d.getMonth()]!;
-  if (isFirst || (prevYear !== null && d.getFullYear() !== prevYear)) {
-    return `${mon} '${String(d.getFullYear()).slice(2)}`;
-  }
-  return mon;
+  return tickLabelWithYear(MONTH_ABBR[d.getMonth()]!, d, isFirst, prevYear);
 }
 
 /**
@@ -58,11 +64,7 @@ export function monthTickLabel(d: Date, isFirst: boolean, prevYear: number | nul
  * "Q1 '27". Quarter from month: Jan=Q1, Apr=Q2, Jul=Q3, Oct=Q4.
  */
 export function quarterlyTickLabel(d: Date, isFirst: boolean, prevYear: number | null): string {
-  const q = Math.floor(d.getMonth() / 3) + 1;
-  if (isFirst || (prevYear !== null && d.getFullYear() !== prevYear)) {
-    return `Q${q} '${String(d.getFullYear()).slice(2)}`;
-  }
-  return `Q${q}`;
+  return tickLabelWithYear(`Q${Math.floor(d.getMonth() / 3) + 1}`, d, isFirst, prevYear);
 }
 
 /**
@@ -70,15 +72,9 @@ export function quarterlyTickLabel(d: Date, isFirst: boolean, prevYear: number |
  * Year on first tick and year-change boundaries.
  */
 export function semiannualTickLabel(d: Date, isFirst: boolean, prevYear: number | null): string {
-  const h = d.getMonth() < 6 ? 1 : 2;
-  if (isFirst || (prevYear !== null && d.getFullYear() !== prevYear)) {
-    return `H${h} '${String(d.getFullYear()).slice(2)}`;
-  }
-  return `H${h}`;
+  return tickLabelWithYear(`H${d.getMonth() < 6 ? 1 : 2}`, d, isFirst, prevYear);
 }
 
-/** @deprecated Use formatDateISO from @core/calendar/calendar instead */
-export const toISO = formatDateISO;
 
 export type TickLevel = "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "semiannual" | "annual";
 
@@ -151,21 +147,21 @@ export function generateTicks(
   if (level === "daily") {
     const d = new Date(start);
     while (d <= end) {
-      ticks.push({ x: toISO(d), label: compactLabel(d, true) });
+      ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
       d.setDate(d.getDate() + 1);
     }
   } else if (level === "weekly") {
     const d = new Date(start);
     while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
     while (d <= end) {
-      ticks.push({ x: toISO(d), label: compactLabel(d, true) });
+      ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
       d.setDate(d.getDate() + 7);
     }
   } else if (level === "biweekly") {
     const d = new Date(start);
     while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
     while (d <= end) {
-      ticks.push({ x: toISO(d), label: compactLabel(d, true) });
+      ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
       d.setDate(d.getDate() + 14);
     }
   } else if (level === "monthly") {
@@ -173,7 +169,7 @@ export function generateTicks(
     let prevYear: number | null = null;
     let isFirst = true;
     while (d <= end) {
-      ticks.push({ x: toISO(d), label: monthTickLabel(d, isFirst, prevYear) });
+      ticks.push({ x: formatDateISO(d), label: monthTickLabel(d, isFirst, prevYear) });
       prevYear = d.getFullYear();
       isFirst = false;
       d.setMonth(d.getMonth() + 1);
@@ -188,7 +184,7 @@ export function generateTicks(
     let prevYear: number | null = null;
     let isFirst = true;
     while (d <= end) {
-      ticks.push({ x: toISO(d), label: quarterlyTickLabel(d, isFirst, prevYear) });
+      ticks.push({ x: formatDateISO(d), label: quarterlyTickLabel(d, isFirst, prevYear) });
       prevYear = d.getFullYear();
       isFirst = false;
       d.setMonth(d.getMonth() + 3);
@@ -203,7 +199,7 @@ export function generateTicks(
     let prevYear: number | null = null;
     let isFirst = true;
     while (d <= end) {
-      ticks.push({ x: toISO(d), label: semiannualTickLabel(d, isFirst, prevYear) });
+      ticks.push({ x: formatDateISO(d), label: semiannualTickLabel(d, isFirst, prevYear) });
       prevYear = d.getFullYear();
       isFirst = false;
       d.setMonth(d.getMonth() + 6);
@@ -212,7 +208,7 @@ export function generateTicks(
     // annual
     const d = new Date(start.getFullYear() + 1, 0, 1);
     while (d <= end) {
-      ticks.push({ x: toISO(d), label: String(d.getFullYear()) });
+      ticks.push({ x: formatDateISO(d), label: String(d.getFullYear()) });
       d.setFullYear(d.getFullYear() + 1);
     }
   }
@@ -268,16 +264,3 @@ export function computeWeekendShadingRects(
   return rects;
 }
 
-/**
- * Return activities in their original grid order.
- * Previously re-sorted by topological order in dependency mode,
- * but this caused a visual mismatch with the activity grid.
- * Dependency arrows render correctly regardless of row order.
- */
-export function buildOrderedActivities(
-  activities: Activity[],
-  _dependencies: ActivityDependency[],
-  _dependencyMode: boolean,
-): Activity[] {
-  return activities;
-}

@@ -50,6 +50,109 @@ interface ActivityEditModalProps {
   activityNumberMap?: Map<string, number> | null;
 }
 
+/** Schedule context row: Sched. Finish, Sched. Duration, Actual Duration, Actual Finish */
+function ScheduleContextRow({
+  status,
+  sa,
+  scheduledStartDate,
+  actualDuration,
+  actualFinishDate,
+  committedFinishDate,
+  formatDate,
+  handleActualDurationChange,
+  handleActualFinishDateChange,
+  handleActualFinishDateBlur,
+  setActualDuration,
+}: {
+  status: ActivityStatus;
+  sa: { endDate: string; duration: number };
+  scheduledStartDate: string;
+  actualDuration: number | "";
+  actualFinishDate: string;
+  committedFinishDate: string;
+  formatDate: (iso: string) => string;
+  handleActualDurationChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleActualFinishDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleActualFinishDateBlur: (e: React.FocusEvent<HTMLInputElement>) => void;
+  setActualDuration: (v: number | "") => void;
+}) {
+  return (
+    <div className={`grid gap-3 ${status === "complete" ? "grid-cols-4" : "grid-cols-3"}`}>
+      {/* Col 1: Scheduled Finish (display only — always) */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          Sched. Finish
+        </label>
+        <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
+          {formatDate(sa.endDate)}
+        </p>
+      </div>
+
+      {/* Col 2: Scheduled Duration (display only — always) */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          Sched. Duration
+        </label>
+        <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
+          {sa.duration}d
+        </p>
+      </div>
+
+      {/* Col 3: Actual Duration — disabled for planned, editable for inProgress + complete */}
+      <div title={
+        status === "planned"
+          ? "Set status to In Progress or Complete to enter actual duration"
+          : status === "inProgress"
+            ? "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials."
+            : "Total working days from scheduled start to actual finish"
+      }>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          Actual Duration
+        </label>
+        <input
+          type="number"
+          min={1}
+          value={actualDuration}
+          placeholder={status === "inProgress" ? "Elapsed" : undefined}
+          onChange={
+            status === "complete"
+              ? handleActualDurationChange
+              : (e) => setActualDuration(e.target.value === "" ? "" : Number(e.target.value))
+          }
+          disabled={status === "planned"}
+          className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+      </div>
+
+      {/* Col 4: Actual Finish Date — complete only */}
+      {status === "complete" && (
+        <div title="Entering a date auto-calculates duration; entering a duration auto-calculates this date">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            Actual Finish
+          </label>
+          <input
+            type="date"
+            value={actualFinishDate}
+            onChange={handleActualFinishDateChange}
+            onBlur={handleActualFinishDateBlur}
+            min={scheduledStartDate}
+            className={`w-full text-sm border rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none ${
+              committedFinishDate && committedFinishDate < scheduledStartDate
+                ? "border-red-400 dark:border-red-500"
+                : "border-gray-300 dark:border-gray-600"
+            }`}
+          />
+          {committedFinishDate && committedFinishDate < scheduledStartDate && (
+            <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+              Finish date cannot be before the scheduled start.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Collapsible section wrapper */
 function Section({
   title,
@@ -388,10 +491,10 @@ export function ActivityEditModal({
     [constraintMode]
   );
 
-  // -- Save: only send changed fields --
-  const handleSave = useCallback(() => {
-    if (!activity) return;
-
+  // -- Build field updates (General + Estimates + Constraint) --
+  // Reused by both handleSave and hasChanges to avoid duplicated diff logic.
+  const buildFieldUpdates = useCallback((): Partial<Activity> => {
+    if (!activity) return {};
     const updates: Partial<Activity> = {};
 
     // General
@@ -402,7 +505,6 @@ export function ActivityEditModal({
         updates.actualDuration = Number(actualDuration);
       }
     } else {
-      // Planned — clear actualDuration
       updates.actualDuration = undefined;
     }
 
@@ -419,52 +521,44 @@ export function ActivityEditModal({
     updates.constraintMode = constraintType ? (constraintMode ?? null) : null;
     updates.constraintNote = constraintType ? (constraintNote?.trim() || null) : null;
 
-    // Checklist — compare to detect changes (separate save path to avoid simulation invalidation)
-    const origChecklist = activity.checklist ?? [];
-    const checklistChanged = JSON.stringify(checklist) !== JSON.stringify(origChecklist);
-    const newChecklist = checklist.length > 0 ? checklist : undefined;
+    return updates;
+  }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote]);
+
+  // -- Save: only send changed fields --
+  const handleSave = useCallback(() => {
+    if (!activity) return;
+
+    const updates = buildFieldUpdates();
 
     // Non-checklist field updates go through normal path (invalidates simulation)
     if (Object.keys(updates).length > 0) {
       updateActivityField(projectId, scenarioId, activityId, updates);
     }
 
-    // Checklist changes go through dedicated path (preserves simulation results)
+    // Checklist — separate save path to avoid simulation invalidation
+    const origChecklist = activity.checklist ?? [];
+    const checklistChanged = JSON.stringify(checklist) !== JSON.stringify(origChecklist);
     if (checklistChanged) {
-      updateActivityChecklist(projectId, scenarioId, activityId, newChecklist);
+      updateActivityChecklist(projectId, scenarioId, activityId, checklist.length > 0 ? checklist : undefined);
     }
 
     // Deliverables — same split-save pattern as checklist
     const origDeliverables = activity.deliverables ?? [];
     const deliverablesChanged = JSON.stringify(deliverables) !== JSON.stringify(origDeliverables);
-    const newDeliverables = deliverables.length > 0 ? deliverables : undefined;
     if (deliverablesChanged) {
-      updateActivityDeliverables(projectId, scenarioId, activityId, newDeliverables);
+      updateActivityDeliverables(projectId, scenarioId, activityId, deliverables.length > 0 ? deliverables : undefined);
     }
 
     // Notes — same split-save pattern
     const origNotes = activity.notes ?? "";
-    const notesChanged = notes !== origNotes;
-    const newNotes = notes.trim() || undefined;
-    if (notesChanged) {
-      updateActivityNotes(projectId, scenarioId, activityId, newNotes);
+    if (notes !== origNotes) {
+      updateActivityNotes(projectId, scenarioId, activityId, notes.trim() || undefined);
     }
 
     onClose();
   }, [
     activity,
-    name,
-    status,
-    actualDuration,
-    min,
-    mostLikely,
-    max,
-    confidenceLevel,
-    distributionType,
-    constraintType,
-    constraintDate,
-    constraintMode,
-    constraintNote,
+    buildFieldUpdates,
     checklist,
     deliverables,
     notes,
@@ -506,23 +600,14 @@ export function ActivityEditModal({
   // -- Dirty check: detect any unsaved changes --
   const hasChanges = useMemo(() => {
     if (!activity) return false;
-    if (name.trim() !== activity.name) return true;
-    if (status !== activity.status) return true;
-    if ((status === "complete" || status === "inProgress") && actualDuration !== "" && actualDuration !== activity.actualDuration) return true;
-    if (min !== "" && Number(min) !== activity.min) return true;
-    if (mostLikely !== "" && Number(mostLikely) !== activity.mostLikely) return true;
-    if (max !== "" && Number(max) !== activity.max) return true;
-    if (confidenceLevel !== activity.confidenceLevel) return true;
-    if (distributionType !== activity.distributionType) return true;
-    if ((constraintType ?? null) !== (activity.constraintType ?? null)) return true;
-    if ((constraintDate ?? null) !== (activity.constraintDate ?? null)) return true;
-    if ((constraintMode ?? null) !== (activity.constraintMode ?? null)) return true;
-    if ((constraintNote?.trim() || null) !== (activity.constraintNote ?? null)) return true;
+    // Field updates (General + Estimates + Constraint)
+    if (Object.keys(buildFieldUpdates()).length > 0) return true;
+    // Qualitative paths
     if (JSON.stringify(checklist) !== JSON.stringify(activity.checklist ?? [])) return true;
     if (JSON.stringify(deliverables) !== JSON.stringify(activity.deliverables ?? [])) return true;
     if (notes !== (activity.notes ?? "")) return true;
     return false;
-  }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, checklist, deliverables, notes]);
+  }, [activity, buildFieldUpdates, checklist, deliverables, notes]);
 
   const handleDismiss = useCallback(() => {
     if (hasChanges && isValid) {
@@ -597,80 +682,20 @@ export function ActivityEditModal({
                 </div>
               </div>
               {/* Schedule context + Actual Duration/Finish (visible when schedule exists) */}
-              {scheduledStartDate && (
-                <div className={`grid gap-3 ${status === "complete" ? "grid-cols-4" : "grid-cols-3"}`}>
-                  {/* Col 1: Scheduled Finish (display only — always) */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Sched. Finish
-                    </label>
-                    <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
-                      {formatDate(sa!.endDate)}
-                    </p>
-                  </div>
-
-                  {/* Col 2: Scheduled Duration (display only — always) */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Sched. Duration
-                    </label>
-                    <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
-                      {sa!.duration}d
-                    </p>
-                  </div>
-
-                  {/* Col 3: Actual Duration — disabled for planned, editable for inProgress + complete */}
-                  <div title={
-                    status === "planned"
-                      ? "Set status to In Progress or Complete to enter actual duration"
-                      : status === "inProgress"
-                        ? "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials."
-                        : "Total working days from scheduled start to actual finish"
-                  }>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Actual Duration
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={actualDuration}
-                      placeholder={status === "inProgress" ? "Elapsed" : undefined}
-                      onChange={
-                        status === "complete"
-                          ? handleActualDurationChange
-                          : (e) => setActualDuration(e.target.value === "" ? "" : Number(e.target.value))
-                      }
-                      disabled={status === "planned"}
-                      className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Col 4: Actual Finish Date — complete only */}
-                  {status === "complete" && (
-                    <div title="Entering a date auto-calculates duration; entering a duration auto-calculates this date">
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Actual Finish
-                      </label>
-                      <input
-                        type="date"
-                        value={actualFinishDate}
-                        onChange={handleActualFinishDateChange}
-                        onBlur={handleActualFinishDateBlur}
-                        min={scheduledStartDate}
-                        className={`w-full text-sm border rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none ${
-                          committedFinishDate && committedFinishDate < scheduledStartDate
-                            ? "border-red-400 dark:border-red-500"
-                            : "border-gray-300 dark:border-gray-600"
-                        }`}
-                      />
-                      {committedFinishDate && committedFinishDate < scheduledStartDate && (
-                        <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
-                          Finish date cannot be before the scheduled start.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+              {scheduledStartDate && sa && (
+                <ScheduleContextRow
+                  status={status}
+                  sa={sa}
+                  scheduledStartDate={scheduledStartDate}
+                  actualDuration={actualDuration}
+                  actualFinishDate={actualFinishDate}
+                  committedFinishDate={committedFinishDate}
+                  formatDate={formatDate}
+                  handleActualDurationChange={handleActualDurationChange}
+                  handleActualFinishDateChange={handleActualFinishDateChange}
+                  handleActualFinishDateBlur={handleActualFinishDateBlur}
+                  setActualDuration={setActualDuration}
+                />
               )}
             </Section>
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.32.1 — 2026-03-27
+
+### Refactoring
+
+- ActivityEditModal: extracted `ScheduleContextRow` local component and `buildFieldUpdates()` sub-function for cleaner save/dirty-check logic.
+- GanttChart: extracted `GanttToolbar` local component (~108 lines) from the main render body.
+- gantt-utils: consolidated `monthTickLabel`, `quarterlyTickLabel`, `semiannualTickLabel` via shared `tickLabelWithYear` helper.
+- gantt-utils: completed `toISO` deprecation — all internal uses replaced with `formatDateISO` from `@core/calendar/calendar`.
+- gantt-utils: removed `buildOrderedActivities` no-op function and its 4 tests.
+- activity-row-helpers: documented `computeElapsedDays` dual-type calendar parameter.
+
+### Tests
+
+- Added 5 new tests: `semiannualTickLabel` edge case, `countQuarterlyTicks`/`countSemiannualTicks` same-day boundaries, `generateTicks` forced monthly, `computeWeekendShadingRects` trailing span closure.
+
 ## 0.32.0 — 2026-03-27
 
 ### New Features

@@ -67,6 +67,10 @@ export function focusPrevRow(
  * Compute elapsed working days from a scheduled start date to today.
  * Inclusive of both start and today (if today is a working day).
  * Returns at least 1.
+ *
+ * Accepts both `WorkCalendar` (class with `isWorkDay`) and `Calendar`
+ * (plain data object) because callers may have either form depending on
+ * context — `countWorkingDays` and `isWorkingDay` handle both internally.
  */
 export function computeElapsedDays(
   scheduledStartDate: string | undefined,
