@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.33.1 — 2026-03-28
+
+### Changed
+
+- Default distribution type changed from Normal (T-Normal) to Triangular in both user preferences and scenario settings, aligning with the recommended distribution for the updated heuristic defaults.
+- Default heuristic minimum changed from 50% to 75% in both user preferences and scenario settings, bringing congruence with Triangular distribution recommendations.
+- Footer now includes a "License" link pointing to the project's GNU GPL v3.0 LICENSE file on GitHub (with Section 7(b) non-permissive additional terms), alongside the existing Terms of Service and Privacy Policy links.
+
 ## 0.33.0 — 2026-03-28
 
 ### Chore — Clean Code Audit

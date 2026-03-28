@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.33.1",
+    date: "2026-03-28",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Default distribution type changed from Normal (T-Normal) to Triangular, aligning with the recommended distribution for the updated heuristic defaults.",
+          "Default heuristic minimum changed from 50% to 75%, bringing congruence with Triangular distribution recommendations.",
+          "Footer now includes a \"License\" link to the project's GNU GPL v3.0 LICENSE file on GitHub (with Section 7(b) non-permissive additional terms).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.33.0",
     date: "2026-03-28",
     sections: [
