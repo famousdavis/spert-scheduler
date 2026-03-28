@@ -18,7 +18,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Enhanced",
         items: [
-          "CDF chart tooltip now shows projected finish date alongside duration and probability when hovering over the cumulative distribution curve, making it easy to answer \"what's the probability my project finishes by this date?\"",
+          "Cumulative Distribution Function (CDF) chart tooltip now shows projected finish date alongside duration and probability when hovering over the curve, making it easy to answer \"what's the probability my project finishes by this date?\"",
           "Scenario comparison CDF chart tooltip also includes projected finish dates.",
         ],
       },
