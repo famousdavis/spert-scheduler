@@ -18,10 +18,19 @@ export const MIN_TICK_SPACING_PX = 70;
 /** Minimum pixel distance between a tick label and the Today line label.
  *  Applied to ALL ticks including the first (unlike other suppression checks).
  *  Today's label is prominent (two lines: name + date) and already provides
- *  year context, so nearby ticks are suppressed more aggressively.
- *  60px is chosen to suppress at most one quarterly tick at typical spacing
- *  (~59px apart), avoiding suppression of ticks on both sides of Today. */
-export const TODAY_PROXIMITY_PX = 60;
+ *  year context, so nearby ticks are suppressed to avoid overlap.
+ *
+ *  History: Originally 60px (v0.32.0). Reduced to 44px (v0.32.3) because on
+ *  compressed fit-to-window timelines (~1,500+ day projects in ~900px), 60px
+ *  suppressed quarterly ticks that had adequate visual clearance, leaving
+ *  visible gaps (e.g. Q2 → gap → Q4). 44px sits just above MIN_LABEL_PX (40)
+ *  giving the Today label modest breathing room without eating adjacent ticks.
+ *
+ *  Watchpoint: On extremely compressed charts with semiannual (sparse) ticks,
+ *  even 44px could suppress a tick and leave a 6-month gap. If that surfaces,
+ *  consider an adaptive threshold based on actual tick spacing rather than
+ *  lowering this constant further. */
+export const TODAY_PROXIMITY_PX = 44;
 export const PROJECT_NAME_HEIGHT = 28;
 
 // --- Print Gantt layout constants ---
