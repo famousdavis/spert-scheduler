@@ -19,12 +19,14 @@ interface CDFChartProps {
   points: CDFPoint[];
   probabilityTarget: number;
   percentileValue: number;
+  formatDurationAsDate?: (days: number) => string;
 }
 
 export function CDFChart({
   points,
   probabilityTarget,
   percentileValue,
+  formatDurationAsDate,
 }: CDFChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -61,8 +63,14 @@ export function CDFChart({
               domain={[0, 100]}
             />
             <Tooltip
-              formatter={(value) => [`${value ?? 0}%`, "Probability"]}
-              labelFormatter={(label: unknown) => `${label} days`}
+              formatter={(value) => [`${Math.round(Number(value ?? 0))}%`, "Probability"]}
+              labelFormatter={(label: unknown) => {
+                const days = Math.round(Number(label));
+                const base = `${days} days`;
+                if (!formatDurationAsDate) return base;
+                const date = formatDurationAsDate(days);
+                return date ? `${base}  —  Finish: ${date}` : base;
+              }}
             />
             <Line
               type="monotone"

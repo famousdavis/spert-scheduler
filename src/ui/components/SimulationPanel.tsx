@@ -25,6 +25,7 @@ interface SimulationPanelProps {
   deterministicDuration?: number;
   projectName?: string;
   scenarioName?: string;
+  formatDurationAsDate?: (days: number) => string;
   onRun: () => void;
   onCancel: () => void;
 }
@@ -43,6 +44,7 @@ export function SimulationPanel({
   deterministicDuration,
   projectName,
   scenarioName,
+  formatDurationAsDate,
   onRun,
   onCancel,
 }: SimulationPanelProps) {
@@ -220,6 +222,7 @@ export function SimulationPanel({
                   percentileValue={
                     simulationResults.percentiles[targetPct] ?? simulationResults.mean
                   }
+                  formatDurationAsDate={formatDurationAsDate}
                 />
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-sm text-gray-400 dark:text-gray-500">

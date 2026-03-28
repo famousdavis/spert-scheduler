@@ -14,7 +14,8 @@ import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { Activity, ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE } from "@domain/models/types";
-import { formatDateISO } from "@core/calendar/calendar";
+import { formatDateISO, parseDateISO, addWorkingDays } from "@core/calendar/calendar";
+import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { computeTargetRAGColor } from "@core/schedule/target-rag";
 import { CalendarConfigurationError } from "@core/calendar/work-calendar";
@@ -305,6 +306,20 @@ export function ProjectPage() {
         calendar: workCalendar,
       }),
     [project?.targetFinishDate, scenario?.simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],
+  );
+
+  // Format a simulation duration (days) as a projected finish date for CDF tooltips
+  const formatDate = useDateFormat();
+  const formatDurationAsDate = useCallback(
+    (days: number): string => {
+      const sd = scenario?.startDate;
+      if (!sd) return "";
+      const rounded = Math.round(days);
+      if (rounded <= 0) return "";
+      const finish = addWorkingDays(parseDateISO(sd), rounded - 1, workCalendar);
+      return formatDate(formatDateISO(finish));
+    },
+    [scenario?.startDate, workCalendar, formatDate]
   );
 
   // Auto-run simulation on activity/settings changes (debounced 500ms)
@@ -733,6 +748,7 @@ export function ProjectPage() {
             deterministicDuration={schedule?.totalDurationDays}
             projectName={project.name}
             scenarioName={scenario.name}
+            formatDurationAsDate={formatDurationAsDate}
             onRun={handleRunSimulation}
             onCancel={simulation.cancel}
           />

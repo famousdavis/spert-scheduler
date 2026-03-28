@@ -24,6 +24,7 @@ export interface CDFDataset {
 interface CDFComparisonChartProps {
   datasets: CDFDataset[];
   probabilityTarget?: number;
+  formatDurationAsDate?: (days: number) => string;
 }
 
 // Color palette for comparison lines
@@ -35,6 +36,7 @@ const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 export function CDFComparisonChart({
   datasets,
   probabilityTarget = 0.95,
+  formatDurationAsDate,
 }: CDFComparisonChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -92,8 +94,14 @@ export function CDFComparisonChart({
               domain={[0, 100]}
             />
             <Tooltip
-              formatter={(value, name) => [`${value ?? 0}%`, name ?? ""]}
-              labelFormatter={(label: unknown) => `${label} days`}
+              formatter={(value, name) => [`${Math.round(Number(value ?? 0))}%`, name ?? ""]}
+              labelFormatter={(label: unknown) => {
+                const days = Math.round(Number(label));
+                const base = `${days} days`;
+                if (!formatDurationAsDate) return base;
+                const date = formatDurationAsDate(days);
+                return date ? `${base}  —  Finish: ${date}` : base;
+              }}
             />
             <Legend
               wrapperStyle={{ fontSize: 11 }}
