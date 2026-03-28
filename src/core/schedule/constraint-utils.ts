@@ -154,7 +154,10 @@ export function applyForwardConstraintInt(
       return { es, ef };
     }
 
-    case "SNET": {
+    // SNET and MSO have identical forward-pass bodies intentionally —
+    // the semantic difference (floor vs. pin) only manifests in the backward pass.
+    // eslint-disable-next-line sonarjs/no-duplicated-branches
+    case "SNET": { // NOSONAR
       // es = max(esNet, constraintOffset); ef = es + duration
       const es = Math.max(esNet, constraintOffset);
       return { es, ef: es + duration };

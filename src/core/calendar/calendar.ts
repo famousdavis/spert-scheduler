@@ -51,7 +51,8 @@ export function formatDateShort(
   isoDate: string,
   format: DateFormatPreference = "MM/DD/YYYY"
 ): string {
-  const [_y, mStr, dStr] = isoDate.split("-");
+  // eslint-disable-next-line sonarjs/no-unused-vars
+  const [_y, mStr, dStr] = isoDate.split("-"); // NOSONAR — intentional destructuring discard
   const m = Number(mStr);
   const d = Number(dStr);
   const month = MONTH_ABBR[m - 1]!;

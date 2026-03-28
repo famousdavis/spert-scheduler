@@ -140,6 +140,7 @@ export function PrintableReport({
         </h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
+            {/* eslint-disable-next-line sonarjs/table-header -- presentation layout table, no logical header row */}
             <table className="w-full text-xs">
               <tbody>
                 <tr>
@@ -182,6 +183,7 @@ export function PrintableReport({
             </table>
           </div>
           <div>
+            {/* eslint-disable-next-line sonarjs/table-header -- presentation layout table, no logical header row */}
             <table className="w-full text-xs">
               <tbody>
                 <tr>
@@ -464,6 +466,7 @@ export function PrintableReport({
             {/* Statistics */}
             <div>
               <h3 className="font-medium mb-1 text-xs">Statistics</h3>
+              {/* eslint-disable-next-line sonarjs/table-header -- presentation layout table, no logical header row */}
               <table className="w-full text-xs">
                 <tbody>
                   <tr>

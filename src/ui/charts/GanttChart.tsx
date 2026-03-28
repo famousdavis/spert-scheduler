@@ -259,7 +259,8 @@ export function GanttChart({
 
   // Cancel editing if scenario becomes locked
   useEffect(() => {
-    if (isLocked) setEditingId(null);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isLocked) setEditingId(null); // NOSONAR — intentional reset on lock state change
   }, [isLocked]);
 
   const commitRename = useCallback(() => {
@@ -422,7 +423,8 @@ export function GanttChart({
         criticalPathIds?.has(dep.fromActivityId) && criticalPathIds?.has(dep.toActivityId);
       const fromName = activities.find((a) => a.id === dep.fromActivityId)?.name ?? "";
       const toName = activities.find((a) => a.id === dep.toActivityId)?.name ?? "";
-      const label = `${fromName} → ${toName}, ${dependencyLabel(dep.type)}${dep.lagDays !== 0 ? (dep.lagDays > 0 ? `, +${dep.lagDays}d` : `, ${dep.lagDays}d`) : ""}`;
+      const lagLabel = dep.lagDays !== 0 ? (dep.lagDays > 0 ? `, +${dep.lagDays}d` : `, ${dep.lagDays}d`) : "";
+      const label = `${fromName} → ${toName}, ${dependencyLabel(dep.type)}${lagLabel}`;
 
       return { dep, path, barEndX, toX, fromY, toY, isCriticalEdge, label };
     }).filter(Boolean) as Array<{
@@ -795,11 +797,13 @@ export function GanttChart({
                   fill="transparent"
                   onMouseEnter={(e) => {
                     const tooltipName = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
+                    const floatLabel = sa.totalFloat === 0 ? "Critical path" : `${sa.totalFloat}d`;
+                    const freeFloatLabel = sa.freeFloat != null && sa.freeFloat < sa.totalFloat ? `\nFree Float: ${sa.freeFloat}d` : "";
                     setTooltip({
                       x: e.clientX,
                       y: e.clientY,
                       text: dependencyMode && sa.totalFloat != null
-                        ? `${tooltipName}\n${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)\nTotal Float: ${sa.totalFloat === 0 ? "Critical path" : `${sa.totalFloat}d`}${sa.freeFloat != null && sa.freeFloat < sa.totalFloat ? `\nFree Float: ${sa.freeFloat}d` : ""}`
+                        ? `${tooltipName}\n${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)\nTotal Float: ${floatLabel}${freeFloatLabel}`
                         : `${tooltipName}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`,
                     });
                   }}

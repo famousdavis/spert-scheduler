@@ -214,9 +214,7 @@ export class LocalStorageRepository implements ProjectRepository {
    * Remove a project by ID without validation (for cleaning up corrupted entries).
    */
   removeById(id: string): void {
-    localStorage.removeItem(KEY_PREFIX + id);
-    const ids = this.list().filter((existingId) => existingId !== id);
-    localStorage.setItem(INDEX_KEY, JSON.stringify(ids));
+    this.remove(id);
   }
 
   save(project: Project): void {
