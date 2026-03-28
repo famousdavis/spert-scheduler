@@ -112,6 +112,7 @@ function resolveHeaders(
 
 // Activity IDs in predecessor tokens use [A-Za-z0-9_] (no hyphens) to avoid
 // ambiguity with lag syntax like "A2-2" (ID "A2", lag -2).
+// eslint-disable-next-line sonarjs/concise-regex -- explicit character class intentional — documents hyphen exclusion
 const PREDECESSOR_REGEX = /^([A-Za-z0-9_]+)([+-]\d+)?$/;
 
 // -- Excel date detection (warning, not error) --------------------------------

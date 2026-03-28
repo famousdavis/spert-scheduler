@@ -362,13 +362,7 @@ describe("Limits", () => {
   });
 
   it("errors on more than 2000 dependencies", () => {
-    // Create 100 activities with 21 predecessors each = 2100 deps
-    const rows = [HEADER_ROW];
-    for (let i = 1; i <= 100; i++) {
-      rows.push(validRow(`A${i}`, `Task ${i}`, "1", "2", "3", "Medium"));
-    }
-    // Add 21 predecessor refs from each of A22-A100 to create >2000 deps
-    // Actually: build 2001 deps by having many activities depend on A1
+    // Build 2001 deps by having many activities depend on A1
     const bigRows = [HEADER_ROW];
     for (let i = 1; i <= 2002; i++) {
       bigRows.push(validRow(`A${i}`, `Task ${i}`, "1", "2", "3", "Medium"));

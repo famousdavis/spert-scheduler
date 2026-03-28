@@ -99,7 +99,8 @@ export async function migrateLocalToCloud(
         ...project,
         id: targetId,
       });
-      const { id: _id, ...rest } = cleaned;
+      // eslint-disable-next-line sonarjs/no-unused-vars
+      const { id: _id, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
 
       await setDoc(doc(db, PROJECTS_COL, targetId), {
         ...sanitizeForFirestore(rest),

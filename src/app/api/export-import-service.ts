@@ -153,17 +153,19 @@ function migrateAndValidateProjects(
         ? projectData.schemaVersion
         : 1;
 
+    const projectLabel = projectData.name ?? `#${i + 1}`;
+
     if (typeof projectVersion !== "number" || projectVersion < 1) {
       return {
         success: false,
-        error: `Project "${projectData.name ?? `#${i + 1}`}" has an invalid schema version.`,
+        error: `Project "${projectLabel}" has an invalid schema version.`,
       };
     }
 
     if (projectVersion > SCHEMA_VERSION) {
       return {
         success: false,
-        error: `Project "${projectData.name ?? `#${i + 1}`}" was created with a newer version of SPERT Scheduler. Please update the app.`,
+        error: `Project "${projectLabel}" was created with a newer version of SPERT Scheduler. Please update the app.`,
       };
     }
 
@@ -179,7 +181,7 @@ function migrateAndValidateProjects(
     if (!result.success) {
       return {
         success: false,
-        error: `Project "${projectData.name ?? `#${i + 1}`}" failed validation.`,
+        error: `Project "${projectLabel}" failed validation.`,
         details: result.error.issues
           .map((issue) => issue.message)
           .join("; "),

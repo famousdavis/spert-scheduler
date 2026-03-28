@@ -62,7 +62,8 @@ describe("computeStandardPercentiles", () => {
 
   it("percentiles are monotonically non-decreasing", () => {
     const arr = new Float64Array(10000);
-    for (let i = 0; i < 10000; i++) arr[i] = Math.random() * 100;
+    // eslint-disable-next-line sonarjs/pseudo-random
+    for (let i = 0; i < 10000; i++) arr[i] = Math.random() * 100; // NOSONAR — test data generation
     sortSamples(arr);
     const result = computeStandardPercentiles(arr);
     const keys = [5, 10, 25, 50, 75, 85, 90, 95, 96, 97, 98, 99];
@@ -109,7 +110,8 @@ describe("histogram", () => {
   it("bin counts sum to sample count", () => {
     const n = 1000;
     const arr = new Float64Array(n);
-    for (let i = 0; i < n; i++) arr[i] = Math.random() * 100;
+    // eslint-disable-next-line sonarjs/pseudo-random
+    for (let i = 0; i < n; i++) arr[i] = Math.random() * 100; // NOSONAR — test data generation
     const bins = histogram(arr, 20);
     const totalCount = bins.reduce((sum, b) => sum + b.count, 0);
     expect(totalCount).toBe(n);

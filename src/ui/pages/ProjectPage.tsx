@@ -169,18 +169,19 @@ export function ProjectPage() {
   const scenario = project?.scenarios.find((s) => s.id === activeScenarioId);
 
   // Set document.title so "Save as PDF" defaults to a descriptive filename
+  const projectName = project?.name;
   useEffect(() => {
-    if (!project) return;
+    if (!projectName) return;
     const today = new Date().toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
-    document.title = `SPERT Scheduler for ${project.name} - ${today}`;
+    document.title = `SPERT Scheduler for ${projectName} - ${today}`;
     return () => {
       document.title = "SPERT Scheduler";
     };
-  }, [project?.name]);
+  }, [projectName]);
 
   // Activity numbering map — session-only, built when toggle is on
   const activityNumberMap = useMemo(() => {

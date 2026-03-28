@@ -53,7 +53,8 @@ export function ActivityImportSection({
   const [autoPreview, setAutoPreview] = useState(true);
   const [scenarioName, setScenarioName] = useState("");
   const [targetProjectId, setTargetProjectId] = useState<string | "new">("new");
-  const [_isPending, startTransition] = useTransition();
+  // eslint-disable-next-line sonarjs/no-unused-vars
+  const [_isPending, startTransition] = useTransition(); // NOSONAR — intentional destructuring discard
 
   const preferences = usePreferencesStore((s) => s.preferences);
 

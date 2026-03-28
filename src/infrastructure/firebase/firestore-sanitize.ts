@@ -27,7 +27,8 @@ export function sanitizeForFirestore<T>(obj: T): T {
 export function stripFirestoreFields(
   data: Record<string, unknown>
 ): Record<string, unknown> {
-  const { owner: _owner, members: _members, updatedAt: _updatedAt, ...rest } = data;
+  // eslint-disable-next-line sonarjs/no-unused-vars
+  const { owner: _owner, members: _members, updatedAt: _updatedAt, ...rest } = data; // NOSONAR — intentional destructuring discard
   return rest;
 }
 

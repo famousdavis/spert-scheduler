@@ -184,7 +184,8 @@ export class FirestoreDriver {
 
     const ref = doc(db, PROJECTS_COL, project.id);
     const cleaned = stripSimulationResultsForCloud(project);
-    const { id: _id, ...rest } = cleaned;
+    // eslint-disable-next-line sonarjs/no-unused-vars
+    const { id: _id, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
 
     const data = sanitizeForFirestore({
       ...rest,
@@ -236,7 +237,8 @@ export class FirestoreDriver {
 
     try {
       const cleaned = stripSimulationResultsForCloud(project);
-      const { id: _docId, ...rest } = cleaned;
+      // eslint-disable-next-line sonarjs/no-unused-vars
+      const { id: _docId, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
       const data = sanitizeForFirestore({
         ...rest,
         schemaVersion: SCHEMA_VERSION,

@@ -129,16 +129,19 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [], activityNum
               formatDate={formatDate}
             />
           ))}
-          {dependencyConflicts.map((dc, i) => (
+          {dependencyConflicts.map((dc, i) => {
+            const lagSuffix = dc.lagDays !== 0 ? `${dc.lagDays > 0 ? "+" : ""}${dc.lagDays}d` : "";
+            return (
             <WarningItem
               key={`dep-${i}`}
               variant="warning"
               title={`${prefixName(dc.fromActivityId, dc.fromActivityName)} → ${prefixName(dc.toActivityId, dc.toActivityName)}`}
-              detail={`(${dc.dependencyType}${dc.lagDays !== 0 ? `${dc.lagDays > 0 ? "+" : ""}${dc.lagDays}d` : ""})`}
+              detail={`(${dc.dependencyType}${lagSuffix})`}
               message={dc.message}
               formatDate={formatDate}
             />
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

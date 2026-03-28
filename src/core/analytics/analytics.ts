@@ -187,7 +187,8 @@ export function bootstrapPercentileCI(
     // Resample with replacement
     const resample = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-      const idx = Math.floor(Math.random() * n);
+      // eslint-disable-next-line sonarjs/pseudo-random
+      const idx = Math.floor(Math.random() * n); // NOSONAR — bootstrap CI resampling, not security-sensitive
       resample[i] = samples[idx]!;
     }
     resample.sort();
@@ -264,7 +265,8 @@ export function computeBatchPercentileCIs(
     // Resample with replacement
     const resample = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-      resample[i] = samples[Math.floor(Math.random() * n)]!;
+      // eslint-disable-next-line sonarjs/pseudo-random
+      resample[i] = samples[Math.floor(Math.random() * n)]!; // NOSONAR — bootstrap CI resampling, not security-sensitive
     }
     // Sort ONCE per iteration
     resample.sort();

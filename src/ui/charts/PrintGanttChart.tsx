@@ -168,7 +168,8 @@ export function PrintGanttChart({
       lastX = x;
     }
     return filtered;
-  }, [allTicks, range, toX, finishX, milestoneXPositions, todayX, printDensityPx]);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  }, [allTicks, range, toX, finishX, milestoneXPositions, todayX, printDensityPx]); // NOSONAR — printDensityPx instability acceptable in print-only context
 
   const hasCriticalPath = dependencyMode && criticalPathIds && criticalPathIds.size > 0;
 
