@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.33.0 — 2026-03-28
+
+### Chore — Clean Code Audit
+
+Static analysis audit of the entire `src/` directory using `eslint-plugin-sonarjs` added to the existing ESLint configuration. No functional changes. All 1,123 tests pass, matching the pre-audit baseline exactly.
+
+**Tooling added:**
+- `@vitest/coverage-v8` — coverage reporting (dev dependency)
+- `eslint-plugin-sonarjs` — static analysis with SonarJS recommended ruleset (dev dependency)
+- ESLint config override: `sonarjs/assertions-in-tests` disabled for `**/*.test.ts` and `**/*.test.tsx` (false positives from `fc.assert()` property-based tests)
+
+**Findings: 144 → 98 (46 eliminated, 12 rules fully resolved)**
+
+**Fixed — code changes:**
+- `no-identical-functions`: `removeById()` now delegates to `remove()` in `local-storage-repository.ts`
+- `no-nested-template-literals` (8): inner templates extracted to named consts in `WarningsPanel.tsx`, `export-import-service.ts`, `GanttChart.tsx`
+- `exhaustive-deps`: extracted `projectName` const before `useEffect` in `ProjectPage.tsx`
+- `no-unused-collection`: removed dead `rows` array and push loop in `flat-activity-parser.test.ts`
+
+**Suppressed — intentional or false positives:**
+- `assertions-in-tests` (14) — `fc.assert()` not recognized by SonarJS
+- `no-unused-vars` (8) — intentional destructuring discards using established `_` prefix convention
+- `pseudo-random` (4) — bootstrap CI resampling and test data generation, not security-sensitive
+- `no-duplicated-branches` (1) — SNET/MSO cases intentionally identical in forward pass; difference manifests in backward pass
+- `set-state-in-effect` (1) — intentional reset on lock state change
+- `preserve-manual-memoization` (1) — `printDensityPx` instability acceptable in print-only context
+- `table-header` (3) — presentation layout tables, no logical header row
+- `concise-regex` (1) — explicit character class documents hyphen exclusion intentionally
+
+**Deleted:**
+- `src/core/schedule/target-rag 2.ts` — macOS copy artifact, not imported anywhere
+
+**Deferred (structural complexity, out of scope):**
+- `sonarjs/no-nested-conditional` (56) — requires surgical decomposition
+- `sonarjs/cognitive-complexity` (32) — scheduling engine and parser logic; correctness-critical
+- `sonarjs/no-nested-functions` (10) — case-by-case review needed
+
+Top complexity offenders — `computeDependencySchedule` (140) and `parseActivities` (104) — deliberately untouched as correctness-critical algorithms where decomposition carries regression risk.
+
 ## 0.32.3 — 2026-03-28
 
 ### Bug Fixes

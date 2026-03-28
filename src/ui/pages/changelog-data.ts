@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.33.0",
+    date: "2026-03-28",
+    sections: [
+      {
+        title: "Chore — Clean Code Audit",
+        items: [
+          "Added eslint-plugin-sonarjs (recommended ruleset) and @vitest/coverage-v8 as dev dependencies.",
+          "Reduced ESLint findings from 144 to 98 (46 eliminated, 12 of 15 rules fully resolved).",
+          "Fixed: removeById() delegates to remove(), nested template literals extracted to named consts, useEffect dependency array corrected, dead test code removed.",
+          "Suppressed 33 intentional or false-positive findings across 8 rules with eslint-disable + NOSONAR comments.",
+          "Deleted macOS copy artifact: src/core/schedule/target-rag 2.ts.",
+          "Deferred structural complexity findings (no-nested-conditional, cognitive-complexity, no-nested-functions) for future refactor passes.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.32.3",
     date: "2026-03-28",
     sections: [
