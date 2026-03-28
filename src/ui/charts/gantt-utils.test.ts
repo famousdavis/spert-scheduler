@@ -2,19 +2,17 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from "vitest";
-import type { Activity, ActivityDependency } from "@domain/models/types";
+import { formatDateISO } from "@core/calendar/calendar";
 import {
   dateToX,
   longDateLabel,
   compactLabel,
-  toISO,
   generateTicks,
   monthTickLabel,
   quarterlyTickLabel,
   semiannualTickLabel,
   countQuarterlyTicks,
   countSemiannualTicks,
-  buildOrderedActivities,
   computeWeekendShadingRects,
 } from "./gantt-utils";
 import {
@@ -143,6 +141,11 @@ describe("semiannualTickLabel", () => {
     expect(semiannualTickLabel(new Date(2026, 5, 1), true, null)).toBe("H1 '26");
     expect(semiannualTickLabel(new Date(2026, 6, 1), true, null)).toBe("H2 '26");
   });
+
+  it("returns period only when prevYear is null and not first", () => {
+    // Defensive: prevYear null + isFirst false → no year appended
+    expect(semiannualTickLabel(new Date(2026, 6, 1), false, null)).toBe("H2");
+  });
 });
 
 // -- countQuarterlyTicks / countSemiannualTicks --------------------------------
@@ -156,6 +159,11 @@ describe("countQuarterlyTicks", () => {
   it("returns 0 for very short ranges with no quarter boundary", () => {
     expect(countQuarterlyTicks("2026-02-01", "2026-03-15")).toBe(0);
   });
+
+  it("returns 1 when start equals a quarter boundary", () => {
+    // Same-day boundary: Apr 1 is a quarter start
+    expect(countQuarterlyTicks("2026-04-01", "2026-04-01")).toBe(1);
+  });
 });
 
 describe("countSemiannualTicks", () => {
@@ -167,17 +175,22 @@ describe("countSemiannualTicks", () => {
   it("returns 0 for short ranges with no semi-annual boundary", () => {
     expect(countSemiannualTicks("2026-02-01", "2026-06-15")).toBe(0);
   });
+
+  it("returns 1 when start equals a semi-annual boundary", () => {
+    // Same-day boundary: Jul 1 is a semi-annual start
+    expect(countSemiannualTicks("2026-07-01", "2026-07-01")).toBe(1);
+  });
 });
 
-// -- toISO --------------------------------------------------------------------
+// -- formatDateISO (was toISO) ------------------------------------------------
 
-describe("toISO", () => {
+describe("formatDateISO", () => {
   it("formats date as YYYY-MM-DD", () => {
-    expect(toISO(new Date(2026, 5, 23))).toBe("2026-06-23");
+    expect(formatDateISO(new Date(2026, 5, 23))).toBe("2026-06-23");
   });
 
   it("zero-pads month and day", () => {
-    expect(toISO(new Date(2026, 0, 5))).toBe("2026-01-05");
+    expect(formatDateISO(new Date(2026, 0, 5))).toBe("2026-01-05");
   });
 });
 
@@ -331,59 +344,20 @@ describe("generateTicks", () => {
     const ticks = generateTicks("2026-01-01", "2027-08-24");
     expect(ticks.some((t) => t.label.startsWith("Q"))).toBe(true);
   });
-});
 
-// -- buildOrderedActivities ---------------------------------------------------
-
-function makeActivity(id: string, name: string): Activity {
-  return {
-    id,
-    name,
-    mostLikely: 10,
-    min: 5,
-    max: 15,
-    confidenceLevel: "mediumConfidence" as const,
-    distributionType: "normal" as const,
-    status: "planned" as const,
-  };
-}
-
-function fsDep(from: string, to: string): ActivityDependency {
-  return { fromActivityId: from, toActivityId: to, type: "FS", lagDays: 0 };
-}
-
-describe("buildOrderedActivities", () => {
-  const a = makeActivity("a", "Alpha");
-  const b = makeActivity("b", "Beta");
-  const c = makeActivity("c", "Charlie");
-
-  it("returns original order when dependencyMode is false", () => {
-    const result = buildOrderedActivities([c, b, a], [fsDep("a", "b")], false);
-    expect(result.map((x) => x.id)).toEqual(["c", "b", "a"]);
-  });
-
-  it("returns original order when dependencies is empty", () => {
-    const result = buildOrderedActivities([c, b, a], [], true);
-    expect(result.map((x) => x.id)).toEqual(["c", "b", "a"]);
-  });
-
-  it("preserves grid order even with dependencies (A → B → C chain)", () => {
-    const result = buildOrderedActivities(
-      [c, b, a],
-      [fsDep("a", "b"), fsDep("b", "c")],
-      true,
-    );
-    expect(result.map((x) => x.id)).toEqual(["c", "b", "a"]);
-  });
-
-  it("returns original order on cyclic dependency (graceful fallback)", () => {
-    const result = buildOrderedActivities(
-      [a, b],
-      [fsDep("a", "b"), fsDep("b", "a")],
-      true,
-    );
-    // Cycle causes buildDependencyGraph to throw; fallback returns original
-    expect(result.map((x) => x.id)).toEqual(["a", "b"]);
+  it("generates monthly ticks when tickLevel is explicitly monthly (even for long ranges)", () => {
+    // Forcing monthly on a 2-year range
+    const ticks = generateTicks("2026-01-01", "2027-12-31", "monthly");
+    expect(ticks.length).toBeGreaterThan(12);
+    // All ticks on 1st of month
+    for (const tick of ticks) {
+      expect(tick.x.endsWith("-01")).toBe(true);
+    }
+    // First label includes year
+    expect(ticks[0]!.label).toBe("Feb '26");
+    // Year reappears on Jan '27
+    const jan27 = ticks.find((t) => t.x === "2027-01-01");
+    expect(jan27?.label).toBe("Jan '27");
   });
 });
 
@@ -646,5 +620,17 @@ describe("computeWeekendShadingRects", () => {
     const rectsSmall = computeWeekendShadingRects(mockCalendar, start, end, minTs, maxTs - minTs, 10, 0, 0.1);
     // With smaller minRectWidth, should get at least as many rects
     expect(rectsSmall.length).toBeGreaterThanOrEqual(rectsDefault.length);
+  });
+
+  it("closes trailing span when range ends on a non-work day", () => {
+    // Fri Mar 6 to Sun Mar 8, 2026 — ends on Sunday (non-work day)
+    const start = "2026-03-06";
+    const end = "2026-03-08";
+    const minTs = new Date(start + "T00:00:00").getTime();
+    const maxTs = new Date(end + "T00:00:00").getTime();
+    const rects = computeWeekendShadingRects(mockCalendar, start, end, minTs, maxTs - minTs, 600, 0);
+    // Should have a rect for the trailing Sat-Sun span
+    expect(rects.length).toBe(1);
+    expect(rects[0]!.width).toBeGreaterThan(0);
   });
 });

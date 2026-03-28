@@ -21,7 +21,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, buildOrderedActivities, generateTicks, longDateLabel, computeWeekendShadingRects } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects } from "./gantt-utils";
 import type { TickLevel } from "./gantt-utils";
 
 export interface PrintGanttChartProps {
@@ -83,10 +83,7 @@ export function PrintGanttChart({
     return m;
   }, [scheduledActivities]);
 
-  const ordered = useMemo(
-    () => buildOrderedActivities(activities, dependencies, dependencyMode),
-    [activities, dependencies, dependencyMode],
-  );
+  const ordered = activities;
 
   // Row index map for dependency arrows
   const rowIndex = useMemo(() => {

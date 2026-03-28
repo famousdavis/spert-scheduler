@@ -29,10 +29,154 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
 } from "./gantt-constants";
 import {
-  dateToX, longDateLabel, buildOrderedActivities, computeWeekendShadingRects,
+  dateToX, longDateLabel, computeWeekendShadingRects,
 } from "./gantt-utils";
 import { GanttSvgDefs } from "./GanttSvgDefs";
 import { GanttLegend } from "./GanttLegend";
+
+/** Gantt chart toolbar: view mode toggle, visibility checkboxes, appearance panel button */
+function GanttToolbar({
+  viewMode, setViewMode,
+  dependencyMode, criticalPathIds,
+  showCriticalPath, setShowCriticalPath,
+  showArrows, setShowArrows,
+  showToday, setShowToday,
+  showProjectName, setShowProjectName,
+  projectName,
+  showActivityNumbers, onToggleActivityNumbers,
+  showTargetOnGantt, onToggleShowTarget, hasTargetDate,
+  appearancePanelOpen, onToggleAppearancePanel,
+}: {
+  viewMode: string;
+  setViewMode: (v: "deterministic" | "uncertainty") => void;
+  dependencyMode: boolean;
+  criticalPathIds?: Set<string> | null;
+  showCriticalPath: boolean;
+  setShowCriticalPath: (v: boolean) => void;
+  showArrows: boolean;
+  setShowArrows: (v: boolean) => void;
+  showToday: boolean;
+  setShowToday: (v: boolean) => void;
+  showProjectName: boolean;
+  setShowProjectName: (v: boolean) => void;
+  projectName?: string;
+  showActivityNumbers?: boolean;
+  onToggleActivityNumbers?: (v: boolean) => void;
+  showTargetOnGantt?: boolean;
+  onToggleShowTarget?: (v: boolean) => void;
+  hasTargetDate?: boolean;
+  appearancePanelOpen: boolean;
+  onToggleAppearancePanel: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-3 flex-wrap">
+      <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600 text-sm overflow-hidden">
+        <button
+          className={`px-3 py-1 transition-colors ${
+            viewMode === "deterministic"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 font-medium"
+              : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+          }`}
+          onClick={() => setViewMode("deterministic")}
+        >
+          Deterministic
+        </button>
+        <button
+          className={`px-3 py-1 border-l border-gray-300 dark:border-gray-600 transition-colors ${
+            viewMode === "uncertainty"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 font-medium"
+              : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+          }`}
+          onClick={() => setViewMode("uncertainty")}
+        >
+          With Uncertainty
+        </button>
+      </div>
+      {dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showCriticalPath}
+            onChange={(e) => setShowCriticalPath(e.target.checked)}
+            className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
+          />
+          Critical path
+        </label>
+      )}
+      {dependencyMode && (
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showArrows}
+            onChange={(e) => setShowArrows(e.target.checked)}
+            className="rounded border-gray-300 dark:border-gray-600 text-gray-600 focus:ring-gray-500"
+          />
+          Arrows
+        </label>
+      )}
+      <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={showToday}
+          onChange={(e) => setShowToday(e.target.checked)}
+          className="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
+        />
+        Today
+      </label>
+      {projectName && (
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showProjectName}
+            onChange={(e) => setShowProjectName(e.target.checked)}
+            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+          />
+          Project name
+        </label>
+      )}
+      <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={showActivityNumbers ?? false}
+          onChange={(e) => onToggleActivityNumbers?.(e.target.checked)}
+          className="rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500"
+        />
+        Show Activity IDs
+      </label>
+      {onToggleShowTarget && (
+        <label
+          className={`flex items-center gap-1.5 text-sm cursor-pointer select-none ${hasTargetDate ? "text-gray-600 dark:text-gray-300" : "text-gray-400 dark:text-gray-500 cursor-not-allowed"}`}
+          title={hasTargetDate ? undefined : "Set a Finish Target date in the project summary to enable this option"}
+        >
+          <input
+            type="checkbox"
+            checked={!!showTargetOnGantt}
+            onChange={(e) => onToggleShowTarget(e.target.checked)}
+            disabled={!hasTargetDate}
+            className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 disabled:opacity-50"
+          />
+          Show Finish Target Date
+        </label>
+      )}
+      {/* Appearance panel toggle */}
+      <button
+        type="button"
+        className={`ml-auto p-1.5 rounded transition-colors ${
+          appearancePanelOpen
+            ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+            : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+        }`}
+        onClick={onToggleAppearancePanel}
+        title="Appearance settings"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 interface GanttChartProps {
   activities: Activity[];
@@ -157,11 +301,9 @@ export function GanttChart({
     );
   }, [projectEndDate, buffer, calendar]);
 
-  // Row ordering: topological in dependency mode, array order otherwise
-  const orderedActivities = useMemo(
-    () => buildOrderedActivities(activities, dependencies, dependencyMode),
-    [activities, dependencies, dependencyMode],
-  );
+  // Activities are rendered in their original grid order.
+  // Dependency arrows render correctly regardless of row order.
+  const orderedActivities = activities;
 
   // Activity numbering map — uses original array order (not orderedActivities) to match grid
   const activityIndexMap = useMemo(() => {
@@ -324,113 +466,18 @@ export function GanttChart({
 
   return (
     <div>
-      {/* View toggle */}
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600 text-sm overflow-hidden">
-          <button
-            className={`px-3 py-1 transition-colors ${
-              viewMode === "deterministic"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 font-medium"
-                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            }`}
-            onClick={() => setViewMode("deterministic")}
-          >
-            Deterministic
-          </button>
-          <button
-            className={`px-3 py-1 border-l border-gray-300 dark:border-gray-600 transition-colors ${
-              viewMode === "uncertainty"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 font-medium"
-                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            }`}
-            onClick={() => setViewMode("uncertainty")}
-          >
-            With Uncertainty
-          </button>
-        </div>
-        {dependencyMode && criticalPathIds && criticalPathIds.size > 0 && (
-          <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={showCriticalPath}
-              onChange={(e) => setShowCriticalPath(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
-            />
-            Critical path
-          </label>
-        )}
-        {dependencyMode && (
-          <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={showArrows}
-              onChange={(e) => setShowArrows(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600 text-gray-600 focus:ring-gray-500"
-            />
-            Arrows
-          </label>
-        )}
-        <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showToday}
-            onChange={(e) => setShowToday(e.target.checked)}
-            className="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
-          />
-          Today
-        </label>
-        {projectName && (
-          <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={showProjectName}
-              onChange={(e) => setShowProjectName(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
-            />
-            Project name
-          </label>
-        )}
-        <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showActivityNumbers ?? false}
-            onChange={(e) => onToggleActivityNumbers?.(e.target.checked)}
-            className="rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500"
-          />
-          Show Activity IDs
-        </label>
-        {onToggleShowTarget && (
-          <label
-            className={`flex items-center gap-1.5 text-sm cursor-pointer select-none ${hasTargetDate ? "text-gray-600 dark:text-gray-300" : "text-gray-400 dark:text-gray-500 cursor-not-allowed"}`}
-            title={hasTargetDate ? undefined : "Set a Finish Target date in the project summary to enable this option"}
-          >
-            <input
-              type="checkbox"
-              checked={!!showTargetOnGantt}
-              onChange={(e) => onToggleShowTarget(e.target.checked)}
-              disabled={!hasTargetDate}
-              className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 disabled:opacity-50"
-            />
-            Show Finish Target Date
-          </label>
-        )}
-        {/* Appearance panel toggle */}
-        <button
-          type="button"
-          className={`ml-auto p-1.5 rounded transition-colors ${
-            appearancePanelOpen
-              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-          }`}
-          onClick={onToggleAppearancePanel}
-          title="Appearance settings"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-          </svg>
-        </button>
-      </div>
+      <GanttToolbar
+        viewMode={viewMode} setViewMode={setViewMode}
+        dependencyMode={dependencyMode} criticalPathIds={criticalPathIds}
+        showCriticalPath={showCriticalPath} setShowCriticalPath={setShowCriticalPath}
+        showArrows={showArrows} setShowArrows={setShowArrows}
+        showToday={showToday} setShowToday={setShowToday}
+        showProjectName={showProjectName} setShowProjectName={setShowProjectName}
+        projectName={projectName}
+        showActivityNumbers={showActivityNumbers} onToggleActivityNumbers={onToggleActivityNumbers}
+        showTargetOnGantt={showTargetOnGantt} onToggleShowTarget={onToggleShowTarget} hasTargetDate={hasTargetDate}
+        appearancePanelOpen={appearancePanelOpen} onToggleAppearancePanel={onToggleAppearancePanel}
+      />
 
       {/* Chart SVG — horizontally scrollable */}
       <div ref={svgContainerRef} className={`relative border border-gray-200 dark:border-gray-700 rounded-lg${ra.fitToWindow ? "" : " overflow-x-auto"}`}>
