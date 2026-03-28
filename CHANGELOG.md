@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.32.2 — 2026-03-27
+
+### Security
+
+- Activity Edit Modal: added date format validation guard (`/^\d{4}-\d{2}-\d{2}$/`) on Actual Finish Date blur handler to prevent malformed strings from propagating NaN through `parseDateISO` and calendar math.
+- Activity Edit Modal: actual duration input now clamps to positive integers (`Math.max(1, Math.floor)`) at both the handler and `buildFieldUpdates` save layers, preventing negative, zero, or NaN values from reaching the store.
+- Activity Edit Modal: replaced magic number `10000` with exported `MAX_CALENDAR_ITERATIONS` constant for non-work-day snapping loop guard.
+
+### Internal
+
+- Exported `MAX_CALENDAR_ITERATIONS` from `@core/calendar/calendar` for reuse in UI handlers.
+
 ## 0.32.1 — 2026-03-27
 
 ### Refactoring
