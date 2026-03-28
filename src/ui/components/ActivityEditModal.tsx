@@ -26,7 +26,7 @@ import {
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { parseDateISO, isWorkingDay, formatDateISO, countWorkingDays, activityEndDate } from "@core/calendar/calendar";
+import { parseDateISO, isWorkingDay, formatDateISO, countWorkingDays, activityEndDate, MAX_CALENDAR_ITERATIONS } from "@core/calendar/calendar";
 import { detectConstraintConflict } from "@core/schedule/constraint-utils";
 import { distributionLabel, statusLabel, dependencyLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
@@ -411,7 +411,9 @@ export function ActivityEditModal({
   const handleActualFinishDateBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
       const raw = e.target.value;
-      if (!raw || !scheduledStartDate) {
+      // <input type="date"> produces YYYY-MM-DD or empty; guard against
+      // malformed strings that would cause parseDateISO to produce NaN dates.
+      if (!raw || !scheduledStartDate || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
         setActualFinishDate("");
         setCommittedFinishDate("");
         return;
@@ -420,7 +422,7 @@ export function ActivityEditModal({
       // Snap non-working days forward — same pattern as constraint date handler
       const date = parseDateISO(raw);
       let guard = 0;
-      while (!isWorkingDay(date, calendar) && guard < 10000) {
+      while (!isWorkingDay(date, calendar) && guard < MAX_CALENDAR_ITERATIONS) {
         date.setDate(date.getDate() + 1);
         guard++;
       }
@@ -452,9 +454,11 @@ export function ActivityEditModal({
         setCommittedFinishDate("");
         return;
       }
-      const val = Number(raw);
+      const parsed = Number(raw);
+      if (isNaN(parsed)) return;
+      const val = Math.max(1, Math.floor(parsed));
       setActualDuration(val);
-      if (!scheduledStartDate || val < 1) {
+      if (!scheduledStartDate) {
         setActualFinishDate("");
         setCommittedFinishDate("");
         return;
@@ -502,7 +506,8 @@ export function ActivityEditModal({
     if (status !== activity.status) updates.status = status;
     if (status === "complete" || status === "inProgress") {
       if (actualDuration !== "" && actualDuration !== activity.actualDuration) {
-        updates.actualDuration = Number(actualDuration);
+        const dur = Math.max(1, Math.floor(Number(actualDuration)));
+        if (!isNaN(dur)) updates.actualDuration = dur;
       }
     } else {
       updates.actualDuration = undefined;

@@ -5,7 +5,7 @@ import type { Calendar, DateFormatPreference } from "@domain/models/types";
 import type { WorkCalendar } from "./work-calendar";
 
 /** Maximum iterations for working day calculations to prevent infinite loops */
-const MAX_CALENDAR_ITERATIONS = 10000;
+export const MAX_CALENDAR_ITERATIONS = 10000;
 
 /**
  * Format a Date to "YYYY-MM-DD" string.
