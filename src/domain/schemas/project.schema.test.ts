@@ -127,10 +127,10 @@ describe("ScenarioSettingsSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects trialCount above 50000", () => {
+  it("rejects trialCount above 100000", () => {
     const result = ScenarioSettingsSchema.safeParse({
       ...validSettings,
-      trialCount: 50001,
+      trialCount: 100001,
     });
     expect(result.success).toBe(false);
   });

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.5 — 2026-03-29
+
+### Added
+
+- Monte Carlo simulation trial count option: 100,000 trials now available in both the scenario settings and default preferences dropdowns. Useful for audit-grade precision where reduced variance is needed.
+
 ## 0.33.4 — 2026-03-29
 
 ### Added
