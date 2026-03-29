@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.33.3 — 2026-03-28
+
+### Changed
+
+- Gantt chart color presets expanded from 4 to 10: Classic, Professional, Colorful, Grayscale, Contrast, Forest, Ocean, Sunset, Lavender, Earth.
+- Retired Monochrome and Warm presets; existing projects using them fall back to Classic.
+- About page: removed "IT" qualifier from project manager audience description.
+- About page: License section now links to the GitHub LICENSE file and discloses the Section 7(b) non-permissive attribution requirements.
+
 ## 0.33.2 — 2026-03-28
 
 ### Enhanced

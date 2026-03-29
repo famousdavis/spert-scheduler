@@ -393,12 +393,12 @@ describe("resolveGanttAppearance", () => {
     expect(ra.barInProgress).toBe(GANTT_COLOR_PRESETS.classic!.dark.barInProgress);
   });
 
-  it.each(["classic", "monochrome", "ocean", "warm"] as const)("preset %s light resolves", (preset) => {
+  it.each(["classic", "professional", "colorful", "grayscale", "contrast", "forest", "ocean", "sunset", "lavender", "earth"] as const)("preset %s light resolves", (preset) => {
     const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: preset, weekendShading: false, fitToWindow: false }, false);
     expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS[preset]!.light.barPlanned);
   });
 
-  it.each(["classic", "monochrome", "ocean", "warm"] as const)("preset %s dark resolves", (preset) => {
+  it.each(["classic", "professional", "colorful", "grayscale", "contrast", "forest", "ocean", "sunset", "lavender", "earth"] as const)("preset %s dark resolves", (preset) => {
     const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: preset, weekendShading: false, fitToWindow: false }, true);
     expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS[preset]!.dark.barPlanned);
   });

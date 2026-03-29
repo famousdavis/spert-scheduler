@@ -209,7 +209,12 @@ export const ScenarioSchema = z.object({
 
 const hexColorRegex = /^#[0-9a-fA-F]{6}$/;
 
-const KNOWN_PRESET_KEYS = ["classic", "monochrome", "ocean", "warm"];
+// Active presets + retired keys (monochrome, warm) kept for backward compatibility
+const KNOWN_PRESET_KEYS = [
+  "classic", "professional", "colorful", "grayscale", "contrast",
+  "forest", "ocean", "sunset", "lavender", "earth",
+  "monochrome", "warm",
+];
 
 export const GanttAppearanceSettingsSchema = z.object({
   nameColumnWidth: z.enum(["narrow", "normal", "wide"]),

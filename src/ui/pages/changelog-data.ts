@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.33.3",
+    date: "2026-03-28",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Gantt chart color presets expanded from 4 to 10: Classic, Professional, Colorful, Grayscale, Contrast, Forest, Ocean, Sunset, Lavender, Earth.",
+          "Retired Monochrome and Warm presets; existing projects using them fall back to Classic.",
+          "About page: removed \"IT\" qualifier from project manager audience description.",
+          "About page: License section now links to the GitHub LICENSE file and discloses the Section 7(b) non-permissive attribution requirements.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.33.2",
     date: "2026-03-28",
     sections: [
