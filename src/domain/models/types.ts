@@ -161,7 +161,7 @@ export interface Milestone {
 export interface ScenarioSettings {
   defaultConfidenceLevel: RSMLevel;
   defaultDistributionType: DistributionType;
-  trialCount: number; // 1,000 - 500,000 (default 50,000)
+  trialCount: number; // 1,000 - 100,000 (default 50,000)
   rngSeed: string; // auto-generated, user-editable
   probabilityTarget: number; // Activity-level (deterministic schedule), 0.01 - 0.99 (default 0.50)
   projectProbabilityTarget: number; // Project-level (MC percentile lookup), 0.01 - 0.99 (default 0.95)

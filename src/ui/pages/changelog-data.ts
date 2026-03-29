@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.33.5",
+    date: "2026-03-29",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Monte Carlo simulation trial count option: 100,000 trials now available in both the scenario settings and default preferences dropdowns. Useful for audit-grade precision where reduced variance is needed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.33.4",
     date: "2026-03-29",
     sections: [

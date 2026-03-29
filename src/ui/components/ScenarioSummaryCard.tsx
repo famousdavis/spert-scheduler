@@ -352,7 +352,7 @@ export function ScenarioSummaryCard({
             disabled={isLocked}
             className="px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm font-medium focus:border-blue-400 focus:outline-none tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {[1000, 5000, 10000, 25000, 50000].map((n) => (
+            {[1000, 5000, 10000, 25000, 50000, 100000].map((n) => (
               <option key={n} value={n}>
                 {n.toLocaleString()}
               </option>
