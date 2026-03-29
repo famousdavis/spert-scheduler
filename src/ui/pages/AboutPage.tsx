@@ -20,7 +20,7 @@ export function AboutPage() {
           </h2>
           <p className="mt-2">
             SPERT® Scheduler is a lightweight, probabilistic project scheduling
-            tool for professional IT project managers. It implements Statistical
+            tool for professional project managers. It implements Statistical
             PERT (SPERT®) three-point estimation with Monte Carlo simulation to
             produce probabilistic project duration forecasts.
           </p>
@@ -128,9 +128,24 @@ export function AboutPage() {
         <section>
           <h2 className="text-lg font-semibold text-blue-600">License</h2>
           <p className="mt-2">
-            SPERT Scheduler is licensed under the GNU General Public License v3.
-            You are free to use, modify, and distribute this software under the
-            terms of that license.
+            SPERT Scheduler is licensed under the{" "}
+            <a
+              href="https://github.com/famousdavis/spert-scheduler/blob/main/LICENSE"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              GNU General Public License v3
+            </a>
+            . You are free to use, modify, and distribute this software under
+            the terms of that license.
+          </p>
+          <p className="mt-2">
+            Per Section 7(b) of the GPL v3, the LICENSE file includes
+            non-permissive additional terms requiring attribution preservation
+            and UI notice preservation for derivative works. Original author:
+            William W. Davis, MSPM, PMP. Project: Statistical PERT® Software
+            Suite.
           </p>
         </section>
 
