@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.4 — 2026-03-29
+
+### Added
+
+- Gantt chart row guide lines: faint horizontal lines every 3 rows to help visually track activities to their bars. On by default; toggle in the Gantt appearance panel under Shading.
+
 ## 0.33.3 — 2026-03-28
 
 ### Changed

@@ -230,6 +230,7 @@ export const GanttAppearanceSettingsSchema = z.object({
   weekendShading: z.boolean(),
   fitToWindow: z.boolean(),
   timelineDensity: z.enum(["sparse", "normal", "dense"]).optional(),
+  rowGuideLines: z.boolean().optional(),
 });
 
 // -- Project -----------------------------------------------------------------

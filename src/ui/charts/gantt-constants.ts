@@ -226,6 +226,8 @@ export interface ResolvedGanttAppearance {
   fitToWindow: boolean;
   // Timeline label density — pixel threshold for tick level selection
   timelineDensityPx: number;
+  // Row guide lines
+  rowGuideLines: boolean;
 }
 
 /**
@@ -310,5 +312,6 @@ export function resolveGanttAppearance(
     shadingColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
     fitToWindow: s.fitToWindow ?? false,
     timelineDensityPx: ({ sparse: 90, normal: 70, dense: 50 } as const)[s.timelineDensity ?? "normal"],
+    rowGuideLines: s.rowGuideLines ?? true,
   };
 }

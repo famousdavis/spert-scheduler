@@ -259,6 +259,24 @@ export function PrintGanttChart({
           />
         ))}
 
+        {/* Row guide lines — faint horizontal lines every 3 rows */}
+        {ra.rowGuideLines && ordered.map((_, idx) => {
+          if ((idx + 1) % 3 !== 0 || idx + 1 >= ordered.length) return null;
+          const y = topMargin + (idx + 1) * ra.printRowHeight;
+          return (
+            <line
+              key={`guide-${idx}`}
+              x1={0}
+              y1={y}
+              x2={chartW}
+              y2={y}
+              stroke={c.gridLine}
+              strokeWidth="0.5"
+              opacity={0.3}
+            />
+          );
+        })}
+
         {/* Project name header */}
         {projectName && (
           <text x={8} y={PRINT_PROJECT_NAME_H - 4} textAnchor="start"
