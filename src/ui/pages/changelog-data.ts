@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.33.4",
+    date: "2026-03-29",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Gantt chart row guide lines: faint horizontal lines every 3 rows to help visually track activities to their bars. On by default; toggle in the Gantt appearance panel under Shading.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.33.3",
     date: "2026-03-28",
     sections: [

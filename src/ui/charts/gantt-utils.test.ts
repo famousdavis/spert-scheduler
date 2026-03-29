@@ -569,6 +569,28 @@ describe("resolveGanttAppearance", () => {
     const xl = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "xl", rowDensity: "compact", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(xl.printBarLabelFontSize).toBe(5); // capped from 8 to 5
   });
+
+  // -- rowGuideLines -------------------------------------------------------------
+
+  it("rowGuideLines defaults to true when settings undefined", () => {
+    const ra = resolveGanttAppearance(undefined, false);
+    expect(ra.rowGuideLines).toBe(true);
+  });
+
+  it("rowGuideLines defaults to true when field missing from settings", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    expect(ra.rowGuideLines).toBe(true);
+  });
+
+  it("rowGuideLines passes through false value", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false, rowGuideLines: false }, false);
+    expect(ra.rowGuideLines).toBe(false);
+  });
+
+  it("rowGuideLines passes through true value", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false, rowGuideLines: true }, false);
+    expect(ra.rowGuideLines).toBe(true);
+  });
 });
 
 // -- computeWeekendShadingRects -----------------------------------------------

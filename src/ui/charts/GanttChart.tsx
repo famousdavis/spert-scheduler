@@ -511,6 +511,24 @@ export function GanttChart({
             />
           ))}
 
+          {/* Row guide lines — faint horizontal lines every 3 rows */}
+          {ra.rowGuideLines && orderedActivities.map((_, idx) => {
+            if ((idx + 1) % 3 !== 0 || idx + 1 >= orderedActivities.length) return null;
+            const y = topMargin + (idx + 1) * ra.rowHeight;
+            return (
+              <line
+                key={`guide-${idx}`}
+                x1={0}
+                y1={y}
+                x2={chartWidth}
+                y2={y}
+                stroke={c.gridLine}
+                strokeWidth="1"
+                opacity={0.35}
+              />
+            );
+          })}
+
           {/* Project name header */}
           {showProjectName && projectName && (
             <text

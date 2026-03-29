@@ -229,6 +229,7 @@ export interface GanttAppearanceSettings {
   weekendShading: boolean;
   fitToWindow: boolean;
   timelineDensity?: "sparse" | "normal" | "dense";
+  rowGuideLines?: boolean;
 }
 
 export const DEFAULT_GANTT_APPEARANCE: GanttAppearanceSettings = {
@@ -240,6 +241,7 @@ export const DEFAULT_GANTT_APPEARANCE: GanttAppearanceSettings = {
   weekendShading: false,
   fitToWindow: false,
   timelineDensity: "normal",
+  rowGuideLines: true,
 };
 
 // -- Project -----------------------------------------------------------------
