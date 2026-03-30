@@ -51,7 +51,7 @@ export const MAX_ACTIVITIES_BEFORE_VIRTUALIZATION = 50;
 
 // -- Validation --
 export const MIN_TRIAL_COUNT = 1000;
-export const MAX_TRIAL_COUNT = 50000;
+export const MAX_TRIAL_COUNT = 100000;
 export const DEFAULT_TRIAL_COUNT = 10000;
 
 // -- File Size Limits --

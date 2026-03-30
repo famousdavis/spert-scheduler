@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.6 — 2026-03-29
+
+### Fixed
+
+- Web Worker trial count validation ceiling raised from 50,000 to 100,000 to match the Zod schema and UI options introduced in v0.33.5. Previously, selecting 100,000 trials caused a worker validation error.
+
 ## 0.33.5 — 2026-03-29
 
 ### Added
