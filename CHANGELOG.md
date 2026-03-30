@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.7 — 2026-03-29
+
+### Fixed
+
+- CDF chart probability capped at 99%. The cumulative distribution tooltip previously displayed "Probability: 100%" at the rightmost data point, implying certainty that the project cannot exceed the maximum simulated duration. Monte Carlo samples are finite — the true distribution tail always extends beyond the observed maximum.
+
 ## 0.33.6 — 2026-03-29
 
 ### Fixed
