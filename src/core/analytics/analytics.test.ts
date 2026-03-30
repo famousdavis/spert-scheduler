@@ -157,11 +157,11 @@ describe("cdf", () => {
     }
   });
 
-  it("last point has probability 1", () => {
+  it("last point has probability capped at 0.99", () => {
     const arr = new Float64Array(50);
     for (let i = 0; i < 50; i++) arr[i] = i * 2;
     const points = cdf(arr);
-    expect(points[points.length - 1]!.probability).toBe(1);
+    expect(points[points.length - 1]!.probability).toBe(0.99);
   });
 
   it("downsamples when maxPoints is specified", () => {

@@ -131,15 +131,15 @@ export function cdf(
   for (let i = 0; i < n; i += step) {
     points.push({
       value: sortedSamples[i]!,
-      probability: (i + 1) / n,
+      probability: Math.min((i + 1) / n, 0.99),
     });
   }
 
   // Always include the last point
-  if (points.length > 0 && points[points.length - 1]!.probability < 1) {
+  if (points.length > 0 && points[points.length - 1]!.probability < 0.99) {
     points.push({
       value: sortedSamples[n - 1]!,
-      probability: 1,
+      probability: 0.99,
     });
   }
 
