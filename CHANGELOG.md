@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.33.8 — 2026-03-31
+
+### Maintenance
+
+- Updated Terms of Service and Privacy Policy to v03-31-2026.
+- Updated canonical legal document URLs to spertsuite.com.
+- Updated consent UI text to SPERT® Suite branding.
+
 ## 0.33.7 — 2026-03-29
 
 ### Fixed
