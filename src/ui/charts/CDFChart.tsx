@@ -20,6 +20,10 @@ interface CDFChartProps {
   probabilityTarget: number;
   percentileValue: number;
   formatDurationAsDate?: (days: number) => string;
+  targetDuration?: number;
+  targetProbability?: number;
+  targetLabel?: string;
+  targetColor?: string;
 }
 
 export function CDFChart({
@@ -27,6 +31,10 @@ export function CDFChart({
   probabilityTarget,
   percentileValue,
   formatDurationAsDate,
+  targetDuration,
+  targetProbability,
+  targetLabel,
+  targetColor = "#f59e0b",
 }: CDFChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -54,9 +62,11 @@ export function CDFChart({
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="value"
+              type="number"
               tick={{ fontSize: 11 }}
               tickFormatter={(v) => String(Math.round(v))}
               label={{ value: "Duration (days)", position: "insideBottom", offset: -5, fontSize: 12 }}
+              domain={["dataMin", "dataMax"]}
             />
             <YAxis
               tick={{ fontSize: 11 }}
@@ -90,6 +100,19 @@ export function CDFChart({
                 fontSize: 11,
               }}
             />
+            {targetDuration != null && targetProbability != null && (
+              <ReferenceLine
+                x={targetDuration}
+                stroke={targetColor}
+                strokeDasharray="5 5"
+                label={{
+                  value: targetLabel ?? `${Math.round(targetProbability)}%`,
+                  position: "insideTopRight",
+                  fontSize: 11,
+                  fill: targetColor,
+                }}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>

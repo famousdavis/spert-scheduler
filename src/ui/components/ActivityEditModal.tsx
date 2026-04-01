@@ -77,10 +77,20 @@ function ScheduleContextRow({
   setActualDuration: (v: number | "") => void;
 }) {
   return (
-    <div className={`grid gap-3 ${status === "complete" ? "grid-cols-4" : "grid-cols-3"}`}>
-      {/* Col 1: Scheduled Finish (display only — always) */}
+    <div className={`grid gap-3 ${status === "complete" ? "grid-cols-[1fr_1fr_auto_4.5rem_1.3fr]" : "grid-cols-4"}`}>
+      {/* Col 1: Scheduled Start (display only — always) */}
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          Sched. Start
+        </label>
+        <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
+          {formatDate(scheduledStartDate)}
+        </p>
+      </div>
+
+      {/* Col 2: Scheduled Finish (display only — always) */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 whitespace-nowrap">
           Sched. Finish
         </label>
         <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
@@ -88,17 +98,17 @@ function ScheduleContextRow({
         </p>
       </div>
 
-      {/* Col 2: Scheduled Duration (display only — always) */}
+      {/* Col 3: Scheduled Duration (display only — always) */}
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-          Sched. Duration
+          Sched. Dur.
         </label>
         <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
           {sa.duration}d
         </p>
       </div>
 
-      {/* Col 3: Actual Duration — disabled for planned, editable for inProgress + complete */}
+      {/* Col 4: Actual Duration — disabled for planned, editable for inProgress + complete */}
       <div title={
         status === "planned"
           ? "Set status to In Progress or Complete to enter actual duration"
@@ -107,7 +117,7 @@ function ScheduleContextRow({
             : "Total working days from scheduled start to actual finish"
       }>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-          Actual Duration
+          Actual Dur.
         </label>
         <input
           type="number"
@@ -509,7 +519,7 @@ export function ActivityEditModal({
         const dur = Math.max(1, Math.floor(Number(actualDuration)));
         if (!isNaN(dur)) updates.actualDuration = dur;
       }
-    } else {
+    } else if (activity.actualDuration != null) {
       updates.actualDuration = undefined;
     }
 
@@ -520,11 +530,19 @@ export function ActivityEditModal({
     if (confidenceLevel !== activity.confidenceLevel) updates.confidenceLevel = confidenceLevel;
     if (distributionType !== activity.distributionType) updates.distributionType = distributionType;
 
-    // Constraint
-    updates.constraintType = constraintType ?? null;
-    updates.constraintDate = constraintType ? (constraintDate ?? null) : null;
-    updates.constraintMode = constraintType ? (constraintMode ?? null) : null;
-    updates.constraintNote = constraintType ? (constraintNote?.trim() || null) : null;
+    // Constraint — only include if changed (treat undefined and null as equivalent)
+    const curType = activity.constraintType ?? null;
+    const curDate = activity.constraintDate ?? null;
+    const curMode = activity.constraintMode ?? null;
+    const curNote = activity.constraintNote ?? null;
+    const newType = constraintType ?? null;
+    const newDate = newType ? (constraintDate ?? null) : null;
+    const newMode = newType ? (constraintMode ?? null) : null;
+    const newNote = newType ? (constraintNote?.trim() || null) : null;
+    if (newType !== curType) updates.constraintType = newType;
+    if (newDate !== curDate) updates.constraintDate = newDate;
+    if (newMode !== curMode) updates.constraintMode = newMode;
+    if (newNote !== curNote) updates.constraintNote = newNote;
 
     return updates;
   }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote]);

@@ -147,6 +147,38 @@ export function cdf(
 }
 
 /**
+ * Look up the empirical probability that a project finishes within
+ * the given duration, using pre-sorted Monte Carlo samples.
+ *
+ * Uses binary search to find the count of samples ≤ targetDuration,
+ * then returns count / n, capped at 0.99 (matching the CDF cap).
+ *
+ * @returns Probability in [0, 0.99]. Returns 0 when target is below all samples.
+ */
+export function lookupProbability(
+  sortedSamples: number[],
+  targetDuration: number
+): number {
+  const n = sortedSamples.length;
+  if (n === 0) return 0;
+
+  // Binary search: find count of samples ≤ targetDuration
+  let lo = 0;
+  let hi = n;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sortedSamples[mid]! <= targetDuration) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  // lo = number of samples ≤ targetDuration
+  if (lo === 0) return 0;
+  return Math.min(lo / n, 0.99);
+}
+
+/**
  * Confidence interval for a percentile.
  */
 export interface PercentileCI {
