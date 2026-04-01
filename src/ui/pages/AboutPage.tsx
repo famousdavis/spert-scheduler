@@ -144,8 +144,7 @@ export function AboutPage() {
             Per Section 7(b) of the GPL v3, the LICENSE file includes
             non-permissive additional terms requiring attribution preservation
             and UI notice preservation for derivative works. Original author:
-            William W. Davis, MSPM, PMP. Project: Statistical PERT® Software
-            Suite.
+            William W. Davis, MSPM, PMP. Project: SPERT® Suite.
           </p>
         </section>
 
