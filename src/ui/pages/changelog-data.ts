@@ -12,6 +12,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.0",
+    date: "2026-03-31",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "CDF date probability lookup: enter a target finish date above the Cumulative Distribution chart to see the probability of finishing by that date, with a RAG-colored reference line (green/amber/red based on Schedule Health thresholds).",
+          "Scheduled Start date now displayed in the Edit Activity modal alongside Scheduled Finish and Duration.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "CDF chart x-axis changed from categorical to numeric scale, producing a true CDF curve shape instead of a straight line.",
+          "CDF chart resolution increased from 500 to 1,000 downsampled points for better tail accuracy.",
+          "Edit Activity modal no longer falsely reports unsaved changes when opened and closed without modifications.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Edit Activity modal: duration labels abbreviated to \"Sched. Dur.\" and \"Actual Dur.\" for better layout at Complete status.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.33.8",
     date: "2026-03-31",
     sections: [

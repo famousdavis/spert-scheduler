@@ -14,7 +14,7 @@ import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { Activity, ScenarioSettings } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE } from "@domain/models/types";
-import { formatDateISO, parseDateISO, addWorkingDays } from "@core/calendar/calendar";
+import { formatDateISO, parseDateISO, addWorkingDays, countWorkingDays } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { computeTargetRAGColor } from "@core/schedule/target-rag";
@@ -320,6 +320,17 @@ export function ProjectPage() {
       return formatDate(formatDateISO(finish));
     },
     [scenario?.startDate, workCalendar, formatDate]
+  );
+
+  // Convert a target date to working days from scenario start (for CDF date lookup)
+  const dateToWorkingDays = useCallback(
+    (targetDateISO: string): number | null => {
+      const sd = scenario?.startDate;
+      if (!sd) return null;
+      const days = countWorkingDays(parseDateISO(sd), parseDateISO(targetDateISO), workCalendar) + 1;
+      return days > 0 ? days : null;
+    },
+    [scenario?.startDate, workCalendar]
   );
 
   // Auto-run simulation on activity/settings changes (debounced 500ms)
@@ -749,6 +760,9 @@ export function ProjectPage() {
             projectName={project.name}
             scenarioName={scenario.name}
             formatDurationAsDate={formatDurationAsDate}
+            dateToWorkingDays={dateToWorkingDays}
+            targetFinishGreenPct={targetFinishGreenPct}
+            targetFinishAmberPct={targetFinishAmberPct}
             onRun={handleRunSimulation}
             onCancel={simulation.cancel}
           />

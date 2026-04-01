@@ -250,7 +250,7 @@ The `storeFullSimulationData` preference (default: `false`) controls whether the
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels, Gantt utilities, dependency graph
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants, dependency graph properties
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import, dependency lifecycle
-- **796 tests** across 46 test files
+- **1148 tests** across 53 test files
 
 ## Performance Budget
 

@@ -11,6 +11,7 @@ import {
   standardDeviation,
   histogram,
   cdf,
+  lookupProbability,
 } from "./analytics";
 import { STANDARD_PERCENTILES } from "@domain/models/types";
 
@@ -173,6 +174,66 @@ describe("cdf", () => {
 
   it("returns empty for empty input", () => {
     expect(cdf(new Float64Array(0))).toEqual([]);
+  });
+});
+
+describe("lookupProbability", () => {
+  it("returns 0 for empty samples", () => {
+    expect(lookupProbability([], 10)).toBe(0);
+  });
+
+  it("returns 0 when target is below all samples", () => {
+    expect(lookupProbability([5, 10, 15, 20], 3)).toBe(0);
+  });
+
+  it("returns correct probability for target within range", () => {
+    // 4 samples: [10, 20, 30, 40]. Target = 25 → 2 samples ≤ 25 → 2/4 = 0.5
+    expect(lookupProbability([10, 20, 30, 40], 25)).toBe(0.5);
+  });
+
+  it("returns correct probability for target matching a sample exactly", () => {
+    // [10, 20, 30, 40]. Target = 20 → 2 samples ≤ 20 → 2/4 = 0.5
+    expect(lookupProbability([10, 20, 30, 40], 20)).toBe(0.5);
+  });
+
+  it("caps at 0.99 when target is at or above max", () => {
+    expect(lookupProbability([10, 20, 30, 40], 40)).toBe(0.99);
+    expect(lookupProbability([10, 20, 30, 40], 100)).toBe(0.99);
+  });
+
+  it("returns probability for target equal to min", () => {
+    // [10, 20, 30, 40]. Target = 10 → 1 sample ≤ 10 → 1/4 = 0.25
+    expect(lookupProbability([10, 20, 30, 40], 10)).toBe(0.25);
+  });
+
+  it("handles single-element array", () => {
+    expect(lookupProbability([50], 49)).toBe(0);
+    expect(lookupProbability([50], 50)).toBe(0.99);
+    expect(lookupProbability([50], 51)).toBe(0.99);
+  });
+
+  it("handles duplicate samples", () => {
+    // [10, 10, 20, 20]. Target = 10 → 2 samples ≤ 10 → 2/4 = 0.5
+    expect(lookupProbability([10, 10, 20, 20], 10)).toBe(0.5);
+  });
+
+  it("property: probability is monotonically non-decreasing with increasing target", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 500 }), { minLength: 10, maxLength: 100 }),
+        (unsorted) => {
+          const sorted = [...unsorted].sort((a, b) => a - b);
+          let prev = 0;
+          for (let t = 0; t <= 510; t += 10) {
+            const p = lookupProbability(sorted, t);
+            if (p < prev) return false;
+            prev = p;
+          }
+          return true;
+        }
+      ),
+      { numRuns: 50 }
+    );
   });
 });
 

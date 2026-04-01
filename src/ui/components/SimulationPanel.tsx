@@ -1,9 +1,9 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { SimulationRun } from "@domain/models/types";
-import { cdf } from "@core/analytics/analytics";
+import { cdf, lookupProbability } from "@core/analytics/analytics";
 import { exportSimulationCSV } from "@app/api/csv-export-service";
 import { downloadFile } from "@ui/helpers/download";
 import { formatDateISO } from "@core/calendar/calendar";
@@ -26,6 +26,9 @@ interface SimulationPanelProps {
   projectName?: string;
   scenarioName?: string;
   formatDurationAsDate?: (days: number) => string;
+  dateToWorkingDays?: (targetDateISO: string) => number | null;
+  targetFinishGreenPct?: number;
+  targetFinishAmberPct?: number;
   onRun: () => void;
   onCancel: () => void;
 }
@@ -45,6 +48,9 @@ export function SimulationPanel({
   projectName,
   scenarioName,
   formatDurationAsDate,
+  dateToWorkingDays,
+  targetFinishGreenPct = 80,
+  targetFinishAmberPct = 50,
   onRun,
   onCancel,
 }: SimulationPanelProps) {
@@ -70,6 +76,19 @@ export function SimulationPanel({
     actPct !== undefined && simulationResults
       ? simulationResults.percentiles[actPct]
       : undefined;
+
+  // Date probability lookup state
+  const [targetDate, setTargetDate] = useState("");
+  const targetLookup = useMemo(() => {
+    if (!targetDate || !dateToWorkingDays || !simulationResults?.samples?.length) return null;
+    const days = dateToWorkingDays(targetDate);
+    if (days == null || days <= 0) return null;
+    const probability = lookupProbability(simulationResults.samples, days);
+    const pct = probability * 100;
+    const dateLabel = formatDurationAsDate?.(days) ?? "";
+    const color = pct >= targetFinishGreenPct ? "#16a34a" : pct >= targetFinishAmberPct ? "#f59e0b" : "#dc2626";
+    return { days, probability: pct, label: `${Math.round(pct)}%${dateLabel ? ` by ${dateLabel}` : ""}`, color };
+  }, [targetDate, dateToWorkingDays, simulationResults?.samples, formatDurationAsDate, targetFinishGreenPct, targetFinishAmberPct]);
 
   return (
     <div className="space-y-4">
@@ -212,17 +231,39 @@ export function SimulationPanel({
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Cumulative Distribution
               </h4>
+              {dateToWorkingDays && simulationResults.samples.length > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    Finish by:
+                  </label>
+                  <input
+                    type="date"
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
+                    className="text-xs border border-gray-300 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-amber-400 focus:outline-none"
+                  />
+                  {targetLookup && (
+                    <span className="text-xs font-medium whitespace-nowrap" style={{ color: targetLookup.color }}>
+                      {Math.round(targetLookup.probability)}% probability
+                    </span>
+                  )}
+                </div>
+              )}
               {simulationResults.samples.length > 0 ? (
                 <CDFChart
                   points={cdf(
                     new Float64Array(simulationResults.samples),
-                    500
+                    1000
                   )}
                   probabilityTarget={probabilityTarget}
                   percentileValue={
                     simulationResults.percentiles[targetPct] ?? simulationResults.mean
                   }
                   formatDurationAsDate={formatDurationAsDate}
+                  targetDuration={targetLookup?.days}
+                  targetProbability={targetLookup?.probability}
+                  targetLabel={targetLookup?.label}
+                  targetColor={targetLookup?.color}
                 />
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-sm text-gray-400 dark:text-gray-500">
