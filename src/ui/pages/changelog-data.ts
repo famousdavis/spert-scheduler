@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.1",
+    date: "2026-04-01",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Any scenario can now be deleted. The last remaining scenario is protected from deletion instead of the first (Baseline) scenario.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.0",
     date: "2026-03-31",
     sections: [

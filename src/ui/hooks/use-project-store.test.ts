@@ -60,7 +60,7 @@ describe("useProjectStore", () => {
     expect(useProjectStore.getState().projects).toHaveLength(0);
   });
 
-  it("adds scenarios and deletes non-baseline scenarios", () => {
+  it("adds scenarios and deletes any non-last scenario", () => {
     const store = useProjectStore.getState();
     const project = store.addProject("With Scenarios");
 
@@ -74,28 +74,41 @@ describe("useProjectStore", () => {
     updated = useProjectStore.getState().getProject(project.id)!;
     expect(updated.scenarios).toHaveLength(2);
 
-    // Delete the second scenario (non-baseline)
+    // Delete the second scenario
     store.deleteScenario(project.id, updated.scenarios[1]!.id);
     updated = useProjectStore.getState().getProject(project.id)!;
     expect(updated.scenarios).toHaveLength(1);
     expect(updated.scenarios[0]!.name).toBe("Baseline");
   });
 
-  it("cannot delete the baseline scenario", () => {
+  it("cannot delete the only scenario", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Protected Baseline");
+    const project = store.addProject("Single Scenario");
+
+    const updated = useProjectStore.getState().getProject(project.id)!;
+    const onlyId = updated.scenarios[0]!.id;
+
+    // Attempt to delete the only scenario — should be a no-op
+    store.deleteScenario(project.id, onlyId);
+    const after = useProjectStore.getState().getProject(project.id)!;
+    expect(after.scenarios).toHaveLength(1);
+    expect(after.scenarios[0]!.id).toBe(onlyId);
+  });
+
+  it("can delete the first scenario when others exist", () => {
+    const store = useProjectStore.getState();
+    const project = store.addProject("Delete First Scenario");
 
     let updated = useProjectStore.getState().getProject(project.id)!;
-    const baselineId = updated.scenarios[0]!.id;
+    const firstId = updated.scenarios[0]!.id;
 
-    // Add a second so deletion isn't blocked by "only one scenario" logic
     store.addScenario(project.id, "Alt", "2025-01-06");
 
-    // Attempt to delete baseline — should be a no-op
-    store.deleteScenario(project.id, baselineId);
+    // Delete the first (previously protected) scenario — should succeed
+    store.deleteScenario(project.id, firstId);
     updated = useProjectStore.getState().getProject(project.id)!;
-    expect(updated.scenarios).toHaveLength(2);
-    expect(updated.scenarios[0]!.id).toBe(baselineId);
+    expect(updated.scenarios).toHaveLength(1);
+    expect(updated.scenarios[0]!.name).toBe("Alt");
   });
 
   it("adds activities and invalidates simulation results", () => {

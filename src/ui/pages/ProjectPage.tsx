@@ -378,8 +378,8 @@ export function ProjectPage() {
   const handleDeleteScenario = useCallback(
     (scenarioId: string) => {
       if (!id || !project) return;
-      // Protect baseline (first scenario) from deletion
-      if (scenarioId === project.scenarios[0]?.id) return;
+      // Protect last remaining scenario from deletion
+      if (project.scenarios.length <= 1) return;
       if (!confirm("Delete this scenario?")) return;
       deleteScenario(id, scenarioId);
       if (scenarioId === activeScenarioId) {
