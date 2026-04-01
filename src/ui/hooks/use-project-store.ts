@@ -507,8 +507,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     pushUndo(projectId);
     set((state) => {
       const project = state.projects.find((p) => p.id === projectId);
-      // Protect baseline (first scenario) from deletion
-      if (project?.scenarios[0]?.id === scenarioId) return state;
+      // Protect last remaining scenario from deletion
+      if ((project?.scenarios.length ?? 0) <= 1) return state;
 
       const projects = state.projects.map((p) =>
         p.id === projectId ? removeScenarioFromProject(p, scenarioId) : p

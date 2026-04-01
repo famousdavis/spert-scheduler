@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.34.1 — 2026-04-01
+
+### Changed
+
+- Any scenario can now be deleted. The last remaining scenario is protected from deletion instead of the first (Baseline) scenario.
+
 ## 0.34.0 — 2026-03-31
 
 ### Added

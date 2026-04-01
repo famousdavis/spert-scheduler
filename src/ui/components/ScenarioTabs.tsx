@@ -42,7 +42,6 @@ function SortableScenarioTab({
   isBaseline,
   isEditing,
   scenarioCount,
-  firstScenarioId,
   onSelect,
   onClone,
   onDelete,
@@ -58,7 +57,6 @@ function SortableScenarioTab({
   isBaseline: boolean;
   isEditing: boolean;
   scenarioCount: number;
-  firstScenarioId: string | undefined;
   onSelect: (scenarioId: string) => void;
   onClone: (scenarioId: string) => void;
   onDelete: (scenarioId: string) => void;
@@ -187,7 +185,7 @@ function SortableScenarioTab({
         >
           &#x2398;
         </button>
-        {scenarioCount > 1 && scenario.id !== firstScenarioId && (
+        {scenarioCount > 1 && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -262,7 +260,6 @@ export function ScenarioTabs({
               isBaseline={index === 0}
               isEditing={editingId === scenario.id}
               scenarioCount={scenarios.length}
-              firstScenarioId={scenarios[0]?.id}
               onSelect={onSelect}
               onClone={onClone}
               onDelete={onDelete}
