@@ -12,6 +12,7 @@ import type {
   DistributionType,
   ActivityStatus,
   Activity,
+  ActivityDependency,
   ChecklistItem,
   DeliverableItem,
 } from "@domain/models/types";
@@ -204,6 +205,138 @@ function Section({
         )}
       </button>
       {open && <div className="pb-3 space-y-3">{children}</div>}
+    </div>
+  );
+}
+
+/** Builds constraint-related field updates, isolating the null-coalescing diff logic. */
+function computeConstraintUpdates(
+  activity: Activity,
+  constraintType: ConstraintType | null,
+  constraintDate: string | null,
+  constraintMode: ConstraintMode | null,
+  constraintNote: string | null,
+): Partial<Activity> {
+  const curType = activity.constraintType ?? null;
+  const curDate = activity.constraintDate ?? null;
+  const curMode = activity.constraintMode ?? null;
+  const curNote = activity.constraintNote ?? null;
+  const newType = constraintType ?? null;
+  const newDate = newType ? (constraintDate ?? null) : null;
+  const newMode = newType ? (constraintMode ?? null) : null;
+  const newNote = newType ? (constraintNote?.trim() || null) : null;
+  const updates: Partial<Activity> = {};
+  if (newType !== curType) updates.constraintType = newType;
+  if (newDate !== curDate) updates.constraintDate = newDate;
+  if (newMode !== curMode) updates.constraintMode = newMode;
+  if (newNote !== curNote) updates.constraintNote = newNote;
+  return updates;
+}
+
+/** Display-only list of predecessors/successors for a single activity. */
+function DependenciesDisplaySection({
+  relatedDeps,
+  activityId,
+  activityNameById,
+  onClose,
+  onEditDependency,
+  onAddDependency,
+}: {
+  relatedDeps: ActivityDependency[];
+  activityId: string;
+  activityNameById: (id: string) => string;
+  onClose: () => void;
+  onEditDependency?: (fromId: string, toId: string) => void;
+  onAddDependency?: (fromId: string) => void;
+}) {
+  return (
+    <>
+      {relatedDeps.length === 0 ? (
+        <p className="text-sm text-gray-400 dark:text-gray-500">
+          No dependencies involving this activity.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {relatedDeps.map((dep) => {
+            const isPred = dep.toActivityId === activityId;
+            const otherId = isPred ? dep.fromActivityId : dep.toActivityId;
+            return (
+              <div
+                key={`${dep.fromActivityId}-${dep.toActivityId}`}
+                className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-gray-50 dark:bg-gray-700/50 text-sm"
+              >
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    {isPred ? "Pred:" : "Succ:"}
+                  </span>{" "}
+                  <span className="text-gray-700 dark:text-gray-300 truncate">
+                    {activityNameById(otherId)}
+                  </span>
+                  <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                    {dependencyLabel(dep.type)}{dep.lagDays !== 0 ? `, ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""}
+                  </span>
+                </div>
+                {onEditDependency && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onEditDependency(dep.fromActivityId, dep.toActivityId);
+                    }}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 shrink-0"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {onAddDependency && (
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            onAddDependency(activityId);
+          }}
+          className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+        >
+          + Add Dependency
+        </button>
+      )}
+    </>
+  );
+}
+
+/** Display-only schedule analysis grid: dates, duration, float values. */
+function ScheduleAnalysisSection({
+  sa,
+  formatDate,
+}: {
+  sa: { startDate: string; endDate: string; duration: number; totalFloat?: number; freeFloat?: number | null };
+  formatDate: (iso: string) => string;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <div className="text-gray-500 dark:text-gray-400">Scheduled Start</div>
+      <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.startDate)}</div>
+      <div className="text-gray-500 dark:text-gray-400">Scheduled Finish</div>
+      <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.endDate)}</div>
+      <div className="text-gray-500 dark:text-gray-400">Duration</div>
+      <div className="text-gray-900 dark:text-gray-100">{sa.duration} working days</div>
+      <div className="text-gray-500 dark:text-gray-400">Total Float</div>
+      <div className="text-gray-900 dark:text-gray-100">
+        {sa.totalFloat === 0
+          ? "Critical path \u2014 0 days float"
+          : sa.totalFloat != null ? `${sa.totalFloat} days` : "—"}
+      </div>
+      {sa.freeFloat != null && (
+        <>
+          <div className="text-gray-500 dark:text-gray-400">Free Float</div>
+          <div className="text-gray-900 dark:text-gray-100">{sa.freeFloat} days</div>
+        </>
+      )}
     </div>
   );
 }
@@ -532,19 +665,8 @@ export function ActivityEditModal({
     if (confidenceLevel !== activity.confidenceLevel) updates.confidenceLevel = confidenceLevel;
     if (distributionType !== activity.distributionType) updates.distributionType = distributionType;
 
-    // Constraint — only include if changed (treat undefined and null as equivalent)
-    const curType = activity.constraintType ?? null;
-    const curDate = activity.constraintDate ?? null;
-    const curMode = activity.constraintMode ?? null;
-    const curNote = activity.constraintNote ?? null;
-    const newType = constraintType ?? null;
-    const newDate = newType ? (constraintDate ?? null) : null;
-    const newMode = newType ? (constraintMode ?? null) : null;
-    const newNote = newType ? (constraintNote?.trim() || null) : null;
-    if (newType !== curType) updates.constraintType = newType;
-    if (newDate !== curDate) updates.constraintDate = newDate;
-    if (newMode !== curMode) updates.constraintMode = newMode;
-    if (newNote !== curNote) updates.constraintNote = newNote;
+    // Constraint — only include if changed (treat undefined/null as equivalent)
+    Object.assign(updates, computeConstraintUpdates(activity, constraintType, constraintDate, constraintMode, constraintNote));
 
     return updates;
   }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote]);
@@ -938,60 +1060,14 @@ export function ActivityEditModal({
             {/* ── Section 4: Dependencies (only in dependency mode) ── */}
             {dependencyMode && (
               <Section title="Dependencies" defaultOpen={false} indicator={relatedDeps.length > 0}>
-                {relatedDeps.length === 0 ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500">
-                    No dependencies involving this activity.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {relatedDeps.map((dep) => {
-                      const isPred = dep.toActivityId === activityId;
-                      const otherId = isPred ? dep.fromActivityId : dep.toActivityId;
-                      return (
-                        <div
-                          key={`${dep.fromActivityId}-${dep.toActivityId}`}
-                          className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-gray-50 dark:bg-gray-700/50 text-sm"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <span className="text-xs text-gray-400 dark:text-gray-500">
-                              {isPred ? "Pred:" : "Succ:"}
-                            </span>{" "}
-                            <span className="text-gray-700 dark:text-gray-300 truncate">
-                              {activityNameById(otherId)}
-                            </span>
-                            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                              {dependencyLabel(dep.type)}{dep.lagDays !== 0 ? `, ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""}
-                            </span>
-                          </div>
-                          {onEditDependency && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onClose();
-                                onEditDependency(dep.fromActivityId, dep.toActivityId);
-                              }}
-                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 shrink-0"
-                            >
-                              Edit
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {onAddDependency && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onAddDependency(activityId);
-                    }}
-                    className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                  >
-                    + Add Dependency
-                  </button>
-                )}
+                <DependenciesDisplaySection
+                  relatedDeps={relatedDeps}
+                  activityId={activityId}
+                  activityNameById={activityNameById}
+                  onClose={onClose}
+                  onEditDependency={onEditDependency}
+                  onAddDependency={onAddDependency}
+                />
               </Section>
             )}
 
@@ -1036,26 +1112,7 @@ export function ActivityEditModal({
             {/* ── Section 8: Schedule Analysis (dependency mode only) ── */}
             {dependencyMode && sa && (
               <Section title="Schedule Analysis" defaultOpen={false}>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <div className="text-gray-500 dark:text-gray-400">Scheduled Start</div>
-                  <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.startDate)}</div>
-                  <div className="text-gray-500 dark:text-gray-400">Scheduled Finish</div>
-                  <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.endDate)}</div>
-                  <div className="text-gray-500 dark:text-gray-400">Duration</div>
-                  <div className="text-gray-900 dark:text-gray-100">{sa.duration} working days</div>
-                  <div className="text-gray-500 dark:text-gray-400">Total Float</div>
-                  <div className="text-gray-900 dark:text-gray-100">
-                    {sa.totalFloat === 0
-                      ? "Critical path \u2014 0 days float"
-                      : `${sa.totalFloat} days`}
-                  </div>
-                  {sa.freeFloat != null && (
-                    <>
-                      <div className="text-gray-500 dark:text-gray-400">Free Float</div>
-                      <div className="text-gray-900 dark:text-gray-100">{sa.freeFloat} days</div>
-                    </>
-                  )}
-                </div>
+                <ScheduleAnalysisSection sa={sa} formatDate={formatDate} />
               </Section>
             )}
           </div>

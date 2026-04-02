@@ -18,6 +18,11 @@ interface MilestonePanelProps {
   formatActivityName?: (a: Activity) => string;
 }
 
+function formatMilestoneCount(count: number): string {
+  if (count === 0) return "No milestones";
+  return `${count} ${count === 1 ? "milestone" : "milestones"}`;
+}
+
 function HealthBadge({ health }: { health: "green" | "amber" | "red" }) {
   const colors = {
     green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -97,9 +102,7 @@ export function MilestonePanel({
           Milestones
         </button>
         <span className="text-xs text-gray-400 dark:text-gray-500">
-          {milestones.length === 0
-            ? "No milestones"
-            : `${milestones.length} ${milestones.length === 1 ? "milestone" : "milestones"}`}
+          {formatMilestoneCount(milestones.length)}
         </span>
       </div>
 

@@ -4,6 +4,12 @@
 import { useState, useEffect } from "react";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 
+function resolveUsageBarColor(pct: number): string {
+  if (pct > 80) return "bg-red-500";
+  if (pct > 50) return "bg-amber-500";
+  return "bg-blue-500";
+}
+
 export function LocalStorageSection() {
   const storeFullSimulationData = usePreferencesStore((s) => s.preferences.storeFullSimulationData);
   const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
@@ -61,13 +67,7 @@ export function LocalStorageSection() {
             </div>
             <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${
-                  usagePercent > 80
-                    ? "bg-red-500"
-                    : usagePercent > 50
-                      ? "bg-amber-500"
-                      : "bg-blue-500"
-                }`}
+                className={`h-full rounded-full transition-all ${resolveUsageBarColor(usagePercent)}`}
                 style={{ width: `${usagePercent}%` }}
               />
             </div>

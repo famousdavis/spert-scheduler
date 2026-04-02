@@ -20,6 +20,13 @@ const CLIPBOARD_IMAGE_SUPPORTED =
 
 type CopyStatus = "idle" | "copying" | "success" | "error";
 
+function resolveButtonClass(supported: boolean, status: CopyStatus): string {
+  if (!supported) return "opacity-30 cursor-not-allowed";
+  if (status === "copying") return "cursor-wait opacity-100";
+  if (status === "idle") return "opacity-50 hover:opacity-100 cursor-pointer";
+  return "opacity-100";
+}
+
 interface CopyImageButtonProps {
   targetRef: RefObject<HTMLElement | null>;
   title?: string;
@@ -53,15 +60,7 @@ export function CopyImageButton({
 
   return (
     <button
-      className={`copy-image-button bg-transparent border-0 p-1 shrink-0 transition-opacity duration-200 ${
-        !CLIPBOARD_IMAGE_SUPPORTED
-          ? "opacity-30 cursor-not-allowed"
-          : status === "copying"
-            ? "cursor-wait opacity-100"
-            : status === "idle"
-              ? "opacity-50 hover:opacity-100 cursor-pointer"
-              : "opacity-100"
-      }`}
+      className={`copy-image-button bg-transparent border-0 p-1 shrink-0 transition-opacity duration-200 ${resolveButtonClass(CLIPBOARD_IMAGE_SUPPORTED, status)}`}
       onClick={handleCopy}
       disabled={!CLIPBOARD_IMAGE_SUPPORTED || status === "copying"}
       title={CLIPBOARD_IMAGE_SUPPORTED ? title : unsupportedTitle}
