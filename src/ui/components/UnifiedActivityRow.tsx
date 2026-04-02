@@ -86,6 +86,9 @@ function ActivityProgressBars({
         hasNotes ? "Has notes" : "",
       ].filter(Boolean).join(" · ")}
     >
+      {hasNotes && (
+        <div className="w-2.5 h-0.5 rounded-full bg-violet-500 dark:bg-violet-400 shrink-0" />
+      )}
       {hasTasks && (
         <div className={`${both ? "flex-1" : "w-full"} h-0.5 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden`}>
           <div
@@ -101,9 +104,6 @@ function ActivityProgressBars({
             style={{ width: `${(delDone / delTotal) * 100}%` }}
           />
         </div>
-      )}
-      {hasNotes && (
-        <div className="w-2.5 h-0.5 rounded-full bg-violet-500 dark:bg-violet-400 shrink-0" />
       )}
     </div>
   );
@@ -401,6 +401,7 @@ export function UnifiedActivityRow({
       </div>
 
       {/* Name */}
+      <div>
       <div className="relative">
         <div className={`flex items-center${onEditActivity ? " pr-5" : ""}`}>
           {activityNumber != null && (
@@ -436,6 +437,7 @@ export function UnifiedActivityRow({
             </svg>
           </button>
         )}
+      </div>
         <ActivityProgressBars activity={activity} onEditActivity={onEditActivity} />
       </div>
 

@@ -42,7 +42,11 @@ export function EstimateInputs({
             type="number"
             defaultValue={Math.round(f.defaultValue)}
             onFocus={(e) => e.target.select()}
-            onBlur={(e) => onBlur(f.activityKey, e.target.value)}
+            onBlur={(e) => {
+              const rounded = Math.round(parseFloat(e.target.value));
+              if (!isNaN(rounded)) e.target.value = String(rounded);
+              onBlur(f.activityKey, e.target.value);
+            }}
             onKeyDown={(e) => onKeyDown(e, f.dataField)}
             disabled={disabled}
             className={`${INPUT_CLASS_BASE} ${f.error ? INPUT_CLASS_ERROR : INPUT_CLASS_NORMAL}`}
