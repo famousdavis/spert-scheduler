@@ -401,6 +401,7 @@ export function UnifiedActivityRow({
       </div>
 
       {/* Name */}
+      <div>
       <div className="relative">
         <div className={`flex items-center${onEditActivity ? " pr-5" : ""}`}>
           {activityNumber != null && (
@@ -436,6 +437,7 @@ export function UnifiedActivityRow({
             </svg>
           </button>
         )}
+      </div>
         <ActivityProgressBars activity={activity} onEditActivity={onEditActivity} />
       </div>
 
