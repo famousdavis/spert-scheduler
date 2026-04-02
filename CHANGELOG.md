@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.34.2 — 2026-04-01
+
+### Added
+
+- Activities with notes now show a small violet indicator beneath the activity name in the grid (alongside the existing task and deliverable bars), and a violet dot on the Notes section header in the Edit Activity modal.
+
 ## 0.34.1 — 2026-04-01
 
 ### Changed

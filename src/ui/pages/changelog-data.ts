@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.2",
+    date: "2026-04-01",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Activities with notes now show a small violet indicator beneath the activity name in the grid (alongside the existing task and deliverable bars), and a violet dot on the Notes section header in the Edit Activity modal.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.1",
     date: "2026-04-01",
     sections: [
