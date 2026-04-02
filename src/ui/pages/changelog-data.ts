@@ -12,6 +12,32 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.5",
+    date: "2026-04-01",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "XLSX export now guards against Excel formula injection (cells starting with =, +, -, @, tab, or carriage return are prefixed), matching the existing CSV export protection.",
+          "CSV/clipboard import pipeline: individual cell values are now capped at 1,000 characters before processing, and error messages truncate echoed user values to 80 characters.",
+          "Import parsing stops early once the 500-activity limit is reached, avoiding unnecessary processing of oversized files.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.34.4",
+    date: "2026-04-01",
+    sections: [
+      {
+        title: "Maintenance",
+        items: [
+          "Internal refactoring: extracted useScheduleExport hook, ActivityEditModal sub-components, and SonarJS remediation helpers for improved maintainability.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.3",
     date: "2026-04-01",
     sections: [
