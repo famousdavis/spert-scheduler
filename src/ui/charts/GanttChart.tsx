@@ -924,9 +924,9 @@ export function GanttChart({
                   if (estWidth > barWidth) return null;
                   return (
                     <text
-                      x={barX + barWidth / 2}
+                      x={ra.barLabel === "dates" ? barX + barWidth - 4 : barX + barWidth / 2}
                       y={barY + ra.barHeight / 2}
-                      textAnchor="middle"
+                      textAnchor={ra.barLabel === "dates" ? "end" : "middle"}
                       dominantBaseline="central"
                       fontSize={ra.barLabelFontSize}
                       fill="#ffffff"
