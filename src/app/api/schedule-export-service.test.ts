@@ -9,6 +9,7 @@ import {
   buildSuccessorMap,
   exportScheduleCsv,
   exportScheduleXlsx,
+  xlsxSanitize,
 } from "./schedule-export-service";
 import type { ScheduleExportParams } from "./schedule-export-service";
 import type {
@@ -478,5 +479,27 @@ describe("float columns in export", () => {
     const rows = buildGridRows(seqParams);
     expect(rows[0]!.totalFloat).toBeUndefined();
     expect(rows[0]!.freeFloat).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// xlsxSanitize — formula injection guard for XLSX cells
+// ---------------------------------------------------------------------------
+
+describe("xlsxSanitize", () => {
+  it.each(["=", "+", "-", "@", "\t", "\r"])("prefixes strings starting with '%s'", (ch) => {
+    const input = `${ch}dangerous`;
+    expect(xlsxSanitize(input)).toBe(`'${input}`);
+  });
+
+  it("passes safe strings unchanged", () => {
+    expect(xlsxSanitize("Activity A")).toBe("Activity A");
+    expect(xlsxSanitize("")).toBe("");
+  });
+
+  it("passes numbers unchanged", () => {
+    expect(xlsxSanitize(42)).toBe(42);
+    expect(xlsxSanitize(0)).toBe(0);
+    expect(xlsxSanitize(-5)).toBe(-5);
   });
 });

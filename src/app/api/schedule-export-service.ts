@@ -229,6 +229,22 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
 }
 
 // ---------------------------------------------------------------------------
+// XLSX sanitization
+// ---------------------------------------------------------------------------
+
+/**
+ * Guard against Excel formula injection in XLSX cells (OWASP).
+ * Mirrors the leading-character check in csvEscape() — prefix strings starting
+ * with =, +, -, @, \t, or \r with a single quote so Excel treats them as text.
+ * Numbers pass through unchanged (formulas only trigger on string cells).
+ */
+export function xlsxSanitize(value: string | number): string | number {
+  if (typeof value === "number") return value;
+  if (/^[=+@\-\t\r]/.test(value)) return "'" + value;
+  return value;
+}
+
+// ---------------------------------------------------------------------------
 // CSV export
 // ---------------------------------------------------------------------------
 
@@ -374,7 +390,7 @@ export async function exportScheduleXlsx(
   const lastCol = hasDeps ? 24 : 16;
   ws.mergeCells(rowNum, 1, rowNum, lastCol);
   const titleCell = ws.getCell(rowNum, 1);
-  titleCell.value = `${params.projectName} — ${params.scenarioName}`;
+  titleCell.value = xlsxSanitize(`${params.projectName} — ${params.scenarioName}`);
   titleCell.font = { bold: true, size: 14 };
   rowNum++;
 
@@ -384,7 +400,7 @@ export async function exportScheduleXlsx(
     keyCell.value = key;
     keyCell.font = { bold: true };
     keyCell.fill = keyFill;
-    ws.getCell(rowNum, 2).value = value;
+    ws.getCell(rowNum, 2).value = xlsxSanitize(value);
     rowNum++;
   }
 
@@ -463,7 +479,7 @@ export async function exportScheduleXlsx(
     const dataRow = ws.getRow(rowNum);
     cells.forEach((val, i) => {
       const cell = dataRow.getCell(i + 1);
-      cell.value = val === "" ? null : val;
+      cell.value = val === "" ? null : xlsxSanitize(val);
       cell.border = thinBorder;
     });
     rowNum++;

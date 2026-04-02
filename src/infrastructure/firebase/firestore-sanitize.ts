@@ -14,6 +14,7 @@ export function sanitizeForFirestore<T>(obj: T): T {
 
   const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
     if (value !== undefined) {
       clean[key] = sanitizeForFirestore(value);
     }

@@ -46,6 +46,16 @@ const STATUS_MAP: Record<string, ActivityStatus> = {
   complete: "complete",
 };
 
+// -- Security helpers ---------------------------------------------------------
+
+/** Maximum character length for a single CSV cell before truncation. */
+const MAX_CELL_LENGTH = 1000;
+
+/** Truncate a string for display in error/warning messages. */
+function truncate(val: string, max = 80): string {
+  return val.length > max ? val.slice(0, max) + "\u2026" : val;
+}
+
 // -- Header resolution --------------------------------------------------------
 
 // All alias values must be pre-normalized (lowercase, no whitespace) to match normalizeKey output
@@ -188,6 +198,7 @@ export function parseFlatActivityTable(
     { userId: string; row: number; name: string }
   >();
   const duplicateCheck = new Map<string, number>(); // userId → first row number
+  let rowLimitReached = false;
 
   for (let i = dataStartIndex; i < rows.length; i++) {
     const row = rows[i]!;
@@ -200,26 +211,37 @@ export function parseFlatActivityTable(
     // Skip empty rows
     if (row.every((cell) => cell.trim() === "")) continue;
 
+    // Early-exit: stop processing once the activity limit is reached.
+    // The post-loop limit check uses rowLimitReached to produce the user-facing error.
+    if (activities.length >= 500) {
+      rowLimitReached = true;
+      break;
+    }
+
+    // Cap individual cell lengths to prevent oversized values from reaching
+    // downstream processing (regex, error messages, Zod validation).
+    const cappedRow = row.map((c) => c.length > MAX_CELL_LENGTH ? c.slice(0, MAX_CELL_LENGTH) : c);
+
     // Extract cells
     const rawActivityId = (
-      row[headers.activityId!] ?? ""
+      cappedRow[headers.activityId!] ?? ""
     ).trim();
-    const rawName = (row[headers.name!] ?? "").trim();
-    const rawMin = (row[headers.min!] ?? "").trim();
-    const rawML = (row[headers.mostLikely!] ?? "").trim();
-    const rawMax = (row[headers.max!] ?? "").trim();
-    const rawConfidence = (row[headers.confidence!] ?? "").trim();
+    const rawName = (cappedRow[headers.name!] ?? "").trim();
+    const rawMin = (cappedRow[headers.min!] ?? "").trim();
+    const rawML = (cappedRow[headers.mostLikely!] ?? "").trim();
+    const rawMax = (cappedRow[headers.max!] ?? "").trim();
+    const rawConfidence = (cappedRow[headers.confidence!] ?? "").trim();
     const rawDistribution =
       headers.distribution !== undefined
-        ? (row[headers.distribution] ?? "").trim()
+        ? (cappedRow[headers.distribution] ?? "").trim()
         : "";
     const rawStatus =
       headers.status !== undefined
-        ? (row[headers.status] ?? "").trim()
+        ? (cappedRow[headers.status] ?? "").trim()
         : "";
     const rawPredecessors =
       headers.predecessors !== undefined
-        ? (row[headers.predecessors] ?? "").trim()
+        ? (cappedRow[headers.predecessors] ?? "").trim()
         : "";
 
     // Basic field presence
@@ -247,14 +269,14 @@ export function parseFlatActivityTable(
       warnings.push({
         row: rowNum,
         column: "Activity ID",
-        message: `Activity ID "${rawActivityId}" looks like an Excel-converted date. Check your spreadsheet.`,
+        message: `Activity ID "${truncate(rawActivityId)}" looks like an Excel-converted date. Check your spreadsheet.`,
         severity: "warning",
       });
     } else if (FULL_DATE_PATTERN.test(rawActivityId)) {
       warnings.push({
         row: rowNum,
         column: "Activity ID",
-        message: `Activity ID "${rawActivityId}" looks like a date. Check your spreadsheet.`,
+        message: `Activity ID "${truncate(rawActivityId)}" looks like a date. Check your spreadsheet.`,
         severity: "warning",
       });
     }
@@ -268,7 +290,7 @@ export function parseFlatActivityTable(
       errors.push({
         row: rowNum,
         column: "Optimistic (Min)",
-        message: `Optimistic (Min) must be a non-negative integer, got "${rawMin}".`,
+        message: `Optimistic (Min) must be a non-negative integer, got "${truncate(rawMin)}".`,
         severity: "error",
       });
       continue;
@@ -277,7 +299,7 @@ export function parseFlatActivityTable(
       errors.push({
         row: rowNum,
         column: "Most Likely",
-        message: `Most Likely must be a non-negative integer, got "${rawML}".`,
+        message: `Most Likely must be a non-negative integer, got "${truncate(rawML)}".`,
         severity: "error",
       });
       continue;
@@ -286,7 +308,7 @@ export function parseFlatActivityTable(
       errors.push({
         row: rowNum,
         column: "Pessimistic (Max)",
-        message: `Pessimistic (Max) must be a non-negative integer, got "${rawMax}".`,
+        message: `Pessimistic (Max) must be a non-negative integer, got "${truncate(rawMax)}".`,
         severity: "error",
       });
       continue;
@@ -304,7 +326,7 @@ export function parseFlatActivityTable(
         warnings.push({
           row: rowNum,
           column: "Distribution",
-          message: `Unrecognized distribution "${rawDistribution}". Defaulting to "normal".`,
+          message: `Unrecognized distribution "${truncate(rawDistribution)}". Defaulting to "normal".`,
           severity: "warning",
         });
       }
@@ -332,7 +354,7 @@ export function parseFlatActivityTable(
         errors.push({
           row: rowNum,
           column: "Confidence Level",
-          message: `Unrecognized confidence level "${rawConfidence}". Accepted values: ${CONFIDENCE_ACCEPTED}.`,
+          message: `Unrecognized confidence level "${truncate(rawConfidence)}". Accepted values: ${CONFIDENCE_ACCEPTED}.`,
           severity: "error",
         });
         continue;
@@ -351,7 +373,7 @@ export function parseFlatActivityTable(
         warnings.push({
           row: rowNum,
           column: "Status",
-          message: `Unrecognized status "${rawStatus}". Defaulting to "planned".`,
+          message: `Unrecognized status "${truncate(rawStatus)}". Defaulting to "planned".`,
           severity: "warning",
         });
       }
@@ -391,7 +413,7 @@ export function parseFlatActivityTable(
       errors.push({
         row: rowNum,
         column: "Activity ID",
-        message: `Duplicate Activity ID "${rawActivityId}" (also on row ${existingRow}).`,
+        message: `Duplicate Activity ID "${truncate(rawActivityId)}" (also on row ${existingRow}).`,
         severity: "error",
       });
       // Also flag the original row if not already flagged
@@ -399,7 +421,7 @@ export function parseFlatActivityTable(
         errors.push({
           row: existingRow,
           column: "Activity ID",
-          message: `Duplicate Activity ID "${rawActivityId}" (also on row ${rowNum}).`,
+          message: `Duplicate Activity ID "${truncate(rawActivityId)}" (also on row ${rowNum}).`,
           severity: "error",
         });
       }
@@ -456,7 +478,7 @@ export function parseFlatActivityTable(
         errors.push({
           row: flatRow.rowNumber,
           column: "Predecessors",
-          message: `Invalid predecessor token "${token}". Expected format: A1 or A1+3 or A1-2.`,
+          message: `Invalid predecessor token "${truncate(token)}". Expected format: A1 or A1+3 or A1-2.`,
           severity: "error",
         });
         continue;
@@ -471,7 +493,7 @@ export function parseFlatActivityTable(
         errors.push({
           row: flatRow.rowNumber,
           column: "Predecessors",
-          message: `Lag for predecessor "${predUserId}" is ${lagDays} days. Lag must be between -365 and 365.`,
+          message: `Lag for predecessor "${truncate(predUserId)}" is ${lagDays} days. Lag must be between -365 and 365.`,
           severity: "error",
         });
         continue;
@@ -483,7 +505,7 @@ export function parseFlatActivityTable(
         errors.push({
           row: flatRow.rowNumber,
           column: "Predecessors",
-          message: `Predecessor "${predUserId}" not found. Check the Activity ID.`,
+          message: `Predecessor "${truncate(predUserId)}" not found. Check the Activity ID.`,
           severity: "error",
         });
         continue;
@@ -494,7 +516,7 @@ export function parseFlatActivityTable(
         errors.push({
           row: flatRow.rowNumber,
           column: "Predecessors",
-          message: `Activity "${flatRow.userActivityId}" cannot depend on itself.`,
+          message: `Activity "${truncate(flatRow.userActivityId)}" cannot depend on itself.`,
           severity: "error",
         });
         continue;
@@ -529,7 +551,7 @@ export function parseFlatActivityTable(
 
   // -- Limits check -----------------------------------------------------------
 
-  if (activities.length > 500) {
+  if (activities.length > 500 || rowLimitReached) {
     errors.push({
       row: 0,
       message:
