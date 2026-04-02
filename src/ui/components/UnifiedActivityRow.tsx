@@ -78,7 +78,7 @@ function ActivityProgressBars({
 
   return (
     <div
-      className={`mt-0.5 flex gap-0.5 cursor-pointer`}
+      className={`mt-0.5 flex gap-0.5 cursor-pointer${onEditActivity ? " pr-5" : ""}`}
       onClick={() => onEditActivity?.(activity.id)}
       title={[
         hasTasks ? `Tasks: ${tasksDone}/${tasksTotal}` : "",
