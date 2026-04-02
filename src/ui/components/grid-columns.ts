@@ -3,8 +3,8 @@
 
 /** Shared CSS grid column template for the activity grid (header + subheader + rows). */
 export const GRID_COLUMNS =
-  "24px 20px 1fr 60px 90px 90px 42px 42px 42px 96px 110px 106px 56px 1px 44px 8px";
+  "24px 20px 1fr 40px 90px 90px 38px 38px 38px 96px 110px 110px 40px 1px 40px 8px";
 
 /** Grid column template with constraint column (dependency mode). */
 export const GRID_COLUMNS_WITH_CONSTRAINT =
-  "24px 20px 1fr 60px 90px 90px 80px 42px 42px 42px 96px 110px 106px 56px 1px 44px 8px";
+  "24px 20px 1fr 40px 90px 90px 80px 38px 38px 38px 96px 110px 110px 40px 1px 40px 8px";
