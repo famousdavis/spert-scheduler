@@ -169,12 +169,14 @@ function Section({
   subtitle,
   defaultOpen = true,
   indicator,
+  indicatorColor,
   children,
 }: {
   title: string;
   subtitle?: string;
   defaultOpen?: boolean;
   indicator?: boolean;
+  indicatorColor?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -198,7 +200,7 @@ function Section({
           <span className="text-xs font-normal text-gray-400 dark:text-gray-500">{subtitle}</span>
         )}
         {indicator && (
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+          <span className={`w-1.5 h-1.5 rounded-full ${indicatorColor ?? "bg-blue-500"}`} />
         )}
       </button>
       {open && <div className="pb-3 space-y-3">{children}</div>}
@@ -1016,6 +1018,7 @@ export function ActivityEditModal({
               title="Notes"
               defaultOpen={false}
               indicator={!!notes.trim()}
+              indicatorColor="bg-violet-500 dark:bg-violet-400"
             >
               <textarea
                 value={notes}

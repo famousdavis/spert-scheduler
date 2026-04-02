@@ -63,7 +63,8 @@ function ActivityProgressBars({
 }) {
   const hasTasks = activity.checklist && activity.checklist.length > 0;
   const hasDeliverables = activity.deliverables && activity.deliverables.length > 0;
-  if (!hasTasks && !hasDeliverables) return null;
+  const hasNotes = !!(activity.notes && activity.notes.trim().length > 0);
+  if (!hasTasks && !hasDeliverables && !hasNotes) return null;
 
   const tasksDone = hasTasks ? activity.checklist!.filter((c) => c.completed).length : 0;
   const tasksTotal = hasTasks ? activity.checklist!.length : 0;
@@ -77,11 +78,12 @@ function ActivityProgressBars({
 
   return (
     <div
-      className={`mt-0.5 flex ${both ? "gap-0.5" : ""} cursor-pointer`}
+      className={`mt-0.5 flex gap-0.5 cursor-pointer`}
       onClick={() => onEditActivity?.(activity.id)}
       title={[
         hasTasks ? `Tasks: ${tasksDone}/${tasksTotal}` : "",
         hasDeliverables ? `Deliverables: ${delDone}/${delTotal}` : "",
+        hasNotes ? "Has notes" : "",
       ].filter(Boolean).join(" · ")}
     >
       {hasTasks && (
@@ -99,6 +101,9 @@ function ActivityProgressBars({
             style={{ width: `${(delDone / delTotal) * 100}%` }}
           />
         </div>
+      )}
+      {hasNotes && (
+        <div className="w-2.5 h-0.5 rounded-full bg-violet-500 dark:bg-violet-400 shrink-0" />
       )}
     </div>
   );
