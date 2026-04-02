@@ -214,9 +214,9 @@ export function UnifiedActivityGrid({
 
   // Summary computations
   const summary = useMemo(() => {
-    const totalMin = activities.reduce((sum, a) => sum + a.min, 0);
-    const totalML = activities.reduce((sum, a) => sum + a.mostLikely, 0);
-    const totalMax = activities.reduce((sum, a) => sum + a.max, 0);
+    const totalMin = Math.round(activities.reduce((sum, a) => sum + a.min, 0));
+    const totalML = Math.round(activities.reduce((sum, a) => sum + a.mostLikely, 0));
+    const totalMax = Math.round(activities.reduce((sum, a) => sum + a.max, 0));
     const totalScheduled = scheduledActivities.reduce(
       (sum, sa) => sum + sa.duration,
       0

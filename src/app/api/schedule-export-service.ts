@@ -324,9 +324,9 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
   }
 
   // Totals row
-  const totalMin = rows.reduce((s, r) => s + r.min, 0);
-  const totalML = rows.reduce((s, r) => s + r.mostLikely, 0);
-  const totalMax = rows.reduce((s, r) => s + r.max, 0);
+  const totalMin = Math.round(rows.reduce((s, r) => s + r.min, 0));
+  const totalML = Math.round(rows.reduce((s, r) => s + r.mostLikely, 0));
+  const totalMax = Math.round(rows.reduce((s, r) => s + r.max, 0));
   const totalDuration = rows.reduce((s, r) => s + r.duration, 0);
   const totalCells: (string | number)[] = [
     "",
@@ -486,9 +486,9 @@ export async function exportScheduleXlsx(
   }
 
   // ---- Totals row ----
-  const totalMin = rows.reduce((s, r) => s + r.min, 0);
-  const totalML = rows.reduce((s, r) => s + r.mostLikely, 0);
-  const totalMax = rows.reduce((s, r) => s + r.max, 0);
+  const totalMin = Math.round(rows.reduce((s, r) => s + r.min, 0));
+  const totalML = Math.round(rows.reduce((s, r) => s + r.mostLikely, 0));
+  const totalMax = Math.round(rows.reduce((s, r) => s + r.max, 0));
   const totalDuration = rows.reduce((s, r) => s + r.duration, 0);
   const totalsRow = ws.getRow(rowNum);
   totalsRow.getCell(2).value = "Total";
