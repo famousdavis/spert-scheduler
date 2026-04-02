@@ -40,7 +40,7 @@ export function EstimateInputs({
             data-row-id={activityId}
             data-field={f.dataField}
             type="number"
-            defaultValue={f.defaultValue}
+            defaultValue={Math.round(f.defaultValue)}
             onFocus={(e) => e.target.select()}
             onBlur={(e) => onBlur(f.activityKey, e.target.value)}
             onKeyDown={(e) => onKeyDown(e, f.dataField)}

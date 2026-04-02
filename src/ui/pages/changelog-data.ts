@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.3",
+    date: "2026-04-01",
+    sections: [
+      {
+        title: "Improved",
+        items: [
+          "Activity grid: hover over any row to reveal a pencil icon in the name cell that opens the Edit Activity modal directly.",
+          "Min/ML/Max estimate columns narrowed (42px → 38px) and Status/Actual columns trimmed for a more compact layout.",
+          "Estimate values (Min/ML/Max) are displayed as integers in the grid; decimals are accepted during entry and rounded on save.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.2",
     date: "2026-04-01",
     sections: [

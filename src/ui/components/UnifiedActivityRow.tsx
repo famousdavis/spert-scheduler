@@ -197,11 +197,14 @@ export function UnifiedActivityRow({
 
   const handleBlur = useCallback(
     (field: "min" | "mostLikely" | "max", rawValue: string) => {
-      const num = parseFloat(rawValue);
-      if (!isNaN(num)) {
+      const parsed = parseFloat(rawValue);
+      if (!isNaN(parsed)) {
+        const num = Math.round(parsed);
         // When heuristic is enabled and ML actually changed, auto-calculate min/max
         if (heuristicEnabled && field === "mostLikely" && num !== activity.mostLikely) {
-          const { min, max } = computeHeuristic(num, heuristicMinPercent, heuristicMaxPercent);
+          const { min: minRaw, max: maxRaw } = computeHeuristic(num, heuristicMinPercent, heuristicMaxPercent);
+          const min = Math.round(minRaw);
+          const max = Math.round(maxRaw);
           setTouchedFields((prev) => {
             const next = new Set(prev);
             next.add("min");
@@ -356,7 +359,7 @@ export function UnifiedActivityRow({
   return (
     <div
       ref={setNodeRef}
-      className={`grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 text-sm ${
+      className={`group/row grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 text-sm ${
         hasErrors ? "bg-red-50/30 dark:bg-red-900/20" : ""
       } ${isDragging ? "opacity-80 bg-blue-50 dark:bg-blue-900/30 z-10 shadow-md" : ""}`}
       style={{
@@ -398,8 +401,8 @@ export function UnifiedActivityRow({
       </div>
 
       {/* Name */}
-      <div>
-        <div className="flex items-center">
+      <div className="relative">
+        <div className={`flex items-center${onEditActivity ? " pr-5" : ""}`}>
           {activityNumber != null && (
             <span className="text-gray-400 dark:text-gray-500 text-xs font-mono select-none shrink-0 w-7 text-right mr-1">
               #{activityNumber}
@@ -418,6 +421,21 @@ export function UnifiedActivityRow({
             placeholder="Add an activity name"
           />
         </div>
+        {onEditActivity && (
+          <button
+            type="button"
+            onClick={() => onEditActivity(activity.id)}
+            className="absolute right-0 top-0 h-full w-5 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-blue-500 dark:hover:text-blue-400"
+            title="Edit activity"
+            tabIndex={-1}
+            aria-label="Edit activity"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
+        )}
         <ActivityProgressBars activity={activity} onEditActivity={onEditActivity} />
       </div>
 
