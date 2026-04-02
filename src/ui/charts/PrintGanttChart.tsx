@@ -443,7 +443,8 @@ export function PrintGanttChart({
                 const estWidth = label.length * ra.printBarLabelFontSize * 0.6 + 4;
                 if (estWidth > w) return null;
                 return (
-                  <text x={x1 + w / 2} y={barY + ra.printBarHeight / 2} textAnchor="middle"
+                  <text x={ra.barLabel === "dates" ? x1 + w - 3 : x1 + w / 2} y={barY + ra.printBarHeight / 2}
+                    textAnchor={ra.barLabel === "dates" ? "end" : "middle"}
                     dominantBaseline="central" fontSize={ra.printBarLabelFontSize} fill="#fff" fontWeight="600">
                     {label}
                   </text>

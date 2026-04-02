@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.34.6 — 2026-04-02
+
+### Improved
+
+- Gantt: finish date bar labels are now right-aligned inside the bar, anchoring the date visually to the bar's right (finish) edge instead of floating at center.
+
 ## 0.34.5 — 2026-04-01
 
 ### Security

@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.6",
+    date: "2026-04-02",
+    sections: [
+      {
+        title: "Improved",
+        items: [
+          "Gantt: finish date bar labels are now right-aligned inside the bar, anchoring the date visually to the bar's right (finish) edge instead of floating at center.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.5",
     date: "2026-04-01",
     sections: [
