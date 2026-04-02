@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.34.5 — 2026-04-01
+
+### Security
+
+- XLSX export now guards against Excel formula injection (cells starting with `=`, `+`, `-`, `@`, `\t`, `\r` are prefixed with `'`), matching the existing CSV export protection.
+- CSV/clipboard import pipeline: individual cell values are now capped at 1,000 characters before processing, and error messages truncate echoed user values to 80 characters.
+- Import parsing stops early once the 500-activity limit is reached, avoiding unnecessary processing of oversized files.
+- `sanitizeForFirestore` now explicitly skips `__proto__`, `constructor`, and `prototype` keys as defense-in-depth.
+
+### Maintenance
+
+- Added Firestore `hasOnly` drift detection test: parses `firestore.rules` at test time and compares against the Zod preferences schema to catch missing allowlist entries.
+- Added "update `firestore.rules` `hasOnly` list" step to the CLAUDE.md user preference checklist.
+
 ## 0.34.4 — 2026-04-01
 
 ### Maintenance

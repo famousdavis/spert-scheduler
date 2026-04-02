@@ -362,16 +362,13 @@ describe("Limits", () => {
   });
 
   it("errors on more than 2000 dependencies", () => {
-    // Build 2001 deps by having many activities depend on A1
+    // 500 activities; A6..A500 each depend on A1,A2,A3,A4,A5 → 495 × 5 = 2475 deps
     const bigRows = [HEADER_ROW];
-    for (let i = 1; i <= 2002; i++) {
+    for (let i = 1; i <= 5; i++) {
       bigRows.push(validRow(`A${i}`, `Task ${i}`, "1", "2", "3", "Medium"));
     }
-    // Make A2..A2002 all depend on A1: that's 2001 deps
-    for (let i = 1; i < bigRows.length; i++) {
-      if (i > 1) {
-        bigRows[i] = validRow(`A${i}`, `Task ${i}`, "1", "2", "3", "Medium", "normal", "planned", "A1");
-      }
+    for (let i = 6; i <= 500; i++) {
+      bigRows.push(validRow(`A${i}`, `Task ${i}`, "1", "2", "3", "Medium", "normal", "planned", "A1,A2,A3,A4,A5"));
     }
     const result = parseFlatActivityTable(bigRows, makeIdGen());
     expect(result.errors.some((e) => e.message.includes("2,000"))).toBe(true);
@@ -536,5 +533,54 @@ describe("Edge cases", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]!.message).toContain("required");
     expect(result.errors[0]!.message).toContain("T-Normal");
+  });
+});
+
+// =============================================================================
+// Security Hardening Tests
+// =============================================================================
+
+describe("per-cell string length cap", () => {
+  it("caps a cell value exceeding 1000 characters before processing", () => {
+    // A 1500-char value in the Min field will be capped to 1000 chars before
+    // reaching the numeric validation, which will reject it.
+    const longMin = "X".repeat(1500);
+    const rows = [
+      HEADER_ROW,
+      validRow("A1", "Task 1", longMin, "5", "10", "Medium", "triangular"),
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toHaveLength(1);
+    // The error message echoes a truncated value (max 80 chars), not the full 1500
+    expect(result.errors[0]!.message).not.toContain(longMin);
+    expect(result.errors[0]!.message).toContain("\u2026");
+  });
+});
+
+describe("error message truncation", () => {
+  it("truncates echoed user values in error messages", () => {
+    const longValue = "Z".repeat(200);
+    const rows = [
+      HEADER_ROW,
+      validRow("A1", "Task", longValue, "5", "10", "Medium", "triangular"),
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toHaveLength(1);
+    // The error message should contain a truncated version, not the full 200-char value
+    expect(result.errors[0]!.message).toContain("\u2026");
+    expect(result.errors[0]!.message.length).toBeLessThan(200);
+  });
+});
+
+describe("early-exit row limit", () => {
+  it("stops processing after 500 valid activities", () => {
+    const rows = [HEADER_ROW];
+    for (let i = 1; i <= 510; i++) {
+      rows.push(validRow(`A${i}`, `Task ${i}`, "2", "5", "10", "Medium", "triangular"));
+    }
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.activities).toHaveLength(500);
+    // The post-loop limit check should still produce an error
+    expect(result.errors.some((e) => e.message.includes("more than 500"))).toBe(true);
   });
 });
