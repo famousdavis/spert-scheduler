@@ -23,6 +23,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Import parsing stops early once the 500-activity limit is reached, avoiding unnecessary processing of oversized files.",
         ],
       },
+      {
+        title: "Fixed",
+        items: [
+          "Min, Most Likely, and Max summary totals are now rounded to the nearest whole number in the activity grid and schedule exports (XLSX and CSV).",
+        ],
+      },
     ],
   },
   {

@@ -9,6 +9,10 @@
 - Import parsing stops early once the 500-activity limit is reached, avoiding unnecessary processing of oversized files.
 - `sanitizeForFirestore` now explicitly skips `__proto__`, `constructor`, and `prototype` keys as defense-in-depth.
 
+### Fixed
+
+- Min, Most Likely, and Max summary totals are now rounded to the nearest whole number in the activity grid and schedule exports (XLSX and CSV).
+
 ### Maintenance
 
 - Added Firestore `hasOnly` drift detection test: parses `firestore.rules` at test time and compares against the Zod preferences schema to catch missing allowlist entries.
