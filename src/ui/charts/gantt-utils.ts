@@ -120,6 +120,18 @@ export function countSemiannualTicks(startDate: string, endDate: string): number
 }
 
 /**
+ * Auto-select tick level for short ranges when the caller does not provide one.
+ * The layout hook always provides an explicit level for ranges > 540 days.
+ */
+function selectAutoTickLevel(rangeDays: number): TickLevel {
+  if (rangeDays <= 14) return "daily";
+  if (rangeDays <= 60) return "weekly";
+  if (rangeDays <= 90) return "biweekly";
+  if (rangeDays <= 540) return "monthly";
+  return "quarterly"; // fallback; layout hook should always provide for >540 days
+}
+
+/**
  * Generate tick marks for the time axis at a given tick level.
  * Levels ≤ monthly are auto-selected from date range.
  * Levels > monthly (quarterly, semiannual, annual) are passed in by the
@@ -135,14 +147,7 @@ export function generateTicks(
   const rangeDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
   const ticks: { x: string; label: string }[] = [];
 
-  // Auto-select level for short ranges when not explicitly provided
-  const level: TickLevel = tickLevel ?? (
-    rangeDays <= 14 ? "daily" :
-    rangeDays <= 60 ? "weekly" :
-    rangeDays <= 90 ? "biweekly" :
-    rangeDays <= 540 ? "monthly" :
-    "quarterly" // fallback; layout hook should always provide for >540
-  );
+  const level: TickLevel = tickLevel ?? selectAutoTickLevel(rangeDays);
 
   if (level === "daily") {
     const d = new Date(start);

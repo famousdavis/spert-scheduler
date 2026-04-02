@@ -63,12 +63,13 @@ export function HistogramChart({
   // When mean and percentile labels are close (<15% of range), offset them
   const labelsTooClose = Math.abs(percentileValue - mean) / xRange < 0.15;
   const meanIsLeft = mean <= percentileValue;
-  const meanLabelPos = labelsTooClose
-    ? meanIsLeft ? "insideTopLeft" as const : "insideTopRight" as const
-    : "top" as const;
-  const pctLabelPos = labelsTooClose
-    ? meanIsLeft ? "insideTopRight" as const : "insideTopLeft" as const
-    : "top" as const;
+  type LabelPos = "top" | "insideTopLeft" | "insideTopRight";
+  let meanLabelPos: LabelPos = "top";
+  let pctLabelPos: LabelPos = "top";
+  if (labelsTooClose) {
+    meanLabelPos = meanIsLeft ? "insideTopLeft" : "insideTopRight";
+    pctLabelPos = meanIsLeft ? "insideTopRight" : "insideTopLeft";
+  }
 
   return (
     <div className="relative">

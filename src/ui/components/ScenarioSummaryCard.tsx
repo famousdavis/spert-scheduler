@@ -52,6 +52,64 @@ interface ScenarioSummaryCardProps {
   onScenarioNotesChange?: (notes: string | undefined) => void;
 }
 
+interface UseScheduleExportParams {
+  projectName: string;
+  scenarioName: string;
+  activities: Activity[];
+  schedule: DeterministicSchedule | null;
+  buffer: ScheduleBuffer | null;
+  settings: ScenarioSettings;
+  dependencies: ActivityDependency[];
+  milestones: Milestone[];
+  calendar?: WorkCalendar | Calendar;
+  hasSimulationResults: boolean;
+}
+
+function useScheduleExport({
+  projectName,
+  scenarioName,
+  activities,
+  schedule,
+  buffer,
+  settings,
+  dependencies,
+  milestones,
+  calendar,
+  hasSimulationResults,
+}: UseScheduleExportParams) {
+  const dateFormat = usePreferencesStore((s) => s.preferences.dateFormat);
+  const [exporting, setExporting] = useState(false);
+  const exportDisabled = !hasSimulationResults || !schedule || activities.length === 0;
+
+  const buildExportParams = useCallback((): ScheduleExportParams | null => {
+    if (!schedule) return null;
+    return { projectName, scenarioName, activities, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat };
+  }, [projectName, scenarioName, activities, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat]);
+
+  const handleExportXlsx = useCallback(async () => {
+    const params = buildExportParams();
+    if (!params) return;
+    setExporting(true);
+    try {
+      const arrayBuffer = await exportScheduleXlsx(params);
+      const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatDateISO(new Date())}.xlsx`;
+      downloadFile(arrayBuffer, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    } finally {
+      setExporting(false);
+    }
+  }, [buildExportParams, projectName, scenarioName]);
+
+  const handleExportCsv = useCallback(() => {
+    const params = buildExportParams();
+    if (!params) return;
+    const csv = exportScheduleCsv(params);
+    const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatDateISO(new Date())}.csv`;
+    downloadFile(csv, filename, "text/csv");
+  }, [buildExportParams, projectName, scenarioName]);
+
+  return { exporting, exportDisabled, handleExportXlsx, handleExportCsv };
+}
+
 export function ScenarioSummaryCard({
   startDate,
   schedule,
@@ -91,35 +149,10 @@ export function ScenarioSummaryCard({
   const [notesOpen, setNotesOpen] = useState(false);
 
   // Schedule export state
-  const dateFormat = usePreferencesStore((s) => s.preferences.dateFormat);
-  const [exporting, setExporting] = useState(false);
-  const exportDisabled = !hasSimulationResults || !schedule || activities.length === 0;
-
-  const buildExportParams = useCallback((): ScheduleExportParams | null => {
-    if (!schedule) return null;
-    return { projectName, scenarioName, activities, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat };
-  }, [projectName, scenarioName, activities, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat]);
-
-  const handleExportXlsx = useCallback(async () => {
-    const params = buildExportParams();
-    if (!params) return;
-    setExporting(true);
-    try {
-      const arrayBuffer = await exportScheduleXlsx(params);
-      const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatDateISO(new Date())}.xlsx`;
-      downloadFile(arrayBuffer, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    } finally {
-      setExporting(false);
-    }
-  }, [buildExportParams, projectName, scenarioName]);
-
-  const handleExportCsv = useCallback(() => {
-    const params = buildExportParams();
-    if (!params) return;
-    const csv = exportScheduleCsv(params);
-    const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatDateISO(new Date())}.csv`;
-    downloadFile(csv, filename, "text/csv");
-  }, [buildExportParams, projectName, scenarioName]);
+  const { exporting, exportDisabled, handleExportXlsx, handleExportCsv } = useScheduleExport({
+    projectName, scenarioName, activities, schedule, buffer,
+    settings, dependencies, milestones, calendar, hasSimulationResults,
+  });
 
   // Compute buffered finish date by adding buffer working days to the deterministic end date
   const bufferedEndDate =

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.34.4 — 2026-04-01
+
+### Maintenance
+
+- Extracted `useScheduleExport` hook from `ScenarioSummaryCard` — export state and handlers (XLSX, CSV) now live in a self-contained hook, reducing component body by ~30 lines.
+- Extracted `DependenciesDisplaySection` and `ScheduleAnalysisSection` as local sub-components in `ActivityEditModal`, and extracted `computeConstraintUpdates` as a module-level helper to reduce nesting in `buildFieldUpdates`.
+- SonarJS `no-nested-conditional` remediations: extracted `selectAutoTickLevel` in `gantt-utils.ts`; `resolveButtonClass` in `CopyImageButton.tsx`; `resolveUsageBarColor` in `LocalStorageSection.tsx`; `formatMilestoneCount` in `MilestonePanel.tsx`; label position logic in `HistogramChart.tsx`.
+- SonarJS `cognitive-complexity` remediation: extracted `runSimulationSync` from `simulation-service.ts`.
+- Updated `vitest` version pin to `^4.1.2` (cosmetic — already resolved to 4.1.2).
+
 ## 0.34.3 — 2026-04-01
 
 ### Improved

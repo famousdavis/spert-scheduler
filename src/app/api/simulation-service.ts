@@ -17,6 +17,58 @@ export interface SimulationServiceCallbacks {
 }
 
 /**
+ * Synchronous simulation fallback used when Worker creation fails.
+ * Handles both dependency-mode (graph-based) and sequential-mode runs.
+ */
+function runSimulationSync(
+  activities: Activity[],
+  trialCount: number,
+  rngSeed: string,
+  deterministicDurations: number[] | undefined,
+  dependencyParams?: DependencySimulationParams,
+  sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
+): SimulationRun {
+  if (dependencyParams?.dependencyMode) {
+    const durMap = dependencyParams.deterministicDurationMap
+      ? new Map(
+          Object.entries(dependencyParams.deterministicDurationMap).map(
+            ([k, v]) => [k, v as number]
+          )
+        )
+      : undefined;
+    const milestoneActivityIds = dependencyParams.milestoneActivityIds
+      ? new Map(Object.entries(dependencyParams.milestoneActivityIds))
+      : undefined;
+    const activityEarliestStart = dependencyParams.activityEarliestStart
+      ? new Map(Object.entries(dependencyParams.activityEarliestStart))
+      : undefined;
+
+    const depResult = runDependencyTrials({
+      activities,
+      dependencies: dependencyParams.dependencies,
+      trialCount,
+      rngSeed,
+      deterministicDurationMap: durMap,
+      milestoneActivityIds,
+      activityEarliestStart,
+    });
+    const result = computeSimulationStats(depResult.samples, trialCount, rngSeed);
+    if (depResult.milestoneSamples) {
+      result.milestoneResults = computeMilestoneStats(depResult.milestoneSamples, trialCount);
+    }
+    return result;
+  }
+
+  return runMonteCarloSimulation({
+    activities,
+    trialCount,
+    rngSeed,
+    deterministicDurations,
+    sequentialConstraints: sequentialConstraints ?? undefined,
+  });
+}
+
+/**
  * Run a Monte Carlo simulation using a Web Worker (preferred) with
  * synchronous fallback if Worker creation fails.
  */
@@ -43,46 +95,7 @@ export function runSimulation(
     // Worker creation failed — synchronous fallback
     try {
       const startTime = performance.now();
-      let result: SimulationRun;
-
-      if (dependencyParams?.dependencyMode) {
-        const durMap = dependencyParams.deterministicDurationMap
-          ? new Map(
-              Object.entries(dependencyParams.deterministicDurationMap).map(
-                ([k, v]) => [k, v as number]
-              )
-            )
-          : undefined;
-        const milestoneActivityIds = dependencyParams.milestoneActivityIds
-          ? new Map(Object.entries(dependencyParams.milestoneActivityIds))
-          : undefined;
-        const activityEarliestStart = dependencyParams.activityEarliestStart
-          ? new Map(Object.entries(dependencyParams.activityEarliestStart))
-          : undefined;
-
-        const depResult = runDependencyTrials({
-          activities,
-          dependencies: dependencyParams.dependencies,
-          trialCount,
-          rngSeed,
-          deterministicDurationMap: durMap,
-          milestoneActivityIds,
-          activityEarliestStart,
-        });
-        result = computeSimulationStats(depResult.samples, trialCount, rngSeed);
-        if (depResult.milestoneSamples) {
-          result.milestoneResults = computeMilestoneStats(depResult.milestoneSamples, trialCount);
-        }
-      } else {
-        result = runMonteCarloSimulation({
-          activities,
-          trialCount,
-          rngSeed,
-          deterministicDurations,
-          sequentialConstraints: sequentialConstraints ?? undefined,
-        });
-      }
-
+      const result = runSimulationSync(activities, trialCount, rngSeed, deterministicDurations, dependencyParams, sequentialConstraints);
       const elapsedMs = performance.now() - startTime;
       callbacks.onComplete({ ...result, id: simulationId }, elapsedMs);
     } catch (err) {
