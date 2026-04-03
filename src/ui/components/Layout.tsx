@@ -116,6 +116,15 @@ export function Layout() {
         </div>
         <div className="mt-1">
           <a
+            href="https://spertsuite.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+          >
+            SPERT® Suite
+          </a>
+          {" | "}
+          <a
             href={TOS_URL}
             target="_blank"
             rel="noopener noreferrer"
