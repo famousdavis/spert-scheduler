@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.8",
+    date: "2026-04-03",
+    sections: [
+      {
+        title: "Improved",
+        items: [
+          "Activity grid: the delete (×) button is now gray at rest and turns red only on hover, reducing visual clutter while preserving discoverability.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.7",
     date: "2026-04-02",
     sections: [
