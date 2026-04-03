@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.34.8 — 2026-04-03
+
+### Improved
+
+- Activity grid: the delete (×) button is now gray at rest and turns red only on hover, reducing visual clutter while preserving discoverability.
+
 ## 0.34.7 — 2026-04-02
 
 ### Added

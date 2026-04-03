@@ -687,7 +687,7 @@ export function UnifiedActivityRow({
                 onDelete(activity.id);
               }
             }}
-            className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 text-sm transition-colors"
+            className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 text-sm transition-colors"
             title="Delete activity"
             tabIndex={-1}
             aria-label="Delete activity"
