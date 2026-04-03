@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.34.7 — 2026-04-02
+
+### Added
+
+- Projects page: new "Export All Projects" button exports all active projects in one click (same JSON format as the Settings export, simulation results excluded). Disabled when there are no active projects.
+- localStorage warning banner: an amber caution banner now appears on every page when data is stored locally, reminding users to export at the end of each session. "Got it" dismisses for the session.
+- Settings → Notifications: new section with a toggle to permanently suppress the localStorage warning banner across sessions.
+
+### Improved
+
+- Settings page: "Schedule Export" section renamed to "Export Schedule" for consistency with action-first labeling.
+
 ## 0.34.6 — 2026-04-02
 
 ### Improved

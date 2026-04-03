@@ -12,6 +12,7 @@ import { PreferencesSection } from "@ui/components/PreferencesSection";
 import { LocalStorageSection } from "@ui/components/LocalStorageSection";
 import { StorageModeSection } from "@ui/components/StorageModeSection";
 import { ScheduleExportSection } from "@ui/components/ScheduleExportSection";
+import { NotificationsSection } from "@ui/components/NotificationsSection";
 
 export function SettingsPage() {
   const { projects, loadProjects, importProjects, importScenarioToProject } = useProjectStore(
@@ -36,6 +37,7 @@ export function SettingsPage() {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
       <PreferencesSection />
       <LocalStorageSection />
+      <NotificationsSection />
       <StorageModeSection />
       <ExportSection projects={projects} />
       <ScheduleExportSection projects={projects} />

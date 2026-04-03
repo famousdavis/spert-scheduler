@@ -23,6 +23,7 @@ import { NewProjectDialog } from "@ui/components/NewProjectDialog";
 import { ProjectTile } from "@ui/components/ProjectTile";
 import { downloadFile } from "@ui/helpers/download";
 import { formatDateISO } from "@core/calendar/calendar";
+import { serializeExport } from "@app/api/export-import-service";
 
 function getErrorTypeLabel(type: LoadError["type"]): string {
   switch (type) {
@@ -157,16 +158,31 @@ export function ProjectsPage() {
     [removeCorruptedProject]
   );
 
+  const handleExportAll = useCallback(() => {
+    const json = serializeExport(activeProjects);
+    const filename = `spert-scheduler-export-${formatDateISO(new Date())}.json`;
+    downloadFile(json, filename, "application/json");
+  }, [activeProjects]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
-        <button
-          onClick={() => setDialogOpen(true)}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
-        >
-          New Project
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportAll}
+            disabled={activeProjects.length === 0}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Export All Projects
+          </button>
+          <button
+            onClick={() => setDialogOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+          >
+            New Project
+          </button>
+        </div>
       </div>
 
       {projects.length > 0 && (

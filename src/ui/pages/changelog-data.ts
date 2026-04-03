@@ -12,6 +12,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.7",
+    date: "2026-04-02",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Projects page: new \"Export All Projects\" button exports all active projects in one click (same JSON format as the Settings export, simulation results excluded).",
+          "localStorage warning banner: an amber caution banner now appears on every page when your data is stored locally, reminding you to export at the end of each session. Dismiss with \"Got it\" for the session.",
+          "Settings → Notifications: new toggle to permanently suppress the localStorage warning banner.",
+        ],
+      },
+      {
+        title: "Improved",
+        items: [
+          "Settings page: \"Schedule Export\" section renamed to \"Export Schedule\" for consistency with action-first labeling.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.6",
     date: "2026-04-02",
     sections: [
