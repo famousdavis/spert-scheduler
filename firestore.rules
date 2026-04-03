@@ -51,7 +51,8 @@ service cloud.firestore {
                         'globalCalendar', 'ganttViewMode', 'ganttShowToday',
                         'ganttShowCriticalPath', 'ganttShowProjectName', 'ganttShowArrows',
                         'defaultHolidayCountry', 'workDays',
-                        'targetFinishGreenPct', 'targetFinishAmberPct'
+                        'targetFinishGreenPct', 'targetFinishAmberPct',
+                        'suppressLocalStorageWarning'
                       ]);
     }
 

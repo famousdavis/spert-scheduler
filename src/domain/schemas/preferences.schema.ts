@@ -39,4 +39,5 @@ export const UserPreferencesSchema = z.object({
   workDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
   targetFinishGreenPct: z.number().int().min(5).max(99).optional(),
   targetFinishAmberPct: z.number().int().min(5).max(99).optional(),
+  suppressLocalStorageWarning: z.boolean().optional(),
 });

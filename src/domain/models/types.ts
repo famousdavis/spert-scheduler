@@ -395,6 +395,8 @@ export interface UserPreferences {
   targetFinishGreenPct?: number;
   /** Finish Target RAG: percentile at or above which the target is amber (default 50) */
   targetFinishAmberPct?: number;
+  /** When true, suppresses the local-storage caution banner on startup */
+  suppressLocalStorageWarning?: boolean;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
@@ -418,6 +420,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   ganttShowProjectName: false,
   ganttShowArrows: true,
   workDays: [1, 2, 3, 4, 5], // Mon–Fri
+  suppressLocalStorageWarning: false,
 };
 
 // -- Weekday Labels -----------------------------------------------------------

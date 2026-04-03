@@ -11,6 +11,7 @@ import { ToastContainer } from "./ToastContainer";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import { AuthButton } from "./AuthButton";
 import { FirstRunBanner } from "./FirstRunBanner";
+import { LocalStorageWarningBanner } from "./LocalStorageWarningBanner";
 import { useCloudSync } from "@ui/hooks/use-cloud-sync";
 
 const NAV_ITEMS = [
@@ -92,6 +93,7 @@ export function Layout() {
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
         <FirstRunBanner />
+        <LocalStorageWarningBanner />
         <Outlet />
       </main>
       <footer className="mt-16 border-t-2 border-gray-100 dark:border-gray-800 pb-6 pt-8 text-center text-sm text-gray-500 dark:text-gray-400">
