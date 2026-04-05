@@ -31,7 +31,11 @@ export function AuthButton() {
   const navigate = useNavigate();
 
   const isCloudSignedIn = mode === "cloud" && !!user;
-  const firstName = user?.displayName?.split(" ")[0] ?? user?.email ?? "";
+  const firstName = user?.displayName
+    ? user.displayName.includes(",")
+      ? user.displayName.split(",")[1]?.trim().split(" ")[0] ?? user.displayName.split(" ")[0]
+      : user.displayName.split(" ")[0]
+    : user?.email ?? "";
   const initial = firstName.charAt(0).toUpperCase();
 
   const goToSettings = () => navigate("/settings");
