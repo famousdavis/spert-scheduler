@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.34.9 — 2026-04-05
+
+### Improved
+
+- Header auth chip: replaced the text-button sign-in and avatar dropdown with the SPERT Suite split-pill design. Signed-in state shows a 26px avatar circle with first initial, first name only, and a cloud icon segment that navigates to Settings. Local/signed-out state shows a lock icon with "Local only" and a "Sign in" action segment.
+
 ## 0.34.8 — 2026-04-03
 
 ### Improved

@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.9",
+    date: "2026-04-05",
+    sections: [
+      {
+        title: "Improved",
+        items: [
+          "Header auth chip: replaced the text-button sign-in and avatar dropdown with the SPERT Suite split-pill design. Signed-in shows avatar + first name + cloud icon; local/signed-out shows lock + \"Local only\" + \"Sign in\".",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.8",
     date: "2026-04-03",
     sections: [
