@@ -2,10 +2,10 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 /** Current version of the Terms of Service document. */
-export const TOS_VERSION = "03-31-2026";
+export const TOS_VERSION = "04-05-2026";
 
 /** Current version of the Privacy Policy document. */
-export const PRIVACY_POLICY_VERSION = "03-31-2026";
+export const PRIVACY_POLICY_VERSION = "04-05-2026";
 
 /** Canonical URL for the Terms of Service PDF. */
 export const TOS_URL = "https://spertsuite.com/TOS.pdf";

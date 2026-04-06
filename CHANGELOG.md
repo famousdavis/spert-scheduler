@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.35.0 — 2026-04-05
+
+### Legal
+
+- Updated Terms of Service and Privacy Policy to v04-05-2026.
+- Added SPERT AHP to list of covered apps.
+- Updated effective date to April 5, 2026.
+
 ## 0.34.9 — 2026-04-05
 
 ### Improved

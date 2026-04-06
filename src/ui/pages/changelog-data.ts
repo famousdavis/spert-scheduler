@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.35.0",
+    date: "2026-04-05",
+    sections: [
+      {
+        title: "Legal",
+        items: [
+          "Updated Terms of Service and Privacy Policy to v04-05-2026.",
+          "Added SPERT\u00AE AHP to list of covered apps.",
+          "Updated effective date to April 5, 2026.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.34.9",
     date: "2026-04-05",
     sections: [
