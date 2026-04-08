@@ -10,6 +10,7 @@ import { useTheme } from "@ui/hooks/use-theme";
 import { ToastContainer } from "./ToastContainer";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import { AuthButton } from "./AuthButton";
+import { ThemeToggleButton } from "./ThemeToggleButton";
 import { FirstRunBanner } from "./FirstRunBanner";
 import { LocalStorageWarningBanner } from "./LocalStorageWarningBanner";
 import { useCloudSync } from "@ui/hooks/use-cloud-sync";
@@ -86,6 +87,7 @@ export function Layout() {
                   );
                 })}
               </nav>
+              <ThemeToggleButton />
               <AuthButton />
             </div>
           </div>

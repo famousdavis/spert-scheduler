@@ -248,4 +248,8 @@ export const ProjectSchema = z.object({
   ganttAppearance: GanttAppearanceSettingsSchema.optional(),
   scenarios: z.array(ScenarioSchema).max(20),
   archived: z.boolean().optional(),
+  tileColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #94a3b8")
+    .optional(),
 });
