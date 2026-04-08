@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.1 — 2026-04-08
+
+### Fixed
+
+- Dependency edit modal: negative lag (lead time) values like "-5" can now be entered reliably. The Lag Days field auto-selects its current value on focus and accepts the minus sign as you type. Out-of-range values are clamped to ±365 days on save.
+
 ## 0.36.0 — 2026-04-08
 
 ### Added
