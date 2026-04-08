@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.36.1",
+    date: "2026-04-08",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Dependency edit modal: negative lag (lead time) values like \u201C-5\u201D can now be entered reliably. The Lag Days field auto-selects its current value on focus and accepts the minus sign as you type. Out-of-range values are clamped to \u00B1365 days on save.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.36.0",
     date: "2026-04-08",
     sections: [

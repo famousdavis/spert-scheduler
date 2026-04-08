@@ -45,7 +45,7 @@ export function DependencyEditModal({
   const [fromId, setFromId] = useState<string>(fromActivityId ?? "");
   const [toId, setToId] = useState<string>(toActivityId ?? "");
   const [type, setType] = useState<DependencyType>(existingDep?.type ?? "FS");
-  const [lagDays, setLagDays] = useState<number>(existingDep?.lagDays ?? 0);
+  const [lagInput, setLagInput] = useState<string>(String(existingDep?.lagDays ?? 0));
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // Validation
@@ -72,9 +72,11 @@ export function DependencyEditModal({
       setValidationError(error);
       return;
     }
+    const parsed = parseInt(lagInput, 10);
+    const lagDays = Number.isNaN(parsed) ? 0 : Math.max(-365, Math.min(365, parsed));
     onSave(fromId, toId, type, lagDays);
     onClose();
-  }, [fromId, toId, type, lagDays, validate, onSave, onClose]);
+  }, [fromId, toId, type, lagInput, validate, onSave, onClose]);
 
   const handleDelete = useCallback(() => {
     if (onDelete && fromActivityId && toActivityId) {
@@ -178,9 +180,17 @@ export function DependencyEditModal({
                   Lag Days
                 </label>
                 <input
-                  type="number"
-                  value={lagDays}
-                  onChange={(e) => setLagDays(Number(e.target.value))}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="-?[0-9]*"
+                  value={lagInput}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "" || v === "-" || /^-?\d+$/.test(v)) {
+                      setLagInput(v);
+                    }
+                  }}
+                  onFocus={(e) => e.currentTarget.select()}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
                 />
               </div>
