@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.36.0",
+    date: "2026-04-08",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Theme toggle button in the header (between About and the cloud storage chip). Click to cycle Light \u2192 Dark \u2192 System; the icon reflects the current state.",
+          "Per-project tile color: pick one of 8 muted accent colors (Slate, Sage, Sky, Lavender, Rose, Amber, Teal, Clay) to color-code projects on the Projects page \u2014 useful for grouping projects that belong to the same program. The color shows as a 4px left border strip on the tile.",
+          "Import Projects button on the Projects page header (next to Export All Projects). Matches the header layout used by other SPERT Suite apps.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.35.0",
     date: "2026-04-05",
     sections: [

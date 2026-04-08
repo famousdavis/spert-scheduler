@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -259,7 +259,21 @@ export interface Project {
   ganttAppearance?: GanttAppearanceSettings;
   scenarios: Scenario[];
   archived?: boolean; // default false
+  /** Optional muted accent color for the project tile (hex #RRGGBB). Undefined = none. */
+  tileColor?: string;
 }
+
+/** Preset muted tile colors for grouping projects (e.g., by program). */
+export const PROJECT_TILE_COLORS = [
+  { name: "Slate", hex: "#94a3b8" },
+  { name: "Sage", hex: "#86b49a" },
+  { name: "Sky", hex: "#7dd3fc" },
+  { name: "Lavender", hex: "#b4a7d6" },
+  { name: "Rose", hex: "#e8a3a3" },
+  { name: "Amber", hex: "#e6c07b" },
+  { name: "Teal", hex: "#6bb6b0" },
+  { name: "Clay", hex: "#c9a38a" },
+] as const;
 
 // -- Schedule Output Types ---------------------------------------------------
 

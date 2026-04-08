@@ -6,6 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Project } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { formatDateISO } from "@core/calendar/calendar";
+import { TileColorPicker } from "./TileColorPicker";
 
 interface ProjectTileProps {
   project: Project;
@@ -13,6 +14,7 @@ interface ProjectTileProps {
   onDelete: (id: string) => void;
   onArchive?: (id: string) => void;
   onUnarchive?: (id: string) => void;
+  onChangeTileColor?: (id: string, color: string | undefined) => void;
 }
 
 export function ProjectTile({
@@ -21,6 +23,7 @@ export function ProjectTile({
   onDelete,
   onArchive,
   onUnarchive,
+  onChangeTileColor,
 }: ProjectTileProps) {
   const formatDate = useDateFormat();
   const {
@@ -32,9 +35,12 @@ export function ProjectTile({
     isDragging,
   } = useSortable({ id: project.id });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
+    ...(project.tileColor
+      ? { borderLeftColor: project.tileColor, borderLeftWidth: "4px" }
+      : {}),
   };
 
   const handleClick = () => {
@@ -116,6 +122,13 @@ export function ProjectTile({
               <circle cx="11" cy="13" r="1.5" />
             </svg>
           </button>
+          {/* Tile color picker */}
+          {onChangeTileColor && (
+            <TileColorPicker
+              value={project.tileColor}
+              onChange={(c) => onChangeTileColor(project.id, c)}
+            />
+          )}
           {/* Archive/Unarchive button */}
           {project.archived ? (
             onUnarchive && (

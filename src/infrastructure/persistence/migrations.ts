@@ -318,6 +318,16 @@ function migrateV18toV19(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v19 → v20: Add optional `tileColor` field on Project.
+ * No data transform needed — field is optional and defaults to undefined (no color).
+ */
+function migrateV19toV20(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 20;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -337,6 +347,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   16: migrateV16toV17,
   17: migrateV17toV18,
   18: migrateV18toV19,
+  19: migrateV19toV20,
 };
 
 /**

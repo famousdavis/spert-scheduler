@@ -127,7 +127,7 @@ export interface ProjectStore {
   // Project fields
   updateProjectField: (
     projectId: string,
-    updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt" | "showActivityIds">>
+    updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt" | "showActivityIds" | "tileColor">>
   ) => void;
   updateGanttAppearance: (projectId: string, appearance: GanttAppearanceSettings) => void;
 

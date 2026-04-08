@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.36.0 — 2026-04-08
+
+### Added
+
+- Theme toggle button in the header (between About and the cloud storage chip). Click to cycle Light → Dark → System; the icon reflects the current state.
+- Per-project tile color: pick one of 8 muted accent colors (Slate, Sage, Sky, Lavender, Rose, Amber, Teal, Clay) to color-code projects on the Projects page — useful for grouping projects that belong to the same program. The color shows as a 4px left border strip on the tile. (Schema v19 → v20.)
+- Import Projects button on the Projects page header (next to Export All Projects). Matches the header layout used by other SPERT Suite apps.
+
 ## 0.35.0 — 2026-04-05
 
 ### Legal

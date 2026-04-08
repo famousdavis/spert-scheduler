@@ -21,6 +21,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useProjectStore, type LoadError } from "@ui/hooks/use-project-store";
 import { NewProjectDialog } from "@ui/components/NewProjectDialog";
 import { ProjectTile } from "@ui/components/ProjectTile";
+import { ImportSection } from "@ui/components/ImportSection";
 import { downloadFile } from "@ui/helpers/download";
 import { formatDateISO } from "@core/calendar/calendar";
 import { serializeExport } from "@app/api/export-import-service";
@@ -51,6 +52,8 @@ export function ProjectsPage() {
     reorderProjects,
     archiveProject,
     unarchiveProject,
+    updateProjectField,
+    importProjects,
     getCorruptedProjectRawData,
     removeCorruptedProject,
   } = useProjectStore(
@@ -64,15 +67,25 @@ export function ProjectsPage() {
       reorderProjects: s.reorderProjects,
       archiveProject: s.archiveProject,
       unarchiveProject: s.unarchiveProject,
+      updateProjectField: s.updateProjectField,
+      importProjects: s.importProjects,
       getCorruptedProjectRawData: s.getCorruptedProjectRawData,
       removeCorruptedProject: s.removeCorruptedProject,
     }))
+  );
+
+  const handleChangeTileColor = useCallback(
+    (id: string, color: string | undefined) => {
+      updateProjectField(id, { tileColor: color });
+    },
+    [updateProjectField]
   );
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -177,6 +190,12 @@ export function ProjectsPage() {
             Export All Projects
           </button>
           <button
+            onClick={() => setShowImport((v) => !v)}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            {showImport ? "Hide Import" : "Import Projects"}
+          </button>
+          <button
             onClick={() => setDialogOpen(true)}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
           >
@@ -184,6 +203,10 @@ export function ProjectsPage() {
           </button>
         </div>
       </div>
+
+      {showImport && (
+        <ImportSection projects={projects} importProjects={importProjects} />
+      )}
 
       {projects.length > 0 && (
         <div className="flex items-center gap-4">
@@ -308,6 +331,7 @@ export function ProjectsPage() {
                   onDelete={deleteProject}
                   onArchive={archiveProject}
                   onUnarchive={unarchiveProject}
+                  onChangeTileColor={handleChangeTileColor}
                 />
               ))}
             </div>
