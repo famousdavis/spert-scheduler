@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.2 — 2026-04-09
+
+### Changed
+
+- Auth chip in the header is now a single clickable pill. When signed in to cloud storage, clicking anywhere on the chip opens a small account menu showing your name and email, with a Sign Out button. Dismiss with Escape or by clicking outside. When signed out, clicking the chip still opens the sign-in flow.
+
 ## 0.36.1 — 2026-04-08
 
 ### Fixed
