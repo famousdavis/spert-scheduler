@@ -2,9 +2,9 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
+import { StorageLoginModal } from "./StorageLoginModal";
 
 function CloudIcon() {
   return (
@@ -29,7 +29,7 @@ function LockIcon() {
 export function AuthButton() {
   const { user, signOut } = useAuth();
   const { mode } = useStorage();
-  const navigate = useNavigate();
+  const [modalOpen, setModalOpen] = useState(false);
 
   const isCloudSignedIn = mode === "cloud" && !!user;
   const firstName = user?.displayName
@@ -146,28 +146,31 @@ export function AuthButton() {
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => navigate("/settings")}
-      className={pillClass}
-      style={pillStyle}
-      aria-label="Sign in to cloud storage"
-    >
-      {/* Left segment: lock icon + "Local only" */}
-      <span className="flex items-center gap-1.5 py-1 pl-2.5 pr-2.5">
-        <LockIcon />
-        <span style={{ fontSize: 13 }} className="text-gray-400">
-          Local only
+    <>
+      <button
+        type="button"
+        onClick={() => setModalOpen(true)}
+        className={pillClass}
+        style={pillStyle}
+        aria-label="Sign in to cloud storage"
+      >
+        {/* Left segment: lock icon + "Local only" */}
+        <span className="flex items-center gap-1.5 py-1 pl-2.5 pr-2.5">
+          <LockIcon />
+          <span style={{ fontSize: 13 }} className="text-gray-400">
+            Local only
+          </span>
         </span>
-      </span>
-      {/* Vertical divider */}
-      <span className="self-stretch" style={{ width: "0.5px", backgroundColor: "#D1D5DB" }} />
-      {/* Right segment: "Sign in" (visual only) */}
-      <span className="flex items-center justify-center px-2.5 py-1 rounded-r-full">
-        <span style={{ fontSize: 12, fontWeight: 500, color: "#0070f3" }}>
-          Sign in
+        {/* Vertical divider */}
+        <span className="self-stretch" style={{ width: "0.5px", backgroundColor: "#D1D5DB" }} />
+        {/* Right segment: "Sign in" (visual only) */}
+        <span className="flex items-center justify-center px-2.5 py-1 rounded-r-full">
+          <span style={{ fontSize: 12, fontWeight: 500, color: "#0070f3" }}>
+            Sign in
+          </span>
         </span>
-      </span>
-    </button>
+      </button>
+      <StorageLoginModal open={modalOpen} onOpenChange={setModalOpen} />
+    </>
   );
 }
