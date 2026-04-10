@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.36.4",
+    date: "2026-04-10",
+    sections: [
+      {
+        title: "Improved",
+        items: [
+          "Sign-in modal buttons now show Google and Microsoft brand icons.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.36.3",
     date: "2026-04-10",
     sections: [
