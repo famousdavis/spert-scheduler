@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.4 — 2026-04-10
+
+### Improved
+
+- Sign-in modal buttons now show Google and Microsoft brand icons.
+
 ## 0.36.3 — 2026-04-10
 
 ### Added
