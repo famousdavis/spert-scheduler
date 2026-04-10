@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.36.3",
+    date: "2026-04-10",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Sign-in modal when clicking the auth chip. Opens a focused dialog with Google and Microsoft sign-in buttons instead of navigating to the Settings page.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Horizontal layout shift caused by the scrollbar appearing and disappearing when navigating between pages of different heights.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.36.2",
     date: "2026-04-09",
     sections: [

@@ -3,6 +3,10 @@
 
 @import "tailwindcss";
 
+html {
+  scrollbar-gutter: stable;
+}
+
 /* Hide number input spinners */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {

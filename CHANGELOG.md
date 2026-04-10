@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.36.3 — 2026-04-10
+
+### Added
+
+- Sign-in modal when clicking the auth chip. Opens a focused dialog with Google and Microsoft sign-in buttons instead of navigating to the Settings page.
+
+### Fixed
+
+- Horizontal layout shift caused by the scrollbar appearing and disappearing when navigating between pages of different heights.
+
 ## 0.36.2 — 2026-04-09
 
 ### Changed
