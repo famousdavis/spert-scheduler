@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.37.1",
+    date: "2026-04-16",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Scenario tab row: hid the horizontal scrollbar that was rendering as a thick gray bar over the tab underline. Scrolling still works via drag, wheel, and keyboard; overflow is now signaled by partially-visible tabs at the edge.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.37.0",
     date: "2026-04-16",
     sections: [

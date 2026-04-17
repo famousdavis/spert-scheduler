@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.1 — 2026-04-16
+
+### Fixed
+
+- Scenario tab row: hid the horizontal scrollbar that was rendering as a thick gray bar over the tab underline. Scrolling still works via drag, wheel, and keyboard; overflow is now signaled by partially-visible tabs at the edge.
+
 ## 0.37.0 — 2026-04-16
 
 ### Added
