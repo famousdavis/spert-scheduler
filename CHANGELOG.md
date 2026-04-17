@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.4 — 2026-04-17
+
+### Added
+
+- Gantt chart now auto-draws finish-to-start arrows between adjacent activities when Dependency Mode is OFF. This makes the implicit sequential ordering visually explicit. The existing Arrows toolbar checkbox now also appears in non-dependency mode so you can hide the auto-drawn arrows if they aren't useful. Auto-drawn arrows are non-interactive and do not carry critical-path styling — in sequential mode every activity is trivially on the critical path, so the stripe would add no information.
+
 ## 0.37.3 — 2026-04-16
 
 ### Fixed
