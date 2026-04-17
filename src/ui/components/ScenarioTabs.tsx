@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -51,6 +51,7 @@ function SortableScenarioTab({
   compareMode,
   selectedForCompare,
   onToggleCompare,
+  activeRef,
 }: {
   scenario: Scenario;
   isActive: boolean;
@@ -66,6 +67,7 @@ function SortableScenarioTab({
   compareMode?: boolean;
   selectedForCompare?: Set<string>;
   onToggleCompare?: (scenarioId: string) => void;
+  activeRef?: (el: HTMLDivElement | null) => void;
 }) {
   const {
     attributes,
@@ -86,9 +88,12 @@ function SortableScenarioTab({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(el) => {
+        setNodeRef(el);
+        if (isActive && activeRef) activeRef(el);
+      }}
       style={style}
-      className={`group flex items-center gap-1.5 px-3 py-2 text-sm cursor-pointer border-b-2 transition-colors ${
+      className={`group flex items-center gap-1.5 px-3 py-2 text-sm cursor-pointer border-b-2 transition-colors shrink-0 ${
         isActive
           ? "border-blue-500 text-blue-700 dark:text-blue-400 font-medium"
           : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
@@ -230,6 +235,17 @@ export function ScenarioTabs({
     [scenarios]
   );
 
+  const activeTabRef = useRef<HTMLDivElement | null>(null);
+  const setActiveTab = useCallback((el: HTMLDivElement | null) => {
+    activeTabRef.current = el;
+  }, []);
+
+  useEffect(() => {
+    const el = activeTabRef.current;
+    if (!el) return;
+    el.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+  }, [activeScenarioId]);
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id && onReorder) {
@@ -242,44 +258,47 @@ export function ScenarioTabs({
   };
 
   return (
-    <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700 pb-0">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={scenarioIds}
-          strategy={horizontalListSortingStrategy}
+    <div className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden border-b border-gray-200 dark:border-gray-700 pb-0">
+      <div className="flex items-center gap-1 flex-nowrap w-max">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          {scenarios.map((scenario, index) => (
-            <SortableScenarioTab
-              key={scenario.id}
-              scenario={scenario}
-              isActive={scenario.id === activeScenarioId}
-              isBaseline={index === 0}
-              isEditing={editingId === scenario.id}
-              scenarioCount={scenarios.length}
-              onSelect={onSelect}
-              onClone={onClone}
-              onDelete={onDelete}
-              onRename={onRename}
-              onToggleLock={onToggleLock}
-              onStartEditing={setEditingId}
-              compareMode={compareMode}
-              selectedForCompare={selectedForCompare}
-              onToggleCompare={onToggleCompare}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
-      <button
-        onClick={onAdd}
-        className="px-3 py-2 text-sm text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-        title="Add scenario"
-      >
-        +
-      </button>
+          <SortableContext
+            items={scenarioIds}
+            strategy={horizontalListSortingStrategy}
+          >
+            {scenarios.map((scenario, index) => (
+              <SortableScenarioTab
+                key={scenario.id}
+                scenario={scenario}
+                isActive={scenario.id === activeScenarioId}
+                isBaseline={index === 0}
+                isEditing={editingId === scenario.id}
+                scenarioCount={scenarios.length}
+                onSelect={onSelect}
+                onClone={onClone}
+                onDelete={onDelete}
+                onRename={onRename}
+                onToggleLock={onToggleLock}
+                onStartEditing={setEditingId}
+                compareMode={compareMode}
+                selectedForCompare={selectedForCompare}
+                onToggleCompare={onToggleCompare}
+                activeRef={setActiveTab}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+        <button
+          onClick={onAdd}
+          className="px-3 py-2 text-sm text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors shrink-0"
+          title="Add scenario"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }

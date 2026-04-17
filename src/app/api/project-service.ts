@@ -58,12 +58,22 @@ export function createScenario(
 
 export function addScenarioToProject(
   project: Project,
-  scenario: Scenario
+  scenario: Scenario,
+  insertAtIndex?: number
 ): Project {
-  return {
-    ...project,
-    scenarios: [...project.scenarios, scenario],
-  };
+  if (insertAtIndex === undefined) {
+    return {
+      ...project,
+      scenarios: [...project.scenarios, scenario],
+    };
+  }
+  const idx = Math.max(
+    0,
+    Math.min(insertAtIndex, project.scenarios.length)
+  );
+  const scenarios = [...project.scenarios];
+  scenarios.splice(idx, 0, scenario);
+  return { ...project, scenarios };
 }
 
 export function removeScenarioFromProject(
