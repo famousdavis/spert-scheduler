@@ -258,7 +258,7 @@ export function ScenarioTabs({
   };
 
   return (
-    <div className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden border-b border-gray-200 dark:border-gray-700 pb-0">
+    <div className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden border-b border-gray-200 dark:border-gray-700 pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <div className="flex items-center gap-1 flex-nowrap w-max">
         <DndContext
           sensors={sensors}
