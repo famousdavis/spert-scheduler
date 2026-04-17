@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.37.3",
+    date: "2026-04-16",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Header title and navigation tabs (Projects, Calendar, Settings, About) now use an inline-flex layout, working around a Chromium 147 rendering regression that caused the pointer-cursor affordance to disappear (and in Brave, clicks to miss the center of nav tabs). The workaround is harmless on unaffected browsers.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.37.2",
     date: "2026-04-16",
     sections: [

@@ -65,7 +65,7 @@ export function Layout() {
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
-            <Link to="/projects" className="text-lg font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap cursor-pointer">
+            <Link to="/projects" className="inline-flex items-center text-lg font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap cursor-pointer">
               SPERT<span className="text-gray-300 dark:text-gray-600 text-xs align-super">®</span> Scheduler
             </Link>
             <div className="flex items-center gap-1">
@@ -76,7 +76,7 @@ export function Layout() {
                     <Link
                       key={item.path}
                       to={item.path}
-                      className={`px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                      className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
                         isActive
                           ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
                           : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
