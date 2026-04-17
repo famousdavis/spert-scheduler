@@ -166,7 +166,7 @@ export interface ProjectStore {
     scenarioId: string,
     newName: string,
     options?: CloneOptions
-  ) => void;
+  ) => string | undefined;
   updateScenarioStartDate: (
     projectId: string,
     scenarioId: string,
@@ -531,19 +531,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   duplicateScenario: (projectId, scenarioId, newName, options) => {
     pushUndo(projectId);
+    let newCloneId: string | undefined;
     set((state) => {
       const project = state.projects.find((p) => p.id === projectId);
       if (!project) return state;
       const scenario = project.scenarios.find((s) => s.id === scenarioId);
       if (!scenario) return state;
 
+      const sourceIndex = project.scenarios.findIndex((s) => s.id === scenarioId);
       const clone = cloneScenario(scenario, newName, options);
+      newCloneId = clone.id;
       const projects = state.projects.map((p) =>
-        p.id === projectId ? addScenarioToProject(p, clone) : p
+        p.id === projectId ? addScenarioToProject(p, clone, sourceIndex) : p
       );
       persist(projects, projectId);
       return { projects };
     });
+    return newCloneId;
   },
 
   updateScenarioStartDate: (projectId, scenarioId, startDate) =>

@@ -8,6 +8,7 @@ import {
   cloneScenario,
   createActivity,
   addActivityToScenario,
+  addScenarioToProject,
   updateActivity,
   reorderActivities,
   removeActivityFromScenario,
@@ -96,6 +97,82 @@ describe("cloneScenario", () => {
     const original = makeScenario();
     const clone = cloneScenario(original, "Clone");
     expect(clone.activities).toHaveLength(2);
+  });
+});
+
+describe("addScenarioToProject", () => {
+  function buildProjectWith3Scenarios() {
+    const project = createProject("Test", "2025-01-06");
+    const s2 = createScenario("B", "2025-01-06");
+    const s3 = createScenario("C", "2025-01-06");
+    return {
+      ...project,
+      scenarios: [...project.scenarios, s2, s3],
+    };
+  }
+
+  it("appends to end when insertAtIndex is undefined", () => {
+    const project = buildProjectWith3Scenarios();
+    const newScenario = createScenario("New", "2025-01-06");
+    const updated = addScenarioToProject(project, newScenario);
+    expect(updated.scenarios).toHaveLength(4);
+    expect(updated.scenarios[3]!.id).toBe(newScenario.id);
+  });
+
+  it("prepends when insertAtIndex=0", () => {
+    const project = buildProjectWith3Scenarios();
+    const newScenario = createScenario("New", "2025-01-06");
+    const updated = addScenarioToProject(project, newScenario, 0);
+    expect(updated.scenarios).toHaveLength(4);
+    expect(updated.scenarios[0]!.id).toBe(newScenario.id);
+    expect(updated.scenarios[1]!.name).toBe("Baseline");
+    expect(updated.scenarios[2]!.name).toBe("B");
+    expect(updated.scenarios[3]!.name).toBe("C");
+  });
+
+  it("inserts mid-array at insertAtIndex=middle, preserving neighbors", () => {
+    const project = buildProjectWith3Scenarios();
+    const newScenario = createScenario("New", "2025-01-06");
+    const updated = addScenarioToProject(project, newScenario, 1);
+    expect(updated.scenarios).toHaveLength(4);
+    expect(updated.scenarios[0]!.name).toBe("Baseline");
+    expect(updated.scenarios[1]!.id).toBe(newScenario.id);
+    expect(updated.scenarios[2]!.name).toBe("B");
+    expect(updated.scenarios[3]!.name).toBe("C");
+  });
+
+  it("appends when insertAtIndex=length", () => {
+    const project = buildProjectWith3Scenarios();
+    const newScenario = createScenario("New", "2025-01-06");
+    const updated = addScenarioToProject(project, newScenario, project.scenarios.length);
+    expect(updated.scenarios).toHaveLength(4);
+    expect(updated.scenarios[3]!.id).toBe(newScenario.id);
+  });
+
+  it("clamps insertAtIndex=-1 to 0", () => {
+    const project = buildProjectWith3Scenarios();
+    const newScenario = createScenario("New", "2025-01-06");
+    const updated = addScenarioToProject(project, newScenario, -1);
+    expect(updated.scenarios[0]!.id).toBe(newScenario.id);
+  });
+
+  it("clamps insertAtIndex>length to length", () => {
+    const project = buildProjectWith3Scenarios();
+    const newScenario = createScenario("New", "2025-01-06");
+    const updated = addScenarioToProject(project, newScenario, project.scenarios.length + 5);
+    expect(updated.scenarios).toHaveLength(4);
+    expect(updated.scenarios[3]!.id).toBe(newScenario.id);
+  });
+
+  it("does not mutate the input project's scenarios array", () => {
+    const project = buildProjectWith3Scenarios();
+    const originalScenariosRef = project.scenarios;
+    const originalLength = project.scenarios.length;
+    const newScenario = createScenario("New", "2025-01-06");
+    const updated = addScenarioToProject(project, newScenario, 1);
+    expect(project.scenarios).toBe(originalScenariosRef);
+    expect(project.scenarios).toHaveLength(originalLength);
+    expect(updated.scenarios).not.toBe(originalScenariosRef);
   });
 });
 

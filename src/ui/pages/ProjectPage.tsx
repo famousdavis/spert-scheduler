@@ -364,13 +364,8 @@ export function ProjectPage() {
   const handleAddScenario = useCallback(
     (name: string, sourceScenarioId: string) => {
       if (!id || !project) return;
-      duplicateScenario(id, sourceScenarioId, name);
-      const updatedProject = useProjectStore.getState().getProject(id);
-      if (updatedProject && updatedProject.scenarios.length > 0) {
-        setActiveScenarioId(
-          updatedProject.scenarios[updatedProject.scenarios.length - 1]!.id
-        );
-      }
+      const newId = duplicateScenario(id, sourceScenarioId, name);
+      if (newId) setActiveScenarioId(newId);
     },
     [id, project, duplicateScenario, setActiveScenarioId]
   );
@@ -398,13 +393,8 @@ export function ProjectPage() {
   const handleClone = useCallback(
     (newName: string, dropCompleted: boolean) => {
       if (!id || !cloneSourceId) return;
-      duplicateScenario(id, cloneSourceId, newName, { dropCompleted });
-      const updatedProject = useProjectStore.getState().getProject(id);
-      if (updatedProject && updatedProject.scenarios.length > 0) {
-        setActiveScenarioId(
-          updatedProject.scenarios[updatedProject.scenarios.length - 1]!.id
-        );
-      }
+      const newId = duplicateScenario(id, cloneSourceId, newName, { dropCompleted });
+      if (newId) setActiveScenarioId(newId);
     },
     [id, cloneSourceId, duplicateScenario, setActiveScenarioId]
   );
@@ -517,7 +507,7 @@ export function ProjectPage() {
       </div>
 
       {/* Scenario tabs + compare toggle */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between min-w-0">
         <ScenarioTabs
           scenarios={project.scenarios}
           activeScenarioId={activeScenarioId}

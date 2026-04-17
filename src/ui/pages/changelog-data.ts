@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.37.0",
+    date: "2026-04-16",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Scenario tabs now scroll horizontally when there are more scenarios than fit. The Compare button stays pinned on the right edge and is always visible.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Cloning a scenario now inserts the new clone immediately to the left of the source scenario, instead of appending to the end. Cloning from the '+' Add dialog follows the same placement rule. The clone becomes the active scenario and is auto-scrolled into view if off-screen.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.36.4",
     date: "2026-04-10",
     sections: [

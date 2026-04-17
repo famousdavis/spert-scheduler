@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.37.0 — 2026-04-16
+
+### Added
+
+- Scenario tabs now scroll horizontally when there are more scenarios than fit. The Compare button stays pinned on the right edge and is always visible.
+
+### Changed
+
+- Cloning a scenario now inserts the new clone immediately to the left of the source scenario, instead of appending to the end. Cloning from the "+" Add dialog follows the same placement rule. The clone becomes the active scenario and is auto-scrolled into view if off-screen.
+
 ## 0.36.4 — 2026-04-10
 
 ### Improved
