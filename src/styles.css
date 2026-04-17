@@ -7,6 +7,16 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Tailwind v4 removed the default `cursor: pointer` on <button>.
+   Restore it for non-disabled buttons and role=button elements so the
+   cursor affordance matches Tailwind v3 / typical web conventions. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 /* Hide number input spinners */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {

@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.37.2",
+    date: "2026-04-16",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Header buttons (theme toggle, cloud auth chip) now show the pointing-finger cursor on hover. This restores the click affordance that was lost with the Tailwind v4 upgrade, which removed the default `cursor: pointer` on `<button>` elements.",
+          "Header title 'SPERT® Scheduler' is now fully clickable across its entire width at any viewport size — previously the title could wrap on narrow viewports, leaving the second line outside the hit target.",
+          "Navigation links (Projects, Calendar, Settings, About) now explicitly declare the pointing-finger cursor and no-wrap behavior, so the click target stays consistent across browsers including Brave.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.37.1",
     date: "2026-04-16",
     sections: [
