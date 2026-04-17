@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.3 — 2026-04-16
+
+### Fixed
+
+- Header title and navigation tabs (Projects, Calendar, Settings, About) now use an inline-flex layout, working around a Chromium 147 rendering regression that caused the pointer-cursor affordance to disappear (and in Brave, clicks to miss the center of nav tabs). The workaround is harmless on unaffected browsers.
+
 ## 0.37.2 — 2026-04-16
 
 ### Fixed
