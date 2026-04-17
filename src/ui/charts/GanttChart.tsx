@@ -103,17 +103,15 @@ function GanttToolbar({
           Critical path
         </label>
       )}
-      {dependencyMode && (
-        <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showArrows}
-            onChange={(e) => setShowArrows(e.target.checked)}
-            className="rounded border-gray-300 dark:border-gray-600 text-gray-600 focus:ring-gray-500"
-          />
-          Arrows
-        </label>
-      )}
+      <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={showArrows}
+          onChange={(e) => setShowArrows(e.target.checked)}
+          className="rounded border-gray-300 dark:border-gray-600 text-gray-600 focus:ring-gray-500"
+        />
+        Arrows
+      </label>
       <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
         <input
           type="checkbox"
@@ -381,10 +379,30 @@ export function GanttChart({
     todayX, todayStr, allTicks, ticks, rowIndex, barYOffset,
   } = layout;
 
+  // In non-dependency mode, synthesize FS-0 dependencies between adjacent activities
+  // so the implicit sequential order is visually explicit. These are non-interactive
+  // and never carry critical-path styling (in sequential mode every activity is trivially
+  // on the critical path, so the stripe would add no information).
+  const effectiveDependencies = useMemo<Array<{ dep: ActivityDependency; synthetic: boolean }>>(() => {
+    if (dependencyMode) return dependencies.map((dep) => ({ dep, synthetic: false }));
+    const synth: Array<{ dep: ActivityDependency; synthetic: boolean }> = [];
+    for (let i = 0; i < activities.length - 1; i++) {
+      synth.push({
+        dep: {
+          fromActivityId: activities[i]!.id,
+          toActivityId: activities[i + 1]!.id,
+          type: "FS",
+          lagDays: 0,
+        },
+        synthetic: true,
+      });
+    }
+    return synth;
+  }, [dependencyMode, dependencies, activities]);
+
   // Pre-compute arrow path geometry so both visual and hit-area passes share it
   const arrowPaths = useMemo(() => {
-    if (!dependencyMode) return [];
-    return dependencies.map((dep) => {
+    return effectiveDependencies.map(({ dep, synthetic }) => {
       const fromRow = rowIndex.get(dep.fromActivityId);
       const toRow = rowIndex.get(dep.toActivityId);
       const fromSa = scheduleMap.get(dep.fromActivityId);
@@ -419,19 +437,19 @@ export function GanttChart({
         }
       }
 
-      const isCriticalEdge = showCriticalPath &&
-        criticalPathIds?.has(dep.fromActivityId) && criticalPathIds?.has(dep.toActivityId);
+      const isCriticalEdge = !synthetic && showCriticalPath &&
+        !!(criticalPathIds?.has(dep.fromActivityId) && criticalPathIds?.has(dep.toActivityId));
       const fromName = activities.find((a) => a.id === dep.fromActivityId)?.name ?? "";
       const toName = activities.find((a) => a.id === dep.toActivityId)?.name ?? "";
       const lagLabel = dep.lagDays !== 0 ? (dep.lagDays > 0 ? `, +${dep.lagDays}d` : `, ${dep.lagDays}d`) : "";
       const label = `${fromName} → ${toName}, ${dependencyLabel(dep.type)}${lagLabel}`;
 
-      return { dep, path, barEndX, toX, fromY, toY, isCriticalEdge, label };
+      return { dep, synthetic, path, barEndX, toX, fromY, toY, isCriticalEdge, label };
     }).filter(Boolean) as Array<{
-      dep: ActivityDependency; path: string; barEndX: number; toX: number;
+      dep: ActivityDependency; synthetic: boolean; path: string; barEndX: number; toX: number;
       fromY: number; toY: number; isCriticalEdge: boolean; label: string;
     }>;
-  }, [dependencyMode, dependencies, rowIndex, scheduleMap, minTimestamp, dateRange,
+  }, [effectiveDependencies, rowIndex, scheduleMap, minTimestamp, dateRange,
     chartAreaWidth, topMargin, ra.leftMargin, ra.rowHeight, showCriticalPath, criticalPathIds, activities]);
 
   // Terminal activities: no successor dependency (only meaningful when deps exist)
@@ -1069,8 +1087,9 @@ export function GanttChart({
             </g>
           )}
 
-          {/* Dependency arrow hit areas — rendered AFTER bars so they sit on top for mouse events */}
-          {showArrows && arrowPaths.map((ap, i) => (
+          {/* Dependency arrow hit areas — rendered AFTER bars so they sit on top for mouse events.
+              Synthetic arrows (non-dep mode) are non-interactive: no tooltip, no edit. */}
+          {showArrows && arrowPaths.filter((ap) => !ap.synthetic).map((ap, i) => (
             <path
               key={`dep-hit-${i}`}
               d={ap.path}

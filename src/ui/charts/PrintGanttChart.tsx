@@ -173,6 +173,26 @@ export function PrintGanttChart({
 
   const hasCriticalPath = dependencyMode && criticalPathIds && criticalPathIds.size > 0;
 
+  // In non-dependency mode, synthesize FS-0 arrows between adjacent activities so the
+  // implicit sequential order is visually explicit. Synthetic edges never receive
+  // critical-path styling — see GanttChart.tsx for rationale.
+  const effectiveDependencies = useMemo<Array<{ dep: ActivityDependency; synthetic: boolean }>>(() => {
+    if (dependencyMode) return dependencies.map((dep) => ({ dep, synthetic: false }));
+    const synth: Array<{ dep: ActivityDependency; synthetic: boolean }> = [];
+    for (let i = 0; i < activities.length - 1; i++) {
+      synth.push({
+        dep: {
+          fromActivityId: activities[i]!.id,
+          toActivityId: activities[i + 1]!.id,
+          type: "FS",
+          lagDays: 0,
+        },
+        synthetic: true,
+      });
+    }
+    return synth;
+  }, [dependencyMode, dependencies, activities]);
+
   // Terminal activities: no successor dependency
   const terminalIds = useMemo(() => {
     if (!dependencyMode || dependencies.length === 0) return null;
@@ -353,7 +373,7 @@ export function PrintGanttChart({
         })()}
 
         {/* Dependency arrows — rendered before bars so bars paint on top */}
-        {dependencyMode && dependencies.map((dep, i) => {
+        {effectiveDependencies.map(({ dep, synthetic }, i) => {
           const fromRow = rowIndex.get(dep.fromActivityId);
           const toRow = rowIndex.get(dep.toActivityId);
           const fromSa = scheduleMap.get(dep.fromActivityId);
@@ -388,7 +408,7 @@ export function PrintGanttChart({
             }
           }
 
-          const isCriticalEdge = hasCriticalPath &&
+          const isCriticalEdge = !synthetic && hasCriticalPath &&
             criticalPathIds!.has(dep.fromActivityId) && criticalPathIds!.has(dep.toActivityId);
           const arrowColor = isCriticalEdge ? ra.criticalPath : c.arrow;
           const arrowMarker = isCriticalEdge ? "url(#print-arrowhead-critical)" : "url(#print-arrowhead)";
