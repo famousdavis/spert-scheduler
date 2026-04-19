@@ -23,6 +23,20 @@ import type { SyncEvent } from "@infrastructure/persistence/sync-bus";
 import { FirestoreDriver } from "@infrastructure/firebase/firestore-driver";
 import type { Unsubscribe } from "firebase/firestore";
 
+// Module-level driver handle. Written by useCloudSync when the driver is
+// created/destroyed; read by the sign-out cleanup registry so it can call
+// cancelPendingSaves() before Firebase credentials are revoked. The handle
+// is safe here because useCloudSync is invoked exactly once from Layout.
+let currentDriver: FirestoreDriver | null = null;
+
+/**
+ * Returns the current FirestoreDriver instance, or null if cloud mode is
+ * inactive. Exposed for the sign-out cleanup registry; do not use from UI.
+ */
+export function getCloudSyncDriver(): FirestoreDriver | null {
+  return currentDriver;
+}
+
 /**
  * Initialize and manage cloud sync. Call once in the Layout component.
  */
@@ -67,6 +81,7 @@ export function useCloudSync(): void {
     if (isCloudActive && user) {
       const driver = new FirestoreDriver(user.uid);
       driverRef.current = driver;
+      currentDriver = driver;
       initialLoadDoneRef.current = false;
       let cancelled = false;
 
@@ -119,17 +134,24 @@ export function useCloudSync(): void {
 
       return () => {
         cancelled = true;
-        driver.flushPendingSaves();
+        // Cancel (not flush) on teardown: if this runs after sign-out,
+        // Firebase credentials are already revoked and a flush would
+        // trigger PERMISSION_DENIED writes. The registry has already
+        // cancelled during the signOut callback; this is a safety net
+        // for the mode-switch case where the registry is not invoked.
+        driver.cancelPendingSaves();
         driver.dispose();
         driverRef.current = null;
+        currentDriver = null;
         cleanupListeners();
       };
     } else {
       // Switching to local mode or signing out
       if (driverRef.current) {
-        driverRef.current.flushPendingSaves();
+        driverRef.current.cancelPendingSaves();
         driverRef.current.dispose();
         driverRef.current = null;
+        currentDriver = null;
       }
       initialLoadDoneRef.current = false;
       cleanupListeners();

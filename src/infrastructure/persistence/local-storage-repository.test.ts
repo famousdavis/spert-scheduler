@@ -150,6 +150,47 @@ describe("LocalStorageRepository", () => {
     const freshRepo = new LocalStorageRepository();
     expect(freshRepo.list()).toEqual(["p2", "p1"]);
   });
+
+  describe("clearAll", () => {
+    it("removes every indexed project and the index itself", () => {
+      repo.save(makeProject({ id: "p1" }));
+      repo.save(makeProject({ id: "p2", name: "Second" }));
+      repo.save(makeProject({ id: "p3", name: "Third" }));
+
+      repo.clearAll();
+
+      expect(localStorage.getItem("spert:project:p1")).toBeNull();
+      expect(localStorage.getItem("spert:project:p2")).toBeNull();
+      expect(localStorage.getItem("spert:project:p3")).toBeNull();
+      expect(localStorage.getItem("spert:project-index")).toBeNull();
+      expect(repo.list()).toEqual([]);
+      expect(repo.load("p1")).toBeNull();
+    });
+
+    it("is idempotent on an empty repo", () => {
+      expect(() => repo.clearAll()).not.toThrow();
+      expect(repo.list()).toEqual([]);
+    });
+
+    it("does not touch non-project keys", () => {
+      repo.save(makeProject({ id: "p1" }));
+      localStorage.setItem("spert:user-preferences", "{\"theme\":\"dark\"}");
+      localStorage.setItem("spert-scheduler:active-scenarios", "{\"p1\":\"s1\"}");
+      localStorage.setItem("spert:storage-mode", "cloud");
+      localStorage.setItem("spert_firstRun_seen", "1");
+
+      repo.clearAll();
+
+      expect(localStorage.getItem("spert:user-preferences")).toBe(
+        "{\"theme\":\"dark\"}"
+      );
+      expect(localStorage.getItem("spert-scheduler:active-scenarios")).toBe(
+        "{\"p1\":\"s1\"}"
+      );
+      expect(localStorage.getItem("spert:storage-mode")).toBe("cloud");
+      expect(localStorage.getItem("spert_firstRun_seen")).toBe("1");
+    });
+  });
 });
 
 describe("stripSimulationSamples", () => {

@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
+import { getFirstName } from "@ui/helpers/format-user";
 import {
   getProjectMembers,
   shareProject,
@@ -150,7 +151,8 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {member.displayName || member.email || member.uid}
+                        {getFirstName(member.displayName, member.email) ||
+                          member.uid}
                         {member.uid === user?.uid && (
                           <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
                             (you)

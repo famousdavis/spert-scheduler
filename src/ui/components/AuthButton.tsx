@@ -2,8 +2,10 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
+import { getFirstName } from "@ui/helpers/format-user";
 import { StorageLoginModal } from "./StorageLoginModal";
 
 function CloudIcon() {
@@ -29,14 +31,12 @@ function LockIcon() {
 export function AuthButton() {
   const { user, signOut } = useAuth();
   const { mode } = useStorage();
+  const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
 
   const isCloudSignedIn = mode === "cloud" && !!user;
-  const firstName = user?.displayName
-    ? user.displayName.includes(",")
-      ? (user.displayName.split(",")[1]?.trim().split(" ")[0] ?? user.displayName.split(" ")[0] ?? "")
-      : (user.displayName.split(" ")[0] ?? "")
-    : (user?.email ?? "");
+  const isSignedInLocal = !!user && mode !== "cloud";
+  const firstName = getFirstName(user?.displayName, user?.email);
   const initial = firstName.charAt(0).toUpperCase();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,11 +74,16 @@ export function AuthButton() {
     }
   };
 
+  const handleSwitchToCloud = () => {
+    setPopoverOpen(false);
+    navigate("/settings");
+  };
+
   const pillClass =
     "flex items-center rounded-full bg-transparent p-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors";
   const pillStyle = { border: "0.5px solid #D1D5DB" };
 
-  if (isCloudSignedIn) {
+  if (isCloudSignedIn || isSignedInLocal) {
     return (
       <div ref={containerRef} className="relative">
         <button
@@ -88,7 +93,11 @@ export function AuthButton() {
           style={pillStyle}
           aria-haspopup="dialog"
           aria-expanded={popoverOpen}
-          aria-label={`Signed in as ${firstName}. Open account menu`}
+          aria-label={
+            isCloudSignedIn
+              ? `Signed in as ${firstName} (cloud). Open account menu`
+              : `Signed in as ${firstName} (local only). Open account menu`
+          }
         >
           {/* Left segment: avatar + first name */}
           <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
@@ -110,9 +119,9 @@ export function AuthButton() {
           </span>
           {/* Vertical divider */}
           <span className="self-stretch" style={{ width: "0.5px", backgroundColor: "#D1D5DB" }} />
-          {/* Right segment: cloud icon (visual only) */}
+          {/* Right segment: cloud or lock icon */}
           <span className="flex items-center justify-center px-2.5 py-1 rounded-r-full">
-            <CloudIcon />
+            {isCloudSignedIn ? <CloudIcon /> : <LockIcon />}
           </span>
         </button>
 
@@ -131,6 +140,15 @@ export function AuthButton() {
               </div>
             )}
             <div className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
+            {isSignedInLocal && (
+              <button
+                type="button"
+                onClick={handleSwitchToCloud}
+                className="w-full text-left text-sm px-2 py-1.5 rounded text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+              >
+                Switch to Cloud Storage
+              </button>
+            )}
             <button
               type="button"
               onClick={handleSignOut}

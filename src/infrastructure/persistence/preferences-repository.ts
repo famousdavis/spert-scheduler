@@ -29,3 +29,8 @@ export function loadPreferences(): UserPreferences {
 export function savePreferences(prefs: UserPreferences): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
 }
+
+/** Removes the stored preferences key. Idempotent. */
+export function clearPreferences(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}

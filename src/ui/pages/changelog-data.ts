@@ -12,6 +12,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.38.0",
+    date: "2026-04-19",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Sign-out now fully wipes per-user session data. Previously, after signing out of Cloud Storage, the prior user's projects, preferences, and last-active scenario map remained in both the in-memory store and localStorage. On a shared browser, the next user could see the prior user's data and — in rare cases — inadvertently upload it to their own Firestore account. Sign-out now cancels pending Firestore writes, zeros the Zustand project store, and clears spert:project:*, spert:project-index, spert:user-preferences, and spert-scheduler:active-scenarios. Storage mode (spert:storage-mode), first-run banner state, and the Nager country cache are intentionally preserved for continuity.",
+          "Sign-out during an edit no longer races revoked credentials. The Firestore driver now cancels queued 500 ms-debounced writes before firebaseSignOut, so pending writes cannot fire against revoked credentials. beforeunload still flushes — tab-close semantics are unchanged.",
+          "ToS-mismatch forced sign-out now routes through the same cleanup as user-initiated sign-out, so both paths cannot drift.",
+          "ToS acceptance write failures no longer strand the user. When the Firestore write to users/{uid} fails, LS_TOS_WRITE_PENDING is now left set and LS_TOS_ACCEPTED_VERSION is unset, so the next sign-in retries and creates the missing record. Previously the local flags were finalized unconditionally, which could leave the user marked accepted locally but missing from Firestore — causing cross-app re-prompts.",
+        ],
+      },
+      {
+        title: "Added",
+        items: [
+          "Auth chip now has a 'signed-in + local' state. When you are signed in but using Local Storage, the chip shows your avatar + lock icon and opens a popover with two actions: 'Switch to Cloud Storage' (navigates to Settings — does not auto-switch) and 'Sign Out'. Previously the chip rendered 'Local only / Sign in' to already-signed-in users, with no way to sign out from the header.",
+          "Cloud → Local mode switch now prompts. When toggling off Cloud Storage with projects present, a confirmation modal offers 'Keep local copy' (default) or 'Discard'. Discard clears spert:project:*, spert:project-index, spert-scheduler:active-scenarios, and zeros the in-memory store. Preferences are preserved — you're still the same person.",
+          "OAuth popup errors are now differentiated. Closing the popup or double-clicking Sign In is a silent no-op — the page no longer redirects away. Popup-blocker browsers still fall back to a redirect and now show an explanatory toast before navigating. Other errors surface a 'Sign-in failed' toast.",
+          "After a successful sign-in from the header chip's modal, the modal closes and the app navigates to /settings so you can immediately toggle Cloud Storage with one click. Previously the modal stayed open with no guidance.",
+          "Shared getFirstName() helper for rendering user names with Microsoft 'Last, First' reversal. Used by the auth chip (both signed-in states) and the SharingSection member list — no more duplicated comma-parsing logic.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.37.4",
     date: "2026-04-17",
     sections: [

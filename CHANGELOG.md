@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.38.0 — 2026-04-19
+
+### Security
+
+- **Sign-out now fully wipes per-user session data.** Previously, after signing out of Cloud Storage, the prior user's projects, preferences, and last-active scenario map remained in both the in-memory store and `localStorage`. On a shared browser, the next user could see the prior user's data and — in rare cases — inadvertently upload it to their own Firestore account. Sign-out now cancels pending Firestore writes, zeros the Zustand project store, and clears `spert:project:*`, `spert:project-index`, `spert:user-preferences`, and `spert-scheduler:active-scenarios`. Storage mode (`spert:storage-mode`), first-run banner state, and the Nager country cache are intentionally preserved for continuity.
+- **Sign-out during an edit no longer races revoked credentials.** The Firestore driver now exposes a `cancelPendingSaves()` method (idempotent, silent drop) that runs before `firebaseSignOut`, so queued 500 ms-debounced writes cannot fire with revoked credentials. `beforeunload` still flushes — tab-close semantics are unchanged.
+- **ToS-mismatch forced sign-out now routes through the same cleanup** as user-initiated sign-out, so both paths cannot drift.
+- **ToS acceptance write failures no longer strand the user.** When the Firestore write to `users/{uid}` fails, `LS_TOS_WRITE_PENDING` is now left set and `LS_TOS_ACCEPTED_VERSION` is unset, so the next sign-in retries Branch A and creates the missing record. Previously the local flags were finalized unconditionally, which could leave the user marked accepted locally but missing from Firestore — causing cross-app re-prompts.
+
+### Added
+
+- **Auth chip now has a "signed-in + local" state (state d).** When you are signed in but using Local Storage, the chip shows your avatar + lock icon and opens a popover with two actions: "Switch to Cloud Storage" (navigates to Settings — does not auto-switch) and "Sign Out". Previously the chip rendered "Local only / Sign in" to already-signed-in users, with no way to sign out from the header.
+- **Cloud → Local mode switch now prompts.** When toggling off Cloud Storage with projects present, a confirmation modal offers "Keep local copy" (default) or "Discard". Discard clears `spert:project:*`, `spert:project-index`, `spert-scheduler:active-scenarios`, and zeros the in-memory store. Preferences are preserved — you're still the same person.
+- **OAuth popup errors are now differentiated.** Closing the popup (`auth/popup-closed-by-user`) or double-clicking Sign In (`auth/cancelled-popup-request`) is a silent no-op — the page no longer redirects away. Popup-blocker browsers still fall back to `signInWithRedirect` and now show an explanatory toast before navigating. Other errors surface a "Sign-in failed" toast.
+- **After a successful sign-in from the header chip's modal**, the modal closes and the app navigates to `/settings` so you can immediately toggle Cloud Storage with one click. Previously the modal stayed open with no guidance.
+- **Shared `getFirstName()` helper** for rendering user names with Microsoft "Last, First" reversal. Used by the auth chip (both states c and d) and the SharingSection member list — no more duplicated comma-parsing logic.
+
+### Internal
+
+- New `FirestoreDriver.cancelPendingSaves()` method (bulk sibling of the existing `cancelPendingSave(id)`).
+- New `LocalStorageRepository.clearAll()` method for wiping all indexed project keys.
+- New `clearAllLastScenarios()` in `scenario-memory.ts` and `clearPreferences()` in `preferences-repository.ts`.
+- New `clearAllData()` action on `useProjectStore` — zeros `projects`, `loadError`, `loadErrors`, `undoStack`, `redoStack` in a single `set()` call. Does not touch `localStorage` or emit sync events.
+- New `clearInMemory()` action on `usePreferencesStore` — resets preferences to defaults without writing to `localStorage` (unlike `resetPreferences`, which writes defaults).
+- New `sign-out-cleanup-registry.ts` module — module-level single-slot callback so `StorageProvider` (deepest provider with access to all stores and the driver handle) can hand a cleanup closure to `AuthProvider` without crossing the `AuthProvider → StorageProvider` context boundary.
+- New `getCloudSyncDriver()` exported from `use-cloud-sync.ts` — module-level driver handle that the registry reads during sign-out. Null when cloud mode is inactive.
+- New `src/ui/providers/auth-errors.ts` — extracted `classifyPopupError()` and the `SIGN_IN_POPUP_BLOCKED` constant to keep `AuthProvider.tsx` component-only (react-refresh hygiene).
+- New `src/ui/helpers/format-user.ts` — `getFirstName(displayName, email)`.
+- New `src/ui/components/KeepOrDiscardLocalModal.tsx` — Radix dialog for the Cloud→Local confirmation.
+- `useCloudSync` teardown now calls `cancelPendingSaves()` instead of `flushPendingSaves()` on mode-switch and sign-out; `beforeunload` still flushes.
+- 42 new tests covering all new primitives and the popup-error classifier.
+
 ## 0.37.4 — 2026-04-17
 
 ### Added

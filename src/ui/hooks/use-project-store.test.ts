@@ -462,4 +462,70 @@ describe("useProjectStore", () => {
       unsub();
     });
   });
+
+  describe("clearAllData", () => {
+    it("zeros projects, loadError, loadErrors, undoStack, redoStack", () => {
+      const store = useProjectStore.getState();
+      store.addProject("P1");
+      store.addProject("P2");
+
+      // Synthesise undo/redo/error state
+      useProjectStore.setState({
+        loadError: true,
+        loadErrors: [
+          {
+            projectId: "x",
+            type: "validation",
+            message: "bad",
+          },
+        ],
+        undoStack: [
+          { projectId: "x", snapshot: useProjectStore.getState().projects[0]! },
+        ],
+        redoStack: [
+          { projectId: "x", snapshot: useProjectStore.getState().projects[0]! },
+        ],
+      });
+
+      useProjectStore.getState().clearAllData();
+
+      const state = useProjectStore.getState();
+      expect(state.projects).toEqual([]);
+      expect(state.loadError).toBe(false);
+      expect(state.loadErrors).toEqual([]);
+      expect(state.undoStack).toEqual([]);
+      expect(state.redoStack).toEqual([]);
+    });
+
+    it("does not emit cloudSyncBus events", () => {
+      const store = useProjectStore.getState();
+      store.addProject("P1");
+
+      const handler = vi.fn();
+      const unsub = cloudSyncBus.subscribe(handler);
+
+      useProjectStore.getState().clearAllData();
+
+      expect(handler).not.toHaveBeenCalled();
+      unsub();
+    });
+
+    it("does not write to localStorage (preserves indexed projects)", () => {
+      const store = useProjectStore.getState();
+      const p1 = store.addProject("P1");
+      const p2 = store.addProject("P2");
+
+      // Confirm localStorage was populated by addProject
+      expect(localStorage.getItem(`spert:project:${p1.id}`)).not.toBeNull();
+      expect(localStorage.getItem(`spert:project:${p2.id}`)).not.toBeNull();
+      expect(localStorage.getItem("spert:project-index")).not.toBeNull();
+
+      useProjectStore.getState().clearAllData();
+
+      // clearAllData touches only in-memory state
+      expect(localStorage.getItem(`spert:project:${p1.id}`)).not.toBeNull();
+      expect(localStorage.getItem(`spert:project:${p2.id}`)).not.toBeNull();
+      expect(localStorage.getItem("spert:project-index")).not.toBeNull();
+    });
+  });
 });
