@@ -51,3 +51,8 @@ export function removeLastScenarioId(projectId: string): void {
   delete map[projectId];
   saveMap(map);
 }
+
+/** Removes the entire active-scenarios map. Idempotent. */
+export function clearAllLastScenarios(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}

@@ -28,6 +28,8 @@ import {
 } from "firebase/firestore";
 import { auth, db, isFirebaseAvailable } from "@infrastructure/firebase/firebase";
 import { upsertUserProfile } from "@infrastructure/firebase/firestore-sharing";
+import { runSignOutCleanup } from "@infrastructure/persistence/sign-out-cleanup-registry";
+import { classifyPopupError, SIGN_IN_POPUP_BLOCKED } from "./auth-errors";
 import {
   TOS_VERSION,
   PRIVACY_POLICY_VERSION,
@@ -70,7 +72,13 @@ function toAuthUser(fbUser: FirebaseUser): AuthUser {
  * Write the acceptance record to Firestore with read-before-write pattern.
  */
 async function writeTosAcceptance(fbUser: FirebaseUser): Promise<void> {
-  if (!db) return;
+  if (!db) {
+    // No Firestore available — still finalise local state so the user
+    // is not re-prompted on a broken/offline configuration.
+    localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
+    localStorage.removeItem(LS_TOS_WRITE_PENDING);
+    return;
+  }
   try {
     const docRef = doc(db, "users", fbUser.uid);
     const snap = await getDoc(docRef);
@@ -103,14 +111,17 @@ async function writeTosAcceptance(fbUser: FirebaseUser): Promise<void> {
       }
       // Case (c): Version matches — skip write
     }
+
+    // Finalise local state only after the setDoc (if any) succeeded. On
+    // failure the catch block leaves LS_TOS_WRITE_PENDING set so the next
+    // sign-in retries Branch A and creates the Firestore record.
+    localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
+    localStorage.removeItem(LS_TOS_WRITE_PENDING);
   } catch (e) {
-    // Firestore error — allow user through, do not block
+    // Firestore error — allow user through, but leave PENDING set so the
+    // next sign-in retries Branch A.
     console.error("ToS acceptance write failed:", e);
   }
-
-  // Always finalize localStorage state
-  localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
-  localStorage.removeItem(LS_TOS_WRITE_PENDING);
 }
 
 /**
@@ -173,9 +184,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(toAuthUser(firebaseUser));
           } else {
             // Version mismatch — sign out; next onAuthStateChanged(null)
-            // will handle setUser(null) + setLoading(false)
+            // will handle setUser(null) + setLoading(false).
+            // Route through the same cleanup registry as user-initiated
+            // sign-out so in-memory state and per-user localStorage are
+            // cleared before Firebase credentials are revoked.
             localStorage.removeItem(LS_TOS_ACCEPTED_VERSION);
             localStorage.removeItem(LS_TOS_WRITE_PENDING);
+            await runSignOutCleanup();
             await firebaseSignOut(auth!);
             return;
           }
@@ -198,16 +213,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const handlePopupError = useCallback(
+    async (err: unknown, provider: GoogleAuthProvider | OAuthProvider) => {
+      const action = classifyPopupError(err);
+      if (action === "ignore") return;
+      if (action === "redirect") {
+        await signInWithRedirect(auth!, provider);
+        const redirectError = new Error(
+          "Popup blocked; redirecting for sign-in"
+        ) as Error & { code: string };
+        redirectError.code = SIGN_IN_POPUP_BLOCKED;
+        throw redirectError;
+      }
+      throw err;
+    },
+    []
+  );
+
   const signInWithGoogle = useCallback(async () => {
     if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch {
-      // Popup blocked or failed — fall back to redirect
-      await signInWithRedirect(auth, provider);
+    } catch (err) {
+      await handlePopupError(err, provider);
     }
-  }, []);
+  }, [handlePopupError]);
 
   const signInWithMicrosoft = useCallback(async () => {
     if (!auth) return;
@@ -215,16 +246,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     provider.setCustomParameters({ prompt: "select_account" });
     try {
       await signInWithPopup(auth, provider);
-    } catch {
-      // Popup blocked or failed — fall back to redirect
-      await signInWithRedirect(auth, provider);
+    } catch (err) {
+      await handlePopupError(err, provider);
     }
-  }, []);
+  }, [handlePopupError]);
 
   const signOut = useCallback(async () => {
     if (!auth) return;
     localStorage.removeItem(LS_TOS_ACCEPTED_VERSION);
     localStorage.removeItem(LS_TOS_WRITE_PENDING);
+    // Run the registered cleanup (cancel pending saves, clear in-memory
+    // state, wipe per-user localStorage keys) BEFORE firebaseSignOut so
+    // cancelPendingSaves fires while credentials are still valid and the
+    // onAuthStateChanged(null) callback sees a clean environment.
+    await runSignOutCleanup();
     await firebaseSignOut(auth);
   }, []);
 

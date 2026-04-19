@@ -320,6 +320,7 @@ export interface ProjectStore {
   // Cloud sync
   setProjects: (projects: Project[]) => void;
   mergeProject: (project: Project) => void;
+  clearAllData: () => void;
 
   // Error recovery
   getCorruptedProjectRawData: (id: string) => string | null;
@@ -936,6 +937,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     });
     // Update localStorage cache
     repo.save(project);
+  },
+
+  clearAllData: () => {
+    set({
+      projects: [],
+      loadError: false,
+      loadErrors: [],
+      undoStack: [],
+      redoStack: [],
+    });
   },
 
   getCorruptedProjectRawData: (id: string) => {

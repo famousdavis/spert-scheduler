@@ -1,10 +1,13 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useAuth } from "@ui/providers/AuthProvider";
+import { SIGN_IN_POPUP_BLOCKED } from "@ui/providers/auth-errors";
 import { useStorage } from "@ui/providers/StorageProvider";
+import { toast } from "@ui/hooks/use-notification-store";
 import { ConsentModal } from "./ConsentModal";
 import {
   TOS_VERSION,
@@ -43,13 +46,35 @@ export function StorageLoginModal({
   open,
   onOpenChange,
 }: StorageLoginModalProps) {
-  const { firebaseAvailable, signInWithGoogle, signInWithMicrosoft } =
+  const { user, firebaseAvailable, signInWithGoogle, signInWithMicrosoft } =
     useAuth();
   const { isCloudAvailable } = useStorage();
+  const navigate = useNavigate();
 
   const [consentOpen, setConsentOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const pendingProviderRef = useRef<"google" | "microsoft" | null>(null);
+  // Guards the post-sign-in effect so it fires only on the null→truthy
+  // transition that happens while THIS modal is open — not on every
+  // re-render where both `open` and `user` are truthy (e.g. StrictMode
+  // double-mount or a re-open by an already-signed-in user).
+  const openedWhileSignedOutRef = useRef(false);
+
+  useEffect(() => {
+    if (open && !user) {
+      openedWhileSignedOutRef.current = true;
+      return;
+    }
+    if (open && user && openedWhileSignedOutRef.current) {
+      openedWhileSignedOutRef.current = false;
+      onOpenChange(false);
+      navigate("/settings");
+      return;
+    }
+    if (!open) {
+      openedWhileSignedOutRef.current = false;
+    }
+  }, [open, user, onOpenChange, navigate]);
 
   /** Proceed with Firebase Auth for the selected provider. */
   const doSignIn = useCallback(
@@ -61,8 +86,16 @@ export function StorageLoginModal({
         } else {
           await signInWithMicrosoft();
         }
-      } catch (e) {
-        console.error("Sign-in error:", e);
+      } catch (err) {
+        const code = (err as { code?: string } | undefined)?.code;
+        if (code === SIGN_IN_POPUP_BLOCKED) {
+          toast.info(
+            "Your browser blocked the sign-in popup. Redirecting…"
+          );
+        } else {
+          console.error("Sign-in error:", err);
+          toast.error("Sign-in failed. Please try again.");
+        }
       } finally {
         setSigningIn(false);
       }

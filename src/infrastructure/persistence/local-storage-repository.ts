@@ -254,4 +254,16 @@ export class LocalStorageRepository implements ProjectRepository {
   reorderIndex(ids: string[]): void {
     localStorage.setItem(INDEX_KEY, JSON.stringify(ids));
   }
+
+  /**
+   * Remove every indexed project and the index itself. Idempotent.
+   * Does not touch non-project keys (preferences, scenario memory, etc.).
+   */
+  clearAll(): void {
+    const ids = this.list();
+    for (const id of ids) {
+      localStorage.removeItem(KEY_PREFIX + id);
+    }
+    localStorage.removeItem(INDEX_KEY);
+  }
 }

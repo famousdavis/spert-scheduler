@@ -276,6 +276,21 @@ export class FirestoreDriver {
   }
 
   /**
+   * Cancel all pending debounced saves without writing. Idempotent.
+   * Used on sign-out and mode-switch teardown so queued writes do not
+   * fire against revoked credentials or into the wrong storage mode.
+   */
+  cancelPendingSaves(): void {
+    const ids = Array.from(this.saveTimers.keys());
+    for (const id of ids) {
+      const timer = this.saveTimers.get(id);
+      if (timer) clearTimeout(timer);
+      this.saveTimers.delete(id);
+      this.pendingSaves.delete(id);
+    }
+  }
+
+  /**
    * Delete a project.
    */
   async remove(id: string): Promise<void> {

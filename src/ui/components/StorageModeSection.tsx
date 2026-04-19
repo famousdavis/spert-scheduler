@@ -3,11 +3,17 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
+import { SIGN_IN_POPUP_BLOCKED } from "@ui/providers/auth-errors";
 import { useStorage } from "@ui/providers/StorageProvider";
 import type { StorageMode } from "@ui/providers/StorageProvider";
 import { migrateLocalToCloud } from "@infrastructure/firebase/firestore-migration";
 import type { MigrationResult } from "@infrastructure/firebase/firestore-migration";
+import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
+import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memory";
+import { useProjectStore } from "@ui/hooks/use-project-store";
+import { toast } from "@ui/hooks/use-notification-store";
 import { ConsentModal } from "./ConsentModal";
+import { KeepOrDiscardLocalModal } from "./KeepOrDiscardLocalModal";
 import {
   TOS_VERSION,
   LS_TOS_ACCEPTED_VERSION,
@@ -23,6 +29,7 @@ export function StorageModeSection() {
   const [migrationError, setMigrationError] = useState<string | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const pendingProviderRef = useRef<"google" | "microsoft" | null>(null);
 
   /** Proceed with Firebase Auth for the selected provider. */
@@ -35,8 +42,16 @@ export function StorageModeSection() {
         } else {
           await signInWithMicrosoft();
         }
-      } catch (e) {
-        console.error("Sign-in error:", e);
+      } catch (err) {
+        const code = (err as { code?: string } | undefined)?.code;
+        if (code === SIGN_IN_POPUP_BLOCKED) {
+          toast.info(
+            "Your browser blocked the sign-in popup. Redirecting…"
+          );
+        } else {
+          console.error("Sign-in error:", err);
+          toast.error("Sign-in failed. Please try again.");
+        }
       } finally {
         setSigningIn(false);
       }
@@ -99,10 +114,33 @@ export function StorageModeSection() {
         return; // Already handled
       }
 
+      // Cloud → Local: prompt to keep or discard the local mirror of cloud
+      // data. Do not switch until the user answers.
+      if (newMode === "local" && mode === "cloud") {
+        setConfirmDiscardOpen(true);
+        return;
+      }
+
       switchMode(newMode);
     },
-    [user, persistedMode, switchMode]
+    [user, persistedMode, mode, switchMode]
   );
+
+  const handleKeepLocalCopy = useCallback(() => {
+    setConfirmDiscardOpen(false);
+    switchMode("local");
+  }, [switchMode]);
+
+  const handleDiscardLocalCopy = useCallback(() => {
+    // Wipe per-project data: localStorage keys and the active-scenarios
+    // map (whose project IDs are now orphaned). Preferences are preserved
+    // — the user stays signed in and is the same person.
+    new LocalStorageRepository().clearAll();
+    clearAllLastScenarios();
+    useProjectStore.getState().clearAllData();
+    setConfirmDiscardOpen(false);
+    switchMode("local");
+  }, [switchMode]);
 
   // Only show if Firebase is configured
   if (!firebaseAvailable || !isCloudAvailable) return null;
@@ -285,6 +323,13 @@ export function StorageModeSection() {
           )}
         </div>
       )}
+
+      <KeepOrDiscardLocalModal
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        onKeep={handleKeepLocalCopy}
+        onDiscard={handleDiscardLocalCopy}
+      />
     </section>
   );
 }

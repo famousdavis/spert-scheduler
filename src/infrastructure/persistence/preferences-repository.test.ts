@@ -2,7 +2,11 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { loadPreferences, savePreferences } from "./preferences-repository";
+import {
+  loadPreferences,
+  savePreferences,
+  clearPreferences,
+} from "./preferences-repository";
 import { DEFAULT_USER_PREFERENCES } from "@domain/models/types";
 import type { UserPreferences } from "@domain/models/types";
 import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
@@ -152,5 +156,35 @@ describe("UserPreferencesSchema workDays validation", () => {
   it("accepts undefined workDays (defaults to Mon-Fri)", () => {
     const result = UserPreferencesSchema.safeParse(DEFAULT_USER_PREFERENCES);
     expect(result.success).toBe(true);
+  });
+});
+
+describe("clearPreferences", () => {
+  it("removes the stored preferences key", () => {
+    savePreferences({
+      ...DEFAULT_USER_PREFERENCES,
+      defaultTrialCount: 12345,
+    });
+    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+
+    clearPreferences();
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it("causes loadPreferences to return defaults afterwards", () => {
+    savePreferences({
+      ...DEFAULT_USER_PREFERENCES,
+      defaultTrialCount: 99999,
+    });
+
+    clearPreferences();
+
+    expect(loadPreferences()).toEqual(DEFAULT_USER_PREFERENCES);
+  });
+
+  it("is idempotent when the key is already absent", () => {
+    expect(() => clearPreferences()).not.toThrow();
+    expect(loadPreferences()).toEqual(DEFAULT_USER_PREFERENCES);
   });
 });

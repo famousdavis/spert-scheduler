@@ -12,6 +12,16 @@ import {
 import type { ReactNode } from "react";
 import { isFirebaseAvailable } from "@infrastructure/firebase/firebase";
 import { useAuth } from "./AuthProvider";
+import {
+  registerSignOutCleanup,
+  clearSignOutCleanup,
+} from "@infrastructure/persistence/sign-out-cleanup-registry";
+import { getCloudSyncDriver } from "@ui/hooks/use-cloud-sync";
+import { useProjectStore } from "@ui/hooks/use-project-store";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
+import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memory";
+import { clearPreferences } from "@infrastructure/persistence/preferences-repository";
 
 export type StorageMode = "local" | "cloud";
 
@@ -64,6 +74,28 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       // so when they sign back in, cloud mode resumes automatically.
     }
   }, [authLoading, user, persistedMode]);
+
+  // Register the sign-out cleanup function. AuthProvider invokes this via
+  // runSignOutCleanup() before firebaseSignOut. Order matters:
+  //   1. cancel pending Firestore saves (credentials still valid)
+  //   2. zero in-memory project state (before C2 guard re-evaluates on next
+  //      sign-in and before localStorage cleanup wipes the mirror)
+  //   3. clear per-user localStorage keys (projects, scenario memory, prefs)
+  //   4. reset the preferences Zustand store (separate store from projects)
+  // Keys intentionally preserved: spert:storage-mode (continuity),
+  // spert_firstRun_seen (per-browser), Nager country cache (not user-specific),
+  // ToS keys (owned by AuthProvider).
+  useEffect(() => {
+    registerSignOutCleanup(async () => {
+      getCloudSyncDriver()?.cancelPendingSaves();
+      useProjectStore.getState().clearAllData();
+      new LocalStorageRepository().clearAll();
+      clearAllLastScenarios();
+      clearPreferences();
+      usePreferencesStore.getState().clearInMemory();
+    });
+    return () => clearSignOutCleanup();
+  }, []);
 
   const value = useMemo<StorageContextValue>(
     () => ({
