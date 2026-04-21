@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.38.1 — 2026-04-20
+
+### Fixed
+
+- **Scenario tab row now scrolls horizontally with a standard mouse wheel on Windows.** Chromium-family browsers do not translate vertical wheel events to horizontal scroll on containers whose only overflow axis is X, so users with many scenarios had to use Shift+Wheel or click a partially-visible tab. A scoped native wheel listener on the scroll container now redirects `deltaY` into `scrollLeft` when the container overflows and the event has no horizontal component. Trackpad two-finger horizontal gestures (which carry `deltaX`) are passed through unchanged. Firefox's line-mode deltas (`deltaMode === 1`) are converted to pixels via a 16× multiplier.
+
 ## 0.38.0 — 2026-04-19
 
 ### Security

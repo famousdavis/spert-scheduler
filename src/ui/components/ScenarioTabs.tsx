@@ -236,6 +236,7 @@ export function ScenarioTabs({
   );
 
   const activeTabRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const setActiveTab = useCallback((el: HTMLDivElement | null) => {
     activeTabRef.current = el;
   }, []);
@@ -245,6 +246,20 @@ export function ScenarioTabs({
     if (!el) return;
     el.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
   }, [activeScenarioId]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaX !== 0) return;
+      if (el.scrollWidth <= el.clientWidth) return;
+      e.preventDefault();
+      const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      el.scrollLeft += delta;
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -258,7 +273,10 @@ export function ScenarioTabs({
   };
 
   return (
-    <div className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden border-b border-gray-200 dark:border-gray-700 pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div
+      ref={scrollRef}
+      className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden border-b border-gray-200 dark:border-gray-700 pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
       <div className="flex items-center gap-1 flex-nowrap w-max">
         <DndContext
           sensors={sensors}
