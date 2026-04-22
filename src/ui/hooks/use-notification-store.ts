@@ -20,6 +20,11 @@ export interface NotificationStore {
 
 let notificationId = 0;
 
+/** Return the notification list with the matching id removed. */
+function removeFromList(notifications: Notification[], id: string): Notification[] {
+  return notifications.filter((n) => n.id !== id);
+}
+
 export const useNotificationStore = create<NotificationStore>((set) => ({
   notifications: [],
 
@@ -34,7 +39,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
     if (duration > 0) {
       setTimeout(() => {
         set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== id),
+          notifications: removeFromList(state.notifications, id),
         }));
       }, duration);
     }
@@ -42,7 +47,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
 
   removeNotification: (id) => {
     set((state) => ({
-      notifications: state.notifications.filter((n) => n.id !== id),
+      notifications: removeFromList(state.notifications, id),
     }));
   },
 }));

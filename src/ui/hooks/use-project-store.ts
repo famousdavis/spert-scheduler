@@ -103,6 +103,41 @@ function snapshotProject(project: Project): Project {
   };
 }
 
+/** Map over a project list, transforming only the project whose id matches `projectId`. */
+function updateProjectInList(
+  projects: Project[],
+  projectId: string,
+  transform: (p: Project) => Project
+): Project[] {
+  return projects.map((p) => (p.id === projectId ? transform(p) : p));
+}
+
+/** Map over a project list, applying a scenario mutation to the matching scenario in the matching project. */
+function updateScenarioInList(
+  projects: Project[],
+  projectId: string,
+  scenarioId: string,
+  mutation: (s: Scenario) => Scenario
+): Project[] {
+  return updateProjectInList(projects, projectId, (p) =>
+    updateScenario(p, scenarioId, mutation)
+  );
+}
+
+/** Patch a single activity (by id) within an activities array. */
+function patchActivityInList(
+  activities: Activity[],
+  activityId: string,
+  patch: Partial<Activity>
+): Activity[] {
+  return activities.map((a) => (a.id === activityId ? { ...a, ...patch } : a));
+}
+
+/** Remove every occurrence of `value` from an array (undefined → []). */
+function filterOut<T>(arr: T[] | undefined, value: T): T[] {
+  return (arr ?? []).filter((v) => v !== value);
+}
+
 export interface ProjectStore {
   // State
   projects: Project[];
@@ -575,12 +610,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       if (!scen) return state;
 
       const activity = createActivity(name, scen.settings);
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              addActivityToScenario(s, activity)
-            )
-          : p
+      const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) =>
+        addActivityToScenario(s, activity)
       );
       persist(projects, projectId);
       return { projects };
@@ -615,12 +646,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         })),
       };
 
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) =>
-              addActivityToScenario(s, clone)
-            )
-          : p
+      const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) =>
+        addActivityToScenario(s, clone)
       );
       persist(projects, projectId);
       return { projects };
@@ -641,17 +668,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) => ({
-              ...s,
-              activities: s.activities.map((a) =>
-                a.id === activityId ? { ...a, checklist } : a
-              ),
-              // NOTE: simulationResults NOT cleared — checklist is qualitative only
-            }))
-          : p
-      );
+      const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) => ({
+        ...s,
+        activities: patchActivityInList(s.activities, activityId, { checklist }),
+        // NOTE: simulationResults NOT cleared — checklist is qualitative only
+      }));
       persist(projects, projectId);
       return { projects };
     });
@@ -661,17 +682,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) => ({
-              ...s,
-              activities: s.activities.map((a) =>
-                a.id === activityId ? { ...a, deliverables } : a
-              ),
-              // NOTE: simulationResults NOT cleared — deliverables are qualitative only
-            }))
-          : p
-      );
+      const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) => ({
+        ...s,
+        activities: patchActivityInList(s.activities, activityId, { deliverables }),
+        // NOTE: simulationResults NOT cleared — deliverables are qualitative only
+      }));
       persist(projects, projectId);
       return { projects };
     });
@@ -681,17 +696,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) => ({
-              ...s,
-              activities: s.activities.map((a) =>
-                a.id === activityId ? { ...a, notes } : a
-              ),
-              // NOTE: simulationResults NOT cleared — notes are qualitative only
-            }))
-          : p
-      );
+      const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) => ({
+        ...s,
+        activities: patchActivityInList(s.activities, activityId, { notes }),
+        // NOTE: simulationResults NOT cleared — notes are qualitative only
+      }));
       persist(projects, projectId);
       return { projects };
     });
@@ -701,15 +710,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     if (isLocked(get().projects, projectId, scenarioId)) return;
     pushUndo(projectId);
     set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) => ({
-              ...s,
-              notes,
-              // NOTE: simulationResults NOT cleared — notes are qualitative only
-            }))
-          : p
-      );
+      const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) => ({
+        ...s,
+        notes,
+        // NOTE: simulationResults NOT cleared — notes are qualitative only
+      }));
       persist(projects, projectId);
       return { projects };
     });
@@ -722,14 +727,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   setSimulationResults: (projectId, scenarioId, results) => {
     set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s: Scenario) => ({
-              ...s,
-              simulationResults: results,
-            }))
-          : p
-      );
+      const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) => ({
+        ...s,
+        simulationResults: results,
+      }));
       persist(projects, projectId);
       return { projects };
     });
@@ -774,13 +775,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   removeConvertedWorkDay: (projectId, date) => {
     pushUndo(projectId);
     set((state) => {
-      const projects = state.projects.map((p) => {
-        if (p.id !== projectId) return p;
-        return {
-          ...p,
-          convertedWorkDays: (p.convertedWorkDays ?? []).filter((d) => d !== date),
-        };
-      });
+      const projects = updateProjectInList(state.projects, projectId, (p) => ({
+        ...p,
+        convertedWorkDays: filterOut(p.convertedWorkDays, date),
+      }));
       persist(projects, projectId);
       return { projects };
     });
@@ -1009,14 +1007,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   toggleScenarioLock: (projectId, scenarioId) => {
     pushUndo(projectId);
     set((state) => {
-      const projects = state.projects.map((p) =>
-        p.id === projectId
-          ? updateScenario(p, scenarioId, (s) => ({
-              ...s,
-              locked: !s.locked,
-            }))
-          : p
-      );
+      const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) => ({
+        ...s,
+        locked: !s.locked,
+      }));
       persist(projects, projectId);
       return { projects };
     });

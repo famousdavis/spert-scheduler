@@ -12,6 +12,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.38.4",
+    date: "2026-04-21",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Flattened nested-function depth in the Zustand project and notification stores (PR 2 of the three-PR lint-debt paydown plan). All 10 sonarjs/no-nested-functions errors resolved. Lint count: 89 → 79 errors (0 warnings).",
+          "Added four module-level helpers to use-project-store.ts: updateProjectInList(projects, projectId, transform), updateScenarioInList(projects, projectId, scenarioId, mutation), patchActivityInList(activities, activityId, patch), and filterOut(arr, value). Each is a plain function that takes its callback as a parameter, so inlining them at call sites no longer counts as a nested function definition.",
+          "Rewrote 9 store actions (addActivity, duplicateActivity, updateActivityChecklist, updateActivityDeliverables, updateActivityNotes, updateScenarioNotes, setSimulationResults, removeConvertedWorkDay, toggleScenarioLock) to use these helpers. Each action went from 5 nested arrow levels to 3.",
+          "use-notification-store.ts: extracted the filter predicate into a module-level removeFromList(notifications, id) helper shared by both addNotification's auto-dismiss setTimeout and the explicit removeNotification action.",
+          "No behavior change. All 1218 tests pass; undo/redo, activity mutations, and notification dismissal are observationally identical.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.38.3",
     date: "2026-04-21",
     sections: [

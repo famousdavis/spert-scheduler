@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.38.4 — 2026-04-21
+
+### Internal
+
+- **Flattened nested-function depth in the Zustand project and notification stores** (PR 2 of the three-PR lint-debt paydown plan). All 10 `sonarjs/no-nested-functions` errors resolved. Lint count: 89 → 79 errors (0 warnings).
+  - Added four module-level helpers to `src/ui/hooks/use-project-store.ts`: `updateProjectInList(projects, projectId, transform)`, `updateScenarioInList(projects, projectId, scenarioId, mutation)`, `patchActivityInList(activities, activityId, patch)`, and `filterOut(arr, value)`. Each is a plain function that takes its callback as a parameter, so inlining them at call sites no longer counts as a nested function definition.
+  - Rewrote 9 store actions (`addActivity`, `duplicateActivity`, `updateActivityChecklist`, `updateActivityDeliverables`, `updateActivityNotes`, `updateScenarioNotes`, `setSimulationResults`, `removeConvertedWorkDay`, `toggleScenarioLock`) to use these helpers. Each action went from 5 nested arrow levels (store setter → `set((state) =>)` → `.map((p) =>)` → `updateScenario(..., (s) =>)` → `activities.map((a) =>)`) to 3.
+  - `src/ui/hooks/use-notification-store.ts`: extracted the filter predicate into a module-level `removeFromList(notifications, id)` helper shared by both `addNotification`'s auto-dismiss `setTimeout` and the explicit `removeNotification` action. Eliminated the single `sonarjs/no-nested-functions` error at line 37.
+  - No behavior change. All 1218 tests pass; undo/redo, activity mutations, and notification dismissal are observationally identical.
+
 ## 0.38.3 — 2026-04-21
 
 ### Internal
