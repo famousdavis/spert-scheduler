@@ -235,6 +235,38 @@ describe("buildGridRows", () => {
     const rows2 = buildGridRows(makeParams({ dateFormat: "DD/MM/YYYY" }));
     expect(rows2[0]!.startDate).toBe("16/03/2026");
   });
+
+  it("returns empty confidence for triangular distribution", () => {
+    const rows = buildGridRows(
+      makeParams({
+        activities: [makeActivity({ id: "a1", name: "Design", distributionType: "triangular" })],
+        schedule: {
+          activities: [
+            { activityId: "a1", name: "Design", duration: 10, startDate: "2026-03-16", endDate: "2026-03-27", isActual: false },
+          ],
+          totalDurationDays: 10,
+          projectEndDate: "2026-03-27",
+        },
+      })
+    );
+    expect(rows[0]!.confidence).toBe("");
+  });
+
+  it("returns empty confidence for uniform distribution", () => {
+    const rows = buildGridRows(
+      makeParams({
+        activities: [makeActivity({ id: "a1", name: "Design", distributionType: "uniform" })],
+        schedule: {
+          activities: [
+            { activityId: "a1", name: "Design", duration: 10, startDate: "2026-03-16", endDate: "2026-03-27", isActual: false },
+          ],
+          totalDurationDays: 10,
+          projectEndDate: "2026-03-27",
+        },
+      })
+    );
+    expect(rows[0]!.confidence).toBe("");
+  });
 });
 
 // ---------------------------------------------------------------------------

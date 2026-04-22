@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.38.2 — 2026-04-21
+
+### Fixed
+
+- **Printed PDF report no longer shows a misleading Confidence label for Triangular and Uniform activities.** The Statistical PERT Ratio Scale Modifier (RSM) only drives the proxy standard deviation for Normal and LogNormal distributions; Triangular and Uniform activities ignore the stored `confidenceLevel`. The interactive grid already greys the cell out, and the XLSX/CSV schedule exports already write an empty cell for these distributions, but `PrintableReport.tsx` rendered `RSM_LABELS[activity.confidenceLevel]` unconditionally for every row. The print path now mirrors the same `distributionType === "normal" || "logNormal"` guard used by `buildGridRows`, falling back to an em-dash (`—`) — the standard N/A sentinel elsewhere in the printed report — for non-SPERT distributions.
+
+### Internal
+
+- Added two regression tests to `schedule-export-service.test.ts` asserting `row.confidence === ""` for `distributionType: "triangular"` and `"uniform"` in `buildGridRows`. The existing guard was previously untested (the only fixture defaulted to `logNormal`), so a future refactor could have silently regressed it.
+
 ## 0.38.1 — 2026-04-20
 
 ### Fixed
