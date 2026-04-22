@@ -11,6 +11,12 @@ import { HistogramChart } from "@ui/charts/HistogramChart";
 import { CDFChart } from "@ui/charts/CDFChart";
 import { PercentileTable } from "@ui/charts/PercentileTable";
 
+function healthColor(pct: number, greenPct: number, amberPct: number): string {
+  if (pct >= greenPct) return "#16a34a";
+  if (pct >= amberPct) return "#f59e0b";
+  return "#dc2626";
+}
+
 interface SimulationPanelProps {
   simulationResults: SimulationRun | undefined;
   probabilityTarget: number;
@@ -86,9 +92,10 @@ export function SimulationPanel({
     const probability = lookupProbability(simulationResults.samples, days);
     const pct = probability * 100;
     const dateLabel = formatDurationAsDate?.(days) ?? "";
-    const color = pct >= targetFinishGreenPct ? "#16a34a" : pct >= targetFinishAmberPct ? "#f59e0b" : "#dc2626";
-    return { days, probability: pct, label: `${Math.round(pct)}%${dateLabel ? ` by ${dateLabel}` : ""}`, color };
-  }, [targetDate, dateToWorkingDays, simulationResults?.samples, formatDurationAsDate, targetFinishGreenPct, targetFinishAmberPct]);
+    const color = healthColor(pct, targetFinishGreenPct, targetFinishAmberPct);
+    const suffix = dateLabel ? ` by ${dateLabel}` : "";
+    return { days, probability: pct, label: `${Math.round(pct)}%${suffix}`, color };
+  }, [targetDate, dateToWorkingDays, simulationResults, formatDurationAsDate, targetFinishGreenPct, targetFinishAmberPct]);
 
   return (
     <div className="space-y-4">

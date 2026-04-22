@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import type { ThemePreference } from "@domain/models/types";
 
-export function nextTheme(current: ThemePreference): ThemePreference {
+function nextTheme(current: ThemePreference): ThemePreference {
   if (current === "light") return "dark";
   if (current === "dark") return "system";
   return "light";
