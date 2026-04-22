@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { ToggleSwitch } from "./ToggleSwitch";
 import type { Activity, ActivityDependency, DeterministicSchedule, Milestone, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
@@ -139,11 +139,22 @@ export function ScenarioSummaryCard({
   const actPct = Math.round(settings.probabilityTarget * 100);
   const projPct = Math.round(settings.projectProbabilityTarget * 100);
 
-  // Local string state for heuristic % inputs — allows free typing, validates on blur
+  // Local string state for heuristic % inputs — allows free typing, validates on blur.
+  // Reset the buffer when the upstream setting changes (scenario switch, undo/redo)
+  // using React's "adjust state during render" pattern instead of a setState-in-effect,
+  // which avoids an extra render per prop change.
   const [localMinPct, setLocalMinPct] = useState(String(settings.heuristicMinPercent));
   const [localMaxPct, setLocalMaxPct] = useState(String(settings.heuristicMaxPercent));
-  useEffect(() => { setLocalMinPct(String(settings.heuristicMinPercent)); }, [settings.heuristicMinPercent]);
-  useEffect(() => { setLocalMaxPct(String(settings.heuristicMaxPercent)); }, [settings.heuristicMaxPercent]);
+  const [prevMinPct, setPrevMinPct] = useState(settings.heuristicMinPercent);
+  const [prevMaxPct, setPrevMaxPct] = useState(settings.heuristicMaxPercent);
+  if (prevMinPct !== settings.heuristicMinPercent) {
+    setPrevMinPct(settings.heuristicMinPercent);
+    setLocalMinPct(String(settings.heuristicMinPercent));
+  }
+  if (prevMaxPct !== settings.heuristicMaxPercent) {
+    setPrevMaxPct(settings.heuristicMaxPercent);
+    setLocalMaxPct(String(settings.heuristicMaxPercent));
+  }
 
   // Scenario notes state
   const [notesOpen, setNotesOpen] = useState(false);

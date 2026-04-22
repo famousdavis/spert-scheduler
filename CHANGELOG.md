@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.38.3 — 2026-04-21
+
+### Internal
+
+- **Eliminated all four ESLint warnings and three errors from the pre-existing lint baseline** (PR 1 of a three-PR lint-debt paydown plan; see `/Users/william/.claude/plans/here-is-what-claude-vivid-jellyfish.md` for the full scope). Lint count: 96 → 89 problems (92 errors + 4 warnings → 89 errors + 0 warnings). Two of the warnings were real React correctness signals, not stylistic — see below.
+  - **`ScenarioSummaryCard.tsx` — eliminated double-render on heuristic %-input prop changes.** The two `useState` + `useEffect` pairs that synced `localMinPct`/`localMaxPct` to `settings.heuristic{Min,Max}Percent` triggered `react-hooks/set-state-in-effect` warnings and caused a second render after every scenario switch or undo/redo. Replaced with React's documented "adjust state during render" pattern (`useState` for previous prop + `if (prev !== current) setPrev(current); setLocal(...)`), which commits a single render per prop change.
+  - **`SimulationPanel.tsx` — restored React Compiler optimization of `targetLookup` useMemo.** The manual dep list listed `simulationResults?.samples` (a narrower shape than the React Compiler's inferred `simulationResults`), which tripped `react-hooks/preserve-manual-memoization` and prevented compiler-driven optimization. Broadened the dep to the full `simulationResults` object; the memoized body already null-guards `simulationResults?.samples?.length`, so the widening is safe. Also extracted the inline `pct >= greenPct ? ... : pct >= amberPct ? ...` ternary into a named `healthColor()` helper and pre-computed the `by ${dateLabel}` suffix to eliminate the adjacent SonarJS `no-nested-conditional` and `no-nested-template-literals` errors.
+  - **`ThemeToggleButton.tsx` — restored fast-refresh HMR.** The file exported a non-component `nextTheme` helper alongside the component, which tripped `react-refresh/only-export-components` and disabled HMR for the file. Dropped the `export` keyword; `nextTheme` is used only internally.
+  - **`eslint.config.js` — added `coverage/` to the ignores list.** The auto-generated Istanbul coverage output (`coverage/block-navigation.js`) was surfacing an `Unused eslint-disable directive` warning on every lint run.
+
 ## 0.38.2 — 2026-04-21
 
 ### Fixed
