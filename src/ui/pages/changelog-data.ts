@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.38.2",
+    date: "2026-04-21",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Printed PDF report no longer shows a misleading Confidence label for Triangular and Uniform activities. The Statistical PERT Ratio Scale Modifier (RSM) only drives the proxy standard deviation for Normal and LogNormal distributions; Triangular and Uniform activities ignore the stored confidenceLevel. The interactive grid already greys the cell out, and the XLSX/CSV schedule exports already write an empty cell for these distributions, but the printed report rendered the confidence label unconditionally for every row. The print path now mirrors the same distributionType guard used by the export pipeline, falling back to an em-dash (—) — the standard N/A sentinel elsewhere in the printed report — for non-SPERT distributions.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.38.1",
     date: "2026-04-20",
     sections: [

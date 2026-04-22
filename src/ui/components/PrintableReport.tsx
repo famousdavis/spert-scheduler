@@ -275,7 +275,9 @@ export function PrintableReport({
                     {activity.max}
                   </td>
                   <td className="py-0.5 pr-1">
-                    {RSM_LABELS[activity.confidenceLevel]}
+                    {activity.distributionType === "normal" || activity.distributionType === "logNormal"
+                      ? RSM_LABELS[activity.confidenceLevel]
+                      : "—"}
                   </td>
                   <td className="py-0.5 pr-1">
                     {distributionLabel(activity.distributionType)}
