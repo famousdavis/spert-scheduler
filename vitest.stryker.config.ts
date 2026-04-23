@@ -29,6 +29,7 @@ export default defineConfig({
       "src/core/schedule/deterministic.test.ts",
       "src/core/schedule/dependency-graph.test.ts",
       "src/core/schedule/buffer.test.ts",
+      "src/core/schedule/milestone-sim-params.test.ts",
       "src/integration/sequential-constraints.test.ts",
       "src/integration/dependency-roundtrip.test.ts",
       "src/integration/full-workflow.test.ts",

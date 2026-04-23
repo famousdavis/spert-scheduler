@@ -15,6 +15,7 @@ export default {
     "src/core/schedule/deterministic.ts",
     "src/core/schedule/dependency-graph.ts",
     "src/core/schedule/buffer.ts",
+    "src/core/schedule/milestone-sim-params.ts",
   ],
   // Run only the tests that cover the mutated files via a scoped vitest config.
   vitest: {
