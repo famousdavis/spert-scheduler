@@ -28,3 +28,32 @@ export function getFirstName(
   }
   return email ?? "";
 }
+
+/**
+ * Returns the user's displayName in natural "First Middle Last" order,
+ * reversing the Microsoft "Last, First MI" convention when present.
+ *
+ *   "Alice Smith"         → "Alice Smith"
+ *   "Smith, Alice"        → "Alice Smith"
+ *   "Smith, Alice Jane"   → "Alice Jane Smith"
+ *   ""  / null / undef    → email fallback, or "" if both are absent
+ */
+export function getDisplayName(
+  displayName: string | null | undefined,
+  email: string | null | undefined
+): string {
+  if (displayName) {
+    const trimmed = displayName.trim();
+    if (trimmed.includes(",")) {
+      const parts = trimmed.split(",");
+      const last = parts[0]?.trim() ?? "";
+      const rest = parts.slice(1).join(",").trim();
+      if (last && rest) return `${rest} ${last}`;
+      if (rest) return rest;
+      if (last) return last;
+    } else if (trimmed) {
+      return trimmed;
+    }
+  }
+  return email ?? "";
+}

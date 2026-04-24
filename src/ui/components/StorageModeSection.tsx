@@ -5,12 +5,7 @@ import { useState, useCallback, useRef } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { SIGN_IN_POPUP_BLOCKED } from "@ui/providers/auth-errors";
 import { useStorage } from "@ui/providers/StorageProvider";
-import type { StorageMode } from "@ui/providers/StorageProvider";
-import { migrateLocalToCloud } from "@infrastructure/firebase/firestore-migration";
-import type { MigrationResult } from "@infrastructure/firebase/firestore-migration";
-import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
-import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memory";
-import { useProjectStore } from "@ui/hooks/use-project-store";
+import { useStorageModeSwitch } from "@ui/hooks/use-storage-mode-switch";
 import { toast } from "@ui/hooks/use-notification-store";
 import { ConsentModal } from "./ConsentModal";
 import { KeepOrDiscardLocalModal } from "./KeepOrDiscardLocalModal";
@@ -22,14 +17,23 @@ import {
 
 export function StorageModeSection() {
   const { user, firebaseAvailable, signInWithGoogle, signInWithMicrosoft } = useAuth();
-  const { mode, persistedMode, switchMode, isCloudAvailable } = useStorage();
-  const [migrating, setMigrating] = useState(false);
-  const [migrationResult, setMigrationResult] =
-    useState<MigrationResult | null>(null);
-  const [migrationError, setMigrationError] = useState<string | null>(null);
+  const { mode, persistedMode, isCloudAvailable } = useStorage();
+  const {
+    migrating,
+    migrationResult,
+    migrationError,
+    confirmDiscardOpen,
+    setConfirmDiscardOpen,
+    clearMigrationResult,
+    clearMigrationError,
+    handleModeChange,
+    handleKeepLocalCopy,
+    handleDiscardLocalCopy,
+    reMigrate,
+  } = useStorageModeSwitch();
+
   const [consentOpen, setConsentOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
-  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const pendingProviderRef = useRef<"google" | "microsoft" | null>(null);
 
   /** Proceed with Firebase Auth for the selected provider. */
@@ -85,62 +89,6 @@ export function StorageModeSection() {
       doSignIn(pendingProviderRef.current);
     }
   }, [doSignIn]);
-
-  const handleModeChange = useCallback(
-    async (newMode: StorageMode) => {
-      if (newMode === "cloud" && !user) {
-        return; // Can't switch to cloud without signing in
-      }
-
-      if (newMode === "cloud" && persistedMode !== "cloud" && user) {
-        // Switching to cloud for the first time — offer migration
-        setMigrating(true);
-        setMigrationError(null);
-        try {
-          const result = await migrateLocalToCloud(user.uid);
-          setMigrationResult(result);
-          // Only switch if migration had no failures
-          if (result.failed === 0) {
-            switchMode(newMode);
-          }
-        } catch (e) {
-          setMigrationError(
-            e instanceof Error ? e.message : "Migration failed"
-          );
-          // Do NOT call switchMode — stay in local mode
-        } finally {
-          setMigrating(false);
-        }
-        return; // Already handled
-      }
-
-      // Cloud → Local: prompt to keep or discard the local mirror of cloud
-      // data. Do not switch until the user answers.
-      if (newMode === "local" && mode === "cloud") {
-        setConfirmDiscardOpen(true);
-        return;
-      }
-
-      switchMode(newMode);
-    },
-    [user, persistedMode, mode, switchMode]
-  );
-
-  const handleKeepLocalCopy = useCallback(() => {
-    setConfirmDiscardOpen(false);
-    switchMode("local");
-  }, [switchMode]);
-
-  const handleDiscardLocalCopy = useCallback(() => {
-    // Wipe per-project data: localStorage keys and the active-scenarios
-    // map (whose project IDs are now orphaned). Preferences are preserved
-    // — the user stays signed in and is the same person.
-    new LocalStorageRepository().clearAll();
-    clearAllLastScenarios();
-    useProjectStore.getState().clearAllData();
-    setConfirmDiscardOpen(false);
-    switchMode("local");
-  }, [switchMode]);
 
   // Only show if Firebase is configured
   if (!firebaseAvailable || !isCloudAvailable) return null;
@@ -272,7 +220,7 @@ export function StorageModeSection() {
                   `${migrationResult.failed} failed.`}
               </p>
               <button
-                onClick={() => setMigrationResult(null)}
+                onClick={clearMigrationResult}
                 className="mt-2 text-xs text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline"
               >
                 Dismiss
@@ -290,7 +238,7 @@ export function StorageModeSection() {
                 {migrationError}
               </p>
               <button
-                onClick={() => setMigrationError(null)}
+                onClick={clearMigrationError}
                 className="mt-2 text-xs text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 underline"
               >
                 Dismiss
@@ -301,21 +249,7 @@ export function StorageModeSection() {
           {/* Re-migrate button (if already in cloud mode) */}
           {mode === "cloud" && !migrating && !migrationResult && (
             <button
-              onClick={async () => {
-                if (!user) return;
-                setMigrating(true);
-                setMigrationError(null);
-                try {
-                  const result = await migrateLocalToCloud(user.uid);
-                  setMigrationResult(result);
-                } catch (e) {
-                  setMigrationError(
-                    e instanceof Error ? e.message : "Migration failed"
-                  );
-                } finally {
-                  setMigrating(false);
-                }
-              }}
+              onClick={reMigrate}
               className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline"
             >
               Upload local data to cloud

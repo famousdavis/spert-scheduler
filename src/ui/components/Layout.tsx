@@ -10,6 +10,7 @@ import { useTheme } from "@ui/hooks/use-theme";
 import { ToastContainer } from "./ToastContainer";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import { AuthButton } from "./AuthButton";
+import { StorageLoginModal } from "./StorageLoginModal";
 import { ThemeToggleButton } from "./ThemeToggleButton";
 import { FirstRunBanner } from "./FirstRunBanner";
 import { LocalStorageWarningBanner } from "./LocalStorageWarningBanner";
@@ -26,6 +27,7 @@ export function Layout() {
   const location = useLocation();
   const loadPreferences = usePreferencesStore((s) => s.loadPreferences);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   // Initialize theme (applies dark class to document)
   useTheme();
@@ -88,7 +90,7 @@ export function Layout() {
                 })}
               </nav>
               <ThemeToggleButton />
-              <AuthButton />
+              <AuthButton onOpenModal={() => setAuthModalOpen(true)} />
             </div>
           </div>
         </div>
@@ -158,6 +160,10 @@ export function Layout() {
       <KeyboardShortcutsModal
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}
+      />
+      <StorageLoginModal
+        open={authModalOpen}
+        onOpenChange={setAuthModalOpen}
       />
     </div>
   );
