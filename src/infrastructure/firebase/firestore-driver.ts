@@ -22,7 +22,7 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
-import type { Unsubscribe } from "firebase/firestore";
+import type { Unsubscribe, QueryDocumentSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 import {
   sanitizeForFirestore,
@@ -84,49 +84,57 @@ export class FirestoreDriver {
     })[] = [];
 
     for (const docSnap of snap.docs) {
-      const raw = docSnap.data();
-      const stripped = stripFirestoreFields(raw);
-      const projectData = { id: docSnap.id, ...stripped };
-
-      // Apply migrations if needed
-      let data: unknown = projectData;
-      const schemaVersion =
-        typeof stripped.schemaVersion === "number"
-          ? stripped.schemaVersion
-          : 1;
-      const wasMigrated = schemaVersion < SCHEMA_VERSION;
-      if (wasMigrated) {
-        try {
-          data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
-        } catch {
-          continue; // skip corrupted projects
-        }
-      }
-
-      // Validate
-      const result = ProjectSchema.safeParse(data);
-      if (!result.success) continue;
-
-      const project = result.data as Project & {
-        _owner: string;
-        _members: Record<string, ProjectRole>;
-      };
-      project._owner = raw.owner as string;
-      project._members = raw.members as Record<string, ProjectRole>;
-      projects.push(project);
-
-      // Write-forward: persist migrated schema immediately
-      if (wasMigrated) {
-        try {
-          await this.doSave(project);
-        } catch (e) {
-          console.error("Write-forward migration save failed for project:", docSnap.id);
-          this.onSaveErrorCb?.(e);
-        }
-      }
+      const project = await this.processProjectDoc(docSnap);
+      if (project) projects.push(project);
     }
 
     return projects;
+  }
+
+  /**
+   * Processes a single Firestore document snapshot into a typed Project.
+   * May write back to Firestore if schema migration was applied (write-forward pattern).
+   * Returns null if the document is corrupted or fails schema validation.
+   */
+  private async processProjectDoc(
+    docSnap: QueryDocumentSnapshot,
+  ): Promise<(Project & { _owner: string; _members: Record<string, ProjectRole> }) | null> {
+    const raw = docSnap.data();
+    const stripped = stripFirestoreFields(raw);
+    const projectData = { id: docSnap.id, ...stripped };
+
+    let data: unknown = projectData;
+    const schemaVersion =
+      typeof stripped.schemaVersion === "number" ? stripped.schemaVersion : 1;
+    const wasMigrated = schemaVersion < SCHEMA_VERSION;
+    if (wasMigrated) {
+      try {
+        data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
+      } catch {
+        return null; // skip corrupted project
+      }
+    }
+
+    const result = ProjectSchema.safeParse(data);
+    if (!result.success) return null;
+
+    const project = result.data as Project & {
+      _owner: string;
+      _members: Record<string, ProjectRole>;
+    };
+    project._owner = raw.owner as string;
+    project._members = raw.members as Record<string, ProjectRole>;
+
+    if (wasMigrated) {
+      try {
+        await this.doSave(project);
+      } catch (e) {
+        console.error("Write-forward migration save failed for project:", docSnap.id);
+        this.onSaveErrorCb?.(e);
+      }
+    }
+
+    return project;
   }
 
   /**

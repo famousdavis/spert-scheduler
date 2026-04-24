@@ -24,6 +24,22 @@ import { CDFComparisonChart, type CDFDataset } from "@ui/charts/CDFComparisonCha
 // Color palette for comparison lines
 const COMPARISON_COLORS = ["#3b82f6", "#10b981", "#f59e0b"];
 
+function pickBestHighlight(value: number | null, best: number | null): "best" | null {
+  if (value === null || best === null) return null;
+  return value === best ? "best" : null;
+}
+
+function formatSignedBuffer(b: number | null): string | null {
+  if (b === null) return null;
+  return `${b > 0 ? "+" : ""}${b}`;
+}
+
+function highlightClass(highlight: "best" | "worst" | null | undefined): string {
+  if (highlight === "best") return "text-green-700 font-semibold";
+  if (highlight === "worst") return "text-amber-600";
+  return "text-gray-900";
+}
+
 interface ScenarioComparison {
   scenario: Scenario;
   schedule: DeterministicSchedule | null;
@@ -163,15 +179,11 @@ export function ScenarioComparisonTable({
     {
       label: "Duration (days)",
       values: durations.map((d) => (d !== null ? String(d) : null)),
-      highlights: durations.map((d) =>
-        d === null ? null : d === bestDuration ? "best" : null
-      ),
+      highlights: durations.map((d) => pickBestHighlight(d, bestDuration)),
     },
     {
       label: "Buffer (days)",
-      values: buffers.map((b) =>
-        b !== null ? `${b > 0 ? "+" : ""}${b}` : null
-      ),
+      values: buffers.map(formatSignedBuffer),
     },
     {
       label: "End Date (w/buffer)",
@@ -188,9 +200,7 @@ export function ScenarioComparisonTable({
     {
       label: "Duration w/Buffer",
       values: totalDurations.map((d) => (d !== null ? String(d) : null)),
-      highlights: totalDurations.map((d) =>
-        d === null ? null : d === bestTotal ? "best" : null
-      ),
+      highlights: totalDurations.map((d) => pickBestHighlight(d, bestTotal)),
     },
     {
       label: "Activity Target",
@@ -208,9 +218,7 @@ export function ScenarioComparisonTable({
     {
       label: "Mean",
       values: means.map((m) => (m !== null ? m.toFixed(1) : null)),
-      highlights: means.map((m) =>
-        m === null ? null : m === bestMean ? "best" : null
-      ),
+      highlights: means.map((m) => pickBestHighlight(m, bestMean)),
     },
     {
       label: "Standard Deviation",
@@ -257,13 +265,7 @@ export function ScenarioComparisonTable({
                 return (
                   <td
                     key={j}
-                    className={`px-4 py-1.5 text-right tabular-nums whitespace-nowrap ${
-                      highlight === "best"
-                        ? "text-green-700 font-semibold"
-                        : highlight === "worst"
-                          ? "text-amber-600"
-                          : "text-gray-900"
-                    }`}
+                    className={`px-4 py-1.5 text-right tabular-nums whitespace-nowrap ${highlightClass(highlight)}`}
                   >
                     {val ?? <span className="text-gray-300">&mdash;</span>}
                   </td>

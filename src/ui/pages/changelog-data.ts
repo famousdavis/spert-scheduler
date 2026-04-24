@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.38.6",
+    date: "2026-04-23",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Lint debt paydown: eliminated all 48 sonarjs/no-nested-conditional errors and reduced sonarjs/cognitive-complexity errors from 26 to 14 across 24 files. Total lint errors: 74 → 15 (plus one cosmetic warning). Batched three coordinated PRs (B2-a → B1 → B2-b) into a single release because the changes have cross-plan code coupling and zero user-visible behavior.",
+          "B2-a — Pure-logic complexity reduction (5 CC errors). use-milestone-buffers.ts: two-level extraction of computeMilestoneSlack + computeSingleMilestoneInfo with a MilestoneComputeContext param object. build-simulation-params.ts: extracted resolveConstraintOffsets (DRYs the constraint-resolution loop across sequential and dependency modes). gantt-utils.ts: replaced generateTicks's 7-branch if/else if chain with a TICK_GENERATORS dispatch table + 7 per-level generator functions — bit-identical output. local-storage-repository.ts: loadWithDiagnostics restructured as a flat chain over a PhaseResult<T> discriminated union with four focused helpers. firestore-driver.ts: extracted processProjectDoc as a private method, documented the write-forward side-effect in JSDoc.",
+          "B1 — Nested-ternary elimination (48 errors across 20 files). Added shared milestone-health helpers to src/domain/helpers/format-labels.ts: MilestoneHealth type + computeMilestoneHealth, milestoneHealthDotClass, milestoneHealthTextClass, milestoneHealthLabel. Applied three fix patterns: Pattern A (if/return helpers or let + if/else if for 3+ branch selectors — const hoisting does not clear this rule), Pattern B (pickBestHighlight generic for .map() data-shape producers), Pattern C (early-null-return formatters for outer-null-guards wrapping inner ternaries). firebase.ts rewrite preserves local-only-mode contract (initializeApp now only called when isFirebaseConfigured is true). GanttChart.tsx and PrintGanttChart.tsx edited in one commit to preserve print parity. Interim CC reduction side-effect: 22 → 17 (B1's helper extractions dropped 5 CC errors as a bonus).",
+          "B2-b — UI complexity reduction (3 CC errors; plan expected 4 but ScenarioTabs already cleared by B1's let tabTitle extraction). UnifiedActivityRow.tsx handleTabNav (CC 33 after B1's partial reduction): extracted 5 helpers — buildTabFieldOrder, handleOffOrderTabNav, getActivityRowIds, handleCrossRowTabNav, handleInRowTabNav. use-gantt-layout.ts and PrintGanttChart.tsx tick suppression: extracted shared suppressOverlappingTicks + shouldSuppressTick + TickSuppressionParams interface to gantt-utils.ts. Both call sites now collapse to a single-line memoized call; raw layout primitives pass through the param object rather than a callback to preserve per-param memoization stability. Dead inline consts deleted post-refactor.",
+          "Known cosmetic lint warning: PrintGanttChart.tsx:165 retains an eslint-disable-next-line react-hooks/preserve-manual-memoization directive that currently reports as \"unused\" because the rule is dormant in this project's ESLint config. Preserved intentionally for future-proofing. The // NOSONAR comment on the same line is load-bearing and independent.",
+          "No behavior change. All 1218 tests pass; typecheck clean.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.38.5",
     date: "2026-04-23",
     sections: [

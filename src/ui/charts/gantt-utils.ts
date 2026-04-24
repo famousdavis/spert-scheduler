@@ -131,6 +131,113 @@ function selectAutoTickLevel(rangeDays: number): TickLevel {
   return "quarterly"; // fallback; layout hook should always provide for >540 days
 }
 
+type Tick = { x: string; label: string };
+type TickGenerator = (start: Date, end: Date) => Tick[];
+
+function generateDailyTicks(start: Date, end: Date): Tick[] {
+  const ticks: Tick[] = [];
+  const d = new Date(start);
+  while (d <= end) {
+    ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
+    d.setDate(d.getDate() + 1);
+  }
+  return ticks;
+}
+
+function generateWeeklyTicks(start: Date, end: Date): Tick[] {
+  const ticks: Tick[] = [];
+  const d = new Date(start);
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
+  while (d <= end) {
+    ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
+    d.setDate(d.getDate() + 7);
+  }
+  return ticks;
+}
+
+function generateBiweeklyTicks(start: Date, end: Date): Tick[] {
+  const ticks: Tick[] = [];
+  const d = new Date(start);
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
+  while (d <= end) {
+    ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
+    d.setDate(d.getDate() + 14);
+  }
+  return ticks;
+}
+
+function generateMonthlyTicks(start: Date, end: Date): Tick[] {
+  const ticks: Tick[] = [];
+  const d = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+  let prevYear: number | null = null;
+  let isFirst = true;
+  while (d <= end) {
+    ticks.push({ x: formatDateISO(d), label: monthTickLabel(d, isFirst, prevYear) });
+    prevYear = d.getFullYear();
+    isFirst = false;
+    d.setMonth(d.getMonth() + 1);
+  }
+  return ticks;
+}
+
+function generateQuarterlyTicks(start: Date, end: Date): Tick[] {
+  const ticks: Tick[] = [];
+  const firstQ = new Date(start);
+  while (firstQ.getDate() !== 1 || firstQ.getMonth() % 3 !== 0) {
+    firstQ.setDate(1);
+    firstQ.setMonth(firstQ.getMonth() + 1);
+  }
+  const d = new Date(firstQ);
+  let prevYear: number | null = null;
+  let isFirst = true;
+  while (d <= end) {
+    ticks.push({ x: formatDateISO(d), label: quarterlyTickLabel(d, isFirst, prevYear) });
+    prevYear = d.getFullYear();
+    isFirst = false;
+    d.setMonth(d.getMonth() + 3);
+  }
+  return ticks;
+}
+
+function generateSemiannualTicks(start: Date, end: Date): Tick[] {
+  const ticks: Tick[] = [];
+  const d = new Date(start);
+  // Advance to first Jan 1 or Jul 1 on or after start
+  while (d.getDate() !== 1 || (d.getMonth() !== 0 && d.getMonth() !== 6)) {
+    d.setDate(1);
+    d.setMonth(d.getMonth() + 1);
+  }
+  let prevYear: number | null = null;
+  let isFirst = true;
+  while (d <= end) {
+    ticks.push({ x: formatDateISO(d), label: semiannualTickLabel(d, isFirst, prevYear) });
+    prevYear = d.getFullYear();
+    isFirst = false;
+    d.setMonth(d.getMonth() + 6);
+  }
+  return ticks;
+}
+
+function generateAnnualTicks(start: Date, end: Date): Tick[] {
+  const ticks: Tick[] = [];
+  const d = new Date(start.getFullYear() + 1, 0, 1);
+  while (d <= end) {
+    ticks.push({ x: formatDateISO(d), label: String(d.getFullYear()) });
+    d.setFullYear(d.getFullYear() + 1);
+  }
+  return ticks;
+}
+
+const TICK_GENERATORS: Record<TickLevel, TickGenerator> = {
+  daily: generateDailyTicks,
+  weekly: generateWeeklyTicks,
+  biweekly: generateBiweeklyTicks,
+  monthly: generateMonthlyTicks,
+  quarterly: generateQuarterlyTicks,
+  semiannual: generateSemiannualTicks,
+  annual: generateAnnualTicks,
+};
+
 /**
  * Generate tick marks for the time axis at a given tick level.
  * Levels ≤ monthly are auto-selected from date range.
@@ -141,84 +248,58 @@ export function generateTicks(
   startDate: string,
   endDate: string,
   tickLevel?: TickLevel,
-): { x: string; label: string }[] {
+): Tick[] {
   const start = new Date(startDate + "T00:00:00");
   const end = new Date(endDate + "T00:00:00");
   const rangeDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-  const ticks: { x: string; label: string }[] = [];
-
   const level: TickLevel = tickLevel ?? selectAutoTickLevel(rangeDays);
+  return TICK_GENERATORS[level](start, end);
+}
 
-  if (level === "daily") {
-    const d = new Date(start);
-    while (d <= end) {
-      ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
-      d.setDate(d.getDate() + 1);
-    }
-  } else if (level === "weekly") {
-    const d = new Date(start);
-    while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
-    while (d <= end) {
-      ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
-      d.setDate(d.getDate() + 7);
-    }
-  } else if (level === "biweekly") {
-    const d = new Date(start);
-    while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
-    while (d <= end) {
-      ticks.push({ x: formatDateISO(d), label: compactLabel(d, true) });
-      d.setDate(d.getDate() + 14);
-    }
-  } else if (level === "monthly") {
-    const d = new Date(start.getFullYear(), start.getMonth() + 1, 1);
-    let prevYear: number | null = null;
-    let isFirst = true;
-    while (d <= end) {
-      ticks.push({ x: formatDateISO(d), label: monthTickLabel(d, isFirst, prevYear) });
-      prevYear = d.getFullYear();
-      isFirst = false;
-      d.setMonth(d.getMonth() + 1);
-    }
-  } else if (level === "quarterly") {
-    const firstQ = new Date(start);
-    while (firstQ.getDate() !== 1 || firstQ.getMonth() % 3 !== 0) {
-      firstQ.setDate(1);
-      firstQ.setMonth(firstQ.getMonth() + 1);
-    }
-    const d = new Date(firstQ);
-    let prevYear: number | null = null;
-    let isFirst = true;
-    while (d <= end) {
-      ticks.push({ x: formatDateISO(d), label: quarterlyTickLabel(d, isFirst, prevYear) });
-      prevYear = d.getFullYear();
-      isFirst = false;
-      d.setMonth(d.getMonth() + 3);
-    }
-  } else if (level === "semiannual") {
-    const d = new Date(start);
-    // Advance to first Jan 1 or Jul 1 on or after start
-    while (d.getDate() !== 1 || (d.getMonth() !== 0 && d.getMonth() !== 6)) {
-      d.setDate(1);
-      d.setMonth(d.getMonth() + 1);
-    }
-    let prevYear: number | null = null;
-    let isFirst = true;
-    while (d <= end) {
-      ticks.push({ x: formatDateISO(d), label: semiannualTickLabel(d, isFirst, prevYear) });
-      prevYear = d.getFullYear();
-      isFirst = false;
-      d.setMonth(d.getMonth() + 6);
-    }
-  } else {
-    // annual
-    const d = new Date(start.getFullYear() + 1, 0, 1);
-    while (d <= end) {
-      ticks.push({ x: formatDateISO(d), label: String(d.getFullYear()) });
-      d.setFullYear(d.getFullYear() + 1);
-    }
+export interface TickSuppressionParams {
+  minTimestamp: number;
+  dateRange: number;
+  chartAreaWidth: number;
+  leftMargin: number;
+  finishX: number;
+  milestoneXPositions: number[];
+  todayX: number | null;
+  todayProximityPx: number;
+  elementProximityPx: number;
+  minSpacingPx: number;
+}
+
+/** Returns true if the tick at position x should be suppressed given the current context. */
+function shouldSuppressTick(x: number, isFirst: boolean, lastX: number, p: TickSuppressionParams): boolean {
+  if (p.todayX !== null && Math.abs(x - p.todayX) < p.todayProximityPx) return true;
+  if (isFirst) return false;
+  if (Math.abs(x - p.finishX) < p.elementProximityPx) return true;
+  if (p.milestoneXPositions.some((mx) => Math.abs(x - mx) < p.elementProximityPx)) return true;
+  if (x - lastX < p.minSpacingPx) return true;
+  return false;
+}
+
+/**
+ * Filters tick array to suppress labels that would crowd milestone markers,
+ * the finish line, today's line, or each other.
+ * Callers pass raw layout primitives rather than a toX callback to preserve
+ * per-param memoization stability.
+ */
+export function suppressOverlappingTicks(
+  allTicks: Tick[],
+  p: TickSuppressionParams,
+): Tick[] {
+  if (allTicks.length === 0 || p.dateRange === 0) return allTicks;
+  const filtered: Tick[] = [];
+  let lastX = -Infinity;
+  for (let i = 0; i < allTicks.length; i++) {
+    const tick = allTicks[i]!;
+    const x = dateToX(tick.x, p.minTimestamp, p.dateRange, p.chartAreaWidth, p.leftMargin);
+    if (shouldSuppressTick(x, i === 0, lastX, p)) continue;
+    filtered.push(tick);
+    lastX = x;
   }
-
-  return ticks;
+  return filtered;
 }
 
 /**

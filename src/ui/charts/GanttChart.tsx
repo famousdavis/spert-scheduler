@@ -34,6 +34,33 @@ import {
 import { GanttSvgDefs } from "./GanttSvgDefs";
 import { GanttLegend } from "./GanttLegend";
 
+function formatLagLabel(lagDays: number): string {
+  if (lagDays === 0) return "";
+  if (lagDays > 0) return `, +${lagDays}d`;
+  return `, ${lagDays}d`;
+}
+
+function resolveArrowColor(
+  isHovered: boolean,
+  isCriticalEdge: boolean,
+  hoverCritical: string,
+  hover: string,
+  critical: string,
+  normal: string,
+): string {
+  if (isHovered && isCriticalEdge) return hoverCritical;
+  if (isHovered) return hover;
+  if (isCriticalEdge) return critical;
+  return normal;
+}
+
+function resolveArrowMarker(isHovered: boolean, isCriticalEdge: boolean): string {
+  if (isHovered && isCriticalEdge) return "url(#arrowhead-critical-hover)";
+  if (isHovered) return "url(#arrowhead-hover)";
+  if (isCriticalEdge) return "url(#arrowhead-critical)";
+  return "url(#arrowhead)";
+}
+
 /** Gantt chart toolbar: view mode toggle, visibility checkboxes, appearance panel button */
 function GanttToolbar({
   viewMode, setViewMode,
@@ -441,7 +468,7 @@ export function GanttChart({
         !!(criticalPathIds?.has(dep.fromActivityId) && criticalPathIds?.has(dep.toActivityId));
       const fromName = activities.find((a) => a.id === dep.fromActivityId)?.name ?? "";
       const toName = activities.find((a) => a.id === dep.toActivityId)?.name ?? "";
-      const lagLabel = dep.lagDays !== 0 ? (dep.lagDays > 0 ? `, +${dep.lagDays}d` : `, ${dep.lagDays}d`) : "";
+      const lagLabel = formatLagLabel(dep.lagDays);
       const label = `${fromName} → ${toName}, ${dependencyLabel(dep.type)}${lagLabel}`;
 
       return { dep, synthetic, path, barEndX, toX, fromY, toY, isCriticalEdge, label };
@@ -751,12 +778,15 @@ export function GanttChart({
           {/* Dependency arrows — visible paths only (rendered before bars so bars paint on top) */}
           {showArrows && arrowPaths.map((ap, i) => {
             const isHovered = hoveredDep?.from === ap.dep.fromActivityId && hoveredDep?.to === ap.dep.toActivityId;
-            const arrowColor = isHovered
-              ? (ap.isCriticalEdge ? c.arrowHoverCritical : c.arrowHover)
-              : (ap.isCriticalEdge ? ra.criticalPath : c.arrow);
-            const arrowMarker = isHovered
-              ? (ap.isCriticalEdge ? "url(#arrowhead-critical-hover)" : "url(#arrowhead-hover)")
-              : (ap.isCriticalEdge ? "url(#arrowhead-critical)" : "url(#arrowhead)");
+            const arrowColor = resolveArrowColor(
+              isHovered,
+              ap.isCriticalEdge,
+              c.arrowHoverCritical,
+              c.arrowHover,
+              ra.criticalPath,
+              c.arrow,
+            );
+            const arrowMarker = resolveArrowMarker(isHovered, ap.isCriticalEdge);
             return (
               <g key={`dep-${i}`}>
                 <path d={ap.path} stroke={arrowColor} strokeWidth={isHovered ? "3" : "2"}
@@ -796,10 +826,9 @@ export function GanttChart({
             );
             const barWidth = Math.max(4, barEndX - barX);
 
-            const barColor =
-              act.status === "complete" ? ra.barComplete :
-              act.status === "inProgress" ? ra.barInProgress :
-              ra.barPlanned;
+            let barColor = ra.barPlanned;
+            if (act.status === "complete") barColor = ra.barComplete;
+            else if (act.status === "inProgress") barColor = ra.barInProgress;
 
             const uncertainty = uncertaintyMap.get(act.id);
             const extEndDate = activityExtendedEndDates.get(act.id);

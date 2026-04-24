@@ -24,6 +24,12 @@ interface HolidayLoaderProps {
   onUpdate: (calendar: Calendar) => void;
 }
 
+function loadButtonClass(buttonState: string): string {
+  if (buttonState === "error") return "bg-amber-600 hover:bg-amber-700 text-white";
+  if (buttonState === "success") return "bg-green-600 text-white";
+  return "bg-blue-600 hover:bg-blue-700 text-white";
+}
+
 export function HolidayLoader({ calendar, countries, onUpdate }: HolidayLoaderProps) {
   const currentYear = new Date().getFullYear();
   const defaultHolidayCountry = usePreferencesStore((s) => s.preferences.defaultHolidayCountry);
@@ -277,13 +283,7 @@ export function HolidayLoader({ calendar, countries, onUpdate }: HolidayLoaderPr
         </select>
         <button
           onClick={loadHolidays}
-          className={`px-3 py-1 text-sm rounded ${
-            buttonState === "error"
-              ? "bg-amber-600 hover:bg-amber-700 text-white"
-              : buttonState === "success"
-                ? "bg-green-600 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-          }`}
+          className={`px-3 py-1 text-sm rounded ${loadButtonClass(buttonState)}`}
         >
           {buttonLabel()}
         </button>

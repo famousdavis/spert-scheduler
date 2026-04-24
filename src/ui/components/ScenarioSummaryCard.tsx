@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import { ToggleSwitch } from "./ToggleSwitch";
 import type { Activity, ActivityDependency, DeterministicSchedule, Milestone, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
@@ -24,6 +24,29 @@ import {
 } from "@app/api/schedule-export-service";
 import type { ScheduleExportParams } from "@app/api/schedule-export-service";
 import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
+import {
+  milestoneHealthDotClass,
+  type MilestoneHealth,
+} from "@domain/helpers/format-labels";
+
+function targetFinishColorClass(ragColor: string | undefined, hasDate: boolean): string {
+  if (!hasDate) return "font-normal text-gray-400 dark:text-gray-500";
+  if (ragColor === "green") return "font-semibold text-green-600 dark:text-green-400";
+  if (ragColor === "amber") return "font-semibold text-amber-600 dark:text-amber-400";
+  if (ragColor === "red") return "font-semibold text-red-600 dark:text-red-400";
+  return "font-semibold text-blue-700 dark:text-blue-400";
+}
+
+function formatSignedSlack(slackDays: number | null): string {
+  if (slackDays === null) return "—";
+  return `${slackDays >= 0 ? "+" : ""}${slackDays}d`;
+}
+
+function milestoneHealthGlyph(health: MilestoneHealth): string {
+  if (health === "green") return "✓";
+  if (health === "amber") return "⚠";
+  return "✗ At Risk";
+}
 
 interface ScenarioSummaryCardProps {
   startDate: string;
@@ -233,19 +256,7 @@ export function ScenarioSummaryCard({
                 onTargetFinishDateChange?.(e.target.value || null);
               }}
               disabled={isLocked}
-              className={`text-lg tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 dark:focus:border-blue-400 rounded px-1 -ml-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent ${
-                targetFinishDate
-                  ? `font-semibold ${
-                      targetRAGColor === "green"
-                        ? "text-green-600 dark:text-green-400"
-                        : targetRAGColor === "amber"
-                          ? "text-amber-600 dark:text-amber-400"
-                          : targetRAGColor === "red"
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-blue-700 dark:text-blue-400"
-                    }`
-                  : "font-normal text-gray-400 dark:text-gray-500"
-              }`}
+              className={`text-lg tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 dark:focus:border-blue-400 rounded px-1 -ml-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent ${targetFinishColorClass(targetRAGColor, Boolean(targetFinishDate))}`}
             />
           </div>
         </div>
@@ -522,41 +533,51 @@ export function ScenarioSummaryCard({
       {/* Row 3: Schedule Buffer + Export */}
       <div className="pt-1 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-center gap-2 flex-wrap">
-          {buffer ? (
-            <>
-              <span className="text-xs text-gray-500 dark:text-gray-400">Schedule Buffer:</span>
-              <span
-                className={`font-semibold tabular-nums ${
-                  buffer.bufferDays >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-600 dark:text-red-400"
-                }`}
-              >
-                {buffer.bufferDays > 0 ? "+" : ""}
-                {buffer.bufferDays} days
-              </span>
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                (P{actPct} schedule → P{projPct} project confidence)
-              </span>
-            </>
-          ) : hasSimulationResults ? (
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              Buffer unavailable — P{projPct} not found in simulation results
-            </span>
-          ) : (
-            <span className="text-xs text-gray-400 dark:text-gray-500 italic">
-              {onRunSimulation ? (
-                <button
-                  type="button"
-                  onClick={onRunSimulation}
-                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 not-italic"
-                >
-                  Run simulation
-                </button>
-              ) : (
-                "Run simulation"
-              )}{" "}
-              to calculate schedule buffer
-            </span>
-          )}
+          {(() => {
+            let bufferContent: ReactNode;
+            if (buffer) {
+              bufferContent = (
+                <>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Schedule Buffer:</span>
+                  <span
+                    className={`font-semibold tabular-nums ${
+                      buffer.bufferDays >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {buffer.bufferDays > 0 ? "+" : ""}
+                    {buffer.bufferDays} days
+                  </span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    (P{actPct} schedule → P{projPct} project confidence)
+                  </span>
+                </>
+              );
+            } else if (hasSimulationResults) {
+              bufferContent = (
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  Buffer unavailable — P{projPct} not found in simulation results
+                </span>
+              );
+            } else {
+              bufferContent = (
+                <span className="text-xs text-gray-400 dark:text-gray-500 italic">
+                  {onRunSimulation ? (
+                    <button
+                      type="button"
+                      onClick={onRunSimulation}
+                      className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 not-italic"
+                    >
+                      Run simulation
+                    </button>
+                  ) : (
+                    "Run simulation"
+                  )}{" "}
+                  to calculate schedule buffer
+                </span>
+              );
+            }
+            return bufferContent;
+          })()}
 
           {/* Export buttons — right-aligned */}
           <div className="flex items-center gap-2 ml-auto no-print">
@@ -599,13 +620,7 @@ export function ScenarioSummaryCard({
             {Array.from(milestoneBuffers.values()).map((info) => (
               <div key={info.milestone.id} className="flex items-center gap-2 text-xs">
                 <span
-                  className={`inline-block w-2 h-2 rounded-full ${
-                    info.health === "green"
-                      ? "bg-green-500"
-                      : info.health === "amber"
-                        ? "bg-amber-500"
-                        : "bg-red-500"
-                  }`}
+                  className={`inline-block w-2 h-2 rounded-full ${milestoneHealthDotClass(info.health)}`}
                 />
                 <span className="text-gray-700 dark:text-gray-300 font-medium min-w-[120px]">
                   {info.milestone.name}
@@ -625,10 +640,10 @@ export function ScenarioSummaryCard({
                           : "text-red-600 dark:text-red-400"
                       }`}
                     >
-                      Slack: {info.slackDays !== null ? `${info.slackDays >= 0 ? "+" : ""}${info.slackDays}d` : "—"}
+                      Slack: {formatSignedSlack(info.slackDays)}
                     </span>
                     <span className="text-xs">
-                      {info.health === "green" ? "✓" : info.health === "amber" ? "⚠" : "✗ At Risk"}
+                      {milestoneHealthGlyph(info.health)}
                     </span>
                   </>
                 ) : (

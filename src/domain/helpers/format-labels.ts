@@ -54,3 +54,35 @@ export function dependencyLabel(dt: DependencyType): string {
       return "Finish-to-Finish";
   }
 }
+
+// -- Milestone health --------------------------------------------------------
+
+export type MilestoneHealth = "green" | "amber" | "red";
+
+/** Maps slackDays to a milestone health status. */
+export function computeMilestoneHealth(slackDays: number | null): MilestoneHealth {
+  if (slackDays === null || slackDays >= 5) return "green";
+  if (slackDays >= 0) return "amber";
+  return "red";
+}
+
+/** CSS class for a milestone health dot indicator. */
+export function milestoneHealthDotClass(health: MilestoneHealth): string {
+  if (health === "green") return "bg-green-500";
+  if (health === "amber") return "bg-amber-500";
+  return "bg-red-500";
+}
+
+/** CSS text color class for inline milestone health labels. */
+export function milestoneHealthTextClass(health: MilestoneHealth): string {
+  if (health === "green") return "text-green-700";
+  if (health === "amber") return "text-amber-700";
+  return "text-red-700 font-medium";
+}
+
+/** Human-readable milestone health label. */
+export function milestoneHealthLabel(health: MilestoneHealth): string {
+  if (health === "green") return "On Track";
+  if (health === "amber") return "Warning";
+  return "At Risk";
+}

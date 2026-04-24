@@ -38,6 +38,11 @@ interface ActivityImportSectionProps {
   importScenarioToProject: (projectId: string, scenario: Scenario) => void;
 }
 
+function importSuccessMessage(count: number): string {
+  if (count === 0) return "No activities were imported.";
+  return `Successfully imported ${count} ${count === 1 ? "activity" : "activities"}.`;
+}
+
 // -- Component ----------------------------------------------------------------
 
 export function ActivityImportSection({
@@ -540,9 +545,7 @@ export function ActivityImportSection({
         {importState.step === "done" && (
           <div className="border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 rounded-md p-4">
             <p className="text-sm font-medium text-green-800 dark:text-green-300">
-              {importState.count === 0
-                ? "No activities were imported."
-                : `Successfully imported ${importState.count} ${importState.count === 1 ? "activity" : "activities"}.`}
+              {importSuccessMessage(importState.count)}
             </p>
             <div className="mt-2 flex items-center gap-4">
               <Link

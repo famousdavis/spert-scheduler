@@ -21,7 +21,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks } from "./gantt-utils";
 import type { TickLevel } from "./gantt-utils";
 
 export interface PrintGanttChartProps {
@@ -148,28 +148,22 @@ export function PrintGanttChart({
     () => generateTicks(projectStartDate, endDate, tickLevel),
     [projectStartDate, endDate, tickLevel],
   );
-  const ticks = useMemo(() => {
-    if (allTicks.length === 0 || range === 0) return allTicks;
-    const filtered: typeof allTicks = [];
-    let lastX = -Infinity;
-    const PRINT_ELEMENT_PROXIMITY_PX = 25;
-    const PRINT_TODAY_PROXIMITY_PX = Math.round(TODAY_PROXIMITY_PX * 0.56);
-    for (let i = 0; i < allTicks.length; i++) {
-      const tick = allTicks[i]!;
-      const x = toX(tick.x);
-      // Today proximity — all ticks (see use-gantt-layout.ts for rationale)
-      if (todayX !== null && Math.abs(x - todayX) < PRINT_TODAY_PROXIMITY_PX) continue;
-      if (i > 0) {
-        if (Math.abs(x - finishX) < PRINT_ELEMENT_PROXIMITY_PX) continue;
-        if (milestoneXPositions.some((mx) => Math.abs(x - mx) < PRINT_ELEMENT_PROXIMITY_PX)) continue;
-        if (x - lastX < printDensityPx) continue;
-      }
-      filtered.push(tick);
-      lastX = x;
-    }
-    return filtered;
+  const ticks = useMemo(() =>
+    suppressOverlappingTicks(allTicks, {
+      minTimestamp: minTs,
+      dateRange: range,
+      chartAreaWidth: areaW,
+      leftMargin: ra.printLeftMargin,
+      finishX,
+      milestoneXPositions,
+      todayX,
+      todayProximityPx: Math.round(TODAY_PROXIMITY_PX * 0.56), // was PRINT_TODAY_PROXIMITY_PX inline
+      elementProximityPx: 25,                                   // was PRINT_ELEMENT_PROXIMITY_PX inline
+      minSpacingPx: printDensityPx,
+    }),
+    [allTicks, minTs, range, areaW, ra.printLeftMargin, finishX, milestoneXPositions, todayX, printDensityPx]
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  }, [allTicks, range, toX, finishX, milestoneXPositions, todayX, printDensityPx]); // NOSONAR — printDensityPx instability acceptable in print-only context
+  ); // NOSONAR — printDensityPx instability acceptable in print-only context
 
   const hasCriticalPath = dependencyMode && criticalPathIds && criticalPathIds.size > 0;
 
@@ -435,10 +429,9 @@ export function PrintGanttChart({
           const x1 = toX(sa.startDate);
           const x2 = toX(sa.endDate);
           const w = Math.max(2, x2 - x1);
-          const barColor =
-            act.status === "complete" ? ra.barComplete :
-            act.status === "inProgress" ? ra.barInProgress :
-            ra.barPlanned;
+          let barColor = ra.barPlanned;
+          if (act.status === "complete") barColor = ra.barComplete;
+          else if (act.status === "inProgress") barColor = ra.barInProgress;
           return (
             <g key={act.id}>
               <text x={ra.printLeftMargin - 4} y={y + ra.printRowHeight / 2} textAnchor="end"

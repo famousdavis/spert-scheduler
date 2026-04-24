@@ -16,6 +16,12 @@ interface ConfidenceLevelSelectProps {
   tabIndex?: number;
 }
 
+function confidenceOptionClass(isHighlighted: boolean, isSelected: boolean): string {
+  if (isHighlighted) return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
+  if (isSelected) return "bg-blue-50/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300";
+  return "dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/30";
+}
+
 export function ConfidenceLevelSelect({
   value,
   onChange,
@@ -218,13 +224,7 @@ export function ConfidenceLevelSelect({
                       type="button"
                       onClick={() => selectLevel(level)}
                       onMouseEnter={() => setHighlightIdx(i)}
-                      className={`w-full text-left px-3 py-2 ${
-                        isHighlighted
-                          ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                          : isSelected
-                            ? "bg-blue-50/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300"
-                            : "dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                      }`}
+                      className={`w-full text-left px-3 py-2 ${confidenceOptionClass(isHighlighted, isSelected)}`}
                     >
                       <p className="text-sm font-medium">{RSM_LABELS[level]}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">

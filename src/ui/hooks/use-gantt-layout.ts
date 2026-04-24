@@ -9,7 +9,7 @@ import {
   RIGHT_MARGIN, TOP_MARGIN,
   MIN_CHART_WIDTH, MIN_TICK_SPACING_PX, TODAY_PROXIMITY_PX, PROJECT_NAME_HEIGHT,
 } from "@ui/charts/gantt-constants";
-import { dateToX, generateTicks } from "@ui/charts/gantt-utils";
+import { dateToX, generateTicks, suppressOverlappingTicks } from "@ui/charts/gantt-utils";
 import type { TickLevel } from "@ui/charts/gantt-utils";
 
 export interface GanttLayout {
@@ -146,29 +146,20 @@ export function useGanttLayout({
     () => generateTicks(projectStartDate, furthestDate, tickLevel),
     [projectStartDate, furthestDate, tickLevel],
   );
-  const ticks = useMemo(() => {
-    if (allTicks.length === 0 || dateRange === 0) return allTicks;
-    const filtered: typeof allTicks = [];
-    let lastX = -Infinity;
-    const MIN_LABEL_PX = 40;
-    for (let i = 0; i < allTicks.length; i++) {
-      const tick = allTicks[i]!;
-      const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth, leftMargin);
-      // Today proximity — checked for ALL ticks including the first.
-      // Today's label already shows the full date and year; suppress any
-      // tick that would crowd it regardless of its position in the sequence.
-      if (todayX !== null && Math.abs(x - todayX) < TODAY_PROXIMITY_PX) continue;
-      // Remaining checks — first tick is exempt to preserve year indicator
-      if (i > 0) {
-        if (Math.abs(x - finishX) < MIN_LABEL_PX) continue;
-        if (milestoneXPositions.some((mx) => Math.abs(x - mx) < MIN_LABEL_PX)) continue;
-        if (x - lastX < MIN_LABEL_PX) continue;
-      }
-      filtered.push(tick);
-      lastX = x;
-    }
-    return filtered;
-  }, [allTicks, minTimestamp, dateRange, chartAreaWidth, leftMargin, finishX, milestoneXPositions, todayX]);
+  const ticks = useMemo(() =>
+    suppressOverlappingTicks(allTicks, {
+      minTimestamp,
+      dateRange,
+      chartAreaWidth,
+      leftMargin,
+      finishX,
+      milestoneXPositions,
+      todayX,
+      todayProximityPx: TODAY_PROXIMITY_PX,
+      elementProximityPx: 40,  // was MIN_LABEL_PX = 40 (inline const in original useMemo body)
+      minSpacingPx: 40,         // was MIN_LABEL_PX = 40 (same value, same inline const)
+    }),
+    [allTicks, minTimestamp, dateRange, chartAreaWidth, leftMargin, finishX, milestoneXPositions, todayX]);
 
   // Bar Y offset
   const barYOffset = (rowHeight - barHeight) / 2;

@@ -86,6 +86,10 @@ function SortableScenarioTab({
 
   const isLocked = scenario.locked ?? false;
 
+  let tabTitle: string | undefined;
+  if (isLocked) tabTitle = "Locked scenario (click lock to edit)";
+  else if (onRename) tabTitle = "Double-click to rename";
+
   return (
     <div
       ref={(el) => {
@@ -148,7 +152,7 @@ function SortableScenarioTab({
               onStartEditing(scenario.id);
             }
           }}
-          title={isLocked ? "Locked scenario (click lock to edit)" : onRename ? "Double-click to rename" : undefined}
+          title={tabTitle}
         >
           {scenario.name}
         </span>

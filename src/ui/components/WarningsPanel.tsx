@@ -24,6 +24,11 @@ const VARIANT_CLASSES = {
   },
 } as const;
 
+function formatLagSuffix(lagDays: number): string {
+  if (lagDays === 0) return "";
+  return `${lagDays > 0 ? "+" : ""}${lagDays}d`;
+}
+
 function WarningItem({ variant, title, detail, message, formatDate }: {
   variant: "error" | "warning";
   title: string;
@@ -130,7 +135,7 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [], activityNum
             />
           ))}
           {dependencyConflicts.map((dc, i) => {
-            const lagSuffix = dc.lagDays !== 0 ? `${dc.lagDays > 0 ? "+" : ""}${dc.lagDays}d` : "";
+            const lagSuffix = formatLagSuffix(dc.lagDays);
             return (
             <WarningItem
               key={`dep-${i}`}
