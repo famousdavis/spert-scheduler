@@ -20,9 +20,29 @@ import {
   formatDateISO,
 } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
+import {
+  distributionLabel,
+  statusLabel,
+  milestoneHealthTextClass,
+  milestoneHealthLabel,
+} from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { PrintGanttChart } from "@ui/charts/PrintGanttChart";
+
+function formatSignedBufferDays(buffer: { bufferDays: number } | null): string {
+  if (!buffer) return "—";
+  return `${buffer.bufferDays > 0 ? "+" : ""}${buffer.bufferDays} days`;
+}
+
+function formatSignedLag(lagDays: number): string {
+  if (lagDays === 0) return "0";
+  return `${lagDays > 0 ? "+" : ""}${lagDays}`;
+}
+
+function formatSignedSlackDays(slackDays: number | null | undefined): string {
+  if (slackDays === null || slackDays === undefined) return "—";
+  return `${slackDays >= 0 ? "+" : ""}${slackDays}d`;
+}
 
 interface PrintableReportProps {
   project: Project;
@@ -197,9 +217,7 @@ export function PrintableReport({
                 <tr>
                   <td className="py-0.5 text-gray-600">Schedule Buffer:</td>
                   <td className="py-0.5 font-medium">
-                    {buffer
-                      ? `${buffer.bufferDays > 0 ? "+" : ""}${buffer.bufferDays} days`
-                      : "—"}
+                    {formatSignedBufferDays(buffer)}
                   </td>
                 </tr>
                 <tr>
@@ -325,9 +343,7 @@ export function PrintableReport({
                     <td className="py-0.5 pr-1 font-medium">{toName}</td>
                     <td className="py-0.5 pr-1 text-center">{dep.type}</td>
                     <td className="py-0.5 tabular-nums">
-                      {dep.lagDays !== 0
-                        ? `${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}`
-                        : "0"}
+                      {formatSignedLag(dep.lagDays)}
                     </td>
                   </tr>
                 );
@@ -409,18 +425,12 @@ export function PrintableReport({
                       {info?.bufferDays !== null && info?.bufferDays !== undefined ? `${info.bufferDays}d` : "—"}
                     </td>
                     <td className="py-0.5 pr-1 text-center tabular-nums">
-                      {info?.slackDays !== null && info?.slackDays !== undefined
-                        ? `${info.slackDays >= 0 ? "+" : ""}${info.slackDays}d`
-                        : "—"}
+                      {formatSignedSlackDays(info?.slackDays)}
                     </td>
                     <td className="py-0.5">
                       {info ? (
-                        <span className={
-                          info.health === "green" ? "text-green-700" :
-                          info.health === "amber" ? "text-amber-700" :
-                          "text-red-700 font-medium"
-                        }>
-                          {info.health === "green" ? "On Track" : info.health === "amber" ? "Warning" : "At Risk"}
+                        <span className={milestoneHealthTextClass(info.health)}>
+                          {milestoneHealthLabel(info.health)}
                         </span>
                       ) : "—"}
                     </td>

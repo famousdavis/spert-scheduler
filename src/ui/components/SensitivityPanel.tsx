@@ -14,6 +14,23 @@ interface SensitivityPanelProps {
 
 type SortField = "impact" | "variance" | "cv";
 
+function sortFieldBarColor(sortField: SortField): string {
+  if (sortField === "impact") return "bg-blue-500";
+  if (sortField === "variance") return "bg-purple-500";
+  return "bg-amber-500";
+}
+
+function sortFieldBarWidth(
+  sortField: SortField,
+  impactPct: number,
+  variancePct: number,
+  coefficientOfVariation: number,
+): number {
+  if (sortField === "impact") return impactPct;
+  if (sortField === "variance") return variancePct;
+  return coefficientOfVariation * 100;
+}
+
 /**
  * Displays sensitivity analysis results showing which activities
  * contribute most to project uncertainty.
@@ -133,12 +150,9 @@ function SensitivityRow({
   const variancePct = (result.varianceContribution / maxVariance) * 100;
 
   // Color coding based on rank
-  const rankColor =
-    rank <= 3
-      ? "text-red-600 dark:text-red-400"
-      : rank <= 5
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-gray-500 dark:text-gray-400";
+  let rankColor = "text-gray-500 dark:text-gray-400";
+  if (rank <= 3) rankColor = "text-red-600 dark:text-red-400";
+  else if (rank <= 5) rankColor = "text-amber-600 dark:text-amber-400";
 
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
@@ -171,15 +185,9 @@ function SensitivityRow({
       <div className="w-32">
         <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
           <div
-            className={`h-full transition-all ${
-              sortField === "impact"
-                ? "bg-blue-500"
-                : sortField === "variance"
-                  ? "bg-purple-500"
-                  : "bg-amber-500"
-            }`}
+            className={`h-full transition-all ${sortFieldBarColor(sortField)}`}
             style={{
-              width: `${sortField === "impact" ? impactPct : sortField === "variance" ? variancePct : result.coefficientOfVariation * 100}%`,
+              width: `${sortFieldBarWidth(sortField, impactPct, variancePct, result.coefficientOfVariation)}%`,
             }}
           />
         </div>

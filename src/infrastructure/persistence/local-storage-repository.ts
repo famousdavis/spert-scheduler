@@ -39,6 +39,101 @@ export class StorageQuotaError extends Error {
   }
 }
 
+type PhaseResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: LoadError };
+
+function extractProjectName(parsed: unknown): string | undefined {
+  if (typeof parsed !== "object" || parsed === null || !("name" in parsed)) return undefined;
+  const name = (parsed as Record<string, unknown>).name;
+  return typeof name === "string" ? name : undefined;
+}
+
+function parseProjectJSON(raw: string, id: string, rawPreview: string): PhaseResult<unknown> {
+  try {
+    return { ok: true, value: JSON.parse(raw) };
+  } catch (e) {
+    return {
+      ok: false,
+      error: {
+        projectId: id,
+        type: "json_parse",
+        message: "Failed to parse project data as JSON",
+        details: e instanceof Error ? e.message : String(e),
+        rawPreview,
+      },
+    };
+  }
+}
+
+function validateSchemaVersion(
+  parsed: unknown,
+  id: string,
+  projectName: string | undefined,
+  rawPreview: string,
+): PhaseResult<number> {
+  const schemaVersion =
+    typeof parsed === "object" && parsed !== null && "schemaVersion" in parsed
+      ? (parsed as Record<string, unknown>).schemaVersion
+      : 1;
+
+  if (typeof schemaVersion !== "number") {
+    return {
+      ok: false,
+      error: {
+        projectId: id,
+        projectName,
+        type: "validation",
+        message: "Invalid schema version (not a number)",
+        details: `schemaVersion value: ${JSON.stringify(schemaVersion)}`,
+        rawPreview,
+      },
+    };
+  }
+
+  if (schemaVersion > SCHEMA_VERSION) {
+    return {
+      ok: false,
+      error: {
+        projectId: id,
+        projectName,
+        type: "future_version",
+        message: `Project was created with a newer version of SPERT Scheduler`,
+        details: `Project schema version: ${schemaVersion}, App schema version: ${SCHEMA_VERSION}. Please update the app.`,
+        rawPreview,
+      },
+    };
+  }
+
+  return { ok: true, value: schemaVersion };
+}
+
+function migrateProjectData(
+  data: unknown,
+  from: number,
+  to: number,
+  id: string,
+  projectName: string | undefined,
+  rawPreview: string,
+): PhaseResult<unknown> {
+  if (from >= to) return { ok: true, value: data };
+  try {
+    return { ok: true, value: applyMigrations(data, from, to) };
+  } catch (e) {
+    return {
+      ok: false,
+      error: {
+        projectId: id,
+        projectName,
+        type: "migration",
+        message: `Failed to migrate project from v${from} to v${to}`,
+        details: e instanceof Error ? e.message : String(e),
+        rawPreview,
+      },
+    };
+  }
+}
+
 /**
  * Strip the samples array from simulation results to reduce storage size.
  * Preserves percentiles, histogram, mean, SD, and other computed statistics.
@@ -99,91 +194,26 @@ export class LocalStorageRepository implements ProjectRepository {
 
     const rawPreview = raw.length > 200 ? raw.slice(0, 200) + "..." : raw;
 
-    // Try to parse JSON
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (e) {
-      return {
-        success: false,
-        error: {
-          projectId: id,
-          type: "json_parse",
-          message: "Failed to parse project data as JSON",
-          details: e instanceof Error ? e.message : String(e),
-          rawPreview,
-        },
-      };
-    }
+    const parseResult = parseProjectJSON(raw, id, rawPreview);
+    if (!parseResult.ok) return { success: false, error: parseResult.error };
 
-    // Extract project name if possible (for error display)
-    const projectName =
-      typeof parsed === "object" &&
-      parsed !== null &&
-      "name" in parsed &&
-      typeof (parsed as Record<string, unknown>).name === "string"
-        ? ((parsed as Record<string, unknown>).name as string)
-        : undefined;
+    const projectName = extractProjectName(parseResult.value);
 
-    // Check schema version
-    const schemaVersion =
-      typeof parsed === "object" && parsed !== null && "schemaVersion" in parsed
-        ? (parsed as Record<string, unknown>).schemaVersion
-        : 1;
+    const versionResult = validateSchemaVersion(parseResult.value, id, projectName, rawPreview);
+    if (!versionResult.ok) return { success: false, error: versionResult.error };
 
-    if (typeof schemaVersion !== "number") {
-      return {
-        success: false,
-        error: {
-          projectId: id,
-          projectName,
-          type: "validation",
-          message: "Invalid schema version (not a number)",
-          details: `schemaVersion value: ${JSON.stringify(schemaVersion)}`,
-          rawPreview,
-        },
-      };
-    }
+    const migrateResult = migrateProjectData(
+      parseResult.value,
+      versionResult.value,
+      SCHEMA_VERSION,
+      id,
+      projectName,
+      rawPreview,
+    );
+    if (!migrateResult.ok) return { success: false, error: migrateResult.error };
 
-    // Reject incompatible future versions
-    if (schemaVersion > SCHEMA_VERSION) {
-      return {
-        success: false,
-        error: {
-          projectId: id,
-          projectName,
-          type: "future_version",
-          message: `Project was created with a newer version of SPERT Scheduler`,
-          details: `Project schema version: ${schemaVersion}, App schema version: ${SCHEMA_VERSION}. Please update the app.`,
-          rawPreview,
-        },
-      };
-    }
-
-    // Apply migrations if needed
-    let data = parsed;
-    if (schemaVersion < SCHEMA_VERSION) {
-      try {
-        data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
-      } catch (e) {
-        return {
-          success: false,
-          error: {
-            projectId: id,
-            projectName,
-            type: "migration",
-            message: `Failed to migrate project from v${schemaVersion} to v${SCHEMA_VERSION}`,
-            details: e instanceof Error ? e.message : String(e),
-            rawPreview,
-          },
-        };
-      }
-    }
-
-    // Validate with Zod
-    const result = ProjectSchema.safeParse(data);
+    const result = ProjectSchema.safeParse(migrateResult.value);
     if (!result.success) {
-      // Format Zod errors for display
       const zodErrors = result.error.issues
         .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
         .join("; ");

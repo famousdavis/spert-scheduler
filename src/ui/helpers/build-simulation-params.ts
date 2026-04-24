@@ -17,6 +17,42 @@ export interface SimulationParams {
   sequentialConstraints: SequentialConstraintEntry[] | undefined;
 }
 
+type ConstraintOffsetEntry = { type: string; offsetFromStart: number; mode: string };
+
+/**
+ * Resolve each constrained activity's constraint date into a working-day offset from project start.
+ * Returns undefined if no activities have constraints (sentinel for "no constraints").
+ */
+function resolveConstraintOffsets(
+  activities: Activity[],
+  startDate: string,
+  calendar: WorkCalendar | Calendar | undefined,
+): Record<string, ConstraintOffsetEntry> | undefined {
+  const constrained = activities.filter(
+    (a) => a.constraintType && a.constraintDate && a.constraintMode
+  );
+  if (constrained.length === 0) return undefined;
+
+  const projStart = parseDateISO(startDate);
+  while (!isWorkingDay(projStart, calendar)) {
+    projStart.setDate(projStart.getDate() + 1);
+  }
+
+  const map: Record<string, ConstraintOffsetEntry> = {};
+  for (const a of constrained) {
+    const cDate = parseDateISO(a.constraintDate!);
+    while (!isWorkingDay(cDate, calendar)) {
+      cDate.setDate(cDate.getDate() + 1);
+    }
+    map[a.id] = {
+      type: a.constraintType!,
+      offsetFromStart: countWorkingDays(projStart, cDate, calendar),
+      mode: a.constraintMode!,
+    };
+  }
+  return map;
+}
+
 /**
  * Build simulation parameters for either sequential or dependency mode.
  * Pure function — used by both manual run and auto-run to avoid duplication.
@@ -37,30 +73,7 @@ export function buildSimulationParams(
     for (const [k, v] of durationMap) durMapRecord[k] = v;
 
     const msParams = buildMilestoneSimParams(activities, milestones, startDate, calendar);
-
-    // Build constraintMap: convert constraint dates to integer offsets from project start
-    let constraintMap: Record<string, { type: string; offsetFromStart: number; mode: string }> | undefined;
-    const constrainedActivities = activities.filter(
-      (a) => a.constraintType && a.constraintDate && a.constraintMode
-    );
-    if (constrainedActivities.length > 0) {
-      const projStart = parseDateISO(startDate);
-      while (!isWorkingDay(projStart, calendar)) {
-        projStart.setDate(projStart.getDate() + 1);
-      }
-      constraintMap = {};
-      for (const a of constrainedActivities) {
-        const cDate = parseDateISO(a.constraintDate!);
-        while (!isWorkingDay(cDate, calendar)) {
-          cDate.setDate(cDate.getDate() + 1);
-        }
-        constraintMap[a.id] = {
-          type: a.constraintType!,
-          offsetFromStart: countWorkingDays(projStart, cDate, calendar),
-          mode: a.constraintMode!,
-        };
-      }
-    }
+    const constraintMap = resolveConstraintOffsets(activities, startDate, calendar);
 
     return {
       deterministicDurations: undefined,
@@ -75,29 +88,10 @@ export function buildSimulationParams(
     };
   }
 
-  // Build sequential constraints if any activities have them
-  let sequentialConstraints: SequentialConstraintEntry[] | undefined;
-  const constrainedActivities = activities.filter(
-    (a) => a.constraintType && a.constraintDate && a.constraintMode
-  );
-  if (constrainedActivities.length > 0) {
-    const projStart = parseDateISO(startDate);
-    while (!isWorkingDay(projStart, calendar)) {
-      projStart.setDate(projStart.getDate() + 1);
-    }
-    sequentialConstraints = activities.map((a) => {
-      if (!a.constraintType || !a.constraintDate || !a.constraintMode) return null;
-      const cDate = parseDateISO(a.constraintDate);
-      while (!isWorkingDay(cDate, calendar)) {
-        cDate.setDate(cDate.getDate() + 1);
-      }
-      return {
-        type: a.constraintType,
-        offsetFromStart: countWorkingDays(projStart, cDate, calendar),
-        mode: a.constraintMode,
-      };
-    });
-  }
+  const constraintOffsets = resolveConstraintOffsets(activities, startDate, calendar);
+  const sequentialConstraints: SequentialConstraintEntry[] | undefined = constraintOffsets
+    ? activities.map((a) => constraintOffsets[a.id] ?? null)
+    : undefined;
 
   return {
     deterministicDurations: parkinsonsLawEnabled ? computeDeterministicDurations(activities, probabilityTarget) : undefined,

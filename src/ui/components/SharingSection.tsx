@@ -166,38 +166,46 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {member.role === "owner" ? (
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">
-                          Owner
-                        </span>
-                      ) : isOwner ? (
-                        <>
-                          <select
-                            value={member.role}
-                            onChange={(e) =>
-                              handleRoleChange(
-                                member.uid,
-                                e.target.value as "editor" | "viewer"
-                              )
-                            }
-                            className="text-xs border border-gray-300 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                          >
-                            <option value="editor">Editor</option>
-                            <option value="viewer">Viewer</option>
-                          </select>
-                          <button
-                            onClick={() => handleRemove(member.uid)}
-                            className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-                            title="Remove member"
-                          >
-                            Remove
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                          {member.role}
-                        </span>
-                      )}
+                      {(() => {
+                        if (member.role === "owner") {
+                          return (
+                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">
+                              Owner
+                            </span>
+                          );
+                        }
+                        if (isOwner) {
+                          return (
+                            <>
+                              <select
+                                value={member.role}
+                                onChange={(e) =>
+                                  handleRoleChange(
+                                    member.uid,
+                                    e.target.value as "editor" | "viewer"
+                                  )
+                                }
+                                className="text-xs border border-gray-300 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                              >
+                                <option value="editor">Editor</option>
+                                <option value="viewer">Viewer</option>
+                              </select>
+                              <button
+                                onClick={() => handleRemove(member.uid)}
+                                className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                                title="Remove member"
+                              >
+                                Remove
+                              </button>
+                            </>
+                          );
+                        }
+                        return (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                            {member.role}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}

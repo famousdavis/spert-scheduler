@@ -23,11 +23,10 @@ const firebaseConfig = {
  */
 const isFirebaseConfigured = Boolean(firebaseConfig.apiKey);
 
-const app: FirebaseApp | null = isFirebaseConfigured
-  ? getApps().length === 0
-    ? initializeApp(firebaseConfig)
-    : getApps()[0]!
-  : null;
+let app: FirebaseApp | null = null;
+if (isFirebaseConfigured) {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]!;
+}
 
 // memoryLocalCache avoids stale security rule decisions that persist in IndexedDB
 // and cause "Missing or insufficient permissions" errors after rules change.

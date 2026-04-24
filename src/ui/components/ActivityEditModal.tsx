@@ -51,6 +51,23 @@ interface ActivityEditModalProps {
   activityNumberMap?: Map<string, number> | null;
 }
 
+function actualDurTitle(status: ActivityStatus): string {
+  if (status === "planned") return "Set status to In Progress or Complete to enter actual duration";
+  if (status === "inProgress") return "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials.";
+  return "Total working days from scheduled start to actual finish";
+}
+
+function formatDepLagSuffix(lagDays: number): string {
+  if (lagDays === 0) return "";
+  return `, ${lagDays > 0 ? "+" : ""}${lagDays}d`;
+}
+
+function totalFloatLabel(totalFloat: number | null | undefined): string {
+  if (totalFloat === 0) return "Critical path \u2014 0 days float";
+  if (totalFloat == null) return "—";
+  return `${totalFloat} days`;
+}
+
 /** Schedule context row: Sched. Finish, Sched. Duration, Actual Duration, Actual Finish */
 function ScheduleContextRow({
   status,
@@ -110,13 +127,7 @@ function ScheduleContextRow({
       </div>
 
       {/* Col 4: Actual Duration — disabled for planned, editable for inProgress + complete */}
-      <div title={
-        status === "planned"
-          ? "Set status to In Progress or Complete to enter actual duration"
-          : status === "inProgress"
-            ? "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials."
-            : "Total working days from scheduled start to actual finish"
-      }>
+      <div title={actualDurTitle(status)}>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
           Actual Dur.
         </label>
@@ -273,7 +284,7 @@ function DependenciesDisplaySection({
                     {activityNameById(otherId)}
                   </span>
                   <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                    {dependencyLabel(dep.type)}{dep.lagDays !== 0 ? `, ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""}
+                    {dependencyLabel(dep.type)}{formatDepLagSuffix(dep.lagDays)}
                   </span>
                 </div>
                 {onEditDependency && (
@@ -327,9 +338,7 @@ function ScheduleAnalysisSection({
       <div className="text-gray-900 dark:text-gray-100">{sa.duration} working days</div>
       <div className="text-gray-500 dark:text-gray-400">Total Float</div>
       <div className="text-gray-900 dark:text-gray-100">
-        {sa.totalFloat === 0
-          ? "Critical path \u2014 0 days float"
-          : sa.totalFloat != null ? `${sa.totalFloat} days` : "—"}
+        {totalFloatLabel(sa.totalFloat)}
       </div>
       {sa.freeFloat != null && (
         <>

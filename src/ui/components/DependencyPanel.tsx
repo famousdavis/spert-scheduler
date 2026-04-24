@@ -9,6 +9,16 @@ import { validateDependencies, detectCycle } from "@core/schedule/dependency-gra
 
 type DependencySortMode = "alpha" | "schedule";
 
+function depCountLabel(count: number): string {
+  if (count === 0) return "No dependencies — all activities will start in parallel";
+  return `${count} ${count === 1 ? "dependency" : "dependencies"}`;
+}
+
+function formatLagSuffix(lagDays: number): string {
+  if (lagDays === 0) return "";
+  return `, ${lagDays > 0 ? "+" : ""}${lagDays}d`;
+}
+
 interface DependencyPanelProps {
   activities: Activity[];
   dependencies: ActivityDependency[];
@@ -229,9 +239,7 @@ export function DependencyPanel({
             </div>
           )}
           <span className="text-xs text-gray-400 dark:text-gray-500">
-            {dependencies.length === 0
-              ? "No dependencies — all activities will start in parallel"
-              : `${dependencies.length} ${dependencies.length === 1 ? "dependency" : "dependencies"}`}
+            {depCountLabel(dependencies.length)}
           </span>
         </div>
       </div>
@@ -266,7 +274,7 @@ export function DependencyPanel({
                 {getActivityName(dep.toActivityId)}
               </span>
               <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-                ({dependencyLabel(dep.type)}{dep.lagDays !== 0 ? `, ${dep.lagDays > 0 ? "+" : ""}${dep.lagDays}d` : ""})
+                ({dependencyLabel(dep.type)}{formatLagSuffix(dep.lagDays)})
               </span>
               {/* Editable lag */}
               {!isLocked && (

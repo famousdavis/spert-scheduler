@@ -17,6 +17,12 @@ interface ProjectTileProps {
   onChangeTileColor?: (id: string, color: string | undefined) => void;
 }
 
+function projectTileBorderClass(isDragging: boolean, archived: boolean): string {
+  if (isDragging) return "border-blue-400 shadow-lg opacity-80 z-10";
+  if (archived) return "border-gray-300 dark:border-gray-600 opacity-60 hover:opacity-100";
+  return "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:shadow-md";
+}
+
 export function ProjectTile({
   project,
   onNavigate,
@@ -70,13 +76,7 @@ export function ProjectTile({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white dark:bg-gray-800 border rounded-lg p-4 cursor-pointer transition-all ${
-        isDragging
-          ? "border-blue-400 shadow-lg opacity-80 z-10"
-          : project.archived
-            ? "border-gray-300 dark:border-gray-600 opacity-60 hover:opacity-100"
-            : "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:shadow-md"
-      }`}
+      className={`bg-white dark:bg-gray-800 border rounded-lg p-4 cursor-pointer transition-all ${projectTileBorderClass(isDragging, project.archived ?? false)}`}
       onClick={handleClick}
     >
       <div className="flex items-start justify-between gap-2">

@@ -41,6 +41,11 @@ interface ImportSectionProps {
   importProjects: (projects: Project[], replaceIds?: string[]) => void;
 }
 
+function importResultMessage(count: number): string {
+  if (count === 0) return "No projects were imported (all skipped).";
+  return `Successfully imported ${count} project${count !== 1 ? "s" : ""}.`;
+}
+
 export function ImportSection({ projects, importProjects }: ImportSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importState, setImportState] = useState<ImportState>({ step: "idle" });
@@ -297,9 +302,7 @@ export function ImportSection({ projects, importProjects }: ImportSectionProps) 
         {importState.step === "done" && (
           <div className="border border-green-200 bg-green-50 rounded-md p-4">
             <p className="text-sm font-medium text-green-800">
-              {importState.count === 0
-                ? "No projects were imported (all skipped)."
-                : `Successfully imported ${importState.count} project${importState.count !== 1 ? "s" : ""}.`}
+              {importResultMessage(importState.count)}
             </p>
             <button
               onClick={resetImport}
