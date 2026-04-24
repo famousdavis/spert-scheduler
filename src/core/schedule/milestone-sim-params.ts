@@ -10,6 +10,40 @@ export interface MilestoneSimParams {
   activityEarliestStart?: Record<string, number>;
 }
 
+function snapForwardToWorkingDay(date: Date, calendar?: WorkCalendar | Calendar): void {
+  while (!isWorkingDay(date, calendar)) {
+    date.setDate(date.getDate() + 1);
+  }
+}
+
+function buildMilestoneActivityMap(
+  activities: Activity[],
+  milestones: Milestone[],
+): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  for (const m of milestones) {
+    const assigned = activities.filter((a) => a.milestoneId === m.id).map((a) => a.id);
+    if (assigned.length > 0) {
+      map[m.id] = assigned;
+    }
+  }
+  return map;
+}
+
+function computeActivityEarliestStartOffset(
+  activity: Activity,
+  milestones: Milestone[],
+  projStart: Date,
+  calendar?: WorkCalendar | Calendar,
+): number | undefined {
+  if (!activity.startsAtMilestoneId) return undefined;
+  const ms = milestones.find((m) => m.id === activity.startsAtMilestoneId);
+  if (!ms) return undefined;
+  const msDate = parseDateISO(ms.targetDate);
+  snapForwardToWorkingDay(msDate, calendar);
+  return countWorkingDays(projStart, msDate, calendar);
+}
+
 /**
  * Build simulation parameters for milestone-aware dependency scheduling.
  * Maps activities to their milestones and computes earliest-start offsets
@@ -28,33 +62,16 @@ export function buildMilestoneSimParams(
 ): MilestoneSimParams {
   if (!milestones || milestones.length === 0) return {};
 
-  const milestoneActivityIds: Record<string, string[]> = {};
-  const activityEarliestStart: Record<string, number> = {};
+  const milestoneActivityIds = buildMilestoneActivityMap(activities, milestones);
 
-  for (const m of milestones) {
-    const assigned = activities.filter((a) => a.milestoneId === m.id).map((a) => a.id);
-    if (assigned.length > 0) {
-      milestoneActivityIds[m.id] = assigned;
-    }
-  }
-
-  // Build earliest start offsets for activities with startsAtMilestoneId
   const projStart = parseDateISO(startDate);
-  while (!isWorkingDay(projStart, calendar)) {
-    projStart.setDate(projStart.getDate() + 1);
-  }
+  snapForwardToWorkingDay(projStart, calendar);
 
+  const activityEarliestStart: Record<string, number> = {};
   for (const a of activities) {
-    if (a.startsAtMilestoneId) {
-      const ms = milestones.find((m) => m.id === a.startsAtMilestoneId);
-      if (ms) {
-        const msDate = parseDateISO(ms.targetDate);
-        while (!isWorkingDay(msDate, calendar)) {
-          msDate.setDate(msDate.getDate() + 1);
-        }
-        const offset = countWorkingDays(projStart, msDate, calendar);
-        activityEarliestStart[a.id] = offset;
-      }
+    const offset = computeActivityEarliestStartOffset(a, milestones, projStart, calendar);
+    if (offset !== undefined) {
+      activityEarliestStart[a.id] = offset;
     }
   }
 

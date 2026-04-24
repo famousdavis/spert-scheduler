@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.38.5",
+    date: "2026-04-23",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Flattened cognitive complexity in the dependency graph and milestone simulation parameter builder (PR 3 of the three-PR lint-debt paydown plan). All five sonarjs/cognitive-complexity errors in src/core/schedule/dependency-graph.ts (CC 16, 36, 17, 21) and src/core/schedule/milestone-sim-params.ts (CC 17) brought under the 15-allowed threshold. Lint count: 79 → 74 errors (0 warnings).",
+          "dependency-graph.ts: extracted populateAdjacency + kahnTopoSort from buildDependencyGraph; extracted buildAdjacencyForCycle, reconstructCyclePath, and findCycleFrom (single-DFS-tree visitor) from detectCycle; extracted validateDepStructure from validateDependencies; introduced shared runForwardPass / runBackwardPass primitives now reused by both computeCriticalPathDuration and computeCriticalPathActivities; extracted computeActivityScheduleWithMilestone, applyHardConstraintIfPresent, and computeMilestoneDurations from computeCriticalPathWithMilestones.",
+          "milestone-sim-params.ts: extracted snapForwardToWorkingDay (shared by project-start and milestone-target snapping), buildMilestoneActivityMap, and computeActivityEarliestStartOffset from buildMilestoneSimParams.",
+          "stryker.config.mjs + vitest.stryker.config.ts: added milestone-sim-params.ts (and its test file) to the Stryker mutate scope so future refactors of that file have a baseline to compare against. Caught a latent gap during the baseline run — the file had no mutation coverage before this PR.",
+          "Verified by Stryker mutation re-run against the pre-refactor baseline: dependency-graph.ts mutation score 89.13% → 89.27% (survivors 20 → 19); milestone-sim-params.ts survivor count unchanged (8 → 8). The headline percentage drop on milestone-sim-params (80.00% → 77.78%) comes entirely from the extracted helpers producing more type-checker-rejected mutants, not new test gaps.",
+          "No behavior change. All 1218 tests pass; typecheck clean.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.38.4",
     date: "2026-04-21",
     sections: [
