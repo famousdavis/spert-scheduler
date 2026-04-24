@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.39.1",
+    date: "2026-04-23",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Settings → Cloud Storage radios appearing unchecked after opening then dismissing the auth-chip modal. The modal's radio group shared name=\"storage-mode\" with StorageModeSection, so the browser treated all four radios as a single native group. When the modal rendered and then closed, the Settings page's radios were left visually unchecked even though React state was unchanged. Renamed the modal's radios to name=\"storage-mode-modal\" to keep the two groups isolated.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.39.0",
     date: "2026-04-23",
     sections: [
