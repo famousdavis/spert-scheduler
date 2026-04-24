@@ -1,12 +1,9 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
 import { getFirstName } from "@ui/helpers/format-user";
-import { StorageLoginModal } from "./StorageLoginModal";
 
 function CloudIcon() {
   return (
@@ -28,56 +25,18 @@ function LockIcon() {
   );
 }
 
-export function AuthButton() {
-  const { user, signOut } = useAuth();
+interface AuthButtonProps {
+  onOpenModal: () => void;
+}
+
+export function AuthButton({ onOpenModal }: AuthButtonProps) {
+  const { user } = useAuth();
   const { mode } = useStorage();
-  const navigate = useNavigate();
-  const [modalOpen, setModalOpen] = useState(false);
 
   const isCloudSignedIn = mode === "cloud" && !!user;
   const isSignedInLocal = !!user && mode !== "cloud";
   const firstName = getFirstName(user?.displayName, user?.email);
   const initial = firstName.charAt(0).toUpperCase();
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-
-  useEffect(() => {
-    if (!popoverOpen) return;
-    const onMouseDown = (e: MouseEvent) => {
-      if (signingOut) return;
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setPopoverOpen(false);
-      }
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (signingOut) return;
-      if (e.key === "Escape") setPopoverOpen(false);
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [popoverOpen, signingOut]);
-
-  const handleSignOut = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    try {
-      await signOut();
-      setPopoverOpen(false);
-    } finally {
-      setSigningOut(false);
-    }
-  };
-
-  const handleSwitchToCloud = () => {
-    setPopoverOpen(false);
-    navigate("/settings");
-  };
 
   const pillClass =
     "flex items-center rounded-full bg-transparent p-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors";
@@ -85,110 +44,70 @@ export function AuthButton() {
 
   if (isCloudSignedIn || isSignedInLocal) {
     return (
-      <div ref={containerRef} className="relative">
-        <button
-          type="button"
-          onClick={() => setPopoverOpen((o) => !o)}
-          className={pillClass}
-          style={pillStyle}
-          aria-haspopup="dialog"
-          aria-expanded={popoverOpen}
-          aria-label={
-            isCloudSignedIn
-              ? `Signed in as ${firstName} (cloud). Open account menu`
-              : `Signed in as ${firstName} (local only). Open account menu`
-          }
-        >
-          {/* Left segment: avatar + first name */}
-          <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
-            <span
-              className="flex items-center justify-center rounded-full text-white shrink-0"
-              style={{
-                width: 26,
-                height: 26,
-                backgroundColor: "#0070f3",
-                fontSize: 11,
-                fontWeight: 500,
-              }}
-            >
-              {initial}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900 dark:text-gray-100">
-              {firstName}
-            </span>
-          </span>
-          {/* Vertical divider */}
-          <span className="self-stretch" style={{ width: "0.5px", backgroundColor: "#D1D5DB" }} />
-          {/* Right segment: cloud or lock icon */}
-          <span className="flex items-center justify-center px-2.5 py-1 rounded-r-full">
-            {isCloudSignedIn ? <CloudIcon /> : <LockIcon />}
-          </span>
-        </button>
-
-        {popoverOpen && (
-          <div
-            role="dialog"
-            aria-label="Account menu"
-            className="absolute right-0 top-full mt-1 z-20 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-3 min-w-[220px]"
-          >
-            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-              {user?.displayName ?? firstName}
-            </div>
-            {user?.email && (
-              <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                {user.email}
-              </div>
-            )}
-            <div className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
-            {isSignedInLocal && (
-              <button
-                type="button"
-                onClick={handleSwitchToCloud}
-                className="w-full text-left text-sm px-2 py-1.5 rounded text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-              >
-                Switch to Cloud Storage
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={signingOut}
-              className="w-full text-left text-sm px-2 py-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {signingOut ? "Signing out…" : "Sign out"}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <>
       <button
         type="button"
-        onClick={() => setModalOpen(true)}
+        onClick={onOpenModal}
         className={pillClass}
         style={pillStyle}
-        aria-label="Sign in to cloud storage"
+        aria-haspopup="dialog"
+        aria-label={
+          isCloudSignedIn
+            ? `Signed in as ${firstName} (cloud). Open storage menu`
+            : `Signed in as ${firstName} (local only). Open storage menu`
+        }
       >
-        {/* Left segment: lock icon + "Local only" */}
-        <span className="flex items-center gap-1.5 py-1 pl-2.5 pr-2.5">
-          <LockIcon />
-          <span style={{ fontSize: 13 }} className="text-gray-400">
-            Local only
+        {/* Left segment: avatar + first name */}
+        <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
+          <span
+            className="flex items-center justify-center rounded-full text-white shrink-0"
+            style={{
+              width: 26,
+              height: 26,
+              backgroundColor: "#0070f3",
+              fontSize: 11,
+              fontWeight: 500,
+            }}
+          >
+            {initial}
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900 dark:text-gray-100">
+            {firstName}
           </span>
         </span>
         {/* Vertical divider */}
         <span className="self-stretch" style={{ width: "0.5px", backgroundColor: "#D1D5DB" }} />
-        {/* Right segment: "Sign in" (visual only) */}
+        {/* Right segment: cloud or lock icon */}
         <span className="flex items-center justify-center px-2.5 py-1 rounded-r-full">
-          <span style={{ fontSize: 12, fontWeight: 500, color: "#0070f3" }}>
-            Sign in
-          </span>
+          {isCloudSignedIn ? <CloudIcon /> : <LockIcon />}
         </span>
       </button>
-      <StorageLoginModal open={modalOpen} onOpenChange={setModalOpen} />
-    </>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onOpenModal}
+      className={pillClass}
+      style={pillStyle}
+      aria-haspopup="dialog"
+      aria-label="Sign in to cloud storage"
+    >
+      {/* Left segment: lock icon + "Local only" */}
+      <span className="flex items-center gap-1.5 py-1 pl-2.5 pr-2.5">
+        <LockIcon />
+        <span style={{ fontSize: 13 }} className="text-gray-400">
+          Local only
+        </span>
+      </span>
+      {/* Vertical divider */}
+      <span className="self-stretch" style={{ width: "0.5px", backgroundColor: "#D1D5DB" }} />
+      {/* Right segment: "Sign in" (visual only) */}
+      <span className="flex items-center justify-center px-2.5 py-1 rounded-r-full">
+        <span style={{ fontSize: 12, fontWeight: 500, color: "#0070f3" }}>
+          Sign in
+        </span>
+      </span>
+    </button>
   );
 }

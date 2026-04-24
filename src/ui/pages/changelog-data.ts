@@ -12,6 +12,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.39.0",
+    date: "2026-04-23",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Standardized auth chip click behavior across all three states (signed-out, signed-in-local, signed-in-cloud). Every click now opens the Storage & Sign In modal — the previous inline popover for signed-in states (with Switch to Cloud Storage and Sign out buttons) has been removed. Modal open state now lives at the Layout level rather than inside AuthButton.",
+          "Storage & Sign In modal now handles all three auth/storage combinations in-place. After successful sign-in the modal no longer auto-closes and navigates to /settings; instead it transitions to the signed-in-local layout so the user can flip to Cloud Storage without leaving the modal. Signed-in states show an identity card with avatar, display name (Microsoft 'Last, First MI' reversed to 'First MI Last' via the new getDisplayName helper), email, and inline Sign out. Radio group is interactive when signed-in: selecting Cloud triggers the upload-confirm/migration flow, selecting Local triggers the Keep/Discard confirmation.",
+          "Modal now includes an always-visible Notifications section with the Warn me on startup when using local storage toggle — a second entry point to the same preference already in Settings → Notifications. Both surfaces read and write the same suppressLocalStorageWarning preference (intentionally left cloud-synced alongside the rest of UserPreferences; not migrated to a local-only key).",
+          "Sign-in button row now wraps (flex-wrap) below ~320px viewports instead of overflowing. Modal gains an explicit × close button in the title row (backdrop, Escape, and the dismiss text button continue to work)."
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Extracted src/ui/hooks/use-storage-mode-switch.ts — shared state machine for migration progress, migration result/error, and the Keep/Discard confirmation flow. Consumed by both StorageLoginModal (new) and StorageModeSection (settings page). Eliminates drift risk between the two mode-switch entry points.",
+          "Added getDisplayName() to src/ui/helpers/format-user.ts alongside the existing getFirstName() — reverses Microsoft 'Last, First MI' display names to natural 'First MI Last' order for the identity card. getFirstName semantics unchanged.",
+          "Removed openedWhileSignedOutRef + post-sign-in auto-navigate effect from StorageLoginModal. Signed-in vs signed-out layout is now pure state-driven off the {user, mode} tuple.",
+          "Settings → Cloud Storage section retained as a secondary entry point; refactored to consume the shared hook. Settings → Notifications section retained — two entry points to the same toggle is intentional."
+        ],
+      },
+    ],
+  },
+  {
     version: "0.38.6",
     date: "2026-04-23",
     sections: [
