@@ -129,7 +129,7 @@ function ModeRadioGroup({
       <label className={`flex items-center gap-2.5 ${signedIn ? "cursor-pointer" : ""}`}>
         <input
           type="radio"
-          name="storage-mode"
+          name="storage-mode-modal"
           value="local"
           checked={localChecked}
           onChange={() => signedIn && onChange("local")}
@@ -148,7 +148,7 @@ function ModeRadioGroup({
       <label className={`flex items-center gap-2.5 ${signedIn ? "cursor-pointer" : ""}`}>
         <input
           type="radio"
-          name="storage-mode"
+          name="storage-mode-modal"
           value="cloud"
           checked={cloudChecked}
           onChange={() => signedIn && onChange("cloud")}
