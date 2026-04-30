@@ -391,6 +391,98 @@ describe("useProjectStore", () => {
     });
   });
 
+  describe("undo grouping (commit-based)", () => {
+    it("collapses repeated scenario notes updates into a single undo entry", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Group Notes Test");
+      const scenarioId = project.scenarios[0]!.id;
+      const baselineUndoLen = useProjectStore.getState().undoStack.length;
+
+      useProjectStore.getState().beginUndoGroup(project.id);
+      // Simulate 5 keystrokes — each calls updateScenarioNotes individually.
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "h");
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "he");
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "hel");
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "hell");
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "hello");
+      useProjectStore.getState().endUndoGroup();
+
+      // Exactly one new entry — the pre-edit snapshot pushed by beginUndoGroup.
+      expect(useProjectStore.getState().undoStack.length).toBe(baselineUndoLen + 1);
+
+      // Stored notes reflect the final keystroke.
+      const stored = useProjectStore.getState().getProject(project.id)!;
+      expect(stored.scenarios[0]!.notes).toBe("hello");
+
+      // One undo reverts the entire edit.
+      useProjectStore.getState().undo();
+      const reverted = useProjectStore.getState().getProject(project.id)!;
+      expect(reverted.scenarios[0]!.notes).toBeUndefined();
+    });
+
+    it("does not suppress mutations on a different project while a group is active", () => {
+      const store = useProjectStore.getState();
+      const projectA = store.addProject("Project A");
+      const projectB = store.addProject("Project B");
+      const baselineLen = useProjectStore.getState().undoStack.length;
+
+      useProjectStore.getState().beginUndoGroup(projectA.id);
+      // Mutate A — this should also push (the begin's own pre-edit snapshot).
+      useProjectStore
+        .getState()
+        .updateScenarioNotes(projectA.id, projectA.scenarios[0]!.id, "a-edit");
+      // Mutate B — different project, must not be suppressed.
+      useProjectStore
+        .getState()
+        .updateScenarioNotes(projectB.id, projectB.scenarios[0]!.id, "b-edit");
+      useProjectStore.getState().endUndoGroup();
+
+      // baseline + 1 (begin pushed for A) + 1 (B's mutation pushed normally).
+      expect(useProjectStore.getState().undoStack.length).toBe(baselineLen + 2);
+
+      const top = useProjectStore.getState().undoStack[
+        useProjectStore.getState().undoStack.length - 1
+      ]!;
+      expect(top.projectId).toBe(projectB.id);
+    });
+
+    it("re-establishes the group when typing resumes after a mid-edit undo", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Group Self-Heal Test");
+      const scenarioId = project.scenarios[0]!.id;
+      const baselineLen = useProjectStore.getState().undoStack.length;
+
+      // First group: type "abc".
+      useProjectStore.getState().beginUndoGroup(project.id);
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "a");
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "ab");
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "abc");
+      // Mid-edit undo (simulates Ctrl+Z while still focused) — closes group + pops.
+      useProjectStore.getState().undo();
+      // Continued typing — onChange wrapper calls beginUndoGroup before each update.
+      useProjectStore.getState().beginUndoGroup(project.id);
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "x");
+      useProjectStore.getState().beginUndoGroup(project.id);
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "xy");
+      useProjectStore.getState().beginUndoGroup(project.id);
+      useProjectStore.getState().updateScenarioNotes(project.id, scenarioId, "xyz");
+      useProjectStore.getState().endUndoGroup();
+
+      // After undo: undoStack returned to baselineLen.
+      // Second group beginUndoGroup pushed exactly one new snapshot (post-undo state).
+      // Subsequent updates suppressed by guard.
+      expect(useProjectStore.getState().undoStack.length).toBe(baselineLen + 1);
+
+      const stored = useProjectStore.getState().getProject(project.id)!;
+      expect(stored.scenarios[0]!.notes).toBe("xyz");
+
+      // One undo reverts the second batch entirely.
+      useProjectStore.getState().undo();
+      const reverted = useProjectStore.getState().getProject(project.id)!;
+      expect(reverted.scenarios[0]!.notes).toBeUndefined();
+    });
+  });
+
   describe("importProjects cloud sync", () => {
     it("emits create events for all imported projects", () => {
       const handler = vi.fn();

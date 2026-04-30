@@ -12,6 +12,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.40.0",
+    date: "2026-04-30",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Editing scenario notes now collapses into a single undo entry per editing session. Previously each keystroke pushed its own snapshot, so a sentence-long note consumed dozens of slots from the 50-entry undo stack and required dozens of Ctrl+Z presses to revert. Notes editing now produces exactly one undo entry from focus through blur, restoring the textarea to its pre-edit state with a single Ctrl+Z. Pressing Ctrl+Z mid-edit and continuing to type re-establishes the group cleanly so the post-undo edits also collapse to a single entry.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Added commit-based undo grouping primitive to the project store: module-scoped activeUndoGroup state, a project-id-scoped guard at the top of pushUndo, and two new actions (beginUndoGroup / endUndoGroup) wired to scenario-notes textarea onFocus/onBlur. The defensive onChange wrapper at the ProjectPage layer also calls beginUndoGroup, making the group self-heal after a mid-edit undo()/redo(). undo() and redo() close any active group before popping; setProjects and clearAllData null the group on session boundaries.",
+          "Three new test cases in use-project-store.test.ts cover the grouping mechanism: single-entry collapse across repeated updates, cross-project mutations not suppressed, and group self-heal after mid-edit undo (1221 tests passing across 59 files).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.39.1",
     date: "2026-04-23",
     sections: [

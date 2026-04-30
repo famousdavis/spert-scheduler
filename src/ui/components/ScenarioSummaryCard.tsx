@@ -73,6 +73,8 @@ interface ScenarioSummaryCardProps {
   targetRAGColor?: string;
   scenarioNotes?: string;
   onScenarioNotesChange?: (notes: string | undefined) => void;
+  onScenarioNotesFocus?: () => void;
+  onScenarioNotesBlur?: () => void;
 }
 
 interface UseScheduleExportParams {
@@ -157,6 +159,8 @@ export function ScenarioSummaryCard({
   targetRAGColor,
   scenarioNotes,
   onScenarioNotesChange,
+  onScenarioNotesFocus,
+  onScenarioNotesBlur,
 }: ScenarioSummaryCardProps) {
   const formatDate = useDateFormat();
   const actPct = Math.round(settings.probabilityTarget * 100);
@@ -334,6 +338,8 @@ export function ScenarioSummaryCard({
           <textarea
             value={scenarioNotes ?? ""}
             onChange={(e) => onScenarioNotesChange?.(e.target.value || undefined)}
+            onFocus={onScenarioNotesFocus}
+            onBlur={onScenarioNotesBlur}
             maxLength={2000}
             rows={3}
             disabled={isLocked}

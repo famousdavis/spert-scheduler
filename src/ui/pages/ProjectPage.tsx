@@ -81,6 +81,8 @@ export function ProjectPage() {
     updateGanttAppearance,
     updateScenarioNotes,
     reorderScenarios,
+    beginUndoGroup,
+    endUndoGroup,
   } = useProjectStore(
     useShallow((s) => ({
       projects: s.projects,
@@ -117,6 +119,8 @@ export function ProjectPage() {
       updateGanttAppearance: s.updateGanttAppearance,
       updateScenarioNotes: s.updateScenarioNotes,
       reorderScenarios: s.reorderScenarios,
+      beginUndoGroup: s.beginUndoGroup,
+      endUndoGroup: s.endUndoGroup,
     }))
   );
 
@@ -604,9 +608,15 @@ export function ProjectPage() {
             }
             targetRAGColor={targetRAGColor}
             scenarioNotes={scenario.notes}
-            onScenarioNotesChange={(notes) =>
-              updateScenarioNotes(id!, scenario.id, notes)
-            }
+            onScenarioNotesChange={(notes) => {
+              // Defensive begin: idempotent during normal typing (group already
+              // active from onFocus); the only time it does work is the keystroke
+              // immediately after a mid-edit undo()/redo() cleared the group.
+              beginUndoGroup(id!);
+              updateScenarioNotes(id!, scenario.id, notes);
+            }}
+            onScenarioNotesFocus={() => beginUndoGroup(id!)}
+            onScenarioNotesBlur={() => endUndoGroup()}
           />
 
           {/* Validation errors */}
