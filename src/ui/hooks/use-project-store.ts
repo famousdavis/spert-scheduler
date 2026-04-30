@@ -65,6 +65,13 @@ interface UndoEntry {
   snapshot: Project;
 }
 
+// Module-scoped commit-based undo grouping. While a group is active for a given
+// projectId, repeated pushUndo calls for the same project collapse into one
+// snapshot — letting per-keystroke notes edits become a single undo entry.
+// Intentionally outside the Zustand store: focus/blur should not trigger
+// React re-renders, and group state has no reactive consumers.
+let activeUndoGroup: { projectId: string } | null = null;
+
 /**
  * Helper to find a scenario within the project store.
  * Returns undefined if project or scenario not found.
@@ -151,6 +158,8 @@ export interface ProjectStore {
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
+  beginUndoGroup: (projectId: string) => void;
+  endUndoGroup: () => void;
 
   // Project CRUD
   loadProjects: () => void;
@@ -381,6 +390,9 @@ function persist(projects: Project[], projectId?: string) {
 export const useProjectStore = create<ProjectStore>((set, get) => {
   /** Push current project state to undo stack before mutating */
   function pushUndo(projectId: string) {
+    // Suppress repeated pushes from the same project while a commit-based
+    // group is active — collapses a notes-editing session into one entry.
+    if (activeUndoGroup?.projectId === projectId) return;
     const project = get().projects.find((p) => p.id === projectId);
     if (!project) return;
     set((state) => ({
@@ -419,6 +431,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   redoStack: [],
 
   undo: () => {
+    // Close any active group before popping so subsequent edits in the same
+    // textarea start a fresh group via the defensive onChange wiring.
+    activeUndoGroup = null;
     const { undoStack, projects } = get();
     if (undoStack.length === 0) return;
     const entry = undoStack[undoStack.length - 1]!;
@@ -442,6 +457,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   redo: () => {
+    activeUndoGroup = null;
     const { redoStack, projects } = get();
     if (redoStack.length === 0) return;
     const entry = redoStack[redoStack.length - 1]!;
@@ -466,6 +482,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   canUndo: () => get().undoStack.length > 0,
   canRedo: () => get().redoStack.length > 0,
+
+  beginUndoGroup: (projectId: string) => {
+    if (activeUndoGroup) return;
+    pushUndo(projectId);
+    activeUndoGroup = { projectId };
+  },
+
+  endUndoGroup: () => {
+    activeUndoGroup = null;
+  },
 
   loadProjects: () => {
     const ids = repo.list();
@@ -916,6 +942,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   setProjects: (projects: Project[]) => {
+    activeUndoGroup = null;
     // Also sync to localStorage so local cache stays current
     for (const project of projects) {
       repo.save(project);
@@ -938,6 +965,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   clearAllData: () => {
+    activeUndoGroup = null;
     set({
       projects: [],
       loadError: false,

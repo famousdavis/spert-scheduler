@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.40.0 — 2026-04-30
+
+### Changed
+
+- **Editing scenario notes now collapses into a single undo entry per editing session.** Previously each keystroke pushed its own snapshot, so a sentence-long note consumed dozens of slots from the 50-entry undo stack and required dozens of Ctrl+Z presses to revert. Notes editing now produces exactly one undo entry from focus through blur, restoring the textarea to its pre-edit state with a single Ctrl+Z. Pressing Ctrl+Z mid-edit and continuing to type re-establishes the group cleanly so the post-undo edits also collapse to a single entry.
+
+### Internal
+
+- **Added commit-based undo grouping primitive to the project store.** Module-scoped `activeUndoGroup` state, a project-id-scoped guard at the top of `pushUndo`, and two new actions (`beginUndoGroup` / `endUndoGroup`) wired to the scenario-notes textarea via `onFocus` / `onBlur`. The defensive `onChange` wrapper at the `ProjectPage` layer also calls `beginUndoGroup` (idempotent during normal typing) so the group self-heals after a mid-edit `undo()` / `redo()` clears it. `undo()` and `redo()` close any active group before popping; `setProjects` and `clearAllData` null the group on session boundaries (sign-out, mode switch).
+- **Three new test cases in `use-project-store.test.ts`** cover the grouping mechanism: single-entry collapse across repeated updates, cross-project mutations not suppressed by another project's group, and group self-heal after mid-edit undo. 1221 tests passing across 59 files.
+- Activity-notes textarea in `ActivityEditModal.tsx` was intentionally **not** wired in this release. Its `onChange` writes to local component state and `updateActivityNotes` is invoked exactly once per Save, so the per-keystroke problem does not exist there today. Wiring is deferred until a future inline-edit refactor needs it.
+
 ## 0.39.1 — 2026-04-23
 
 ### Fixed
