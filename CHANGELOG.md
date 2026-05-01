@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.40.1 — 2026-04-30
+
+### Added
+
+- **Browser tab favicon and apple-touch-icon.** Previously the app shipped with no favicon link in `index.html`, so browser tabs and bookmarks displayed the default blank/globe icon. The new SPERT mark (192×192 PNG with transparent rounded corners) now appears in the tab strip, bookmarks, and iOS home-screen shortcuts.
+- **Inline SPERT icon in the top-nav header.** The 28×28 mark sits to the left of the "SPERT® Scheduler" wordmark in `Layout.tsx`, vertically centered inside the existing brand `<Link>`. The icon is served from `/public` via a plain `<img>` tag (no module import or build hashing) and uses `width` / `height` attributes to reserve layout space and prevent CLS.
+
+### Internal
+
+- **Added `public/spert-favicon-scheduler.png` (192×192) and `public/favicon.ico` (32×32, PNG-format fallback).** The `.ico` ships PNG bytes rather than a true ICO container — modern browsers accept this universally and it keeps the file at ~1.2KB versus the ~285KB true-ICO output from the `npx png-to-ico` build path. CSP is unaffected (`img-src 'self'` already permits the new asset). No PWA manifest added (deferred — see plan).
+
 ## 0.40.0 — 2026-04-30
 
 ### Changed
