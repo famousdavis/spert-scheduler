@@ -314,39 +314,47 @@ export class FirestoreDriver {
    */
   subscribeToProject(
     id: string,
-    callback: (project: Project) => void
+    callback: (project: Project) => void,
+    onError?: (error: unknown) => void
   ): Unsubscribe {
     if (!db) return () => {};
 
     const ref = doc(db, PROJECTS_COL, id);
-    return onSnapshot(ref, (snap) => {
-      if (snap.metadata.hasPendingWrites) return;
-      if (!snap.exists()) return;
+    return onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
+        if (!snap.exists()) return;
 
-      const raw = snap.data();
-      const stripped = stripFirestoreFields(raw);
-      const projectData = { id: snap.id, ...stripped };
+        const raw = snap.data();
+        const stripped = stripFirestoreFields(raw);
+        const projectData = { id: snap.id, ...stripped };
 
-      // Migrate
-      let data: unknown = projectData;
-      const schemaVersion =
-        typeof stripped.schemaVersion === "number"
-          ? stripped.schemaVersion
-          : 1;
-      if (schemaVersion < SCHEMA_VERSION) {
-        try {
-          data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
-        } catch {
-          return;
+        // Migrate
+        let data: unknown = projectData;
+        const schemaVersion =
+          typeof stripped.schemaVersion === "number"
+            ? stripped.schemaVersion
+            : 1;
+        if (schemaVersion < SCHEMA_VERSION) {
+          try {
+            data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
+          } catch {
+            return;
+          }
         }
+
+        // Validate
+        const result = ProjectSchema.safeParse(data);
+        if (!result.success) return;
+
+        callback(result.data as Project);
+      },
+      (error) => {
+        console.error(`Snapshot listener failed for project ${id}:`, error);
+        onError?.(error);
       }
-
-      // Validate
-      const result = ProjectSchema.safeParse(data);
-      if (!result.success) return;
-
-      callback(result.data as Project);
-    });
+    );
   }
 
   // -- Preferences ------------------------------------------------------------

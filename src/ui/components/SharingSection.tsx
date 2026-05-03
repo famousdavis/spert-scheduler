@@ -223,6 +223,7 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Email address"
+                      autoComplete="off"
                       className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleShare();
