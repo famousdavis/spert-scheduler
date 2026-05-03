@@ -86,6 +86,8 @@ export function ConvertedWorkDaysEditor({
       <div className="mt-2 flex items-center gap-2">
         <input
           type="date"
+          name="convertedWorkDay"
+          aria-label="Converted work day"
           value={dateInput}
           onChange={(e) => setDateInput(e.target.value)}
           className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"

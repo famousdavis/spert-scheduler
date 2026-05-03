@@ -290,6 +290,8 @@ export function UnifiedActivityGrid({
         <div className="flex items-center justify-center">
           <input
             type="checkbox"
+            name="selectAllActivities"
+            aria-label="Select all activities"
             checked={
               activities.length > 0 && selectedIds.size === activities.length
             }

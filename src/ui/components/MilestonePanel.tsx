@@ -123,6 +123,8 @@ export function MilestonePanel({
             <div className="flex items-center gap-2">
               <input
                 type="text"
+                name="milestoneName"
+                aria-label="Milestone name"
                 value={m.name}
                 onChange={(e) => onUpdateMilestone(m.id, { name: e.target.value })}
                 disabled={isLocked}
@@ -131,6 +133,8 @@ export function MilestonePanel({
               />
               <input
                 type="date"
+                name="milestoneTargetDate"
+                aria-label="Milestone target date"
                 value={m.targetDate}
                 onChange={(e) => onUpdateMilestone(m.id, { targetDate: e.target.value })}
                 disabled={isLocked}
@@ -166,11 +170,13 @@ export function MilestonePanel({
 
             {/* Assigned activities (must finish before milestone) */}
             <div className="space-y-1 pl-2">
-              <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              <label htmlFor={`milestone-assign-${m.id}`} className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                 Must finish before milestone ({assigned.length})
               </label>
               {!isLocked && (
                 <select
+                  id={`milestone-assign-${m.id}`}
+                  name="milestoneAssignActivity"
                   value=""
                   onChange={(e) => {
                     if (e.target.value) onAssignActivity(e.target.value, m.id);
@@ -206,11 +212,13 @@ export function MilestonePanel({
 
             {/* Starts at milestone */}
             <div className="space-y-1 pl-2">
-              <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              <label htmlFor={`milestone-startsat-${m.id}`} className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                 Starts at this milestone ({startsAt.length})
               </label>
               {!isLocked && (
                 <select
+                  id={`milestone-startsat-${m.id}`}
+                  name="milestoneStartsAt"
                   value=""
                   onChange={(e) => {
                     if (e.target.value) onSetStartsAt(e.target.value, m.id);
@@ -252,6 +260,8 @@ export function MilestonePanel({
         <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
           <input
             type="text"
+            name="newMilestoneName"
+            aria-label="New milestone name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Milestone name"
@@ -262,6 +272,8 @@ export function MilestonePanel({
           />
           <input
             type="date"
+            name="newMilestoneDate"
+            aria-label="New milestone date"
             value={newDate}
             onChange={(e) => setNewDate(e.target.value)}
             className="px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none"

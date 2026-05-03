@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 
 interface NewProjectDialogProps {
@@ -16,6 +16,7 @@ export function NewProjectDialog({
   onCreate,
 }: NewProjectDialogProps) {
   const [name, setName] = useState("");
+  const nameId = useId();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,10 +37,12 @@ export function NewProjectDialog({
           </Dialog.Title>
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor={nameId} className="block text-sm font-medium text-gray-700 mb-1">
                 Project Name
               </label>
               <input
+                id={nameId}
+                name="projectName"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}

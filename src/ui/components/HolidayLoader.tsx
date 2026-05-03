@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useId, useState, useEffect, useRef, useCallback } from "react";
 import type { Calendar, Holiday } from "@domain/models/types";
 import type { NagerCountry } from "@domain/models/nager-types";
 import { generateId } from "@app/api/id";
@@ -41,6 +41,9 @@ export function HolidayLoader({ calendar, countries, onUpdate }: HolidayLoaderPr
       (navigator.language?.split("-")[1]?.toUpperCase() || "US"),
   );
   const [presetYear, setPresetYear] = useState(currentYear);
+  const baseId = useId();
+  const countryId = `${baseId}-country`;
+  const yearId = `${baseId}-year`;
 
   // Sync selectedCountry when preferences load from localStorage
   useEffect(() => {
@@ -251,10 +254,12 @@ export function HolidayLoader({ calendar, countries, onUpdate }: HolidayLoaderPr
   return (
     <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-sm text-gray-700 dark:text-gray-300">
+        <label htmlFor={countryId} className="text-sm text-gray-700 dark:text-gray-300">
           Country
         </label>
         <select
+          id={countryId}
+          name="holidayCountry"
           value={selectedCountry}
           onChange={(e) => handleCountryChange(e.target.value)}
           className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 dark:text-gray-100 max-w-48"
@@ -265,10 +270,12 @@ export function HolidayLoader({ calendar, countries, onUpdate }: HolidayLoaderPr
             </option>
           ))}
         </select>
-        <label className="text-sm text-gray-700 dark:text-gray-300">
+        <label htmlFor={yearId} className="text-sm text-gray-700 dark:text-gray-300">
           Year
         </label>
         <select
+          id={yearId}
+          name="holidayYear"
           value={presetYear}
           onChange={(e) =>
             handleYearChange(parseInt(e.target.value, 10))

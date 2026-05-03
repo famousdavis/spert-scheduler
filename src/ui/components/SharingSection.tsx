@@ -178,6 +178,8 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                           return (
                             <>
                               <select
+                                name="memberRole"
+                                aria-label={`Role for ${member.email ?? member.uid}`}
                                 value={member.role}
                                 onChange={(e) =>
                                   handleRoleChange(
@@ -220,6 +222,8 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                   <div className="flex gap-2">
                     <input
                       type="email"
+                      name="inviteEmail"
+                      aria-label="Invite member email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Email address"
@@ -230,6 +234,8 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                       }}
                     />
                     <select
+                      name="inviteRole"
+                      aria-label="Invite member role"
                       value={role}
                       onChange={(e) =>
                         setRole(e.target.value as "editor" | "viewer")

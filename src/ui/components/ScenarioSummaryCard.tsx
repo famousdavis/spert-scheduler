@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, type ReactNode } from "react";
+import { useId, useState, useCallback, type ReactNode } from "react";
 import { ToggleSwitch } from "./ToggleSwitch";
 import type { Activity, ActivityDependency, DeterministicSchedule, Milestone, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
@@ -185,6 +185,15 @@ export function ScenarioSummaryCard({
 
   // Scenario notes state
   const [notesOpen, setNotesOpen] = useState(false);
+  const baseId = useId();
+  const startDateId = `${baseId}-start`;
+  const targetFinishId = `${baseId}-target`;
+  const notesId = `${baseId}-notes`;
+  const activityTargetId = `${baseId}-activity`;
+  const projectTargetId = `${baseId}-project`;
+  const trialsId = `${baseId}-trials`;
+  const heuristicMinPctId = `${baseId}-hmin`;
+  const heuristicMaxPctId = `${baseId}-hmax`;
 
   // Schedule export state
   const { exporting, exportDisabled, handleExportXlsx, handleExportCsv } = useScheduleExport({
@@ -232,11 +241,13 @@ export function ScenarioSummaryCard({
       {/* Row 1: Dates and duration */}
       <div className="flex items-baseline gap-6 flex-wrap">
         <div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <label htmlFor={startDateId} className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Start
-          </span>
+          </label>
           <div>
             <input
+              id={startDateId}
+              name="scenarioStartDate"
               type="date"
               value={startDate}
               onChange={(e) => {
@@ -249,11 +260,13 @@ export function ScenarioSummaryCard({
         </div>
         <div className="border-l border-gray-200 dark:border-gray-600 self-stretch" />
         <div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <label htmlFor={targetFinishId} className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Finish Target
-          </span>
+          </label>
           <div>
             <input
+              id={targetFinishId}
+              name="targetFinishDate"
               type="date"
               value={targetFinishDate ?? ""}
               onChange={(e) => {
@@ -336,6 +349,9 @@ export function ScenarioSummaryCard({
       {notesOpen && (
         <div className="mt-2">
           <textarea
+            id={notesId}
+            name="scenarioNotes"
+            aria-label="Scenario notes"
             value={scenarioNotes ?? ""}
             onChange={(e) => onScenarioNotesChange?.(e.target.value || undefined)}
             onFocus={onScenarioNotesFocus}
@@ -356,10 +372,12 @@ export function ScenarioSummaryCard({
       <div className="flex items-center gap-2 flex-wrap text-sm">
         {/* Targets */}
         <div className="flex items-center gap-1.5">
-          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+          <label htmlFor={activityTargetId} className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Activity
           </label>
           <select
+            id={activityTargetId}
+            name="scenarioActivityTarget"
             value={settings.probabilityTarget}
             onChange={(e) =>
               onSettingsChange({
@@ -375,10 +393,12 @@ export function ScenarioSummaryCard({
               </option>
             ))}
           </select>
-          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap ml-1.5">
+          <label htmlFor={projectTargetId} className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap ml-1.5">
             Project
           </label>
           <select
+            id={projectTargetId}
+            name="scenarioProjectTarget"
             value={settings.projectProbabilityTarget}
             onChange={(e) =>
               onSettingsChange({
@@ -400,10 +420,12 @@ export function ScenarioSummaryCard({
 
         {/* Trials */}
         <div className="flex items-center gap-1.5">
-          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+          <label htmlFor={trialsId} className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Trials:
           </label>
           <select
+            id={trialsId}
+            name="scenarioTrialCount"
             value={settings.trialCount}
             onChange={(e) =>
               onSettingsChange({
@@ -453,16 +475,19 @@ export function ScenarioSummaryCard({
 
         {/* Heuristic */}
         <div className="flex items-center gap-1" title="Heuristic estimation: auto-generate Min and Max estimates from the Most Likely value using percentage multipliers">
-          <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+          <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
             Heuristic:
-          </label>
+          </span>
           <ToggleSwitch
+            ariaLabel="Heuristic estimation enabled"
             checked={settings.heuristicEnabled}
             onChange={(val) => onSettingsChange({ heuristicEnabled: val })}
             disabled={isLocked}
           />
-          <span className="text-gray-500 dark:text-gray-400 text-xs ml-1.5">Min</span>
+          <label htmlFor={heuristicMinPctId} className="text-gray-500 dark:text-gray-400 text-xs ml-1.5">Min</label>
           <input
+            id={heuristicMinPctId}
+            name="scenarioHeuristicMin"
             type="number"
             value={localMinPct}
             onChange={(e) => setLocalMinPct(e.target.value)}
@@ -481,8 +506,10 @@ export function ScenarioSummaryCard({
             step={1}
           />
           <span className="text-gray-500 dark:text-gray-400 text-xs">%</span>
-          <span className="text-gray-500 dark:text-gray-400 text-xs ml-1.5">Max</span>
+          <label htmlFor={heuristicMaxPctId} className="text-gray-500 dark:text-gray-400 text-xs ml-1.5">Max</label>
           <input
+            id={heuristicMaxPctId}
+            name="scenarioHeuristicMax"
             type="number"
             value={localMaxPct}
             onChange={(e) => setLocalMaxPct(e.target.value)}
@@ -508,10 +535,11 @@ export function ScenarioSummaryCard({
         {/* Dependencies + Parkinson's Law — grouped to prevent orphan wrapping */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5" title="Dependency mode: schedule activities using a dependency graph instead of sequential order">
-            <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+            <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
               Dependencies:
-            </label>
+            </span>
             <ToggleSwitch
+              ariaLabel="Dependency mode"
               checked={settings.dependencyMode}
               onChange={(val) => onSettingsChange({ dependencyMode: val })}
               disabled={isLocked}
@@ -519,10 +547,11 @@ export function ScenarioSummaryCard({
           </div>
 
           <div className="flex items-center gap-1.5" title="Parkinson's Law: when enabled, simulated activity durations are never less than the deterministic (P50) duration">
-            <label className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+            <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
               Parkinson&apos;s Law:
-            </label>
+            </span>
             <ToggleSwitch
+              ariaLabel="Parkinson's Law"
               checked={settings.parkinsonsLawEnabled ?? true}
               onChange={(val) => onSettingsChange({ parkinsonsLawEnabled: val })}
               disabled={isLocked}

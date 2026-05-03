@@ -62,6 +62,7 @@ export function ExportSection({ projects }: ExportSectionProps) {
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
+              name="selectAllProjectsForExport"
               checked={
                 selectedIds.size === projects.length && projects.length > 0
               }
@@ -84,6 +85,8 @@ export function ExportSection({ projects }: ExportSectionProps) {
               >
                 <input
                   type="checkbox"
+                  name="exportProjectSelection"
+                  aria-label={`Select ${project.name} for export`}
                   checked={selectedIds.has(project.id)}
                   onChange={() => toggleProject(project.id)}
                   className="rounded border-gray-300 dark:border-gray-600"
@@ -108,6 +111,7 @@ export function ExportSection({ projects }: ExportSectionProps) {
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
+              name="includeSimulationResults"
               checked={includeSimulationResults}
               onChange={(e) => setIncludeSimulationResults(e.target.checked)}
               className="rounded border-gray-300 dark:border-gray-600"

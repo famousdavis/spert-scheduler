@@ -79,6 +79,8 @@ export default function HeuristicSuggester({ onApply }: HeuristicSuggesterProps)
       <div className="flex flex-wrap items-center gap-2">
         {/* Domain dropdown */}
         <select
+          name="heuristicDomain"
+          aria-label="Heuristic domain"
           value={selectedDomain ?? ""}
           onChange={(e) => handleDomainChange(e.target.value)}
           className={selectClasses}
@@ -93,6 +95,8 @@ export default function HeuristicSuggester({ onApply }: HeuristicSuggesterProps)
 
         {/* Subdomain dropdown */}
         <select
+          name="heuristicSubdomain"
+          aria-label="Heuristic subdomain"
           value={selectedSubdomain ?? ""}
           onChange={(e) =>
             setSelectedSubdomain(e.target.value === "" ? null : e.target.value)

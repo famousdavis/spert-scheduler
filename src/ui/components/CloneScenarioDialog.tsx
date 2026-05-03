@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 
 interface CloneScenarioDialogProps {
@@ -19,6 +19,7 @@ export function CloneScenarioDialog({
 }: CloneScenarioDialogProps) {
   const [name, setName] = useState(`${sourceName} (Copy)`);
   const [dropCompleted, setDropCompleted] = useState(false);
+  const nameId = useId();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,10 +42,12 @@ export function CloneScenarioDialog({
           </Dialog.Description>
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor={nameId} className="block text-sm font-medium text-gray-700 mb-1">
                 New Name
               </label>
               <input
+                id={nameId}
+                name="cloneScenarioName"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -55,6 +58,7 @@ export function CloneScenarioDialog({
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
+                name="dropCompletedActivities"
                 checked={dropCompleted}
                 onChange={(e) => setDropCompleted(e.target.checked)}
                 className="rounded border-gray-300"

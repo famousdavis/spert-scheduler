@@ -68,6 +68,8 @@ export function BulkActionToolbar({
 
       {/* Confidence level dropdown */}
       <select
+        name="bulkConfidence"
+        aria-label="Set confidence level for selected activities"
         value={stagedConfidence}
         onChange={(e) => setStagedConfidence(e.target.value as RSMLevel | "")}
         className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"
@@ -82,6 +84,8 @@ export function BulkActionToolbar({
 
       {/* Distribution type dropdown */}
       <select
+        name="bulkDistribution"
+        aria-label="Set distribution for selected activities"
         value={stagedDistribution}
         onChange={(e) => setStagedDistribution(e.target.value as DistributionType | "")}
         className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"
@@ -96,6 +100,8 @@ export function BulkActionToolbar({
 
       {/* Status dropdown */}
       <select
+        name="bulkStatus"
+        aria-label="Set status for selected activities"
         value={stagedStatus}
         onChange={(e) => setStagedStatus(e.target.value as ActivityStatus | "")}
         className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"

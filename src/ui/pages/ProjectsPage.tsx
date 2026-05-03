@@ -212,6 +212,8 @@ export function ProjectsPage() {
         <div className="flex items-center gap-4">
           <input
             type="text"
+            name="searchProjects"
+            aria-label="Search projects"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search projects..."
@@ -222,6 +224,7 @@ export function ProjectsPage() {
             <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <input
                 type="checkbox"
+                name="showArchivedProjects"
                 checked={showArchived}
                 onChange={(e) => setShowArchived(e.target.checked)}
                 className="rounded border-gray-300 dark:border-gray-600"

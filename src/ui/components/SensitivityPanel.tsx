@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { Activity } from "@domain/models/types";
 import {
   computeSensitivityAnalysis,
@@ -38,6 +38,7 @@ function sortFieldBarWidth(
 export function SensitivityPanel({ activities }: SensitivityPanelProps) {
   const [sortField, setSortField] = useState<SortField>("impact");
   const [expanded, setExpanded] = useState(false);
+  const sortId = useId();
 
   const results = useMemo(
     () => computeSensitivityAnalysis(activities),
@@ -85,10 +86,12 @@ export function SensitivityPanel({ activities }: SensitivityPanelProps) {
           Sensitivity Analysis
         </h3>
         <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-500 dark:text-gray-400">
+          <label htmlFor={sortId} className="text-xs text-gray-500 dark:text-gray-400">
             Sort by:
           </label>
           <select
+            id={sortId}
+            name="sensitivitySortField"
             value={sortField}
             onChange={(e) => setSortField(e.target.value as SortField)}
             className="text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:outline-none focus:border-blue-400"
