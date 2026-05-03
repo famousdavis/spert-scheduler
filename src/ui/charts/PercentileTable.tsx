@@ -71,6 +71,7 @@ export function PercentileTable({
           <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
             <input
               type="checkbox"
+              name="percentileShowCI"
               checked={showCI}
               onChange={(e) => setShowCI(e.target.checked)}
               className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"

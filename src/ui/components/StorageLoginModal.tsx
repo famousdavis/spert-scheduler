@@ -305,7 +305,7 @@ function NotificationsToggle({
             stored locally in this browser.
           </p>
         </div>
-        <ToggleSwitch checked={warnEnabled} onChange={onToggle} />
+        <ToggleSwitch ariaLabel="Warn on startup when using local storage" checked={warnEnabled} onChange={onToggle} />
       </div>
     </div>
   );

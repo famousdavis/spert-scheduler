@@ -475,6 +475,8 @@ export function ProjectPage() {
           <InlineEdit
             value={project.name}
             onSave={(name) => renameProject(id!, name)}
+            name="projectName"
+            ariaLabel="Project name"
             className="text-2xl font-bold text-gray-900 dark:text-gray-100"
             inputClassName="text-2xl font-bold text-gray-900 dark:text-gray-100"
           />

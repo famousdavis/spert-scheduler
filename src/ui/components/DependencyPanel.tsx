@@ -61,6 +61,8 @@ function LagInput({
   return (
     <input
       type="number"
+      name="dependencyLagInline"
+      aria-label="Dependency lag days"
       value={input}
       placeholder="0"
       onChange={(e) => setInput(e.target.value)}
@@ -280,6 +282,8 @@ export function DependencyPanel({
               {!isLocked && (
                 <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                   <select
+                    name="dependencyType"
+                    aria-label="Dependency type"
                     value={dep.type}
                     onChange={(e) => onUpdateType(dep.fromActivityId, dep.toActivityId, e.target.value as DependencyType)}
                     className="w-32 px-0.5 py-0.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none"
@@ -288,7 +292,7 @@ export function DependencyPanel({
                       <option key={t} value={t}>{dependencyLabel(t)}</option>
                     ))}
                   </select>
-                  <label className="text-xs text-gray-400 dark:text-gray-500">Lag:</label>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">Lag:</span>
                   <LagInput
                     value={dep.lagDays}
                     onChange={(val) => onUpdateLag(dep.fromActivityId, dep.toActivityId, val)}
@@ -315,6 +319,8 @@ export function DependencyPanel({
       {!isLocked && activities.length >= 2 && (
         <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
           <select
+            name="newDependencyFrom"
+            aria-label="Predecessor activity"
             value={fromId}
             onChange={(e) => setFromId(e.target.value)}
             className={`flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 rounded focus:border-blue-400 focus:outline-none ${fromId ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}`}
@@ -328,6 +334,8 @@ export function DependencyPanel({
           </select>
           <span className="text-gray-400 dark:text-gray-500 text-sm shrink-0">→</span>
           <select
+            name="newDependencyTo"
+            aria-label="Successor activity"
             value={toId}
             onChange={(e) => setToId(e.target.value)}
             className={`flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 rounded focus:border-blue-400 focus:outline-none ${toId ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}`}
@@ -340,6 +348,8 @@ export function DependencyPanel({
             ))}
           </select>
           <select
+            name="newDependencyType"
+            aria-label="Dependency type"
             value={depType}
             onChange={(e) => setDepType(e.target.value as DependencyType)}
             className="px-1 py-1.5 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none shrink-0"
@@ -349,7 +359,7 @@ export function DependencyPanel({
             ))}
           </select>
           <div className="flex items-center gap-1 shrink-0">
-            <label className="text-xs text-gray-400 dark:text-gray-500">Lag:</label>
+            <span className="text-xs text-gray-400 dark:text-gray-500">Lag:</span>
             <LagInput
               value={lagDays}
               onChange={setLagDays}

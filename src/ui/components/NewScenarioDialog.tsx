@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect } from "react";
+import { useId, useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 
 interface ScenarioOption {
@@ -24,6 +24,8 @@ export function NewScenarioDialog({
 }: NewScenarioDialogProps) {
   const [name, setName] = useState("");
   const [sourceId, setSourceId] = useState(scenarios[0]?.id ?? "");
+  const sourceFieldId = useId();
+  const nameFieldId = useId();
 
   // Reset source to Baseline (first scenario) whenever dialog opens
   useEffect(() => {
@@ -55,10 +57,12 @@ export function NewScenarioDialog({
           </p>
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor={sourceFieldId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Copy from
               </label>
               <select
+                id={sourceFieldId}
+                name="newScenarioSource"
                 value={sourceId}
                 onChange={(e) => setSourceId(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 dark:text-gray-100"
@@ -71,10 +75,12 @@ export function NewScenarioDialog({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor={nameFieldId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Scenario Name
               </label>
               <input
+                id={nameFieldId}
+                name="newScenarioName"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}

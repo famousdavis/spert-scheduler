@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useMemo } from "react";
+import { useId, useState, useCallback, useMemo } from "react";
 import type { SimulationRun } from "@domain/models/types";
 import { cdf, lookupProbability } from "@core/analytics/analytics";
 import { exportSimulationCSV } from "@app/api/csv-export-service";
@@ -85,6 +85,7 @@ export function SimulationPanel({
 
   // Date probability lookup state
   const [targetDate, setTargetDate] = useState("");
+  const targetDateId = useId();
   const targetLookup = useMemo(() => {
     if (!targetDate || !dateToWorkingDays || !simulationResults?.samples?.length) return null;
     const days = dateToWorkingDays(targetDate);
@@ -240,10 +241,12 @@ export function SimulationPanel({
               </h4>
               {dateToWorkingDays && simulationResults.samples.length > 0 && (
                 <div className="flex items-center gap-2 mb-2">
-                  <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  <label htmlFor={targetDateId} className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     Finish by:
                   </label>
                   <input
+                    id={targetDateId}
+                    name="finishByLookup"
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}

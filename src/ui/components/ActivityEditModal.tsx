@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useId, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import type {
   ConstraintType,
@@ -94,13 +94,16 @@ function ScheduleContextRow({
   handleActualFinishDateBlur: (e: React.FocusEvent<HTMLInputElement>) => void;
   setActualDuration: (v: number | "") => void;
 }) {
+  const baseId = useId();
+  const actualDurId = `${baseId}-actualdur`;
+  const actualFinId = `${baseId}-actualfin`;
   return (
     <div className={`grid gap-3 ${status === "complete" ? "grid-cols-[1fr_1fr_auto_4.5rem_1.3fr]" : "grid-cols-4"}`}>
       {/* Col 1: Scheduled Start (display only — always) */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+        <div className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
           Sched. Start
-        </label>
+        </div>
         <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
           {formatDate(scheduledStartDate)}
         </p>
@@ -108,9 +111,9 @@ function ScheduleContextRow({
 
       {/* Col 2: Scheduled Finish (display only — always) */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 whitespace-nowrap">
+        <div className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 whitespace-nowrap">
           Sched. Finish
-        </label>
+        </div>
         <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
           {formatDate(sa.endDate)}
         </p>
@@ -118,9 +121,9 @@ function ScheduleContextRow({
 
       {/* Col 3: Scheduled Duration (display only — always) */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+        <div className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
           Sched. Dur.
-        </label>
+        </div>
         <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
           {sa.duration}d
         </p>
@@ -128,10 +131,12 @@ function ScheduleContextRow({
 
       {/* Col 4: Actual Duration — disabled for planned, editable for inProgress + complete */}
       <div title={actualDurTitle(status)}>
-        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+        <label htmlFor={actualDurId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
           Actual Dur.
         </label>
         <input
+          id={actualDurId}
+          name="actualDuration"
           type="number"
           min={1}
           value={actualDuration}
@@ -149,10 +154,12 @@ function ScheduleContextRow({
       {/* Col 4: Actual Finish Date — complete only */}
       {status === "complete" && (
         <div title="Entering a date auto-calculates duration; entering a duration auto-calculates this date">
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          <label htmlFor={actualFinId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
             Actual Finish
           </label>
           <input
+            id={actualFinId}
+            name="actualFinishDate"
             type="date"
             value={actualFinishDate}
             onChange={handleActualFinishDateChange}
@@ -463,6 +470,18 @@ export function ActivityEditModal({
 
   // -- Conflict preview (200ms debounce) --
   const [conflictPreview, setConflictPreview] = useState<ConstraintConflict | null>(null);
+  const baseId = useId();
+  const fieldNameId = `${baseId}-name`;
+  const fieldStatusId = `${baseId}-status`;
+  const fieldMinId = `${baseId}-min`;
+  const fieldMlId = `${baseId}-ml`;
+  const fieldMaxId = `${baseId}-max`;
+  const fieldConfidenceId = `${baseId}-confidence`;
+  const fieldDistributionId = `${baseId}-distribution`;
+  const fieldConstraintTypeId = `${baseId}-ctype`;
+  const fieldConstraintDateId = `${baseId}-cdate`;
+  const fieldConstraintNoteId = `${baseId}-cnote`;
+  const fieldNotesId = `${baseId}-notes`;
   const conflictTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -795,10 +814,12 @@ export function ActivityEditModal({
               {/* Name + Status (side-by-side) */}
               <div className="flex gap-3">
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <label htmlFor={fieldNameId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Name
                   </label>
                   <input
+                    id={fieldNameId}
+                    name="activityName"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -807,10 +828,12 @@ export function ActivityEditModal({
                   />
                 </div>
                 <div className="w-32 shrink-0">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <label htmlFor={fieldStatusId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Status
                   </label>
                   <select
+                    id={fieldStatusId}
+                    name="activityStatus"
                     value={status}
                     onChange={(e) => {
                       const newStatus = e.target.value as ActivityStatus;
@@ -859,10 +882,12 @@ export function ActivityEditModal({
             <Section title="Estimates" defaultOpen={false}>
               <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 1fr 1fr 2fr 2fr" }}>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <label htmlFor={fieldMinId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Min
                   </label>
                   <input
+                    id={fieldMinId}
+                    name="estimateMin"
                     type="number"
                     min={0}
                     step={0.5}
@@ -872,10 +897,12 @@ export function ActivityEditModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <label htmlFor={fieldMlId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     ML
                   </label>
                   <input
+                    id={fieldMlId}
+                    name="estimateMostLikely"
                     type="number"
                     min={0}
                     step={0.5}
@@ -886,10 +913,12 @@ export function ActivityEditModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <label htmlFor={fieldMaxId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Max
                   </label>
                   <input
+                    id={fieldMaxId}
+                    name="estimateMax"
                     type="number"
                     min={0}
                     step={0.5}
@@ -899,10 +928,12 @@ export function ActivityEditModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <label htmlFor={fieldConfidenceId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Confidence
                   </label>
                   <select
+                    id={fieldConfidenceId}
+                    name="confidenceLevel"
                     value={confidenceLevel}
                     onChange={(e) => setConfidenceLevel(e.target.value as RSMLevel)}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -915,10 +946,12 @@ export function ActivityEditModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <label htmlFor={fieldDistributionId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Distribution
                   </label>
                   <select
+                    id={fieldDistributionId}
+                    name="distributionType"
                     value={distributionType}
                     onChange={(e) => setDistributionType(e.target.value as DistributionType)}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -946,10 +979,12 @@ export function ActivityEditModal({
                 <div className="space-y-3">
                   {/* Constraint Type */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <label htmlFor={fieldConstraintTypeId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                       Type
                     </label>
                     <select
+                      id={fieldConstraintTypeId}
+                      name="constraintType"
                       value={constraintType ?? ""}
                       onChange={handleTypeChange}
                       className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -966,10 +1001,12 @@ export function ActivityEditModal({
                   {/* Constraint Date */}
                   {constraintType && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <label htmlFor={fieldConstraintDateId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                         Date
                       </label>
                       <input
+                        id={fieldConstraintDateId}
+                        name="constraintDate"
                         type="date"
                         value={constraintDate ?? ""}
                         onChange={handleDateChange}
@@ -986,9 +1023,9 @@ export function ActivityEditModal({
                   {/* Constraint Mode */}
                   {constraintType && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <div className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1" role="group" aria-label="Constraint mode">
                         Mode
-                      </label>
+                      </div>
                       <div className="flex gap-4">
                         {CONSTRAINT_MODES.map((mode) => (
                           <label key={mode} className="flex items-center gap-1.5 cursor-pointer">
@@ -1017,10 +1054,12 @@ export function ActivityEditModal({
                   {/* Note */}
                   {constraintType && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <label htmlFor={fieldConstraintNoteId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                         Note <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
                       </label>
                       <textarea
+                        id={fieldConstraintNoteId}
+                        name="constraintNote"
                         value={constraintNote ?? ""}
                         onChange={(e) => setConstraintNote(e.target.value || null)}
                         maxLength={500}
@@ -1106,6 +1145,9 @@ export function ActivityEditModal({
               indicatorColor="bg-violet-500 dark:bg-violet-400"
             >
               <textarea
+                id={fieldNotesId}
+                name="activityNotes"
+                aria-label="Activity notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 maxLength={2000}

@@ -63,6 +63,7 @@ export function ConsentModal({
           <label className="mt-5 flex items-start gap-2 cursor-pointer">
             <input
               type="checkbox"
+              name="consentAgreement"
               checked={checked}
               onChange={(e) => setChecked(e.target.checked)}
               className="mt-0.5 text-blue-600"

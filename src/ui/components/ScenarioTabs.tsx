@@ -125,6 +125,8 @@ function SortableScenarioTab({
       {compareMode && onToggleCompare && (
         <input
           type="checkbox"
+          name="compareScenario"
+          aria-label={`Compare scenario ${scenario.name}`}
           checked={selectedForCompare?.has(scenario.id) ?? false}
           onChange={(e) => {
             e.stopPropagation();
@@ -140,6 +142,8 @@ function SortableScenarioTab({
             onRename(scenario.id, name);
             onStartEditing(""); // clear editing
           }}
+          name="scenarioName"
+          ariaLabel="Scenario name"
           className={isBaseline ? "font-semibold" : "font-medium"}
           inputClassName="text-sm font-medium w-32"
         />

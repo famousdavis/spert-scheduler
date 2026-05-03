@@ -70,12 +70,16 @@ function SortableDeliverableRow({
       </button>
       <input
         type="checkbox"
+        name="deliverableCompleted"
+        aria-label="Deliverable completed"
         checked={item.completed}
         onChange={() => onToggle(item.id)}
         className="shrink-0 rounded border-gray-300 dark:border-gray-600 text-indigo-600"
       />
       <input
         type="text"
+        name="deliverableText"
+        aria-label="Deliverable description"
         value={item.text}
         onChange={(e) => onTextChange(item.id, e.target.value)}
         maxLength={200}
@@ -190,6 +194,8 @@ export function DeliverablesSection({ deliverables, onChange }: DeliverablesSect
           <input
             ref={newInputRef}
             type="text"
+            name="newDeliverableText"
+            aria-label="Add a deliverable"
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }}

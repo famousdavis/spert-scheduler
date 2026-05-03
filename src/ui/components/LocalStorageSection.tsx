@@ -78,6 +78,7 @@ export function LocalStorageSection() {
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"
+            name="storeFullSimulationData"
             checked={storeFullSimulationData}
             onChange={(e) =>
               updatePreferences({

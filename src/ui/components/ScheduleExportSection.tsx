@@ -137,6 +137,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
           <label className="block text-sm text-gray-700 dark:text-gray-300">
             <span className="font-medium">Project</span>
             <select
+              name="exportProjectId"
               value={selectedProjectId}
               onChange={(e) => handleProjectChange(e.target.value)}
               className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
@@ -160,6 +161,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
                 </p>
               ) : (
                 <select
+                  name="exportScenarioId"
                   value={selectedScenarioId}
                   onChange={(e) => setSelectedScenarioId(e.target.value)}
                   className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"

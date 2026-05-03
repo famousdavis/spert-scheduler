@@ -106,6 +106,8 @@ function ColorSwatchPicker({
           </div>
           <input
             type="color"
+            name="ganttColor"
+            aria-label="Custom color"
             value={color ?? "#3b82f6"}
             onChange={(e) => { onColorChange(e.target.value); setOpen(false); }}
             className="w-full h-6 cursor-pointer"
@@ -190,6 +192,7 @@ export function GanttAppearancePanel({
         <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
           <input
             type="checkbox"
+            name="ganttFitToWindow"
             checked={appearance.fitToWindow}
             onChange={(e) => update({ fitToWindow: e.target.checked })}
             className="rounded"
@@ -199,6 +202,7 @@ export function GanttAppearancePanel({
         <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
           <input
             type="checkbox"
+            name="ganttWeekendShading"
             checked={appearance.weekendShading}
             onChange={(e) => update({ weekendShading: e.target.checked })}
             className="rounded"
@@ -208,6 +212,7 @@ export function GanttAppearancePanel({
         <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
           <input
             type="checkbox"
+            name="ganttRowGuideLines"
             checked={appearance.rowGuideLines ?? true}
             onChange={(e) => update({ rowGuideLines: e.target.checked })}
             className="rounded"

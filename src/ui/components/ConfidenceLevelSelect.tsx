@@ -200,6 +200,9 @@ export function ConfidenceLevelSelect({
               <input
                 ref={filterInputRef}
                 type="text"
+                name="confidenceLevelFilter"
+                autoComplete="off"
+                aria-label="Filter confidence levels"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 onKeyDown={handleFilterKeyDown}

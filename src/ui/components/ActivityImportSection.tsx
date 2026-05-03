@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import {
+  useId,
   useState,
   useCallback,
   useRef,
@@ -60,6 +61,10 @@ export function ActivityImportSection({
   const [targetProjectId, setTargetProjectId] = useState<string | "new">("new");
   // eslint-disable-next-line sonarjs/no-unused-vars
   const [_isPending, startTransition] = useTransition(); // NOSONAR — intentional destructuring discard
+  const baseId = useId();
+  const pasteId = `${baseId}-paste`;
+  const scenarioId = `${baseId}-scenario`;
+  const projectId = `${baseId}-project`;
 
   const preferences = usePreferencesStore((s) => s.preferences);
 
@@ -337,6 +342,8 @@ export function ActivityImportSection({
           <input
             ref={fileInputRef}
             type="file"
+            name="activityImportFile"
+            aria-label="Activity import CSV file"
             accept=".csv,.txt"
             onChange={handleFileChange}
             className="hidden"
@@ -358,6 +365,7 @@ export function ActivityImportSection({
             <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
               <input
                 type="checkbox"
+                name="autoPreviewOnPaste"
                 checked={autoPreview}
                 onChange={(e) => setAutoPreview(e.target.checked)}
                 className="text-blue-600 rounded"
@@ -366,6 +374,9 @@ export function ActivityImportSection({
             </label>
           </div>
           <textarea
+            id={pasteId}
+            name="activityImportPaste"
+            aria-label="Paste spreadsheet data"
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
             placeholder={"Paste tab-separated data here (copy rows from Excel or Google Sheets)…"}
@@ -489,10 +500,12 @@ export function ActivityImportSection({
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <div className="flex-1">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      <label htmlFor={scenarioId} className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                         Scenario Name
                       </label>
                       <input
+                        id={scenarioId}
+                        name="commitScenarioName"
                         type="text"
                         value={scenarioName}
                         onChange={(e) => setScenarioName(e.target.value)}
@@ -501,10 +514,12 @@ export function ActivityImportSection({
                       />
                     </div>
                     <div className="sm:w-56">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      <label htmlFor={projectId} className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                         Add to project
                       </label>
                       <select
+                        id={projectId}
+                        name="commitTargetProject"
                         value={targetProjectId}
                         onChange={(e) => setTargetProjectId(e.target.value)}
                         className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"

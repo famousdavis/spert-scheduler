@@ -426,6 +426,8 @@ export function UnifiedActivityRow({
       <div className="flex items-center justify-center">
         <input
           type="checkbox"
+          name="selectActivity"
+          aria-label={`Select activity ${activity.name || "(unnamed)"}`}
           checked={isSelected ?? false}
           onChange={() => onToggleSelect?.(activity.id)}
           className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
@@ -468,6 +470,8 @@ export function UnifiedActivityRow({
             ref={nameInputRef}
             data-row-id={activity.id}
             data-field="name"
+            name="activityName"
+            aria-label="Activity name"
             type="text"
             value={activity.name}
             onChange={(e) => onUpdate(activity.id, { name: e.target.value })}
@@ -574,6 +578,8 @@ export function UnifiedActivityRow({
         <select
           data-row-id={activity.id}
           data-field="distribution"
+          name="activityDistribution"
+          aria-label="Activity distribution"
           value={activity.distributionType}
           onChange={(e) =>
             onUpdate(activity.id, {
@@ -625,6 +631,8 @@ export function UnifiedActivityRow({
         <select
           data-row-id={activity.id}
           data-field="status"
+          name="activityStatus"
+          aria-label="Activity status"
           value={activity.status}
           onChange={(e) => {
             const newStatus = e.target.value as Activity["status"];
@@ -656,6 +664,8 @@ export function UnifiedActivityRow({
           <input
             data-row-id={activity.id}
             data-field="actual"
+            name="actualDuration"
+            aria-label="Actual duration"
             type="number"
             title={isInProgress
               ? "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials."

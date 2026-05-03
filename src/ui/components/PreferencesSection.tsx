@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect } from "react";
+import { useId, useState, useEffect } from "react";
 import { ToggleSwitch } from "./ToggleSwitch";
 import {
   RSM_LEVELS,
@@ -48,6 +48,17 @@ export function PreferencesSection() {
   useEffect(() => { setLocalMinPct(String(preferences.defaultHeuristicMinPercent)); }, [preferences.defaultHeuristicMinPercent]); // eslint-disable-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalMaxPct(String(preferences.defaultHeuristicMaxPercent)); }, [preferences.defaultHeuristicMaxPercent]); // eslint-disable-line react-hooks/set-state-in-effect
 
+  const baseId = useId();
+  const themeId = `${baseId}-theme`;
+  const trialsId = `${baseId}-trials`;
+  const distributionId = `${baseId}-distribution`;
+  const confidenceId = `${baseId}-confidence`;
+  const activityTargetId = `${baseId}-activity`;
+  const projectTargetId = `${baseId}-project`;
+  const dateFormatId = `${baseId}-dateformat`;
+  const heuristicMinId = `${baseId}-hmin`;
+  const heuristicMaxId = `${baseId}-hmax`;
+
   const handleHeuristicApply = (minPct: number, maxPct: number) => {
     setLocalMinPct(String(minPct));
     setLocalMaxPct(String(maxPct));
@@ -83,10 +94,12 @@ export function PreferencesSection() {
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Theme */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={themeId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Theme
           </label>
           <select
+            id={themeId}
+            name="theme"
             value={preferences.theme ?? "system"}
             onChange={(e) =>
               updatePreferences({
@@ -104,10 +117,12 @@ export function PreferencesSection() {
         </div>
         {/* Default Trial Count */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={trialsId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Trial Count
           </label>
           <select
+            id={trialsId}
+            name="defaultTrialCount"
             value={preferences.defaultTrialCount}
             onChange={(e) =>
               updatePreferences({
@@ -128,10 +143,12 @@ export function PreferencesSection() {
 
         {/* Default Distribution Type */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={distributionId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Distribution Type
           </label>
           <select
+            id={distributionId}
+            name="defaultDistributionType"
             value={preferences.defaultDistributionType}
             onChange={(e) =>
               updatePreferences({
@@ -150,10 +167,12 @@ export function PreferencesSection() {
 
         {/* Default Confidence Level */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={confidenceId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Confidence Level
           </label>
           <select
+            id={confidenceId}
+            name="defaultConfidenceLevel"
             value={preferences.defaultConfidenceLevel}
             onChange={(e) =>
               updatePreferences({
@@ -172,10 +191,12 @@ export function PreferencesSection() {
 
         {/* Default Activity Target */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={activityTargetId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Activity Target
           </label>
           <select
+            id={activityTargetId}
+            name="defaultActivityTarget"
             value={preferences.defaultActivityTarget}
             onChange={(e) =>
               updatePreferences({
@@ -194,10 +215,12 @@ export function PreferencesSection() {
 
         {/* Default Project Target */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={projectTargetId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default Project Target
           </label>
           <select
+            id={projectTargetId}
+            name="defaultProjectTarget"
             value={preferences.defaultProjectTarget}
             onChange={(e) =>
               updatePreferences({
@@ -216,10 +239,12 @@ export function PreferencesSection() {
 
         {/* Date Format */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={dateFormatId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Date Format
           </label>
           <select
+            id={dateFormatId}
+            name="dateFormat"
             value={preferences.dateFormat}
             onChange={(e) =>
               updatePreferences({
@@ -250,9 +275,9 @@ export function PreferencesSection() {
           };
           return (
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Work Days
-              </label>
+              </div>
               <div className="flex items-center gap-1.5">
                 {WEEKDAY_LABELS.map((label, i) => (
                   <button
@@ -280,10 +305,11 @@ export function PreferencesSection() {
 
         {/* Dependencies Enabled */}
         <div className="flex items-center gap-3 sm:col-span-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Enable Dependencies by Default
-          </label>
+          </span>
           <ToggleSwitch
+            ariaLabel="Enable dependencies by default"
             checked={preferences.defaultDependencyMode}
             onChange={(val) => updatePreferences({ defaultDependencyMode: val })}
           />
@@ -294,10 +320,11 @@ export function PreferencesSection() {
 
         {/* Heuristic Enabled + Min/Max % */}
         <div className="flex items-center gap-3 flex-wrap sm:col-span-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Enable Heuristic by Default
-          </label>
+          </span>
           <ToggleSwitch
+            ariaLabel="Enable heuristic by default"
             checked={preferences.defaultHeuristicEnabled}
             onChange={(val) => updatePreferences({ defaultHeuristicEnabled: val })}
           />
@@ -305,8 +332,10 @@ export function PreferencesSection() {
             Auto-calculate min/max from Most Likely for new scenarios
           </span>
           <div className="flex items-center gap-2 ml-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">Min %</label>
+            <label htmlFor={heuristicMinId} className="text-xs text-gray-500 dark:text-gray-400">Min %</label>
             <input
+              id={heuristicMinId}
+              name="defaultHeuristicMinPercent"
               type="number"
               value={localMinPct}
               onChange={(e) => setLocalMinPct(e.target.value)}
@@ -323,8 +352,10 @@ export function PreferencesSection() {
               max={99}
               step={1}
             />
-            <label className="text-xs text-gray-500 dark:text-gray-400">Max %</label>
+            <label htmlFor={heuristicMaxId} className="text-xs text-gray-500 dark:text-gray-400">Max %</label>
             <input
+              id={heuristicMaxId}
+              name="defaultHeuristicMaxPercent"
               type="number"
               value={localMaxPct}
               onChange={(e) => setLocalMaxPct(e.target.value)}
@@ -347,10 +378,11 @@ export function PreferencesSection() {
 
         {/* Parkinson's Law Enabled */}
         <div className="flex items-center gap-3 sm:col-span-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Enable Parkinson&apos;s Law by Default
-          </label>
+          </span>
           <ToggleSwitch
+            ariaLabel="Enable Parkinson's Law by default"
             checked={preferences.defaultParkinsonsLawEnabled ?? true}
             onChange={(val) => updatePreferences({ defaultParkinsonsLawEnabled: val })}
           />
@@ -371,6 +403,7 @@ export function PreferencesSection() {
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
+              name="autoRunSimulation"
               checked={preferences.autoRunSimulation}
               onChange={(e) =>
                 updatePreferences({ autoRunSimulation: e.target.checked })

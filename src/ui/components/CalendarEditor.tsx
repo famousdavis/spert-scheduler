@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect } from "react";
+import { useId, useState, useEffect } from "react";
 import type { Calendar, Holiday } from "@domain/models/types";
 import type { NagerCountry } from "@domain/models/nager-types";
 import { generateId } from "@app/api/id";
@@ -52,6 +52,11 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
   const [newLocale, setNewLocale] = useState("");
   const [newStartDate, setNewStartDate] = useState(today);
   const [newEndDate, setNewEndDate] = useState(today);
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const localeId = `${baseId}-locale`;
+  const startId = `${baseId}-start`;
+  const endId = `${baseId}-end`;
 
   const addHoliday = () => {
     if (!newName.trim() || !newStartDate || !newEndDate) return;
@@ -85,10 +90,12 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
       {/* Add holiday form */}
       <div className="flex flex-wrap items-end gap-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={nameId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Holiday Name
           </label>
           <input
+            id={nameId}
+            name="holidayName"
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -97,10 +104,12 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={localeId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Locale <span className="font-normal text-gray-400">(optional)</span>
           </label>
           <input
+            id={localeId}
+            name="holidayLocale"
             type="text"
             value={newLocale}
             onChange={(e) => setNewLocale(e.target.value)}
@@ -109,10 +118,12 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={startId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Start Date
           </label>
           <input
+            id={startId}
+            name="holidayStartDate"
             type="date"
             value={newStartDate}
             onChange={(e) => {
@@ -125,10 +136,12 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={endId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             End Date
           </label>
           <input
+            id={endId}
+            name="holidayEndDate"
             type="date"
             value={newEndDate}
             min={newStartDate}

@@ -155,6 +155,8 @@ export function ImportSection({ projects, importProjects }: ImportSectionProps) 
         <input
           ref={fileInputRef}
           type="file"
+          name="projectImportFile"
+          aria-label="Project import JSON file"
           accept=".json"
           onChange={handleFileChange}
           className="hidden"

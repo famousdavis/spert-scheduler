@@ -39,6 +39,8 @@ export function EstimateInputs({
           <input
             data-row-id={activityId}
             data-field={f.dataField}
+            name={`estimate-${f.dataField}`}
+            aria-label={f.title}
             type="number"
             defaultValue={Math.round(f.defaultValue)}
             onFocus={(e) => e.target.select()}

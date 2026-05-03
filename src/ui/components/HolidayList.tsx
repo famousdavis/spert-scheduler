@@ -94,12 +94,16 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
           >
             <input
               type="text"
+              name="editHolidayName"
+              aria-label="Holiday name"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm w-44 bg-white dark:bg-gray-700 dark:text-gray-100"
             />
             <input
               type="text"
+              name="editHolidayLocale"
+              aria-label="Holiday locale"
               value={editLocale}
               onChange={(e) => setEditLocale(e.target.value)}
               placeholder="Locale"
@@ -107,6 +111,8 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
             />
             <input
               type="date"
+              name="editHolidayStartDate"
+              aria-label="Holiday start date"
               value={editStartDate}
               onChange={(e) => {
                 setEditStartDate(e.target.value);
@@ -118,6 +124,8 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
             />
             <input
               type="date"
+              name="editHolidayEndDate"
+              aria-label="Holiday end date"
               value={editEndDate}
               min={editStartDate}
               onChange={(e) => setEditEndDate(e.target.value)}

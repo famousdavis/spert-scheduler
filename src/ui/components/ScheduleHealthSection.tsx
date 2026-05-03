@@ -1,6 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
+import { useId } from "react";
 import type { UserPreferences } from "@domain/models/types";
 
 const RAG_OPTIONS = [10, 25, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
@@ -18,16 +19,21 @@ interface ScheduleHealthSectionProps {
 export function ScheduleHealthSection({ greenPct, amberPct, onUpdate }: ScheduleHealthSectionProps) {
   const greenTooLow = greenPct <= 10;
   const amberOptions = RAG_OPTIONS.filter((p) => p < greenPct);
+  const baseId = useId();
+  const greenId = `${baseId}-green`;
+  const amberId = `${baseId}-amber`;
 
   return (
     <div className="sm:col-span-2">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <div className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         Finish Target — Schedule Health
-      </label>
+      </div>
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400">Green at</span>
+          <label htmlFor={greenId} className="text-xs text-gray-500 dark:text-gray-400">Green at</label>
           <select
+            id={greenId}
+            name="targetFinishGreenPct"
             value={greenPct}
             onChange={(e) => {
               const newGreen = parseInt(e.target.value, 10);
@@ -49,8 +55,10 @@ export function ScheduleHealthSection({ greenPct, amberPct, onUpdate }: Schedule
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400">Amber at</span>
+          <label htmlFor={amberId} className="text-xs text-gray-500 dark:text-gray-400">Amber at</label>
           <select
+            id={amberId}
+            name="targetFinishAmberPct"
             value={amberPct}
             onChange={(e) => {
               onUpdate({ targetFinishAmberPct: parseInt(e.target.value, 10) });

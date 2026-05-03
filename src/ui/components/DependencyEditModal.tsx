@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useMemo } from "react";
+import { useId, useState, useCallback, useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import type { Activity, ActivityDependency, DependencyType } from "@domain/models/types";
 import { DEPENDENCY_TYPES } from "@domain/models/types";
@@ -47,6 +47,11 @@ export function DependencyEditModal({
   const [type, setType] = useState<DependencyType>(existingDep?.type ?? "FS");
   const [lagInput, setLagInput] = useState<string>(String(existingDep?.lagDays ?? 0));
   const [validationError, setValidationError] = useState<string | null>(null);
+  const baseId = useId();
+  const fromIdField = `${baseId}-from`;
+  const toIdField = `${baseId}-to`;
+  const typeIdField = `${baseId}-type`;
+  const lagIdField = `${baseId}-lag`;
 
   // Validation
   const validate = useCallback(
@@ -121,10 +126,12 @@ export function DependencyEditModal({
           <div className="mt-4 space-y-4">
             {/* Predecessor */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor={fromIdField} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Predecessor
               </label>
               <select
+                id={fromIdField}
+                name="dependencyFrom"
                 value={fromId}
                 onChange={(e) => handleFromChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
@@ -140,10 +147,12 @@ export function DependencyEditModal({
 
             {/* Successor */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor={toIdField} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Successor
               </label>
               <select
+                id={toIdField}
+                name="dependencyTo"
                 value={toId}
                 onChange={(e) => handleToChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
@@ -160,10 +169,12 @@ export function DependencyEditModal({
             {/* Relationship Type + Lag Days (side-by-side) */}
             <div className="flex gap-3">
               <div className="flex-1 min-w-0">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor={typeIdField} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Relationship Type
                 </label>
                 <select
+                  id={typeIdField}
+                  name="dependencyType"
                   value={type}
                   onChange={(e) => setType(e.target.value as DependencyType)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:border-blue-500 focus:outline-none"
@@ -176,10 +187,12 @@ export function DependencyEditModal({
                 </select>
               </div>
               <div className="w-24 shrink-0">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor={lagIdField} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Lag Days
                 </label>
                 <input
+                  id={lagIdField}
+                  name="dependencyLag"
                   type="text"
                   inputMode="numeric"
                   pattern="-?[0-9]*"

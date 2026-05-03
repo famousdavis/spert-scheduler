@@ -198,6 +198,9 @@ export function useCloudSync(): void {
             driver.cancelPendingSave(project.id);
             driver.create(project).catch((e) => {
               console.error("Failed to create project in Firestore:", e);
+              toast.error(
+                "Cloud sync error — changes may not have saved. Check your connection."
+              );
             });
             addProjectListener(project.id);
           }
@@ -206,6 +209,9 @@ export function useCloudSync(): void {
           driver.cancelPendingSave(event.projectId);
           driver.remove(event.projectId).catch((e) => {
             console.error("Failed to delete project from Firestore:", e);
+            toast.error(
+              "Cloud sync error — changes may not have saved. Check your connection."
+            );
           });
           break;
       }

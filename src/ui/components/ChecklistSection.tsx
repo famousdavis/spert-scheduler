@@ -70,12 +70,16 @@ function SortableChecklistRow({
       </button>
       <input
         type="checkbox"
+        name="taskCompleted"
+        aria-label="Task completed"
         checked={item.completed}
         onChange={() => onToggle(item.id)}
         className="shrink-0 rounded border-gray-300 dark:border-gray-600 text-blue-600"
       />
       <input
         type="text"
+        name="taskText"
+        aria-label="Task description"
         value={item.text}
         onChange={(e) => onTextChange(item.id, e.target.value)}
         maxLength={200}
@@ -191,6 +195,8 @@ export function ChecklistSection({ checklist, onChange }: ChecklistSectionProps)
           <input
             ref={newTaskInputRef}
             type="text"
+            name="newTaskText"
+            aria-label="Add a task"
             value={newTaskText}
             onChange={(e) => setNewTaskText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTask(); } }}

@@ -123,6 +123,7 @@ function GanttToolbar({
         <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
           <input
             type="checkbox"
+            name="ganttShowCriticalPath"
             checked={showCriticalPath}
             onChange={(e) => setShowCriticalPath(e.target.checked)}
             className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
@@ -133,6 +134,7 @@ function GanttToolbar({
       <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
         <input
           type="checkbox"
+          name="ganttShowArrows"
           checked={showArrows}
           onChange={(e) => setShowArrows(e.target.checked)}
           className="rounded border-gray-300 dark:border-gray-600 text-gray-600 focus:ring-gray-500"
@@ -142,6 +144,7 @@ function GanttToolbar({
       <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
         <input
           type="checkbox"
+          name="ganttShowToday"
           checked={showToday}
           onChange={(e) => setShowToday(e.target.checked)}
           className="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
@@ -152,6 +155,7 @@ function GanttToolbar({
         <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
           <input
             type="checkbox"
+            name="ganttShowProjectName"
             checked={showProjectName}
             onChange={(e) => setShowProjectName(e.target.checked)}
             className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
@@ -162,6 +166,7 @@ function GanttToolbar({
       <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
         <input
           type="checkbox"
+          name="ganttShowActivityNumbers"
           checked={showActivityNumbers ?? false}
           onChange={(e) => onToggleActivityNumbers?.(e.target.checked)}
           className="rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500"
@@ -175,6 +180,7 @@ function GanttToolbar({
         >
           <input
             type="checkbox"
+            name="ganttShowTargetDate"
             checked={!!showTargetOnGantt}
             onChange={(e) => onToggleShowTarget(e.target.checked)}
             disabled={!hasTargetDate}
@@ -1152,6 +1158,8 @@ export function GanttChart({
             <input
               ref={editInputRef}
               type="text"
+              name="ganttActivityNameInline"
+              aria-label="Edit activity name"
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={() => commitRename()}

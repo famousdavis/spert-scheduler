@@ -9,6 +9,8 @@ interface InlineEditProps {
   className?: string;
   placeholder?: string;
   inputClassName?: string;
+  name?: string;
+  ariaLabel?: string;
 }
 
 export function InlineEdit({
@@ -17,6 +19,8 @@ export function InlineEdit({
   className = "",
   placeholder = "Untitled",
   inputClassName = "",
+  name = "inlineEdit",
+  ariaLabel,
 }: InlineEditProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -53,6 +57,8 @@ export function InlineEdit({
       <input
         ref={inputRef}
         type="text"
+        name={name}
+        aria-label={ariaLabel ?? placeholder}
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
         onBlur={commit}
