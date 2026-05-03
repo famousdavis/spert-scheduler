@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.40.2 — 2026-05-03
+
+### Fixed
+
+- **Cloud sync write failures are now surfaced to the user via toast.** `FirestoreDriver` already exposed an `onSaveError(cb)` hook that fires for every write failure (`doSave`, `create`, `saveImmediate`, `savePreferences`), but `useCloudSync` never wired a callback after constructing the driver, so errors were swallowed (logged to the console only). The hook now installs a callback immediately after `new FirestoreDriver(user.uid)` that emits `toast.error("Cloud sync error — changes may not have saved. Check your connection.")` on every write failure. The toast is intentionally not debounced or deduplicated at this layer; `doSave` is already debounced 500 ms and write errors should only surface during genuine connectivity loss.
+- **Real-time project listeners no longer die silently on permanent failures.** `subscribeToProject` previously called `onSnapshot` with only the success callback, so if a listener failed permanently (`PERMISSION_DENIED`, network cut, project deleted by another user), the Firebase SDK silently stopped delivering events with no app-level notification. The method now accepts an optional `onError?: (error: unknown) => void` parameter and passes it as the snapshot listener's error handler. The signature change is backward-compatible — the existing single-callback call signature continues to work without modification. `useCloudSync.addProjectListener` now passes an error handler that logs the failure and removes the project ID from `listenedIdsRef`, allowing future calls to `addProjectListener` to re-subscribe (note: nothing currently triggers resubscription for existing projects — a full reconnect mechanism is deferred and is documented inline).
+
+### Internal
+
+- **Added missing `autoComplete` attributes to two form inputs.** The `type="email"` member-invite input in `SharingSection.tsx` was the only input in the codebase producing an active browser autofill warning; it now carries `autoComplete="off"` because it accepts another user's email (sharing/lookup), not the signed-in user's own email. The `Search projects...` text input in `ProjectsPage.tsx` also gained `autoComplete="off"` as preemptive hygiene — the input has no `id` or `name` attribute today, so the browser does not currently warn for it, but search/filter fields should always opt out of autofill regardless. No other inputs needed changes: `placeholder="Locale"`, `placeholder="Milestone name"`, `placeholder="My Project"`, and similar app-domain fields are not personal-data fields and are correctly excluded from the audit.
+
 ## 0.40.1 — 2026-04-30
 
 ### Added

@@ -18,6 +18,7 @@ import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import { toast } from "@ui/hooks/use-notification-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import type { SyncEvent } from "@infrastructure/persistence/sync-bus";
 import { FirestoreDriver } from "@infrastructure/firebase/firestore-driver";
@@ -61,9 +62,22 @@ export function useCloudSync(): void {
       const driver = driverRef.current;
       if (!driver || listenedIdsRef.current.has(projectId)) return;
       listenedIdsRef.current.add(projectId);
-      const unsub = driver.subscribeToProject(projectId, (updated) => {
-        mergeProject(updated);
-      });
+      const unsub = driver.subscribeToProject(
+        projectId,
+        (updated) => {
+          mergeProject(updated);
+        },
+        (error) => {
+          console.error(
+            `Real-time listener died for project ${projectId}:`,
+            error
+          );
+          // Note: deleting from listenedIdsRef allows addProjectListener to re-subscribe,
+          // but nothing currently triggers resubscription for existing projects.
+          // A full reconnect mechanism is deferred.
+          listenedIdsRef.current.delete(projectId);
+        }
+      );
       unsubscribersRef.current.push(unsub);
     },
     [mergeProject]
@@ -80,6 +94,12 @@ export function useCloudSync(): void {
   useEffect(() => {
     if (isCloudActive && user) {
       const driver = new FirestoreDriver(user.uid);
+      driver.onSaveError((e) => {
+        console.error("Firestore write failed:", e);
+        toast.error(
+          "Cloud sync error — changes may not have saved. Check your connection."
+        );
+      });
       driverRef.current = driver;
       currentDriver = driver;
       initialLoadDoneRef.current = false;
