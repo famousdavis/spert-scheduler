@@ -12,6 +12,7 @@ interface ProjectTileProps {
   project: Project;
   onNavigate: (id: string) => void;
   onDelete: (id: string) => void;
+  onClone?: (id: string) => void;
   onArchive?: (id: string) => void;
   onUnarchive?: (id: string) => void;
   onChangeTileColor?: (id: string, color: string | undefined) => void;
@@ -27,6 +28,7 @@ export function ProjectTile({
   project,
   onNavigate,
   onDelete,
+  onClone,
   onArchive,
   onUnarchive,
   onChangeTileColor,
@@ -72,6 +74,11 @@ export function ProjectTile({
     onUnarchive?.(project.id);
   };
 
+  const handleClone = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClone?.(project.id);
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -82,6 +89,12 @@ export function ProjectTile({
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
+            {onChangeTileColor && (
+              <TileColorPicker
+                value={project.tileColor}
+                onChange={(c) => onChangeTileColor(project.id, c)}
+              />
+            )}
             <h2 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
               {project.name}
             </h2>
@@ -122,12 +135,19 @@ export function ProjectTile({
               <circle cx="11" cy="13" r="1.5" />
             </svg>
           </button>
-          {/* Tile color picker */}
-          {onChangeTileColor && (
-            <TileColorPicker
-              value={project.tileColor}
-              onChange={(c) => onChangeTileColor(project.id, c)}
-            />
+          {/* Clone button */}
+          {onClone && (
+            <button
+              onClick={handleClone}
+              className="text-gray-300 dark:text-gray-600 hover:text-blue-500 dark:hover:text-blue-400 text-sm transition-colors p-1"
+              title="Clone project"
+              aria-label="Clone project"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="5" y="5" width="8" height="8" rx="1" />
+                <path d="M3 11V4a1 1 0 0 1 1-1h7" />
+              </svg>
+            </button>
           )}
           {/* Archive/Unarchive button */}
           {project.archived ? (
