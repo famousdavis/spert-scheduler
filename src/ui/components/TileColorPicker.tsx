@@ -55,7 +55,7 @@ export function TileColorPicker({ value, onChange }: TileColorPickerProps) {
       </button>
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg p-2 w-44"
+          className="absolute left-0 top-full mt-1 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg p-2 w-44"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="grid grid-cols-4 gap-1.5">

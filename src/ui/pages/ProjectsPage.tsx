@@ -25,6 +25,7 @@ import { ImportSection } from "@ui/components/ImportSection";
 import { downloadFile } from "@ui/helpers/download";
 import { formatDateISO } from "@core/calendar/calendar";
 import { serializeExport } from "@app/api/export-import-service";
+import { toast } from "@ui/hooks/use-notification-store";
 
 function getErrorTypeLabel(type: LoadError["type"]): string {
   switch (type) {
@@ -48,6 +49,7 @@ export function ProjectsPage() {
     loadErrors,
     loadProjects,
     addProject,
+    cloneProject,
     deleteProject,
     reorderProjects,
     archiveProject,
@@ -63,6 +65,7 @@ export function ProjectsPage() {
       loadErrors: s.loadErrors,
       loadProjects: s.loadProjects,
       addProject: s.addProject,
+      cloneProject: s.cloneProject,
       deleteProject: s.deleteProject,
       reorderProjects: s.reorderProjects,
       archiveProject: s.archiveProject,
@@ -79,6 +82,16 @@ export function ProjectsPage() {
       updateProjectField(id, { tileColor: color });
     },
     [updateProjectField]
+  );
+
+  const handleClone = useCallback(
+    (id: string) => {
+      const clone = cloneProject(id);
+      if (clone) {
+        toast.success(`Cloned to "${clone.name}"`);
+      }
+    },
+    [cloneProject]
   );
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -340,6 +353,7 @@ export function ProjectsPage() {
                   project={project}
                   onNavigate={(id) => navigate(`/project/${id}`)}
                   onDelete={deleteProject}
+                  onClone={handleClone}
                   onArchive={archiveProject}
                   onUnarchive={unarchiveProject}
                   onChangeTileColor={handleChangeTileColor}

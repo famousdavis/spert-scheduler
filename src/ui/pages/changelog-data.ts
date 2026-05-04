@@ -12,6 +12,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.41.0",
+    date: "2026-05-04",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          'Clone Project from the Projects tab. Each project tile now carries a Clone button on its right-side action rail (between the drag handle and the archive button). Clicking it produces an immediate, fully-detached copy of the source project — every project, scenario, activity, dependency, milestone, checklist item, and deliverable item gets a freshly-minted ID via the same ID-remapping pipeline that already powered scenario cloning, so there is zero ID overlap between source and clone. The clone\'s name is `"{original} (Copy)"`, auto-incrementing to `(Copy 2)`, `(Copy 3)`… on collision against any existing project name (active or archived). Cloning an archived project produces an unarchived clone — the source is preserved unchanged. Cached Monte Carlo simulation results are dropped from every cloned scenario; users re-run the simulation on the clone (matches the cloud-sync stripping convention). All cosmetic state — tile color, target finish date, gantt appearance settings, holiday calendar override, converted work days, show-target-on-gantt, show-activity-IDs — survives the copy. Cloud sync uses the existing emitCreate path, so cloud-mode users see the new project appear in Firestore the moment they click.',
+          "The clone workflow exists primarily to enable a debug-export use case: clone a real project, scrub the corporate names by hand, export the JSON, and share it as a reproducer for issues — without exposing client data. The toast confirmation surfaces the new project name so users know the clone landed.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Project tile color picker moved from the right-side action rail to immediately left of the project name, inline in the title row. The 4 px tile-color left border has always served as the visual indicator of the chosen color; placing the swatch picker next to the name makes it read like a category dot (Notion/Linear/GitHub-label style) and visually merges with the border accent. Moving the swatch off the right rail also frees vertical space for the new clone button without crowding the existing drag handle, archive, and delete controls. The popover now anchors to the left of the swatch and expands rightward (was right-anchored when the swatch lived on the right edge of the tile).",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          'New `cloneProject(source, newName)` exported from src/app/api/project-service.ts. Implementation reuses the existing `cloneScenario` per scenario rather than duplicating the ID-remap logic — every scenario inside the clone goes through the same pipeline that re-mints activity IDs, remaps dependency endpoints, remaps milestone references on activities, and re-generates the rngSeed. The project layer adds the cosmetic-state copy and the new `id`, `createdAt`, and `schemaVersion`. Calendar and gantt-appearance objects are shallow-copied (and `convertedWorkDays` / `globalCalendarOverride.holidays` arrays are spread) so the clone never aliases mutable references back to the source.',
+          'New `cloneProject(sourceId)` action on the Zustand store. Mirrors `addProject` for persistence — `repo.save(clone)` followed by `cloudSyncBus.emitCreate(clone.id)` — and returns the new project so the caller can navigate or toast on it. A module-scoped `nextCloneName(base, existing)` helper computes the collision-safe name; capped at "(Copy 99)" with a timestamp fallback that should never trigger in practice.',
+          'ProjectTile gained an optional `onClone` prop and a paired clone button SVG (two overlapping rectangles, blue hover). The TileColorPicker JSX moved from the right-rail flex column into the title-row flex container, before the `<h2>`. No prop signature changes for tile-color handling — `onChangeTileColor` still optional, still scoped to the tile. ProjectsPage wires the new action through a `handleClone(id)` callback that calls the store and emits a `toast.success("Cloned to \\"{name}\\"")` on success.',
+          'Schema version unchanged (still v20). Cloning is a runtime-only ID-remap operation; nothing about the persisted project shape changed. No migration written, no Zod schema bumped, no Firestore rule field added.',
+        ],
+      },
+    ],
+  },
+  {
     version: "0.40.4",
     date: "2026-05-03",
     sections: [

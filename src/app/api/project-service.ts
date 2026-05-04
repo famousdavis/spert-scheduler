@@ -183,6 +183,35 @@ export function cloneScenario(
   };
 }
 
+// -- Project Cloning ---------------------------------------------------------
+
+export function cloneProject(source: Project, newName: string): Project {
+  return {
+    id: generateId(),
+    name: newName,
+    createdAt: new Date().toISOString(),
+    schemaVersion: SCHEMA_VERSION,
+    scenarios: source.scenarios.map((s) => cloneScenario(s, s.name)),
+    tileColor: source.tileColor,
+    globalCalendarOverride: source.globalCalendarOverride
+      ? {
+          ...source.globalCalendarOverride,
+          holidays: [...source.globalCalendarOverride.holidays],
+        }
+      : undefined,
+    convertedWorkDays: source.convertedWorkDays
+      ? [...source.convertedWorkDays]
+      : undefined,
+    targetFinishDate: source.targetFinishDate,
+    showTargetOnGantt: source.showTargetOnGantt,
+    showActivityIds: source.showActivityIds,
+    ganttAppearance: source.ganttAppearance
+      ? { ...source.ganttAppearance }
+      : undefined,
+    // archived: omitted (resets to false)
+  };
+}
+
 // -- Activity CRUD -----------------------------------------------------------
 
 export function createActivity(

@@ -17,6 +17,7 @@ import type {
 } from "@domain/models/types";
 import {
   createProject,
+  cloneProject as cloneProjectFn,
   createScenario,
   addScenarioToProject,
   removeScenarioFromProject,
@@ -71,6 +72,20 @@ interface UndoEntry {
 // Intentionally outside the Zustand store: focus/blur should not trigger
 // React re-renders, and group state has no reactive consumers.
 let activeUndoGroup: { projectId: string } | null = null;
+
+/**
+ * Compute a collision-safe clone name. Returns "{base} (Copy)" if available,
+ * otherwise increments to "{base} (Copy 2)", "(Copy 3)", up to 99.
+ */
+function nextCloneName(base: string, existing: string[]): string {
+  const candidate = `${base} (Copy)`;
+  if (!existing.includes(candidate)) return candidate;
+  for (let i = 2; i <= 99; i++) {
+    const c = `${base} (Copy ${i})`;
+    if (!existing.includes(c)) return c;
+  }
+  return `${base} (Copy ${Date.now()})`;
+}
 
 /**
  * Helper to find a scenario within the project store.
@@ -164,6 +179,7 @@ export interface ProjectStore {
   // Project CRUD
   loadProjects: () => void;
   addProject: (name: string) => Project;
+  cloneProject: (sourceId: string) => Project | undefined;
   deleteProject: (id: string) => void;
   reorderProjects: (fromIndex: number, toIndex: number) => void;
   getProject: (id: string) => Project | undefined;
@@ -528,6 +544,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     set((state) => ({ projects: [...state.projects, project] }));
     cloudSyncBus.emitCreate(project.id);
     return project;
+  },
+
+  cloneProject: (sourceId: string) => {
+    const source = get().projects.find((p) => p.id === sourceId);
+    if (!source) return undefined;
+    const existingNames = get().projects.map((p) => p.name);
+    const newName = nextCloneName(source.name, existingNames);
+    const clone = cloneProjectFn(source, newName);
+    repo.save(clone);
+    set((state) => ({ projects: [...state.projects, clone] }));
+    cloudSyncBus.emitCreate(clone.id);
+    return clone;
   },
 
   deleteProject: (id: string) => {

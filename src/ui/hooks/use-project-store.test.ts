@@ -60,6 +60,61 @@ describe("useProjectStore", () => {
     expect(useProjectStore.getState().projects).toHaveLength(0);
   });
 
+  describe("cloneProject", () => {
+    it("creates a new project with the (Copy) suffix", () => {
+      const store = useProjectStore.getState();
+      const source = store.addProject("Clone Source");
+      const clone = useProjectStore.getState().cloneProject(source.id);
+
+      expect(clone).toBeDefined();
+      expect(clone!.id).not.toBe(source.id);
+      expect(clone!.name).toBe("Clone Source (Copy)");
+      expect(useProjectStore.getState().projects).toHaveLength(2);
+    });
+
+    it("auto-increments suffix on collision", () => {
+      const store = useProjectStore.getState();
+      const source = store.addProject("Foo");
+      useProjectStore.getState().cloneProject(source.id);
+      const second = useProjectStore.getState().cloneProject(source.id);
+      const third = useProjectStore.getState().cloneProject(source.id);
+
+      expect(second!.name).toBe("Foo (Copy 2)");
+      expect(third!.name).toBe("Foo (Copy 3)");
+    });
+
+    it("returns undefined for an unknown source id", () => {
+      const store = useProjectStore.getState();
+      const clone = store.cloneProject("does-not-exist");
+      expect(clone).toBeUndefined();
+      expect(useProjectStore.getState().projects).toHaveLength(0);
+    });
+
+    it("emits a cloudSyncBus.emitCreate for the clone", () => {
+      const store = useProjectStore.getState();
+      const source = store.addProject("Sync Test");
+      const spy = vi.spyOn(cloudSyncBus, "emitCreate");
+
+      const clone = useProjectStore.getState().cloneProject(source.id);
+
+      expect(spy).toHaveBeenCalledWith(clone!.id);
+      spy.mockRestore();
+    });
+
+    it("persists the clone to localStorage", () => {
+      const store = useProjectStore.getState();
+      const source = store.addProject("Persistence");
+      const clone = useProjectStore.getState().cloneProject(source.id)!;
+
+      // Reset memory state and reload
+      useProjectStore.setState({ projects: [] });
+      useProjectStore.getState().loadProjects();
+      const reloaded = useProjectStore.getState().projects;
+
+      expect(reloaded.find((p) => p.id === clone.id)).toBeDefined();
+    });
+  });
+
   it("adds scenarios and deletes any non-last scenario", () => {
     const store = useProjectStore.getState();
     const project = store.addProject("With Scenarios");

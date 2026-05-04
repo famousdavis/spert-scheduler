@@ -6,6 +6,7 @@ import {
   createProject,
   createScenario,
   cloneScenario,
+  cloneProject,
   createActivity,
   addActivityToScenario,
   addScenarioToProject,
@@ -13,8 +14,8 @@ import {
   reorderActivities,
   removeActivityFromScenario,
 } from "./project-service";
-import type { Scenario, SimulationRun } from "@domain/models/types";
-import { DEFAULT_SCENARIO_SETTINGS } from "@domain/models/types";
+import type { Project, Scenario, SimulationRun } from "@domain/models/types";
+import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION } from "@domain/models/types";
 
 describe("createProject", () => {
   it("creates a project with a unique ID", () => {
@@ -97,6 +98,138 @@ describe("cloneScenario", () => {
     const original = makeScenario();
     const clone = cloneScenario(original, "Clone");
     expect(clone.activities).toHaveLength(2);
+  });
+});
+
+describe("cloneProject", () => {
+  function makeProject(): Project {
+    const base = createProject("Source", "2025-01-06");
+    const scenario = base.scenarios[0]!;
+    const a1 = createActivity("Task 1", scenario.settings);
+    const a2 = createActivity("Task 2", scenario.settings);
+    return {
+      ...base,
+      tileColor: "#94a3b8",
+      targetFinishDate: "2025-12-31",
+      showTargetOnGantt: true,
+      showActivityIds: true,
+      archived: true,
+      convertedWorkDays: ["2025-07-04"],
+      globalCalendarOverride: {
+        holidays: [
+          {
+            id: "h1",
+            name: "Christmas",
+            startDate: "2025-12-25",
+            endDate: "2025-12-25",
+          },
+        ],
+      },
+      ganttAppearance: {
+        nameColumnWidth: "normal",
+        activityFontSize: "normal",
+        rowDensity: "compact",
+        barLabel: "duration",
+        colorPreset: "classic",
+        weekendShading: true,
+        fitToWindow: false,
+        timelineDensity: "normal",
+        rowGuideLines: true,
+      },
+      scenarios: [
+        {
+          ...scenario,
+          activities: [
+            { ...a1, status: "complete", actualDuration: 5 },
+            { ...a2 },
+          ],
+          dependencies: [
+            { fromActivityId: a1.id, toActivityId: a2.id, type: "FS", lagDays: 0 },
+          ],
+          simulationResults: { id: "sim1" } as SimulationRun,
+        },
+      ],
+    };
+  }
+
+  it("mints a new project id distinct from source", () => {
+    const source = makeProject();
+    const clone = cloneProject(source, "Source (Copy)");
+    expect(clone.id).not.toBe(source.id);
+    expect(clone.name).toBe("Source (Copy)");
+    expect(clone.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+
+  it("re-IDs every scenario and every activity", () => {
+    const source = makeProject();
+    const clone = cloneProject(source, "Source (Copy)");
+    const sourceScenario = source.scenarios[0]!;
+    const cloneScenario_ = clone.scenarios[0]!;
+
+    expect(cloneScenario_.id).not.toBe(sourceScenario.id);
+    for (let i = 0; i < cloneScenario_.activities.length; i++) {
+      expect(cloneScenario_.activities[i]!.id).not.toBe(
+        sourceScenario.activities[i]!.id
+      );
+    }
+  });
+
+  it("strips simulationResults from every cloned scenario", () => {
+    const source = makeProject();
+    const clone = cloneProject(source, "Source (Copy)");
+    for (const scenario of clone.scenarios) {
+      expect(scenario.simulationResults).toBeUndefined();
+    }
+  });
+
+  it("does not carry the archived flag (clone is unarchived)", () => {
+    const source = makeProject();
+    expect(source.archived).toBe(true);
+    const clone = cloneProject(source, "Source (Copy)");
+    expect(clone.archived).toBeUndefined();
+  });
+
+  it("preserves cosmetic state (tileColor, target, gantt, calendar)", () => {
+    const source = makeProject();
+    const clone = cloneProject(source, "Source (Copy)");
+    expect(clone.tileColor).toBe(source.tileColor);
+    expect(clone.targetFinishDate).toBe(source.targetFinishDate);
+    expect(clone.showTargetOnGantt).toBe(source.showTargetOnGantt);
+    expect(clone.showActivityIds).toBe(source.showActivityIds);
+    expect(clone.ganttAppearance).toEqual(source.ganttAppearance);
+    expect(clone.globalCalendarOverride).toEqual(source.globalCalendarOverride);
+  });
+
+  it("copies array refs (convertedWorkDays, holidays) instead of aliasing", () => {
+    const source = makeProject();
+    const clone = cloneProject(source, "Source (Copy)");
+    expect(clone.convertedWorkDays).not.toBe(source.convertedWorkDays);
+    expect(clone.convertedWorkDays).toEqual(source.convertedWorkDays);
+    expect(clone.globalCalendarOverride!.holidays).not.toBe(
+      source.globalCalendarOverride!.holidays
+    );
+  });
+
+  it("remaps dependency endpoints to new activity ids", () => {
+    const source = makeProject();
+    const clone = cloneProject(source, "Source (Copy)");
+    const cloneScenario_ = clone.scenarios[0]!;
+    const cloneActivityIds = new Set(cloneScenario_.activities.map((a) => a.id));
+    expect(cloneScenario_.dependencies).toHaveLength(1);
+    for (const dep of cloneScenario_.dependencies) {
+      expect(cloneActivityIds.has(dep.fromActivityId)).toBe(true);
+      expect(cloneActivityIds.has(dep.toActivityId)).toBe(true);
+    }
+  });
+
+  it("does not mutate source", () => {
+    const source = makeProject();
+    const sourceIdsBefore = source.scenarios[0]!.activities.map((a) => a.id);
+    cloneProject(source, "Source (Copy)");
+    const sourceIdsAfter = source.scenarios[0]!.activities.map((a) => a.id);
+    expect(sourceIdsAfter).toEqual(sourceIdsBefore);
+    expect(source.archived).toBe(true);
+    expect(source.scenarios[0]!.simulationResults).toBeDefined();
   });
 });
 
