@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.42.2 — 2026-05-07
+
+### Fixed
+
+- **Invite-link landing now triggers the sign-in banner.** Pasting `https://scheduler.spertsuite.com/?invite=<token>` into a fresh browser correctly captures the token and prompts Google/Microsoft sign-in. Previously the token was silently discarded because the router's index redirect (`<Navigate to="/projects" replace />`) fired its `useEffect` deepest-first — stripping the query string before `Layout`'s `useInvitationLanding` Effect 1 could read it. The URL capture now runs at module load (synchronously, before any React rendering), decoupling it from effect-ordering entirely. Effect 1 now owns only the React-state transition.
+
 ## 0.42.1 — 2026-05-07
 
 ### Fixed
