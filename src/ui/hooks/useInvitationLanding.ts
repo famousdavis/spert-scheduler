@@ -11,9 +11,19 @@ import type { SpertModelsChangedDetail } from "@infrastructure/firebase/invitati
 /**
  * Drives the `?invite=<token>` landing flow:
  *
- *  - **Effect 1** (mount-only): captures the token from `window.location.search`,
- *    strips it from the URL via `history.replaceState`, stashes it in
- *    `sessionStorage[INVITE_SESSION_KEY]`, and transitions to `pre_auth`.
+ *  - **Module-level URL capture** (runs synchronously when the module first
+ *    loads, BEFORE React rendering): reads `?invite=` from
+ *    `window.location.search`, strips it via `history.replaceState`, stashes
+ *    the token in `sessionStorage[INVITE_SESSION_KEY]`, and stores it in a
+ *    module-local sentinel. This is a v0.42.2 fix for a React effect-ordering
+ *    bug: the router's `<Navigate to="/projects" replace />` index redirect
+ *    fires its own `useEffect` deepest-first (children before parents), so
+ *    by the time Layout's Effect 1 ran, the URL had already been replaced
+ *    and the token was gone. Capturing at module load decouples from React's
+ *    render/effect ordering entirely.
+ *  - **Effect 1** (mount-only): if the module-level capture fired, transition
+ *    to `pre_auth`. Pure React-state transition — no side effects on URL or
+ *    sessionStorage (those are owned by the IIFE).
  *  - **Effect 2** ([state]): when entering `pre_auth`, auto-switches to cloud
  *    storage mode IFF Firebase is available AND there are zero local projects.
  *    Lesson 28: never wipe local data — if local projects exist, the user gets
@@ -29,6 +39,28 @@ import type { SpertModelsChangedDetail } from "@infrastructure/firebase/invitati
  * instance and `state` can gate the other banners' visibility — a per-banner
  * call would create two independent listeners and dismiss states.
  */
+
+// v0.42.2 fix — module-level URL capture. See top-of-file JSDoc for rationale.
+// Idempotent across re-imports (HMR) and reloads: runs the read once when the
+// module first evaluates; subsequent module re-evaluations find the URL
+// already-stripped and become no-ops. Guarded for SSR.
+let capturedTokenThisLoad: string | null = null;
+(function captureInviteTokenEarly(): void {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("invite");
+  if (!token) return;
+  params.delete("invite");
+  const newSearch = params.toString();
+  const newUrl =
+    window.location.pathname +
+    (newSearch ? `?${newSearch}` : "") +
+    window.location.hash;
+  window.history.replaceState(null, "", newUrl);
+  sessionStorage.setItem(INVITE_SESSION_KEY, token);
+  capturedTokenThisLoad = token;
+})();
+
 export interface UseInvitationLandingResult {
   state: "idle" | "pre_auth" | "claimed";
   claimedNames: string[];
@@ -41,23 +73,11 @@ export function useInvitationLanding(): UseInvitationLandingResult {
   const [state, setState] = useState<"idle" | "pre_auth" | "claimed">("idle");
   const [claimedNames, setClaimedNames] = useState<string[]>([]);
 
-  // Effect 1 — URL capture (mount-only). The token is stripped from the URL
-  // BEFORE the firebaseAvailable check so it never persists in browser history,
-  // even if Firebase is unavailable.
+  // Effect 1 — pre_auth transition. Pure state-transition; the URL strip and
+  // sessionStorage write are owned by the module-level IIFE (v0.42.2 fix).
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("invite");
-    if (!token) return;
-    params.delete("invite");
-    const newSearch = params.toString();
-    const newUrl =
-      window.location.pathname +
-      (newSearch ? `?${newSearch}` : "") +
-      window.location.hash;
-    window.history.replaceState(null, "", newUrl);
-    sessionStorage.setItem(INVITE_SESSION_KEY, token);
-    setState("pre_auth");
+    if (capturedTokenThisLoad) setState("pre_auth");
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
