@@ -45,8 +45,10 @@ export interface SendInvitationEmailInput {
 }
 
 export interface SendInvitationEmailResult {
-  added: { email: string; uid: string }[];
-  invited: { email: string; tokenId: string }[];
+  // CF (functions/src/sendInvitationEmail.tsx:42-46) returns plain string arrays
+  // for added/invited; only failed carries an object shape with reason codes.
+  added: string[];
+  invited: string[];
   failed: { email: string; reason: string }[];
 }
 

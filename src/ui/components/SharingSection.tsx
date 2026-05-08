@@ -204,7 +204,7 @@ function LegacySharingSection({ projectId }: SharingSectionProps) {
       </button>
 
       {!collapsed && (
-        <div className="px-6 pb-6 space-y-4">
+        <div className="px-6 pb-6 space-y-4 max-w-3xl">
           {loading ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Loading members...
@@ -468,7 +468,7 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
       </button>
 
       {!collapsed && (
-        <div className="px-6 pb-6 space-y-4">
+        <div className="px-6 pb-6 space-y-4 max-w-3xl">
           {/* Members list */}
           {loadingMem ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -563,20 +563,20 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
               {/* Result chips */}
               {inviteResult && (
                 <div className="space-y-1">
-                  {inviteResult.added.map((r) => (
+                  {inviteResult.added.map((email) => (
                     <p
-                      key={r.email}
+                      key={email}
                       className="text-sm text-green-700 dark:text-green-400"
                     >
-                      ✓ Added: {r.email}
+                      ✓ Added: {email}
                     </p>
                   ))}
-                  {inviteResult.invited.map((r) => (
+                  {inviteResult.invited.map((email) => (
                     <p
-                      key={r.email}
+                      key={email}
                       className="text-sm text-blue-700 dark:text-blue-400"
                     >
-                      ✉ Invited: {r.email}
+                      ✉ Invited: {email}
                     </p>
                   ))}
                   {inviteResult.failed.map((r) => (

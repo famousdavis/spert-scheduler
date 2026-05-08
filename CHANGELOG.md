@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.42.1 — 2026-05-07
+
+### Fixed
+
+- **Bulk-invite result chips now show the email.** "✓ Added" and "✉ Invited" rows were rendering with the email missing because the client mistyped the Cloud Function's response — the CF returns `string[]` for `added` and `invited`, not `{email, ...}[]`. (`✗ Failed` rows were unaffected; that array type was already correct.)
+- **Sharing section width** — Members list, bulk-invite form, and Pending invitations are now constrained to `max-w-3xl` (768px) instead of spanning the full project-page width. Eliminates the "controls floating off across the screen" effect on wide monitors. Applied to both the active `BulkSharingSection` and the dormant `LegacySharingSection` (rollback path) for consistency.
+
 ## 0.42.0 — 2026-05-XX
 
 ### Added
