@@ -2,4 +2,4 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 /** Set to true when bulk-sharing infrastructure is deployed and CORS-verified (PR 3). */
-export const INVITATIONS_ENABLED = false;
+export const INVITATIONS_ENABLED = true;
