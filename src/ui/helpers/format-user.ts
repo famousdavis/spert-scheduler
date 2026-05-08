@@ -1,6 +1,8 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
+import { denormalizeLastFirst } from "./auth-name";
+
 /**
  * Extracts a user's first name from their OAuth displayName, with
  * Microsoft "Last, First" reversal. Used by the auth chip and any other
@@ -42,18 +44,6 @@ export function getDisplayName(
   displayName: string | null | undefined,
   email: string | null | undefined
 ): string {
-  if (displayName) {
-    const trimmed = displayName.trim();
-    if (trimmed.includes(",")) {
-      const parts = trimmed.split(",");
-      const last = parts[0]?.trim() ?? "";
-      const rest = parts.slice(1).join(",").trim();
-      if (last && rest) return `${rest} ${last}`;
-      if (rest) return rest;
-      if (last) return last;
-    } else if (trimmed) {
-      return trimmed;
-    }
-  }
+  if (displayName?.trim()) return denormalizeLastFirst(displayName);
   return email ?? "";
 }

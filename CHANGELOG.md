@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.42.0 — 2026-05-XX
+
+### Added
+
+- **Bulk-sharing invitation system** — project owners can paste multiple email addresses to invite collaborators at once. Existing SPERT Scheduler users are added to the project immediately; new users receive an invitation email and claim the project automatically when they sign in. Invitations carry editor or viewer roles. The Sharing section grows a textarea with comma/newline/semicolon-tolerant input, a role select, and chips listing the result of the call: `✓ Added`, `✉ Invited`, or `✗ Failed (reason)`.
+- **Pending invitation management.** When invitations are outstanding, the Sharing section shows a list with a Resend button (capped at 5×) and a Revoke button (with confirmation dialog). The send-count display `(N/5)` greys out at the cap. Revoking removes the invitation immediately so the recipient can no longer claim it.
+- **Invite link landing flow.** A user arriving at `scheduler.spertsuite.com?invite=<token>` sees a precedence banner that prompts sign-in and auto-switches to cloud storage if their local data is empty (Lesson 28: never wipe local projects). Once signed in, the invitation is claimed automatically and the banner shows the model names just unlocked. The token is stripped from the URL on capture so it never persists in browser history.
+- **Suite-wide profile collection.** Every sign-in now writes a profile doc to `spertsuite_profiles/{uid}` in addition to the existing `spertscheduler_profiles/{uid}` doc — the bulk-invite Cloud Function reads the suite-wide collection to discover existing users across SPERT apps. No visible UX change.
+
+### Fixed
+
+- **Sharing section visible immediately on new and cloned projects** (latent v0.41.0 regression — Lesson 38). Previously, after Add Project or Clone Project in cloud mode, the Sharing section was suppressed until a page reload because the in-memory Project carried no `owner` field. The store now seeds `project.owner` at create/clone time, the Firestore load paths re-attach `_owner` as `owner`, and the snapshot listener preserves the field after each Zod parse.
+- **AuthProvider callback restructure.** `setLoading(false)` now fires unconditionally as the first statement of every `onAuthStateChanged` callback, eliminating a transient loading-stuck state on the ToS-stale sign-out path (the early-return previously skipped it). `setUser(...)` is now a single call site at the bottom of the callback. Defensive — the symptom was brief but real.
+
+### Changed
+
+- Profile writes now use `updatedAt` (server timestamp) instead of `lastLogin`. Existing Firestore docs retain the old field; new writes add the new one.
+- Microsoft display names in "Last, First" form are now normalized to "First Last" at profile write time, not just at read time. The UI display was already normalized via `getDisplayName`; this changes the stored value.
+- Member removal in the Sharing section now routes through `FirestoreDriver.removeCollaborator` (atomic transaction with three app-side guards) — same end state as the deleted `removeProjectMember` helper, simpler call surface.
+
+### Internal
+
+- **Feature gate.** New `INVITATIONS_ENABLED` flag in `src/app/featureFlags.ts`. Ships flag-off in v0.42.0 and is flipped on in PR 3 (single-line change, no version bump — suite canonical pattern).
+- **`Project.owner: string | null`** is now a required schema field. Zod default `null` covers existing local docs and import paths; `addProject(name, owner)` and `cloneProject(sourceId, owner)` take an explicit owner argument so the local/cloud decision is made at the call site.
+- **CSP** adds `https://*.run.app` to `connect-src` for forward-compat with Cloud Functions Gen 2 routing through Cloud Run.
+- **`useSignInWithTosGate` hook** consolidates the consent-gate state machine that was previously duplicated across `StorageLoginModal` and `StorageModeSection`. The new shared `<SignInButtons />` and `<AuthProviderLogos />` components eliminate the inline-SVG copies. `<ConfirmDialog />` is a new Radix-based component.
+- **`useInvitationLanding` hook** captures the invite token, runs the auto-flip-to-cloud logic, listens for `spert:models-changed`, and runs a 30-second grace timer. Lifted to `Layout.tsx` as the sole call site so the state machine is single-instance and `state` can gate the visibility of `FirstRunBanner` / `LocalStorageWarningBanner` (mutual exclusion).
+- **`removeProjectMember` and `upsertUserProfile` deleted from `firestore-sharing.ts`** after their last call sites swapped over. `shareProject` and the legacy `SharingSection` variant are retained as the rollback safety net per Lesson 23 — scheduled for deletion in v0.43.x once v0.42.x ships stably.
+
 ## 0.41.0 — 2026-05-04
 
 ### Added

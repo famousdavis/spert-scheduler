@@ -178,8 +178,22 @@ export interface ProjectStore {
 
   // Project CRUD
   loadProjects: () => void;
-  addProject: (name: string) => Project;
-  cloneProject: (sourceId: string) => Project | undefined;
+  /**
+   * Create a new project and add it to the store.
+   *
+   * @param name    Display name.
+   * @param owner   Cloud-mode owner uid (current user) or `null` for local
+   *                mode. Required so callers must make the local/cloud
+   *                decision explicitly — Lesson 38.
+   */
+  addProject: (name: string, owner: string | null) => Project;
+  /**
+   * Clone an existing project by id, returning the new project (or undefined
+   * if the source id is not found). The new project's `owner` is the
+   * caller-supplied value — never copied from source — so a clone in cloud
+   * mode is owned by the current user, regardless of who owned the source.
+   */
+  cloneProject: (sourceId: string, owner: string | null) => Project | undefined;
   deleteProject: (id: string) => void;
   reorderProjects: (fromIndex: number, toIndex: number) => void;
   getProject: (id: string) => Project | undefined;
@@ -526,7 +540,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     set({ projects, loadError: errors.length > 0, loadErrors: errors });
   },
 
-  addProject: (name: string) => {
+  addProject: (name, owner) => {
     const prefs = loadPreferences();
     const project = createProject(name, undefined, {
       trialCount: prefs.defaultTrialCount,
@@ -540,18 +554,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       dependencyMode: prefs.defaultDependencyMode,
       parkinsonsLawEnabled: prefs.defaultParkinsonsLawEnabled ?? true,
     });
+    project.owner = owner; // null in local mode, current uid in cloud mode (Lesson 38)
     repo.save(project);
     set((state) => ({ projects: [...state.projects, project] }));
     cloudSyncBus.emitCreate(project.id);
     return project;
   },
 
-  cloneProject: (sourceId: string) => {
+  cloneProject: (sourceId, owner) => {
     const source = get().projects.find((p) => p.id === sourceId);
     if (!source) return undefined;
     const existingNames = get().projects.map((p) => p.name);
     const newName = nextCloneName(source.name, existingNames);
     const clone = cloneProjectFn(source, newName);
+    clone.owner = owner; // never copy source.owner — caller decides (Lesson 38)
     repo.save(clone);
     set((state) => ({ projects: [...state.projects, clone] }));
     cloudSyncBus.emitCreate(clone.id);

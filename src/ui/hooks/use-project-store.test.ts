@@ -20,7 +20,7 @@ describe("useProjectStore", () => {
 
   it("adds and retrieves a project", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Test Project");
+    const project = store.addProject("Test Project", null);
     expect(project.name).toBe("Test Project");
 
     const retrieved = useProjectStore.getState().getProject(project.id);
@@ -30,7 +30,7 @@ describe("useProjectStore", () => {
 
   it("new project has a Baseline scenario", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("With Baseline");
+    const project = store.addProject("With Baseline", null);
 
     const retrieved = useProjectStore.getState().getProject(project.id)!;
     expect(retrieved.scenarios).toHaveLength(1);
@@ -39,7 +39,7 @@ describe("useProjectStore", () => {
 
   it("persists and reloads projects", () => {
     const store = useProjectStore.getState();
-    store.addProject("Persistent");
+    store.addProject("Persistent", null);
 
     // Reset in-memory state
     useProjectStore.setState({ projects: [] });
@@ -54,7 +54,7 @@ describe("useProjectStore", () => {
 
   it("deletes a project", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("To Delete");
+    const project = store.addProject("To Delete", null);
     store.deleteProject(project.id);
 
     expect(useProjectStore.getState().projects).toHaveLength(0);
@@ -63,8 +63,8 @@ describe("useProjectStore", () => {
   describe("cloneProject", () => {
     it("creates a new project with the (Copy) suffix", () => {
       const store = useProjectStore.getState();
-      const source = store.addProject("Clone Source");
-      const clone = useProjectStore.getState().cloneProject(source.id);
+      const source = store.addProject("Clone Source", null);
+      const clone = useProjectStore.getState().cloneProject(source.id, null);
 
       expect(clone).toBeDefined();
       expect(clone!.id).not.toBe(source.id);
@@ -74,10 +74,10 @@ describe("useProjectStore", () => {
 
     it("auto-increments suffix on collision", () => {
       const store = useProjectStore.getState();
-      const source = store.addProject("Foo");
-      useProjectStore.getState().cloneProject(source.id);
-      const second = useProjectStore.getState().cloneProject(source.id);
-      const third = useProjectStore.getState().cloneProject(source.id);
+      const source = store.addProject("Foo", null);
+      useProjectStore.getState().cloneProject(source.id, null);
+      const second = useProjectStore.getState().cloneProject(source.id, null);
+      const third = useProjectStore.getState().cloneProject(source.id, null);
 
       expect(second!.name).toBe("Foo (Copy 2)");
       expect(third!.name).toBe("Foo (Copy 3)");
@@ -85,17 +85,17 @@ describe("useProjectStore", () => {
 
     it("returns undefined for an unknown source id", () => {
       const store = useProjectStore.getState();
-      const clone = store.cloneProject("does-not-exist");
+      const clone = store.cloneProject("does-not-exist", null);
       expect(clone).toBeUndefined();
       expect(useProjectStore.getState().projects).toHaveLength(0);
     });
 
     it("emits a cloudSyncBus.emitCreate for the clone", () => {
       const store = useProjectStore.getState();
-      const source = store.addProject("Sync Test");
+      const source = store.addProject("Sync Test", null);
       const spy = vi.spyOn(cloudSyncBus, "emitCreate");
 
-      const clone = useProjectStore.getState().cloneProject(source.id);
+      const clone = useProjectStore.getState().cloneProject(source.id, null);
 
       expect(spy).toHaveBeenCalledWith(clone!.id);
       spy.mockRestore();
@@ -103,8 +103,8 @@ describe("useProjectStore", () => {
 
     it("persists the clone to localStorage", () => {
       const store = useProjectStore.getState();
-      const source = store.addProject("Persistence");
-      const clone = useProjectStore.getState().cloneProject(source.id)!;
+      const source = store.addProject("Persistence", null);
+      const clone = useProjectStore.getState().cloneProject(source.id, null)!;
 
       // Reset memory state and reload
       useProjectStore.setState({ projects: [] });
@@ -117,7 +117,7 @@ describe("useProjectStore", () => {
 
   it("adds scenarios and deletes any non-last scenario", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("With Scenarios");
+    const project = store.addProject("With Scenarios", null);
 
     // Project starts with auto-created Baseline
     let updated = useProjectStore.getState().getProject(project.id)!;
@@ -138,7 +138,7 @@ describe("useProjectStore", () => {
 
   it("cannot delete the only scenario", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Single Scenario");
+    const project = store.addProject("Single Scenario", null);
 
     const updated = useProjectStore.getState().getProject(project.id)!;
     const onlyId = updated.scenarios[0]!.id;
@@ -152,7 +152,7 @@ describe("useProjectStore", () => {
 
   it("can delete the first scenario when others exist", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Delete First Scenario");
+    const project = store.addProject("Delete First Scenario", null);
 
     let updated = useProjectStore.getState().getProject(project.id)!;
     const firstId = updated.scenarios[0]!.id;
@@ -168,7 +168,7 @@ describe("useProjectStore", () => {
 
   it("adds activities and invalidates simulation results", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("With Activities");
+    const project = store.addProject("With Activities", null);
 
     let updated = useProjectStore.getState().getProject(project.id)!;
     const scenarioId = updated.scenarios[0]!.id;
@@ -180,7 +180,7 @@ describe("useProjectStore", () => {
 
   it("duplicates scenario with new IDs (clone inserted to left of source)", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Clone Test");
+    const project = store.addProject("Clone Test", null);
 
     // Project already has Baseline; use it as the clone source
     let updated = useProjectStore.getState().getProject(project.id)!;
@@ -199,7 +199,7 @@ describe("useProjectStore", () => {
 
   it("duplicateScenario returns the new clone's ID", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Clone Return Test");
+    const project = store.addProject("Clone Return Test", null);
     const updated = useProjectStore.getState().getProject(project.id)!;
     const baselineId = updated.scenarios[0]!.id;
 
@@ -214,7 +214,7 @@ describe("useProjectStore", () => {
 
   it("duplicateScenario returns undefined for unknown projectId", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Unknown Project Test");
+    const project = store.addProject("Unknown Project Test", null);
     const baselineId = project.scenarios[0]!.id;
 
     const result = store.duplicateScenario("nonexistent-project", baselineId, "Clone");
@@ -223,7 +223,7 @@ describe("useProjectStore", () => {
 
   it("duplicateScenario returns undefined for unknown scenarioId", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Unknown Scenario Test");
+    const project = store.addProject("Unknown Scenario Test", null);
 
     const result = store.duplicateScenario(project.id, "nonexistent-scenario", "Clone");
     expect(result).toBeUndefined();
@@ -231,7 +231,7 @@ describe("useProjectStore", () => {
 
   it("cloning a middle scenario inserts clone at source index", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Middle Clone Test");
+    const project = store.addProject("Middle Clone Test", null);
     // Project starts with Baseline; add A and B
     store.addScenario(project.id, "A", "2025-01-06");
     store.addScenario(project.id, "B", "2025-01-06");
@@ -255,7 +255,7 @@ describe("useProjectStore", () => {
 
   it("cloning the last scenario places clone at length-2", () => {
     const store = useProjectStore.getState();
-    const project = store.addProject("Last Clone Test");
+    const project = store.addProject("Last Clone Test", null);
     store.addScenario(project.id, "A", "2025-01-06");
     store.addScenario(project.id, "B", "2025-01-06");
 
@@ -279,7 +279,7 @@ describe("useProjectStore", () => {
   describe("scenario locking", () => {
     it("toggles scenario lock state", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Lock Test");
+      const project = store.addProject("Lock Test", null);
       const scenarioId = project.scenarios[0]!.id;
 
       // Default is unlocked
@@ -299,7 +299,7 @@ describe("useProjectStore", () => {
 
     it("prevents adding activities to locked scenarios", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Locked Activity Test");
+      const project = store.addProject("Locked Activity Test", null);
       const scenarioId = project.scenarios[0]!.id;
 
       // Lock the scenario
@@ -314,7 +314,7 @@ describe("useProjectStore", () => {
 
     it("prevents updating activities in locked scenarios", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Locked Update Test");
+      const project = store.addProject("Locked Update Test", null);
       const scenarioId = project.scenarios[0]!.id;
 
       // Add activity first
@@ -334,7 +334,7 @@ describe("useProjectStore", () => {
 
     it("prevents deleting activities in locked scenarios", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Locked Delete Test");
+      const project = store.addProject("Locked Delete Test", null);
       const scenarioId = project.scenarios[0]!.id;
 
       // Add activity first
@@ -354,7 +354,7 @@ describe("useProjectStore", () => {
 
     it("prevents settings changes on locked scenarios", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Locked Settings Test");
+      const project = store.addProject("Locked Settings Test", null);
       const scenarioId = project.scenarios[0]!.id;
       const initialTarget = project.scenarios[0]!.settings.probabilityTarget;
 
@@ -370,7 +370,7 @@ describe("useProjectStore", () => {
 
     it("isScenarioLocked returns correct state", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Is Locked Test");
+      const project = store.addProject("Is Locked Test", null);
       const scenarioId = project.scenarios[0]!.id;
 
       expect(store.isScenarioLocked(project.id, scenarioId)).toBe(false);
@@ -381,7 +381,7 @@ describe("useProjectStore", () => {
 
     it("prevents bulk updates to locked scenarios", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Bulk Lock Test");
+      const project = store.addProject("Bulk Lock Test", null);
       const scenarioId = project.scenarios[0]!.id;
 
       // Add activities first
@@ -405,7 +405,7 @@ describe("useProjectStore", () => {
 
     it("prevents bulk deletes in locked scenarios", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Bulk Delete Lock Test");
+      const project = store.addProject("Bulk Delete Lock Test", null);
       const scenarioId = project.scenarios[0]!.id;
 
       // Add activities first
@@ -426,7 +426,7 @@ describe("useProjectStore", () => {
 
     it("undo restores lock state after toggle", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Undo Lock Test");
+      const project = store.addProject("Undo Lock Test", null);
       const scenarioId = project.scenarios[0]!.id;
 
       // Initially unlocked
@@ -449,7 +449,7 @@ describe("useProjectStore", () => {
   describe("undo grouping (commit-based)", () => {
     it("collapses repeated scenario notes updates into a single undo entry", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Group Notes Test");
+      const project = store.addProject("Group Notes Test", null);
       const scenarioId = project.scenarios[0]!.id;
       const baselineUndoLen = useProjectStore.getState().undoStack.length;
 
@@ -477,8 +477,8 @@ describe("useProjectStore", () => {
 
     it("does not suppress mutations on a different project while a group is active", () => {
       const store = useProjectStore.getState();
-      const projectA = store.addProject("Project A");
-      const projectB = store.addProject("Project B");
+      const projectA = store.addProject("Project A", null);
+      const projectB = store.addProject("Project B", null);
       const baselineLen = useProjectStore.getState().undoStack.length;
 
       useProjectStore.getState().beginUndoGroup(projectA.id);
@@ -503,7 +503,7 @@ describe("useProjectStore", () => {
 
     it("re-establishes the group when typing resumes after a mid-edit undo", () => {
       const store = useProjectStore.getState();
-      const project = store.addProject("Group Self-Heal Test");
+      const project = store.addProject("Group Self-Heal Test", null);
       const scenarioId = project.scenarios[0]!.id;
       const baselineLen = useProjectStore.getState().undoStack.length;
 
@@ -566,7 +566,7 @@ describe("useProjectStore", () => {
       const unsub = cloudSyncBus.subscribe(handler);
 
       const store = useProjectStore.getState();
-      const existing = store.addProject("Original");
+      const existing = store.addProject("Original", null);
       handler.mockClear();
 
       const replacement = createProject("Replaced");
@@ -590,7 +590,7 @@ describe("useProjectStore", () => {
       const unsub = cloudSyncBus.subscribe(handler);
 
       const store = useProjectStore.getState();
-      const existing = store.addProject("To Remove");
+      const existing = store.addProject("To Remove", null);
       handler.mockClear();
 
       const newProject = createProject("New Only");
@@ -613,8 +613,8 @@ describe("useProjectStore", () => {
   describe("clearAllData", () => {
     it("zeros projects, loadError, loadErrors, undoStack, redoStack", () => {
       const store = useProjectStore.getState();
-      store.addProject("P1");
-      store.addProject("P2");
+      store.addProject("P1", null);
+      store.addProject("P2", null);
 
       // Synthesise undo/redo/error state
       useProjectStore.setState({
@@ -646,7 +646,7 @@ describe("useProjectStore", () => {
 
     it("does not emit cloudSyncBus events", () => {
       const store = useProjectStore.getState();
-      store.addProject("P1");
+      store.addProject("P1", null);
 
       const handler = vi.fn();
       const unsub = cloudSyncBus.subscribe(handler);
@@ -659,8 +659,8 @@ describe("useProjectStore", () => {
 
     it("does not write to localStorage (preserves indexed projects)", () => {
       const store = useProjectStore.getState();
-      const p1 = store.addProject("P1");
-      const p2 = store.addProject("P2");
+      const p1 = store.addProject("P1", null);
+      const p2 = store.addProject("P2", null);
 
       // Confirm localStorage was populated by addProject
       expect(localStorage.getItem(`spert:project:${p1.id}`)).not.toBeNull();
@@ -673,6 +673,29 @@ describe("useProjectStore", () => {
       expect(localStorage.getItem(`spert:project:${p1.id}`)).not.toBeNull();
       expect(localStorage.getItem(`spert:project:${p2.id}`)).not.toBeNull();
       expect(localStorage.getItem("spert:project-index")).not.toBeNull();
+    });
+  });
+
+  // v0.42.0 / Lesson 38: addProject and cloneProject take an explicit owner
+  // argument. The store must overwrite the domain service's null sentinel
+  // with the caller's value (which may itself be null in local mode).
+  describe("addProject / cloneProject owner seeding", () => {
+    it("addProject sets owner to the provided uid", () => {
+      const project = useProjectStore.getState().addProject("Test", "uid-owner");
+      expect(project.owner).toBe("uid-owner");
+    });
+
+    it("addProject sets owner to null in local mode", () => {
+      const project = useProjectStore.getState().addProject("Test", null);
+      expect(project.owner).toBeNull();
+    });
+
+    it("cloneProject uses provided owner, not source owner", () => {
+      const source = useProjectStore.getState().addProject("Source", "uid-original");
+      const clone = useProjectStore.getState().cloneProject(source.id, "uid-new");
+      expect(clone?.owner).toBe("uid-new");
+      // Source must remain unchanged.
+      expect(source.owner).toBe("uid-original");
     });
   });
 });

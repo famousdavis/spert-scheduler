@@ -1,24 +1,110 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useId } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
+import { useProjectStore } from "@ui/hooks/use-project-store";
+import { getCloudSyncDriver } from "@ui/hooks/use-cloud-sync";
 import { getFirstName } from "@ui/helpers/format-user";
 import {
   getProjectMembers,
   shareProject,
-  removeProjectMember,
   updateMemberRole,
 } from "@infrastructure/firebase/firestore-sharing";
 import type { ProjectMember } from "@infrastructure/firebase/firestore-sharing";
-
+import { getSendInvitationEmail } from "@infrastructure/firebase/firebase";
+import type {
+  PendingInvite,
+  SendInvitationEmailResult,
+} from "@infrastructure/firebase/invitation-types";
+import {
+  parseBulkEmails,
+  mapInvitationError,
+} from "@ui/helpers/invitation-utils";
+import { INVITATIONS_ENABLED } from "@app/featureFlags";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface SharingSectionProps {
   projectId: string;
 }
 
+/**
+ * Trailing controls for a member row — owner badge, role select + remove
+ * button (when caller is owner), or read-only role text. Extracted to keep
+ * the calling JSX flat (no nested ternaries).
+ */
+function MemberRowControls({
+  member,
+  callerIsOwner,
+  onRoleChange,
+  onRemove,
+}: {
+  member: ProjectMember;
+  callerIsOwner: boolean;
+  onRoleChange: (uid: string, role: "editor" | "viewer") => void;
+  onRemove: (uid: string) => void;
+}) {
+  if (member.role === "owner") {
+    return (
+      <span className="text-xs font-medium text-blue-600 dark:text-blue-400 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">
+        Owner
+      </span>
+    );
+  }
+  if (callerIsOwner) {
+    return (
+      <>
+        <select
+          name="memberRole"
+          aria-label={`Role for ${member.email ?? member.uid}`}
+          value={member.role}
+          onChange={(e) =>
+            onRoleChange(member.uid, e.target.value as "editor" | "viewer")
+          }
+          className="text-xs border border-gray-300 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+        >
+          <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
+        </select>
+        <button
+          onClick={() => onRemove(member.uid)}
+          aria-label={`Remove ${member.email ?? member.uid}`}
+          className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+          title="Remove member"
+        >
+          Remove
+        </button>
+      </>
+    );
+  }
+  return (
+    <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+      {member.role}
+    </span>
+  );
+}
+
+/**
+ * Sharing section dispatcher — picks the legacy single-input variant or the
+ * v0.42.0 bulk-invitation variant based on the `INVITATIONS_ENABLED` flag.
+ *
+ * The Legacy variant is retained as the rollback safety net per Lesson 23. It
+ * stays in tree until v0.43.x once the bulk-sharing path has shipped stably.
+ */
 export function SharingSection({ projectId }: SharingSectionProps) {
+  if (INVITATIONS_ENABLED) return <BulkSharingSection projectId={projectId} />;
+  return <LegacySharingSection projectId={projectId} />;
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// LegacySharingSection (flag-off) — single-input share, byte-equivalent to
+// the pre-v0.42.0 component except that member removal now routes through
+// `FirestoreDriver.removeCollaborator` (throws-on-error) instead of the
+// deleted `removeProjectMember` helper (returned `{success, error}`).
+// ────────────────────────────────────────────────────────────────────────
+
+function LegacySharingSection({ projectId }: SharingSectionProps) {
   const { user } = useAuth();
   const { mode } = useStorage();
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -33,8 +119,7 @@ export function SharingSection({ projectId }: SharingSectionProps) {
   const loadMembers = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getProjectMembers(projectId);
-      setMembers(result);
+      setMembers(await getProjectMembers(projectId));
     } catch (e) {
       console.error("Failed to load members:", e);
     } finally {
@@ -43,9 +128,7 @@ export function SharingSection({ projectId }: SharingSectionProps) {
   }, [projectId]);
 
   useEffect(() => {
-    if (!collapsed) {
-      loadMembers();
-    }
+    if (!collapsed) loadMembers();
   }, [collapsed, loadMembers]);
 
   const handleShare = useCallback(async () => {
@@ -53,7 +136,6 @@ export function SharingSection({ projectId }: SharingSectionProps) {
     setSharing(true);
     setError(null);
     setSuccess(null);
-
     const result = await shareProject(user.uid, projectId, email.trim(), role);
     if (result.success) {
       setSuccess(`Shared with ${email.trim()} as ${role}.`);
@@ -68,15 +150,15 @@ export function SharingSection({ projectId }: SharingSectionProps) {
   const handleRemove = useCallback(
     async (targetUid: string) => {
       if (!user) return;
-      const result = await removeProjectMember(
-        user.uid,
-        projectId,
-        targetUid
-      );
-      if (result.success) {
+      const driver = getCloudSyncDriver();
+      try {
+        await driver?.removeCollaborator(projectId, targetUid);
         await loadMembers();
-      } else {
-        setError(result.error ?? "Failed to remove member.");
+      } catch (err) {
+        // removeCollaborator is Firestore-direct (not a CF callable) — surface
+        // the message verbatim. The three guards in removeCollaborator throw
+        // user-meaningful Errors ("Cannot remove yourself…" etc.).
+        setError(err instanceof Error ? err.message : "Failed to remove member.");
       }
     },
     [user, projectId, loadMembers]
@@ -85,12 +167,7 @@ export function SharingSection({ projectId }: SharingSectionProps) {
   const handleRoleChange = useCallback(
     async (targetUid: string, newRole: "editor" | "viewer") => {
       if (!user) return;
-      const result = await updateMemberRole(
-        user.uid,
-        projectId,
-        targetUid,
-        newRole
-      );
+      const result = await updateMemberRole(user.uid, projectId, targetUid, newRole);
       if (result.success) {
         await loadMembers();
       } else {
@@ -100,13 +177,9 @@ export function SharingSection({ projectId }: SharingSectionProps) {
     [user, projectId, loadMembers]
   );
 
-  // Only render in cloud mode for authenticated users
   if (mode !== "cloud" || !user) return null;
 
-  // Check if current user is the owner
-  const isOwner = members.some(
-    (m) => m.uid === user.uid && m.role === "owner"
-  );
+  const isOwner = members.some((m) => m.uid === user.uid && m.role === "owner");
 
   return (
     <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -126,11 +199,7 @@ export function SharingSection({ projectId }: SharingSectionProps) {
           stroke="currentColor"
           strokeWidth={2}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M19 9l-7 7-7-7"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
@@ -142,7 +211,6 @@ export function SharingSection({ projectId }: SharingSectionProps) {
             </p>
           ) : (
             <>
-              {/* Members list */}
               <div className="space-y-2">
                 {members.map((member) => (
                   <div
@@ -151,9 +219,8 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {getFirstName(member.displayName, member.email) ||
-                          member.uid}
-                        {member.uid === user?.uid && (
+                        {getFirstName(member.displayName, member.email) || member.uid}
+                        {member.uid === user.uid && (
                           <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
                             (you)
                           </span>
@@ -166,54 +233,17 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {(() => {
-                        if (member.role === "owner") {
-                          return (
-                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">
-                              Owner
-                            </span>
-                          );
-                        }
-                        if (isOwner) {
-                          return (
-                            <>
-                              <select
-                                name="memberRole"
-                                aria-label={`Role for ${member.email ?? member.uid}`}
-                                value={member.role}
-                                onChange={(e) =>
-                                  handleRoleChange(
-                                    member.uid,
-                                    e.target.value as "editor" | "viewer"
-                                  )
-                                }
-                                className="text-xs border border-gray-300 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                              >
-                                <option value="editor">Editor</option>
-                                <option value="viewer">Viewer</option>
-                              </select>
-                              <button
-                                onClick={() => handleRemove(member.uid)}
-                                className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-                                title="Remove member"
-                              >
-                                Remove
-                              </button>
-                            </>
-                          );
-                        }
-                        return (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                            {member.role}
-                          </span>
-                        );
-                      })()}
+                      <MemberRowControls
+                        member={member}
+                        callerIsOwner={isOwner}
+                        onRoleChange={handleRoleChange}
+                        onRemove={handleRemove}
+                      />
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Add member form (owner only) */}
               {isOwner && (
                 <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
                   <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -237,9 +267,7 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                       name="inviteRole"
                       aria-label="Invite member role"
                       value={role}
-                      onChange={(e) =>
-                        setRole(e.target.value as "editor" | "viewer")
-                      }
+                      onChange={(e) => setRole(e.target.value as "editor" | "viewer")}
                       className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                     >
                       <option value="editor">Editor</option>
@@ -254,17 +282,13 @@ export function SharingSection({ projectId }: SharingSectionProps) {
                     </button>
                   </div>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    The user must have signed in to SPERT Scheduler at least
-                    once.
+                    The user must have signed in to SPERT Scheduler at least once.
                   </p>
                 </div>
               )}
 
-              {/* Feedback messages */}
               {error && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {error}
-                </p>
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               )}
               {success && (
                 <p className="text-sm text-green-600 dark:text-green-400">
@@ -273,6 +297,361 @@ export function SharingSection({ projectId }: SharingSectionProps) {
               )}
             </>
           )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// BulkSharingSection (flag-on) — paste-list invite + pending-invitation
+// management with Resend (max 5×) and Revoke controls. Owner gating uses
+// `project.owner` from the store synchronously (Lesson 38) so the form
+// renders without waiting for the members fetch to resolve.
+// ────────────────────────────────────────────────────────────────────────
+
+function BulkSharingSection({ projectId }: SharingSectionProps) {
+  const { user } = useAuth();
+  const { mode } = useStorage();
+  const driver = getCloudSyncDriver();
+  const textareaId = useId();
+  const roleSelectId = useId();
+
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [loadingMem, setLoadingMem] = useState(false);
+  const [bulkEmails, setBulkEmails] = useState("");
+  const [role, setRole] = useState<"editor" | "viewer">("editor");
+  const [sending, setSending] = useState(false);
+  const [inviteResult, setInviteResult] = useState<SendInvitationEmailResult | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(true);
+
+  // Lesson 38: derive isOwner synchronously from project.owner. The
+  // members-list-derived value would race against the loadMembers fetch and
+  // briefly render the bulk-invite form as hidden on first paint.
+  const project = useProjectStore((s) => s.projects.find((p) => p.id === projectId));
+  const isOwner = project?.owner === user?.uid;
+
+  const loadMembers = useCallback(async () => {
+    setLoadingMem(true);
+    try {
+      setMembers(await getProjectMembers(projectId));
+    } catch {
+      // non-fatal
+    } finally {
+      setLoadingMem(false);
+    }
+  }, [projectId]);
+
+  const loadPendingInvites = useCallback(async () => {
+    if (!driver) return;
+    try {
+      setPendingInvites(await driver.listPendingInvites(projectId));
+    } catch (e) {
+      console.error("listPendingInvites failed:", e);
+    }
+  }, [projectId, driver]);
+
+  useEffect(() => {
+    if (!collapsed) {
+      void loadMembers();
+      void loadPendingInvites();
+    }
+  }, [collapsed, loadMembers, loadPendingInvites]);
+
+  if (mode !== "cloud" || !user) return null;
+
+  const handleSend = async () => {
+    const { valid, invalid } = parseBulkEmails(bulkEmails);
+    if (valid.length === 0) {
+      setError("No valid email addresses. Check formatting and try again.");
+      return; // Lesson 42: do NOT call CF, do NOT clear textarea
+    }
+    setError(null);
+    setSending(true);
+    try {
+      const callable = getSendInvitationEmail();
+      if (!callable) return;
+      const projectName =
+        useProjectStore.getState().projects.find((p) => p.id === projectId)?.name ??
+        "Untitled";
+      const res = await callable({
+        appId: "spertscheduler", // suite-wide callable literal (Lesson 15: hyphenless)
+        modelId: projectId,
+        modelName: projectName,
+        emails: valid,
+        role,
+        isVoting: false,
+      });
+      setInviteResult({
+        ...res.data,
+        failed: [
+          ...res.data.failed,
+          ...invalid.map((email) => ({ email, reason: "invalid-format" })),
+        ],
+      });
+      setBulkEmails(""); // Lesson 43: clear on success
+      await loadMembers();
+      await loadPendingInvites();
+    } catch (err) {
+      setError(mapInvitationError(err, "send"));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleRoleChange = async (targetUid: string, newRole: "editor" | "viewer") => {
+    const result = await updateMemberRole(user.uid, projectId, targetUid, newRole);
+    if (!result.success) {
+      setError(result.error ?? "Failed to update role.");
+    } else {
+      await loadMembers();
+    }
+  };
+
+  const handleRemove = async (targetUid: string) => {
+    try {
+      await driver?.removeCollaborator(projectId, targetUid);
+      await loadMembers();
+    } catch (err) {
+      // Firestore-direct call — no functions/* codes; surface message verbatim.
+      setError(err instanceof Error ? err.message : "Failed to remove member.");
+    }
+  };
+
+  const handleResend = async (tokenId: string) => {
+    setActionBusy(tokenId);
+    try {
+      await driver?.resendInvite(tokenId);
+      await loadPendingInvites();
+    } catch (err) {
+      setError(mapInvitationError(err, "resend"));
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const handleRevoke = async (tokenId: string) => {
+    setActionBusy(tokenId);
+    try {
+      await driver?.revokeInvite(tokenId);
+      await loadPendingInvites();
+    } catch (err) {
+      setError(mapInvitationError(err, "revoke"));
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  return (
+    <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center justify-between px-6 py-4 text-left"
+      >
+        <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+          Sharing
+        </h2>
+        <svg
+          className={`w-5 h-5 text-gray-400 transition-transform ${
+            collapsed ? "" : "rotate-180"
+          }`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {!collapsed && (
+        <div className="px-6 pb-6 space-y-4">
+          {/* Members list */}
+          {loadingMem ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Loading members…
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {members.map((member) => (
+                <div
+                  key={member.uid}
+                  className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                      {getFirstName(member.displayName, member.email) || member.uid}
+                      {member.uid === user.uid && (
+                        <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                          (you)
+                        </span>
+                      )}
+                    </p>
+                    {member.email && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {member.email}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MemberRowControls
+                      member={member}
+                      callerIsOwner={!!isOwner}
+                      onRoleChange={handleRoleChange}
+                      onRemove={handleRemove}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Bulk invite form — owner only */}
+          {isOwner && (
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-4 space-y-3">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Invite by email
+              </h3>
+              <div>
+                <label htmlFor={textareaId} className="sr-only">
+                  Email addresses
+                </label>
+                <textarea
+                  id={textareaId}
+                  name="bulkEmails"
+                  value={bulkEmails}
+                  onChange={(e) => {
+                    setBulkEmails(e.target.value);
+                    if (inviteResult) setInviteResult(null);
+                  }}
+                  autoComplete="off"
+                  placeholder="Enter email addresses, one per line or comma-separated"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+              <div className="flex gap-2">
+                <label htmlFor={roleSelectId} className="sr-only">
+                  Role for invited members
+                </label>
+                <select
+                  id={roleSelectId}
+                  name="inviteRole"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as "editor" | "viewer")}
+                  className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+                <button
+                  onClick={handleSend}
+                  disabled={sending || !bulkEmails.trim()}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sending ? "Sending…" : "Send invitations"}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Existing users are added immediately. New users receive an
+                invitation email.
+              </p>
+
+              {/* Result chips */}
+              {inviteResult && (
+                <div className="space-y-1">
+                  {inviteResult.added.map((r) => (
+                    <p
+                      key={r.email}
+                      className="text-sm text-green-700 dark:text-green-400"
+                    >
+                      ✓ Added: {r.email}
+                    </p>
+                  ))}
+                  {inviteResult.invited.map((r) => (
+                    <p
+                      key={r.email}
+                      className="text-sm text-blue-700 dark:text-blue-400"
+                    >
+                      ✉ Invited: {r.email}
+                    </p>
+                  ))}
+                  {inviteResult.failed.map((r) => (
+                    <p
+                      key={r.email}
+                      className="text-sm text-red-600 dark:text-red-400"
+                    >
+                      ✗ {r.email}
+                      {r.reason === "invalid-format"
+                        ? " (invalid format)"
+                        : `: ${r.reason}`}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Pending invitations */}
+              {pendingInvites.length > 0 && (
+                <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Pending invitations
+                  </h4>
+                  {pendingInvites.map((invite) => (
+                    <div
+                      key={invite.tokenId}
+                      className="flex items-center justify-between gap-2 py-1.5"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-gray-900 dark:text-gray-100 truncate">
+                          {invite.inviteeEmail}
+                        </span>
+                        <span className="text-xs text-gray-500 ml-2 capitalize">
+                          {invite.role}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">
+                          ({invite.emailSendCount}/5)
+                        </span>
+                        <button
+                          onClick={() => handleResend(invite.tokenId)}
+                          disabled={
+                            invite.emailSendCount >= 5 || actionBusy !== null
+                          }
+                          aria-label={`Resend invitation to ${invite.inviteeEmail}`}
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Resend
+                        </button>
+                        <ConfirmDialog
+                          trigger={
+                            <button
+                              type="button"
+                              disabled={actionBusy !== null}
+                              aria-label={`Revoke invitation to ${invite.inviteeEmail}`}
+                              className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              Revoke
+                            </button>
+                          }
+                          title="Revoke invitation?"
+                          description={`${invite.inviteeEmail} will no longer be able to claim this invitation.`}
+                          onConfirm={() => handleRevoke(invite.tokenId)}
+                          confirmLabel="Revoke"
+                          destructive
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>
       )}
     </section>

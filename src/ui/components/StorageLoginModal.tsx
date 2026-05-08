@@ -1,50 +1,23 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useRef } from "react";
+import { useCallback, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useAuth } from "@ui/providers/AuthProvider";
-import { SIGN_IN_POPUP_BLOCKED } from "@ui/providers/auth-errors";
 import { useStorage } from "@ui/providers/StorageProvider";
 import type { StorageMode } from "@ui/providers/StorageProvider";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useStorageModeSwitch } from "@ui/hooks/use-storage-mode-switch";
+import { useSignInWithTosGate } from "@ui/hooks/useSignInWithTosGate";
 import { getFirstName, getDisplayName } from "@ui/helpers/format-user";
-import { toast } from "@ui/hooks/use-notification-store";
 import type { MigrationResult } from "@infrastructure/firebase/firestore-migration";
 import type { AuthUser } from "@ui/providers/AuthProvider";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { ConsentModal } from "./ConsentModal";
 import { KeepOrDiscardLocalModal } from "./KeepOrDiscardLocalModal";
-import {
-  TOS_VERSION,
-  LS_TOS_ACCEPTED_VERSION,
-  LS_TOS_WRITE_PENDING,
-} from "@app/legal-constants";
+import { SignInButtons } from "./auth/SignInButtons";
 
 // ── Icons ──────────────────────────────────────────────────────────────
-
-function GoogleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-      <path d="M5.84 14.09a6.97 6.97 0 0 1 0-4.17V7.07H2.18a11.01 11.01 0 0 0 0 9.86l3.66-2.84z" fill="#FBBC05" />
-      <path d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.09 14.97 0 12 0 7.7 0 3.99 2.47 2.18 6.07l3.66 2.85c.87-2.6 3.3-4.17 6.16-4.17z" fill="#EA4335" />
-    </svg>
-  );
-}
-
-function MicrosoftIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
-    </svg>
-  );
-}
 
 function CloseIcon() {
   return (
@@ -241,44 +214,23 @@ function MigrationErrorBanner({
   );
 }
 
-function SignInButtons({
-  signingIn,
-  pendingProvider,
-  onSignIn,
+function SignInPrompt({
+  onGoogleClick,
+  onMicrosoftClick,
 }: {
-  signingIn: boolean;
-  pendingProvider: "google" | "microsoft" | null;
-  onSignIn: (provider: "google" | "microsoft") => void;
+  onGoogleClick: () => void;
+  onMicrosoftClick: () => void;
 }) {
   return (
     <>
       <p className="text-sm text-gray-500 dark:text-gray-400">
         Sign in to enable Cloud Storage and access your data across devices.
       </p>
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => onSignIn("google")}
-          disabled={signingIn}
-          className="flex flex-1 min-w-[160px] items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50"
-        >
-          <GoogleIcon />
-          {signingIn && pendingProvider === "google"
-            ? "Signing in…"
-            : "Sign in with Google"}
-        </button>
-        <button
-          type="button"
-          onClick={() => onSignIn("microsoft")}
-          disabled={signingIn}
-          className="flex flex-1 min-w-[160px] items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50"
-        >
-          <MicrosoftIcon />
-          {signingIn && pendingProvider === "microsoft"
-            ? "Signing in…"
-            : "Sign in with Microsoft"}
-        </button>
-      </div>
+      <SignInButtons
+        fullLabel
+        onGoogleClick={onGoogleClick}
+        onMicrosoftClick={onMicrosoftClick}
+      />
     </>
   );
 }
@@ -322,13 +274,7 @@ export function StorageLoginModal({
   open,
   onOpenChange,
 }: StorageLoginModalProps) {
-  const {
-    user,
-    firebaseAvailable,
-    signInWithGoogle,
-    signInWithMicrosoft,
-    signOut,
-  } = useAuth();
+  const { user, firebaseAvailable, signOut } = useAuth();
   const { mode, persistedMode, isCloudAvailable } = useStorage();
   const {
     migrating,
@@ -347,68 +293,14 @@ export function StorageLoginModal({
   const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
   const warnEnabled = !(preferences.suppressLocalStorageWarning ?? false);
 
-  const [consentOpen, setConsentOpen] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
+  // Consent gate consolidated into useSignInWithTosGate (Lesson 19).
+  const tosGate = useSignInWithTosGate();
   const [signingOut, setSigningOut] = useState(false);
-  const pendingProviderRef = useRef<"google" | "microsoft" | null>(null);
 
   const available = firebaseAvailable && isCloudAvailable;
   const isSignedInCloud = !!user && mode === "cloud";
   const isSignedInLocal = !!user && mode !== "cloud";
   const signedIn = !!user;
-
-  /** Proceed with Firebase Auth for the selected provider. */
-  const doSignIn = useCallback(
-    async (provider: "google" | "microsoft") => {
-      setSigningIn(true);
-      try {
-        if (provider === "google") {
-          await signInWithGoogle();
-        } else {
-          await signInWithMicrosoft();
-        }
-      } catch (err) {
-        const code = (err as { code?: string } | undefined)?.code;
-        if (code === SIGN_IN_POPUP_BLOCKED) {
-          toast.info("Your browser blocked the sign-in popup. Redirecting…");
-        } else {
-          console.error("Sign-in error:", err);
-          toast.error("Sign-in failed. Please try again.");
-        }
-      } finally {
-        setSigningIn(false);
-      }
-    },
-    [signInWithGoogle, signInWithMicrosoft]
-  );
-
-  /** Check localStorage consent cache; show modal if not current version. */
-  const handleSignIn = useCallback(
-    (provider: "google" | "microsoft") => {
-      const accepted = localStorage.getItem(LS_TOS_ACCEPTED_VERSION);
-      if (accepted === TOS_VERSION) {
-        if (localStorage.getItem(LS_TOS_WRITE_PENDING) !== "true") {
-          localStorage.setItem(LS_TOS_WRITE_PENDING, "true");
-        }
-        pendingProviderRef.current = provider;
-        doSignIn(provider);
-      } else {
-        pendingProviderRef.current = provider;
-        setConsentOpen(true);
-      }
-    },
-    [doSignIn]
-  );
-
-  /** Consent modal accepted: cache version + set write-pending, then sign in. */
-  const handleConsentAccept = useCallback(() => {
-    localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
-    localStorage.setItem(LS_TOS_WRITE_PENDING, "true");
-    setConsentOpen(false);
-    if (pendingProviderRef.current) {
-      doSignIn(pendingProviderRef.current);
-    }
-  }, [doSignIn]);
 
   const handleSignOut = useCallback(async () => {
     if (signingOut) return;
@@ -487,10 +379,9 @@ export function StorageLoginModal({
                 )}
 
                 {!signedIn && (
-                  <SignInButtons
-                    signingIn={signingIn}
-                    pendingProvider={pendingProviderRef.current}
-                    onSignIn={handleSignIn}
+                  <SignInPrompt
+                    onGoogleClick={tosGate.handleGoogleClick}
+                    onMicrosoftClick={tosGate.handleMicrosoftClick}
                   />
                 )}
 
@@ -524,9 +415,11 @@ export function StorageLoginModal({
       </Dialog.Root>
 
       <ConsentModal
-        open={consentOpen}
-        onOpenChange={setConsentOpen}
-        onAccept={handleConsentAccept}
+        open={tosGate.consentOpen}
+        onOpenChange={(o) => {
+          if (!o) tosGate.handleCancel();
+        }}
+        onAccept={tosGate.handleAccept}
       />
 
       <KeepOrDiscardLocalModal

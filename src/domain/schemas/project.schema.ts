@@ -240,6 +240,10 @@ export const ProjectSchema = z.object({
   name: z.string().min(1).max(200),
   createdAt: z.string().max(64),
   schemaVersion: z.number().int().positive(),
+  // Lesson 38: required field, nullable, defaults to null when absent. Every
+  // load path (local repo, cloud loadAll, import) lands on a valid Project
+  // even if the source doc predates this field.
+  owner: z.string().nullable().optional().default(null),
   globalCalendarOverride: CalendarSchema.optional(),
   convertedWorkDays: z.array(ISODateString).max(500).optional(),
   targetFinishDate: ISODateString.nullable().optional(),

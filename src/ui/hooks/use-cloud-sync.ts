@@ -22,6 +22,7 @@ import { toast } from "@ui/hooks/use-notification-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import type { SyncEvent } from "@infrastructure/persistence/sync-bus";
 import { FirestoreDriver } from "@infrastructure/firebase/firestore-driver";
+import { INVITATIONS_ENABLED } from "@app/featureFlags";
 import type { Unsubscribe } from "firebase/firestore";
 
 // Module-level driver handle. Written by useCloudSync when the driver is
@@ -111,10 +112,14 @@ export function useCloudSync(): void {
         .then(async (cloudProjects) => {
           if (cancelled) return;
 
-          // Strip _owner/_members metadata before setting in store
-          const projects = cloudProjects.map(
-            ({ _owner, _members, ...project }) => project
-          );
+          // Strip _owner/_members metadata before setting in store, but
+          // re-attach `_owner` as the in-memory `owner` field (Lesson 38) so
+          // the SharingSection ownership gate can render synchronously without
+          // waiting for `getProjectMembers` to resolve.
+          const projects = cloudProjects.map(({ _owner, _members, ...project }) => ({
+            ...project,
+            owner: _owner,
+          }));
 
           // Data-loss guard: if cloud is empty but local has projects, skip
           // replacement to protect un-migrated local data
@@ -241,4 +246,38 @@ export function useCloudSync(): void {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isCloudActive, handleBeforeUnload]);
+
+  // spert:models-changed listener — Pattern B re-fetch on successful claim.
+  //
+  // After AuthProvider's claimPendingInvitations CF call dispatches this event,
+  // we re-run loadAll so newly-claimed projects appear in the store without
+  // requiring a page reload, then attach a real-time listener for each.
+  // Re-attaches `_owner` as `owner` (same pattern as the initial-load path).
+  const handleModelsChanged = useCallback(() => {
+    const driver = getCloudSyncDriver();
+    if (!driver || mode !== "cloud") return;
+    driver
+      .loadAll()
+      .then((cloudProjects) => {
+        const projects = cloudProjects.map(({ _owner, _members, ...p }) => ({
+          ...p,
+          owner: _owner,
+        }));
+        setProjects(projects);
+        for (const project of projects) {
+          // Idempotent — listenedIdsRef guards re-subscription.
+          addProjectListener(project.id);
+        }
+      })
+      .catch((err) =>
+        console.error("spert:models-changed re-fetch failed:", err)
+      );
+  }, [mode, addProjectListener, setProjects]);
+
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    window.addEventListener("spert:models-changed", handleModelsChanged);
+    return () =>
+      window.removeEventListener("spert:models-changed", handleModelsChanged);
+  }, [handleModelsChanged]);
 }

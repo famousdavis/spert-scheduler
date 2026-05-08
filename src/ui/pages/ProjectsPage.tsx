@@ -18,6 +18,8 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useShallow } from "zustand/react/shallow";
+import { useAuth } from "@ui/providers/AuthProvider";
+import { useStorage } from "@ui/providers/StorageProvider";
 import { useProjectStore, type LoadError } from "@ui/hooks/use-project-store";
 import { NewProjectDialog } from "@ui/components/NewProjectDialog";
 import { ProjectTile } from "@ui/components/ProjectTile";
@@ -43,6 +45,12 @@ function getErrorTypeLabel(type: LoadError["type"]): string {
 }
 
 export function ProjectsPage() {
+  const { user } = useAuth();
+  const { mode } = useStorage();
+  // Owner uid for new and cloned projects: the current user's uid in cloud
+  // mode, null in local mode. Lesson 38 — explicit at the call site so that
+  // mode-switching mid-session doesn't trail stale ownership behind it.
+  const newProjectOwner = mode === "cloud" && user ? user.uid : null;
   const {
     projects,
     loadError,
@@ -86,12 +94,12 @@ export function ProjectsPage() {
 
   const handleClone = useCallback(
     (id: string) => {
-      const clone = cloneProject(id);
+      const clone = cloneProject(id, newProjectOwner);
       if (clone) {
         toast.success(`Cloned to "${clone.name}"`);
       }
     },
-    [cloneProject]
+    [cloneProject, newProjectOwner]
   );
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -125,7 +133,7 @@ export function ProjectsPage() {
   };
 
   const handleCreate = (name: string) => {
-    const project = addProject(name);
+    const project = addProject(name, newProjectOwner);
     navigate(`/project/${project.id}`);
   };
 

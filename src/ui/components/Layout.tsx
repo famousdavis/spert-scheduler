@@ -14,7 +14,9 @@ import { StorageLoginModal } from "./StorageLoginModal";
 import { ThemeToggleButton } from "./ThemeToggleButton";
 import { FirstRunBanner } from "./FirstRunBanner";
 import { LocalStorageWarningBanner } from "./LocalStorageWarningBanner";
+import { InvitationBanner } from "./InvitationBanner";
 import { useCloudSync } from "@ui/hooks/use-cloud-sync";
+import { useInvitationLanding } from "@ui/hooks/useInvitationLanding";
 
 const NAV_ITEMS = [
   { path: "/projects", label: "Projects" },
@@ -34,6 +36,11 @@ export function Layout() {
 
   // Initialize cloud sync (no-op when in local mode)
   useCloudSync();
+
+  // Sole `useInvitationLanding()` call site — passed as props to InvitationBanner
+  // and used here to gate FirstRunBanner / LocalStorageWarningBanner visibility
+  // (mutual exclusion: invitation banner takes precedence).
+  const invite = useInvitationLanding();
 
   useEffect(() => {
     loadPreferences();
@@ -103,8 +110,14 @@ export function Layout() {
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
-        <FirstRunBanner />
-        <LocalStorageWarningBanner />
+        {/* InvitationBanner takes precedence — suppresses other banners while active. */}
+        <InvitationBanner
+          state={invite.state}
+          claimedNames={invite.claimedNames}
+          dismiss={invite.dismiss}
+        />
+        {invite.state === "idle" && <FirstRunBanner />}
+        {invite.state === "idle" && <LocalStorageWarningBanner />}
         <Outlet />
       </main>
       <footer className="mt-16 border-t-2 border-gray-100 dark:border-gray-800 pb-6 pt-8 text-center text-sm text-gray-500 dark:text-gray-400">
