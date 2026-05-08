@@ -117,13 +117,23 @@ export function useInvitationLanding(): UseInvitationLandingResult {
   useEffect(() => {
     if (state !== "pre_auth") return;
     if (user === null) return;
-    const t = setTimeout(() => setState("idle"), 30_000);
+    const t = setTimeout(() => {
+      // Lesson 59: consume SESSION_KEY on auto-fail so a page reload doesn't
+      // re-enter pre_auth from a stale key (banner reload-loop). Order matters
+      // — removeItem before setState; React may flush synchronously in some
+      // environments before the cleanup executes.
+      sessionStorage.removeItem(INVITE_SESSION_KEY);
+      setState("idle");
+    }, 30_000);
     return () => clearTimeout(t);
   }, [state, user]);
 
   return {
     state,
     claimedNames,
-    dismiss: () => setState("idle"),
+    dismiss: () => {
+      sessionStorage.removeItem(INVITE_SESSION_KEY);
+      setState("idle");
+    },
   };
 }
