@@ -305,10 +305,13 @@ function LegacySharingSection({ projectId }: SharingSectionProps) {
 
 // ────────────────────────────────────────────────────────────────────────
 // BulkSharingSection (flag-on) — paste-list invite + pending-invitation
-// management with Resend (max 5×) and Revoke controls. Owner gating uses
-// `project.owner` from the store synchronously (Lesson 38) so the form
-// renders without waiting for the members fetch to resolve.
+// management with Resend (max 5×) and Revoke controls. Ownership derives
+// synchronously from `project.owner` (Lesson 38). Wrapped in a four-state
+// OwnerStatus enum (Lesson 60) so a transient members-fetch failure
+// surfaces visibly instead of leaving the list looking empty.
 // ────────────────────────────────────────────────────────────────────────
+
+type OwnerStatus = "loading" | "owner" | "not-owner" | "error";
 
 function BulkSharingSection({ projectId }: SharingSectionProps) {
   const { user } = useAuth();
@@ -327,19 +330,39 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(true);
+  // Tracks whether the most-recent loadMembers attempt failed. Drives the
+  // OwnerStatus derivation below; cleared on the next successful fetch.
+  const [membersFetchError, setMembersFetchError] = useState(false);
 
-  // Lesson 38: derive isOwner synchronously from project.owner. The
-  // members-list-derived value would race against the loadMembers fetch and
-  // briefly render the bulk-invite form as hidden on first paint.
+  // Lesson 38: derive ownership synchronously from project.owner — no
+  // Firestore round-trip. Lesson 60 (adapted): wrap in a four-state enum so a
+  // transient members-fetch failure surfaces visibly rather than silently
+  // leaving the list empty. SPERT diverges from the MSB canonical here in
+  // that 'not-owner' still renders the members list (informational); only
+  // the bulk-invite form is owner-gated.
   const project = useProjectStore((s) => s.projects.find((p) => p.id === projectId));
-  const isOwner = project?.owner === user?.uid;
+  let ownerStatus: OwnerStatus;
+  if (project === undefined) {
+    ownerStatus = "loading";
+  } else if (membersFetchError) {
+    ownerStatus = "error";
+  } else if (project.owner === user?.uid) {
+    ownerStatus = "owner";
+  } else {
+    ownerStatus = "not-owner";
+  }
+  const isOwner = ownerStatus === "owner";
 
   const loadMembers = useCallback(async () => {
     setLoadingMem(true);
     try {
       setMembers(await getProjectMembers(projectId));
+      setMembersFetchError(false);
     } catch {
-      // non-fatal
+      // Lesson 60: surface as an OwnerStatus = "error" rather than silently
+      // swallowing. The render path replaces section content with a visible
+      // "couldn't load" message and prompts the user to refresh.
+      setMembersFetchError(true);
     } finally {
       setLoadingMem(false);
     }
@@ -362,6 +385,9 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
   }, [collapsed, loadMembers, loadPendingInvites]);
 
   if (mode !== "cloud" || !user) return null;
+  // Lesson 60: project not yet hydrated in the store — render nothing rather
+  // than flashing a 'not-owner' state. The next store update will re-render.
+  if (ownerStatus === "loading") return null;
 
   const handleSend = async () => {
     const { valid, invalid } = parseBulkEmails(bulkEmails);
@@ -471,6 +497,18 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
 
       {!collapsed && (
         <div className="px-6 pb-6 space-y-4 max-w-3xl">
+          {ownerStatus === "error" ? (
+            // Lesson 60: visible error replaces section content (header stays
+            // so users can collapse). Independent of the per-action `error`
+            // string state below, which surfaces send/remove/etc. failures.
+            <p
+              role="alert"
+              className="text-sm text-red-600 dark:text-red-400"
+            >
+              Couldn&rsquo;t load sharing details. Refresh the page to try again.
+            </p>
+          ) : (
+            <>
           {/* Members list */}
           {loadingMem ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -654,6 +692,8 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
           )}
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            </>
+          )}
         </div>
       )}
     </section>
