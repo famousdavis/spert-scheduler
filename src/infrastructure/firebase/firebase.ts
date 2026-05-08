@@ -4,9 +4,20 @@
 import { initializeApp, getApps } from "firebase/app";
 import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseApp } from "firebase/app";
 import type { Firestore } from "firebase/firestore";
 import type { Auth } from "firebase/auth";
+import type { HttpsCallable } from "firebase/functions";
+import type {
+  ClaimPendingInvitationsResult,
+  ResendInviteInput,
+  ResendInviteResult,
+  RevokeInviteInput,
+  RevokeInviteResult,
+  SendInvitationEmailInput,
+  SendInvitationEmailResult,
+} from "./invitation-types";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -38,3 +49,44 @@ export const auth: Auth | null = app ? getAuth(app) : null;
 
 /** True when Firebase SDK is initialized and available. */
 export const isFirebaseAvailable = isFirebaseConfigured && app !== null;
+
+// ---------------------------------------------------------------------------
+// Cloud Functions callable factories (bulk-sharing invitation system).
+//
+// Each factory returns a typed `HttpsCallable<Input, Result>` when Firebase is
+// configured, or `null` in local-only mode. Call sites must null-check before
+// invoking — see `src/infrastructure/firebase/firestore-driver.ts` and
+// `src/ui/components/SharingSection.tsx` for usage patterns.
+//
+// Region pinned to us-central1 to match the spert-suite Cloud Functions repo.
+// ---------------------------------------------------------------------------
+
+const functions = app ? getFunctions(app, "us-central1") : null;
+
+export function getSendInvitationEmail(): HttpsCallable<
+  SendInvitationEmailInput,
+  SendInvitationEmailResult
+> | null {
+  return functions ? httpsCallable(functions, "sendInvitationEmail") : null;
+}
+
+export function getClaimPendingInvitations(): HttpsCallable<
+  Record<string, never>,
+  ClaimPendingInvitationsResult
+> | null {
+  return functions ? httpsCallable(functions, "claimPendingInvitations") : null;
+}
+
+export function getRevokeInvite(): HttpsCallable<
+  RevokeInviteInput,
+  RevokeInviteResult
+> | null {
+  return functions ? httpsCallable(functions, "revokeInvite") : null;
+}
+
+export function getResendInvite(): HttpsCallable<
+  ResendInviteInput,
+  ResendInviteResult
+> | null {
+  return functions ? httpsCallable(functions, "resendInvite") : null;
+}

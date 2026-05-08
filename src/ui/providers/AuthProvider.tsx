@@ -26,8 +26,14 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { auth, db, isFirebaseAvailable } from "@infrastructure/firebase/firebase";
-import { upsertUserProfile } from "@infrastructure/firebase/firestore-sharing";
+import {
+  auth,
+  db,
+  isFirebaseAvailable,
+  getClaimPendingInvitations,
+} from "@infrastructure/firebase/firebase";
+import { sanitizeForFirestore } from "@infrastructure/firebase/firestore-sanitize";
+import type { SpertModelsChangedDetail } from "@infrastructure/firebase/invitation-types";
 import { runSignOutCleanup } from "@infrastructure/persistence/sign-out-cleanup-registry";
 import { classifyPopupError, SIGN_IN_POPUP_BLOCKED } from "./auth-errors";
 import {
@@ -37,6 +43,10 @@ import {
   LS_TOS_ACCEPTED_VERSION,
   LS_TOS_WRITE_PENDING,
 } from "@app/legal-constants";
+import { INVITE_SESSION_KEY } from "@app/constants";
+import { INVITATIONS_ENABLED } from "@app/featureFlags";
+import { denormalizeLastFirst } from "@ui/helpers/auth-name";
+import { toast } from "@ui/hooks/use-notification-store";
 
 export interface AuthUser {
   uid: string;
@@ -155,6 +165,95 @@ async function checkReturningUserTos(fbUser: FirebaseUser): Promise<boolean> {
   }
 }
 
+/**
+ * Dual-write the user profile on every sign-in.
+ *
+ * Writes both the per-app `spertscheduler_profiles/{uid}` doc (legacy, retained
+ * for backward compatibility) and the suite-wide `spertsuite_profiles/{uid}` doc
+ * that the bulk-invitation Cloud Functions read to discover existing users.
+ *
+ * Display name is denormalized at write time — Microsoft AD's "Last, First" form
+ * is converted to natural "First Last" so downstream consumers (email templates,
+ * UI chips, member lists) all see the same canonical value.
+ *
+ * `serverTimestamp()` is added AFTER `sanitizeForFirestore` (Lesson 29 — the
+ * sanitizer recurses through values and would mangle the sentinel).
+ *
+ * Blocks the auth callback ~50–200ms typical. On Firestore unreachable, the
+ * caller's catch logs and continues so the user still signs in.
+ */
+async function writeUserProfiles(fbUser: FirebaseUser): Promise<void> {
+  if (!db) return;
+  const normalized = denormalizeLastFirst(fbUser.displayName ?? "");
+  const email = (fbUser.email ?? "").toLowerCase().trim();
+  const photoURL = fbUser.photoURL ?? null;
+  const payload = sanitizeForFirestore({ displayName: normalized, email, photoURL });
+  await setDoc(
+    doc(db, "spertscheduler_profiles", fbUser.uid),
+    { ...payload, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+  await setDoc(
+    doc(db, "spertsuite_profiles", fbUser.uid),
+    { ...payload, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+/**
+ * Fire-and-forget call to claim any pending invitations for the just-signed-in
+ * user, then dispatch a `spert:models-changed` event so the project store
+ * can re-fetch and the InvitationBanner can transition to its claimed state.
+ *
+ * Bails when:
+ *  - Feature flag is off (PR 3 hasn't shipped yet)
+ *  - Email is not verified (Cloud Function rejects unverified accounts; we
+ *    short-circuit to avoid the round-trip and only toast on the failed-precondition
+ *    code path that arrives via an invite link)
+ *  - Functions SDK isn't initialized (local-only mode)
+ */
+async function runClaimPendingInvitations(
+  callable: NonNullable<ReturnType<typeof getClaimPendingInvitations>>
+): Promise<void> {
+  try {
+    const res = await callable({});
+    const claimed = res.data?.claimed ?? [];
+    if (claimed.length > 0) {
+      window.dispatchEvent(
+        new CustomEvent<SpertModelsChangedDetail>("spert:models-changed", {
+          detail: { claimed },
+        })
+      );
+    }
+  } catch (err) {
+    const code = (err as { code?: string }).code ?? "unknown";
+    console.error("claimPendingInvitations failed:", code);
+    // Lesson 26: only toast when the user arrived via invite link — otherwise
+    // a normal sign-in by a Microsoft personal account would surface a
+    // confusing error message about a feature they didn't try to use.
+    if (
+      code === "functions/failed-precondition" &&
+      sessionStorage.getItem(INVITE_SESSION_KEY)
+    ) {
+      toast.error(
+        "Could not verify your email address. Microsoft personal accounts" +
+          " (@outlook.com, @hotmail.com) are not supported for invitations."
+      );
+    }
+  }
+}
+
+function claimPendingInvitationsAndNotify(firebaseUser: FirebaseUser): void {
+  if (!INVITATIONS_ENABLED) return;
+  if (!firebaseUser.emailVerified) return;
+  const callable = getClaimPendingInvitations();
+  if (!callable) return;
+  // Fire-and-forget — the callback returns void and we don't await the result.
+  runClaimPendingInvitations(callable).catch(() => {
+    /* runClaimPendingInvitations handles its own errors. */
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   // No loading state needed if Firebase not configured
@@ -169,25 +268,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return onAuthStateChanged(auth, async (firebaseUser) => {
+      // setLoading(false) FIRST — guarantees the loading-stuck path can't recur
+      // even if any awaited operation below early-returns. Previously this lived
+      // at the bottom and the ToS-stale early-return path skipped it, leaving
+      // `loading: true` until the next onAuthStateChanged(null) fired.
+      setLoading(false);
       if (firebaseUser) {
+        // Profile dual-write BEFORE the ToS check so the user is discoverable
+        // by the bulk-invitation system even if they decline ToS this session
+        // (orphan profile is the suite-wide accepted trade-off — see PR body).
+        try {
+          await writeUserProfiles(firebaseUser);
+        } catch (e) {
+          console.error("Profile write failed:", e);
+        }
+
+        // ToS gate — byte-for-byte identical to pre-onboarding logic:
         const writePending =
           localStorage.getItem(LS_TOS_WRITE_PENDING) === "true";
 
         if (writePending) {
           // Branch A: Pending write — user just accepted consent and signed in
           await writeTosAcceptance(firebaseUser);
-          setUser(toAuthUser(firebaseUser));
         } else {
           // Branch B: Returning user — verify ToS version
           const proceed = await checkReturningUserTos(firebaseUser);
-          if (proceed) {
-            setUser(toAuthUser(firebaseUser));
-          } else {
+          if (!proceed) {
             // Version mismatch — sign out; next onAuthStateChanged(null)
-            // will handle setUser(null) + setLoading(false).
-            // Route through the same cleanup registry as user-initiated
-            // sign-out so in-memory state and per-user localStorage are
-            // cleared before Firebase credentials are revoked.
+            // will handle setUser(null). Route through the same cleanup
+            // registry as user-initiated sign-out so in-memory state and
+            // per-user localStorage are cleared before Firebase credentials
+            // are revoked.
             localStorage.removeItem(LS_TOS_ACCEPTED_VERSION);
             localStorage.removeItem(LS_TOS_WRITE_PENDING);
             await runSignOutCleanup();
@@ -196,20 +307,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Upsert profile on successful sign-in
-        try {
-          await upsertUserProfile(
-            firebaseUser.uid,
-            firebaseUser.displayName ?? "",
-            firebaseUser.email ?? ""
-          );
-        } catch (e) {
-          console.error("Failed to upsert profile:", e);
-        }
-      } else {
-        setUser(null);
+        claimPendingInvitationsAndNotify(firebaseUser);
       }
-      setLoading(false);
+      // Single setUser call site — null on sign-out, AuthUser on sign-in.
+      setUser(firebaseUser ? toAuthUser(firebaseUser) : null);
     });
   }, []);
 

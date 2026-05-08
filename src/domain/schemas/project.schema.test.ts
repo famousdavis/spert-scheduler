@@ -410,3 +410,40 @@ describe("HolidaySchema range limit", () => {
     }
   });
 });
+
+// v0.42.0 / Lesson 38: owner field on ProjectSchema. Required slot, nullable
+// value. Existing local docs predate this field — they must parse cleanly
+// and land on the null default (not undefined).
+describe("ProjectSchema owner field", () => {
+  const baseProject = {
+    id: "p1",
+    name: "Test",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    schemaVersion: 2,
+    scenarios: [],
+  };
+
+  it("defaults to null when owner field is absent (existing local docs)", () => {
+    const result = ProjectSchema.safeParse({ ...baseProject });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.owner).toBeNull();
+    }
+  });
+
+  it("accepts a uid string", () => {
+    const result = ProjectSchema.safeParse({ ...baseProject, owner: "uid-123" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.owner).toBe("uid-123");
+    }
+  });
+
+  it("accepts null explicitly", () => {
+    const result = ProjectSchema.safeParse({ ...baseProject, owner: null });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.owner).toBeNull();
+    }
+  });
+});

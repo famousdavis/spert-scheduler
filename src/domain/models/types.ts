@@ -251,6 +251,13 @@ export interface Project {
   name: string;
   createdAt: string; // ISO 8601
   schemaVersion: number;
+  /**
+   * Cloud-mode project owner uid, or null for local-mode projects (and any
+   * cloud project loaded before the v0.42.0 ownership-seeding fix landed).
+   * Required field, nullable: every Project has an `owner` slot, but null is
+   * a valid value meaning "not yet known". Lesson 38.
+   */
+  owner: string | null;
   globalCalendarOverride?: Calendar;
   convertedWorkDays?: string[]; // ISO date strings for non-work days converted to work days
   targetFinishDate?: string | null; // ISO "YYYY-MM-DD", null/undefined = unset

@@ -9,12 +9,10 @@
 import {
   doc,
   getDoc,
-  setDoc,
   getDocs,
   collection,
   query,
   where,
-  serverTimestamp,
   runTransaction,
 } from "firebase/firestore";
 import { db } from "./firebase";
@@ -34,27 +32,6 @@ export interface ProjectMember {
   role: ProjectRole;
   email?: string;
   displayName?: string;
-}
-
-/**
- * Create or update user profile on sign-in.
- * Email is normalized to lowercase to ensure consistent lookup.
- */
-export async function upsertUserProfile(
-  uid: string,
-  displayName: string,
-  email: string
-): Promise<void> {
-  if (!db) return;
-  await setDoc(
-    doc(db, PROFILES_COL, uid),
-    {
-      displayName,
-      email: email.toLowerCase().trim(),
-      lastLogin: serverTimestamp(),
-    },
-    { merge: true }
-  );
 }
 
 /**
@@ -165,53 +142,6 @@ export async function shareProject(
     return {
       success: false,
       error: e instanceof Error ? e.message : "Share failed.",
-    };
-  }
-}
-
-/**
- * Remove a member from a project.
- * Only the project owner can remove members. Uses a Firestore transaction
- * to ensure atomic read-verify-write.
- */
-export async function removeProjectMember(
-  currentUid: string,
-  projectId: string,
-  targetUid: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!db) return { success: false, error: "Unable to share. Verify the email and try again." };
-
-  if (targetUid === currentUid) {
-    return { success: false, error: "Cannot remove yourself." };
-  }
-
-  const ref = doc(db, PROJECTS_COL, projectId);
-
-  try {
-    await runTransaction(db, async (transaction) => {
-      const snap = await transaction.get(ref);
-      if (!snap.exists()) throw new Error("Project not found.");
-
-      const data = snap.data();
-      if (data.owner !== currentUid) {
-        throw new Error("Only the project owner can remove members.");
-      }
-
-      if (data.owner === targetUid) {
-        throw new Error("Cannot remove the project owner.");
-      }
-
-      // Rebuild the members map without the target user
-      const members = { ...(data.members as Record<string, ProjectRole>) };
-      delete members[targetUid];
-
-      transaction.update(ref, { members });
-    });
-    return { success: true };
-  } catch (e) {
-    return {
-      success: false,
-      error: e instanceof Error ? e.message : "Remove failed.",
     };
   }
 }

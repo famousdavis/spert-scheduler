@@ -15,6 +15,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     name: "Test Project",
     createdAt: "2025-01-01T00:00:00.000Z",
     schemaVersion: SCHEMA_VERSION,
+    owner: null,
     scenarios: [
       {
         id: "s1",

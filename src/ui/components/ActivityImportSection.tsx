@@ -225,6 +225,7 @@ export function ActivityImportSection({
         name: finalName,
         createdAt: new Date().toISOString(),
         schemaVersion: SCHEMA_VERSION,
+        owner: null, // local-mode default; cloud sync seeds when needed (Lesson 38)
         scenarios: [scenario],
       };
       importProjects([project]);

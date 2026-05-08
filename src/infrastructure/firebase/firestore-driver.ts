@@ -15,20 +15,31 @@ import {
   getDoc,
   setDoc,
   deleteDoc,
+  deleteField,
   getDocs,
   collection,
   query,
   where,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
 } from "firebase/firestore";
 import type { Unsubscribe, QueryDocumentSnapshot } from "firebase/firestore";
-import { db } from "./firebase";
+import {
+  db,
+  getResendInvite,
+  getRevokeInvite,
+} from "./firebase";
 import {
   sanitizeForFirestore,
   stripFirestoreFields,
   stripSimulationResultsForCloud,
 } from "./firestore-sanitize";
+import type {
+  PendingInvite,
+  ResendInviteResult,
+  RevokeInviteResult,
+} from "./invitation-types";
 import { SCHEMA_VERSION } from "@domain/models/types";
 import type { Project, UserPreferences } from "@domain/models/types";
 import { ProjectSchema } from "@domain/schemas/project.schema";
@@ -348,13 +359,116 @@ export class FirestoreDriver {
         const result = ProjectSchema.safeParse(data);
         if (!result.success) return;
 
-        callback(result.data as Project);
+        // LU1 fix (Lesson 38): re-attach `owner` from the raw doc.
+        // `stripFirestoreFields` strips `owner` before Zod parse, so without
+        // this re-attach every snapshot would clobber the in-memory `owner`
+        // back to the schema default (null), suppressing the SharingSection
+        // owner gate ~1s after Add Project / Clone Project.
+        // Cast to Project (same loosening as the loadAll path) because Zod's
+        // Scenario schema has some optional fields the TS interface marks as
+        // required — pre-existing schema/type drift, unrelated to this fix.
+        const project = {
+          ...(result.data as Project),
+          owner: (raw.owner as string | undefined) ?? null,
+        };
+        callback(project);
       },
       (error) => {
         console.error(`Snapshot listener failed for project ${id}:`, error);
         onError?.(error);
       }
     );
+  }
+
+  // -- Bulk-sharing collaborator management -----------------------------------
+
+  /**
+   * Remove a collaborator from a project. Atomic via runTransaction so that
+   * concurrent member additions on other keys land cleanly (`deleteField()`
+   * targets only the one member entry, not the full members map).
+   *
+   * Three app-side guards mirror the deleted `removeProjectMember` helper.
+   * The Firestore update rule does NOT prevent an owner from removing
+   * themselves: if the owner removes their own uid from `members`, the write
+   * passes (caller is owner), but afterwards `members` no longer contains the
+   * owner's uid → `get` and `list` rules fail → project locked. Guard 1
+   * prevents that lockout. Guard 2 is belt-and-suspenders against caller
+   * impersonation. Guard 3 protects the project owner from removal by any
+   * other caller.
+   */
+  async removeCollaborator(projectId: string, userId: string): Promise<void> {
+    if (!db) return;
+    // Guard 1: cannot remove yourself (prevents owner-self-removal lockout)
+    if (userId === this.uid) {
+      throw new Error("Cannot remove yourself from a project.");
+    }
+    const ref = doc(db, PROJECTS_COL, projectId);
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error("Project not found.");
+      const data = snap.data();
+      // Guard 2: caller must be owner (Firestore rule enforces; redundant by design)
+      if (data.owner !== this.uid) {
+        throw new Error("Only the project owner can remove members.");
+      }
+      // Guard 3: cannot remove the project owner via this code path
+      if (data.owner === userId) {
+        throw new Error("Cannot remove the project owner.");
+      }
+      tx.update(ref, { [`members.${userId}`]: deleteField() });
+    });
+  }
+
+  /**
+   * List pending invitations for a given project, scoped to the current user
+   * as inviter. Backed by the `(inviterUid, modelId)` composite index — do NOT
+   * try to query by `(appId, modelId)` (no such index exists in the suite-wide
+   * schema). Results are filtered to `status === "pending"` only and sorted
+   * newest-first for the UI list.
+   */
+  async listPendingInvites(projectId: string): Promise<PendingInvite[]> {
+    if (!db) return [];
+    const q = query(
+      collection(db, "spertsuite_invitations"),
+      where("inviterUid", "==", this.uid),
+      where("modelId", "==", projectId)
+    );
+    const snap = await getDocs(q);
+    const invites: PendingInvite[] = [];
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (data.status !== "pending") continue;
+      invites.push({
+        tokenId: d.id,
+        inviteeEmail: data.inviteeEmail as string,
+        role: data.role as "editor" | "viewer",
+        status: "pending",
+        createdAt: data.createdAt?.toMillis?.() ?? 0,
+        expiresAt: data.expiresAt?.toMillis?.() ?? 0,
+        lastEmailSentAt: data.lastEmailSentAt?.toMillis?.() ?? 0,
+        emailSendCount: (data.emailSendCount as number) ?? 0,
+        modelId: data.modelId as string,
+        modelName: data.modelName as string,
+        isVoting: false,
+      });
+    }
+    return invites.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  /** Revoke a pending invitation via the suite Cloud Function. */
+  async revokeInvite(tokenId: string): Promise<RevokeInviteResult> {
+    const callable = getRevokeInvite();
+    if (!callable) return { success: false };
+    const res = await callable({ tokenId });
+    return res.data;
+  }
+
+  /** Resend the email for a pending invitation (max 5× per invite). */
+  async resendInvite(tokenId: string): Promise<ResendInviteResult> {
+    const callable = getResendInvite();
+    if (!callable) return { success: false };
+    const res = await callable({ tokenId });
+    return res.data;
   }
 
   // -- Preferences ------------------------------------------------------------

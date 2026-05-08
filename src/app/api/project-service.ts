@@ -30,6 +30,7 @@ export function createProject(
     name,
     createdAt: new Date().toISOString(),
     schemaVersion: SCHEMA_VERSION,
+    owner: null, // store action overwrites with current uid in cloud mode (Lesson 38)
     scenarios: [createScenario(BASELINE_SCENARIO_NAME, resolvedStartDate, settingsOverrides)],
   };
 }
@@ -191,6 +192,7 @@ export function cloneProject(source: Project, newName: string): Project {
     name: newName,
     createdAt: new Date().toISOString(),
     schemaVersion: SCHEMA_VERSION,
+    owner: null, // store action overwrites with current uid (Lesson 38) — never copy source.owner
     scenarios: source.scenarios.map((s) => cloneScenario(s, s.name)),
     tileColor: source.tileColor,
     globalCalendarOverride: source.globalCalendarOverride
