@@ -55,14 +55,14 @@ export function InvitationBanner({
     }
     return (
       <>
-        {/* Lesson 34: max-w-md so buttons don't stretch to full banner width on desktop. */}
-        <div className="max-w-md">
-          <SignInButtons
-            fullLabel
-            onGoogleClick={tosGate.handleGoogleClick}
-            onMicrosoftClick={tosGate.handleMicrosoftClick}
-          />
-        </div>
+        {/* v0.42.3: card itself is max-w-lg (512px), so the inner max-w-md wrapper
+            from Lesson 34 is now redundant — buttons fill the card naturally and
+            stay readable. */}
+        <SignInButtons
+          fullLabel
+          onGoogleClick={tosGate.handleGoogleClick}
+          onMicrosoftClick={tosGate.handleMicrosoftClick}
+        />
         <ConsentModal
           open={tosGate.consentOpen}
           onOpenChange={(open) => {
@@ -74,25 +74,46 @@ export function InvitationBanner({
     );
   };
 
+  // v0.42.3 layout: centered card (max-w-lg = 512px) instead of full-width banner.
+  // Gives the call-to-action visual focus, attaches the dismiss × to the card
+  // semantically, and aligns horizontally with the rest of the centered page chrome.
   return (
     <div
       role="status"
       aria-live="polite"
-      className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 flex items-start gap-4 no-print"
+      className="relative max-w-lg mx-auto mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5 no-print"
     >
-      <div className="flex-1 space-y-2">
+      <button
+        type="button"
+        onClick={dismiss}
+        aria-label="Dismiss invitation banner"
+        className="absolute top-2 right-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 px-2 py-1 text-lg leading-none"
+      >
+        ×
+      </button>
+
+      {/* pr-6 reserves room for the absolutely-positioned dismiss button so long
+          headings/subtitles don't collide with it. */}
+      <div className="space-y-3 pr-6">
         {state === "pre_auth" && (
           <>
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-              You&apos;ve been invited to a SPERT® Scheduler project.
-            </p>
+            <div className="space-y-1">
+              <p className="text-base font-semibold text-blue-900 dark:text-blue-100">
+                You&apos;ve been invited to a SPERT® Scheduler project.
+              </p>
+              {firebaseAvailable && user === null && (
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Sign in to claim your invitation.
+                </p>
+              )}
+            </div>
             {renderPreAuthBody()}
           </>
         )}
 
         {state === "claimed" && (
           <>
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+            <p className="text-base font-semibold text-blue-900 dark:text-blue-100">
               You now have access to: {claimedNames.join(", ")}
             </p>
             {mode === "local" && (
@@ -103,15 +124,6 @@ export function InvitationBanner({
           </>
         )}
       </div>
-
-      <button
-        type="button"
-        onClick={dismiss}
-        aria-label="Dismiss invitation banner"
-        className="shrink-0 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 px-2 py-1 text-lg leading-none"
-      >
-        ×
-      </button>
     </div>
   );
 }

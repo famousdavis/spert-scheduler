@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.42.3 — 2026-05-07
+
+### Changed
+
+- **Invitation banner restyled as a centered card.** The pre-auth invitation prompt now renders as a `max-w-lg` (512px) centered card instead of a full-width banner spanning the page. The dismiss × is anchored to the card's top-right corner instead of floating ~800px from its content. A subtitle ("Sign in to claim your invitation.") clarifies the call-to-action below the headline. Visual hierarchy bumped to `text-base font-semibold` for the headline. Behavior — state machine, dismiss handler, ToS gate, mutual-exclusion with FirstRunBanner / LocalStorageWarningBanner — all unchanged.
+
 ## 0.42.2 — 2026-05-07
 
 ### Fixed
