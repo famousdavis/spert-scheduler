@@ -393,8 +393,10 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
         ],
       });
       setBulkEmails(""); // Lesson 43: clear on success
-      await loadMembers();
-      await loadPendingInvites();
+      // Lesson 64: allSettled (not all) — a transient failure in one refresh
+      // must not block the other from updating. Each callback already swallows
+      // its own errors, so no extra logging needed here.
+      await Promise.allSettled([loadMembers(), loadPendingInvites()]);
     } catch (err) {
       setError(mapInvitationError(err, "send"));
     } finally {
