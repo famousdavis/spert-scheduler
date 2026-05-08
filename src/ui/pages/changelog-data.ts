@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.42.4",
+    date: "2026-05-08",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Invitation banner reload-loop on auto-fail. Effect 4's 30-second grace timer in useInvitationLanding transitioned to 'idle' without consuming the INVITE_SESSION_KEY first. After auto-fail, late spert:models-changed events gated on the key could re-fire the banner. The same hygiene now applies in dismiss(), so all three exit paths from pre_auth (claim-success in Effect 3, timeout in Effect 4, manual dismiss) consume the key symmetrically. (Lesson 59.)",
+          "Post-send refresh in BulkSharingSection no longer fail-fast. After a successful bulk-invite send, the members-list and pending-invitations refreshes ran sequentially with await, so a transient rejection in the first blocked the second from updating. Now wrapped in Promise.allSettled so each list refreshes independently. Each callback already swallows its own errors, so no extra logging needed at the call site. (Lesson 64.)",
+          "Members-fetch failures in BulkSharingSection now surface visibly. Previously the loadMembers catch silently swallowed errors — a transient Firestore failure left the list rendering empty with no signal to the user that anything went wrong. The boolean isOwner check is replaced with a four-state OwnerStatus enum (loading | owner | not-owner | error); the error state replaces the section's inner content with \"Couldn't load sharing details. Refresh the page to try again.\" while keeping the section header collapsible. Synchronous ownership derivation from project.owner (Lesson 38) is preserved; non-owners still see the members list (informational), only the bulk-invite form is owner-gated — matching pre-existing UX. (Lesson 60.)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.42.3",
     date: "2026-05-07",
     sections: [
