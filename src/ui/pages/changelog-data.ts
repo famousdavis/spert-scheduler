@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.42.5",
+    date: "2026-05-09",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Refactor pass — large-file decomposition along clean seams. ActivityEditModal.tsx (1193 → 893 LOC) sheds ScheduleContextRow, Section, DependenciesDisplaySection, ScheduleAnalysisSection, and the pure computeConstraintUpdates helper into a new activity-modal-sections.tsx. New activity-modal-sections.test.ts covers computeConstraintUpdates (7 tests).",
+          "UnifiedActivityRow.tsx (801 → 691 LOC) sheds the pure tab-navigation helpers (constraintBadgeClass, constraintBadgeLabel, maxTabTarget, buildTabFieldOrder, handleOffOrderTabNav, getActivityRowIds, handleCrossRowTabNav, handleInRowTabNav) into a new unified-activity-helpers.ts. New unified-activity-helpers.test.ts covers all eight helpers in isolation (35 tests) — closing a coverage gap where keyboard-navigation logic was previously only exercised through full-row integration paths.",
+          "schedule-export-service.ts (519 → 237 LOC) splits the orthogonal CSV and XLSX formatters into export-csv-formatter.ts (exportScheduleCsv) and export-xlsx-formatter.ts (exportScheduleXlsx, xlsxSanitize). The service module retains all shared builders (buildSummaryData, buildGridRows, buildPredecessorMap, buildSuccessorMap) and re-exports the formatters so existing imports — including schedule-export-service.test.ts — continue to work unchanged.",
+          "No production behavior change. No dependency upgrades (every available upgrade was either inside the 60-day fresh-release window or required major-version owner approval).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.42.4",
     date: "2026-05-08",
     sections: [
