@@ -7,8 +7,96 @@ import { ProjectSchema } from "@domain/schemas/project.schema";
 import type { ProjectRepository } from "./project-repository";
 import { applyMigrations } from "./migrations";
 
-const KEY_PREFIX = "spert:project:";
-const INDEX_KEY = "spert:project-index";
+// v0.42.6 (M4) — UID-namespaced project keys. Storage scheme:
+//
+//   Local mode:   spert:project:local:{id}     index: spert:project-index:local
+//   Cloud mode:   spert:project:{uid}:{id}     index: spert:project-index:{uid}
+//
+// On a shared device, prior cloud user's keys are structurally inaccessible
+// to a new cloud user — different namespace, different key. Removes the
+// "if cleanup is bypassed, cross-user reads are possible" hardening gap from
+// the v0.42.6 security audit. Sign-out cleanup wipes the active namespace
+// (the user's UID); cross-namespace data is preserved.
+//
+// Legacy unscoped keys (created in v0.42.5 and earlier) are migrated to the
+// `local` namespace at module load — read-then-write-then-delete ordering
+// means a mid-migration crash leaves duplicate data, never lost data.
+const KEY_PREFIX_BASE = "spert:project";
+const INDEX_KEY_BASE = "spert:project-index";
+
+const LEGACY_KEY_PATTERN = /^spert:project:([^:]+)$/;
+const LEGACY_INDEX_KEY = "spert:project-index";
+
+/** Module-level active namespace. Defaults to "local"; flipped to UID by
+ *  StorageProvider on sign-in via `setStorageNamespace`, back to "local" on
+ *  sign-out. Methods on `LocalStorageRepository` read this dynamically per
+ *  call, so a single module-scoped repo instance follows auth transitions. */
+let activeNamespace = "local";
+
+/** Set the active namespace. Called by StorageProvider when the auth user
+ *  changes — pass the UID for cloud users, "local" for signed-out / local
+ *  mode. */
+export function setStorageNamespace(ns: string): void {
+  activeNamespace = ns;
+}
+
+/** Test-only: read the current namespace. */
+export function getStorageNamespaceForTests(): string {
+  return activeNamespace;
+}
+
+/** Read → write-and-verify → delete a single key. Returns whether the
+ *  delete completed (i.e., migration finished cleanly for this key). */
+function migrateKey(oldKey: string, newKey: string): boolean {
+  const value = localStorage.getItem(oldKey);
+  if (value === null) return true; // nothing to migrate
+  try {
+    localStorage.setItem(newKey, value);
+    if (localStorage.getItem(newKey) === value) {
+      localStorage.removeItem(oldKey);
+      return true;
+    }
+  } catch {
+    // Quota exceeded or other failure — leave legacy key in place.
+  }
+  return false;
+}
+
+/** Collect all legacy unscoped data keys (no namespace segment). */
+function collectLegacyDataKeys(): { key: string; id: string }[] {
+  const out: { key: string; id: string }[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    const m = LEGACY_KEY_PATTERN.exec(key);
+    if (m) out.push({ key, id: m[1]! });
+  }
+  return out;
+}
+
+/** One-time legacy-key migration. Each key migrates with read → write-and-
+ *  verify → delete ordering, so a mid-migration crash leaves the data under
+ *  BOTH keys (recoverable on next boot) — never under neither. Idempotent. */
+let legacyMigrationDone = false;
+export function migrateLegacyKeysToLocal(): void {
+  if (legacyMigrationDone) return;
+  legacyMigrationDone = true;
+
+  for (const { key: oldKey, id } of collectLegacyDataKeys()) {
+    migrateKey(oldKey, `${KEY_PREFIX_BASE}:local:${id}`);
+  }
+  migrateKey(LEGACY_INDEX_KEY, `${INDEX_KEY_BASE}:local`);
+}
+
+// Run the migration at module load. Tests that need a clean slate can call
+// `_resetLegacyMigrationForTests()`.
+if (typeof localStorage !== "undefined") {
+  migrateLegacyKeysToLocal();
+}
+
+export function _resetLegacyMigrationForTests(): void {
+  legacyMigrationDone = false;
+}
 
 // -- Load Error Types --------------------------------------------------------
 
@@ -154,13 +242,39 @@ export function stripSimulationSamples(project: Project): Project {
 /**
  * localStorage-backed ProjectRepository with schema versioning.
  *
- * Storage scheme:
- * - Each project: localStorage["spert:project:{id}"] = JSON string
- * - Project index: localStorage["spert:project-index"] = JSON array of IDs
+ * Storage scheme (v0.42.6 — UID-namespaced):
+ *   Local mode:  localStorage["spert:project:local:{id}"] = JSON string
+ *                localStorage["spert:project-index:local"] = JSON array of IDs
+ *   Cloud mode:  localStorage["spert:project:{uid}:{id}"] = JSON string
+ *                localStorage["spert:project-index:{uid}"] = JSON array of IDs
+ *
+ * The active namespace is module-level (`activeNamespace`) and flipped by
+ * StorageProvider on auth state changes via `setStorageNamespace`. Methods
+ * read it per call, so a single module-scoped repo instance follows auth
+ * transitions seamlessly.
+ *
+ * The constructor accepts an optional `fixedNamespace` override for explicit
+ * cross-namespace operations:
+ *   - `migrateLocalToCloud` reads from `"local"` regardless of current state
+ *   - `handleDiscardLocalCopy` clears `"local"` regardless of current state
  */
 export class LocalStorageRepository implements ProjectRepository {
+  constructor(private fixedNamespace?: string) {}
+
+  private get namespace(): string {
+    return this.fixedNamespace ?? activeNamespace;
+  }
+
+  private keyOf(id: string): string {
+    return `${KEY_PREFIX_BASE}:${this.namespace}:${id}`;
+  }
+
+  private get indexKey(): string {
+    return `${INDEX_KEY_BASE}:${this.namespace}`;
+  }
+
   list(): string[] {
-    const raw = localStorage.getItem(INDEX_KEY);
+    const raw = localStorage.getItem(this.indexKey);
     if (!raw) return [];
     try {
       const parsed = JSON.parse(raw);
@@ -180,7 +294,7 @@ export class LocalStorageRepository implements ProjectRepository {
    * Returns a LoadResult with either the project or detailed error info.
    */
   loadWithDiagnostics(id: string): LoadResult<Project> {
-    const raw = localStorage.getItem(KEY_PREFIX + id);
+    const raw = localStorage.getItem(this.keyOf(id));
     if (!raw) {
       return {
         success: false,
@@ -237,7 +351,7 @@ export class LocalStorageRepository implements ProjectRepository {
    * Get raw project data for export/recovery of corrupted projects.
    */
   getRawData(id: string): string | null {
-    return localStorage.getItem(KEY_PREFIX + id);
+    return localStorage.getItem(this.keyOf(id));
   }
 
   /**
@@ -252,7 +366,7 @@ export class LocalStorageRepository implements ProjectRepository {
     const json = JSON.stringify(data);
 
     try {
-      localStorage.setItem(KEY_PREFIX + project.id, json);
+      localStorage.setItem(this.keyOf(project.id), json);
     } catch (e) {
       if (
         e instanceof DOMException &&
@@ -270,30 +384,31 @@ export class LocalStorageRepository implements ProjectRepository {
     const ids = this.list();
     if (!ids.includes(project.id)) {
       ids.push(project.id);
-      localStorage.setItem(INDEX_KEY, JSON.stringify(ids));
+      localStorage.setItem(this.indexKey, JSON.stringify(ids));
     }
   }
 
   remove(id: string): void {
-    localStorage.removeItem(KEY_PREFIX + id);
+    localStorage.removeItem(this.keyOf(id));
 
     const ids = this.list().filter((existingId) => existingId !== id);
-    localStorage.setItem(INDEX_KEY, JSON.stringify(ids));
+    localStorage.setItem(this.indexKey, JSON.stringify(ids));
   }
 
   reorderIndex(ids: string[]): void {
-    localStorage.setItem(INDEX_KEY, JSON.stringify(ids));
+    localStorage.setItem(this.indexKey, JSON.stringify(ids));
   }
 
   /**
-   * Remove every indexed project and the index itself. Idempotent.
-   * Does not touch non-project keys (preferences, scenario memory, etc.).
+   * Remove every indexed project and the index itself for the current
+   * namespace. Idempotent. Does not touch non-project keys (preferences,
+   * scenario memory, etc.) or other namespaces' data.
    */
   clearAll(): void {
     const ids = this.list();
     for (const id of ids) {
-      localStorage.removeItem(KEY_PREFIX + id);
+      localStorage.removeItem(this.keyOf(id));
     }
-    localStorage.removeItem(INDEX_KEY);
+    localStorage.removeItem(this.indexKey);
   }
 }

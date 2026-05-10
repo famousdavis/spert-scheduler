@@ -236,10 +236,20 @@ export function useCloudSync(): void {
     });
   }, [isCloudActive]);
 
-  // Flush pending writes on beforeunload
+  // Flush pending writes on beforeunload.
+  //
+  // v0.42.6 (M3): guard against stale-auth flushes. If session expiry or
+  // explicit sign-out fires between handler registration and tab close,
+  // `user` is null but `driverRef.current` may still hold a reference whose
+  // `uid` is the now-revoked Firebase session. A flush in that window would
+  // attempt setDoc with revoked credentials, hit PERMISSION_DENIED, and the
+  // error would be swallowed in driver.doSave's catch block — masking a
+  // real symptom from observability. Returning early when `user === null`
+  // closes the race at the source.
   const handleBeforeUnload = useCallback(() => {
-    driverRef.current?.flushPendingSaves();
-  }, []);
+    if (!user || !driverRef.current) return;
+    driverRef.current.flushPendingSaves();
+  }, [user]);
 
   useEffect(() => {
     if (!isCloudActive) return;

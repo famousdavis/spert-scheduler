@@ -19,9 +19,13 @@ import {
 import { getCloudSyncDriver } from "@ui/hooks/use-cloud-sync";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
-import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
+import {
+  LocalStorageRepository,
+  setStorageNamespace,
+} from "@infrastructure/persistence/local-storage-repository";
 import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memory";
 import { clearPreferences } from "@infrastructure/persistence/preferences-repository";
+import { bumpSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 
 export type StorageMode = "local" | "cloud";
 
@@ -75,18 +79,31 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     }
   }, [authLoading, user, persistedMode]);
 
+  // v0.42.6 (M4): keep the localStorage namespace synchronized with the
+  // current auth user. UID for cloud mode, "local" for signed-out / local
+  // mode. Runs after the auth state has resolved (authLoading guard avoids
+  // a transient "local" flash during boot when the user is actually cloud).
+  useEffect(() => {
+    if (authLoading) return;
+    setStorageNamespace(user?.uid ?? "local");
+  }, [authLoading, user]);
+
   // Register the sign-out cleanup function. AuthProvider invokes this via
   // runSignOutCleanup() before firebaseSignOut. Order matters:
-  //   1. cancel pending Firestore saves (credentials still valid)
-  //   2. zero in-memory project state (before C2 guard re-evaluates on next
+  //   1. bump simulation generation — any worker callback in flight will
+  //      capture-vs-current mismatch and discard its result before it can
+  //      write to the (about-to-be-zeroed) store. v0.42.6 (M2).
+  //   2. cancel pending Firestore saves (credentials still valid)
+  //   3. zero in-memory project state (before C2 guard re-evaluates on next
   //      sign-in and before localStorage cleanup wipes the mirror)
-  //   3. clear per-user localStorage keys (projects, scenario memory, prefs)
-  //   4. reset the preferences Zustand store (separate store from projects)
+  //   4. clear per-user localStorage keys (projects, scenario memory, prefs)
+  //   5. reset the preferences Zustand store (separate store from projects)
   // Keys intentionally preserved: spert:storage-mode (continuity),
   // spert_firstRun_seen (per-browser), Nager country cache (not user-specific),
   // ToS keys (owned by AuthProvider).
   useEffect(() => {
     registerSignOutCleanup(async () => {
+      bumpSimulationGeneration();
       getCloudSyncDriver()?.cancelPendingSaves();
       useProjectStore.getState().clearAllData();
       new LocalStorageRepository().clearAll();

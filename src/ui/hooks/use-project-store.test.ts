@@ -662,17 +662,18 @@ describe("useProjectStore", () => {
       const p1 = store.addProject("P1", null);
       const p2 = store.addProject("P2", null);
 
-      // Confirm localStorage was populated by addProject
-      expect(localStorage.getItem(`spert:project:${p1.id}`)).not.toBeNull();
-      expect(localStorage.getItem(`spert:project:${p2.id}`)).not.toBeNull();
-      expect(localStorage.getItem("spert:project-index")).not.toBeNull();
+      // v0.42.6 (M4): keys are now UID-namespaced. In test env no auth user
+      // is set, so the active namespace is "local".
+      expect(localStorage.getItem(`spert:project:local:${p1.id}`)).not.toBeNull();
+      expect(localStorage.getItem(`spert:project:local:${p2.id}`)).not.toBeNull();
+      expect(localStorage.getItem("spert:project-index:local")).not.toBeNull();
 
       useProjectStore.getState().clearAllData();
 
       // clearAllData touches only in-memory state
-      expect(localStorage.getItem(`spert:project:${p1.id}`)).not.toBeNull();
-      expect(localStorage.getItem(`spert:project:${p2.id}`)).not.toBeNull();
-      expect(localStorage.getItem("spert:project-index")).not.toBeNull();
+      expect(localStorage.getItem(`spert:project:local:${p1.id}`)).not.toBeNull();
+      expect(localStorage.getItem(`spert:project:local:${p2.id}`)).not.toBeNull();
+      expect(localStorage.getItem("spert:project-index:local")).not.toBeNull();
     });
   });
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.42.6 — 2026-05-09
+
+### Security
+
+Independent security audit of v0.42.5 surfaced three High and five Medium findings. The three Highs were closed in the canonical Firestore rules (`spert-suite` project, deployed to console; companion mirror PR in spert-landing-page). This release lands the paired app-code changes and the remaining mediums.
+
+- **H3 (paired app-code fix)** — `findUserByEmail` in `firestore-sharing.ts` now passes `limit(1)` to the Firestore query. Pairs with the `spertscheduler_profiles` rule split (`allow get: if isAuth();` + `allow list: if isAuth() && request.query.limit <= 1;`). Both sides now hold the line independently — neither alone can regress without the other catching it. Closes the bulk profile-enumeration vector that allowed any signed-in user to harvest the entire Scheduler user roster (emails, displayNames, photoURLs) in a single `getDocs(collection(...))` call.
+- **M1 — Runtime role validation in bulk-invite.** `BulkSharingSection.handleSend` now refuses to call the `sendInvitationEmail` Cloud Function unless `role` is exactly `"editor"` or `"viewer"`. New `isValidInviteRole` type-guard helper in `invitation-utils.ts` (covered by 4 new unit tests). Defense-in-depth: the TypeScript narrowing on `role` is erased at runtime, so a DOM/devtools modification of the `<select>` would otherwise feed any string to the CF; the CF re-validates server-side, but the client now also bounds the input.
+- **M2 — Worker simulation results discarded post-sign-out.** A simulation in flight at sign-out used to post its result back via `setSimulationResults`, which could (under UUID collision via a shared template/import) write the prior user's aggregated stats into the next user's scenario. New `simulation-cancellation` module exports a generation counter; `useAutoRunSimulation` and `ProjectPage.handleRunSimulation` capture the generation at dispatch and short-circuit if it doesn't match at result-time. Sign-out cleanup registry calls `bumpSimulationGeneration()` first in the cleanup sequence. The worker itself is **not** terminated — terminating mid-run can leave the worker unrecoverable; discarding the result downstream is functionally equivalent and structurally safer (Claude Chat refinement).
+- **M3 — Auth-guarded `beforeunload` flush.** `useCloudSync.handleBeforeUnload` now returns early when `user === null` (or driverRef is missing). Closes a race where session expiry between handler registration and tab close would attempt a Firestore write with revoked credentials, hit `PERMISSION_DENIED`, and silently swallow the error in `doSave`'s catch block — masking a real symptom from observability.
+- **M4 — UID-namespaced localStorage keys.** Project keys moved from `spert:project:{id}` to `spert:project:{namespace}:{id}` where `namespace` is `local` for signed-out users and `{uid}` for cloud users. Same shape applies to the index key. `LocalStorageRepository` accepts an optional `fixedNamespace` constructor argument for explicit cross-namespace operations (`migrateLocalToCloud` reads `local`; `handleDiscardLocalCopy` clears `local`). Active namespace is module-level and flipped by `StorageProvider` on auth state changes. Sign-out cleanup wipes only the active (departing user's) namespace, leaving any local-mode data and other namespaces structurally untouched. Cross-user data visibility is now a structural guarantee rather than a procedural one — even if the cleanup path were bypassed, a new user cannot read a prior user's keys because the prefix differs. Existing pre-v0.42.6 unscoped keys are migrated to `local` at module load; the migration uses **read → write-and-verify → delete** ordering so a mid-migration crash leaves duplicate data, never lost data (Claude Chat refinement, M4 round-trip test added).
+- **M5 — Architectural-security-model comments.** Added a SECURITY MODEL block above the `spertsuite_invitations` rule documenting that `allow write: if false` is the architectural backstop for the resend cap and emailSendCount tamper-proof guarantee — not just a casual choice. Mirrored the comment above `BulkSharingSection.handleResend` so v0.43.x's `LegacySharingSection` cleanup can't accidentally remove the security-model documentation.
+
+### Internal
+
+- New `src/infrastructure/simulation/simulation-cancellation.ts` module (40 LOC, 5 unit tests).
+- `LocalStorageRepository` API extended with optional namespace constructor argument; default behavior preserved for all existing call sites except `migrateLocalToCloud` and `handleDiscardLocalCopy`, which now pin to `"local"` explicitly. Legacy-key migration (`migrateLegacyKeysToLocal`) runs once at module load. (10 unit tests covering namespace switching, constructor override, migration, idempotency, ordering safety.)
+- `isValidInviteRole` type guard added to `invitation-utils.ts` (4 unit tests).
+- `findUserByEmail` test added (`firestore-sharing.test.ts`, 2 tests verifying `limit(1)` is passed to the query and email normalization).
+
+Test count: 1310 → 1333 (+23 new security-fix tests).
+
 ## 0.42.5 — 2026-05-09
 
 ### Internal

@@ -79,7 +79,10 @@ export function useStorageModeSwitch(): UseStorageModeSwitchResult {
   }, [switchMode]);
 
   const handleDiscardLocalCopy = useCallback(() => {
-    new LocalStorageRepository().clearAll();
+    // v0.42.6 (M4): explicitly target the "local" namespace. The active
+    // namespace at this call site may be the user's UID (cloud mode) since
+    // mode-switch happens before sign-out; clearing must hit local data.
+    new LocalStorageRepository("local").clearAll();
     clearAllLastScenarios();
     useProjectStore.getState().clearAllData();
     setConfirmDiscardOpen(false);
