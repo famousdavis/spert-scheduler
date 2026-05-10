@@ -6,6 +6,7 @@ import type { Activity, Scenario, Calendar, SimulationRun } from "@domain/models
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
+import { currentSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 
 interface UseAutoRunSimulationArgs {
   projectId: string | undefined;
@@ -71,12 +72,18 @@ export function useAutoRunSimulation({
         workCalendar,
         scenario.settings.parkinsonsLawEnabled ?? true,
       );
+      // v0.42.6 (M2): capture the generation at the moment the worker is
+      // dispatched. If sign-out fires while the worker is in flight, the
+      // cleanup registry bumps the generation and the captured value no
+      // longer matches — the result is dropped before touching the store.
+      const startGen = currentSimulationGeneration();
       runSimulation(
         activitiesRef.current,
         scenario.settings.trialCount,
         scenario.settings.rngSeed,
         params.deterministicDurations,
         (result) => {
+          if (currentSimulationGeneration() !== startGen) return;
           setSimulationResults(projectId, scenario.id, result);
         },
         params.dependencyParams,

@@ -85,9 +85,9 @@ describe("Persistence round-trip", () => {
   });
 
   it("handles corrupted data gracefully", () => {
-    localStorage.setItem("spert:project:bad1", "not json at all");
-    localStorage.setItem("spert:project:bad2", JSON.stringify({ id: "bad2" }));
-    localStorage.setItem("spert:project-index", JSON.stringify(["bad1", "bad2"]));
+    localStorage.setItem("spert:project:local:bad1", "not json at all");
+    localStorage.setItem("spert:project:local:bad2", JSON.stringify({ id: "bad2" }));
+    localStorage.setItem("spert:project-index:local", JSON.stringify(["bad1", "bad2"]));
 
     expect(repo.load("bad1")).toBeNull();
     expect(repo.load("bad2")).toBeNull();

@@ -54,7 +54,9 @@ export async function migrateLocalToCloud(
 ): Promise<MigrationResult> {
   if (!db) throw new Error("Firestore not initialized");
 
-  const repo = new LocalStorageRepository();
+  // v0.42.6 (M4): explicit "local" namespace — local-mode projects always
+  // live there, regardless of what the active namespace currently is.
+  const repo = new LocalStorageRepository("local");
   const ids = repo.list();
   const items: MigrationItemResult[] = [];
   let uploaded = 0;

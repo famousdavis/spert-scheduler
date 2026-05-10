@@ -2,7 +2,39 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from "vitest";
-import { parseBulkEmails, mapInvitationError } from "./invitation-utils";
+import {
+  parseBulkEmails,
+  mapInvitationError,
+  isValidInviteRole,
+} from "./invitation-utils";
+
+describe("isValidInviteRole (v0.42.6 M1)", () => {
+  it("accepts the two permitted roles", () => {
+    expect(isValidInviteRole("editor")).toBe(true);
+    expect(isValidInviteRole("viewer")).toBe(true);
+  });
+
+  it("rejects 'owner' (privilege escalation attempt)", () => {
+    expect(isValidInviteRole("owner")).toBe(false);
+  });
+
+  it("rejects empty string, null, undefined, and other falsy values", () => {
+    expect(isValidInviteRole("")).toBe(false);
+    expect(isValidInviteRole(null)).toBe(false);
+    expect(isValidInviteRole(undefined)).toBe(false);
+    expect(isValidInviteRole(0)).toBe(false);
+    expect(isValidInviteRole(false)).toBe(false);
+  });
+
+  it("rejects arbitrary strings, numbers, objects", () => {
+    expect(isValidInviteRole("admin")).toBe(false);
+    expect(isValidInviteRole("EDITOR")).toBe(false); // case-sensitive
+    expect(isValidInviteRole("editor ")).toBe(false); // no whitespace tolerance
+    expect(isValidInviteRole(42)).toBe(false);
+    expect(isValidInviteRole({ role: "editor" })).toBe(false);
+    expect(isValidInviteRole(["editor"])).toBe(false);
+  });
+});
 
 describe("parseBulkEmails", () => {
   it("splits on whitespace, commas, semicolons, and newlines", () => {

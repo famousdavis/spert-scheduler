@@ -22,6 +22,7 @@ import { CalendarConfigurationError } from "@core/calendar/work-calendar";
 import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
 import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
+import { currentSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { DependencyPanel } from "@ui/components/DependencyPanel";
 import { MilestonePanel } from "@ui/components/MilestonePanel";
@@ -416,12 +417,17 @@ export function ProjectPage() {
       workCalendar,
       scenario.settings.parkinsonsLawEnabled ?? true,
     );
+    // v0.42.6 (M2): see use-auto-run-simulation.ts for the full pattern.
+    // Capture generation at dispatch; discard the result if sign-out has
+    // bumped the counter while the worker was in flight.
+    const startGen = currentSimulationGeneration();
     simulation.run(
       scenario.activities,
       scenario.settings.trialCount,
       scenario.settings.rngSeed,
       params.deterministicDurations,
       (result) => {
+        if (currentSimulationGeneration() !== startGen) return;
         setSimulationResults(id, scenario.id, result);
       },
       params.dependencyParams,

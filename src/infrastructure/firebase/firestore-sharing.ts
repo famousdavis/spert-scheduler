@@ -13,6 +13,7 @@ import {
   collection,
   query,
   where,
+  limit,
   runTransaction,
 } from "firebase/firestore";
 import { db } from "./firebase";
@@ -37,6 +38,12 @@ export interface ProjectMember {
 /**
  * Look up a user by email address.
  * Returns null if no user found with that email.
+ *
+ * v0.42.6 (H3): limit(1) is paired with the spertscheduler_profiles
+ * `allow list: if isAuth() && request.query.limit <= 1` rule. Both must stay
+ * in lock-step — if either side regresses (rule loosened OR limit removed),
+ * the other still holds the line. Email match is intended to be unique, so
+ * a single result is the maximum possible result regardless.
  */
 export async function findUserByEmail(
   email: string
@@ -45,7 +52,8 @@ export async function findUserByEmail(
 
   const q = query(
     collection(db, PROFILES_COL),
-    where("email", "==", email.toLowerCase().trim())
+    where("email", "==", email.toLowerCase().trim()),
+    limit(1)
   );
   const snap = await getDocs(q);
   if (snap.empty) return null;

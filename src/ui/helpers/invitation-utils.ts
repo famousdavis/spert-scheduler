@@ -11,6 +11,18 @@
 // input can't trigger super-linear backtracking.
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{1,63}$/;
 
+/** v0.42.6 (M1): runtime type guard for the bulk-invite role parameter.
+ *  TypeScript erases the `"editor" | "viewer"` narrowing at runtime, so a
+ *  DOM modification or devtools intervention could feed any string to the
+ *  Cloud Function. Defense-in-depth: handleSend in BulkSharingSection
+ *  refuses to call the CF unless this guard returns true, even though the
+ *  CF re-validates server-side. */
+export type InviteRole = "editor" | "viewer";
+
+export function isValidInviteRole(value: unknown): value is InviteRole {
+  return value === "editor" || value === "viewer";
+}
+
 /**
  * Splits a raw textarea string into deduplicated, lowercased valid and invalid
  * email tokens. Tokens may be separated by whitespace, commas, semicolons, or

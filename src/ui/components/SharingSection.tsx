@@ -21,6 +21,7 @@ import type {
 import {
   parseBulkEmails,
   mapInvitationError,
+  isValidInviteRole,
 } from "@ui/helpers/invitation-utils";
 import { INVITATIONS_ENABLED } from "@app/featureFlags";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -395,6 +396,13 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
       setError("No valid email addresses. Check formatting and try again.");
       return; // Lesson 42: do NOT call CF, do NOT clear textarea
     }
+    // v0.42.6 (M1): runtime role guard via isValidInviteRole. See helper
+    // for full rationale; this branch is the defense-in-depth gate before
+    // the CF call.
+    if (!isValidInviteRole(role)) {
+      setError("Invalid role. Reload the page and try again.");
+      return;
+    }
     setError(null);
     setSending(true);
     try {
@@ -449,6 +457,13 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
     }
   };
 
+  // v0.42.6 (M5 mirror): the resend cap (5×/invitation) is enforced
+  // server-side in the `resendInvite` Cloud Function. The button-disable on
+  // the (N/5) chip below is UX only — removing the disable would NOT unlock
+  // more sends, the CF still rejects. Tampering with `emailSendCount` in
+  // Firestore is impossible because spertsuite_invitations carries
+  // `allow write: if false`. See firestore.rules SECURITY MODEL block above
+  // the spertsuite_invitations match.
   const handleResend = async (tokenId: string) => {
     setActionBusy(tokenId);
     try {

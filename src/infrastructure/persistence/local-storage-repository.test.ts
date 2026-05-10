@@ -99,19 +99,19 @@ describe("LocalStorageRepository", () => {
   });
 
   it("returns null for corrupted JSON", () => {
-    localStorage.setItem("spert:project:bad", "not json{");
+    localStorage.setItem("spert:project:local:bad", "not json{");
     expect(repo.load("bad")).toBeNull();
   });
 
   it("returns null for incompatible future schema version", () => {
     const project = makeProject({ schemaVersion: SCHEMA_VERSION + 1 });
-    localStorage.setItem("spert:project:future", JSON.stringify(project));
+    localStorage.setItem("spert:project:local:future", JSON.stringify(project));
     expect(repo.load("future")).toBeNull();
   });
 
   it("returns null for invalid project data", () => {
     const bad = { id: "bad", schemaVersion: SCHEMA_VERSION }; // missing required fields
-    localStorage.setItem("spert:project:bad", JSON.stringify(bad));
+    localStorage.setItem("spert:project:local:bad", JSON.stringify(bad));
     expect(repo.load("bad")).toBeNull();
   });
 
@@ -160,10 +160,10 @@ describe("LocalStorageRepository", () => {
 
       repo.clearAll();
 
-      expect(localStorage.getItem("spert:project:p1")).toBeNull();
-      expect(localStorage.getItem("spert:project:p2")).toBeNull();
-      expect(localStorage.getItem("spert:project:p3")).toBeNull();
-      expect(localStorage.getItem("spert:project-index")).toBeNull();
+      expect(localStorage.getItem("spert:project:local:p1")).toBeNull();
+      expect(localStorage.getItem("spert:project:local:p2")).toBeNull();
+      expect(localStorage.getItem("spert:project:local:p3")).toBeNull();
+      expect(localStorage.getItem("spert:project-index:local")).toBeNull();
       expect(repo.list()).toEqual([]);
       expect(repo.load("p1")).toBeNull();
     });

@@ -12,6 +12,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.42.6",
+    date: "2026-05-09",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "H3 (paired app-code fix) — findUserByEmail in firestore-sharing.ts now passes limit(1) to the Firestore query. Pairs with the spertscheduler_profiles rule split (allow get + limit-bounded list). Both sides now hold the line independently. Closes the bulk profile-enumeration vector that allowed any signed-in user to harvest the entire Scheduler user roster (emails, displayNames, photoURLs) in a single getDocs(collection(...)) call.",
+          "M1 — Runtime role validation in bulk-invite. BulkSharingSection.handleSend now refuses to call the sendInvitationEmail Cloud Function unless role is exactly 'editor' or 'viewer'. New isValidInviteRole type-guard helper in invitation-utils.ts. Defense-in-depth: TypeScript narrowing is erased at runtime, so a DOM/devtools modification of the <select> could otherwise feed any string to the CF.",
+          "M2 — Worker simulation results discarded post-sign-out. New simulation-cancellation module exports a generation counter; useAutoRunSimulation and ProjectPage.handleRunSimulation capture the generation at dispatch and short-circuit if it doesn't match at result-time. Sign-out cleanup registry calls bumpSimulationGeneration() first. The worker is not terminated (terminating mid-run can leave the worker unrecoverable); discarding the result downstream is functionally equivalent and structurally safer.",
+          "M3 — Auth-guarded beforeunload flush. useCloudSync.handleBeforeUnload now returns early when user is null. Closes a race where session expiry between handler registration and tab close would attempt a Firestore write with revoked credentials, silently swallowed.",
+          "M4 — UID-namespaced localStorage keys. Project keys moved from spert:project:{id} to spert:project:{namespace}:{id} where namespace is 'local' for signed-out users and {uid} for cloud users. Cross-user data visibility is now a structural guarantee rather than procedural. Existing unscoped keys migrate to 'local' on module load using read → write-and-verify → delete ordering so a mid-migration crash leaves duplicate data, never lost data.",
+          "M5 — Architectural-security-model comments. Added a SECURITY MODEL block above the spertsuite_invitations rule documenting that allow write: if false is the architectural backstop for the resend cap and emailSendCount tamper-proof guarantee. Mirrored the comment above BulkSharingSection.handleResend so v0.43.x's LegacySharingSection cleanup cannot accidentally remove the security-model documentation.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "New src/infrastructure/simulation/simulation-cancellation.ts module (5 unit tests).",
+          "LocalStorageRepository API extended with optional namespace constructor argument; legacy-key migration runs once at module load (10 unit tests covering namespace switching, constructor override, migration, idempotency, ordering safety).",
+          "isValidInviteRole type guard added to invitation-utils.ts (4 unit tests).",
+          "findUserByEmail test added (2 tests verifying limit(1) is passed to the query and email normalization).",
+          "Test count: 1310 → 1333 (+23 new security-fix tests).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.42.5",
     date: "2026-05-09",
     sections: [
