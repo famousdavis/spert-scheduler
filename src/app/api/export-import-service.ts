@@ -8,6 +8,16 @@ import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
 import { applyMigrations } from "@infrastructure/persistence/migrations";
 import { APP_VERSION } from "@app/constants";
 
+// -- Normalization -----------------------------------------------------------
+
+/**
+ * Normalize a project name for conflict detection. Used by both
+ * detectNameConflicts and the Layer 2 guard inside the store action.
+ */
+export function normalizeProjectName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
 // -- Types -------------------------------------------------------------------
 
 export interface SpertExportEnvelope {
@@ -25,10 +35,58 @@ export interface ConflictInfo {
   existingProject: Project;
 }
 
+export type ConflictAction = "skip" | "replace" | "copy";
+
+export interface ConflictDecision {
+  importedProjectId: string;
+  /** 'id' = UUID collision; 'name' = same normalized name, different UUID */
+  kind: "id" | "name";
+  /**
+   * ID of the existing project that matched at Layer 1 detection time.
+   * 'id' conflicts: === importedProjectId.
+   * 'name' conflicts: ID of the project holding the conflicting name at detection time.
+   * Used in Layer 2 re-validation (pitfall #77) and mergeDecisions.
+   */
+  originalExistingId: string;
+  action: ConflictAction;
+}
+
+export interface ImportOutcome {
+  /** Incremented only on successful repo.save() — not on intent. (pitfall #41) */
+  added: number;
+  replaced: number;
+  copied: number;
+  /** User explicitly chose 'skip'. */
+  skipped: number;
+  /** Layer 2 auto-skips (drift between preview and apply). (pitfall #85) */
+  driftSkipped: Array<{ projectName: string; reason: string }>;
+  /** repo.save() failures. In-memory but may not persist. */
+  errors: Array<{ projectName: string; reason: string }>;
+}
+
+export interface MergeDecisionsDiff {
+  /** Prior conflicts absent from fresh; projects will now be added as new. */
+  vanished: number;
+  /** New conflicts in fresh; fresh default applied. */
+  newConflicts: number;
+  /** Conflict kind changed (id ↔ name); fresh default applied. */
+  kindChanged: number;
+  /** originalExistingId changed; fresh default applied (pitfall #77). */
+  targetChanged: number;
+}
+
+export interface MergeDecisionsResult {
+  decisions: ConflictDecision[];
+  diff: MergeDecisionsDiff;
+}
+
 export interface ImportValidationResult {
   success: true;
   projects: Project[];
+  /** ID conflicts (existing → same id). */
   conflicts: ConflictInfo[];
+  /** Name conflicts (different id, same normalized name). Added in v0.43.0. */
+  nameConflicts: ConflictInfo[];
   /** Preferences from the import file, if present and valid. */
   preferences?: UserPreferences;
 }
@@ -40,6 +98,51 @@ export interface ImportValidationError {
 }
 
 export type ImportResult = ImportValidationResult | ImportValidationError;
+
+/**
+ * Merge user decisions from a prior preview into a fresh set of decisions.
+ * Called after cloud-hydration rebuilds the preview.
+ *
+ * SD-2 limitation: vanished prior decisions (the conflicting peer was deleted
+ * or renamed away) are dropped. At apply time, the no-decision branch fires
+ * and adds the project as new — overriding a prior 'skip'/'replace' intent.
+ * The diff.vanished count must be surfaced in the cloud-refresh banner
+ * (aria-live="assertive") so the user can review before confirming.
+ */
+export function mergeDecisions(
+  prev: ConflictDecision[],
+  fresh: ConflictDecision[]
+): MergeDecisionsResult {
+  const prevById = new Map(prev.map((d) => [d.importedProjectId, d]));
+  const diff: MergeDecisionsDiff = {
+    vanished: 0,
+    newConflicts: 0,
+    kindChanged: 0,
+    targetChanged: 0,
+  };
+  for (const p of prev) {
+    if (!fresh.some((f) => f.importedProjectId === p.importedProjectId)) {
+      diff.vanished++;
+    }
+  }
+  const decisions = fresh.map<ConflictDecision>((f) => {
+    const p = prevById.get(f.importedProjectId);
+    if (!p) {
+      diff.newConflicts++;
+      return f;
+    }
+    if (p.kind !== f.kind) {
+      diff.kindChanged++;
+      return f;
+    }
+    if (p.originalExistingId !== f.originalExistingId) {
+      diff.targetChanged++;
+      return f;
+    }
+    return { ...f, action: p.action };
+  });
+  return { decisions, diff };
+}
 
 // -- Export ------------------------------------------------------------------
 
@@ -194,8 +297,8 @@ function migrateAndValidateProjects(
   return { projects: validated };
 }
 
-/** Step 4: Detect ID conflicts between imported and existing projects. */
-function detectConflicts(
+/** Step 4a: Detect ID conflicts between imported and existing projects. */
+function detectIdConflicts(
   imported: Project[],
   existing: Project[]
 ): ConflictInfo[] {
@@ -208,6 +311,47 @@ function detectConflicts(
     }
   }
   return conflicts;
+}
+
+/**
+ * Step 4b: Detect name conflicts (different ID, same normalized name).
+ * ID conflicts take precedence — an imported project already flagged via
+ * detectIdConflicts is excluded from the name-conflict pass.
+ *
+ * First-insert-wins for duplicate existing names: if two existing projects
+ * share a normalized name, only the first is recorded as a conflict target.
+ *
+ * Empty/whitespace-only names are excluded from name matching to avoid false
+ * conflicts across untitled drafts.
+ *
+ * Limitation: two INCOMING projects sharing a name with each other (but not
+ * with any existing project) are not flagged — both are added as-is.
+ */
+function detectNameConflicts(
+  imported: Project[],
+  existing: Project[],
+  idConflicts: ConflictInfo[]
+): ConflictInfo[] {
+  const existingByNorm = new Map<string, Project>();
+  for (const p of existing) {
+    const norm = normalizeProjectName(p.name);
+    if (norm === "") continue;
+    if (!existingByNorm.has(norm)) existingByNorm.set(norm, p);
+  }
+  const idConflictIds = new Set(
+    idConflicts.map((c) => c.importedProject.id)
+  );
+  const result: ConflictInfo[] = [];
+  for (const proj of imported) {
+    if (idConflictIds.has(proj.id)) continue;
+    const norm = normalizeProjectName(proj.name);
+    if (norm === "") continue;
+    const match = existingByNorm.get(norm);
+    if (match) {
+      result.push({ importedProject: proj, existingProject: match });
+    }
+  }
+  return result;
 }
 
 /**
@@ -226,7 +370,8 @@ function validatePreferences(raw: unknown): UserPreferences | undefined {
   return { ...DEFAULT_USER_PREFERENCES, ...result.data };
 }
 
-const MAX_IMPORT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+/** Single source of truth for the import size cap, shared with the hook. */
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /**
  * Parse, migrate, validate, and detect conflicts for an imported JSON string.
@@ -235,7 +380,7 @@ export function validateImport(
   jsonString: string,
   existingProjects: Project[]
 ): ImportResult {
-  if (jsonString.length > MAX_IMPORT_SIZE_BYTES) {
+  if (jsonString.length > MAX_FILE_SIZE_BYTES) {
     return { success: false, error: "Import file is too large (maximum 10 MB)." };
   }
 
@@ -248,10 +393,21 @@ export function validateImport(
   const migrated = migrateAndValidateProjects(envelope.projects);
   if ("success" in migrated) return migrated;
 
-  const conflicts = detectConflicts(migrated.projects, existingProjects);
+  const conflicts = detectIdConflicts(migrated.projects, existingProjects);
+  const nameConflicts = detectNameConflicts(
+    migrated.projects,
+    existingProjects,
+    conflicts
+  );
 
   // Validate preferences (non-fatal if invalid)
   const preferences = validatePreferences(envelope.rawPreferences);
 
-  return { success: true, projects: migrated.projects, conflicts, preferences };
+  return {
+    success: true,
+    projects: migrated.projects,
+    conflicts,
+    nameConflicts,
+    preferences,
+  };
 }

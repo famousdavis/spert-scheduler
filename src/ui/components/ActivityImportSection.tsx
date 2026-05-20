@@ -22,6 +22,8 @@ import type { CSVParseResult, CSVImportError } from "@core/import/types";
 import { generateId } from "@app/api/id";
 import type { Project, Scenario, ScenarioSettings } from "@domain/models/types";
 import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION } from "@domain/models/types";
+import type { ImportApplyParams } from "@ui/hooks/use-project-store";
+import type { ImportOutcome } from "@app/api/export-import-service";
 
 // -- State machine ------------------------------------------------------------
 
@@ -35,7 +37,7 @@ type ActivityImportState =
 
 interface ActivityImportSectionProps {
   projects: Project[];
-  importProjects: (projects: Project[], replaceIds?: string[]) => void;
+  importProjects: (params: ImportApplyParams) => ImportOutcome;
   importScenarioToProject: (projectId: string, scenario: Scenario) => void;
 }
 
@@ -99,6 +101,7 @@ export function ActivityImportSection({
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      setImportState({ step: "idle" }); // clear prior error on new pick (pitfall #79)
 
       try {
         const result = await importActivitiesFromCSV(file);
@@ -228,7 +231,19 @@ export function ActivityImportSection({
         owner: null, // local-mode default; cloud sync seeds when needed (Lesson 38)
         scenarios: [scenario],
       };
-      importProjects([project]);
+      // Unconditional add — fresh generateId() guarantees no real conflict
+      // (pitfall #82). skipConflictDetection bypasses the Layer 2 drift guards.
+      const outcome = importProjects({
+        importedProjects: [project],
+        decisions: [],
+        skipConflictDetection: true,
+      });
+      if (outcome.errors.length > 0) {
+        toast.error(
+          `Failed to save project "${finalName}". Please try again.`
+        );
+        return;
+      }
       committedProjectId = projectId;
       committedProjectName = finalName;
       toast.success(

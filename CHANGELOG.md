@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.43.0 — 2026-05-20
+
+### Import — Level 4 retrograde
+
+This release retrogrades the import flow to the Level 4 pattern described in the SPERT Suite robust-import guide. The implementation absorbs lessons from prior Level 4 ports (Forecaster v0.30.0, CFD v0.13.0, AHP v0.16.0, MyScrumBudget v0.30.0) and from this app's own v0.43.0 critique cycle (pitfalls #82–90).
+
+**User-facing:**
+
+- Import now detects name conflicts in addition to ID conflicts, with separate per-conflict resolution (skip / replace / copy). ID conflicts default to `'skip'` (avoiding silent overwrite); name conflicts default to `'copy'` (incoming is probably worth keeping).
+- In cloud mode, the file picker now waits for your projects to finish loading before enabling — preventing imports against an empty list during sign-in or invitation-claim refresh. An amber notice explains the wait.
+- If your cloud projects loaded (or were refreshed by a peer invitation claim) while a preview was open, the conflict list rebuilds automatically and an amber banner reports what changed (conflicts that vanished, new conflicts, kind changes). The banner escalates to `aria-live="assertive"` when prior 'skip' or 'replace' intents are downgraded to 'add' so screen-reader users hear it.
+- Copying an imported project now produces a disambiguated name (e.g., `"Q4 Plan (Copy)"`, `"Q4 Plan (Copy 2)"`) with fully regenerated internal IDs — re-importing the same file no longer creates aliased scenarios or activities.
+- **Fix:** replacing a cloud-shared project on import now preserves its owner, sharing settings, creation date, and archived status. Previously the imported file's `owner` field could overwrite these (Firestore rules already prevented data loss, but the in-memory state would briefly show the wrong owner until the next sync).
+- **Fix:** importing a file that includes user preferences now offers an opt-in toggle (default off) to apply them. Previously the `preferences` field in the export was silently ignored.
+- **Fix:** importing an activity CSV into a new project no longer trips the new conflict guards — the unconditional-add path is preserved via a typed escape-hatch on the store action.
+- **Fix:** stale error state from a prior bad file pick is now cleared when a new file is selected, in both the project-bundle and activity-CSV import surfaces.
+
+**Internal:**
+
+- New `useImportState` hook (`src/ui/hooks/use-import-state.ts`) centralizes the import state machine (idle / error / preview / applying / done) with named transition helpers and reactive cloud-data-readiness guards. `ImportSection` is now a thin controlled view.
+- Store action `importProjects` rewritten as a decision-based action returning `ImportOutcome`. Decisions carry `kind: 'id' | 'name'` and `originalExistingId` for Layer 2 stale-data guards. Counters are incremented on successful `repo.save()`, not on intent — keeping the banner honest about partial failures.
+- Layer 2 drift guards are symmetric across the ID-conflict-replace and name-conflict-replace branches (pitfall #85): if a target disappears AND a new collision appears, the project is recorded in `outcome.driftSkipped` rather than written.
+- New `cloudDataLoaded` reactive store field, written at 7 sites in `use-cloud-sync.ts` (4 initial-load + 3 model-refresh) so peer-invitation refreshes also re-validate any open preview (closing the v7 C-1 gap where `handleModelsChanged` mutated the project list without flipping the signal).
+- Applying-state observability uses `flushSync` plus a `setTimeout(0)` macrotask yield so `aria-busy` commits to the DOM AND the browser paints the spinner before the synchronous merge runs. (`flushSync` alone does not paint on fast devices; `setTimeout` alone does not guarantee React commits before the yield resumes.)
+- Double-confirm protection via `inFlightRef` apply-active ref — the closure-stale state guard alone is insufficient because rapid clicks can re-enter the same `useCallback` closure before React commits.
+- Spec deviations are documented in `docs/SPEC_DEVIATIONS.md` (SD-1: `applyImportDecisions` not extracted as a pure function; SD-2: no full `conflictsEqual` / `{ ok: false }` drift-abort path). Both targeted for v0.44.0.
+
 ## 0.42.6 — 2026-05-09
 
 ### Security

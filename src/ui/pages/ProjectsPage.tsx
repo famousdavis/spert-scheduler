@@ -63,7 +63,6 @@ export function ProjectsPage() {
     archiveProject,
     unarchiveProject,
     updateProjectField,
-    importProjects,
     getCorruptedProjectRawData,
     removeCorruptedProject,
   } = useProjectStore(
@@ -79,7 +78,6 @@ export function ProjectsPage() {
       archiveProject: s.archiveProject,
       unarchiveProject: s.unarchiveProject,
       updateProjectField: s.updateProjectField,
-      importProjects: s.importProjects,
       getCorruptedProjectRawData: s.getCorruptedProjectRawData,
       removeCorruptedProject: s.removeCorruptedProject,
     }))
@@ -226,7 +224,7 @@ export function ProjectsPage() {
       </div>
 
       {showImport && (
-        <ImportSection projects={projects} importProjects={importProjects} />
+        <ImportSection projects={projects} />
       )}
 
       {projects.length > 0 && (

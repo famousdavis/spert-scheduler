@@ -1,160 +1,84 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useRef } from "react";
-import {
-  validateImport,
-} from "@app/api/export-import-service";
-import type {
-  ImportResult,
-  ConflictInfo,
-} from "@app/api/export-import-service";
-import { generateId } from "@app/api/id";
 import type { Project } from "@domain/models/types";
-
-// -- Conflict resolution types -----------------------------------------------
-
-type ConflictAction = "skip" | "replace" | "copy";
-
-interface ConflictDecision {
-  conflict: ConflictInfo;
-  action: ConflictAction;
-}
-
-// -- Import state machine ----------------------------------------------------
-
-type ImportState =
-  | { step: "idle" }
-  | { step: "error"; error: string; details?: string }
-  | {
-      step: "preview";
-      projects: Project[];
-      conflicts: ConflictInfo[];
-      decisions: ConflictDecision[];
-    }
-  | { step: "done"; count: number };
-
-// -- Component ---------------------------------------------------------------
+import type {
+  ConflictInfo,
+  ImportOutcome,
+} from "@app/api/export-import-service";
+import type { StorageMode } from "@ui/providers/StorageProvider";
+import { useImportState } from "@ui/hooks/use-import-state";
 
 interface ImportSectionProps {
   projects: Project[];
-  importProjects: (projects: Project[], replaceIds?: string[]) => void;
 }
 
-function importResultMessage(count: number): string {
-  if (count === 0) return "No projects were imported (all skipped).";
-  return `Successfully imported ${count} project${count !== 1 ? "s" : ""}.`;
+const RADIO_LABEL: Record<"skip" | "replace" | "copy", string> = {
+  skip: "Skip",
+  replace: "Replace existing",
+  copy: "Import as copy",
+};
+
+function importDoneBanner(
+  outcome: ImportOutcome,
+  total: number,
+  mode: StorageMode
+): { text: string; hasErrors: boolean; cloudSyncActive: boolean } {
+  const { added, replaced, copied, skipped, driftSkipped, errors } = outcome;
+  const hasSuccess = added + replaced + copied > 0;
+  const hasErrors = errors.length > 0;
+  const allDrift =
+    !hasSuccess && !hasErrors && skipped === 0 && driftSkipped.length > 0;
+  let text: string;
+  if (allDrift) {
+    const n = driftSkipped.length;
+    text = `All ${n} project${n !== 1 ? "s were" : " was"} skipped — your project list changed while the preview was open.`;
+  } else if (!hasSuccess && !hasErrors) {
+    text = `No projects were imported — all ${total} skipped.`;
+  } else {
+    const parts: string[] = [];
+    if (added > 0) parts.push(`${added} added`);
+    if (replaced > 0) parts.push(`${replaced} replaced`);
+    if (copied > 0) parts.push(`${copied} copied as new`);
+    if (errors.length > 0) parts.push(`${errors.length} failed (storage)`);
+    if (skipped > 0) parts.push(`${skipped} skipped`);
+    text = `${hasErrors ? "Import finished with errors" : "Import complete"}: ${parts.join(", ")}.`;
+  }
+  const cloudSyncActive = mode === "cloud" && hasSuccess;
+  return { text, hasErrors, cloudSyncActive };
 }
 
-export function ImportSection({ projects, importProjects }: ImportSectionProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importState, setImportState] = useState<ImportState>({ step: "idle" });
+export function ImportSection({ projects }: ImportSectionProps) {
+  const {
+    importState,
+    mode,
+    cloudDataLoaded,
+    applyPreferences,
+    toggleApplyPreferences,
+    fileInputRef,
+    previewHeadingRef,
+    handleFileChange,
+    updateDecision,
+    handleConfirmImport,
+    cancelImport,
+  } = useImportState({ currentProjects: projects });
 
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      // Security: Limit file size to prevent memory exhaustion
-      const MAX_FILE_SIZE_MB = 10;
-      const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        setImportState({
-          step: "error",
-          error: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB)`,
-          details: `Maximum allowed file size is ${MAX_FILE_SIZE_MB} MB.`,
-        });
-        e.target.value = "";
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        const text = reader.result as string;
-        const result: ImportResult = validateImport(text, projects);
-
-        if (!result.success) {
-          setImportState({
-            step: "error",
-            error: result.error,
-            details: result.details,
-          });
-        } else {
-          const decisions: ConflictDecision[] = result.conflicts.map((c) => ({
-            conflict: c,
-            action: "skip" as ConflictAction,
-          }));
-          setImportState({
-            step: "preview",
-            projects: result.projects,
-            conflicts: result.conflicts,
-            decisions,
-          });
-        }
-      };
-      reader.readAsText(file);
-
-      // Reset the input so the same file can be re-selected
-      e.target.value = "";
-    },
-    [projects]
-  );
-
-  const updateConflictDecision = (index: number, action: ConflictAction) => {
-    setImportState((prev) => {
-      if (prev.step !== "preview") return prev;
-      const decisions = [...prev.decisions];
-      decisions[index] = { ...decisions[index]!, action };
-      return { ...prev, decisions };
-    });
-  };
-
-  const handleConfirmImport = useCallback(() => {
-    if (importState.step !== "preview") return;
-
-    const { projects: importedProjects, decisions } = importState;
-
-    const finalProjects: Project[] = [];
-    const replaceIds: string[] = [];
-
-    for (const project of importedProjects) {
-      const decision = decisions.find(
-        (d) => d.conflict.importedProject.id === project.id
-      );
-
-      if (!decision) {
-        finalProjects.push(project);
-      } else if (decision.action === "skip") {
-        continue;
-      } else if (decision.action === "replace") {
-        replaceIds.push(project.id);
-        finalProjects.push(project);
-      } else if (decision.action === "copy") {
-        finalProjects.push({ ...project, id: generateId() });
-      }
-    }
-
-    if (finalProjects.length > 0) {
-      importProjects(finalProjects, replaceIds);
-    }
-
-    setImportState({ step: "done", count: finalProjects.length });
-  }, [importState, importProjects]);
-
-  const resetImport = () => setImportState({ step: "idle" });
+  const cloudPending = mode === "cloud" && !cloudDataLoaded;
 
   return (
     <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-      <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Import Projects</h2>
+      <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+        Import Projects
+      </h2>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Upload a previously exported JSON file to restore or add projects.
       </p>
 
       <div className="mt-4 space-y-4">
-        {/* File input */}
         <input
           ref={fileInputRef}
           type="file"
+          id="projectImportFile"
           name="projectImportFile"
           aria-label="Project import JSON file"
           accept=".json"
@@ -162,56 +86,169 @@ export function ImportSection({ projects, importProjects }: ImportSectionProps) 
           className="hidden"
         />
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+          disabled={cloudPending}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Choose File
         </button>
 
-        {/* Error state */}
+        {cloudPending && (
+          <div
+            role="note"
+            className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3"
+          >
+            <p className="text-sm text-amber-700 dark:text-amber-300">
+              Cloud projects are still loading. The button above will enable
+              when loading is complete.
+            </p>
+          </div>
+        )}
+
         {importState.step === "error" && (
-          <div className="border border-red-200 bg-red-50 rounded-md p-4">
-            <p className="text-sm font-medium text-red-800">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-md p-3"
+          >
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">
               {importState.error}
             </p>
             {importState.details && (
-              <p className="mt-1 text-xs text-red-600">
+              <p className="mt-1 text-xs text-red-700 dark:text-red-300">
                 {importState.details}
               </p>
             )}
             <button
-              onClick={resetImport}
-              className="mt-2 text-sm text-red-700 hover:text-red-900 underline"
+              type="button"
+              onClick={cancelImport}
+              className="mt-2 text-sm text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 underline"
             >
               Try another file
             </button>
           </div>
         )}
 
-        {/* Preview state */}
+        {importState.step === "applying" && (
+          <div
+            aria-busy="true"
+            aria-label="Applying import…"
+            className="flex items-center gap-2 p-3"
+          >
+            <span className="inline-block w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Applying import…
+            </span>
+          </div>
+        )}
+
         {importState.step === "preview" && (
-          <div className="space-y-4">
-            {/* Non-conflicting projects */}
+          <div
+            role="region"
+            aria-labelledby="import-preview-heading"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") cancelImport();
+            }}
+            className="space-y-3"
+          >
+            <h3
+              ref={previewHeadingRef}
+              tabIndex={-1}
+              id="import-preview-heading"
+              className="text-sm font-semibold text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
+              Review Import
+            </h3>
+
+            {importState.cloudRefreshed &&
+              (() => {
+                const diff = importState.cloudRefreshDiff;
+                const parts: string[] = [];
+                if (diff?.vanished)
+                  parts.push(
+                    `${diff.vanished} conflict${diff.vanished !== 1 ? "s" : ""} no longer apply — those projects will be imported as new`
+                  );
+                if (diff?.newConflicts)
+                  parts.push(
+                    `${diff.newConflicts} new conflict${diff.newConflicts !== 1 ? "s" : ""} detected`
+                  );
+                if (diff?.kindChanged)
+                  parts.push(
+                    `${diff.kindChanged} conflict${diff.kindChanged !== 1 ? "s" : ""} changed type`
+                  );
+                const urgent = (diff?.vanished ?? 0) > 0;
+                return (
+                  <div
+                    role="note"
+                    aria-live={urgent ? "assertive" : "polite"}
+                    className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3"
+                  >
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      Your cloud projects finished loading.
+                      {parts.length > 0 && ` ${parts.join("; ")}.`}{" "}
+                      Your "Replace preferences" setting was reset — re-check
+                      if intended. Cancel and review, or confirm if the
+                      conflict list looks correct.
+                    </p>
+                  </div>
+                );
+              })()}
+
+            {importState.preferences !== undefined && (
+              <div
+                role="note"
+                className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3"
+              >
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  Preferences included
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                  This file includes user preferences (date format, default
+                  percentiles, trial count, and other settings). By default,
+                  your current preferences are kept. Checking the box below
+                  will overwrite all your preference settings and cannot be
+                  undone.
+                </p>
+                <label
+                  htmlFor="applyPreferences"
+                  className="flex items-center gap-2 mt-2 text-sm text-amber-700 dark:text-amber-300 cursor-pointer"
+                >
+                  <input
+                    id="applyPreferences"
+                    name="applyPreferences"
+                    type="checkbox"
+                    checked={applyPreferences}
+                    onChange={toggleApplyPreferences}
+                  />
+                  Replace my preferences with values from this file
+                </label>
+              </div>
+            )}
+
             {importState.projects.filter(
               (p) =>
-                !importState.conflicts.some(
-                  (c) => c.importedProject.id === p.id
+                !importState.decisions.some(
+                  (d) => d.importedProjectId === p.id
                 )
             ).length > 0 && (
-              <div className="border border-green-200 bg-green-50 rounded-md p-4">
-                <p className="text-sm font-medium text-green-800">
+              <div className="border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 rounded-md p-4">
+                <p className="text-sm font-medium text-green-800 dark:text-green-200">
                   Ready to import:
                 </p>
                 <ul className="mt-1 space-y-0.5">
                   {importState.projects
                     .filter(
                       (p) =>
-                        !importState.conflicts.some(
-                          (c) => c.importedProject.id === p.id
+                        !importState.decisions.some(
+                          (d) => d.importedProjectId === p.id
                         )
                     )
                     .map((p) => (
-                      <li key={p.id} className="text-sm text-green-700">
+                      <li
+                        key={p.id}
+                        className="text-sm text-green-700 dark:text-green-300"
+                      >
                         {p.name}{" "}
                         <span className="text-green-500 text-xs">
                           ({p.scenarios.length} scenario
@@ -223,76 +260,93 @@ export function ImportSection({ projects, importProjects }: ImportSectionProps) 
               </div>
             )}
 
-            {/* Conflicts */}
             {importState.decisions.length > 0 && (
-              <div className="border border-amber-200 bg-amber-50 rounded-md p-4 space-y-3">
-                <p className="text-sm font-medium text-amber-800">
-                  {importState.decisions.length} project
-                  {importState.decisions.length !== 1 ? "s" : ""} already
-                  exist{importState.decisions.length === 1 ? "s" : ""}:
+              <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 rounded-md p-4 space-y-3">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  {importState.decisions.length} conflict
+                  {importState.decisions.length !== 1 ? "s" : ""} to resolve:
                 </p>
-                {importState.decisions.map((decision, index) => (
-                  <div
-                    key={decision.conflict.importedProject.id}
-                    className="bg-white rounded p-3 border border-amber-100"
-                  >
-                    <p className="text-sm font-medium text-gray-900">
-                      {decision.conflict.importedProject.name}
-                    </p>
-                    <div className="mt-2 flex gap-4">
-                      <label className="flex items-center gap-1.5 text-xs text-gray-600">
-                        <input
-                          type="radio"
-                          name={`conflict-${index}`}
-                          checked={decision.action === "skip"}
-                          onChange={() =>
-                            updateConflictDecision(index, "skip")
-                          }
-                          className="text-blue-600"
-                        />
-                        Skip
-                      </label>
-                      <label className="flex items-center gap-1.5 text-xs text-gray-600">
-                        <input
-                          type="radio"
-                          name={`conflict-${index}`}
-                          checked={decision.action === "replace"}
-                          onChange={() =>
-                            updateConflictDecision(index, "replace")
-                          }
-                          className="text-blue-600"
-                        />
-                        Replace existing
-                      </label>
-                      <label className="flex items-center gap-1.5 text-xs text-gray-600">
-                        <input
-                          type="radio"
-                          name={`conflict-${index}`}
-                          checked={decision.action === "copy"}
-                          onChange={() =>
-                            updateConflictDecision(index, "copy")
-                          }
-                          className="text-blue-600"
-                        />
-                        Import as copy
-                      </label>
+                {importState.decisions.map((decision) => {
+                  const sourceConflict: ConflictInfo | undefined =
+                    decision.kind === "id"
+                      ? importState.conflicts.find(
+                          (c) =>
+                            c.importedProject.id === decision.importedProjectId
+                        )
+                      : importState.nameConflicts.find(
+                          (c) =>
+                            c.importedProject.id === decision.importedProjectId
+                        );
+                  if (!sourceConflict) return null;
+                  const labelId = `conflict-label-${decision.importedProjectId}`;
+                  return (
+                    <div
+                      key={decision.importedProjectId}
+                      className="bg-white dark:bg-gray-800 rounded p-3 border border-amber-100 dark:border-amber-900"
+                    >
+                      <p
+                        id={labelId}
+                        className="text-sm font-medium text-gray-900 dark:text-gray-100"
+                      >
+                        {sourceConflict.importedProject.name}{" "}
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          (
+                          {decision.kind === "id" ? "ID match" : "Name match"}:
+                          "{sourceConflict.existingProject.name}")
+                        </span>
+                      </p>
+                      <div
+                        role="radiogroup"
+                        aria-labelledby={labelId}
+                        className="mt-2 flex flex-wrap gap-4"
+                      >
+                        {(["skip", "replace", "copy"] as const).map((opt) => (
+                          <label
+                            key={opt}
+                            className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 cursor-pointer"
+                          >
+                            <input
+                              type="radio"
+                              name={`conflict-${decision.importedProjectId}`}
+                              checked={decision.action === opt}
+                              onChange={() =>
+                                updateDecision(
+                                  decision.importedProjectId,
+                                  opt
+                                )
+                              }
+                              className="text-blue-600"
+                            />
+                            {RADIO_LABEL[opt]}
+                          </label>
+                        ))}
+                      </div>
+                      {decision.action === "replace" && (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                          ⚠ Existing project content (scenarios, activities)
+                          will be replaced. Sharing settings, creation date,
+                          and archived status are preserved. Consider "Import
+                          as copy" to keep both.
+                        </p>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
-            {/* Action buttons */}
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={handleConfirmImport}
                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
               >
                 Confirm Import
               </button>
               <button
-                onClick={resetImport}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                type="button"
+                onClick={cancelImport}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
               >
                 Cancel
               </button>
@@ -300,20 +354,59 @@ export function ImportSection({ projects, importProjects }: ImportSectionProps) 
           </div>
         )}
 
-        {/* Done state */}
-        {importState.step === "done" && (
-          <div className="border border-green-200 bg-green-50 rounded-md p-4">
-            <p className="text-sm font-medium text-green-800">
-              {importResultMessage(importState.count)}
-            </p>
-            <button
-              onClick={resetImport}
-              className="mt-2 text-sm text-green-700 hover:text-green-900 underline"
-            >
-              Import another file
-            </button>
-          </div>
-        )}
+        {importState.step === "done" &&
+          (() => {
+            const { text, hasErrors, cloudSyncActive } = importDoneBanner(
+              importState.outcome,
+              importState.total,
+              mode
+            );
+            return (
+              <div
+                role={hasErrors ? "alert" : "status"}
+                aria-live={hasErrors ? "assertive" : "polite"}
+                className={`border rounded-md p-3 ${hasErrors ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20" : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20"}`}
+              >
+                <p
+                  className={`text-sm font-medium ${hasErrors ? "text-amber-800 dark:text-amber-200" : "text-green-800 dark:text-green-200"}`}
+                >
+                  {text}
+                </p>
+                {cloudSyncActive && (
+                  <p className="mt-1 text-xs text-green-700 dark:text-green-300">
+                    Cloud sync running in background.
+                  </p>
+                )}
+                {importState.outcome.errors.length > 0 && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                    {importState.outcome.errors.length} project
+                    {importState.outcome.errors.length !== 1 ? "s" : ""} could
+                    not be saved to local storage. Your data is in memory but
+                    may not persist after reload
+                    {mode === "cloud"
+                      ? " (cloud sync may recover this)"
+                      : ""}
+                    .
+                  </p>
+                )}
+                {importState.outcome.driftSkipped.length > 0 && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                    {importState.outcome.driftSkipped.length} project
+                    {importState.outcome.driftSkipped.length !== 1 ? "s" : ""}{" "}
+                    were skipped because conflicts emerged after the preview
+                    opened.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={cancelImport}
+                  className="mt-2 text-sm underline text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+                >
+                  Import another file
+                </button>
+              </div>
+            );
+          })()}
       </div>
     </section>
   );

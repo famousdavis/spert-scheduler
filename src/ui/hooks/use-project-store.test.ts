@@ -539,15 +539,21 @@ describe("useProjectStore", () => {
   });
 
   describe("importProjects cloud sync", () => {
-    it("emits create events for all imported projects", () => {
+    it("emits create events for all imported (unconditional add) projects", () => {
       const handler = vi.fn();
       const unsub = cloudSyncBus.subscribe(handler);
 
       const imported1 = createProject("Imported 1");
       const imported2 = createProject("Imported 2");
 
-      useProjectStore.getState().importProjects([imported1, imported2]);
+      const outcome = useProjectStore.getState().importProjects({
+        importedProjects: [imported1, imported2],
+        decisions: [],
+        skipConflictDetection: true,
+      });
 
+      expect(outcome.added).toBe(2);
+      expect(outcome.errors).toEqual([]);
       expect(handler).toHaveBeenCalledTimes(2);
       expect(handler).toHaveBeenCalledWith({
         type: "create",
@@ -561,7 +567,7 @@ describe("useProjectStore", () => {
       unsub();
     });
 
-    it("emits create for replaced projects (no separate delete when ID matches)", () => {
+    it("emits save (not create) for ID-conflict replaces — preserves Firestore owner/members via merge:true", () => {
       const handler = vi.fn();
       const unsub = cloudSyncBus.subscribe(handler);
 
@@ -570,41 +576,65 @@ describe("useProjectStore", () => {
       handler.mockClear();
 
       const replacement = createProject("Replaced");
-      // Use the same ID as existing (simulating "replace" conflict resolution)
       const replacementWithId = { ...replacement, id: existing.id };
 
-      store.importProjects([replacementWithId], [existing.id]);
+      const outcome = useProjectStore.getState().importProjects({
+        importedProjects: [replacementWithId],
+        decisions: [
+          {
+            importedProjectId: existing.id,
+            kind: "id",
+            originalExistingId: existing.id,
+            action: "replace",
+          },
+        ],
+      });
 
-      // Should emit create only — no delete since replaced ID is in import set
+      expect(outcome.replaced).toBe(1);
       expect(handler).toHaveBeenCalledTimes(1);
       expect(handler).toHaveBeenCalledWith({
-        type: "create",
+        type: "save",
         projectId: existing.id,
       });
 
       unsub();
     });
 
-    it("emits delete for replaceIds not in import set", () => {
+    it("name-conflict replace emits save for the slot and preserves the existing id", () => {
       const handler = vi.fn();
       const unsub = cloudSyncBus.subscribe(handler);
 
       const store = useProjectStore.getState();
-      const existing = store.addProject("To Remove", null);
+      const existing = store.addProject("Same Name", null);
       handler.mockClear();
 
-      const newProject = createProject("New Only");
-      store.importProjects([newProject], [existing.id]);
+      // Incoming has the same name but a different id.
+      const incoming = createProject("Same Name");
+      expect(incoming.id).not.toBe(existing.id);
 
-      expect(handler).toHaveBeenCalledTimes(2);
+      const outcome = useProjectStore.getState().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          {
+            importedProjectId: incoming.id,
+            kind: "name",
+            originalExistingId: existing.id,
+            action: "replace",
+          },
+        ],
+      });
+
+      expect(outcome.replaced).toBe(1);
+      // emitSave fires for the existing (slot) id — replaces are slot
+      // substitutions, never delete+create.
+      expect(handler).toHaveBeenCalledTimes(1);
       expect(handler).toHaveBeenCalledWith({
-        type: "delete",
+        type: "save",
         projectId: existing.id,
       });
-      expect(handler).toHaveBeenCalledWith({
-        type: "create",
-        projectId: newProject.id,
-      });
+      // Incoming id is discarded; slot keeps existing id.
+      const final = useProjectStore.getState().projects;
+      expect(final.map((p) => p.id)).toEqual([existing.id]);
 
       unsub();
     });
@@ -697,6 +727,208 @@ describe("useProjectStore", () => {
       expect(clone?.owner).toBe("uid-new");
       // Source must remain unchanged.
       expect(source.owner).toBe("uid-original");
+    });
+  });
+
+  // v0.43.0 — decision-based importProjects ----------------------------------
+  describe("importProjects (decision-based)", () => {
+    it("structural atomicity: pre-existing project not in the import snapshot survives the merge", () => {
+      const store = useProjectStore.getState();
+      const survivor = store.addProject("Survivor", null);
+      const incoming = createProject("New One");
+
+      const outcome = useProjectStore.getState().importProjects({
+        importedProjects: [incoming],
+        decisions: [],
+        skipConflictDetection: true,
+      });
+
+      expect(outcome.added).toBe(1);
+      const finalIds = useProjectStore.getState().projects.map((p) => p.id);
+      expect(finalIds).toContain(survivor.id);
+      expect(finalIds).toContain(incoming.id);
+    });
+
+    it("subscribe batching (pitfall #46): subscribe callback fires exactly once per call", () => {
+      const incoming1 = createProject("Batch 1");
+      const incoming2 = createProject("Batch 2");
+      let transitions = 0;
+      const unsub = useProjectStore.subscribe(() => {
+        transitions++;
+      });
+      useProjectStore.getState().importProjects({
+        importedProjects: [incoming1, incoming2],
+        decisions: [],
+        skipConflictDetection: true,
+      });
+      unsub();
+      expect(transitions).toBe(1);
+    });
+
+    it("no transient duplicate-id state: every transition has unique project ids", () => {
+      const store = useProjectStore.getState();
+      const existing = store.addProject("Existing", "uid-A");
+      const replacement = { ...createProject("Replaced"), id: existing.id };
+
+      const transitions: string[][] = [];
+      const unsub = useProjectStore.subscribe((state) => {
+        transitions.push(state.projects.map((p) => p.id));
+      });
+      useProjectStore.getState().importProjects({
+        importedProjects: [replacement],
+        decisions: [
+          {
+            importedProjectId: existing.id,
+            kind: "id",
+            originalExistingId: existing.id,
+            action: "replace",
+          },
+        ],
+      });
+      unsub();
+
+      for (const ids of transitions) {
+        expect(new Set(ids).size).toBe(ids.length);
+      }
+    });
+
+    it("replace via ID conflict preserves existing.owner (pitfall #7)", () => {
+      const store = useProjectStore.getState();
+      const existing = store.addProject("Project", "uid-A");
+      const incoming = { ...createProject("Project"), id: existing.id };
+      // Incoming carries a DIFFERENT owner (stamped by hook for adds/copies)
+      // — the store action must override with existing.owner.
+      incoming.owner = "uid-importer";
+
+      useProjectStore.getState().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          {
+            importedProjectId: existing.id,
+            kind: "id",
+            originalExistingId: existing.id,
+            action: "replace",
+          },
+        ],
+      });
+      const after = useProjectStore.getState().getProject(existing.id)!;
+      expect(after.owner).toBe("uid-A");
+    });
+
+    it("replace preserves existing.createdAt (pitfall #65)", () => {
+      const store = useProjectStore.getState();
+      const existing = store.addProject("Project", null);
+      const originalCreatedAt = existing.createdAt;
+      const incoming = {
+        ...createProject("Project"),
+        id: existing.id,
+        createdAt: "2099-01-01T00:00:00.000Z", // attempt to overwrite
+      };
+
+      useProjectStore.getState().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          {
+            importedProjectId: existing.id,
+            kind: "id",
+            originalExistingId: existing.id,
+            action: "replace",
+          },
+        ],
+      });
+      const after = useProjectStore.getState().getProject(existing.id)!;
+      expect(after.createdAt).toBe(originalCreatedAt);
+    });
+
+    it("copy path produces a disambiguated name (pitfall #84)", () => {
+      const store = useProjectStore.getState();
+      store.addProject("Q4 Plan", null);
+      const incoming = createProject("Q4 Plan");
+
+      useProjectStore.getState().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          {
+            importedProjectId: incoming.id,
+            kind: "name",
+            originalExistingId:
+              useProjectStore.getState().projects[0]!.id,
+            action: "copy",
+          },
+        ],
+      });
+      const names = useProjectStore.getState().projects.map((p) => p.name);
+      expect(names).toContain("Q4 Plan");
+      expect(names).toContain("Q4 Plan (Copy)");
+    });
+
+    it("copy path regenerates nested scenario ids (pitfall #3/#83)", () => {
+      const store = useProjectStore.getState();
+      store.addProject("Source", null);
+      const sourceId = useProjectStore.getState().projects[0]!.id;
+      const sourceScenarioIds = useProjectStore
+        .getState()
+        .projects[0]!.scenarios.map((s) => s.id);
+
+      // Construct an incoming project that shares the name (triggers copy) but
+      // has different ids; cloneProjectFn must regenerate nested ids on copy.
+      const incoming = createProject("Source");
+
+      useProjectStore.getState().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          {
+            importedProjectId: incoming.id,
+            kind: "name",
+            originalExistingId: sourceId,
+            action: "copy",
+          },
+        ],
+      });
+      const copy = useProjectStore
+        .getState()
+        .projects.find((p) => p.name === "Source (Copy)")!;
+      // No scenario id overlap between source and copy.
+      for (const s of copy.scenarios) {
+        expect(sourceScenarioIds).not.toContain(s.id);
+      }
+    });
+
+    it("Layer 2 drift guard: name collision appearing post-preview produces driftSkipped", () => {
+      const store = useProjectStore.getState();
+      // Add an existing project that will create a name conflict at apply time.
+      store.addProject("Conflict Name", null);
+      const incoming = createProject("Conflict Name");
+      // No decision provided — simulates "no conflict at preview time" plus
+      // a peer rename that surfaced the collision between preview and apply.
+      const outcome = useProjectStore.getState().importProjects({
+        importedProjects: [incoming],
+        decisions: [],
+      });
+      expect(outcome.added).toBe(0);
+      expect(outcome.driftSkipped).toHaveLength(1);
+      expect(outcome.driftSkipped[0]!.projectName).toBe("Conflict Name");
+    });
+
+    it("skipConflictDetection bypasses drift guards (ActivityImportSection path)", () => {
+      const store = useProjectStore.getState();
+      store.addProject("Conflict Name", null);
+      const incoming = createProject("Conflict Name");
+      const outcome = useProjectStore.getState().importProjects({
+        importedProjects: [incoming],
+        decisions: [],
+        skipConflictDetection: true,
+      });
+      expect(outcome.added).toBe(1);
+      expect(outcome.driftSkipped).toHaveLength(0);
+    });
+
+    it("cloudDataLoaded initial state is false; setCloudDataLoaded toggles reactively", () => {
+      expect(useProjectStore.getState().cloudDataLoaded).toBe(false);
+      useProjectStore.getState().setCloudDataLoaded(true);
+      expect(useProjectStore.getState().cloudDataLoaded).toBe(true);
+      useProjectStore.getState().setCloudDataLoaded(false);
+      expect(useProjectStore.getState().cloudDataLoaded).toBe(false);
     });
   });
 });

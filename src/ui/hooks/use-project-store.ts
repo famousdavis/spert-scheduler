@@ -55,7 +55,33 @@ import {
   loadPreferences,
 } from "@infrastructure/persistence/preferences-repository";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
+import { removeLastScenarioId } from "@infrastructure/persistence/scenario-memory";
+import {
+  normalizeProjectName,
+  type ConflictDecision,
+  type ImportOutcome,
+} from "@app/api/export-import-service";
 import { UNDO_STACK_LIMIT } from "@ui/constants";
+
+/**
+ * Arguments for the decision-based importProjects store action.
+ *
+ * Pattern A (decision-based): callers provide imported projects PLUS decisions
+ * for any conflicting projects detected at preview time. The store re-detects
+ * conflicts at write time (Layer 2) against `state.projects` for drift defense.
+ *
+ * Pattern B (unconditional add): callers that construct genuinely-new projects
+ * with fresh IDs (e.g., ActivityImportSection) pass `skipConflictDetection: true`
+ * to bypass the Layer 2 drift guards in the no-decision branch. Pitfall #82.
+ *
+ * Callers passing both `decisions[]` and `skipConflictDetection: true`
+ * simultaneously is unsupported.
+ */
+export interface ImportApplyParams {
+  importedProjects: Project[];
+  decisions: ConflictDecision[];
+  skipConflictDetection?: boolean;
+}
 
 const repo = new LocalStorageRepository();
 
@@ -319,8 +345,15 @@ export interface ProjectStore {
   removeConvertedWorkDay: (projectId: string, date: string) => void;
 
   // Import
-  importProjects: (projects: Project[], replaceIds?: string[]) => void;
+  importProjects: (params: ImportApplyParams) => ImportOutcome;
   importScenarioToProject: (projectId: string, scenario: Scenario) => void;
+
+  // Cloud-data readiness (v0.43.0).
+  // True after Firestore's loadAll() completes — distinct from auth-only
+  // storageReady. Gates the import file picker and confirm-time check.
+  // Pitfalls #88, #89.
+  cloudDataLoaded: boolean;
+  setCloudDataLoaded: (loaded: boolean) => void;
 
   // Archive
   archiveProject: (id: string) => void;
@@ -459,6 +492,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   loadErrors: [],
   undoStack: [],
   redoStack: [],
+  // In-memory only — must reset to false on every page load. Driven by
+  // use-cloud-sync.ts; never persisted to localStorage. (Pitfall #88/#89)
+  cloudDataLoaded: false,
+
+  setCloudDataLoaded: (loaded) => set({ cloudDataLoaded: loaded }),
 
   undo: () => {
     // Close any active group before popping so subsequent edits in the same
@@ -924,34 +962,224 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       };
     }),
 
-  importProjects: (projects, replaceIds = []) => {
+  importProjects: (params: ImportApplyParams): ImportOutcome => {
+    const { importedProjects, decisions, skipConflictDetection = false } = params;
+
+    // Collected inside set() for atomicity; consumed by post-set side effects.
+    // Reset at updater entry — React StrictMode invokes the updater twice in dev,
+    // so the reset is essential for the second pass to produce a clean outcome.
+    let toAdd: Project[] = [];
+    let toReplace: Array<{ oldId: string; replacement: Project }> = [];
+    let toCopy: Project[] = [];
+    const outcome: ImportOutcome = {
+      added: 0,
+      replaced: 0,
+      copied: 0,
+      skipped: 0,
+      driftSkipped: [],
+      errors: [],
+    };
+
+    // Build decisions lookup once — O(N) not O(N²).
+    const decisionsById = new Map(
+      decisions.map((d) => [d.importedProjectId, d])
+    );
+
     set((state) => {
-      // Remove projects being replaced
-      const filteredExisting = state.projects.filter(
-        (p) => !replaceIds.includes(p.id)
-      );
-      for (const id of replaceIds) {
-        repo.remove(id);
+      // SD-1: merge logic inlined here, not extracted as a pure function. See docs/SPEC_DEVIATIONS.md.
+      toAdd = [];
+      toReplace = [];
+      toCopy = [];
+      outcome.added = 0;
+      outcome.replaced = 0;
+      outcome.copied = 0;
+      outcome.skipped = 0;
+      outcome.driftSkipped = [];
+      outcome.errors = [];
+
+      // Layer 2 stale-data guard: read CURRENT state, not preview-time state (pitfall #39).
+      const currentById = new Map(state.projects.map((p) => [p.id, p]));
+      const currentByNorm = new Map<string, string>(); // normalized name → existing id
+      for (const p of state.projects) {
+        const norm = normalizeProjectName(p.name);
+        if (norm !== "" && !currentByNorm.has(norm)) {
+          currentByNorm.set(norm, p.id);
+        }
       }
-      // Save all imported projects to localStorage
-      for (const project of projects) {
-        repo.save(project);
+
+      for (const proj of importedProjects) {
+        const decision = decisionsById.get(proj.id);
+
+        if (!decision) {
+          // No conflict at preview time. Layer 2 drift guards:
+          if (!skipConflictDetection) {
+            if (currentById.has(proj.id)) {
+              outcome.driftSkipped.push({
+                projectName: proj.name,
+                reason: "ID conflict appeared after preview opened.",
+              });
+              continue;
+            }
+            const nameMatchId = currentByNorm.get(
+              normalizeProjectName(proj.name)
+            );
+            if (nameMatchId) {
+              outcome.driftSkipped.push({
+                projectName: proj.name,
+                reason: "Name conflict appeared after preview opened.",
+              });
+              continue;
+            }
+          }
+          toAdd.push(proj); // owner already stamped by hook for adds
+        } else if (decision.action === "skip") {
+          outcome.skipped++;
+        } else if (decision.action === "replace") {
+          if (decision.kind === "id") {
+            const existing = currentById.get(proj.id);
+            if (!existing) {
+              // ID target deleted. Symmetric SD-2 guard: check for new name collision (pitfall #85).
+              const nameMatchId = currentByNorm.get(
+                normalizeProjectName(proj.name)
+              );
+              if (nameMatchId && !skipConflictDetection) {
+                outcome.driftSkipped.push({
+                  projectName: proj.name,
+                  reason:
+                    "ID target deleted and name collision appeared — skipped to avoid clobber.",
+                });
+              } else {
+                toAdd.push(proj);
+              }
+            } else {
+              toReplace.push({
+                oldId: existing.id,
+                replacement: {
+                  ...proj,
+                  id: existing.id,
+                  owner: existing.owner, // preserve identity (pitfall #7)
+                  createdAt: existing.createdAt, // preserve identity (pitfall #65)
+                  archived: existing.archived ?? false,
+                },
+              });
+            }
+          } else {
+            // kind === 'name' — pitfall #77 + symmetric pitfall #85
+            const nameMatchId = currentByNorm.get(
+              normalizeProjectName(proj.name)
+            );
+            if (!nameMatchId || nameMatchId !== decision.originalExistingId) {
+              // Name target gone or changed. Symmetric guard: check for new ID collision.
+              if (currentById.has(proj.id) && !skipConflictDetection) {
+                outcome.driftSkipped.push({
+                  projectName: proj.name,
+                  reason:
+                    "Name target gone and ID collision appeared — skipped to avoid duplicate.",
+                });
+              } else {
+                toAdd.push(proj);
+              }
+            } else {
+              const existing = currentById.get(nameMatchId)!;
+              toReplace.push({
+                oldId: existing.id,
+                replacement: {
+                  ...proj,
+                  id: existing.id,
+                  owner: existing.owner, // preserve identity (pitfall #7)
+                  createdAt: existing.createdAt, // preserve identity (pitfall #65)
+                  archived: existing.archived ?? false,
+                },
+              });
+            }
+          }
+        } else {
+          // action === 'copy'
+          // Use cloneProjectFn (pitfall #83) — handles all nested ID regeneration via
+          // cloneScenario, archived reset, simulationResults drop. Pair with nextCloneName
+          // (pitfall #84) for collision-safe naming against CURRENT state.
+          const existingNames = state.projects.map((p) => p.name);
+          const copyName = nextCloneName(proj.name, existingNames);
+          const copy = cloneProjectFn(proj, copyName);
+          copy.owner = proj.owner; // copy carries importer-stamped owner from the hook
+          toCopy.push(copy);
+        }
       }
+
+      const replaceIdSet = new Set(toReplace.map((r) => r.oldId));
+      const allNew = [
+        ...toAdd,
+        ...toReplace.map((r) => r.replacement),
+        ...toCopy,
+      ];
+
       return {
-        projects: [...filteredExisting, ...projects],
+        projects: [
+          ...state.projects.filter((p) => !replaceIdSet.has(p.id)),
+          ...allNew,
+        ],
+        // Clear undo/redo entries that reference replaced ids — they snapshot stale
+        // state that no longer corresponds to a live project (G12).
+        undoStack: state.undoStack.filter((e) => !replaceIdSet.has(e.projectId)),
+        redoStack: state.redoStack.filter((e) => !replaceIdSet.has(e.projectId)),
       };
     });
 
-    // Cloud sync: delete replaced docs not in import set, create all imported
-    const importedIds = new Set(projects.map((p) => p.id));
-    for (const id of replaceIds) {
-      if (!importedIds.has(id)) {
-        cloudSyncBus.emitDelete(id);
+    // Side effects (post-set).
+    // Zombie session-data defense (pitfall #24): clear stale scenario-memory for ALL paths.
+    for (const { oldId } of toReplace) {
+      repo.remove(oldId);
+      removeLastScenarioId(oldId);
+    }
+    for (const proj of toAdd) removeLastScenarioId(proj.id);
+    for (const proj of toCopy) removeLastScenarioId(proj.id);
+
+    // Save — success counters incremented on actual save, not on intent (pitfall #41).
+    for (const proj of toAdd) {
+      try {
+        repo.save(proj);
+        outcome.added++;
+      } catch (err) {
+        outcome.errors.push({
+          projectName: proj.name,
+          reason: err instanceof Error ? err.message : "Storage error",
+        });
       }
     }
-    for (const project of projects) {
-      cloudSyncBus.emitCreate(project.id);
+    for (const { replacement } of toReplace) {
+      try {
+        repo.save(replacement);
+        outcome.replaced++;
+      } catch (err) {
+        outcome.errors.push({
+          projectName: replacement.name,
+          reason: err instanceof Error ? err.message : "Storage error",
+        });
+      }
     }
+    for (const proj of toCopy) {
+      try {
+        repo.save(proj);
+        outcome.copied++;
+      } catch (err) {
+        outcome.errors.push({
+          projectName: proj.name,
+          reason: err instanceof Error ? err.message : "Storage error",
+        });
+      }
+    }
+
+    // Cloud sync routing:
+    //   add/copy → emitCreate (driver.create sets owner/members from uid).
+    //   replace  → emitSave   (driver.save merge:true preserves Firestore owner/members — pitfall #7).
+    // Fire-and-forget; driver.onSaveError surfaces failures via toast.
+    for (const proj of toAdd) cloudSyncBus.emitCreate(proj.id);
+    for (const { replacement } of toReplace) {
+      cloudSyncBus.emitSave(replacement.id);
+    }
+    for (const proj of toCopy) cloudSyncBus.emitCreate(proj.id);
+
+    return outcome;
   },
 
   importScenarioToProject: (projectId, scenario) => {

@@ -6,9 +6,13 @@ import {
   serializeExport,
   buildExportEnvelope,
   validateImport,
+  normalizeProjectName,
+  mergeDecisions,
+  MAX_FILE_SIZE_BYTES,
+  type ConflictDecision,
 } from "./export-import-service";
 import { createProject } from "./project-service";
-import { SCHEMA_VERSION } from "@domain/models/types";
+import { SCHEMA_VERSION, DEFAULT_USER_PREFERENCES } from "@domain/models/types";
 import { APP_VERSION } from "@app/constants";
 import type { Project } from "@domain/models/types";
 
@@ -262,5 +266,179 @@ describe("includeSimulationResults option", () => {
     expect(parsed.projects[0].scenarios[0].simulationResults.samples).toEqual([
       10, 11, 12,
     ]);
+  });
+});
+
+// -- v0.43.0 additions ------------------------------------------------------
+
+describe("normalizeProjectName", () => {
+  it("trims and lowercases", () => {
+    expect(normalizeProjectName("  Hello World  ")).toBe("hello world");
+    expect(normalizeProjectName("ABC")).toBe("abc");
+    expect(normalizeProjectName("")).toBe("");
+    expect(normalizeProjectName("   ")).toBe("");
+  });
+});
+
+describe("detectNameConflicts (via validateImport)", () => {
+  it("flags same name + different ID as a nameConflict", () => {
+    const existing = makeProject("Same Name");
+    const incoming = makeProject("Same Name");
+    expect(incoming.id).not.toBe(existing.id);
+    const json = serializeExport([incoming]);
+    const result = validateImport(json, [existing]);
+    if (!result.success) throw new Error("expected success");
+    expect(result.conflicts).toHaveLength(0);
+    expect(result.nameConflicts).toHaveLength(1);
+    expect(result.nameConflicts[0]!.existingProject.id).toBe(existing.id);
+  });
+
+  it("treats same ID as an ID conflict (no name conflict for same project)", () => {
+    const existing = makeProject("Same Name");
+    const incoming: Project = { ...existing, name: "Same Name" };
+    const json = serializeExport([incoming]);
+    const result = validateImport(json, [existing]);
+    if (!result.success) throw new Error("expected success");
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.nameConflicts).toHaveLength(0);
+  });
+
+  it("excludes empty/whitespace names from name matching", () => {
+    const existing = { ...makeProject("Untitled"), name: "   " };
+    const incoming = { ...makeProject("Other"), name: "   " };
+    const json = serializeExport([incoming]);
+    const result = validateImport(json, [existing]);
+    if (!result.success) throw new Error("expected success");
+    expect(result.nameConflicts).toHaveLength(0);
+  });
+
+  it("first-insert-wins when two existing projects share a name", () => {
+    const existing1 = makeProject("Shared");
+    const existing2 = makeProject("Shared");
+    const incoming = makeProject("Shared");
+    const json = serializeExport([incoming]);
+    const result = validateImport(json, [existing1, existing2]);
+    if (!result.success) throw new Error("expected success");
+    expect(result.nameConflicts).toHaveLength(1);
+    expect(result.nameConflicts[0]!.existingProject.id).toBe(existing1.id);
+  });
+
+  it("is case-insensitive and ignores leading/trailing whitespace", () => {
+    const existing = makeProject("HELLO");
+    const incoming = { ...makeProject("hello"), name: "  hello  " };
+    const json = serializeExport([incoming]);
+    const result = validateImport(json, [existing]);
+    if (!result.success) throw new Error("expected success");
+    expect(result.nameConflicts).toHaveLength(1);
+  });
+});
+
+describe("mergeDecisions", () => {
+  const baseDecision = (
+    importedProjectId: string,
+    overrides: Partial<ConflictDecision> = {}
+  ): ConflictDecision => ({
+    importedProjectId,
+    kind: "id",
+    originalExistingId: importedProjectId,
+    action: "skip",
+    ...overrides,
+  });
+
+  it("preserves the user's action when kind+target match", () => {
+    const prev: ConflictDecision[] = [
+      baseDecision("p1", { action: "replace" }),
+    ];
+    const fresh: ConflictDecision[] = [baseDecision("p1")];
+    const { decisions, diff } = mergeDecisions(prev, fresh);
+    expect(decisions[0]!.action).toBe("replace");
+    expect(diff).toEqual({
+      vanished: 0,
+      newConflicts: 0,
+      kindChanged: 0,
+      targetChanged: 0,
+    });
+  });
+
+  it("applies fresh default and increments kindChanged when kind flips", () => {
+    const prev: ConflictDecision[] = [
+      baseDecision("p1", { kind: "id", action: "replace" }),
+    ];
+    const fresh: ConflictDecision[] = [
+      baseDecision("p1", { kind: "name", action: "copy" }),
+    ];
+    const { decisions, diff } = mergeDecisions(prev, fresh);
+    expect(decisions[0]!.action).toBe("copy");
+    expect(diff.kindChanged).toBe(1);
+  });
+
+  it("applies fresh default and increments targetChanged when originalExistingId differs", () => {
+    const prev: ConflictDecision[] = [
+      baseDecision("p1", { originalExistingId: "old", action: "replace" }),
+    ];
+    const fresh: ConflictDecision[] = [
+      baseDecision("p1", { originalExistingId: "new", action: "copy" }),
+    ];
+    const { decisions, diff } = mergeDecisions(prev, fresh);
+    expect(decisions[0]!.action).toBe("copy");
+    expect(diff.targetChanged).toBe(1);
+  });
+
+  it("counts newConflicts for fresh decisions absent from prev", () => {
+    const prev: ConflictDecision[] = [];
+    const fresh: ConflictDecision[] = [baseDecision("p2")];
+    const { decisions, diff } = mergeDecisions(prev, fresh);
+    expect(decisions).toHaveLength(1);
+    expect(diff.newConflicts).toBe(1);
+  });
+
+  it("counts vanished for prev decisions absent from fresh", () => {
+    const prev: ConflictDecision[] = [baseDecision("p1", { action: "skip" })];
+    const fresh: ConflictDecision[] = [];
+    const { decisions, diff } = mergeDecisions(prev, fresh);
+    expect(decisions).toHaveLength(0);
+    expect(diff.vanished).toBe(1);
+  });
+});
+
+describe("MAX_FILE_SIZE_BYTES export + validateImport size guard", () => {
+  it("MAX_FILE_SIZE_BYTES is 10 MB", () => {
+    expect(MAX_FILE_SIZE_BYTES).toBe(10 * 1024 * 1024);
+  });
+
+  it("validateImport rejects strings over the cap", () => {
+    const huge = "x".repeat(MAX_FILE_SIZE_BYTES + 1);
+    const result = validateImport(huge, []);
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("unreachable");
+    expect(result.error).toMatch(/too large/i);
+  });
+});
+
+describe("preferences round-trip", () => {
+  it("serializeExport with includePreferences:true → validateImport returns preferences", () => {
+    const proj = makeProject("With Prefs");
+    const customPrefs = {
+      ...DEFAULT_USER_PREFERENCES,
+      defaultTrialCount: 99999,
+      theme: "dark" as const,
+    };
+    const json = serializeExport([proj], {
+      includePreferences: true,
+      preferences: customPrefs,
+    });
+    const result = validateImport(json, []);
+    if (!result.success) throw new Error("expected success");
+    expect(result.preferences).toBeDefined();
+    expect(result.preferences!.defaultTrialCount).toBe(99999);
+    expect(result.preferences!.theme).toBe("dark");
+  });
+
+  it("serializeExport without includePreferences → validateImport returns no preferences", () => {
+    const proj = makeProject("No Prefs");
+    const json = serializeExport([proj]);
+    const result = validateImport(json, []);
+    if (!result.success) throw new Error("expected success");
+    expect(result.preferences).toBeUndefined();
   });
 });
