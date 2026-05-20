@@ -41,7 +41,7 @@ export function SettingsPage() {
       <StorageModeSection />
       <ExportSection projects={projects} />
       <ScheduleExportSection projects={projects} />
-      <ImportSection projects={projects} importProjects={importProjects} />
+      <ImportSection projects={projects} />
       <ActivityImportSection
         projects={projects}
         importProjects={importProjects}

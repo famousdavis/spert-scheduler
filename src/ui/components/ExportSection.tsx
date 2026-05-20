@@ -9,6 +9,7 @@ import type { Project } from "@domain/models/types";
 import { downloadFile } from "@ui/helpers/download";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { formatDateISO } from "@core/calendar/calendar";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 
 interface ExportSectionProps {
   projects: Project[];
@@ -16,8 +17,10 @@ interface ExportSectionProps {
 
 export function ExportSection({ projects }: ExportSectionProps) {
   const formatDate = useDateFormat();
+  const preferences = usePreferencesStore((s) => s.preferences);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [includeSimulationResults, setIncludeSimulationResults] = useState(false);
+  const [includePreferences, setIncludePreferences] = useState(false);
 
   const toggleProject = (id: string) => {
     setSelectedIds((prev) => {
@@ -42,10 +45,20 @@ export function ExportSection({ projects }: ExportSectionProps) {
   const handleExport = useCallback(() => {
     const toExport = projects.filter((p) => selectedIds.has(p.id));
     if (toExport.length === 0) return;
-    const json = serializeExport(toExport, { includeSimulationResults });
+    const json = serializeExport(toExport, {
+      includeSimulationResults,
+      includePreferences,
+      preferences: includePreferences ? preferences : undefined,
+    });
     const filename = `spert-scheduler-export-${formatDateISO(new Date())}.json`;
     downloadFile(json, filename, "application/json");
-  }, [projects, selectedIds, includeSimulationResults]);
+  }, [
+    projects,
+    selectedIds,
+    includeSimulationResults,
+    includePreferences,
+    preferences,
+  ]);
 
   return (
     <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
@@ -108,8 +121,9 @@ export function ExportSection({ projects }: ExportSectionProps) {
           </div>
 
           {/* Include simulation results checkbox */}
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <label htmlFor="includeSimulationResults" className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
+              id="includeSimulationResults"
               type="checkbox"
               name="includeSimulationResults"
               checked={includeSimulationResults}
@@ -119,6 +133,22 @@ export function ExportSection({ projects }: ExportSectionProps) {
             <span>Include simulation results</span>
             <span className="text-xs text-gray-400 dark:text-gray-500">
               (larger file)
+            </span>
+          </label>
+
+          {/* Include user preferences checkbox (v0.43.0) */}
+          <label htmlFor="includePreferences" className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              id="includePreferences"
+              type="checkbox"
+              name="includePreferences"
+              checked={includePreferences}
+              onChange={(e) => setIncludePreferences(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            <span>Include user preferences</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              (date format, defaults, theme, etc.)
             </span>
           </label>
 

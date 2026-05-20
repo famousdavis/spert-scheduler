@@ -12,6 +12,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.43.0",
+    date: "2026-05-20",
+    sections: [
+      {
+        title: "Import — Level 4 retrograde",
+        items: [
+          "Import now detects name conflicts in addition to ID conflicts, with separate per-conflict resolution (skip / replace / copy). ID conflicts default to 'skip' (avoiding silent overwrite); name conflicts default to 'copy' (incoming is probably worth keeping).",
+          "In cloud mode, the file picker now waits for your projects to finish loading before enabling — preventing imports against an empty list during sign-in or invitation-claim refresh. An amber notice explains the wait.",
+          "If your cloud projects loaded (or were refreshed by a peer invitation claim) while a preview was open, the conflict list rebuilds automatically and an amber banner reports what changed (conflicts that vanished, new conflicts, kind changes).",
+          "Copying an imported project now produces a disambiguated name (e.g., \"Q4 Plan (Copy)\", \"Q4 Plan (Copy 2)\") with fully regenerated internal IDs — re-importing the same file no longer creates aliased scenarios or activities.",
+          "Fix: replacing a cloud-shared project on import now preserves its owner, sharing settings, creation date, and archived status. Previously the imported file's owner field could overwrite these (the rules engine prevented data loss, but the metadata was silently changed in the in-memory state).",
+          "Fix: importing a file that includes user preferences now offers an opt-in toggle (default off) to apply them. Previously the preferences field in the export was silently ignored.",
+          "Fix: importing an activity CSV into a new project no longer trips the new conflict guards — the unconditional-add path is preserved via a typed escape-hatch.",
+          "Fix: stale error state from a prior bad file pick is now cleared when a new file is selected, in both the project-bundle and activity-CSV import surfaces.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "New useImportState hook centralizes the import state machine (idle / error / preview / applying / done) with named transition helpers and reactive cloud-data-readiness guards. ImportSection is now a thin controlled view.",
+          "Store action importProjects rewritten as a decision-based action returning ImportOutcome. Decisions carry kind ('id' | 'name') and originalExistingId for Layer 2 stale-data guards (the same Layer 2 protections that prevent silent data clobber when peers mutate the workspace between preview and confirm).",
+          "Layer 2 drift guards symmetric across ID-conflict-replace and name-conflict-replace branches — if a target disappears AND a new collision appears, the project is added to outcome.driftSkipped rather than written.",
+          "New cloudDataLoaded reactive store field, written at 7 sites in use-cloud-sync.ts (4 initial-load + 3 model-refresh) so peer-invitation refreshes re-validate any open preview.",
+          "Applying-state observability uses flushSync + a setTimeout(0) macrotask yield so aria-busy commits to the DOM and the browser paints the spinner before the synchronous merge runs.",
+          "Double-confirm protection via inFlightRef apply-active ref — closure-stale state guard alone is insufficient because rapid clicks can re-enter the same useCallback closure before React commits.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.42.6",
     date: "2026-05-09",
     sections: [

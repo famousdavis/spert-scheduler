@@ -104,6 +104,9 @@ export function useCloudSync(): void {
       driverRef.current = driver;
       currentDriver = driver;
       initialLoadDoneRef.current = false;
+      // Mirror initialLoadDoneRef into reactive store state so the UI can
+      // gate the file picker on cloud-data hydration (pitfall #88/#89).
+      useProjectStore.getState().setCloudDataLoaded(false);
       let cancelled = false;
 
       // Initial load from Firestore
@@ -143,6 +146,7 @@ export function useCloudSync(): void {
           }
 
           initialLoadDoneRef.current = true;
+          useProjectStore.getState().setCloudDataLoaded(true);
 
           // Set up real-time listeners for all loaded projects
           if (!cancelled) {
@@ -155,6 +159,9 @@ export function useCloudSync(): void {
           if (cancelled) return;
           console.error("Failed to load projects from Firestore:", e);
           initialLoadDoneRef.current = true;
+          // Defensive flip-to-true so the UI doesn't wedge on the disabled
+          // state after a transient load failure (pitfall #88).
+          useProjectStore.getState().setCloudDataLoaded(true);
         });
 
       return () => {
@@ -179,6 +186,7 @@ export function useCloudSync(): void {
         currentDriver = null;
       }
       initialLoadDoneRef.current = false;
+      useProjectStore.getState().setCloudDataLoaded(false);
       cleanupListeners();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.uid is the only relevant identity; full user object would cause unnecessary re-runs
@@ -266,6 +274,11 @@ export function useCloudSync(): void {
   const handleModelsChanged = useCallback(() => {
     const driver = getCloudSyncDriver();
     if (!driver || mode !== "cloud") return;
+    // Flip cloudDataLoaded false→true around the refresh so an open import
+    // preview re-validates against the post-refresh project list (v8 / v7 C-1).
+    // Without this, a peer-driven model refresh leaves the preview silently
+    // stale because the cloud-invalidation effect is gated on false→true.
+    useProjectStore.getState().setCloudDataLoaded(false);
     driver
       .loadAll()
       .then((cloudProjects) => {
@@ -278,10 +291,13 @@ export function useCloudSync(): void {
           // Idempotent — listenedIdsRef guards re-subscription.
           addProjectListener(project.id);
         }
+        useProjectStore.getState().setCloudDataLoaded(true);
       })
-      .catch((err) =>
-        console.error("spert:models-changed re-fetch failed:", err)
-      );
+      .catch((err) => {
+        console.error("spert:models-changed re-fetch failed:", err);
+        // Defensive flip-to-true so the UI doesn't wedge on the disabled state.
+        useProjectStore.getState().setCloudDataLoaded(true);
+      });
   }, [mode, addProjectListener, setProjects]);
 
   useEffect(() => {
