@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.44.0",
+    date: "2026-05-21",
+    sections: [
+      {
+        title: "Gantt customization",
+        items: [
+          "The Completed bar color can now be customized per project, just like the Planned and In Progress bar colors. Choose a custom color from the swatch picker in the Gantt appearance panel, or click any color preset to reset all three back to the preset's values.",
+        ],
+      },
+      {
+        title: "Scenario comparison",
+        items: [
+          "The scenario comparison view now has two copy-image buttons — one for the metrics table and one for the cumulative distribution chart. One click copies a clean PNG to your clipboard; paste directly into slides, docs, or any program that accepts images.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.43.0",
     date: "2026-05-20",
     sections: [

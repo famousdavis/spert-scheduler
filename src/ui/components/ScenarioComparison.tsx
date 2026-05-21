@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import type {
   Scenario,
   DeterministicSchedule,
@@ -20,6 +20,7 @@ import {
   formatDateISO,
 } from "@core/calendar/calendar";
 import { CDFComparisonChart, type CDFDataset } from "@ui/charts/CDFComparisonChart";
+import { CopyImageButton } from "./CopyImageButton";
 
 // Color palette for comparison lines
 const COMPARISON_COLORS = ["#3b82f6", "#10b981", "#f59e0b"];
@@ -106,6 +107,8 @@ export function ScenarioComparisonTable({
   calendar,
 }: ScenarioComparisonProps) {
   const formatDate = useDateFormat();
+  const tableRef = useRef<HTMLDivElement>(null);
+  const cdfRef = useRef<HTMLDivElement>(null);
   const entries = scenarios.map((s) => computeEntry(s, calendar));
 
   // Format duration as finish date for CDF tooltip (uses first scenario's start date)
@@ -235,63 +238,85 @@ export function ScenarioComparisonTable({
 
   return (
     <div className="inline-block bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <table className="text-sm">
-        <thead>
-          <tr className="bg-gray-50 border-b border-gray-200">
-            <th className="text-left px-4 py-2 text-gray-500 font-medium whitespace-nowrap">
-              Metric
-            </th>
-            {entries.map((e) => (
-              <th
-                key={e.scenario.id}
-                className="text-right px-4 py-2 text-gray-900 font-semibold whitespace-nowrap min-w-[120px]"
-              >
-                {e.scenario.name}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr
-              key={row.label}
-              className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
-            >
-              <td className="px-4 py-1.5 text-gray-600 whitespace-nowrap">
-                {row.label}
-              </td>
-              {row.values.map((val, j) => {
-                const highlight = row.highlights?.[j];
-                return (
-                  <td
-                    key={j}
-                    className={`px-4 py-1.5 text-right tabular-nums whitespace-nowrap ${highlightClass(highlight)}`}
-                  >
-                    {val ?? <span className="text-gray-300">&mdash;</span>}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {entries.some((e) => !e.scenario.simulationResults) && (
-        <p className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100">
-          Run simulation on all scenarios for complete comparison data.
-        </p>
-      )}
-
-      {/* CDF Comparison Chart */}
-      {cdfDatasets.length >= 2 && (
-        <div className="p-4 border-t border-gray-100">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Cumulative Distribution Comparison
-          </h4>
-          <CDFComparisonChart
-            datasets={cdfDatasets}
-            probabilityTarget={probabilityTarget}
-            formatDurationAsDate={formatDurationAsDate}
+      {/* Comparison table — floating copy button (top-right). The button has the
+          .copy-image-button class, which copyChartAsPng filters out of the
+          captured PNG, so it can safely live inside the ref'd region. */}
+      <div ref={tableRef} className="relative">
+        <div className="absolute top-2 right-2 z-10">
+          <CopyImageButton
+            targetRef={tableRef}
+            title="Copy comparison table as image"
           />
+        </div>
+        <table className="text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="text-left px-4 py-2 text-gray-500 font-medium whitespace-nowrap">
+                Metric
+              </th>
+              {entries.map((e) => (
+                <th
+                  key={e.scenario.id}
+                  className="text-right px-4 py-2 text-gray-900 font-semibold whitespace-nowrap min-w-[120px]"
+                >
+                  {e.scenario.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr
+                key={row.label}
+                className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
+              >
+                <td className="px-4 py-1.5 text-gray-600 whitespace-nowrap">
+                  {row.label}
+                </td>
+                {row.values.map((val, j) => {
+                  const highlight = row.highlights?.[j];
+                  return (
+                    <td
+                      key={j}
+                      className={`px-4 py-1.5 text-right tabular-nums whitespace-nowrap ${highlightClass(highlight)}`}
+                    >
+                      {val ?? <span className="text-gray-300">&mdash;</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {entries.some((e) => !e.scenario.simulationResults) && (
+          <p className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100">
+            Run simulation on all scenarios for complete comparison data.
+          </p>
+        )}
+      </div>
+
+      {/* CDF Comparison Chart — separate capture target with its own floating
+          copy button. The visual border-t between table and chart sits on the
+          outer wrapper, not the ref'd region, so it isn't included in the
+          standalone CDF screenshot. */}
+      {cdfDatasets.length >= 2 && (
+        <div className="border-t border-gray-100">
+          <div ref={cdfRef} className="relative p-4 bg-white">
+            <div className="absolute top-2 right-2 z-10">
+              <CopyImageButton
+                targetRef={cdfRef}
+                title="Copy distribution comparison as image"
+              />
+            </div>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Cumulative Distribution Comparison
+            </h4>
+            <CDFComparisonChart
+              datasets={cdfDatasets}
+              probabilityTarget={probabilityTarget}
+              formatDurationAsDate={formatDurationAsDate}
+            />
+          </div>
         </div>
       )}
     </div>

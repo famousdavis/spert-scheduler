@@ -279,6 +279,7 @@ export function resolveGanttAppearance(
   // Custom colors override preset
   const barPlanned = s.customPlannedColor ?? presetColors.barPlanned;
   const barInProgress = s.customInProgressColor ?? presetColors.barInProgress;
+  const barComplete = s.customCompletedColor ?? presetColors.barComplete;
 
   // Bar label font size: scales with activity font, capped to fit bar height
   const barLabelFontMap = { small: 10, normal: 10, large: 11, xl: 13 } as const;
@@ -303,7 +304,7 @@ export function resolveGanttAppearance(
     printBarHeight: printDensity.printBarHeight,
     barPlanned,
     barInProgress,
-    barComplete: presetColors.barComplete,
+    barComplete,
     criticalPath: presetColors.criticalPath,
     barLabel: s.barLabel,
     barLabelFontSize,

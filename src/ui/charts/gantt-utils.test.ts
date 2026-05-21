@@ -455,6 +455,11 @@ describe("resolveGanttAppearance", () => {
     expect(ra.barInProgress).toBe("#00ff00");
   });
 
+  it("customCompletedColor overrides preset barComplete", () => {
+    const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", customCompletedColor: "#aabbcc", weekendShading: false, fitToWindow: false }, false);
+    expect(ra.barComplete).toBe("#aabbcc");
+  });
+
   it("unknown colorPreset falls back to classic", () => {
     const ra = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "nonexistent", weekendShading: false, fitToWindow: false }, false);
     expect(ra.barPlanned).toBe(GANTT_COLOR_PRESETS.classic!.light.barPlanned);

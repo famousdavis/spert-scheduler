@@ -1,6 +1,6 @@
 # SPERT Scheduler — Import Spec Deviations
 
-Last reviewed: v0.43.0
+Last reviewed: v0.44.0
 
 This document tracks deliberate departures from the SPERT Suite Robust-Import Level 4 specification (`IMPORT-SPEC-REFERENCE.md`, `IMPORT-DESIGN-GUIDE.md`, `IMPORT-AUDIT-CHECKLIST.md`, `IMPORT-PITFALLS.md`). Each deviation states the gap, its behavioral consequence, the partial mitigation in place, and the target release for full compliance.
 
@@ -12,7 +12,7 @@ The decision-application merge logic is inlined in the Zustand store action `imp
 
 **Mitigation:** Store-level subscribe() atomicity tests (Phase 9 of the v0.43.0 plan) cover the behavioral contract. The new test cases #46–53 verify structural atomicity, drift-skip behavior, owner preservation on replace, and symmetric Layer 2 guards.
 
-**Target:** v0.44.0.
+**Target:** v0.45.0.
 
 ## SD-2 — No `conflictsEqual` / `{ ok: false }` drift-abort path
 
@@ -22,4 +22,4 @@ Per-project Layer 2 drift guards exist in both replace branches (ID-conflict and
 
 **Mitigation:** `mergeDecisions` guards `kind` and `originalExistingId` changes in cloud re-validation (when `cloudDataLoaded` flips false→true while a preview is open), so the most common case — a peer mutation that lands between sign-in hydration and confirm — IS surfaced via the amber cloud-refresh banner. The remaining gap is the rarer in-session case where a peer's mutation lands between the preview opening and the user clicking Confirm in normal mode.
 
-**Target:** v0.44.0.
+**Target:** v0.45.0.
