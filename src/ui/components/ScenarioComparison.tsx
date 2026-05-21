@@ -238,16 +238,19 @@ export function ScenarioComparisonTable({
 
   return (
     <div className="inline-block bg-white border border-gray-200 rounded-lg overflow-hidden">
-      {/* Comparison table — floating copy button (top-right). The button has the
-          .copy-image-button class, which copyChartAsPng filters out of the
-          captured PNG, so it can safely live inside the ref'd region. */}
-      <div ref={tableRef} className="relative">
-        <div className="absolute top-2 right-2 z-10">
-          <CopyImageButton
-            targetRef={tableRef}
-            title="Copy comparison table as image"
-          />
-        </div>
+      {/* Comparison table — header bar (chrome, not in screenshot) above the
+          captured region. Matches the GanttSection pattern: label on the left,
+          copy button on the right. */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          Scenario Comparison
+        </h3>
+        <CopyImageButton
+          targetRef={tableRef}
+          title="Copy comparison table as image"
+        />
+      </div>
+      <div ref={tableRef}>
         <table className="text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
@@ -295,29 +298,28 @@ export function ScenarioComparisonTable({
         )}
       </div>
 
-      {/* CDF Comparison Chart — separate capture target with its own floating
-          copy button. The visual border-t between table and chart sits on the
-          outer wrapper, not the ref'd region, so it isn't included in the
-          standalone CDF screenshot. */}
+      {/* CDF Comparison Chart — same chrome pattern. The existing h4 inside the
+          chart moves up into the header (so it isn't duplicated) and the ref'd
+          region contains only the chart. */}
       {cdfDatasets.length >= 2 && (
-        <div className="border-t border-gray-100">
-          <div ref={cdfRef} className="relative p-4 bg-white">
-            <div className="absolute top-2 right-2 z-10">
-              <CopyImageButton
-                targetRef={cdfRef}
-                title="Copy distribution comparison as image"
-              />
-            </div>
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <>
+          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Cumulative Distribution Comparison
-            </h4>
+            </h3>
+            <CopyImageButton
+              targetRef={cdfRef}
+              title="Copy distribution comparison as image"
+            />
+          </div>
+          <div ref={cdfRef} className="p-4 bg-white">
             <CDFComparisonChart
               datasets={cdfDatasets}
               probabilityTarget={probabilityTarget}
               formatDurationAsDate={formatDurationAsDate}
             />
           </div>
-        </div>
+        </>
       )}
     </div>
   );

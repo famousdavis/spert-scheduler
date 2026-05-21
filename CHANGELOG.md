@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.44.1 — 2026-05-21
+
+### Scenario comparison — copy button placement fix
+
+- The copy-image button on the comparison table was overlapping the rightmost scenario name when names were long. Replaced the floating top-right placement with a header bar above the table containing "Scenario Comparison" on the left and the copy button on the right. The CDF chart got the same chrome treatment for consistency. Neither header is in the captured screenshot — what you paste is still the data alone.
+
 ## 0.44.0 — 2026-05-21
 
 ### Gantt customization

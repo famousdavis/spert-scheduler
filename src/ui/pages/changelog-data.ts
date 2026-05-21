@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.44.1",
+    date: "2026-05-21",
+    sections: [
+      {
+        title: "Scenario comparison — copy button placement fix",
+        items: [
+          "The copy-image button on the comparison table was overlapping the rightmost scenario name when names were long. Replaced the floating top-right placement with a header bar above the table (label on the left, copy button on the right). The CDF chart got the same chrome treatment for consistency. Neither header is in the captured screenshot — what you paste is still the data alone.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.44.0",
     date: "2026-05-21",
     sections: [
