@@ -9,6 +9,7 @@ import sonarjs from "eslint-plugin-sonarjs";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
+  { ignores: [".claude/**"] },
   { ignores: ["dist", "coverage"] },
   sonarjs.configs.recommended,
   {
