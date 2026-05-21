@@ -243,6 +243,7 @@ export function GanttAppearancePanel({
                     colorPreset: key,
                     customPlannedColor: undefined,
                     customInProgressColor: undefined,
+                    customCompletedColor: undefined,
                   })}
                   title={key.charAt(0).toUpperCase() + key.slice(1)}
                 />
@@ -263,6 +264,13 @@ export function GanttAppearancePanel({
             ? GANTT_COLOR_PRESETS[appearance.colorPreset]?.dark.barInProgress
             : GANTT_COLOR_PRESETS[appearance.colorPreset]?.light.barInProgress) ?? "#f97316"}
           onColorChange={(c) => update({ customInProgressColor: c })}
+        />
+        <ColorSwatchPicker
+          label="Completed"
+          color={appearance.customCompletedColor ?? (isDark
+            ? GANTT_COLOR_PRESETS[appearance.colorPreset]?.dark.barComplete
+            : GANTT_COLOR_PRESETS[appearance.colorPreset]?.light.barComplete) ?? "#9ca3af"}
+          onColorChange={(c) => update({ customCompletedColor: c })}
         />
       </div>
     </div>

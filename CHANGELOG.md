@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.44.0 — 2026-05-21
+
+### Gantt customization
+
+- The Completed bar color can now be customized per project, just like the Planned and In Progress bar colors. Choose a custom color from the swatch picker in the Gantt appearance panel, or click any color preset to reset all three back to the preset's values.
+
+### Scenario comparison
+
+- The scenario comparison view now has two copy-image buttons — one for the metrics table and one for the cumulative distribution chart. One click copies a clean PNG to your clipboard; paste directly into slides, docs, or any program that accepts images. The buttons match the existing copy-image affordance on the Gantt chart and use the same Firefox-aware behavior (disabled with explanatory tooltip on browsers that don't support `image/png` clipboard writes).
+
 ## 0.43.0 — 2026-05-20
 
 ### Import — Level 4 retrograde

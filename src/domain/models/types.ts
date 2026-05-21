@@ -226,6 +226,7 @@ export interface GanttAppearanceSettings {
   colorPreset: string;
   customPlannedColor?: string;
   customInProgressColor?: string;
+  customCompletedColor?: string;
   weekendShading: boolean;
   fitToWindow: boolean;
   timelineDensity?: "sparse" | "normal" | "dense";
