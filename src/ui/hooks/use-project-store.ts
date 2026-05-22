@@ -451,6 +451,15 @@ export interface ProjectStore {
   // Cloud sync
   setProjects: (projects: Project[]) => void;
   mergeProject: (project: Project) => void;
+  /**
+   * Remove a project from the in-memory store and local cache WITHOUT
+   * emitting a cloud-sync delete. Used when a Firestore snapshot listener
+   * fails with `permission-denied` — the user has lost access on the
+   * server side, so we evict the local mirror without trying to write the
+   * delete back (which would itself be denied). Strictly analogous to
+   * `deleteProject` minus `cloudSyncBus.emitDelete`. (v0.45.3)
+   */
+  removeProjectLocally: (id: string) => void;
   clearAllData: () => void;
 
   // Error recovery
@@ -1299,6 +1308,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     });
     // Update localStorage cache
     repo.save(project);
+  },
+
+  // v0.45.3 — strictly analogous to deleteProject minus the
+  // cloudSyncBus.emitDelete call. Called when a Firestore snapshot
+  // listener fails with permission-denied (membership revoked server-side).
+  // We must NOT emit a cloud delete: the user has already lost write
+  // access, and the emit would surface as a noisy PERMISSION_DENIED toast.
+  removeProjectLocally: (id: string) => {
+    repo.remove(id);
+    set((state) => ({
+      projects: state.projects.filter((p) => p.id !== id),
+    }));
   },
 
   clearAllData: () => {

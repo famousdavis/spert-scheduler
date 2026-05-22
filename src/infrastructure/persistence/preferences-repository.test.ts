@@ -6,15 +6,23 @@ import {
   loadPreferences,
   savePreferences,
   clearPreferences,
+  migrateLegacyPreferencesToLocal,
+  _resetLegacyPreferencesMigrationForTests,
 } from "./preferences-repository";
+import {
+  setStorageNamespace,
+} from "./local-storage-repository";
 import { DEFAULT_USER_PREFERENCES } from "@domain/models/types";
 import type { UserPreferences } from "@domain/models/types";
 import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
 
-const STORAGE_KEY = "spert:user-preferences";
+// v0.45.3 — preferences are now UID-namespaced. Default namespace is "local".
+const STORAGE_KEY = "spert:user-preferences:local";
+const LEGACY_STORAGE_KEY = "spert:user-preferences";
 
 beforeEach(() => {
   localStorage.clear();
+  setStorageNamespace("local");
 });
 
 describe("loadPreferences", () => {
@@ -186,5 +194,130 @@ describe("clearPreferences", () => {
   it("is idempotent when the key is already absent", () => {
     expect(() => clearPreferences()).not.toThrow();
     expect(loadPreferences()).toEqual(DEFAULT_USER_PREFERENCES);
+  });
+});
+
+describe("UID namespacing (v0.45.3)", () => {
+  beforeEach(() => {
+    setStorageNamespace("local");
+  });
+
+  it("default namespace writes to the :local key", () => {
+    savePreferences({ ...DEFAULT_USER_PREFERENCES, defaultTrialCount: 12345 });
+    expect(localStorage.getItem("spert:user-preferences:local")).not.toBeNull();
+    // Unscoped legacy key is NOT written
+    expect(localStorage.getItem("spert:user-preferences")).toBeNull();
+  });
+
+  it("UID namespace writes to the :{uid} key, isolated from :local", () => {
+    setStorageNamespace("uid-A");
+    savePreferences({ ...DEFAULT_USER_PREFERENCES, defaultTrialCount: 7777 });
+
+    expect(localStorage.getItem("spert:user-preferences:uid-A")).not.toBeNull();
+    expect(localStorage.getItem("spert:user-preferences:local")).toBeNull();
+  });
+
+  it("cross-namespace isolation: A's prefs are not visible to B", () => {
+    setStorageNamespace("uid-A");
+    savePreferences({ ...DEFAULT_USER_PREFERENCES, defaultTrialCount: 11111 });
+
+    setStorageNamespace("uid-B");
+    // B sees defaults — uid-A's data is structurally inaccessible
+    expect(loadPreferences().defaultTrialCount).toBe(
+      DEFAULT_USER_PREFERENCES.defaultTrialCount,
+    );
+
+    // Switching back to A still sees A's data
+    setStorageNamespace("uid-A");
+    expect(loadPreferences().defaultTrialCount).toBe(11111);
+  });
+
+  it("clearPreferences only clears the active namespace", () => {
+    setStorageNamespace("uid-A");
+    savePreferences({ ...DEFAULT_USER_PREFERENCES, defaultTrialCount: 11111 });
+
+    setStorageNamespace("uid-B");
+    savePreferences({ ...DEFAULT_USER_PREFERENCES, defaultTrialCount: 22222 });
+
+    // B clears their own namespace
+    clearPreferences();
+    expect(localStorage.getItem("spert:user-preferences:uid-B")).toBeNull();
+
+    // A's data is untouched
+    expect(localStorage.getItem("spert:user-preferences:uid-A")).not.toBeNull();
+    setStorageNamespace("uid-A");
+    expect(loadPreferences().defaultTrialCount).toBe(11111);
+  });
+});
+
+describe("legacy-key migration (v0.45.3)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setStorageNamespace("local");
+    _resetLegacyPreferencesMigrationForTests();
+  });
+
+  it("migrates pre-v0.45.3 unprefixed key to :local namespace", () => {
+    const prefs: UserPreferences = {
+      ...DEFAULT_USER_PREFERENCES,
+      defaultTrialCount: 33333,
+    };
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(prefs));
+
+    migrateLegacyPreferencesToLocal();
+
+    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+    expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
+
+    // Round-trip: loadPreferences from active namespace returns migrated data
+    expect(loadPreferences().defaultTrialCount).toBe(33333);
+  });
+
+  it("idempotent: re-running does not corrupt or duplicate", () => {
+    const prefs: UserPreferences = {
+      ...DEFAULT_USER_PREFERENCES,
+      defaultTrialCount: 44444,
+    };
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(prefs));
+
+    migrateLegacyPreferencesToLocal();
+    _resetLegacyPreferencesMigrationForTests();
+    migrateLegacyPreferencesToLocal();
+    _resetLegacyPreferencesMigrationForTests();
+    migrateLegacyPreferencesToLocal();
+
+    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+    expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
+  });
+
+  it("does nothing when legacy key is absent", () => {
+    migrateLegacyPreferencesToLocal();
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
+  });
+
+  it("recoverable on partial failure: leaves legacy key in place if write fails", () => {
+    const prefs: UserPreferences = {
+      ...DEFAULT_USER_PREFERENCES,
+      defaultTrialCount: 55555,
+    };
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(prefs));
+
+    const realSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k: string, v: string) {
+      if (k === STORAGE_KEY) {
+        throw new DOMException("simulated quota", "QuotaExceededError");
+      }
+      realSetItem.call(this, k, v);
+    };
+
+    try {
+      migrateLegacyPreferencesToLocal();
+    } finally {
+      Storage.prototype.setItem = realSetItem;
+    }
+
+    // Legacy key still present — data is recoverable
+    expect(localStorage.getItem(LEGACY_STORAGE_KEY)).not.toBeNull();
   });
 });

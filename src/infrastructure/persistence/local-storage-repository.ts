@@ -40,10 +40,16 @@ export function setStorageNamespace(ns: string): void {
   activeNamespace = ns;
 }
 
-/** Test-only: read the current namespace. */
-export function getStorageNamespaceForTests(): string {
+/** Read the current active namespace. Public; consumed by sibling persistence
+ *  modules (preferences-repository, scenario-memory) so they can mirror the
+ *  per-user keying scheme. */
+export function getActiveStorageNamespace(): string {
   return activeNamespace;
 }
+
+/** Backward-compat alias for tests. New code should call
+ *  `getActiveStorageNamespace()`. */
+export const getStorageNamespaceForTests = getActiveStorageNamespace;
 
 /** Read → write-and-verify → delete a single key. Returns whether the
  *  delete completed (i.e., migration finished cleanly for this key). */

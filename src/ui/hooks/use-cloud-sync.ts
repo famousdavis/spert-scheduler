@@ -22,6 +22,7 @@ import { toast } from "@ui/hooks/use-notification-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import type { SyncEvent } from "@infrastructure/persistence/sync-bus";
 import { FirestoreDriver } from "@infrastructure/firebase/firestore-driver";
+import { bumpSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 import { INVITATIONS_ENABLED } from "@app/featureFlags";
 import type { Unsubscribe } from "firebase/firestore";
 
@@ -56,6 +57,7 @@ export function useCloudSync(): void {
   const mergeProject = useProjectStore((s) => s.mergeProject);
   const setProjects = useProjectStore((s) => s.setProjects);
   const getProject = useProjectStore((s) => s.getProject);
+  const removeProjectLocally = useProjectStore((s) => s.removeProjectLocally);
 
   // Helper: add a real-time listener for a project if not already listening
   const addProjectListener = useCallback(
@@ -77,11 +79,24 @@ export function useCloudSync(): void {
           // but nothing currently triggers resubscription for existing projects.
           // A full reconnect mechanism is deferred.
           listenedIdsRef.current.delete(projectId);
+
+          // v0.45.3: permission-denied means membership was revoked
+          // server-side. Evict the local mirror so the user doesn't see
+          // stale project data they can no longer access. Other error
+          // codes (e.g. `unavailable`) are transient — leave state intact
+          // so the user can keep reading the last-known snapshot.
+          const code = (error as { code?: string } | undefined)?.code;
+          if (code === "permission-denied") {
+            removeProjectLocally(projectId);
+            toast.info(
+              "A project was removed because you no longer have access."
+            );
+          }
         }
       );
       unsubscribersRef.current.push(unsub);
     },
-    [mergeProject]
+    [mergeProject, removeProjectLocally]
   );
 
   // Helper: clean up all real-time listeners
@@ -166,6 +181,12 @@ export function useCloudSync(): void {
 
       return () => {
         cancelled = true;
+        // v0.45.3: bump simulation generation BEFORE cancelling pending saves
+        // so any worker callback still in flight short-circuits before
+        // touching the (about-to-be-cleared) store. Matches the sign-out
+        // cleanup registry ordering — the mode-switch path is otherwise
+        // identical and deserves the same defense-in-depth guarantee.
+        bumpSimulationGeneration();
         // Cancel (not flush) on teardown: if this runs after sign-out,
         // Firebase credentials are already revoked and a flush would
         // trigger PERMISSION_DENIED writes. The registry has already
@@ -180,6 +201,10 @@ export function useCloudSync(): void {
     } else {
       // Switching to local mode or signing out
       if (driverRef.current) {
+        // v0.45.3: see ordering rationale above. Bump before cancelling so
+        // an in-flight worker result is dropped before it can write to the
+        // store mid-teardown.
+        bumpSimulationGeneration();
         driverRef.current.cancelPendingSaves();
         driverRef.current.dispose();
         driverRef.current = null;

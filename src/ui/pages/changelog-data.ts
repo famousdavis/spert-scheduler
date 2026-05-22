@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.3",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Security — close three findings from the v0.45.2 audit",
+        items: [
+          "UID-namespace the spert:user-preferences and spert-scheduler:active-scenarios keys. v0.42.6 (M4) namespaced the project keys but left preferences and the last-active-scenario map under single shared keys. On a shared device, if User A's session ended without an explicit sign-out (crash, tab close), the next user on the same browser could pick up A's preferences — especially in local mode, where no cloud sync overwrite fires. Both keys now key as :{namespace} (\"local\" when signed out / local mode, UID when cloud). Sibling pattern to local-storage-repository.ts. Pre-v0.45.3 unscoped keys auto-migrate to :local on module load with read → write-and-verify → delete ordering so a mid-migration crash leaves data under both keys, never under neither. clearPreferences and clearAllLastScenarios now scope to the active namespace only.",
+          "Bump simulation generation on mode-switch teardown. The sign-out cleanup in StorageProvider calls bumpSimulationGeneration() before cancelPendingSaves() so any worker callback still in flight short-circuits before touching the about-to-be-cleared store. The useCloudSync mode-switch teardown (Cloud → Local, including the Discard path) skipped the bump and relied on updateScenarioInList no-op'ing on missing IDs. That's benign today but a defense-in-depth gap. The hook now matches the registry's ordering: bump first in both the cleanup return and the Cloud → Local else branch.",
+          "Evict the local mirror on permission-denied snapshot errors. When a project owner removes another member, the removed member's open onSnapshot subscription fails with permission-denied. The error callback used to log and drop the listener ID, but leave the project in the in-memory store — the user kept seeing stale data with no signal they'd lost access. New removeProjectLocally store action — strictly analogous to deleteProject minus cloudSyncBus.emitDelete — is called from the subscribeToProject error path when code === \"permission-denied\". Surfaces a user-friendly toast (\"A project was removed because you no longer have access.\") so the user understands what happened.",
+          "1,520 tests passing (up from 1,505 — 15 new tests cover namespace isolation, legacy-key migration idempotency, mid-migration crash recovery, and cross-namespace clear* scoping for both preferences and scenario memory).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.2",
     date: "2026-05-22",
     sections: [
