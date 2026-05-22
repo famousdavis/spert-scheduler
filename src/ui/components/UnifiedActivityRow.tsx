@@ -533,6 +533,12 @@ export function UnifiedActivityRow({
             if (newStatus === "planned") {
               updates.actualDuration = undefined;
             }
+            if (newStatus === "complete" && activity.actualDuration == null && scheduledActivity) {
+              // Mirror the bulk Mark-complete path: default to the scheduled
+              // deterministic duration so completed activities carry a fixed,
+              // known duration rather than a missing value.
+              updates.actualDuration = scheduledActivity.duration;
+            }
             onUpdate(activity.id, updates);
           }}
           onKeyDown={(e) => handleTabNav(e, "status")}

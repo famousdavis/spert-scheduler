@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.5",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Bug fix — no more phantom uncertainty hatching on completed activities",
+        items: [
+          "Completed activities without an actualDuration no longer render uncertainty hatching on the Gantt chart. The gate in computeActivityUncertaintyDays (src/core/schedule/deterministic.ts) previously required both status === 'complete' AND actualDuration != null to suppress hatching; if either was missing, the activity fell through to the planned/in-progress branch and picked up projectTarget − activityTarget hatching. Any status === 'complete' activity now returns hatchedDays = 0, with the solid bar falling back to the deterministic duration when actualDuration is missing.",
+          "Mark-complete data consistency: the single-row status dropdown (UnifiedActivityRow.tsx) and the Activity Edit modal (ActivityEditModal.tsx) now default actualDuration to the scheduled deterministic duration when a user flips status to 'complete' without an actualDuration entered — mirroring the bulk Mark-complete path in UnifiedActivityGrid.tsx that already did this. Closes the entry point that left activities in the inconsistent state in the first place.",
+          "Regression test added in deterministic.test.ts covering the complete-without-actualDuration case.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.4",
     date: "2026-05-22",
     sections: [

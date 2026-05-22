@@ -463,6 +463,19 @@ describe("computeActivityUncertaintyDays", () => {
     expect(entry.hatchedDays).toBe(0);
   });
 
+  it("returns hatchedDays = 0 for completed activities even without actualDuration", () => {
+    // Regression: status='complete' without actualDuration previously fell through
+    // to the planned/in-progress branch and rendered phantom uncertainty hatching.
+    const activities = [
+      makeActivity({ id: "a1", status: "complete", min: 5, mostLikely: 10, max: 30 }),
+    ];
+    const result = computeActivityUncertaintyDays(activities, 0.5, 0.95);
+    const entry = result.get("a1")!;
+
+    expect(entry.hatchedDays).toBe(0);
+    expect(entry.solidDays).toBeGreaterThanOrEqual(1);
+  });
+
   it("returns hatchedDays = 0 for zero-variance activities", () => {
     const activities = [
       makeActivity({ id: "a1", min: 5, mostLikely: 5, max: 5 }),

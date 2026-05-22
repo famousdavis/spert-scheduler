@@ -160,9 +160,12 @@ export function computeActivityUncertaintyDays(
   const result = new Map<string, { solidDays: number; hatchedDays: number }>();
 
   for (const activity of activities) {
-    if (activity.status === "complete" && activity.actualDuration != null) {
-      // Complete activities: fixed duration, no uncertainty
-      result.set(activity.id, { solidDays: activity.actualDuration, hatchedDays: 0 });
+    if (activity.status === "complete") {
+      // Complete activities: fixed duration, no uncertainty.
+      // Fall back to the deterministic duration when actualDuration is missing
+      // so the bar still renders correctly without phantom hatching.
+      const solidDays = activity.actualDuration ?? resolveActivityDuration(activity, activityTarget);
+      result.set(activity.id, { solidDays, hatchedDays: 0 });
     } else {
       // Planned and in-progress: resolveActivityDuration handles floor logic
       const solidDays = resolveActivityDuration(activity, activityTarget);
