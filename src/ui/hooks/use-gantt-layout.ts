@@ -52,6 +52,8 @@ interface UseGanttLayoutArgs {
   barHeight: number;
   fitToWindow?: boolean;
   timelineDensityPx?: number;
+  showTargetOnGantt?: boolean;
+  targetFinishDate?: string | null;
 }
 
 export function useGanttLayout({
@@ -71,6 +73,8 @@ export function useGanttLayout({
   barHeight,
   fitToWindow,
   timelineDensityPx,
+  showTargetOnGantt,
+  targetFinishDate,
 }: UseGanttLayoutArgs): GanttLayout {
   // Measure container width for responsive chart sizing
   const [containerWidth, setContainerWidth] = useState(0);
@@ -145,6 +149,12 @@ export function useGanttLayout({
     ? dateToX(todayStr, minTimestamp, dateRange, chartAreaWidth, leftMargin)
     : null;
 
+  // Finish Target X — used for tick suppression so a quarter/month tick
+  // landing on the same date doesn't visually merge with the target dashed line.
+  const targetX = (showTargetOnGantt && targetFinishDate && dateRange > 0)
+    ? dateToX(targetFinishDate, minTimestamp, dateRange, chartAreaWidth, leftMargin)
+    : null;
+
   // Compute tick level — direct mapping for ranges >540 days
   const rangeDays = calendarDays;
   const densityPx = timelineDensityPx ?? MIN_TICK_SPACING_PX;
@@ -170,11 +180,12 @@ export function useGanttLayout({
       finishX,
       milestoneXPositions,
       todayX,
+      targetX,
       todayProximityPx: TODAY_PROXIMITY_PX,
       elementProximityPx: 40,  // was MIN_LABEL_PX = 40 (inline const in original useMemo body)
       minSpacingPx: 40,         // was MIN_LABEL_PX = 40 (same value, same inline const)
     }),
-    [allTicks, minTimestamp, dateRange, chartAreaWidth, leftMargin, finishX, milestoneXPositions, todayX]);
+    [allTicks, minTimestamp, dateRange, chartAreaWidth, leftMargin, finishX, milestoneXPositions, todayX, targetX]);
 
   // Bar Y offset
   const barYOffset = (rowHeight - barHeight) / 2;

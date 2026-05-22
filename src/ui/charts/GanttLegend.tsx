@@ -140,7 +140,7 @@ export function GanttLegend({
           <svg width="12" height="12" className="inline-block align-middle mr-1.5">
             <line x1="6" y1="0" x2="6" y2="12" stroke={targetColor} strokeWidth="1.5" strokeDasharray={targetDash ?? "4 3"} />
           </svg>
-          <span className="align-middle">Target</span>
+          <span className="align-middle">Finish Target</span>
         </span>
       )}
 

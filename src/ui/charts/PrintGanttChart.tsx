@@ -102,10 +102,13 @@ export function PrintGanttChart({
   );
 
   const showBuffer = buffer && buffer.bufferDays > 0 && bufferedEndDate;
-  const endDate = milestones.reduce(
+  let endDate = milestones.reduce(
     (d, ms) => (ms.targetDate > d ? ms.targetDate : d),
     bufferedEndDate ?? projectEndDate,
   );
+  if (showTargetOnGantt && targetFinishDate && targetFinishDate > endDate) {
+    endDate = targetFinishDate;
+  }
 
   // Dynamic top margin
   const topMargin = PRINT_TOP
@@ -134,6 +137,12 @@ export function PrintGanttChart({
   const todayStr = formatDateISO(new Date());
   const todayInRange = range > 0 && todayStr >= projectStartDate && todayStr <= endDate;
   const todayX = todayInRange ? toX(todayStr) : null;
+
+  // Finish Target X — included in tick suppression so a quarter/month tick
+  // landing on the same date doesn't visually merge with the target dashed line.
+  const targetX = (showTargetOnGantt && targetFinishDate && range > 0)
+    ? toX(targetFinishDate)
+    : null;
 
   // Milestone X positions for tick suppression
   const milestoneXPositions = useMemo(
@@ -166,11 +175,12 @@ export function PrintGanttChart({
       finishX,
       milestoneXPositions,
       todayX,
+      targetX,
       todayProximityPx: Math.round(TODAY_PROXIMITY_PX * 0.56), // was PRINT_TODAY_PROXIMITY_PX inline
       elementProximityPx: 25,                                   // was PRINT_ELEMENT_PROXIMITY_PX inline
       minSpacingPx: printDensityPx,
     }),
-    [allTicks, minTs, range, areaW, ra.printLeftMargin, finishX, milestoneXPositions, todayX, printDensityPx]
+    [allTicks, minTs, range, areaW, ra.printLeftMargin, finishX, milestoneXPositions, todayX, targetX, printDensityPx]
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
   ); // NOSONAR — printDensityPx instability acceptable in print-only context
 
@@ -358,8 +368,7 @@ export function PrintGanttChart({
         )}
 
         {/* Finish Target line */}
-        {showTargetOnGantt && targetFinishDate && range > 0 && (() => {
-          const targetX = toX(targetFinishDate);
+        {targetX != null && (() => {
           if (targetX < ra.printLeftMargin || targetX > ra.printLeftMargin + areaW) return null;
           const ragKey = targetRAGColor ?? "gray";
           const color = tc[ragKey as keyof typeof tc] ?? tc.gray;
@@ -642,7 +651,7 @@ export function PrintGanttChart({
               <svg width="8" height="8" className="inline-block">
                 <line x1="4" y1="0" x2="4" y2="8" stroke={color} strokeWidth="1" strokeDasharray={dash} />
               </svg>
-              Target
+              Finish Target
             </span>
           );
         })()}

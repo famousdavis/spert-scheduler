@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.1",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Gantt chart — Finish Target now always visible when toggled on",
+        items: [
+          'Fix: when the "Finish Target" toggle is on and the target date falls past the buffered project finish, the dashed target line is now drawn at the right edge of the Gantt chart instead of being silently clipped out of view. The empty stretch between the buffer line and the target marker visualizes available slack to target.',
+          "The timeline range automatically extends to include the target date in both the interactive Gantt and the printable PDF report. Bars compress proportionally in fit-to-window mode; fixed-density (week/month) modes scroll further.",
+          "Tick suppression now also avoids drawing a quarter, month, or semi-annual tick gridline directly underneath the target dashed line — preventing a visual merge when the target falls on a tick boundary.",
+          'Label cleanup: the Gantt appearance toggle "Show Finish Target Date" is renamed to "Finish Target" — shorter and matches the "Finish Target" field label in the project summary card. The chart legend entry "Target" is also renamed to "Finish Target" so the legend mirrors the canonical name. The compact "Target" label that sits directly above the dashed line on the chart is unchanged — its position next to the line provides its own context.',
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.0",
     date: "2026-05-22",
     sections: [

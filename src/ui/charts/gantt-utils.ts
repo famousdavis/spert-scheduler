@@ -264,6 +264,7 @@ export interface TickSuppressionParams {
   finishX: number;
   milestoneXPositions: number[];
   todayX: number | null;
+  targetX?: number | null;
   todayProximityPx: number;
   elementProximityPx: number;
   minSpacingPx: number;
@@ -274,6 +275,7 @@ function shouldSuppressTick(x: number, isFirst: boolean, lastX: number, p: TickS
   if (p.todayX !== null && Math.abs(x - p.todayX) < p.todayProximityPx) return true;
   if (isFirst) return false;
   if (Math.abs(x - p.finishX) < p.elementProximityPx) return true;
+  if (p.targetX != null && Math.abs(x - p.targetX) < p.elementProximityPx) return true;
   if (p.milestoneXPositions.some((mx) => Math.abs(x - mx) < p.elementProximityPx)) return true;
   if (x - lastX < p.minSpacingPx) return true;
   return false;

@@ -187,7 +187,7 @@ function GanttToolbar({
             disabled={!hasTargetDate}
             className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 disabled:opacity-50"
           />
-          Show Finish Target Date
+          Finish Target
         </label>
       )}
       {/* Appearance panel toggle */}
@@ -375,7 +375,9 @@ export function GanttChart({
     return m;
   }, [viewMode, orderedActivities, scheduleMap, uncertaintyMap, calendar]);
 
-  // Compute the furthest date considering all scheduled activities, uncertainty extensions, and milestones
+  // Compute the furthest date considering all scheduled activities, uncertainty extensions,
+  // milestones, and (when toggled on) the finish target date. Including the target ensures
+  // the dashed target line is visible even when it falls past the buffered finish.
   const furthestDate = useMemo(() => {
     let latest = timelineEnd;
     for (const sa of scheduledActivities) {
@@ -387,8 +389,11 @@ export function GanttChart({
     for (const m of milestones) {
       if (m.targetDate > latest) latest = m.targetDate;
     }
+    if (showTargetOnGantt && targetFinishDate && targetFinishDate > latest) {
+      latest = targetFinishDate;
+    }
     return latest;
-  }, [timelineEnd, scheduledActivities, activityExtendedEndDates, milestones]);
+  }, [timelineEnd, scheduledActivities, activityExtendedEndDates, milestones, showTargetOnGantt, targetFinishDate]);
 
   const showBuffer = !!(buffer && buffer.bufferDays > 0 && bufferedEndDate);
 
@@ -409,6 +414,8 @@ export function GanttChart({
     barHeight: ra.barHeight,
     fitToWindow: ra.fitToWindow,
     timelineDensityPx: ra.timelineDensityPx,
+    showTargetOnGantt,
+    targetFinishDate,
   });
   const {
     chartWidth, chartHeight, chartAreaWidth, topMargin,
