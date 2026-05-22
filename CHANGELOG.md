@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.44.2 — 2026-05-21
+
+### Scenario comparison — copy fixes
+
+- **Fix:** the copy-image button on the metrics table now works. Failure was caused by html2canvas 1.4.1 being unable to compute bounds on the bare wrapper div inside the `inline-block` + `overflow-hidden` comparison container. Added explicit `bg-white` and `inline-block` to the captured element.
+- **Fix:** removed a duplicate copy button that was floating in the top-right of the cumulative distribution chart. The component-internal button predated the v0.44.0 chrome additions and was no longer needed once the parent provided its own header-bar button.
+- Copy failures now log the underlying error to the browser console (`console.error`) in addition to showing the toast — useful for diagnosing future html2canvas / clipboard issues without code changes.
+
 ## 0.44.1 — 2026-05-21
 
 ### Scenario comparison — copy button placement fix

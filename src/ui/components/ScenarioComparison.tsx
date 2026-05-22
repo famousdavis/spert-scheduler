@@ -250,7 +250,10 @@ export function ScenarioComparisonTable({
           title="Copy comparison table as image"
         />
       </div>
-      <div ref={tableRef}>
+      {/* Explicit bg-white + inline-block on the captured element: html2canvas 1.4.1
+          can fail to compute bounds on a bare div inside an inline-block/overflow-hidden
+          parent, producing "Failed to copy image to clipboard" for the table button. */}
+      <div ref={tableRef} className="inline-block bg-white">
         <table className="text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
