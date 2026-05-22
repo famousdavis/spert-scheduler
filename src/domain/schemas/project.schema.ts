@@ -139,6 +139,15 @@ export const MilestoneSchema = z.object({
   targetDate: ISODateString,
 });
 
+// -- Activity Band -----------------------------------------------------------
+
+export const ActivityBandSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().max(200), // empty string allowed
+  insertBeforeActivityId: z.string().min(1).max(64).nullable(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+});
+
 // -- Scenario Settings -------------------------------------------------------
 
 export const ScenarioSettingsSchema = z.object({
@@ -203,6 +212,7 @@ export const ScenarioSchema = z.object({
   simulationResults: SimulationRunSchema.optional(),
   locked: z.boolean().optional(), // default false
   notes: z.string().max(2000).optional(),
+  bands: z.array(ActivityBandSchema).max(50).optional(),
 });
 
 // -- Gantt Appearance Settings ------------------------------------------------

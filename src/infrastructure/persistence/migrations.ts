@@ -328,6 +328,25 @@ function migrateV19toV20(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v20 → v21: Add `bands` array to scenarios.
+ * Defaults to []. Bands are decorative section headers anchored to activity IDs;
+ * they carry no scheduling logic and do not affect simulation results.
+ */
+function migrateV20toV21(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (scenarios) {
+    for (const scenario of scenarios) {
+      if (scenario.bands === undefined) {
+        scenario.bands = [];
+      }
+    }
+  }
+  project.schemaVersion = 21;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -348,6 +367,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   17: migrateV17toV18,
   18: migrateV18toV19,
   19: migrateV19toV20,
+  20: migrateV20toV21,
 };
 
 /**

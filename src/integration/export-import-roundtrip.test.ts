@@ -180,4 +180,81 @@ describe("Export/Import integration", () => {
     expect(importedScenario.dependencies[1]!.toActivityId).toBe(a3.id);
     expect(importedScenario.dependencies[1]!.lagDays).toBe(3);
   });
+
+  it("round-trips a scenario with multiple bands intact", () => {
+    const project = createProject("Bands Round-Trip", "2026-05-01");
+    const scenario = project.scenarios[0]!;
+    const a1 = createActivity("Activity 1", scenario.settings);
+    const a2 = createActivity("Activity 2", scenario.settings);
+    const withAct = addActivityToScenario(addActivityToScenario(scenario, a1), a2);
+    const withBands = {
+      ...withAct,
+      bands: [
+        { id: "b1", name: "Phase 1", insertBeforeActivityId: a1.id, color: "#3366FF" },
+        { id: "b2", name: "Phase 2", insertBeforeActivityId: a2.id },
+        { id: "b3", name: "Trailing", insertBeforeActivityId: null, color: "#FF8800" },
+      ],
+    };
+    const fullProject: Project = { ...project, scenarios: [withBands] };
+
+    const json = serializeExport([fullProject]);
+    const result = validateImport(json, []);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const importedBands = result.projects[0]!.scenarios[0]!.bands!;
+    expect(importedBands).toHaveLength(3);
+    expect(importedBands[0]).toEqual({
+      id: "b1", name: "Phase 1", insertBeforeActivityId: a1.id, color: "#3366FF",
+    });
+    expect(importedBands[1]).toEqual({
+      id: "b2", name: "Phase 2", insertBeforeActivityId: a2.id,
+    });
+    expect(importedBands[2]).toEqual({
+      id: "b3", name: "Trailing", insertBeforeActivityId: null, color: "#FF8800",
+    });
+  });
+
+  it("v20 export (no bands field) imports with bands: [] via migration", () => {
+    // Hand-craft a v20-shaped envelope with no `bands` field anywhere
+    const v20Envelope = {
+      format: "spert-scheduler-export",
+      appVersion: "0.44.3",
+      exportedAt: "2026-05-01T00:00:00.000Z",
+      schemaVersion: 20,
+      projects: [
+        {
+          id: "p1",
+          name: "Pre-bands project",
+          createdAt: "2026-05-01T00:00:00.000Z",
+          schemaVersion: 20,
+          scenarios: [
+            {
+              id: "s1",
+              name: "Baseline",
+              startDate: "2026-05-01",
+              activities: [],
+              dependencies: [],
+              milestones: [],
+              settings: {
+                defaultConfidenceLevel: "mediumConfidence",
+                defaultDistributionType: "logNormal",
+                trialCount: 10000,
+                rngSeed: "seed",
+                probabilityTarget: 0.5,
+                projectProbabilityTarget: 0.95,
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const json = JSON.stringify(v20Envelope);
+    const result = validateImport(json, []);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.projects[0]!.scenarios[0]!.bands).toEqual([]);
+  });
 });

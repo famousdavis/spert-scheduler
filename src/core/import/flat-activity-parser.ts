@@ -69,6 +69,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   distribution: ["distribution"],
   status: ["status"],
   predecessors: ["predecessors", "depends", "dependencies", "predecessor"],
+  type: ["type"],
 };
 
 const REQUIRED_FIELDS = [
@@ -221,6 +222,12 @@ export function parseFlatActivityTable(
     // Cap individual cell lengths to prevent oversized values from reaching
     // downstream processing (regex, error messages, Zod validation).
     const cappedRow = row.map((c) => c.length > MAX_CELL_LENGTH ? c.slice(0, MAX_CELL_LENGTH) : c);
+
+    // Skip display-only section header rows. Narrow match — only `"section"`
+    // (case-insensitive) is skipped so existing CSVs with a `type` column
+    // holding non-Activity values do not silently lose rows.
+    const rowType = headers.type !== undefined ? cappedRow[headers.type] : undefined;
+    if (rowType?.trim().toLowerCase() === "section") continue;
 
     // Extract cells
     const rawActivityId = (

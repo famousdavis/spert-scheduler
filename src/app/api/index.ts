@@ -15,6 +15,11 @@ export {
   updateActivity,
   reorderActivities,
   setGlobalCalendar,
+  addBand,
+  removeBand,
+  updateBand,
+  reorderBands,
+  reanchorBandsAfterRemovals,
 } from "./project-service";
 export type { CloneOptions } from "./project-service";
 export { runSimulation } from "./simulation-service";

@@ -56,7 +56,10 @@ export function ProjectPage() {
     addActivity,
     deleteActivity,
     updateActivityField,
-    moveActivity,
+    addBand,
+    deleteBand,
+    updateBand,
+    reorderWithBands,
     setSimulationResults,
     updateScenarioStartDate,
     updateScenarioSettings,
@@ -94,7 +97,10 @@ export function ProjectPage() {
       addActivity: s.addActivity,
       deleteActivity: s.deleteActivity,
       updateActivityField: s.updateActivityField,
-      moveActivity: s.moveActivity,
+      addBand: s.addBand,
+      deleteBand: s.deleteBand,
+      updateBand: s.updateBand,
+      reorderWithBands: s.reorderWithBands,
       setSimulationResults: s.setSimulationResults,
       updateScenarioStartDate: s.updateScenarioStartDate,
       updateScenarioSettings: s.updateScenarioSettings,
@@ -605,6 +611,7 @@ export function ProjectPage() {
             projectName={project.name}
             scenarioName={scenario.name}
             activities={scenario.activities}
+            bands={scenario.bands ?? []}
             dependencies={scenario.dependencies}
             milestones={scenario.milestones}
             onRunSimulation={handleRunSimulation}
@@ -635,6 +642,7 @@ export function ProjectPage() {
           {/* Unified Activity Grid — input + schedule merged */}
           <UnifiedActivityGrid
             activities={scenario.activities}
+            bands={scenario.bands ?? []}
             scheduledActivities={schedule?.activities ?? []}
             activityProbabilityTarget={scenario.settings.probabilityTarget}
             onUpdate={(activityId, updates) =>
@@ -643,8 +651,15 @@ export function ProjectPage() {
             onDelete={(activityId) =>
               deleteActivity(id!, scenario.id, activityId)
             }
-            onMove={(from, to) => moveActivity(id!, scenario.id, from, to)}
             onAdd={(name) => addActivity(id!, scenario.id, name)}
+            onAddBand={() => addBand(id!, scenario.id)}
+            onDeleteBand={(bandId) => deleteBand(id!, scenario.id, bandId)}
+            onUpdateBand={(bandId, updates) =>
+              updateBand(id!, scenario.id, bandId, updates)
+            }
+            onReorderWithBands={(activities, bands) =>
+              reorderWithBands(id!, scenario.id, activities, bands)
+            }
             onValidityChange={setAllActivitiesValid}
             onBulkUpdate={(activityIds, updates) =>
               bulkUpdateActivities(id!, scenario.id, activityIds, updates)
@@ -718,6 +733,7 @@ export function ProjectPage() {
             <GanttSection
               projectName={project.name}
               activities={scenario.activities}
+              bands={scenario.bands ?? []}
               scheduledActivities={schedule.activities}
               projectStartDate={scenario.startDate}
               projectEndDate={schedule.projectEndDate}

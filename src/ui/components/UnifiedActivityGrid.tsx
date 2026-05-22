@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import type {
   Activity,
+  ActivityBand,
   Calendar,
   ScheduledActivity,
 } from "@domain/models/types";
@@ -25,17 +26,26 @@ import { computeHeuristic } from "@core/estimation/heuristic";
 import type { BulkApplyPayload } from "./BulkActionToolbar";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
+import { BandHeaderRow } from "./BandHeaderRow";
 import { BulkActionToolbar } from "./BulkActionToolbar";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
+import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
 
 interface UnifiedActivityGridProps {
   activities: Activity[];
+  bands: ActivityBand[];
   scheduledActivities: ScheduledActivity[];
   activityProbabilityTarget: number;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
-  onMove: (fromIndex: number, toIndex: number) => void;
   onAdd: (name: string) => void;
+  onAddBand: () => void;
+  onDeleteBand: (bandId: string) => void;
+  onUpdateBand: (bandId: string, updates: Partial<ActivityBand>) => void;
+  onReorderWithBands: (
+    activities: Activity[],
+    bands: ActivityBand[],
+  ) => void;
   onValidityChange: (allValid: boolean) => void;
   onBulkUpdate?: (activityIds: string[], updates: Partial<Activity>) => void;
   onBulkDelete?: (activityIds: string[]) => void;
@@ -52,12 +62,16 @@ interface UnifiedActivityGridProps {
 
 export function UnifiedActivityGrid({
   activities,
+  bands,
   scheduledActivities,
   activityProbabilityTarget,
   onUpdate,
   onDelete,
-  onMove,
   onAdd,
+  onAddBand,
+  onDeleteBand,
+  onUpdateBand,
+  onReorderWithBands,
   onValidityChange,
   onBulkUpdate,
   onBulkDelete,
@@ -74,9 +88,12 @@ export function UnifiedActivityGrid({
   const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
   const [, setInvalidIds] = useState<Set<string>>(new Set());
   const [focusActivityId, setFocusActivityId] = useState<string | null>(null);
+  const [focusBandId, setFocusBandId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const pendingFocus = useRef(false);
+  const pendingBandFocus = useRef(false);
   const prevCountRef = useRef(activities.length);
+  const prevBandCountRef = useRef(bands.length);
 
   // When the activities list grows after the Add button was clicked,
   // capture the last activity's ID so we can auto-focus its name input.
@@ -99,6 +116,24 @@ export function UnifiedActivityGrid({
       return () => cancelAnimationFrame(id);
     }
   }, [focusActivityId]);
+
+  useEffect(() => {
+    if (pendingBandFocus.current && bands.length > prevBandCountRef.current) {
+      const lastBand = bands[bands.length - 1];
+      if (lastBand) {
+        setFocusBandId(lastBand.id); // eslint-disable-line react-hooks/set-state-in-effect -- mirrors pendingFocus pattern for activities
+      }
+      pendingBandFocus.current = false;
+    }
+    prevBandCountRef.current = bands.length;
+  }, [bands]);
+
+  useEffect(() => {
+    if (focusBandId) {
+      const id = requestAnimationFrame(() => setFocusBandId(null));
+      return () => cancelAnimationFrame(id);
+    }
+  }, [focusBandId]);
 
   // Clear selection when activities change
   useEffect(() => {
@@ -233,15 +268,29 @@ export function UnifiedActivityGrid({
     })
   );
 
+  const renderItems = useMemo(
+    () => buildRenderList(activities, bands),
+    [activities, bands],
+  );
+
+  const sortableIds = useMemo(
+    () =>
+      renderItems.map((item) =>
+        item.kind === "activity" ? item.activity.id : item.band.id,
+      ),
+    [renderItems],
+  );
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = activities.findIndex((a) => a.id === active.id);
-      const newIndex = activities.findIndex((a) => a.id === over.id);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        onMove(oldIndex, newIndex);
-      }
-    }
+    if (!over) return;
+    const result = deriveReorderResult(
+      renderItems,
+      String(active.id),
+      String(over.id),
+    );
+    if (!result) return;
+    onReorderWithBands(result.activities, result.bands);
   };
 
   const hasSelection = selectedIds.size > 0;
@@ -356,32 +405,48 @@ export function UnifiedActivityGrid({
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={activities.map((a) => a.id)}
+          items={sortableIds}
           strategy={verticalListSortingStrategy}
         >
-          {activities.map((activity) => (
-            <UnifiedActivityRow
-              key={activity.id}
-              activity={activity}
-              activityNumber={activityNumberMap?.get(activity.id)}
-              scheduledActivity={scheduleMap.get(activity.id)}
-              activityProbabilityTarget={activityProbabilityTarget}
-              autoFocusName={activity.id === focusActivityId}
-              isSelected={selectedIds.has(activity.id)}
-              onToggleSelect={toggleSelect}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-              onValidityChange={handleValidityChange}
-              isLocked={isScenarioLocked}
-              heuristicEnabled={heuristicEnabled}
-              heuristicMinPercent={heuristicMinPercent}
-              heuristicMaxPercent={heuristicMaxPercent}
-              calendar={calendar}
-              dependencyMode={dependencyMode}
-              onEditActivity={onEditActivity}
-              hasConstraintWarning={constraintWarningIds?.has(activity.id)}
-            />
-          ))}
+          {renderItems.map((item) => {
+            if (item.kind === "activity") {
+              const activity = item.activity;
+              return (
+                <UnifiedActivityRow
+                  key={activity.id}
+                  activity={activity}
+                  activityNumber={activityNumberMap?.get(activity.id)}
+                  scheduledActivity={scheduleMap.get(activity.id)}
+                  activityProbabilityTarget={activityProbabilityTarget}
+                  autoFocusName={activity.id === focusActivityId}
+                  isSelected={selectedIds.has(activity.id)}
+                  onToggleSelect={toggleSelect}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
+                  onValidityChange={handleValidityChange}
+                  isLocked={isScenarioLocked}
+                  heuristicEnabled={heuristicEnabled}
+                  heuristicMinPercent={heuristicMinPercent}
+                  heuristicMaxPercent={heuristicMaxPercent}
+                  calendar={calendar}
+                  dependencyMode={dependencyMode}
+                  onEditActivity={onEditActivity}
+                  hasConstraintWarning={constraintWarningIds?.has(activity.id)}
+                />
+              );
+            }
+            return (
+              <BandHeaderRow
+                key={item.band.id}
+                band={item.band}
+                locked={!!isScenarioLocked}
+                dependencyMode={!!dependencyMode}
+                onUpdate={onUpdateBand}
+                onDelete={onDeleteBand}
+                autoFocus={item.band.id === focusBandId}
+              />
+            );
+          })}
         </SortableContext>
       </DndContext>
 
@@ -423,8 +488,8 @@ export function UnifiedActivityGrid({
         </div>
       )}
 
-      {/* Add button */}
-      <div className="p-2">
+      {/* Add buttons */}
+      <div className="p-2 flex gap-2">
         <button
           data-field="add-activity"
           onClick={() => {
@@ -433,9 +498,22 @@ export function UnifiedActivityGrid({
             onAdd("");
           }}
           disabled={isScenarioLocked}
-          className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-600 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
+          className="flex-[2] py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-600 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
         >
           + Add Activity
+        </button>
+        <button
+          data-field="add-section"
+          onClick={() => {
+            if (isScenarioLocked) return;
+            pendingBandFocus.current = true;
+            onAddBand();
+          }}
+          disabled={isScenarioLocked}
+          aria-label="Add section header"
+          className="flex-1 py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-700 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
+        >
+          + Section
         </button>
       </div>
     </div>

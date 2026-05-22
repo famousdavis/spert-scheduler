@@ -10,10 +10,12 @@ import {
   exportScheduleCsv,
   exportScheduleXlsx,
   xlsxSanitize,
+  mixWithWhite,
 } from "./schedule-export-service";
 import type { ScheduleExportParams } from "./schedule-export-service";
 import type {
   Activity,
+  ActivityBand,
   ActivityDependency,
   DeterministicSchedule,
   ScenarioSettings,
@@ -533,5 +535,366 @@ describe("xlsxSanitize", () => {
     expect(xlsxSanitize(42)).toBe(42);
     expect(xlsxSanitize(0)).toBe(0);
     expect(xlsxSanitize(-5)).toBe(-5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mixWithWhite — known-value fixtures
+// ---------------------------------------------------------------------------
+
+describe("mixWithWhite", () => {
+  it("blends red at 20% opacity to FFFFCCCC", () => {
+    // R = round(255*0.2 + 255*0.8) = 255 = FF
+    // G/B = round(0*0.2 + 255*0.8) = 204 = CC
+    expect(mixWithWhite("#FF0000", 0.2)).toBe("FFFFCCCC");
+  });
+
+  it("blends black at 20% opacity to FFCCCCCC", () => {
+    // All channels = round(0*0.2 + 255*0.8) = 204 = CC
+    expect(mixWithWhite("#000000", 0.2)).toBe("FFCCCCCC");
+  });
+
+  it("blends 50% gray at 50% opacity to FFC0C0C0", () => {
+    // round(128*0.5 + 255*0.5) = round(191.5) = 192 = C0
+    expect(mixWithWhite("#808080", 0.5)).toBe("FFC0C0C0");
+  });
+
+  it("returns FFFFFFFF for white at any opacity", () => {
+    // mix(255, x) = round(255*x + 255*(1-x)) = 255 for any x
+    expect(mixWithWhite("#FFFFFF", 0.2)).toBe("FFFFFFFF");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CSV — bands / Type column
+// ---------------------------------------------------------------------------
+
+function makeBand(overrides: Partial<ActivityBand> & { id: string; name: string }): ActivityBand {
+  return {
+    insertBeforeActivityId: null,
+    ...overrides,
+  };
+}
+
+describe("exportScheduleCsv with bands", () => {
+  function getHeaderLine(csv: string): string {
+    const lines = csv.split("\n");
+    const blankIndex = lines.indexOf("");
+    return lines[blankIndex + 1]!;
+  }
+
+  function getDataLines(csv: string): string[] {
+    const lines = csv.split("\n");
+    const blankIndex = lines.indexOf("");
+    // Lines after header, up to (but not including) the Totals row at the end
+    return lines.slice(blankIndex + 2, lines.length - 1);
+  }
+
+  it("activity-only export has Type column last with Activity in every row", () => {
+    const csv = exportScheduleCsv(makeParams({ bands: [] }));
+    const headers = getHeaderLine(csv).split(",");
+    expect(headers[headers.length - 1]).toBe("Type");
+    const dataLines = getDataLines(csv);
+    expect(dataLines).toHaveLength(3);
+    for (const line of dataLines) {
+      const cells = line.split(",");
+      expect(cells[cells.length - 1]).toBe("Activity");
+    }
+    // Totals row column count must match header count
+    const lines = csv.split("\n");
+    const totalsCells = lines[lines.length - 1]!.split(",");
+    expect(totalsCells).toHaveLength(headers.length);
+  });
+
+  it("sequential mode: Type column index === headers.length - 1; band rows have Section in last column, name in column 1, others blank", () => {
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "Phase 1", insertBeforeActivityId: "a1" }),
+    ];
+    const csv = exportScheduleCsv(makeParams({ bands }));
+    const headers = getHeaderLine(csv).split(",");
+    expect(headers[headers.length - 1]).toBe("Type");
+    const dataLines = getDataLines(csv);
+    // 3 activities + 1 band = 4
+    expect(dataLines).toHaveLength(4);
+    // First emitted row is the band (anchored before a1)
+    const bandCells = dataLines[0]!.split(",");
+    expect(bandCells[1]).toBe("Phase 1");
+    expect(bandCells[bandCells.length - 1]).toBe("Section");
+    // All other cells blank
+    for (let i = 0; i < bandCells.length; i++) {
+      if (i === 1 || i === bandCells.length - 1) continue;
+      expect(bandCells[i]).toBe("");
+    }
+  });
+
+  it("dependency mode: Type is last column, band rows correct in wider layout", () => {
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "Section A", insertBeforeActivityId: "a2" }),
+    ];
+    const csv = exportScheduleCsv(
+      makeParams({
+        bands,
+        dependencies,
+        settings: { ...settings, dependencyMode: true },
+      })
+    );
+    const headers = getHeaderLine(csv).split(",");
+    expect(headers[headers.length - 1]).toBe("Type");
+    const dataLines = getDataLines(csv);
+    // Order: a1, band, a2, a3
+    const bandLine = dataLines[1]!.split(",");
+    expect(bandLine[1]).toBe("Section A");
+    expect(bandLine[bandLine.length - 1]).toBe("Section");
+  });
+
+  it("Totals row excludes bands and has Type column slot", () => {
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "Stage 1", insertBeforeActivityId: "a1" }),
+    ];
+    const csv = exportScheduleCsv(makeParams({ bands }));
+    const lines = csv.split("\n");
+    const totalsLine = lines[lines.length - 1]!;
+    expect(totalsLine).toContain("Total");
+    // Min+ML totals are computed across activities only (5+5+5=15, 10+10+10=30)
+    expect(totalsLine).toContain(",15,");
+    expect(totalsLine).toContain(",30,");
+    const headers = getHeaderLine(csv).split(",");
+    expect(totalsLine.split(",")).toHaveLength(headers.length);
+  });
+
+  it("band name with commas, quotes, and newlines round-trips through csvEscape", () => {
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: 'Stage "A", part 1\nnext line', insertBeforeActivityId: "a1" }),
+    ];
+    const csv = exportScheduleCsv(makeParams({ bands }));
+    // csvEscape quotes the cell and doubles internal quotes
+    expect(csv).toContain('"Stage ""A"", part 1\nnext line"');
+  });
+
+  it("band name starting with = is neutralized (formula-injection guard)", () => {
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "=SUM(A:A)", insertBeforeActivityId: "a1" }),
+    ];
+    const csv = exportScheduleCsv(makeParams({ bands }));
+    expect(csv).toContain("'=SUM(A:A)");
+  });
+
+  it("Type cell for band rows is the literal string Section (no leading quote, no surrounding double-quotes)", () => {
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "Header", insertBeforeActivityId: "a1" }),
+    ];
+    const csv = exportScheduleCsv(makeParams({ bands }));
+    const bandLine = getDataLines(csv)[0]!;
+    const cells = bandLine.split(",");
+    expect(cells[cells.length - 1]).toBe("Section");
+  });
+
+  it("two bands anchored to the same activity render in their original array order", () => {
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "First Header", insertBeforeActivityId: "a2" }),
+      makeBand({ id: "b2", name: "Second Header", insertBeforeActivityId: "a2" }),
+    ];
+    const csv = exportScheduleCsv(makeParams({ bands }));
+    const dataLines = getDataLines(csv);
+    // Order: a1, b1, b2, a2, a3
+    expect(dataLines[1]!.split(",")[1]).toBe("First Header");
+    expect(dataLines[2]!.split(",")[1]).toBe("Second Header");
+  });
+
+  it("empty band name: Activity Name slot is empty string (not absent)", () => {
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "", insertBeforeActivityId: "a1" }),
+    ];
+    const csv = exportScheduleCsv(makeParams({ bands }));
+    const bandLine = getDataLines(csv)[0]!;
+    const cells = bandLine.split(",");
+    expect(cells[1]).toBe("");
+    expect(cells[cells.length - 1]).toBe("Section");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XLSX — bands / Type column
+// ---------------------------------------------------------------------------
+
+describe("exportScheduleXlsx with bands", () => {
+  it("activity-only export has Type column with Activity in all data rows; no extra rows", async () => {
+    const ExcelJS = await import("exceljs");
+    const arrayBuffer = await exportScheduleXlsx(makeParams({ bands: [] }));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.getWorksheet("Schedule")!;
+    // Find header row by scanning column A for "#"
+    let headerRow = -1;
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
+    }
+    expect(headerRow).toBeGreaterThan(0);
+    // Last header column should be "Type"
+    const lastCol = 17;
+    expect(ws.getCell(headerRow, lastCol).value).toBe("Type");
+    // Three activities → three data rows after header
+    for (let i = 1; i <= 3; i++) {
+      expect(ws.getCell(headerRow + i, lastCol).value).toBe("Activity");
+    }
+  });
+
+  it("band row layout: position, name styling, type cell, blank data cells, no border on column 1", async () => {
+    const ExcelJS = await import("exceljs");
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "Phase 1", insertBeforeActivityId: "a2", color: "#FF8800" }),
+    ];
+    const arrayBuffer = await exportScheduleXlsx(makeParams({ bands }));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.getWorksheet("Schedule")!;
+    let headerRow = -1;
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
+    }
+    const lastCol = 17;
+    // Order: a1 (header+1), band (header+2), a2, a3
+    const bandRowNum = headerRow + 2;
+    const nameCell = ws.getCell(bandRowNum, 2);
+    expect(nameCell.value).toBe("Phase 1");
+    expect(nameCell.font?.bold).toBe(true);
+    expect(nameCell.font?.size).toBe(13);
+
+    // Type cell
+    expect(ws.getCell(bandRowNum, lastCol).value).toBe("Section");
+
+    // Data cells (3 to lastCol-1) should be null
+    for (let c = 3; c < lastCol; c++) {
+      expect(ws.getCell(bandRowNum, c).value).toBe(null);
+    }
+
+    // Column 1 — no sequence number
+    expect(ws.getCell(bandRowNum, 1).value).toBe(null);
+  });
+
+  it("xlsxSanitize applied to band name with formula-leading character", async () => {
+    const ExcelJS = await import("exceljs");
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "=SUM(A:A)", insertBeforeActivityId: "a1" }),
+    ];
+    const arrayBuffer = await exportScheduleXlsx(makeParams({ bands }));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.getWorksheet("Schedule")!;
+    let headerRow = -1;
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
+    }
+    // Band is anchored before a1 → directly after the header row
+    expect(ws.getCell(headerRow + 1, 2).value).toBe("'=SUM(A:A)");
+  });
+
+  it("band row height is 20", async () => {
+    const ExcelJS = await import("exceljs");
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "Heading", insertBeforeActivityId: "a1" }),
+    ];
+    const arrayBuffer = await exportScheduleXlsx(makeParams({ bands }));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.getWorksheet("Schedule")!;
+    let headerRow = -1;
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
+    }
+    const bandRowNum = headerRow + 1;
+    const dataRow = ws.getRow(bandRowNum);
+    expect(dataRow.height).toBeCloseTo(20, 0);
+  });
+
+  it("two bands anchored to the same activity render in their original array order", async () => {
+    const ExcelJS = await import("exceljs");
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "First", insertBeforeActivityId: "a2" }),
+      makeBand({ id: "b2", name: "Second", insertBeforeActivityId: "a2" }),
+    ];
+    const arrayBuffer = await exportScheduleXlsx(makeParams({ bands }));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.getWorksheet("Schedule")!;
+    let headerRow = -1;
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
+    }
+    // Order: a1, b1, b2, a2, a3 → rows: header+1=a1, header+2=b1, header+3=b2
+    expect(ws.getCell(headerRow + 2, 2).value).toBe("First");
+    expect(ws.getCell(headerRow + 3, 2).value).toBe("Second");
+  });
+
+  it("empty band name: nameCell.value is null (not empty string)", async () => {
+    const ExcelJS = await import("exceljs");
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "", insertBeforeActivityId: "a1" }),
+    ];
+    const arrayBuffer = await exportScheduleXlsx(makeParams({ bands }));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.getWorksheet("Schedule")!;
+    let headerRow = -1;
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
+    }
+    expect(ws.getCell(headerRow + 1, 2).value).toBe(null);
+  });
+
+  it("with-color round-trip: fill, border-left medium, border color ARGB, font.bold, Type cell", async () => {
+    const ExcelJS = await import("exceljs");
+    const bandColor = "#3366FF";
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "Phase", insertBeforeActivityId: "a1", color: bandColor }),
+    ];
+    const arrayBuffer = await exportScheduleXlsx(makeParams({ bands }));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.getWorksheet("Schedule")!;
+    let headerRow = -1;
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
+    }
+    const bandRowNum = headerRow + 1;
+    const loadedNameCell = ws.getCell(bandRowNum, 2);
+    const lastCol = 17;
+
+    expect(loadedNameCell.fill).toBeDefined();
+    expect(loadedNameCell.border?.left).toBeDefined();
+
+    const fill = loadedNameCell.fill as { fgColor?: { argb?: string } };
+    expect(fill.fgColor?.argb?.toUpperCase()).toBe(mixWithWhite(bandColor, 0.2));
+
+    expect(loadedNameCell.border?.left?.style).toBe("medium");
+    expect(loadedNameCell.border?.left?.color?.argb?.toUpperCase()).toBe(
+      "FF" + bandColor.replace(/^#/, "").toUpperCase()
+    );
+
+    expect(loadedNameCell.font?.bold).toBe(true);
+    expect(ws.getCell(bandRowNum, lastCol).value).toBe("Section");
+
+    const dataRow = ws.getRow(bandRowNum);
+    expect(dataRow.height).toBeCloseTo(20, 0);
+  });
+
+  it("no-color round-trip: fill is gray fallback AND border-left is not medium (asserted conjunctively)", async () => {
+    const ExcelJS = await import("exceljs");
+    const bands: ActivityBand[] = [
+      makeBand({ id: "b1", name: "Bare", insertBeforeActivityId: "a1" }),
+    ];
+    const arrayBuffer = await exportScheduleXlsx(makeParams({ bands }));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.getWorksheet("Schedule")!;
+    let headerRow = -1;
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
+    }
+    const loadedNameCell = ws.getCell(headerRow + 1, 2);
+    expect(loadedNameCell.fill).toBeDefined();
+    const fill = loadedNameCell.fill as { fgColor?: { argb?: string } };
+    expect(fill.fgColor?.argb?.toUpperCase()).toBe("FFF3F4F6");
+    expect(loadedNameCell.border?.left?.style).not.toBe("medium");
   });
 });

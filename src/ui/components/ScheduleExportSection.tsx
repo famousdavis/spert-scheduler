@@ -92,6 +92,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
       milestones: selectedScenario.milestones,
       calendar: workCalendar,
       dateFormat,
+      bands: selectedScenario.bands ?? [],
     };
   }, [selectedProject, selectedScenario, workCalendar, dateFormat]);
 

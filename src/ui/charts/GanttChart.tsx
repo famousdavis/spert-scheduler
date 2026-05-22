@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, type RefObject } from "react";
 import type {
   Activity,
+  ActivityBand,
   ActivityDependency,
   Milestone,
   MilestoneBufferInfo,
@@ -25,7 +26,7 @@ import { useGanttLayout } from "@ui/hooks/use-gantt-layout";
 import type { ResolvedGanttAppearance } from "./gantt-constants";
 import {
   BAR_RADIUS,
-  ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT,
+  ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT, RIGHT_MARGIN,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
 } from "./gantt-constants";
 import {
@@ -211,6 +212,7 @@ function GanttToolbar({
 
 interface GanttChartProps {
   activities: Activity[];
+  bands?: ActivityBand[];
   scheduledActivities: ScheduledActivity[];
   projectStartDate: string;
   projectEndDate: string;
@@ -243,6 +245,7 @@ interface GanttChartProps {
 
 export function GanttChart({
   activities,
+  bands = [],
   scheduledActivities,
   projectStartDate,
   projectEndDate,
@@ -391,6 +394,7 @@ export function GanttChart({
 
   const layout = useGanttLayout({
     orderedActivities,
+    bands,
     projectStartDate,
     furthestDate,
     bufferedEndDate,
@@ -410,6 +414,7 @@ export function GanttChart({
     chartWidth, chartHeight, chartAreaWidth, topMargin,
     minTimestamp, dateRange, finishX, finishDate,
     todayX, todayStr, allTicks, ticks, rowIndex, barYOffset,
+    renderItems,
   } = layout;
 
   // In non-dependency mode, synthesize FS-0 dependencies between adjacent activities
@@ -562,9 +567,11 @@ export function GanttChart({
             />
           ))}
 
-          {/* Row guide lines — faint horizontal lines every 3 rows */}
-          {ra.rowGuideLines && orderedActivities.map((_, idx) => {
-            if ((idx + 1) % 3 !== 0 || idx + 1 >= orderedActivities.length) return null;
+          {/* Row guide lines — faint horizontal lines every 3 rows.
+              Band rows participate in the count; a guide line may occasionally
+              land on a band slot alongside the band's own horizontal rule. */}
+          {ra.rowGuideLines && renderItems.map((_, idx) => {
+            if ((idx + 1) % 3 !== 0 || idx + 1 >= renderItems.length) return null;
             const y = topMargin + (idx + 1) * ra.rowHeight;
             return (
               <line
@@ -781,6 +788,43 @@ export function GanttChart({
             );
           })}
 
+          {/* Pass 1 — Band rows (rendered before dependency arrows so arrows paint on top of the band's horizontal rule).
+              `idx` is the slot index from the full renderItems list — preserves correct Y for each band. */}
+          {renderItems.map((item, idx) => {
+            if (item.kind !== "band") return null;
+            const y = topMargin + idx * ra.rowHeight;
+            const midY = y + ra.rowHeight / 2;
+            const bandColor = item.band.color ?? c.textMuted;
+            const displayName = item.band.name.trim() || "(unnamed section)";
+            const truncated = displayName.length > ra.nameCharLimit
+              ? displayName.slice(0, ra.nameCharLimit - 2) + "..."
+              : displayName;
+            return (
+              <g key={`band-${item.band.id}`}>
+                <text
+                  x={ra.leftMargin - 8}
+                  y={midY}
+                  textAnchor="end"
+                  dominantBaseline="central"
+                  fontSize={ra.nameFontSize}
+                  fontWeight="700"
+                  fill={bandColor}
+                >
+                  {truncated}
+                </text>
+                <line
+                  x1={ra.leftMargin}
+                  y1={midY}
+                  x2={chartWidth - RIGHT_MARGIN}
+                  y2={midY}
+                  stroke={bandColor}
+                  strokeWidth={1}
+                  opacity={0.5}
+                />
+              </g>
+            );
+          })}
+
           {/* Dependency arrows — visible paths only (rendered before bars so bars paint on top) */}
           {showArrows && arrowPaths.map((ap, i) => {
             const isHovered = hoveredDep?.from === ap.dep.fromActivityId && hoveredDep?.to === ap.dep.toActivityId;
@@ -809,8 +853,12 @@ export function GanttChart({
             );
           })}
 
-          {/* Activity rows */}
-          {orderedActivities.map((act, idx) => {
+          {/* Pass 2 — Activity rows. Iterates the full renderItems list so `idx`
+              gives the correct slot-based Y; bands are skipped here (already
+              rendered in Pass 1 above, before the dependency arrows). */}
+          {renderItems.map((item, idx) => {
+            if (item.kind !== "activity") return null;
+            const act = item.activity;
             const sa = scheduleMap.get(act.id);
             if (!sa) return null;
 
@@ -1034,7 +1082,7 @@ export function GanttChart({
           {showBuffer && bufferedEndDate && (
             <g>
               {(() => {
-                const bufIdx = orderedActivities.length;
+                const bufIdx = renderItems.length;
                 const y = topMargin + bufIdx * ra.rowHeight;
                 const barY = y + barYOffset;
                 const bufStartX = dateToX(
@@ -1149,10 +1197,12 @@ export function GanttChart({
 
         </svg>
 
-        {/* Inline name editing overlay — positioned absolutely over the SVG */}
+        {/* Inline name editing overlay — positioned absolutely over the SVG.
+            Uses rowIndex (slot map) so the Y is correct when bands precede the
+            activity being renamed. */}
         {editingId && (() => {
-          const idx = orderedActivities.findIndex((a) => a.id === editingId);
-          if (idx === -1) return null;
+          const idx = rowIndex.get(editingId);
+          if (idx === undefined) return null;
           const inputTop = topMargin + idx * ra.rowHeight + (ra.rowHeight - 24) / 2;
           return (
             <input

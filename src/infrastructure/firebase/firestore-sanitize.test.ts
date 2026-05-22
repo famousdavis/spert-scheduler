@@ -122,4 +122,67 @@ describe("stripSimulationResultsForCloud", () => {
     // Original unchanged
     expect(project.scenarios[0]!.simulationResults).toBeDefined();
   });
+
+  it("preserves all band fields on each scenario", () => {
+    const project = {
+      id: "p1",
+      name: "Test",
+      createdAt: "2026-01-01T00:00:00Z",
+      schemaVersion: 21,
+      scenarios: [
+        {
+          id: "s1",
+          name: "Baseline",
+          startDate: "2026-01-01",
+          activities: [],
+          dependencies: [],
+          milestones: [],
+          settings: {} as unknown as Project["scenarios"][number]["settings"],
+          bands: [
+            {
+              id: "b1",
+              name: "Phase 1",
+              insertBeforeActivityId: "a1",
+              color: "#3366FF",
+            },
+          ],
+        },
+      ],
+    } as unknown as Project;
+
+    const result = stripSimulationResultsForCloud(project);
+    expect(result.scenarios[0]!.bands).toEqual([
+      { id: "b1", name: "Phase 1", insertBeforeActivityId: "a1", color: "#3366FF" },
+    ]);
+  });
+});
+
+describe("sanitizeForFirestore with bands", () => {
+  it("preserves all band fields when color is set", () => {
+    const input = {
+      bands: [
+        { id: "b1", name: "Phase 1", insertBeforeActivityId: "a1", color: "#3366FF" },
+      ],
+    };
+    expect(sanitizeForFirestore(input)).toEqual({
+      bands: [
+        { id: "b1", name: "Phase 1", insertBeforeActivityId: "a1", color: "#3366FF" },
+      ],
+    });
+  });
+
+  it("strips color key when undefined but preserves other band fields", () => {
+    const input = {
+      bands: [
+        { id: "b1", name: "Bare", insertBeforeActivityId: null, color: undefined },
+      ],
+    };
+    const result = sanitizeForFirestore(input) as { bands: Record<string, unknown>[] };
+    expect(result.bands[0]).toEqual({
+      id: "b1",
+      name: "Bare",
+      insertBeforeActivityId: null,
+    });
+    expect("color" in result.bands[0]!).toBe(false);
+  });
 });

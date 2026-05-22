@@ -7,6 +7,8 @@ import {
   ScenarioSettingsSchema,
   ProjectSchema,
   CalendarSchema,
+  ActivityBandSchema,
+  ScenarioSchema,
 } from "./project.schema";
 
 describe("ActivitySchema", () => {
@@ -445,5 +447,105 @@ describe("ProjectSchema owner field", () => {
     if (result.success) {
       expect(result.data.owner).toBeNull();
     }
+  });
+});
+
+describe("ActivityBandSchema", () => {
+  const validBand = {
+    id: "b1",
+    name: "Discovery",
+    insertBeforeActivityId: "a1",
+    color: "#94a3b8",
+  };
+
+  it("accepts a valid band with all fields", () => {
+    const result = ActivityBandSchema.safeParse(validBand);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a band with color omitted", () => {
+    const result = ActivityBandSchema.safeParse({
+      id: validBand.id,
+      name: validBand.name,
+      insertBeforeActivityId: validBand.insertBeforeActivityId,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a band with empty name", () => {
+    const result = ActivityBandSchema.safeParse({ ...validBand, name: "" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a band with null insertBeforeActivityId (trailing)", () => {
+    const result = ActivityBandSchema.safeParse({
+      ...validBand,
+      insertBeforeActivityId: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects color that is not a hex string", () => {
+    expect(ActivityBandSchema.safeParse({ ...validBand, color: "red" }).success).toBe(false);
+    expect(ActivityBandSchema.safeParse({ ...validBand, color: "#GGGGGG" }).success).toBe(false);
+    expect(ActivityBandSchema.safeParse({ ...validBand, color: "#12345" }).success).toBe(false);
+  });
+
+  it("rejects name exceeding 200 characters", () => {
+    const longName = "x".repeat(201);
+    const result = ActivityBandSchema.safeParse({ ...validBand, name: longName });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects empty insertBeforeActivityId (fails .min(1))", () => {
+    const result = ActivityBandSchema.safeParse({
+      ...validBand,
+      insertBeforeActivityId: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects empty id", () => {
+    const result = ActivityBandSchema.safeParse({ ...validBand, id: "" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("ScenarioSchema with bands", () => {
+  const baseScenario = {
+    id: "s1",
+    name: "Baseline",
+    startDate: "2025-02-01",
+    activities: [],
+    dependencies: [],
+    milestones: [],
+    settings: {
+      defaultConfidenceLevel: "mediumConfidence" as const,
+      defaultDistributionType: "normal" as const,
+      trialCount: 50000,
+      rngSeed: "test-seed",
+      probabilityTarget: 0.5,
+      projectProbabilityTarget: 0.95,
+    },
+  };
+
+  it("accepts bands: []", () => {
+    const result = ScenarioSchema.safeParse({ ...baseScenario, bands: [] });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts bands omitted entirely", () => {
+    const result = ScenarioSchema.safeParse(baseScenario);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a bands array with 51 items", () => {
+    const bands = Array.from({ length: 51 }, (_, i) => ({
+      id: `b${i}`,
+      name: `Band ${i}`,
+      insertBeforeActivityId: null,
+    }));
+    const result = ScenarioSchema.safeParse({ ...baseScenario, bands });
+    expect(result.success).toBe(false);
   });
 });

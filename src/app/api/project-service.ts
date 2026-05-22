@@ -5,6 +5,7 @@ import type {
   Project,
   Scenario,
   Activity,
+  ActivityBand,
   Calendar,
   ScenarioSettings,
 } from "@domain/models/types";
@@ -16,6 +17,7 @@ import {
 import { formatDateISO } from "@core/calendar/calendar";
 import { computeHeuristic } from "@core/estimation/heuristic";
 import { generateId } from "./id";
+import { reanchorBandsAfterRemovals } from "./band-service";
 
 // -- Project CRUD ------------------------------------------------------------
 
@@ -168,6 +170,17 @@ export function cloneScenario(
     startsAtMilestoneId: a.startsAtMilestoneId ? oldToNewMilestoneId.get(a.startsAtMilestoneId) ?? undefined : undefined,
   }));
 
+  // Clone bands with fresh IDs; remap insertBeforeActivityId through
+  // oldToNewId (which already excludes dropped-completed activities).
+  const clonedBands: ActivityBand[] = (scenario.bands ?? []).map((band) => ({
+    ...band,
+    id: generateId(),
+    insertBeforeActivityId:
+      band.insertBeforeActivityId !== null
+        ? oldToNewId.get(band.insertBeforeActivityId) ?? null
+        : null,
+  }));
+
   return {
     id: generateId(),
     name: newName,
@@ -180,6 +193,7 @@ export function cloneScenario(
       rngSeed: generateId(), // New seed for clone
     },
     notes: scenario.notes,
+    bands: clonedBands,
     // simulationResults are NOT cloned — stale
   };
 }
@@ -240,9 +254,26 @@ export function addActivityToScenario(
   scenario: Scenario,
   activity: Activity
 ): Scenario {
+  // Re-anchor any trailing bands (null anchor, or anchor pointing to a removed
+  // activity) onto the new activity. This "freezes" a freshly-created section
+  // at its current visual position: the band keeps rendering BEFORE the
+  // newly-anchored activity, so the activity slots in UNDER the section
+  // instead of below it. Matches user expectation when entering activities
+  // and section headers linearly. (Bands anchored to existing activities are
+  // unchanged.)
+  const existingBands = scenario.bands ?? [];
+  const existingIds = new Set(scenario.activities.map((a) => a.id));
+  const newBands: ActivityBand[] = existingBands.map((b) => {
+    const isTrailing =
+      b.insertBeforeActivityId === null ||
+      !existingIds.has(b.insertBeforeActivityId);
+    return isTrailing ? { ...b, insertBeforeActivityId: activity.id } : b;
+  });
+
   return {
     ...scenario,
     activities: [...scenario.activities, activity],
+    bands: newBands,
     simulationResults: undefined, // Invalidate stale results
   };
 }
@@ -251,12 +282,24 @@ export function removeActivityFromScenario(
   scenario: Scenario,
   activityId: string
 ): Scenario {
+  const removedIndex = scenario.activities.findIndex((a) => a.id === activityId);
+  if (removedIndex === -1) return scenario; // same reference, no change
+
+  const newActivities = scenario.activities.filter((a) => a.id !== activityId);
+  const newDependencies = scenario.dependencies.filter(
+    (d) => d.fromActivityId !== activityId && d.toActivityId !== activityId
+  );
+  const newBands = reanchorBandsAfterRemovals(
+    scenario.bands ?? [],
+    new Set([activityId]),
+    scenario.activities,
+    newActivities,
+  );
   return {
     ...scenario,
-    activities: scenario.activities.filter((a) => a.id !== activityId),
-    dependencies: scenario.dependencies.filter(
-      (d) => d.fromActivityId !== activityId && d.toActivityId !== activityId
-    ),
+    activities: newActivities,
+    dependencies: newDependencies,
+    bands: newBands,
     simulationResults: undefined, // Invalidate stale results
   };
 }
@@ -362,3 +405,13 @@ export {
   assignActivityToMilestone,
   setActivityStartsAtMilestone,
 } from "./milestone-service";
+
+// -- Bands (re-exported from band-service.ts) --------------------------------
+
+export {
+  addBand,
+  removeBand,
+  updateBand,
+  reorderBands,
+  reanchorBandsAfterRemovals,
+} from "./band-service";

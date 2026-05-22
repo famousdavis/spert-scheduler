@@ -1,11 +1,100 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
+import type { Row, Worksheet } from "exceljs";
+import type { ActivityBand } from "@domain/models/types";
 import {
   buildSummaryData,
   buildGridRows,
+  type GridRow,
   type ScheduleExportParams,
 } from "./schedule-export-service";
+import { buildRenderList } from "@ui/helpers/band-utils";
+
+function buildActivityCells(row: GridRow, hasDeps: boolean): (string | number)[] {
+  const cells: (string | number)[] = [
+    row.num,
+    row.name,
+    row.min,
+    row.mostLikely,
+    row.max,
+    row.confidence,
+    row.distribution,
+    row.status,
+    row.actual,
+    row.duration,
+    row.startDate,
+    row.endDate,
+  ];
+  if (hasDeps) {
+    cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
+    cells.push(
+      row.predecessors ?? "", row.successors ?? "",
+      row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
+      row.constraintNote ?? "",
+    );
+  }
+  // Task details use newlines in XLSX (multiline cells supported)
+  cells.push(row.tasks ?? "");
+  cells.push(row.taskDetails ? row.taskDetails.replace(/; /g, "\n") : "");
+  cells.push(row.deliverables ?? "");
+  cells.push(row.deliverableDetails ? row.deliverableDetails.replace(/; /g, "\n") : "");
+  cells.push("Activity"); // Type column
+  return cells;
+}
+
+type BorderSpec = {
+  top: { style: "thin"; color: { argb: string } };
+  left: { style: "thin"; color: { argb: string } };
+  bottom: { style: "thin"; color: { argb: string } };
+  right: { style: "thin"; color: { argb: string } };
+};
+
+function writeBandRow(
+  ws: Worksheet,
+  rowNum: number,
+  band: ActivityBand,
+  lastCol: number,
+  thinBorder: BorderSpec,
+): Row {
+  const dataRow = ws.getRow(rowNum);
+  dataRow.height = 20;
+
+  // Column 1 — no sequence number, no border
+  dataRow.getCell(1).value = null;
+
+  // Name cell — column 2
+  const nameCell = dataRow.getCell(2);
+  nameCell.value = band.name === "" ? null : xlsxSanitize(band.name);
+  nameCell.font = { bold: true, size: 13 };
+
+  const fillArgb = band.color
+    ? mixWithWhite(band.color, 0.2)
+    : "FFF3F4F6"; // light gray fallback
+  nameCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fillArgb } };
+
+  if (band.color) {
+    const hex = band.color.replace(/^#/, "").toUpperCase();
+    nameCell.border = {
+      ...thinBorder,
+      left: { style: "medium", color: { argb: "FF" + hex } },
+    };
+  } else {
+    nameCell.border = thinBorder;
+  }
+
+  // Data cells — intentionally no border (display divider)
+  for (let c = 3; c < lastCol; c++) {
+    dataRow.getCell(c).value = null;
+  }
+
+  // Type cell — column lastCol
+  const typeCell = dataRow.getCell(lastCol);
+  typeCell.value = "Section";
+  typeCell.border = thinBorder;
+
+  return dataRow;
+}
 
 /**
  * Guard against Excel formula injection in XLSX cells (OWASP).
@@ -19,6 +108,21 @@ export function xlsxSanitize(value: string | number): string | number {
   return value;
 }
 
+/**
+ * Mix a 6-char hex color with white. `opacity` must be in [0, 1]:
+ * 0.2 means 20% color, 80% white. Returns an opaque ARGB string in uppercase
+ * (e.g. "FFFFCCCC"), matching the surrounding codebase convention.
+ */
+export function mixWithWhite(hex: string, opacity: number): string {
+  const h = hex.replace(/^#/, "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const mix = (c: number) => Math.round(c * opacity + 255 * (1 - opacity));
+  const toHex = (c: number) => mix(c).toString(16).padStart(2, "0").toUpperCase();
+  return `FF${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 export async function exportScheduleXlsx(
   params: ScheduleExportParams
 ): Promise<ArrayBuffer> {
@@ -30,6 +134,9 @@ export async function exportScheduleXlsx(
   const rows = buildGridRows(params);
   const hasDeps = params.settings.dependencyMode;
   const pctLabel = `P${Math.round(params.settings.probabilityTarget * 100)}`;
+
+  const rowMap = new Map(rows.map((r) => [r.activityId, r]));
+  const renderItems = buildRenderList(params.activities, params.bands ?? []);
 
   // ---- Styles ----
   const headerFill = {
@@ -51,7 +158,7 @@ export async function exportScheduleXlsx(
 
   // ---- Title row ----
   let rowNum = 1;
-  const lastCol = hasDeps ? 24 : 16;
+  const lastCol = hasDeps ? 25 : 17;
   ws.mergeCells(rowNum, 1, rowNum, lastCol);
   const titleCell = ws.getCell(rowNum, 1);
   titleCell.value = xlsxSanitize(`${params.projectName} — ${params.scenarioName}`);
@@ -92,6 +199,7 @@ export async function exportScheduleXlsx(
     headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
   }
   headers.push("Tasks", "Task Details", "Deliverables", "Deliverable Details");
+  headers.push("Type");
 
   const headerRow = ws.getRow(rowNum);
   headers.forEach((h, i) => {
@@ -103,49 +211,23 @@ export async function exportScheduleXlsx(
   });
   rowNum++;
 
-  // ---- Data rows ----
-  for (const row of rows) {
-    const cells: (string | number)[] = [
-      row.num,
-      row.name,
-      row.min,
-      row.mostLikely,
-      row.max,
-      row.confidence,
-      row.distribution,
-      row.status,
-      row.actual,
-      row.duration,
-      row.startDate,
-      row.endDate,
-    ];
-    if (hasDeps) {
-      cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
-      cells.push(
-        row.predecessors ?? "", row.successors ?? "",
-        row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
-        row.constraintNote ?? "",
-      );
+  // ---- Data rows — iterate render list (activities + bands interleaved) ----
+  for (const item of renderItems) {
+    if (item.kind === "activity") {
+      // Non-null safe: renderItems is built from params.activities, the same source
+      // buildGridRows processed; every activity ID maps and only kind==='activity'
+      // items reference IDs in that array.
+      const row = rowMap.get(item.activity.id)!;
+      const cells = buildActivityCells(row, hasDeps);
+      const dataRow = ws.getRow(rowNum);
+      cells.forEach((val, i) => {
+        const cell = dataRow.getCell(i + 1);
+        cell.value = val === "" ? null : xlsxSanitize(val);
+        cell.border = thinBorder;
+      });
+    } else {
+      writeBandRow(ws, rowNum, item.band, lastCol, thinBorder);
     }
-    // Task details use newlines in XLSX (multiline cells supported)
-    cells.push(row.tasks ?? "");
-    cells.push(
-      row.taskDetails
-        ? row.taskDetails.replace(/; /g, "\n")
-        : ""
-    );
-    cells.push(row.deliverables ?? "");
-    cells.push(
-      row.deliverableDetails
-        ? row.deliverableDetails.replace(/; /g, "\n")
-        : ""
-    );
-    const dataRow = ws.getRow(rowNum);
-    cells.forEach((val, i) => {
-      const cell = dataRow.getCell(i + 1);
-      cell.value = val === "" ? null : xlsxSanitize(val);
-      cell.border = thinBorder;
-    });
     rowNum++;
   }
 
@@ -173,6 +255,7 @@ export async function exportScheduleXlsx(
   const widths = [colAWidth, 30, 8, 12, 8, 16, 14, 12, 8, 14, 14, 14];
   if (hasDeps) widths.push(14, 14, 16, 16, 16, 14, 10, 30);
   widths.push(8, 40, 12, 40);
+  widths.push(10); // Type column — always present
   ws.columns = widths.map((w) => ({ width: w }));
 
   // ---- Freeze pane at column header row ----
