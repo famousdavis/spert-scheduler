@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.45.6 — 2026-05-22
+
+### Cloud — custom Gantt colors persist correctly + quieter refresh
+
+- **Fix:** custom Gantt bar colors no longer revert after a browser refresh in cloud mode. The Firestore save path uses `setDoc(..., { merge: true })` so it doesn't clobber the `owner`/`members` fields, but Firestore's deep merge means keys that transitioned to `undefined` locally (e.g. a preset click clearing `customPlannedColor` / `customInProgressColor` / `customCompletedColor`) were silently left in place on the server document. The `sanitizeForFirestore` helper stripped those keys instead of marking them for deletion, so the stale values reappeared after refresh. New `sanitizeForFirestoreMerge` in `firestore-sanitize.ts` replaces `undefined` map-keys with Firestore's `deleteField()` sentinel; `doSave` uses it, while `create()` (no doc to merge into) keeps the existing strip-undefined behavior. Arrays still strip-undefined because they're atomic under merge:true and `deleteField()` is forbidden inside array elements.
+- **UX:** suppressed the "Cloud sync error — changes may not have saved. Check your connection." toast during two narrow false-positive windows: (a) the first ~2 s after the initial cloud load settles (where write-forward migration saves and other transient races can fire), and (b) any period after `beforeunload` has latched (where in-flight setDoc calls can race a hard refresh). Errors continue to log to the console regardless. Real connectivity errors during an active editing session still surface normally.
+- **Tests:** new regression coverage in `firestore-sanitize.test.ts` (merge sentinels for cleared keys, array element handling) and `firestore-driver.test.ts` (`doSave` payload contains the delete sentinel for cleared Gantt color fields).
+
 ## 0.45.5 — 2026-05-22
 
 ### Bug fix — no more phantom uncertainty hatching on completed activities

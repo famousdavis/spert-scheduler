@@ -32,6 +32,7 @@ import {
 } from "./firebase";
 import {
   sanitizeForFirestore,
+  sanitizeForFirestoreMerge,
   stripFirestoreFields,
   stripSimulationResultsForCloud,
 } from "./firestore-sanitize";
@@ -258,7 +259,11 @@ export class FirestoreDriver {
       const cleaned = stripSimulationResultsForCloud(project);
       // eslint-disable-next-line sonarjs/no-unused-vars
       const { id: _docId, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
-      const data = sanitizeForFirestore({
+      // Merge-aware sanitize: `undefined` map-keys become `deleteField()`
+      // sentinels so that fields cleared locally (e.g. custom Gantt colors
+      // reset by a preset click) are actually removed on the server doc
+      // instead of lingering through Firestore's deep merge.
+      const data = sanitizeForFirestoreMerge({
         ...rest,
         schemaVersion: SCHEMA_VERSION,
         updatedAt: serverTimestamp(),
