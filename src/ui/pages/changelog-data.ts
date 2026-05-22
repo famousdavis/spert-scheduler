@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.44.3",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Scenario comparison — table copy actually works now",
+        items: [
+          "Fix: the comparison-table copy button was still failing in v0.44.2. Root cause: the table's alternating-row class compiles in Tailwind v4 to a color-mix(in oklab, ...) expression that html2canvas couldn't parse. The neutralizer now recognizes oklch, oklab, and color-mix and routes all three through Canvas2D's fillStyle. Every copy-image button in the app benefits — same fix applies wherever Tailwind v4 opacity modifiers are used in a captured region.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.44.2",
     date: "2026-05-21",
     sections: [

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.44.3 — 2026-05-22
+
+### Scenario comparison — table copy actually works now
+
+- **Fix:** the comparison-table copy button was still failing in v0.44.2. Root cause (confirmed via the diagnostic console-error added in v0.44.2): the table's alternating-row class `bg-gray-50/50` compiles, in Tailwind v4, to `color-mix(in oklab, var(--color-gray-50) 50%, transparent)`. Even after the prior pass resolved the `oklch` CSS variable, the surviving `color-mix(in oklab, …)` wrapper made html2canvas throw `Attempting to parse an unsupported color function "oklab"`. The neutralizer in `export-chart.ts` now recognizes `oklch`, `oklab`, AND `color-mix` and routes all three through Canvas2D's `fillStyle`. Every existing copy-image button benefits — same fix applies wherever Tailwind v4 opacity modifiers are used in a captured region.
+
 ## 0.44.2 — 2026-05-21
 
 ### Scenario comparison — copy fixes
