@@ -322,6 +322,67 @@ describe("activity mutations", () => {
     expect(updated.activities).toHaveLength(1);
   });
 
+  it("addActivityToScenario re-anchors trailing bands (null anchor) onto the new activity", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", DEFAULT_SCENARIO_SETTINGS);
+    const withA1AndTrailingBand: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [
+        { id: "b1", name: "Phase 1", insertBeforeActivityId: a1.id },
+        { id: "b2", name: "Phase 2", insertBeforeActivityId: null },
+      ],
+    };
+    const a2 = createActivity("Second", DEFAULT_SCENARIO_SETTINGS);
+    const updated = addActivityToScenario(withA1AndTrailingBand, a2);
+    expect(updated.activities).toEqual([a1, a2]);
+    // Existing anchored band unchanged
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(a1.id);
+    // Trailing band now anchored to the new activity
+    expect(updated.bands![1]!.insertBeforeActivityId).toBe(a2.id);
+  });
+
+  it("addActivityToScenario re-anchors orphaned bands (anchor points to non-existent activity) onto the new activity", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", DEFAULT_SCENARIO_SETTINGS);
+    const withOrphanBand: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [
+        { id: "b1", name: "Stale", insertBeforeActivityId: "deleted-activity-id" },
+      ],
+    };
+    const a2 = createActivity("Second", DEFAULT_SCENARIO_SETTINGS);
+    const updated = addActivityToScenario(withOrphanBand, a2);
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(a2.id);
+  });
+
+  it("addActivityToScenario does not re-anchor bands already anchored to existing activities", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", DEFAULT_SCENARIO_SETTINGS);
+    const a2 = createActivity("Second", DEFAULT_SCENARIO_SETTINGS);
+    const withBoth: Scenario = {
+      ...scenario,
+      activities: [a1, a2],
+      bands: [
+        { id: "b1", name: "Phase 1", insertBeforeActivityId: a1.id },
+        { id: "b2", name: "Phase 2", insertBeforeActivityId: a2.id },
+      ],
+    };
+    const a3 = createActivity("Third", DEFAULT_SCENARIO_SETTINGS);
+    const updated = addActivityToScenario(withBoth, a3);
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(a1.id);
+    expect(updated.bands![1]!.insertBeforeActivityId).toBe(a2.id);
+  });
+
+  it("addActivityToScenario with no bands works unchanged", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const activity = createActivity("Task", DEFAULT_SCENARIO_SETTINGS);
+    const updated = addActivityToScenario(scenario, activity);
+    expect(updated.activities).toEqual([activity]);
+    expect(updated.bands).toEqual([]);
+  });
+
   it("updateActivity clears simulationResults", () => {
     const scenario = createScenario("Test", "2025-01-06");
     const activity = createActivity("Task", scenario.settings);
@@ -361,5 +422,164 @@ describe("activity mutations", () => {
     const reordered = reorderActivities(withActivities, 0, 1);
     expect(reordered.activities[0]!.name).toBe("Second");
     expect(reordered.activities[1]!.name).toBe("First");
+  });
+});
+
+describe("cloneScenario with bands", () => {
+  function makeWithBands(): Scenario {
+    const scenario = createScenario("Original", "2025-01-06");
+    const a1 = createActivity("Task 1", scenario.settings);
+    const a2 = createActivity("Task 2", scenario.settings);
+    return {
+      ...scenario,
+      activities: [a1, a2],
+      bands: [
+        { id: "b1", name: "Discovery", insertBeforeActivityId: a1.id },
+        { id: "b2", name: "Trailing", insertBeforeActivityId: null },
+      ],
+    };
+  }
+
+  it("clones bands with fresh IDs", () => {
+    const original = makeWithBands();
+    const clone = cloneScenario(original, "Clone");
+    expect(clone.bands).toHaveLength(2);
+    expect(clone.bands?.[0]?.id).not.toBe(original.bands?.[0]?.id);
+    expect(clone.bands?.[1]?.id).not.toBe(original.bands?.[1]?.id);
+  });
+
+  it("remaps insertBeforeActivityId through oldToNewId", () => {
+    const original = makeWithBands();
+    const clone = cloneScenario(original, "Clone");
+    const anchoredBand = clone.bands?.find((b) => b.name === "Discovery");
+    expect(anchoredBand?.insertBeforeActivityId).toBe(clone.activities[0]!.id);
+    expect(anchoredBand?.insertBeforeActivityId).not.toBe(original.activities[0]!.id);
+  });
+
+  it("sets insertBeforeActivityId to null when anchor was dropped (dropCompleted)", () => {
+    const scenario = createScenario("Original", "2025-01-06");
+    const completed = createActivity("Done", scenario.settings);
+    const planned = createActivity("Upcoming", scenario.settings);
+    const original: Scenario = {
+      ...scenario,
+      activities: [
+        { ...completed, status: "complete", actualDuration: 5 },
+        { ...planned, status: "planned" },
+      ],
+      bands: [
+        { id: "b1", name: "Anchored to completed", insertBeforeActivityId: completed.id },
+      ],
+    };
+    const clone = cloneScenario(original, "Clone", { dropCompleted: true });
+    expect(clone.activities).toHaveLength(1);
+    expect(clone.bands?.[0]?.insertBeforeActivityId).toBeNull();
+  });
+
+  it("leaves null anchor as null", () => {
+    const original = makeWithBands();
+    const clone = cloneScenario(original, "Clone");
+    const trailing = clone.bands?.find((b) => b.name === "Trailing");
+    expect(trailing?.insertBeforeActivityId).toBeNull();
+  });
+
+  it("clones a scenario without bands without error", () => {
+    const scenario = createScenario("Original", "2025-01-06");
+    const a1 = createActivity("Task 1", scenario.settings);
+    const original: Scenario = { ...scenario, activities: [a1] };
+    const clone = cloneScenario(original, "Clone");
+    expect(clone.bands).toEqual([]);
+  });
+});
+
+describe("removeActivityFromScenario with bands", () => {
+  function setup(): { scenario: Scenario; a1: ReturnType<typeof createActivity>; a2: ReturnType<typeof createActivity>; a3: ReturnType<typeof createActivity> } {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("A1", scenario.settings);
+    const a2 = createActivity("A2", scenario.settings);
+    const a3 = createActivity("A3", scenario.settings);
+    return { scenario, a1, a2, a3 };
+  }
+
+  it("re-anchors a band to the next activity after removal", () => {
+    const { scenario, a1, a2, a3 } = setup();
+    const withBands: Scenario = {
+      ...scenario,
+      activities: [a1, a2, a3],
+      bands: [{ id: "b1", name: "X", insertBeforeActivityId: a2.id }],
+    };
+    const updated = removeActivityFromScenario(withBands, a2.id);
+    expect(updated.bands?.[0]?.insertBeforeActivityId).toBe(a3.id);
+  });
+
+  it("returns null anchor when the removed activity was the last", () => {
+    const { scenario, a1, a2, a3 } = setup();
+    const withBands: Scenario = {
+      ...scenario,
+      activities: [a1, a2, a3],
+      bands: [{ id: "b1", name: "X", insertBeforeActivityId: a3.id }],
+    };
+    const updated = removeActivityFromScenario(withBands, a3.id);
+    expect(updated.bands?.[0]?.insertBeforeActivityId).toBeNull();
+  });
+
+  it("returns null anchor when the list becomes empty after removal", () => {
+    const { scenario, a1 } = setup();
+    const withBands: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [{ id: "b1", name: "X", insertBeforeActivityId: a1.id }],
+    };
+    const updated = removeActivityFromScenario(withBands, a1.id);
+    expect(updated.bands?.[0]?.insertBeforeActivityId).toBeNull();
+  });
+
+  it("leaves bands anchored to other activities unaffected", () => {
+    const { scenario, a1, a2, a3 } = setup();
+    const withBands: Scenario = {
+      ...scenario,
+      activities: [a1, a2, a3],
+      bands: [
+        { id: "b1", name: "Anchored to a3", insertBeforeActivityId: a3.id },
+        { id: "b2", name: "Trailing", insertBeforeActivityId: null },
+      ],
+    };
+    const updated = removeActivityFromScenario(withBands, a2.id);
+    expect(updated.bands?.[0]?.insertBeforeActivityId).toBe(a3.id);
+    expect(updated.bands?.[1]?.insertBeforeActivityId).toBeNull();
+  });
+
+  it("returns same reference when activity ID not found", () => {
+    const { scenario, a1 } = setup();
+    const withBands: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [{ id: "b1", name: "X", insertBeforeActivityId: a1.id }],
+    };
+    const result = removeActivityFromScenario(withBands, "missing");
+    expect(result).toBe(withBands);
+  });
+
+  it("preserves existing behavior: removes dependencies referencing the activity", () => {
+    const { scenario, a1, a2 } = setup();
+    const withDeps: Scenario = {
+      ...scenario,
+      activities: [a1, a2],
+      dependencies: [
+        { fromActivityId: a1.id, toActivityId: a2.id, type: "FS", lagDays: 0 },
+      ],
+    };
+    const updated = removeActivityFromScenario(withDeps, a2.id);
+    expect(updated.dependencies).toEqual([]);
+  });
+
+  it("preserves existing behavior: sets simulationResults to undefined", () => {
+    const { scenario, a1, a2 } = setup();
+    const withResults: Scenario = {
+      ...scenario,
+      activities: [a1, a2],
+      simulationResults: { id: "sim1" } as SimulationRun,
+    };
+    const updated = removeActivityFromScenario(withResults, a2.id);
+    expect(updated.simulationResults).toBeUndefined();
   });
 });

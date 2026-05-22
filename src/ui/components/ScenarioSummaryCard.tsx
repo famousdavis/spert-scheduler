@@ -3,7 +3,7 @@
 
 import { useId, useState, useCallback, type ReactNode } from "react";
 import { ToggleSwitch } from "./ToggleSwitch";
-import type { Activity, ActivityDependency, DeterministicSchedule, Milestone, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
+import type { Activity, ActivityBand, ActivityDependency, DeterministicSchedule, Milestone, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
@@ -65,6 +65,7 @@ interface ScenarioSummaryCardProps {
   projectName: string;
   scenarioName: string;
   activities: Activity[];
+  bands: ActivityBand[];
   dependencies: ActivityDependency[];
   milestones: Milestone[];
   onRunSimulation?: () => void;
@@ -81,6 +82,7 @@ interface UseScheduleExportParams {
   projectName: string;
   scenarioName: string;
   activities: Activity[];
+  bands: ActivityBand[];
   schedule: DeterministicSchedule | null;
   buffer: ScheduleBuffer | null;
   settings: ScenarioSettings;
@@ -94,6 +96,7 @@ function useScheduleExport({
   projectName,
   scenarioName,
   activities,
+  bands,
   schedule,
   buffer,
   settings,
@@ -108,8 +111,8 @@ function useScheduleExport({
 
   const buildExportParams = useCallback((): ScheduleExportParams | null => {
     if (!schedule) return null;
-    return { projectName, scenarioName, activities, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat };
-  }, [projectName, scenarioName, activities, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat]);
+    return { projectName, scenarioName, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat };
+  }, [projectName, scenarioName, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat]);
 
   const handleExportXlsx = useCallback(async () => {
     const params = buildExportParams();
@@ -151,6 +154,7 @@ export function ScenarioSummaryCard({
   projectName,
   scenarioName,
   activities,
+  bands,
   dependencies,
   milestones,
   onRunSimulation,
@@ -197,7 +201,7 @@ export function ScenarioSummaryCard({
 
   // Schedule export state
   const { exporting, exportDisabled, handleExportXlsx, handleExportCsv } = useScheduleExport({
-    projectName, scenarioName, activities, schedule, buffer,
+    projectName, scenarioName, activities, bands, schedule, buffer,
     settings, dependencies, milestones, calendar, hasSimulationResults,
   });
 

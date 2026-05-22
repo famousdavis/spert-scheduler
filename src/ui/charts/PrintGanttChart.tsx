@@ -4,6 +4,7 @@
 import { useCallback, useMemo } from "react";
 import type {
   Activity,
+  ActivityBand,
   ActivityDependency,
   GanttAppearanceSettings,
   Milestone,
@@ -23,9 +24,11 @@ import {
 } from "./gantt-constants";
 import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks } from "./gantt-utils";
 import type { TickLevel } from "./gantt-utils";
+import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 
 export interface PrintGanttChartProps {
   activities: Activity[];
+  bands?: ActivityBand[];
   scheduledActivities: ScheduledActivity[];
   projectStartDate: string;
   projectEndDate: string;
@@ -49,6 +52,7 @@ export interface PrintGanttChartProps {
 
 export function PrintGanttChart({
   activities,
+  bands = [],
   scheduledActivities,
   projectStartDate,
   projectEndDate,
@@ -85,12 +89,17 @@ export function PrintGanttChart({
 
   const ordered = activities;
 
-  // Row index map for dependency arrows
-  const rowIndex = useMemo(() => {
-    const m = new Map<string, number>();
-    ordered.forEach((a, i) => m.set(a.id, i));
-    return m;
-  }, [ordered]);
+  // Build interleaved render list (bands + activities)
+  const renderItems = useMemo(
+    () => buildRenderList(ordered, bands),
+    [ordered, bands]
+  );
+
+  // Row index map for dependency arrows — slot-aware (skips band rows)
+  const rowIndex = useMemo(
+    () => buildActivitySlotMap(renderItems),
+    [renderItems]
+  );
 
   const showBuffer = buffer && buffer.bufferDays > 0 && bufferedEndDate;
   const endDate = milestones.reduce(
@@ -103,7 +112,7 @@ export function PrintGanttChart({
     + (projectName ? PRINT_PROJECT_NAME_H : 0)
     + (milestones.length > 0 ? PRINT_MILESTONE_EXTRA_TOP : 0);
 
-  const totalRows = ordered.length + (showBuffer ? 1 : 0);
+  const totalRows = renderItems.length + (showBuffer ? 1 : 0);
   const chartW = 700;
   const chartH = topMargin + totalRows * ra.printRowHeight + 8;
   const areaW = chartW - ra.printLeftMargin - PRINT_RIGHT;
@@ -273,9 +282,10 @@ export function PrintGanttChart({
           />
         ))}
 
-        {/* Row guide lines — faint horizontal lines every 3 rows */}
-        {ra.rowGuideLines && ordered.map((_, idx) => {
-          if ((idx + 1) % 3 !== 0 || idx + 1 >= ordered.length) return null;
+        {/* Row guide lines — faint horizontal lines every 3 rows.
+            Band rows participate in the count; overlap with a band rule is accepted. */}
+        {ra.rowGuideLines && renderItems.map((_, idx) => {
+          if ((idx + 1) % 3 !== 0 || idx + 1 >= renderItems.length) return null;
           const y = topMargin + (idx + 1) * ra.printRowHeight;
           return (
             <line
@@ -366,6 +376,43 @@ export function PrintGanttChart({
           );
         })()}
 
+        {/* Pass 1 — Band rows (rendered before arrows so arrows paint on top of the band rule).
+            `idx` from the full renderItems list gives the correct slot-based Y. */}
+        {renderItems.map((item, idx) => {
+          if (item.kind !== "band") return null;
+          const y = topMargin + idx * ra.printRowHeight;
+          const midY = y + ra.printRowHeight / 2;
+          const bandColor = item.band.color ?? c.textMuted;
+          const displayName = item.band.name.trim() || "(unnamed section)";
+          const truncated = displayName.length > ra.printNameCharLimit
+            ? displayName.slice(0, ra.printNameCharLimit - 2) + "..."
+            : displayName;
+          return (
+            <g key={`band-${item.band.id}`}>
+              <text
+                x={ra.printLeftMargin - 4}
+                y={midY}
+                textAnchor="end"
+                dominantBaseline="central"
+                fontSize={fs7}
+                fontWeight="700"
+                fill={bandColor}
+              >
+                {truncated}
+              </text>
+              <line
+                x1={ra.printLeftMargin}
+                y1={midY}
+                x2={chartW - PRINT_RIGHT}
+                y2={midY}
+                stroke={bandColor}
+                strokeWidth={0.75}
+                opacity={0.5}
+              />
+            </g>
+          );
+        })}
+
         {/* Dependency arrows — rendered before bars so bars paint on top */}
         {effectiveDependencies.map(({ dep, synthetic }, i) => {
           const fromRow = rowIndex.get(dep.fromActivityId);
@@ -420,8 +467,11 @@ export function PrintGanttChart({
           );
         })}
 
-        {/* Activity rows */}
-        {ordered.map((act, idx) => {
+        {/* Pass 2 — Activity rows. Iterates the full renderItems list so `idx`
+            gives the correct slot-based Y; bands skipped (rendered in Pass 1). */}
+        {renderItems.map((item, idx) => {
+          if (item.kind !== "activity") return null;
+          const act = item.activity;
           const sa = scheduleMap.get(act.id);
           if (!sa) return null;
           const y = topMargin + idx * ra.printRowHeight;
@@ -481,7 +531,7 @@ export function PrintGanttChart({
         {showBuffer && bufferedEndDate && (
           <g>
             {(() => {
-              const y = topMargin + ordered.length * ra.printRowHeight;
+              const y = topMargin + renderItems.length * ra.printRowHeight;
               const barY = y + (ra.printRowHeight - ra.printBarHeight) / 2;
               const x1 = toX(projectEndDate);
               const x2 = toX(bufferedEndDate);

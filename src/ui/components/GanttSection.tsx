@@ -4,6 +4,7 @@
 import { useState, useRef } from "react";
 import type {
   Activity,
+  ActivityBand,
   ActivityDependency,
   GanttAppearanceSettings,
   Milestone,
@@ -20,6 +21,7 @@ import { CopyImageButton } from "./CopyImageButton";
 
 interface GanttSectionProps {
   activities: Activity[];
+  bands?: ActivityBand[];
   scheduledActivities: ScheduledActivity[];
   projectStartDate: string;
   projectEndDate: string;

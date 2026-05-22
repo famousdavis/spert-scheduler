@@ -446,6 +446,7 @@ export function PrintableReport({
       {schedule && scheduledActivities.length > 0 && (
         <PrintGanttChart
           activities={scenario.activities}
+          bands={scenario.bands ?? []}
           scheduledActivities={scheduledActivities}
           projectStartDate={scenario.startDate}
           projectEndDate={schedule.projectEndDate}

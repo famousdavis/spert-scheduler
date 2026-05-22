@@ -1038,4 +1038,71 @@ describe("applyMigrations", () => {
     expect(result.targetFinishDate).toBe(null);
     expect(result.showTargetOnGantt).toBe(false);
   });
+
+  // -- v20 → v21: bands on scenarios ------------------------------------------
+
+  it("v20→v21: adds empty bands array to scenarios without one", () => {
+    const data = {
+      schemaVersion: 20,
+      scenarios: [
+        { id: "s1", settings: {}, activities: [] },
+        { id: "s2", settings: {}, activities: [] },
+      ],
+    };
+    const result = applyMigrations(data, 20, 21) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(21);
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios[0]!.bands).toEqual([]);
+    expect(scenarios[1]!.bands).toEqual([]);
+  });
+
+  it("v20→v21: preserves pre-existing bands unchanged", () => {
+    const existingBands = [
+      { id: "b1", name: "Discovery", insertBeforeActivityId: "a1" },
+      { id: "b2", name: "Build", insertBeforeActivityId: null, color: "#94a3b8" },
+    ];
+    const data = {
+      schemaVersion: 20,
+      scenarios: [
+        { id: "s1", settings: {}, activities: [], bands: existingBands },
+      ],
+    };
+    const result = applyMigrations(data, 20, 21) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(21);
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    expect(scenarios[0]!.bands).toEqual(existingBands);
+  });
+
+  it("v20→v21: preserves other scenario and activity fields unchanged", () => {
+    const data = {
+      schemaVersion: 20,
+      scenarios: [
+        {
+          id: "s1",
+          name: "Baseline",
+          startDate: "2025-02-01",
+          settings: { probabilityTarget: 0.5, projectProbabilityTarget: 0.95 },
+          activities: [
+            { id: "a1", name: "Task 1", min: 1, mostLikely: 2, max: 3 },
+          ],
+          dependencies: [],
+          milestones: [],
+        },
+      ],
+    };
+    const result = applyMigrations(data, 20, 21) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(21);
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    const s1 = scenarios[0]!;
+    expect(s1.id).toBe("s1");
+    expect(s1.name).toBe("Baseline");
+    expect(s1.startDate).toBe("2025-02-01");
+    expect(s1.settings).toEqual({ probabilityTarget: 0.5, projectProbabilityTarget: 0.95 });
+    expect(s1.activities).toEqual([
+      { id: "a1", name: "Task 1", min: 1, mostLikely: 2, max: 3 },
+    ]);
+    expect(s1.dependencies).toEqual([]);
+    expect(s1.milestones).toEqual([]);
+    expect(s1.bands).toEqual([]);
+  });
 });

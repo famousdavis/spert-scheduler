@@ -12,6 +12,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.0",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "New Feature — Section Headers",
+        items: [
+          'New "+ Section" button next to "+ Add Activity" inserts a section header at the bottom of the list; drag it to any position',
+          "All activities following a section header appear below its label on the Gantt chart",
+          "Each section header has an editable name, an optional color chosen from a palette, and a delete button",
+          "Up to 50 section headers per scenario are supported",
+          "Locked scenarios prevent all changes to section headers",
+          "Section headers appear in the Gantt chart as a bold label with a horizontal rule spanning the full chart width",
+          "Section headers appear in printed PDF reports",
+          "Section headers appear in CSV and Excel exports as labeled rows",
+          "CSV and Excel re-import skips section rows without error; section labels are not reconstructed on re-import — export to JSON to preserve section headers across export/import round-trips",
+          "Section headers carry no scheduling logic and do not affect simulation results",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.44.3",
     date: "2026-05-22",
     sections: [

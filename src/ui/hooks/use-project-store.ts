@@ -6,6 +6,7 @@ import type {
   Project,
   Scenario,
   Activity,
+  ActivityBand,
   Calendar,
   ChecklistItem,
   DeliverableItem,
@@ -44,6 +45,13 @@ import {
   assignActivityToMilestone as assignActivityToMilestoneFn,
   setActivityStartsAtMilestone as setActivityStartsAtMilestoneFn,
 } from "@app/api/project-service";
+import {
+  addBand as addBandSvc,
+  removeBand as removeBandSvc,
+  updateBand as updateBandSvc,
+  reorderBands as reorderBandsSvc,
+  reanchorBandsAfterRemovals,
+} from "@app/api/band-service";
 import type { CloneOptions } from "@app/api/project-service";
 import { generateId } from "@app/api/id";
 import {
@@ -324,6 +332,22 @@ export interface ProjectStore {
     scenarioId: string,
     fromIndex: number,
     toIndex: number
+  ) => void;
+
+  // Bands (Activity Bands / Section Headers)
+  addBand: (projectId: string, scenarioId: string) => void;
+  deleteBand: (projectId: string, scenarioId: string, bandId: string) => void;
+  updateBand: (
+    projectId: string,
+    scenarioId: string,
+    bandId: string,
+    updates: Partial<ActivityBand>
+  ) => void;
+  reorderWithBands: (
+    projectId: string,
+    scenarioId: string,
+    activities: Activity[],
+    bands: ActivityBand[]
   ) => void;
 
   // Simulation
@@ -833,6 +857,39 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       reorderActivities(s, fromIndex, toIndex)
     ),
 
+  addBand: (projectId, scenarioId) =>
+    mutateScenario(projectId, scenarioId, (s) => {
+      const band: ActivityBand = {
+        id: generateId(),
+        name: "",
+        insertBeforeActivityId: null,
+        color: undefined,
+      };
+      // NOTE: simulationResults NOT cleared — bands are display only.
+      return addBandSvc(s, band);
+    }),
+
+  deleteBand: (projectId, scenarioId, bandId) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      // NOTE: simulationResults NOT cleared — bands are display only.
+      removeBandSvc(s, bandId)
+    ),
+
+  updateBand: (projectId, scenarioId, bandId, updates) =>
+    mutateScenario(projectId, scenarioId, (s) =>
+      // NOTE: simulationResults NOT cleared — bands are display only.
+      updateBandSvc(s, bandId, updates)
+    ),
+
+  reorderWithBands: (projectId, scenarioId, activities, bands) =>
+    mutateScenario(projectId, scenarioId, (s) => ({
+      ...reorderBandsSvc(s, bands),
+      activities,
+      // Activity reorder changes schedule order in non-dependency mode.
+      // Matches reorderActivities convention — invalidate stale results.
+      simulationResults: undefined,
+    })),
+
   setSimulationResults: (projectId, scenarioId, results) => {
     set((state) => {
       const projects = updateScenarioInList(state.projects, projectId, scenarioId, (s) => ({
@@ -955,9 +1012,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   bulkDeleteActivities: (projectId, scenarioId, activityIds) =>
     mutateScenario(projectId, scenarioId, (s) => {
       const cleaned = removeActivitiesDeps(s, activityIds);
+      const survivors = s.activities.filter((a) => !activityIds.includes(a.id));
+      const newBands = reanchorBandsAfterRemovals(
+        s.bands ?? [],
+        new Set(activityIds),
+        s.activities, // original list, before filter
+        survivors,
+      );
       return {
         ...cleaned,
-        activities: cleaned.activities.filter((a) => !activityIds.includes(a.id)),
+        activities: survivors,
+        bands: newBands,
         simulationResults: undefined,
       };
     }),

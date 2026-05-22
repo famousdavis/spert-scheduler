@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import type { RefObject } from "react";
-import type { Activity, Milestone } from "@domain/models/types";
+import type { Activity, ActivityBand, Milestone } from "@domain/models/types";
 import { formatDateISO } from "@core/calendar/calendar";
 import {
   RIGHT_MARGIN, TOP_MARGIN,
@@ -11,6 +11,8 @@ import {
 } from "@ui/charts/gantt-constants";
 import { dateToX, generateTicks, suppressOverlappingTicks } from "@ui/charts/gantt-utils";
 import type { TickLevel } from "@ui/charts/gantt-utils";
+import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
+import type { GanttRenderItem } from "@ui/helpers/band-utils";
 
 export interface GanttLayout {
   chartWidth: number;
@@ -30,10 +32,12 @@ export interface GanttLayout {
   milestoneXPositions: number[];
   rowIndex: Map<string, number>;
   barYOffset: number;
+  renderItems: GanttRenderItem[];
 }
 
 interface UseGanttLayoutArgs {
   orderedActivities: Activity[];
+  bands?: ActivityBand[];
   projectStartDate: string;
   furthestDate: string;
   bufferedEndDate: string | null;
@@ -52,6 +56,7 @@ interface UseGanttLayoutArgs {
 
 export function useGanttLayout({
   orderedActivities,
+  bands = [],
   projectStartDate,
   furthestDate,
   bufferedEndDate,
@@ -83,7 +88,17 @@ export function useGanttLayout({
     return () => observer.disconnect();
   }, [svgContainerRef]);
 
-  const totalRows = orderedActivities.length + (showBuffer ? 1 : 0);
+  const renderItems = useMemo(
+    () => buildRenderList(orderedActivities, bands),
+    [orderedActivities, bands]
+  );
+
+  const activitySlotMap = useMemo(
+    () => buildActivitySlotMap(renderItems),
+    [renderItems]
+  );
+
+  const totalRows = renderItems.length + (showBuffer ? 1 : 0);
   let topMargin = milestones.length > 0 ? TOP_MARGIN + 26 : TOP_MARGIN;
   if (showProjectName && projectName) topMargin += PROJECT_NAME_HEIGHT;
   const chartHeight = topMargin + totalRows * rowHeight + 20;
@@ -164,12 +179,8 @@ export function useGanttLayout({
   // Bar Y offset
   const barYOffset = (rowHeight - barHeight) / 2;
 
-  // Row index map for dependency arrows
-  const rowIndex = useMemo(() => {
-    const m = new Map<string, number>();
-    orderedActivities.forEach((a, i) => m.set(a.id, i));
-    return m;
-  }, [orderedActivities]);
+  // Row index map for dependency arrows — slot-aware (skips band rows)
+  const rowIndex = activitySlotMap;
 
   return {
     chartWidth,
@@ -189,5 +200,6 @@ export function useGanttLayout({
     milestoneXPositions,
     rowIndex,
     barYOffset,
+    renderItems,
   };
 }

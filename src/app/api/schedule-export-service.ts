@@ -3,6 +3,7 @@
 
 import type {
   Activity,
+  ActivityBand,
   ActivityDependency,
   Calendar,
   DateFormatPreference,
@@ -36,6 +37,7 @@ export interface ScheduleExportParams {
   milestones: Milestone[]; // included for future use — NOT rendered in v0.18.0
   calendar?: WorkCalendar | Calendar;
   dateFormat: DateFormatPreference;
+  bands?: ActivityBand[]; // default [] when absent
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +101,7 @@ function formatItemColumn(
 }
 
 export interface GridRow {
+  activityId: string;
   num: number;
   name: string;
   min: number;
@@ -193,6 +196,7 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
     const usesConfidence =
       activity.distributionType === "normal" || activity.distributionType === "logNormal";
     const row: GridRow = {
+      activityId: activity.id,
       num: i + 1,
       name: activity.name,
       min: activity.min,
@@ -233,5 +237,5 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
 // ---------------------------------------------------------------------------
 
 export { exportScheduleCsv } from "./export-csv-formatter";
-export { exportScheduleXlsx, xlsxSanitize } from "./export-xlsx-formatter";
+export { exportScheduleXlsx, xlsxSanitize, mixWithWhite } from "./export-xlsx-formatter";
 

@@ -584,3 +584,81 @@ describe("early-exit row limit", () => {
     expect(result.errors.some((e) => e.message.includes("more than 500"))).toBe(true);
   });
 });
+
+// =============================================================================
+// Section row skip (Type column)
+// =============================================================================
+
+describe("Section row skip via Type column", () => {
+  const HEADER_WITH_TYPE = [...HEADER_ROW, "Type"];
+
+  it("skips rows with Type='Section' without producing errors", () => {
+    const rows: string[][] = [
+      HEADER_WITH_TYPE,
+      [...validRow("A1", "Task 1", "2", "4", "8", "Medium"), "Activity"],
+      ["S1", "Phase 2", "", "", "", "", "", "", "", "Section"],
+      [...validRow("A2", "Task 2", "3", "5", "9", "Medium"), "Activity"],
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toHaveLength(0);
+    expect(result.activities).toHaveLength(2);
+    expect(result.activities.map((a) => a.name)).toEqual(["Task 1", "Task 2"]);
+  });
+
+  it("does not skip rows with unknown Type values (e.g. 'Phase A')", () => {
+    const rows: string[][] = [
+      HEADER_WITH_TYPE,
+      [...validRow("A1", "Task 1", "2", "4", "8", "Medium"), "Phase A"],
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toHaveLength(0);
+    expect(result.activities).toHaveLength(1);
+    expect(result.activities[0]!.name).toBe("Task 1");
+  });
+
+  it("section-skip is case-insensitive and whitespace-tolerant", () => {
+    const rows: string[][] = [
+      HEADER_WITH_TYPE,
+      ["S1", "Header 1", "", "", "", "", "", "", "", "SECTION"],
+      ["S2", "Header 2", "", "", "", "", "", "", "", "  section  "],
+      [...validRow("A1", "Task 1", "2", "4", "8", "Medium"), "Activity"],
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toHaveLength(0);
+    expect(result.activities).toHaveLength(1);
+  });
+
+  it("pre-feature CSV (no Type column) imports correctly via the short-circuit", () => {
+    const rows = [
+      HEADER_ROW,
+      validRow("A1", "Task 1", "2", "4", "8", "Medium"),
+      validRow("A2", "Task 2", "3", "5", "9", "Medium"),
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toHaveLength(0);
+    expect(result.activities).toHaveLength(2);
+  });
+
+  it("assumeDefaultColumnOrder path does not trigger section skip (Type absent from default order)", () => {
+    // First column is normally Activity ID; assumeDefaultColumnOrder treats every
+    // row including the first as data and uses the 9-column default order. Both
+    // rows below have valid estimates and would be skipped if section-skip fired.
+    const rows: string[][] = [
+      ["A1", "Task 1", "2", "4", "8", "Medium", "normal", "planned", ""],
+      ["S1", "Header", "1", "2", "3", "Medium", "normal", "planned", ""],
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen(), { assumeDefaultColumnOrder: true });
+    // Both rows are treated as activities; Type column is not consulted
+    expect(result.activities).toHaveLength(2);
+  });
+
+  it("assumeDefaultColumnOrder with 500+ rows still hits activity-limit early-exit", () => {
+    const rows: string[][] = [];
+    for (let i = 1; i <= 510; i++) {
+      rows.push([`A${i}`, `Task ${i}`, "1", "2", "3", "Medium", "normal", "planned", ""]);
+    }
+    const result = parseFlatActivityTable(rows, makeIdGen(), { assumeDefaultColumnOrder: true });
+    expect(result.activities).toHaveLength(500);
+    expect(result.errors.some((e) => e.message.includes("more than 500"))).toBe(true);
+  });
+});

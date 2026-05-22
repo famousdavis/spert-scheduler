@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -158,6 +158,13 @@ export interface Milestone {
   targetDate: string; // "YYYY-MM-DD" — the hard deadline
 }
 
+export interface ActivityBand {
+  id: string;
+  name: string; // max 200 chars, empty string allowed
+  insertBeforeActivityId: string | null; // null = trailing (after all activities)
+  color?: string; // hex #RRGGBB from preset palette; undefined = muted default
+}
+
 export interface ScenarioSettings {
   defaultConfidenceLevel: RSMLevel;
   defaultDistributionType: DistributionType;
@@ -214,6 +221,7 @@ export interface Scenario {
   simulationResults?: SimulationRun;
   locked?: boolean; // default false - prevents modifications when true
   notes?: string; // free-text scenario notes, max 2000 chars
+  bands?: ActivityBand[]; // absence treated as [] throughout the app
 }
 
 // -- Gantt Appearance Settings ------------------------------------------------
