@@ -175,17 +175,20 @@ describe("LocalStorageRepository", () => {
 
     it("does not touch non-project keys", () => {
       repo.save(makeProject({ id: "p1" }));
-      localStorage.setItem("spert:user-preferences", "{\"theme\":\"dark\"}");
-      localStorage.setItem("spert-scheduler:active-scenarios", "{\"p1\":\"s1\"}");
+      // v0.45.3 — preferences and scenario memory are themselves UID-namespaced
+      // (`:local` under the default namespace). The repo's clearAll must leave
+      // them untouched; only project keys belong to its responsibility.
+      localStorage.setItem("spert:user-preferences:local", "{\"theme\":\"dark\"}");
+      localStorage.setItem("spert-scheduler:active-scenarios:local", "{\"p1\":\"s1\"}");
       localStorage.setItem("spert:storage-mode", "cloud");
       localStorage.setItem("spert_firstRun_seen", "1");
 
       repo.clearAll();
 
-      expect(localStorage.getItem("spert:user-preferences")).toBe(
+      expect(localStorage.getItem("spert:user-preferences:local")).toBe(
         "{\"theme\":\"dark\"}"
       );
-      expect(localStorage.getItem("spert-scheduler:active-scenarios")).toBe(
+      expect(localStorage.getItem("spert-scheduler:active-scenarios:local")).toBe(
         "{\"p1\":\"s1\"}"
       );
       expect(localStorage.getItem("spert:storage-mode")).toBe("cloud");
