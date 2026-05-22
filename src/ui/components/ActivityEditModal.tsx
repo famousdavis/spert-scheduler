@@ -545,6 +545,11 @@ export function ActivityEditModal({
                           computeElapsedDays(scheduledStartDate, calendar ?? undefined)
                         );
                       }
+                      if (newStatus === "complete" && actualDuration === "" && sa) {
+                        // Mirror the bulk Mark-complete path: default to the scheduled
+                        // deterministic duration so the activity carries a fixed value.
+                        setActualDuration(sa.duration);
+                      }
                       if (newStatus === "planned") {
                         setActualDuration("");
                         setActualFinishDate("");
