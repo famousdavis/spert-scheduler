@@ -14,6 +14,7 @@ import {
   countQuarterlyTicks,
   countSemiannualTicks,
   computeWeekendShadingRects,
+  suppressOverlappingTicks,
 } from "./gantt-utils";
 import {
   LEFT_MARGIN, ROW_HEIGHT, BAR_HEIGHT, BAR_Y_OFFSET,
@@ -659,5 +660,94 @@ describe("computeWeekendShadingRects", () => {
     // Should have a rect for the trailing Sat-Sun span
     expect(rects.length).toBe(1);
     expect(rects[0]!.width).toBeGreaterThan(0);
+  });
+});
+
+// -- suppressOverlappingTicks: targetX --------------------------------------
+//
+// Regression coverage for the "Always show Finish Target on Gantt when toggle
+// is ON" fix (v0.45.1). With that change, the target line can land at the
+// rightmost edge of the timeline — exactly where the last quarter/month tick
+// naturally sits. Without targetX participating in tick suppression, the
+// tick gridline and the dashed target line visually merge.
+
+describe("suppressOverlappingTicks — targetX proximity", () => {
+  // 365-day range, 1 px per day, leftMargin 0 → easy x = day-of-year arithmetic.
+  const minTimestamp = new Date("2026-01-01T00:00:00").getTime();
+  const maxTimestamp = new Date("2026-12-31T00:00:00").getTime();
+  const dateRange = maxTimestamp - minTimestamp;
+  const chartAreaWidth = 364; // 364 days between Jan 1 and Dec 31
+  const leftMargin = 0;
+
+  const baseParams = {
+    minTimestamp,
+    dateRange,
+    chartAreaWidth,
+    leftMargin,
+    finishX: -9999,           // out of range so it can't interfere
+    milestoneXPositions: [],
+    todayX: null,
+    todayProximityPx: 20,
+    elementProximityPx: 40,
+    minSpacingPx: 40,
+  };
+
+  it("suppresses a tick whose x falls within elementProximityPx of targetX", () => {
+    // Two ticks: 2026-04-01 (Q2, ~90 px in) and 2026-04-15 (~104 px in).
+    // Target at 2026-04-02 (~91 px) — within 40 px of both, but the first
+    // tick is `isFirst` and always kept.
+    const allTicks = [
+      { x: "2026-04-01", label: "Q2" },
+      { x: "2026-07-01", label: "Q3" },
+    ];
+    const targetXPos = dateToX("2026-07-02", minTimestamp, dateRange, chartAreaWidth, leftMargin);
+    const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: targetXPos });
+    // Q2 stays (isFirst), Q3 is suppressed by targetX proximity.
+    expect(out.find((t) => t.label === "Q2")).toBeDefined();
+    expect(out.find((t) => t.label === "Q3")).toBeUndefined();
+  });
+
+  it("does not suppress ticks outside elementProximityPx of targetX", () => {
+    const allTicks = [
+      { x: "2026-04-01", label: "Q2" },
+      { x: "2026-07-01", label: "Q3" },
+    ];
+    // Target far from both ticks — at 2026-10-15 (~287 px), >40 px from
+    // either tick (Q3 is at ~181 px, distance ~106 px).
+    const targetXPos = dateToX("2026-10-15", minTimestamp, dateRange, chartAreaWidth, leftMargin);
+    const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: targetXPos });
+    expect(out.find((t) => t.label === "Q2")).toBeDefined();
+    expect(out.find((t) => t.label === "Q3")).toBeDefined();
+  });
+
+  it("treats targetX = null as 'no target' (no suppression effect)", () => {
+    const allTicks = [
+      { x: "2026-04-01", label: "Q2" },
+      { x: "2026-07-01", label: "Q3" },
+    ];
+    const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: null });
+    expect(out.length).toBe(2);
+  });
+
+  it("treats omitted targetX (undefined) as 'no target'", () => {
+    const allTicks = [
+      { x: "2026-04-01", label: "Q2" },
+      { x: "2026-07-01", label: "Q3" },
+    ];
+    // targetX intentionally omitted from params
+    const out = suppressOverlappingTicks(allTicks, baseParams);
+    expect(out.length).toBe(2);
+  });
+
+  it("never suppresses the first tick even if it collides with targetX", () => {
+    // First tick at 2026-01-01 (x=0), target at 2026-01-02 (x=1) — collision,
+    // but isFirst guard wins.
+    const allTicks = [
+      { x: "2026-01-01", label: "Jan" },
+      { x: "2026-04-01", label: "Q2" },
+    ];
+    const targetXPos = dateToX("2026-01-02", minTimestamp, dateRange, chartAreaWidth, leftMargin);
+    const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: targetXPos });
+    expect(out.find((t) => t.label === "Jan")).toBeDefined();
   });
 });
