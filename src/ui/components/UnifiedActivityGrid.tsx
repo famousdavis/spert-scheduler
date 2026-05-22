@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -30,6 +30,7 @@ import { BandHeaderRow } from "./BandHeaderRow";
 import { BulkActionToolbar } from "./BulkActionToolbar";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
 import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
+import { useGridFocus, useGridSelection } from "@ui/hooks/use-grid-state";
 
 interface UnifiedActivityGridProps {
   activities: Activity[];
@@ -87,62 +88,10 @@ export function UnifiedActivityGrid({
 }: UnifiedActivityGridProps) {
   const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
   const [, setInvalidIds] = useState<Set<string>>(new Set());
-  const [focusActivityId, setFocusActivityId] = useState<string | null>(null);
-  const [focusBandId, setFocusBandId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const pendingFocus = useRef(false);
-  const pendingBandFocus = useRef(false);
-  const prevCountRef = useRef(activities.length);
-  const prevBandCountRef = useRef(bands.length);
-
-  // When the activities list grows after the Add button was clicked,
-  // capture the last activity's ID so we can auto-focus its name input.
-  useEffect(() => {
-    if (pendingFocus.current && activities.length > prevCountRef.current) {
-      const lastActivity = activities[activities.length - 1];
-      if (lastActivity) {
-        setFocusActivityId(lastActivity.id); // eslint-disable-line react-hooks/set-state-in-effect -- coordinating ref-based flag with focus state
-      }
-      pendingFocus.current = false;
-    }
-    prevCountRef.current = activities.length;
-  }, [activities]);
-
-  // Clear the focus target after one render cycle so it doesn't
-  // re-trigger on subsequent re-renders.
-  useEffect(() => {
-    if (focusActivityId) {
-      const id = requestAnimationFrame(() => setFocusActivityId(null));
-      return () => cancelAnimationFrame(id);
-    }
-  }, [focusActivityId]);
-
-  useEffect(() => {
-    if (pendingBandFocus.current && bands.length > prevBandCountRef.current) {
-      const lastBand = bands[bands.length - 1];
-      if (lastBand) {
-        setFocusBandId(lastBand.id); // eslint-disable-line react-hooks/set-state-in-effect -- mirrors pendingFocus pattern for activities
-      }
-      pendingBandFocus.current = false;
-    }
-    prevBandCountRef.current = bands.length;
-  }, [bands]);
-
-  useEffect(() => {
-    if (focusBandId) {
-      const id = requestAnimationFrame(() => setFocusBandId(null));
-      return () => cancelAnimationFrame(id);
-    }
-  }, [focusBandId]);
-
-  // Clear selection when activities change
-  useEffect(() => {
-    setSelectedIds((prev) => { // eslint-disable-line react-hooks/set-state-in-effect -- prunes stale IDs from selection set
-      const activityIdSet = new Set(activities.map((a) => a.id));
-      const next = new Set([...prev].filter((id) => activityIdSet.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-  }, [activities]);
+  const { focusActivityId, focusBandId, signalActivityAdd, signalBandAdd } =
+    useGridFocus(activities, bands);
+  const { selectedIds, toggleSelect, toggleSelectAll, clearSelection } =
+    useGridSelection(activities);
 
   const handleValidityChange = useCallback(
     (activityId: string, isValid: boolean) => {
@@ -159,27 +108,6 @@ export function UnifiedActivityGrid({
     },
     [onValidityChange]
   );
-
-  const toggleSelect = useCallback((activityId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(activityId)) {
-        next.delete(activityId);
-      } else {
-        next.add(activityId);
-      }
-      return next;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(() => {
-    setSelectedIds((prev) => {
-      if (prev.size === activities.length) {
-        return new Set();
-      }
-      return new Set(activities.map((a) => a.id));
-    });
-  }, [activities]);
 
   const handleBulkApply = useCallback(
     (staged: BulkApplyPayload) => {
@@ -230,10 +158,10 @@ export function UnifiedActivityGrid({
         }
       }
 
-      setSelectedIds(new Set());
+      clearSelection();
     },
     [selectedIds, scheduledActivities, activities, onBulkUpdate, onUpdate,
-     heuristicEnabled, heuristicMinPercent, heuristicMaxPercent],
+     heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, clearSelection],
   );
 
   // Build a lookup map from activityId to ScheduledActivity
@@ -308,8 +236,8 @@ export function UnifiedActivityGrid({
         onDelete(activityId);
       }
     }
-    setSelectedIds(new Set());
-  }, [selectedIds, onBulkDelete, onDelete]);
+    clearSelection();
+  }, [selectedIds, onBulkDelete, onDelete, clearSelection]);
 
   return (
     <div
@@ -322,7 +250,7 @@ export function UnifiedActivityGrid({
           selectedCount={selectedIds.size}
           onApply={handleBulkApply}
           onBulkDelete={handleBulkDelete}
-          onClearSelection={() => setSelectedIds(new Set())}
+          onClearSelection={clearSelection}
           heuristicEnabled={heuristicEnabled}
           heuristicMinPercent={heuristicMinPercent}
           heuristicMaxPercent={heuristicMaxPercent}
@@ -494,7 +422,7 @@ export function UnifiedActivityGrid({
           data-field="add-activity"
           onClick={() => {
             if (isScenarioLocked) return;
-            pendingFocus.current = true;
+            signalActivityAdd();
             onAdd("");
           }}
           disabled={isScenarioLocked}
@@ -506,7 +434,7 @@ export function UnifiedActivityGrid({
           data-field="add-section"
           onClick={() => {
             if (isScenarioLocked) return;
-            pendingBandFocus.current = true;
+            signalBandAdd();
             onAddBand();
           }}
           disabled={isScenarioLocked}

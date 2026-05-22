@@ -12,6 +12,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.2",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Refactor — extract clean seams across files modified since v0.42.5",
+        items: [
+          "project-service.ts: cloneScenario's two ID-remap passes (activities + milestones) now share a generic cloneWithIdRemap helper that returns { items, idMap }. Behavior unchanged; covered by existing tests.",
+          "ProjectPage.tsx: the 40-field useShallow store selector that dominated the top of the component is now useProjectActions() in src/ui/hooks/use-project-actions.ts. Same fields, same subscription semantics.",
+          "PrintableReport.tsx: print-only section JSX extracted into seven sub-components in src/ui/components/print-sections.tsx (Summary, Activity Table, Dependencies, Constraints, Item Table, Milestones, Simulation Results). The main component is now a clean composition. No visual or print-output change.",
+          "UnifiedActivityGrid.tsx: focus and selection state extracted into useGridFocus and useGridSelection hooks in src/ui/hooks/use-grid-state.ts. Add buttons call signalActivityAdd() / signalBandAdd() instead of poking useRef.current = true. Identical keyboard, drag, and bulk-action behavior.",
+          "All 1,505 tests pass; lint baseline unchanged at 18 errors / 1 warning. No dependency upgrades and no changes to the import subsystem.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.1",
     date: "2026-05-22",
     sections: [

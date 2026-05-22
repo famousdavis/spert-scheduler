@@ -3,8 +3,8 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useShallow } from "zustand/react/shallow";
 import { useProjectStore } from "@ui/hooks/use-project-store";
+import { useProjectActions } from "@ui/hooks/use-project-actions";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
@@ -87,49 +87,7 @@ export function ProjectPage() {
     reorderScenarios,
     beginUndoGroup,
     endUndoGroup,
-  } = useProjectStore(
-    useShallow((s) => ({
-      projects: s.projects,
-      loadProjects: s.loadProjects,
-      addScenario: s.addScenario,
-      deleteScenario: s.deleteScenario,
-      duplicateScenario: s.duplicateScenario,
-      addActivity: s.addActivity,
-      deleteActivity: s.deleteActivity,
-      updateActivityField: s.updateActivityField,
-      addBand: s.addBand,
-      deleteBand: s.deleteBand,
-      updateBand: s.updateBand,
-      reorderWithBands: s.reorderWithBands,
-      setSimulationResults: s.setSimulationResults,
-      updateScenarioStartDate: s.updateScenarioStartDate,
-      updateScenarioSettings: s.updateScenarioSettings,
-      renameProject: s.renameProject,
-      renameScenario: s.renameScenario,
-      bulkUpdateActivities: s.bulkUpdateActivities,
-      bulkDeleteActivities: s.bulkDeleteActivities,
-      undo: s.undo,
-      redo: s.redo,
-      canUndo: s.canUndo,
-      canRedo: s.canRedo,
-      toggleScenarioLock: s.toggleScenarioLock,
-      addDependency: s.addDependency,
-      removeDependency: s.removeDependency,
-      updateDependencyLag: s.updateDependencyLag,
-      updateDependencyType: s.updateDependencyType,
-      addMilestone: s.addMilestone,
-      removeMilestone: s.removeMilestone,
-      updateMilestone: s.updateMilestone,
-      assignActivityToMilestone: s.assignActivityToMilestone,
-      setActivityStartsAtMilestone: s.setActivityStartsAtMilestone,
-      updateProjectField: s.updateProjectField,
-      updateGanttAppearance: s.updateGanttAppearance,
-      updateScenarioNotes: s.updateScenarioNotes,
-      reorderScenarios: s.reorderScenarios,
-      beginUndoGroup: s.beginUndoGroup,
-      endUndoGroup: s.endUndoGroup,
-    }))
-  );
+  } = useProjectActions();
 
   const simulation = useSimulation();
 

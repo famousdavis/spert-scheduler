@@ -108,23 +108,40 @@ export interface CloneOptions {
   dropCompleted?: boolean;
 }
 
+/**
+ * Clone a list of `{ id: string, ... }` items with freshly-generated IDs,
+ * returning the cloned list plus the old→new ID map. The `cloneItem` callback
+ * receives the original item and the new ID and is responsible for producing
+ * the cloned shape (which lets activity-style items also regenerate nested
+ * IDs like checklist/deliverables).
+ */
+function cloneWithIdRemap<T extends { id: string }>(
+  items: readonly T[],
+  cloneItem: (item: T, newId: string) => T,
+): { items: T[]; idMap: Map<string, string> } {
+  const idMap = new Map<string, string>();
+  const cloned = items.map((item) => {
+    const newId = generateId();
+    idMap.set(item.id, newId);
+    return cloneItem(item, newId);
+  });
+  return { items: cloned, idMap };
+}
+
 export function cloneScenario(
   scenario: Scenario,
   newName: string,
   options: CloneOptions = {}
 ): Scenario {
   // First pass: clone all activities with new IDs, building old→new map
-  const oldToNewId = new Map<string, string>();
-  let activities = scenario.activities.map((a) => {
-    const newId = generateId();
-    oldToNewId.set(a.id, newId);
-    return {
-      ...a,
-      id: newId,
-      checklist: a.checklist?.map((item) => ({ ...item, id: generateId() })),
-      deliverables: a.deliverables?.map((item) => ({ ...item, id: generateId() })),
-    };
-  });
+  const activityClone = cloneWithIdRemap(scenario.activities, (a, newId) => ({
+    ...a,
+    id: newId,
+    checklist: a.checklist?.map((item) => ({ ...item, id: generateId() })),
+    deliverables: a.deliverables?.map((item) => ({ ...item, id: generateId() })),
+  }));
+  let activities = activityClone.items;
+  const oldToNewId = activityClone.idMap;
 
   if (options.dropCompleted) {
     // Remove completed activities and clear their ID mappings
@@ -156,12 +173,10 @@ export function cloneScenario(
     );
 
   // Clone milestones with new IDs, building old→new map
-  const oldToNewMilestoneId = new Map<string, string>();
-  const clonedMilestones = scenario.milestones.map((m) => {
-    const newId = generateId();
-    oldToNewMilestoneId.set(m.id, newId);
-    return { ...m, id: newId };
-  });
+  const { items: clonedMilestones, idMap: oldToNewMilestoneId } = cloneWithIdRemap(
+    scenario.milestones,
+    (m, newId) => ({ ...m, id: newId }),
+  );
 
   // Remap activity milestone references
   activities = activities.map((a) => ({

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.45.2 — 2026-05-22
+
+### Refactor — extract clean seams across files modified since v0.42.5
+
+- **`project-service.ts`** — `cloneScenario` builds two ID-remap maps for activities and milestones using an identical pattern. Extracted a generic `cloneWithIdRemap` helper that returns `{ items, idMap }`, letting both passes read as one call. Behavior unchanged; covered by existing `project-service.test.ts` + `scenario-cloning.test.ts`.
+- **`ProjectPage.tsx`** — the 40-field `useShallow` selector that dominated the top of the component is now `useProjectActions()` in `src/ui/hooks/use-project-actions.ts`. Same fields, same subscription semantics; the page is ~50 lines shorter at the top.
+- **`PrintableReport.tsx`** — the print-only section JSX is now seven sub-components (`PrintSummarySection`, `PrintActivityTable`, `PrintDependenciesTable`, `PrintConstraintsTable`, `PrintItemTable`, `PrintMilestonesTable`, `PrintSimulationResultsSection`) co-located in `src/ui/components/print-sections.tsx`. The main `PrintableReport` is now a clean composition. No visual or print-output change.
+- **`UnifiedActivityGrid.tsx`** — focus and selection state extracted into `useGridFocus` and `useGridSelection` hooks in `src/ui/hooks/use-grid-state.ts`. The Add buttons now call `signalActivityAdd()` / `signalBandAdd()` instead of poking `useRef.current = true`. Identical behavior; identical keyboard, drag, and bulk-action flows. All 1,505 tests pass; lint baseline unchanged at 18 errors / 1 warning.
+- No dependency upgrades and no changes to the import subsystem in this version.
+
 ## 0.45.1 — 2026-05-22
 
 ### Gantt chart — Finish Target now always visible when toggled on
