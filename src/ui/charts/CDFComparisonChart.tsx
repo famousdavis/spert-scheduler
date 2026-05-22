@@ -1,7 +1,6 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useRef } from "react";
 import {
   LineChart,
   Line,
@@ -13,7 +12,10 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { CDFPoint } from "@domain/models/types";
-import { CopyImageButton } from "@ui/components/CopyImageButton";
+// Note: CopyImageButton intentionally NOT imported here. The parent
+// (ScenarioComparison) provides its own copy button in the chrome header.
+// Previously this component had its own floating top-right button, which
+// produced a duplicate when ScenarioComparison added one in v0.44.0/0.44.1.
 
 export interface CDFDataset {
   label: string;
@@ -38,8 +40,6 @@ export function CDFComparisonChart({
   probabilityTarget = 0.95,
   formatDurationAsDate,
 }: CDFComparisonChartProps) {
-  const chartRef = useRef<HTMLDivElement>(null);
-
   if (datasets.length === 0) {
     return (
       <div className="text-center py-8 text-gray-400 text-sm">
@@ -71,12 +71,8 @@ export function CDFComparisonChart({
   });
 
   return (
-    <div className="relative">
-      <div className="absolute top-0 right-0 z-10">
-        <CopyImageButton targetRef={chartRef} title="Copy chart as image" />
-      </div>
-      <div ref={chartRef} className="bg-white dark:bg-gray-800 p-2">
-        <ResponsiveContainer width="100%" height={300}>
+    <div className="bg-white dark:bg-gray-800 p-2">
+      <ResponsiveContainer width="100%" height={300}>
           <LineChart
             data={mergedData}
             margin={{ top: 10, right: 30, left: 0, bottom: 5 }}
@@ -130,10 +126,9 @@ export function CDFComparisonChart({
             />
           </LineChart>
         </ResponsiveContainer>
-        {/* Target label */}
-        <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
-          Duration (days) &middot; Dashed line: P{Math.round(probabilityTarget * 100)} target
-        </div>
+      {/* Target label */}
+      <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
+        Duration (days) &middot; Dashed line: P{Math.round(probabilityTarget * 100)} target
       </div>
     </div>
   );

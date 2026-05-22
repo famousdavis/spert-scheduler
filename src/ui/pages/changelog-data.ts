@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.44.2",
+    date: "2026-05-21",
+    sections: [
+      {
+        title: "Scenario comparison — copy fixes",
+        items: [
+          "Fix: the copy-image button on the metrics table now works. Failure was caused by html2canvas being unable to compute bounds on a bare wrapper div inside the inline-block + overflow-hidden comparison container; the captured element now has explicit bg-white + inline-block styling.",
+          "Fix: removed a duplicate copy button that was floating in the top-right of the cumulative distribution chart. The component-internal button predated the v0.44.0 chrome additions and was no longer needed once the parent provided its own.",
+          "Copy failures now log the underlying error to the browser console in addition to showing the toast — useful for diagnosing future issues.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.44.1",
     date: "2026-05-21",
     sections: [

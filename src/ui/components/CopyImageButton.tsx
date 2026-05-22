@@ -48,7 +48,10 @@ export function CopyImageButton({
       await copyChartAsPng(targetRef.current);
       setStatus("success");
       setTimeout(() => setStatus("idle"), 2000);
-    } catch {
+    } catch (err) {
+      // Log the underlying cause so future copy failures can be diagnosed from
+      // the browser console (the toast alone hides the html2canvas/clipboard error).
+      console.error("CopyImageButton: copy failed", err);
       toast.error("Failed to copy image to clipboard");
       setStatus("error");
       setTimeout(() => setStatus("idle"), 2000);
