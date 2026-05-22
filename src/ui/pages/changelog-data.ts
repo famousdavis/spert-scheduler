@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.4",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Section headers — inline rename in the Gantt + tinted rows in the grid",
+        items: [
+          "Section header names can now be edited directly on the Gantt chart by clicking the section label, mirroring the existing inline-rename behavior on activity names. Enter commits, Escape cancels, blur commits. The chart's input overlay reuses the same positioning math; for bands it looks up the band's slot from renderItems (the unified activity+band render list) rather than the activity-only rowIndex. Rename is disabled when the scenario is locked.",
+          "In the Activity Grid, picking a color for a section from the band color picker now also paints the row background with a faint matching tint (default alpha 0.18). Choosing \"None\" reverts to the standard gray. The tint is derived in JS rather than via color-mix() so behavior matches the v0.44.3 cross-browser guarantees.",
+          "New src/ui/helpers/color-utils.ts adds hexToRgb() and hexToTintedBackground() with their own tests. The latter returns null for invalid hex so callers fall back to default styling on garbage input.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.3",
     date: "2026-05-22",
     sections: [

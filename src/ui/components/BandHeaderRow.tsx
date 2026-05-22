@@ -7,6 +7,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { ActivityBand } from "@domain/models/types";
 import { BandColorPicker } from "./BandColorPicker";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
+import { hexToTintedBackground } from "@ui/helpers/color-utils";
 
 interface BandHeaderRowProps {
   band: ActivityBand;
@@ -61,6 +62,7 @@ export function BandHeaderRow({
   };
 
   const swatchBg = band.color ?? "transparent";
+  const tintedBg = band.color ? hexToTintedBackground(band.color) : null;
 
   return (
     <div
@@ -70,6 +72,7 @@ export function BandHeaderRow({
       }`}
       style={{
         gridTemplateColumns: gridCols,
+        ...(tintedBg ? { backgroundColor: tintedBg } : null),
         ...sortableStyle,
       }}
     >

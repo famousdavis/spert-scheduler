@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.45.4 — 2026-05-22
+
+### Section headers — inline rename in the Gantt + tinted rows in the grid
+
+- **Inline rename in the Gantt:** section header names are now editable directly on the Gantt chart by clicking the section label, mirroring the existing inline-rename UX on activity names. Enter commits, Escape cancels, blur commits. The inline-edit state was unified into a tagged `{ kind: "activity" | "band"; id }` target so the same `<input>` overlay services both edit modes; band slot lookup uses `renderItems.findIndex(...)` since the activity-only `rowIndex` doesn't include band rows. Rename is disabled when the scenario is locked.
+- **Tinted rows in the Activity Grid:** picking a color for a section in the band color picker now also paints the row background in the activity grid with a faint matching tint (default alpha 0.18). Selecting "None" reverts the row to the standard gray. The tint is computed in JS via a new `hexToTintedBackground` helper rather than CSS `color-mix()`, matching the v0.44.3 cross-browser policy.
+- **New helper:** `src/ui/helpers/color-utils.ts` adds `hexToRgb()` and `hexToTintedBackground()` with their own tests. Both return `null` for invalid input so callers can fall back to default styling.
+
 ## 0.45.3 — 2026-05-22
 
 ### Security — close three findings from the v0.45.2 audit

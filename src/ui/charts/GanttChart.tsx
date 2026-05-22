@@ -230,6 +230,7 @@ interface GanttChartProps {
   onEditActivity?: (activityId: string) => void;
   onEditDependency?: (fromActivityId: string, toActivityId: string) => void;
   onRenameActivity?: (activityId: string, newName: string) => void;
+  onRenameBand?: (bandId: string, newName: string) => void;
   isLocked?: boolean;
   showActivityNumbers?: boolean;
   onToggleActivityNumbers?: (v: boolean) => void;
@@ -263,6 +264,7 @@ export function GanttChart({
   onEditActivity,
   onEditDependency,
   onRenameActivity,
+  onRenameBand,
   isLocked,
   showActivityNumbers,
   onToggleActivityNumbers,
@@ -286,29 +288,41 @@ export function GanttChart({
     text: string;
   } | null>(null);
 
-  // Inline name editing state
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // Inline name editing state — tagged so the same input overlay can edit
+  // either an activity name or a band (section header) name.
+  type EditTarget = { kind: "activity" | "band"; id: string };
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editValue, setEditValue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
 
   // Cancel editing if scenario becomes locked
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (isLocked) setEditingId(null); // NOSONAR — intentional reset on lock state change
+    if (isLocked) setEditTarget(null); // NOSONAR — intentional reset on lock state change
   }, [isLocked]);
 
   const commitRename = useCallback(() => {
-    if (!editingId) return;
+    if (!editTarget) return;
     const trimmed = editValue.trim();
-    const original = activities.find((a) => a.id === editingId)?.name;
-    if (trimmed && trimmed !== original) {
-      onRenameActivity?.(editingId, trimmed);
+    if (editTarget.kind === "activity") {
+      const original = activities.find((a) => a.id === editTarget.id)?.name;
+      // Activity names must be non-empty — empty submissions are ignored.
+      if (trimmed && trimmed !== original) {
+        onRenameActivity?.(editTarget.id, trimmed);
+      }
+    } else {
+      const original = bands.find((b) => b.id === editTarget.id)?.name ?? "";
+      // Band names are allowed to be empty; the chart renders
+      // "(unnamed section)" as a placeholder in that case.
+      if (trimmed !== original) {
+        onRenameBand?.(editTarget.id, trimmed);
+      }
     }
-    setEditingId(null);
-  }, [editingId, editValue, activities, onRenameActivity]);
+    setEditTarget(null);
+  }, [editTarget, editValue, activities, bands, onRenameActivity, onRenameBand]);
 
   const cancelRename = useCallback(() => {
-    setEditingId(null);
+    setEditTarget(null);
   }, []);
 
   // Arrow hover state for dependency interactivity
@@ -806,6 +820,9 @@ export function GanttChart({
             const truncated = displayName.length > ra.nameCharLimit
               ? displayName.slice(0, ra.nameCharLimit - 2) + "..."
               : displayName;
+            const isEditingThisBand =
+              editTarget?.kind === "band" && editTarget.id === item.band.id;
+            const canRenameBand = !isLocked && !!onRenameBand;
             return (
               <g key={`band-${item.band.id}`}>
                 <text
@@ -816,6 +833,12 @@ export function GanttChart({
                   fontSize={ra.nameFontSize}
                   fontWeight="700"
                   fill={bandColor}
+                  className={canRenameBand ? "cursor-pointer" : "pointer-events-none"}
+                  style={isEditingThisBand ? { display: "none" } : undefined}
+                  onClick={canRenameBand ? () => {
+                    setEditTarget({ kind: "band", id: item.band.id });
+                    setEditValue(item.band.name);
+                  } : undefined}
                 >
                   {truncated}
                 </text>
@@ -954,9 +977,9 @@ export function GanttChart({
                   fontSize={ra.nameFontSize}
                   fill={c.text}
                   className={!isLocked && onRenameActivity ? "cursor-pointer" : "pointer-events-none"}
-                  style={editingId === act.id ? { display: "none" } : undefined}
+                  style={editTarget?.kind === "activity" && editTarget.id === act.id ? { display: "none" } : undefined}
                   onClick={!isLocked && onRenameActivity ? () => {
-                    setEditingId(act.id);
+                    setEditTarget({ kind: "activity", id: act.id });
                     setEditValue(act.name);
                   } : undefined}
                 >
@@ -1205,18 +1228,27 @@ export function GanttChart({
         </svg>
 
         {/* Inline name editing overlay — positioned absolutely over the SVG.
-            Uses rowIndex (slot map) so the Y is correct when bands precede the
-            activity being renamed. */}
-        {editingId && (() => {
-          const idx = rowIndex.get(editingId);
+            For activities: uses rowIndex (slot map, skips band rows).
+            For bands: looks up the band's index directly in renderItems. */}
+        {editTarget && (() => {
+          let idx: number | undefined;
+          if (editTarget.kind === "activity") {
+            idx = rowIndex.get(editTarget.id);
+          } else {
+            const found = renderItems.findIndex(
+              (it) => it.kind === "band" && it.band.id === editTarget.id,
+            );
+            idx = found >= 0 ? found : undefined;
+          }
           if (idx === undefined) return null;
           const inputTop = topMargin + idx * ra.rowHeight + (ra.rowHeight - 24) / 2;
+          const isBand = editTarget.kind === "band";
           return (
             <input
               ref={editInputRef}
               type="text"
-              name="ganttActivityNameInline"
-              aria-label="Edit activity name"
+              name={isBand ? "ganttBandNameInline" : "ganttActivityNameInline"}
+              aria-label={isBand ? "Edit section name" : "Edit activity name"}
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={() => commitRename()}
@@ -1226,7 +1258,8 @@ export function GanttChart({
               }}
               autoFocus
               maxLength={200}
-              className="absolute bg-white dark:bg-gray-800 border border-blue-500 rounded px-1.5 text-sm text-right text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder={isBand ? "Section" : undefined}
+              className={`absolute bg-white dark:bg-gray-800 border border-blue-500 rounded px-1.5 text-sm text-right text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500${isBand ? " font-bold" : ""}`}
               style={{
                 top: inputTop,
                 left: 4,

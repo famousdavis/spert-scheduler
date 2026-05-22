@@ -708,6 +708,9 @@ export function ProjectPage() {
               onRenameActivity={(activityId, newName) =>
                 updateActivityField(id!, scenario.id, activityId, { name: newName })
               }
+              onRenameBand={(bandId, newName) =>
+                updateBand(id!, scenario.id, bandId, { name: newName })
+              }
               onEditDependency={(fromId, toId) => setEditingDependency({ fromActivityId: fromId, toActivityId: toId })}
               isLocked={scenario.locked}
               showActivityNumbers={showActivityNumbers}
