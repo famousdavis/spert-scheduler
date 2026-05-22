@@ -80,6 +80,51 @@ function makeProject(id: string): Project {
   };
 }
 
+describe("FirestoreDriver.doSave (merge sentinel behavior)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setDocSpy.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("emits deleteField sentinels for cleared map keys so merge:true actually removes them", async () => {
+    // Regression for the "Gantt custom colors return after refresh" bug:
+    // when a preset click clears customPlannedColor/customInProgressColor by
+    // setting them to `undefined`, the debounced save must include
+    // deleteField() sentinels for those keys. Without the sentinels,
+    // Firestore's deep merge leaves the prior values on the server doc.
+    const driver = new FirestoreDriver("uid-1");
+    const project = makeProject("p1");
+    project.ganttAppearance = {
+      nameColumnWidth: "normal",
+      activityFontSize: "normal",
+      rowDensity: "normal",
+      barLabel: "duration",
+      colorPreset: "classic",
+      // Two cleared fields + one freshly-set field — matches the user repro.
+      customPlannedColor: undefined,
+      customInProgressColor: undefined,
+      customCompletedColor: "#65a30d",
+      weekendShading: false,
+      fitToWindow: false,
+    };
+
+    driver.save(project);
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(setDocSpy).toHaveBeenCalledTimes(1);
+    const [, payload, opts] = setDocSpy.mock.calls[0]!;
+    expect(opts).toEqual({ merge: true });
+    const data = payload as { ganttAppearance: Record<string, unknown> };
+    expect(data.ganttAppearance.customCompletedColor).toBe("#65a30d");
+    expect(data.ganttAppearance.customPlannedColor).toBe("__delete__");
+    expect(data.ganttAppearance.customInProgressColor).toBe("__delete__");
+  });
+});
+
 describe("FirestoreDriver.cancelPendingSaves", () => {
   beforeEach(() => {
     vi.useFakeTimers();

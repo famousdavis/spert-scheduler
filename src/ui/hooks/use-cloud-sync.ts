@@ -59,6 +59,26 @@ export function useCloudSync(): void {
   const getProject = useProjectStore((s) => s.getProject);
   const removeProjectLocally = useProjectStore((s) => s.removeProjectLocally);
 
+  // Refresh-time noise suppression. The "Cloud sync error" toast is valuable
+  // feedback during an active editing session, but a hard refresh tears down
+  // the JS context mid-flight in two ways that produce false-positive toasts:
+  //   - `beforeunload` flushes pending debounced saves; those setDoc calls
+  //     can race the unload and reject with cancelled/aborted errors.
+  //   - The fresh page may immediately trigger write-forward migration saves
+  //     (FirestoreDriver.processProjectDoc / load) before listeners settle.
+  // Both windows are narrow and not user-actionable, so we gate the toast on
+  // (a) a startup grace period that ends shortly after the initial load
+  // settles, and (b) a hard `unloading` flag set from beforeunload. Errors
+  // are still logged to the console regardless.
+  const errorToastsReadyRef = useRef(false);
+  const unloadingRef = useRef(false);
+  const reportCloudSyncError = useCallback(() => {
+    if (unloadingRef.current || !errorToastsReadyRef.current) return;
+    toast.error(
+      "Cloud sync error — changes may not have saved. Check your connection."
+    );
+  }, []);
+
   // Helper: add a real-time listener for a project if not already listening
   const addProjectListener = useCallback(
     (projectId: string) => {
@@ -112,17 +132,30 @@ export function useCloudSync(): void {
       const driver = new FirestoreDriver(user.uid);
       driver.onSaveError((e) => {
         console.error("Firestore write failed:", e);
-        toast.error(
-          "Cloud sync error — changes may not have saved. Check your connection."
-        );
+        reportCloudSyncError();
       });
       driverRef.current = driver;
       currentDriver = driver;
       initialLoadDoneRef.current = false;
+      // Reset the startup grace gate for every (re)initialization of the
+      // driver — covers refresh, sign-out/sign-in, and local↔cloud switches.
+      errorToastsReadyRef.current = false;
+      let graceTimer: ReturnType<typeof setTimeout> | null = null;
       // Mirror initialLoadDoneRef into reactive store state so the UI can
       // gate the file picker on cloud-data hydration (pitfall #88/#89).
       useProjectStore.getState().setCloudDataLoaded(false);
       let cancelled = false;
+      // 2 s after the initial load settles, allow error toasts. Long enough
+      // for write-forward migration saves to complete (or fail and be
+      // logged-only); short enough that real connectivity errors during an
+      // active session surface promptly.
+      const STARTUP_GRACE_MS = 2000;
+      const openErrorGate = () => {
+        if (cancelled) return;
+        graceTimer = setTimeout(() => {
+          if (!cancelled) errorToastsReadyRef.current = true;
+        }, STARTUP_GRACE_MS);
+      };
 
       // Initial load from Firestore
       driver
@@ -169,6 +202,7 @@ export function useCloudSync(): void {
               addProjectListener(project.id);
             }
           }
+          openErrorGate();
         })
         .catch((e) => {
           if (cancelled) return;
@@ -177,10 +211,13 @@ export function useCloudSync(): void {
           // Defensive flip-to-true so the UI doesn't wedge on the disabled
           // state after a transient load failure (pitfall #88).
           useProjectStore.getState().setCloudDataLoaded(true);
+          openErrorGate();
         });
 
       return () => {
         cancelled = true;
+        if (graceTimer) clearTimeout(graceTimer);
+        errorToastsReadyRef.current = false;
         // v0.45.3: bump simulation generation BEFORE cancelling pending saves
         // so any worker callback still in flight short-circuits before
         // touching the (about-to-be-cleared) store. Matches the sign-out
@@ -236,9 +273,7 @@ export function useCloudSync(): void {
             driver.cancelPendingSave(project.id);
             driver.create(project).catch((e) => {
               console.error("Failed to create project in Firestore:", e);
-              toast.error(
-                "Cloud sync error — changes may not have saved. Check your connection."
-              );
+              reportCloudSyncError();
             });
             addProjectListener(project.id);
           }
@@ -247,16 +282,14 @@ export function useCloudSync(): void {
           driver.cancelPendingSave(event.projectId);
           driver.remove(event.projectId).catch((e) => {
             console.error("Failed to delete project from Firestore:", e);
-            toast.error(
-              "Cloud sync error — changes may not have saved. Check your connection."
-            );
+            reportCloudSyncError();
           });
           break;
       }
     };
 
     return cloudSyncBus.subscribe(handleSyncEvent);
-  }, [isCloudActive, getProject, addProjectListener]);
+  }, [isCloudActive, getProject, addProjectListener, reportCloudSyncError]);
 
   // Sync preferences to cloud when they change
   useEffect(() => {
@@ -280,6 +313,10 @@ export function useCloudSync(): void {
   // real symptom from observability. Returning early when `user === null`
   // closes the race at the source.
   const handleBeforeUnload = useCallback(() => {
+    // Latch the unload flag before flushing so any setDoc rejection raced by
+    // the navigation cannot fire a toast in the moments before the JS
+    // context is torn down (or, in a SPA-style soft refresh, after it).
+    unloadingRef.current = true;
     if (!user || !driverRef.current) return;
     driverRef.current.flushPendingSaves();
   }, [user]);
