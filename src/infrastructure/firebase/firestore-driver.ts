@@ -219,8 +219,20 @@ export class FirestoreDriver {
   }
 
   /**
-   * Save a project (debounced, 500ms). Never sets owner/members.
+   * Save a project (debounced). Never sets owner/members.
    * Strips simulation results before saving.
+   *
+   * The debounce window (200 ms) is chosen to balance two tensions:
+   *   - Too long → click-driven changes (preset selection, color picker,
+   *     toggle switches) can race a fast browser refresh: the `beforeunload`
+   *     flush starts `setDoc` but the network request gets aborted before
+   *     it commits, silently dropping the user's change. v0.45.6 originally
+   *     used 500 ms and shipped with that race exposed.
+   *   - Too short → rapid keystrokes (typing in a name field) fire one
+   *     write per character instead of one per word. ~200 ms still batches
+   *     normal typing (most users have >250 ms gaps between keystrokes).
+   * Pair this with the `pagehide` flush in use-cloud-sync.ts for refresh
+   * resilience.
    */
   save(project: Project): void {
     this.pendingSaves.set(project.id, project);
@@ -235,7 +247,7 @@ export class FirestoreDriver {
         const p = this.pendingSaves.get(project.id);
         this.pendingSaves.delete(project.id);
         if (p) this.doSave(p);
-      }, 500)
+      }, 200)
     );
   }
 
