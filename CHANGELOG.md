@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.45.8 — 2026-05-22
+
+### Cloud — third pass: replace `merge: true` with `mergeFields` for Gantt color saves
+
+The v0.45.6 + v0.45.7 fixes still left a real bug: clearing the customs via the Blue preset and then picking a green Completed color, then waiting any amount of time before refresh, would still surface the preset default (gray) on reload. Diagnosis: `setDoc(..., { merge: true })` deep-merges nested maps and forces us to express cleared sub-fields as `deleteField()` sentinels. Mixing `deleteField()` sentinels with regular values in the *same* nested map (`ganttAppearance.customPlannedColor: deleteField()` next to `ganttAppearance.customCompletedColor: "#65a30d"`) split into one update + one transform per write — and in practice the regular sibling value did not survive end-to-end.
+
+- **Switched `doSave` from `{ merge: true }` to `{ mergeFields: [...] }`.** Each top-level field listed in `mergeFields` is wholesale **replaced** on the server document, with no deep merge and no sentinels. The `ganttAppearance` map is now atomically swapped out on every save — cleared sub-fields are simply absent from the new map. Owner/members are explicitly excluded from `mergeFields` so the debounced save path never touches the ACL fields that `create()` and `removeCollaborator()` manage.
+- **Removed `sanitizeForFirestoreMerge()`** and its tests — no longer needed. The path now uses the original strip-undefined `sanitizeForFirestore` for both `create()` and `doSave()`.
+- **Tests:** rewrote the v0.45.6 driver regression to assert the new `mergeFields` semantics — the freshly-set color is in the payload, cleared sub-fields are absent (no sentinels), `mergeFields` includes `ganttAppearance`/`scenarios`/`updatedAt` and *excludes* `owner`/`members`.
+
 ## 0.45.7 — 2026-05-22
 
 ### Cloud — second pass: custom colors persist through fast browser refresh

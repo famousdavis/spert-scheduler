@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.8",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Cloud — third pass: replace merge:true with mergeFields for Gantt color saves",
+        items: [
+          "Diagnosis: the v0.45.6 deleteField() fix worked for clearing stale sub-fields, but mixing deleteField() sentinels with regular values inside the same nested ganttAppearance map (deleteField for customPlannedColor next to a real string for customCompletedColor) was unreliable in practice — the freshly-set sibling value did not survive end-to-end. The Blue-preset-then-pick-green sequence kept losing the green Completed color even after waiting a long time before refresh.",
+          "Switched doSave from { merge: true } to { mergeFields: [...] }. Each top-level field listed in mergeFields is wholesale REPLACED on the server document — no deep merge and no sentinels. The ganttAppearance map is now atomically swapped out on every save; cleared sub-fields are simply absent from the new map. Owner/members are explicitly excluded from mergeFields so the debounced save path never touches the ACL fields managed by create() and removeCollaborator().",
+          "Removed sanitizeForFirestoreMerge() and its tests — no longer needed. Both create() and doSave() use the original strip-undefined sanitizeForFirestore now.",
+          "Rewrote the v0.45.6 driver regression to assert the new mergeFields semantics: freshly-set color present in payload, cleared sub-fields absent (no sentinels), mergeFields contains ganttAppearance/scenarios/updatedAt and excludes owner/members.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.7",
     date: "2026-05-22",
     sections: [
