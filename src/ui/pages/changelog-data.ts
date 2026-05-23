@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.9",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Cloud — fourth pass: the actual root cause was a Zustand commit-order race",
+        items: [
+          "The Gantt color persistence bug we chased through v0.45.6 → v0.45.7 → v0.45.8 was never a Firestore problem. The real failure was a synchronous execution-order race: persist() calls cloudSyncBus.emitSave(projectId) synchronously while still inside the Zustand set((state) => ...) updater. The bus subscriber in use-cloud-sync.ts reads the project back via useProjectStore.getState(), which returns the COMMITTED state — but Zustand hasn't committed yet, so the bus handed driver.save() the PRE-update project. Firestore got the stale snapshot, onSnapshot echoed it back into local state, and the user's change was silently dropped.",
+          "Why localStorage was fine: repo.save(project) inside persist receives the new project by argument and writes the correct data directly — it never re-reads getState(). Local-mode users never saw the bug.",
+          "Why v0.45.6 helped partially: the deleteField() sentinels still removed the prior customs from Firestore even when the bus emit fired with a stale read, so stale colors from earlier sessions stopped resurrecting. The newly-picked color was never in any payload, ever. v0.45.7's debounce reduction and v0.45.8's mergeFields switch were both no-ops for this bug — they attacked the write semantics, but the right payload never reached the write path.",
+          "Fix: persist() in use-project-store.ts now defers cloudSyncBus.emitSave with queueMicrotask. The microtask runs after the set() updater returns and commits, so the subscriber's getState() read sees the committed state. The microtask is consumed by the existing 200 ms debounce window — no perceptible delay.",
+          "Secondary fix: serverTimestamp() was being silently corrupted into {} by the recursive sanitizeForFirestore pass — Object.entries(sentinel) returns [] for the Firestore FieldValue, so the sanitizer rebuilt it as an empty map. Production saves have been writing updatedAt: {} instead of a real server timestamp. doSave and create now attach updatedAt: serverTimestamp() AFTER the sanitize pass so the sentinel survives intact.",
+          "Regression tests: persist → emitSave ordering test in use-project-store.test.ts subscribes to the bus, fires updateGanttAppearance with a new custom color, and asserts the subscriber sees the post-update state. Driver test mocks serverTimestamp() with a sentinel-shape object and asserts the same reference arrives at setDoc.",
+          "Credit: independent codebase review caught what three rounds of Firestore-focused debugging missed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.8",
     date: "2026-05-22",
     sections: [

@@ -80,6 +80,46 @@ function makeProject(id: string): Project {
   };
 }
 
+describe("FirestoreDriver.doSave (serverTimestamp preservation)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setDocSpy.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("preserves the serverTimestamp sentinel intact (sanitizer must not eat it)", async () => {
+    // In production, `serverTimestamp()` returns a Firestore FieldValue
+    // sentinel — an object with no enumerable own properties. The
+    // recursive `sanitizeForFirestore` previously iterated those (empty)
+    // entries and rebuilt the value as `{}`, silently writing an empty
+    // map to `updatedAt` on every save. The fix attaches the sentinel
+    // POST-sanitize so it survives intact for the SDK to recognize.
+    //
+    // Simulate the production sentinel shape via a custom mock return:
+    // an object whose own enumerable property set is empty.
+    // Object.create(null) gives us a plain object with no enumerable own
+    // properties — matching the structural shape of a real Firestore
+    // FieldValue sentinel for the purpose of this test (we want to catch
+    // any code path that recurses into the value with Object.entries()).
+    const sentinel = Object.create(null) as object;
+    const { serverTimestamp: stMock } = await import("firebase/firestore");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(stMock).mockReturnValueOnce(sentinel as any);
+
+    const driver = new FirestoreDriver("uid-st");
+    driver.save(makeProject("p-st"));
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(setDocSpy).toHaveBeenCalledTimes(1);
+    const [, payload] = setDocSpy.mock.calls[0]!;
+    // The same reference must arrive at setDoc — not a corrupted `{}`.
+    expect((payload as { updatedAt: unknown }).updatedAt).toBe(sentinel);
+  });
+});
+
 describe("FirestoreDriver.doSave (mergeFields semantics)", () => {
   beforeEach(() => {
     vi.useFakeTimers();

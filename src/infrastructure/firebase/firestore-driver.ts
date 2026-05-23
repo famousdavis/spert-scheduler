@@ -206,13 +206,19 @@ export class FirestoreDriver {
     // eslint-disable-next-line sonarjs/no-unused-vars
     const { id: _id, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
 
-    const data = sanitizeForFirestore({
-      ...rest,
-      schemaVersion: SCHEMA_VERSION,
-      owner: this.uid,
-      members: { [this.uid]: "owner" as ProjectRole },
+    // Add `updatedAt: serverTimestamp()` AFTER sanitize — see doSave() for
+    // the rationale. The Firestore sentinel has no enumerable own properties
+    // and is silently corrupted into `{}` if it passes through the recursive
+    // strip-undefined sanitizer.
+    const data = {
+      ...sanitizeForFirestore({
+        ...rest,
+        schemaVersion: SCHEMA_VERSION,
+        owner: this.uid,
+        members: { [this.uid]: "owner" as ProjectRole },
+      }),
       updatedAt: serverTimestamp(),
-    });
+    };
 
     await setDoc(ref, data);
   }
@@ -270,11 +276,21 @@ export class FirestoreDriver {
       const cleaned = stripSimulationResultsForCloud(project);
       // eslint-disable-next-line sonarjs/no-unused-vars
       const { id: _docId, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
-      const data = sanitizeForFirestore({
-        ...rest,
-        schemaVersion: SCHEMA_VERSION,
+      // Sanitize the project payload, then add `updatedAt: serverTimestamp()`
+      // AFTER the sanitize pass. The Firestore sentinel returned by
+      // `serverTimestamp()` is an object with no enumerable own properties
+      // — `Object.entries(sentinel)` returns `[]` — so passing it through
+      // the recursive `sanitizeForFirestore` corrupts it into `{}`,
+      // silently writing an empty map to `updatedAt` instead of the
+      // server-side write timestamp. Attaching the sentinel post-sanitize
+      // preserves it intact for the SDK to recognize.
+      const data = {
+        ...sanitizeForFirestore({
+          ...rest,
+          schemaVersion: SCHEMA_VERSION,
+        }),
         updatedAt: serverTimestamp(),
-      });
+      };
 
       // Check document size
       const jsonSize = new Blob([JSON.stringify(data)]).size;
