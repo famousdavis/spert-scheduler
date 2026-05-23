@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.45.7 — 2026-05-22
+
+### Cloud — second pass: custom colors persist through fast browser refresh
+
+Follow-up to the v0.45.6 bug. The `deleteField()` fix closed the deep-merge bug that resurrected stale customs, but exposed a separate race: a click-driven change followed by a fast browser refresh could lose the write entirely. Sequence — click Blue preset, click green for Completed, hit Cmd-R within a second — would commit the preset-reset save (clearing customs server-side) but drop the green save because the 500 ms debounce hadn't fired yet, the `beforeunload` flush only *started* the `setDoc` request, and the page unloaded before the network round-trip completed. Worse, v0.45.6's refresh-window toast suppression made the failure silent.
+
+- **Shortened the save debounce from 500 ms to 200 ms.** 200 ms still batches normal typing (most users have >250 ms gaps between keystrokes) but is fast enough that click-driven changes commit before a manually-issued refresh. Rationale documented at the `save()` method in `firestore-driver.ts`.
+- **Added `pagehide` as a secondary flush trigger** alongside `beforeunload` in `use-cloud-sync.ts`. `pagehide` is the standards-track replacement and fires more reliably on mobile and across the bfcache path. Both events route through the same `handleBeforeUnload` callback so the unload latch and pending-save flush stay in lockstep.
+- **Regression test** in `firestore-driver.test.ts` locks the 200 ms debounce window: no fire at 150 ms, fires by 250 ms.
+
 ## 0.45.6 — 2026-05-22
 
 ### Cloud — custom Gantt colors persist correctly + quieter refresh

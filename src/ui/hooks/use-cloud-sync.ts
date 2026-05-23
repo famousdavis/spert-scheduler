@@ -323,8 +323,17 @@ export function useCloudSync(): void {
 
   useEffect(() => {
     if (!isCloudActive) return;
+    // pagehide is the standards-track replacement for beforeunload and is
+    // delivered more reliably across browsers — particularly on mobile and
+    // in the bfcache path where beforeunload may not fire at all. Listening
+    // to both gives us belt-and-suspenders coverage: whichever fires first
+    // sets `unloadingRef` and kicks off the pending-save flush.
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+    };
   }, [isCloudActive, handleBeforeUnload]);
 
   // spert:models-changed listener — Pattern B re-fetch on successful claim.

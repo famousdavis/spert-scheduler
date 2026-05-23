@@ -125,6 +125,32 @@ describe("FirestoreDriver.doSave (merge sentinel behavior)", () => {
   });
 });
 
+describe("FirestoreDriver.save debounce window", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setDocSpy.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("does not fire at 150ms, fires by 250ms (200ms debounce window)", async () => {
+    // Regression: v0.45.6 → v0.45.7 reduced the debounce from 500ms to
+    // 200ms so click-driven changes (preset reset, color picker) reach
+    // Firestore before a fast browser refresh races the beforeunload
+    // flush. Lock the boundary so future tuning is deliberate.
+    const driver = new FirestoreDriver("uid-debounce");
+    driver.save(makeProject("p-debounce"));
+
+    await vi.advanceTimersByTimeAsync(150);
+    expect(setDocSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(setDocSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("FirestoreDriver.cancelPendingSaves", () => {
   beforeEach(() => {
     vi.useFakeTimers();

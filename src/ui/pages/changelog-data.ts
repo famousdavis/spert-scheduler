@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.7",
+    date: "2026-05-22",
+    sections: [
+      {
+        title: "Cloud — second pass: custom colors persist through fast browser refresh",
+        items: [
+          "Follow-up to v0.45.6. The deleteField() fix closed the deep-merge bug that resurrected stale customs, but exposed a separate race: click Blue preset → click green for Completed → fast Cmd-R, and the green save was lost because the 500ms debounce hadn't fired yet, the beforeunload flush only started the setDoc request, and the page unloaded before the network round-trip completed. v0.45.6's refresh-window toast suppression made the failure silent.",
+          "Shortened the save debounce from 500ms to 200ms. 200ms still batches normal typing (most users have >250ms gaps between keystrokes) but is fast enough that click-driven changes commit before a manually-issued refresh. Rationale documented at the save() method in firestore-driver.ts.",
+          "Added pagehide as a secondary flush trigger alongside beforeunload in use-cloud-sync.ts. pagehide is the standards-track replacement and fires more reliably on mobile and across the bfcache path. Both events route through the same handleBeforeUnload callback so the unload latch and pending-save flush stay in lockstep.",
+          "Regression test in firestore-driver.test.ts locks the 200ms debounce window: no fire at 150ms, fires by 250ms.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.6",
     date: "2026-05-22",
     sections: [
