@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.45.9 — 2026-05-22
+
+### Cloud — fourth pass: the actual root cause was a Zustand commit-order race
+
+The Gantt color persistence bug we chased through v0.45.6 → v0.45.7 → v0.45.8 was never a Firestore problem. After a second-opinion read of the full codebase, the real failure was a synchronous execution-order race in `persist()`:
+
+```
+updateGanttAppearance → set((state) => {
+  const projects = state.projects.map(...)   // new array has the new color
+  persist(projects, projectId) {
+    repo.save(project)                       // localStorage gets correct data ✓
+    cloudSyncBus.emitSave(projectId)         // SYNCHRONOUS — fires NOW
+      → handleSyncEvent
+        → getProject(projectId)
+          → useProjectStore.getState()       // returns PRE-update state
+                                             //   (Zustand only commits after
+                                             //    the updater returns)
+        → driver.save(STALE project)         // queues stale snapshot
+  }
+  return { projects }                        // Zustand finally commits — too late
+})
+```
+
+The bus subscriber in `use-cloud-sync.ts` reads the project back from `getState()` after receiving a save event. Because the emit fired synchronously *inside* the `set()` updater, the read happened before Zustand committed — so the cloud save consistently used the pre-mutation project. Firestore's `onSnapshot` then echoed that stale state back into the local store and localStorage, silently dropping whatever the user just changed.
+
+This explains every observation cleanly:
+
+- **localStorage was unaffected.** `repo.save(project)` inside `persist` receives the new project by argument — it never re-reads `getState()`. Local-mode users never saw the bug.
+- **v0.45.6's `deleteField()` partially helped.** The Blue-preset click's emit also fired with a stale read, but the `deleteField()` sentinels still removed the *prior* customs from Firestore. That's what "mostly fixed" meant — stale customs from earlier sessions stopped resurrecting. The new Completed color was never in any payload, ever.
+- **v0.45.7's debounce reduction and v0.45.8's `mergeFields` switch were no-ops for this bug** — both attacked the write semantics, but the right payload never reached the write path to begin with.
+
+### The fix
+
+- **`persist()` in `use-project-store.ts` now defers `cloudSyncBus.emitSave` with `queueMicrotask`**, so the bus subscriber's read happens after Zustand commits. The microtask is consumed by the existing 200 ms debounce window; no perceptible delay. Single load-bearing change.
+- **Secondary fix:** `serverTimestamp()` was being silently corrupted into `{}` by the recursive `sanitizeForFirestore` pass — `Object.entries(sentinel)` returns `[]` for the Firestore FieldValue, which made the sanitizer rebuild it as an empty map. Production saves have been writing `updatedAt: {}` instead of a real server timestamp. `doSave` and `create` now attach `updatedAt: serverTimestamp()` *after* the sanitize pass so the sentinel survives intact.
+- **Regression tests:** the `persist → emitSave` ordering test in `use-project-store.test.ts` subscribes to the bus, fires `updateGanttAppearance` with a new custom color, and asserts the subscriber sees the post-update state. The driver test mocks `serverTimestamp()` with a sentinel-shape object and asserts the same reference arrives at `setDoc`.
+
+Credit: independent codebase review caught what three rounds of Firestore-focused debugging missed.
+
 ## 0.45.8 — 2026-05-22
 
 ### Cloud — third pass: replace `merge: true` with `mergeFields` for Gantt color saves

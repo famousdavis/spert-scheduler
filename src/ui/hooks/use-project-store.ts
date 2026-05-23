@@ -477,8 +477,24 @@ function persist(projects: Project[], projectId?: string) {
         project = stripSimulationSamples(project);
       }
       repo.save(project);
-      // Notify cloud sync layer (no-op when no listeners registered)
-      cloudSyncBus.emitSave(projectId);
+      // Defer the cloud emit until after the surrounding Zustand `set()`
+      // updater returns and commits state. This is load-bearing: the bus
+      // subscriber in `use-cloud-sync.ts` reads the project back via
+      // `getProject(event.projectId)` → `useProjectStore.getState()` →
+      // the CURRENTLY COMMITTED snapshot. If the emit fires synchronously
+      // (as it did pre-v0.45.9), it runs while the updater is still
+      // executing, so the bus handler reads the PRE-update project and
+      // hands that stale snapshot to `driver.save()`. The 200 ms debounce
+      // then writes the stale state to Firestore, and the onSnapshot
+      // listener echoes that stale state back into local store — silently
+      // dropping whatever the user just changed.
+      //
+      // `queueMicrotask` defers to after the current synchronous run, by
+      // which time Zustand has committed; the imperceptible extra tick is
+      // immediately consumed by the existing debounce window. `repo.save`
+      // above receives `project` by argument, so localStorage stays
+      // correct regardless — this is why local-mode never showed the bug.
+      queueMicrotask(() => cloudSyncBus.emitSave(projectId));
     }
   }
 }

@@ -931,4 +931,57 @@ describe("useProjectStore", () => {
       expect(useProjectStore.getState().cloudDataLoaded).toBe(false);
     });
   });
+
+  describe("persist → cloudSyncBus emit ordering (v0.45.9 regression)", () => {
+    // Lesson from v0.45.6 → v0.45.8: the cloud sync bus subscriber reads the
+    // project back from the store via getState() after receiving a save
+    // event. If `cloudSyncBus.emitSave(projectId)` fires SYNCHRONOUSLY from
+    // inside a Zustand `set((state) => { persist(...); return ... })`
+    // updater, the bus subscriber's read happens BEFORE Zustand commits the
+    // new state — so the cloud save uses the pre-mutation project, silently
+    // dropping the user's most recent change once Firestore echoes it back.
+    // localStorage was unaffected because `repo.save(project)` inside
+    // persist receives the new project by argument and writes the correct
+    // data directly. The fix deferred emitSave via `queueMicrotask` so the
+    // subscriber reads the committed state.
+    it("bus subscriber sees the POST-update project, not the pre-update snapshot", async () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Race Test", null);
+
+      // Flush the microtask queued by `addProject`'s persist call so the
+      // upcoming subscription doesn't fire on the addProject event.
+      await Promise.resolve();
+
+      const newAppearance = {
+        nameColumnWidth: "normal" as const,
+        activityFontSize: "normal" as const,
+        rowDensity: "normal" as const,
+        barLabel: "duration" as const,
+        colorPreset: "classic",
+        customCompletedColor: "#65a30d",
+        weekendShading: false,
+        fitToWindow: false,
+      };
+
+      const observed: (string | undefined)[] = [];
+      const unsub = cloudSyncBus.subscribe((event) => {
+        if (event.type === "save" && event.projectId === project.id) {
+          const p = useProjectStore.getState().projects.find((x) => x.id === project.id);
+          observed.push(p?.ganttAppearance?.customCompletedColor);
+        }
+      });
+
+      useProjectStore.getState().updateGanttAppearance(project.id, newAppearance);
+
+      // Pre-fix, the bus emit would have fired SYNCHRONOUSLY here and the
+      // subscriber would have read undefined. Post-fix, the emit is queued
+      // as a microtask and runs after the set() updater commits.
+      await Promise.resolve();
+
+      unsub();
+
+      expect(observed).toHaveLength(1);
+      expect(observed[0]).toBe("#65a30d");
+    });
+  });
 });
