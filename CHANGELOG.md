@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.46.0 — 2026-05-23
+
+### Added — insert an activity at any position in the grid
+
+The activity grid now supports inserting a new blank activity at any row position, not just appending to the bottom. Hover between any two rows to reveal an inline insert strip with a small ⊕ marker; click it to add a new activity at that exact position. The new row's name input auto-focuses immediately so you can type without an extra click.
+
+Both row types support the strip:
+
+- **After an activity row** — the new activity is spliced immediately after the hovered one. Existing bands are untouched.
+- **After a band header row** — the new activity joins the band's section with correct anchor semantics in every case:
+  - Single-band groups: the band re-anchors onto the new activity.
+  - Multi-band shared-anchor groups (e.g., three section headers stacked above the same activity): only bands at-or-before the clicked one re-anchor; later siblings keep their original anchor and stay where they were in the render list.
+  - Trailing bands (section headers with no following activity): the same at-or-before rule applies — earlier trailing bands move with the new activity, later trailing bands stay trailing.
+
+Suppression rules: the strip is hidden on the last row in the grid (since "+ Add Activity" covers that case), on locked scenarios, and while any row is being dragged.
+
+Accessibility note: the strip is mouse-accessible in this release, consistent with the existing edit-pencil precedent on activity rows. Keyboard-driven positional insert is a planned follow-up.
+
+Implementation highlights:
+
+- New pure service functions `insertActivityAfter` and `insertActivityAfterBand` in `project-service.ts`, both setting `simulationResults: undefined` on the returned scenario.
+- New store actions `insertActivityAfterActivity` and `insertActivityAfterBand` (return the new activity's ID on success, `null` on lock/missing scenario/unknown band). Both pre-check the snapshot before invoking `mutateScenario` to avoid phantom undo + persist + cloud emit on no-op paths.
+- `useGridFocus` extended with `signalActivityAddById(id)` and an existence-check in the focus effect — defends the cloud-sync race where the array grows via a remote snapshot that does not contain the just-inserted ID.
+- Drag suppression wired through DndContext's `onDragStart`/`onDragEnd`/`onDragCancel` callbacks into local grid state, avoiding per-row context subscriptions that would re-render every row on every drag tick.
+
 ## 0.45.9 — 2026-05-22
 
 ### Cloud — fourth pass: the actual root cause was a Zustand commit-order race

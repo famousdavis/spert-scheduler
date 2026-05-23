@@ -265,6 +265,108 @@ export function createActivity(
   };
 }
 
+/**
+ * Insert an activity directly after `afterActivityId` in `scenario.activities`.
+ * Bands are not touched (the insert position is between two activities, so band
+ * anchoring is unaffected).
+ *
+ * Stale-reference fallback: if `afterActivityId` is not found in the scenario
+ * (e.g., the row was deleted by a concurrent cloud-sync echo), delegate to
+ * `addActivityToScenario`. That append also re-anchors trailing bands onto the
+ * new activity — which is the load-bearing reason for the delegation rather
+ * than a naive `push`. Silent by design: the user gets an append rather than
+ * an error, which is acceptable given the rarity of the race.
+ */
+export function insertActivityAfter(
+  scenario: Scenario,
+  activity: Activity,
+  afterActivityId: string
+): Scenario {
+  const index = scenario.activities.findIndex((a) => a.id === afterActivityId);
+  if (index === -1) {
+    return addActivityToScenario(scenario, activity);
+  }
+  const updated = [...scenario.activities];
+  updated.splice(index + 1, 0, activity);
+  return {
+    ...scenario,
+    activities: updated,
+    simulationResults: undefined,
+  };
+}
+
+/**
+ * Insert an activity directly after band `bandId` in the render list.
+ * Returns `null` when the band does not exist.
+ *
+ * Two paths:
+ *
+ * - Trailing path (band's anchor is null OR the anchor activity no longer
+ *   exists): append the new activity. Re-anchor every band that is trailing/
+ *   orphan AND whose position in `bands[]` is ≤ B's position to the new
+ *   activity. Bands after B that are also trailing remain trailing — they
+ *   continue to appear after the new activity in the render list.
+ *
+ * - Anchored path (band's anchor exists): splice the new activity before the
+ *   anchor activity. Re-anchor every band that shares B's anchor AND whose
+ *   position in `bands[]` is ≤ B's to the new activity. Later sibling bands
+ *   sharing the anchor keep it unchanged.
+ *
+ * Both paths preserve render order at the band-array level: bands at-or-before
+ * B move with the new activity; later bands stay where they were.
+ */
+export function insertActivityAfterBand(
+  scenario: Scenario,
+  activity: Activity,
+  bandId: string
+): Scenario | null {
+  const existingBands = scenario.bands ?? [];
+  const bandIndex = existingBands.findIndex((b) => b.id === bandId);
+  if (bandIndex === -1) return null;
+
+  const band = existingBands[bandIndex]!;
+  const existingIds = new Set(scenario.activities.map((a) => a.id));
+  const anchorId = band.insertBeforeActivityId;
+  const isTrailing = anchorId === null || !existingIds.has(anchorId);
+
+  if (isTrailing) {
+    // Append the new activity; re-anchor trailing/orphan bands at-or-before B.
+    const newActivities = [...scenario.activities, activity];
+    const newBands = existingBands.map((b, i) => {
+      const bAnchor = b.insertBeforeActivityId;
+      const bIsTrailing = bAnchor === null || !existingIds.has(bAnchor);
+      if (bIsTrailing && i <= bandIndex) {
+        return { ...b, insertBeforeActivityId: activity.id };
+      }
+      return b;
+    });
+    return {
+      ...scenario,
+      activities: newActivities,
+      bands: newBands,
+      simulationResults: undefined,
+    };
+  }
+
+  // Anchored path: splice before anchor; re-anchor same-anchor bands at-or-before B.
+  const anchorIndex = scenario.activities.findIndex((a) => a.id === anchorId);
+  // anchorIndex is guaranteed >= 0 here because isTrailing was false.
+  const newActivities = [...scenario.activities];
+  newActivities.splice(anchorIndex, 0, activity);
+  const newBands = existingBands.map((b, i) => {
+    if (b.insertBeforeActivityId === anchorId && i <= bandIndex) {
+      return { ...b, insertBeforeActivityId: activity.id };
+    }
+    return b;
+  });
+  return {
+    ...scenario,
+    activities: newActivities,
+    bands: newBands,
+    simulationResults: undefined,
+  };
+}
+
 export function addActivityToScenario(
   scenario: Scenario,
   activity: Activity

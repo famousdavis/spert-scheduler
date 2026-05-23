@@ -40,6 +40,8 @@ interface UnifiedActivityGridProps {
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
   onAdd: (name: string) => void;
+  onInsertAfterActivity?: (afterActivityId: string) => string | null;
+  onInsertAfterBand?: (bandId: string) => string | null;
   onAddBand: () => void;
   onDeleteBand: (bandId: string) => void;
   onUpdateBand: (bandId: string, updates: Partial<ActivityBand>) => void;
@@ -69,6 +71,8 @@ export function UnifiedActivityGrid({
   onUpdate,
   onDelete,
   onAdd,
+  onInsertAfterActivity,
+  onInsertAfterBand,
   onAddBand,
   onDeleteBand,
   onUpdateBand,
@@ -88,10 +92,35 @@ export function UnifiedActivityGrid({
 }: UnifiedActivityGridProps) {
   const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
   const [, setInvalidIds] = useState<Set<string>>(new Set());
-  const { focusActivityId, focusBandId, signalActivityAdd, signalBandAdd } =
+  // Global drag suppression for the insert-strip overlay. Wired through
+  // DndContext callbacks below. `useDndContext()` can't be used here because
+  // the provider is rendered inside this component's JSX return — calling it
+  // at component scope would yield the default (empty) context. Per-row
+  // `useDndContext()` would force every row to re-render on every drag tick;
+  // local state confines re-renders to drag start/end only.
+  const [isAnyDragging, setIsAnyDragging] = useState(false);
+  const { focusActivityId, focusBandId, signalActivityAdd, signalBandAdd, signalActivityAddById } =
     useGridFocus(activities, bands);
   const { selectedIds, toggleSelect, toggleSelectAll, clearSelection } =
     useGridSelection(activities);
+
+  const handleInsertAfterActivity = useCallback(
+    (afterActivityId: string) => {
+      if (!onInsertAfterActivity) return;
+      const newId = onInsertAfterActivity(afterActivityId);
+      if (newId) signalActivityAddById(newId);
+    },
+    [onInsertAfterActivity, signalActivityAddById],
+  );
+
+  const handleInsertAfterBand = useCallback(
+    (bandId: string) => {
+      if (!onInsertAfterBand) return;
+      const newId = onInsertAfterBand(bandId);
+      if (newId) signalActivityAddById(newId);
+    },
+    [onInsertAfterBand, signalActivityAddById],
+  );
 
   const handleValidityChange = useCallback(
     (activityId: string, isValid: boolean) => {
@@ -330,13 +359,19 @@ export function UnifiedActivityGrid({
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
+        onDragStart={() => setIsAnyDragging(true)}
+        onDragEnd={(e) => {
+          setIsAnyDragging(false);
+          handleDragEnd(e);
+        }}
+        onDragCancel={() => setIsAnyDragging(false)}
       >
         <SortableContext
           items={sortableIds}
           strategy={verticalListSortingStrategy}
         >
-          {renderItems.map((item) => {
+          {renderItems.map((item, idx) => {
+            const isLastRow = idx === renderItems.length - 1;
             if (item.kind === "activity") {
               const activity = item.activity;
               return (
@@ -360,6 +395,13 @@ export function UnifiedActivityGrid({
                   dependencyMode={dependencyMode}
                   onEditActivity={onEditActivity}
                   hasConstraintWarning={constraintWarningIds?.has(activity.id)}
+                  onInsertAfterActivity={
+                    isScenarioLocked
+                      ? undefined
+                      : () => handleInsertAfterActivity(activity.id)
+                  }
+                  isLastRow={isLastRow}
+                  isAnyDragging={isAnyDragging}
                 />
               );
             }
@@ -372,6 +414,13 @@ export function UnifiedActivityGrid({
                 onUpdate={onUpdateBand}
                 onDelete={onDeleteBand}
                 autoFocus={item.band.id === focusBandId}
+                onInsertAfterBand={
+                  isScenarioLocked
+                    ? undefined
+                    : () => handleInsertAfterBand(item.band.id)
+                }
+                isLastRow={isLastRow}
+                isAnyDragging={isAnyDragging}
               />
             );
           })}

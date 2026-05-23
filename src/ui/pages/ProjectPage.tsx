@@ -54,6 +54,8 @@ export function ProjectPage() {
     deleteScenario,
     duplicateScenario,
     addActivity,
+    insertActivityAfterActivity,
+    insertActivityAfterBand,
     deleteActivity,
     updateActivityField,
     addBand,
@@ -610,6 +612,12 @@ export function ProjectPage() {
               deleteActivity(id!, scenario.id, activityId)
             }
             onAdd={(name) => addActivity(id!, scenario.id, name)}
+            onInsertAfterActivity={(afterId) =>
+              insertActivityAfterActivity(id!, scenario.id, afterId)
+            }
+            onInsertAfterBand={(bandId) =>
+              insertActivityAfterBand(id!, scenario.id, bandId)
+            }
             onAddBand={() => addBand(id!, scenario.id)}
             onDeleteBand={(bandId) => deleteBand(id!, scenario.id, bandId)}
             onUpdateBand={(bandId, updates) =>

@@ -26,6 +26,8 @@ import {
   cloneScenario,
   createActivity,
   addActivityToScenario,
+  insertActivityAfter as insertActivityAfterSvc,
+  insertActivityAfterBand as insertActivityAfterBandSvc,
   removeActivityFromScenario,
   updateActivity,
   reorderActivities,
@@ -288,6 +290,16 @@ export interface ProjectStore {
 
   // Activity CRUD
   addActivity: (projectId: string, scenarioId: string, name: string) => void;
+  insertActivityAfterActivity: (
+    projectId: string,
+    scenarioId: string,
+    afterActivityId: string
+  ) => string | null;
+  insertActivityAfterBand: (
+    projectId: string,
+    scenarioId: string,
+    bandId: string
+  ) => string | null;
   duplicateActivity: (
     projectId: string,
     scenarioId: string,
@@ -773,6 +785,52 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       persist(projects, projectId);
       return { projects };
     });
+  },
+
+  insertActivityAfterActivity: (projectId, scenarioId, afterActivityId) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return null;
+    // Pre-check scenario existence: `isLocked` returns false for a missing
+    // scenario (no `.locked` field), so without this guard mutateScenario would
+    // push a phantom undo entry + persist + cloud emit for a no-op.
+    if (!findScenario(get().projects, projectId, scenarioId)) return null;
+    // `newActivityId` is assigned inside the updater and captured into outer
+    // scope so the action can return it. Safe because Zustand invokes the
+    // updater synchronously exactly once per `set` call. Reading settings from
+    // inside the updater (against fresh `s`) avoids snapshot drift —
+    // analogous to how `addActivity` above reads the scenario inside `set`.
+    let newActivityId: string | null = null;
+    mutateScenario(projectId, scenarioId, (s) => {
+      const newActivity = createActivity("", s.settings);
+      newActivityId = newActivity.id;
+      return insertActivityAfterSvc(s, newActivity, afterActivityId);
+    });
+    return newActivityId;
+  },
+
+  insertActivityAfterBand: (projectId, scenarioId, bandId) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return null;
+    // Pre-check scenario AND band existence on the current snapshot for an
+    // early null return. The updater re-checks against fresh state `s` per the
+    // v0.45.9 stale-emit lesson — always recompute inside the updater, not
+    // against a captured snapshot.
+    const snap = findScenario(get().projects, projectId, scenarioId);
+    if (!snap) return null;
+    if (!(snap.bands ?? []).some((b) => b.id === bandId)) return null;
+    let newActivityId: string | null = null;
+    let didInsert = false;
+    mutateScenario(projectId, scenarioId, (s) => {
+      const newActivity = createActivity("", s.settings);
+      const result = insertActivityAfterBandSvc(s, newActivity, bandId);
+      if (result === null) return s;
+      // If bandId disappeared between the pre-check and this commit (vanishing
+      // race), mutateScenario has already pushed an undo entry. The artifact
+      // is a stale undo entry restoring identical state; one extra Cmd-Z is
+      // required to undo into earlier history. The race window is tiny.
+      newActivityId = newActivity.id;
+      didInsert = true;
+      return result;
+    });
+    return didInsert ? newActivityId : null;
   },
 
   duplicateActivity: (projectId, scenarioId, activityId) => {
