@@ -57,6 +57,9 @@ interface UnifiedActivityRowProps {
   onEditActivity?: (activityId: string) => void;
   hasConstraintWarning?: boolean;
   activityNumber?: number;
+  onInsertAfterActivity?: () => void;
+  isLastRow?: boolean;
+  isAnyDragging?: boolean;
 }
 
 type FieldErrors = Partial<Record<string, string>>;
@@ -137,6 +140,9 @@ export function UnifiedActivityRow({
   onEditActivity,
   hasConstraintWarning,
   activityNumber,
+  onInsertAfterActivity,
+  isLastRow,
+  isAnyDragging,
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formatDate = useDateFormat();
@@ -304,7 +310,7 @@ export function UnifiedActivityRow({
   return (
     <div
       ref={setNodeRef}
-      className={`group/row grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 text-sm ${
+      className={`group/row relative grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 text-sm ${
         hasErrors ? "bg-red-50/30 dark:bg-red-900/20" : ""
       } ${isDragging ? "opacity-80 bg-blue-50 dark:bg-blue-900/30 z-10 shadow-md" : ""}`}
       style={{
@@ -651,6 +657,32 @@ export function UnifiedActivityRow({
           </button>
         )}
       </div>
+
+      {/* Insert-activity strip — appears on row hover between this row and the next. */}
+      {!isLocked && !isDragging && !isAnyDragging && !isLastRow && onInsertAfterActivity && (
+        <button
+          type="button"
+          aria-label={`Insert activity after ${activity.name || 'unnamed activity'}`}
+          tabIndex={-1}
+          // `onInsertAfterActivity` is pre-bound by the grid using the
+          // CURRENT activity.id (captured at render time). Rapid double-clicks
+          // therefore insert at the same `afterActivityId` — the second
+          // click's activity appears between this row and the first inserted
+          // one (both splice at original_index + 1). Intentional, not a bug.
+          onClick={onInsertAfterActivity}
+          className="absolute -bottom-1 left-0 right-0 h-2 z-20 flex items-center
+                     opacity-0 group-hover/row:opacity-100 transition-opacity"
+        >
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px
+                          bg-blue-400 dark:bg-blue-500 pointer-events-none" />
+          <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 top-1/2
+                          w-4 h-4 rounded-full bg-blue-400 dark:bg-blue-500
+                          flex items-center justify-center
+                          text-white text-xs leading-none font-semibold pointer-events-none">
+            +
+          </div>
+        </button>
+      )}
     </div>
   );
 }

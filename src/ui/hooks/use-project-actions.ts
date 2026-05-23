@@ -20,6 +20,8 @@ export function useProjectActions() {
       deleteScenario: s.deleteScenario,
       duplicateScenario: s.duplicateScenario,
       addActivity: s.addActivity,
+      insertActivityAfterActivity: s.insertActivityAfterActivity,
+      insertActivityAfterBand: s.insertActivityAfterBand,
       deleteActivity: s.deleteActivity,
       updateActivityField: s.updateActivityField,
       addBand: s.addBand,

@@ -9,6 +9,12 @@ import {
   deriveReorderResult,
   type GanttRenderItem,
 } from "./band-utils";
+import {
+  insertActivityAfter,
+  insertActivityAfterBand,
+} from "@app/api/project-service";
+import { createScenario } from "@app/api/project-service";
+import type { Scenario } from "@domain/models/types";
 
 function makeActivity(id: string): Activity {
   return {
@@ -341,5 +347,82 @@ describe("deriveReorderResult", () => {
     expect(result!.bands.map((b) => b.id)).toEqual(["bB", "bA"]);
     expect(result!.bands[0]?.insertBeforeActivityId).toBe("a1");
     expect(result!.bands[1]?.insertBeforeActivityId).toBe("a1");
+  });
+});
+
+describe("buildRenderList after insert actions", () => {
+  function baseScenario(): Scenario {
+    const scenario = createScenario("Test", "2025-01-06");
+    return scenario;
+  }
+
+  it("mid-list insertActivityAfter produces the expected render order", () => {
+    const a1 = makeActivity("a1");
+    const a2 = makeActivity("a2");
+    const a3 = makeActivity("a3");
+    const s: Scenario = {
+      ...baseScenario(),
+      activities: [a1, a2, a3],
+      bands: [],
+    };
+    const inserted = makeActivity("ins");
+    const updated = insertActivityAfter(s, inserted, "a2");
+    const items = buildRenderList(updated.activities, updated.bands ?? []);
+    expect(items.map((i) => (i.kind === "activity" ? i.activity.id : i.band.id))).toEqual([
+      "a1",
+      "a2",
+      "ins",
+      "a3",
+    ]);
+  });
+
+  it("insertActivityAfterBand anchored multi-band shared anchor: new activity sits between B and its later siblings in the render list", () => {
+    const a1 = makeActivity("a1");
+    const a2 = makeActivity("a2");
+    const s: Scenario = {
+      ...baseScenario(),
+      activities: [a1, a2],
+      bands: [
+        { id: "b1", name: "B1", insertBeforeActivityId: "a2" },
+        { id: "b2", name: "B2", insertBeforeActivityId: "a2" },
+        { id: "b3", name: "B3", insertBeforeActivityId: "a2" },
+      ],
+    };
+    const inserted = makeActivity("ins");
+    const updated = insertActivityAfterBand(s, inserted, "b2")!;
+    const items = buildRenderList(updated.activities, updated.bands ?? []);
+    // Expected: b1 (re-anchored to ins), b2 (re-anchored to ins), ins, b3 (still on a2), a2 — preceded by a1
+    expect(items.map((i) => (i.kind === "activity" ? i.activity.id : i.band.id))).toEqual([
+      "a1",
+      "b1",
+      "b2",
+      "ins",
+      "b3",
+      "a2",
+    ]);
+  });
+
+  it("insertActivityAfterBand trailing path with multiple trailing bands: new activity sits between B and later trailing siblings", () => {
+    const a1 = makeActivity("a1");
+    const s: Scenario = {
+      ...baseScenario(),
+      activities: [a1],
+      bands: [
+        { id: "b1", name: "T1", insertBeforeActivityId: null },
+        { id: "b2", name: "T2", insertBeforeActivityId: null },
+        { id: "b3", name: "T3", insertBeforeActivityId: null },
+      ],
+    };
+    const inserted = makeActivity("ins");
+    const updated = insertActivityAfterBand(s, inserted, "b2")!;
+    const items = buildRenderList(updated.activities, updated.bands ?? []);
+    // Expected render: a1, b1 (anchored to ins), b2 (anchored to ins), ins, b3 (still trailing)
+    expect(items.map((i) => (i.kind === "activity" ? i.activity.id : i.band.id))).toEqual([
+      "a1",
+      "b1",
+      "b2",
+      "ins",
+      "b3",
+    ]);
   });
 });

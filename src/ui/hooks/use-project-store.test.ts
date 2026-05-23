@@ -984,4 +984,183 @@ describe("useProjectStore", () => {
       expect(observed[0]).toBe("#65a30d");
     });
   });
+
+  describe("insertActivityAfterActivity", () => {
+    it("inserts after the target activity and returns the new ID", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Insert Test", null);
+      const scenarioId = project.scenarios[0]!.id;
+      store.addActivity(project.id, scenarioId, "A1");
+      store.addActivity(project.id, scenarioId, "A2");
+      store.addActivity(project.id, scenarioId, "A3");
+      const before = useProjectStore.getState().getProject(project.id)!;
+      const a2Id = before.scenarios[0]!.activities[1]!.id;
+
+      const newId = useProjectStore.getState().insertActivityAfterActivity(
+        project.id,
+        scenarioId,
+        a2Id,
+      );
+
+      expect(newId).toBeTruthy();
+      const after = useProjectStore.getState().getProject(project.id)!;
+      const ids = after.scenarios[0]!.activities.map((a) => a.id);
+      expect(ids).toHaveLength(4);
+      expect(ids[2]).toBe(newId);
+    });
+
+    it("locked scenario returns null and does not mutate project (reference unchanged); undo stack unchanged", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Locked Insert Test", null);
+      const scenarioId = project.scenarios[0]!.id;
+      store.addActivity(project.id, scenarioId, "A1");
+      store.toggleScenarioLock(project.id, scenarioId);
+      // Re-read after lock toggle (toggle itself mutates).
+      const lockedProjects = useProjectStore.getState().projects;
+      const lockedUndo = useProjectStore.getState().undoStack;
+      const a1Id = lockedProjects.find((p) => p.id === project.id)!.scenarios[0]!.activities[0]!.id;
+
+      const newId = useProjectStore.getState().insertActivityAfterActivity(
+        project.id,
+        scenarioId,
+        a1Id,
+      );
+
+      expect(newId).toBeNull();
+      expect(useProjectStore.getState().projects).toBe(lockedProjects);
+      expect(useProjectStore.getState().undoStack).toBe(lockedUndo);
+    });
+
+    it("missing scenario returns null; project reference unchanged; undo stack unchanged", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Missing Scenario Test", null);
+      const beforeProjects = useProjectStore.getState().projects;
+      const beforeUndo = useProjectStore.getState().undoStack;
+
+      const newId = useProjectStore.getState().insertActivityAfterActivity(
+        project.id,
+        "no-such-scenario",
+        "no-such-activity",
+      );
+
+      expect(newId).toBeNull();
+      expect(useProjectStore.getState().projects).toBe(beforeProjects);
+      expect(useProjectStore.getState().undoStack).toBe(beforeUndo);
+    });
+
+    it("stale afterActivityId appends AND re-anchors trailing bands (via addActivityToScenario fallback)", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Stale Insert Test", null);
+      const scenarioId = project.scenarios[0]!.id;
+      store.addActivity(project.id, scenarioId, "A1");
+      // Add a trailing band so we can assert the re-anchor side effect.
+      store.addBand(project.id, scenarioId);
+      const before = useProjectStore.getState().getProject(project.id)!;
+      const bandId = before.scenarios[0]!.bands![0]!.id;
+      // Confirm the new band is trailing (anchor === null) — addBand default.
+      expect(before.scenarios[0]!.bands![0]!.insertBeforeActivityId).toBeNull();
+
+      const newId = useProjectStore.getState().insertActivityAfterActivity(
+        project.id,
+        scenarioId,
+        "nonexistent-activity-id",
+      );
+
+      expect(newId).toBeTruthy();
+      const after = useProjectStore.getState().getProject(project.id)!;
+      const ids = after.scenarios[0]!.activities.map((a) => a.id);
+      // Appended at end
+      expect(ids[ids.length - 1]).toBe(newId);
+      // Trailing band re-anchored to the new activity
+      const band = after.scenarios[0]!.bands!.find((b) => b.id === bandId)!;
+      expect(band.insertBeforeActivityId).toBe(newId);
+    });
+  });
+
+  describe("insertActivityAfterBand", () => {
+    it("inserts in a single transition and returns the new ID", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Band Insert Test", null);
+      const scenarioId = project.scenarios[0]!.id;
+      store.addActivity(project.id, scenarioId, "A1");
+      store.addActivity(project.id, scenarioId, "A2");
+      store.addBand(project.id, scenarioId);
+      const before = useProjectStore.getState().getProject(project.id)!;
+      const bandId = before.scenarios[0]!.bands![0]!.id;
+      const undoBefore = useProjectStore.getState().undoStack.length;
+
+      const newId = useProjectStore.getState().insertActivityAfterBand(
+        project.id,
+        scenarioId,
+        bandId,
+      );
+
+      expect(newId).toBeTruthy();
+      const undoAfter = useProjectStore.getState().undoStack.length;
+      expect(undoAfter).toBe(undoBefore + 1); // exactly one transition
+      const after = useProjectStore.getState().getProject(project.id)!;
+      // Trailing band → append + re-anchor
+      const newActivity = after.scenarios[0]!.activities.find((a) => a.id === newId)!;
+      expect(newActivity).toBeDefined();
+      const band = after.scenarios[0]!.bands!.find((b) => b.id === bandId)!;
+      expect(band.insertBeforeActivityId).toBe(newId);
+    });
+
+    it("locked scenario returns null; project reference unchanged; undo stack unchanged", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Locked Band Insert", null);
+      const scenarioId = project.scenarios[0]!.id;
+      store.addBand(project.id, scenarioId);
+      const before = useProjectStore.getState().getProject(project.id)!;
+      const bandId = before.scenarios[0]!.bands![0]!.id;
+      store.toggleScenarioLock(project.id, scenarioId);
+      const lockedProjects = useProjectStore.getState().projects;
+      const lockedUndo = useProjectStore.getState().undoStack;
+
+      const newId = useProjectStore.getState().insertActivityAfterBand(
+        project.id,
+        scenarioId,
+        bandId,
+      );
+
+      expect(newId).toBeNull();
+      expect(useProjectStore.getState().projects).toBe(lockedProjects);
+      expect(useProjectStore.getState().undoStack).toBe(lockedUndo);
+    });
+
+    it("unknown bandId returns null; project reference unchanged; undo stack unchanged", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Unknown Band Test", null);
+      const scenarioId = project.scenarios[0]!.id;
+      const beforeProjects = useProjectStore.getState().projects;
+      const beforeUndo = useProjectStore.getState().undoStack;
+
+      const newId = useProjectStore.getState().insertActivityAfterBand(
+        project.id,
+        scenarioId,
+        "no-such-band",
+      );
+
+      expect(newId).toBeNull();
+      expect(useProjectStore.getState().projects).toBe(beforeProjects);
+      expect(useProjectStore.getState().undoStack).toBe(beforeUndo);
+    });
+
+    it("missing scenario returns null; project reference unchanged; undo stack unchanged", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Missing Scenario Band Test", null);
+      const beforeProjects = useProjectStore.getState().projects;
+      const beforeUndo = useProjectStore.getState().undoStack;
+
+      const newId = useProjectStore.getState().insertActivityAfterBand(
+        project.id,
+        "no-such-scenario",
+        "no-such-band",
+      );
+
+      expect(newId).toBeNull();
+      expect(useProjectStore.getState().projects).toBe(beforeProjects);
+      expect(useProjectStore.getState().undoStack).toBe(beforeUndo);
+    });
+  });
 });

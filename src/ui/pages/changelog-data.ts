@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.46.0",
+    date: "2026-05-23",
+    sections: [
+      {
+        title: "Added — insert an activity at any position in the grid",
+        items: [
+          "The activity grid now supports inserting a new blank activity at any row position, not just appending to the bottom. Hover between any two rows to reveal an inline insert strip with a small ⊕ marker; click it to add a new activity at that exact position. The new row's name input auto-focuses immediately so you can type without an extra click.",
+          "After an activity row: the new activity is spliced immediately after the hovered one. Existing bands are untouched.",
+          "After a band header row: the new activity joins the band's section with correct anchor semantics in every case — single-band groups, multi-band shared-anchor groups (only bands at-or-before the clicked one re-anchor; later siblings keep their original anchor), and trailing bands (earlier trailing bands move with the new activity, later trailing bands stay trailing).",
+          "Suppression rules: the strip is hidden on the last row in the grid (since \"+ Add Activity\" covers that case), on locked scenarios, and while any row is being dragged.",
+          "Accessibility: the strip is mouse-accessible in this release, consistent with the existing edit-pencil precedent. Keyboard-driven positional insert is a planned follow-up.",
+          "Implementation: new pure service functions insertActivityAfter and insertActivityAfterBand; new store actions insertActivityAfterActivity and insertActivityAfterBand that return the new activity's ID on success and pre-check the snapshot to avoid phantom undo + persist + cloud emit on no-op paths; useGridFocus extended with signalActivityAddById and an existence-check that defends the cloud-sync race; drag suppression wired through DndContext's lifecycle callbacks into local grid state.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.45.9",
     date: "2026-05-22",
     sections: [

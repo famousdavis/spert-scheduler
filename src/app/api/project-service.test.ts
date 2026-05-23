@@ -13,6 +13,8 @@ import {
   updateActivity,
   reorderActivities,
   removeActivityFromScenario,
+  insertActivityAfter,
+  insertActivityAfterBand,
 } from "./project-service";
 import type { Project, Scenario, SimulationRun } from "@domain/models/types";
 import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION } from "@domain/models/types";
@@ -422,6 +424,193 @@ describe("activity mutations", () => {
     const reordered = reorderActivities(withActivities, 0, 1);
     expect(reordered.activities[0]!.name).toBe("Second");
     expect(reordered.activities[1]!.name).toBe("First");
+  });
+});
+
+describe("insertActivityAfter", () => {
+  it("splices the new activity directly after the target index; does not mutate bands; clears simulationResults", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const a2 = createActivity("Second", scenario.settings);
+    const a3 = createActivity("Third", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1, a2, a3],
+      bands: [
+        { id: "b1", name: "Phase 1", insertBeforeActivityId: a1.id },
+        { id: "b2", name: "Phase 2", insertBeforeActivityId: a3.id },
+      ],
+      simulationResults: { id: "sim1" } as SimulationRun,
+    };
+    const inserted = createActivity("Mid", scenario.settings);
+    const updated = insertActivityAfter(base, inserted, a2.id);
+    expect(updated.activities.map((a) => a.id)).toEqual([a1.id, a2.id, inserted.id, a3.id]);
+    expect(updated.bands).toBe(base.bands); // band reference unchanged
+    expect(updated.simulationResults).toBeUndefined();
+  });
+
+  it("falls back to addActivityToScenario semantics on stale afterActivityId: appends AND re-anchors trailing bands", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [
+        { id: "b-anchored", name: "Phase 1", insertBeforeActivityId: a1.id },
+        { id: "b-trailing", name: "Phase 2", insertBeforeActivityId: null },
+      ],
+    };
+    const inserted = createActivity("New", scenario.settings);
+    const updated = insertActivityAfter(base, inserted, "nonexistent-id");
+    // Appended at end
+    expect(updated.activities.map((a) => a.id)).toEqual([a1.id, inserted.id]);
+    // Anchored band unchanged
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(a1.id);
+    // Trailing band re-anchored onto the new activity (load-bearing for the delegation)
+    expect(updated.bands![1]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.simulationResults).toBeUndefined();
+  });
+});
+
+describe("insertActivityAfterBand", () => {
+  it("returns null when bandId is not found", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [{ id: "b1", name: "Phase 1", insertBeforeActivityId: a1.id }],
+    };
+    const inserted = createActivity("New", scenario.settings);
+    expect(insertActivityAfterBand(base, inserted, "unknown")).toBeNull();
+  });
+
+  it("anchored path, single band: splices before anchor, re-anchors band onto new activity, clears simulationResults", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const a2 = createActivity("Second", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1, a2],
+      bands: [{ id: "b1", name: "Phase 2", insertBeforeActivityId: a2.id }],
+      simulationResults: { id: "sim1" } as SimulationRun,
+    };
+    const inserted = createActivity("Mid", scenario.settings);
+    const updated = insertActivityAfterBand(base, inserted, "b1")!;
+    expect(updated.activities.map((a) => a.id)).toEqual([a1.id, inserted.id, a2.id]);
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.simulationResults).toBeUndefined();
+  });
+
+  it("anchored multi-band shared anchor, B is first: only B is re-anchored", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const a2 = createActivity("Second", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1, a2],
+      bands: [
+        { id: "b1", name: "B1", insertBeforeActivityId: a2.id },
+        { id: "b2", name: "B2", insertBeforeActivityId: a2.id },
+        { id: "b3", name: "B3", insertBeforeActivityId: a2.id },
+      ],
+    };
+    const inserted = createActivity("Mid", scenario.settings);
+    const updated = insertActivityAfterBand(base, inserted, "b1")!;
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.bands![1]!.insertBeforeActivityId).toBe(a2.id);
+    expect(updated.bands![2]!.insertBeforeActivityId).toBe(a2.id);
+  });
+
+  it("anchored multi-band shared anchor, B is middle: only B1 and B are re-anchored", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const a2 = createActivity("Second", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1, a2],
+      bands: [
+        { id: "b1", name: "B1", insertBeforeActivityId: a2.id },
+        { id: "b2", name: "B2", insertBeforeActivityId: a2.id },
+        { id: "b3", name: "B3", insertBeforeActivityId: a2.id },
+      ],
+    };
+    const inserted = createActivity("Mid", scenario.settings);
+    const updated = insertActivityAfterBand(base, inserted, "b2")!;
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.bands![1]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.bands![2]!.insertBeforeActivityId).toBe(a2.id);
+  });
+
+  it("anchored multi-band shared anchor, B is last: all bands in the group are re-anchored", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const a2 = createActivity("Second", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1, a2],
+      bands: [
+        { id: "b1", name: "B1", insertBeforeActivityId: a2.id },
+        { id: "b2", name: "B2", insertBeforeActivityId: a2.id },
+        { id: "b3", name: "B3", insertBeforeActivityId: a2.id },
+      ],
+    };
+    const inserted = createActivity("Mid", scenario.settings);
+    const updated = insertActivityAfterBand(base, inserted, "b3")!;
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.bands![1]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.bands![2]!.insertBeforeActivityId).toBe(inserted.id);
+  });
+
+  it("trailing path, single trailing band: appends activity, re-anchors band, clears simulationResults", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [{ id: "b1", name: "Trailing", insertBeforeActivityId: null }],
+      simulationResults: { id: "sim1" } as SimulationRun,
+    };
+    const inserted = createActivity("New", scenario.settings);
+    const updated = insertActivityAfterBand(base, inserted, "b1")!;
+    expect(updated.activities.map((a) => a.id)).toEqual([a1.id, inserted.id]);
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.simulationResults).toBeUndefined();
+  });
+
+  it("trailing path, multiple trailing bands, B is not last: only B and bands before it are re-anchored", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [
+        { id: "b1", name: "T1", insertBeforeActivityId: null },
+        { id: "b2", name: "T2", insertBeforeActivityId: null },
+        { id: "b3", name: "T3", insertBeforeActivityId: null },
+      ],
+    };
+    const inserted = createActivity("New", scenario.settings);
+    // Click insert after b2 (index 1)
+    const updated = insertActivityAfterBand(base, inserted, "b2")!;
+    expect(updated.activities.map((a) => a.id)).toEqual([a1.id, inserted.id]);
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.bands![1]!.insertBeforeActivityId).toBe(inserted.id);
+    expect(updated.bands![2]!.insertBeforeActivityId).toBeNull(); // remains trailing
+  });
+
+  it("trailing path treats orphan-anchor band identically to null-anchor trailing", () => {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a1 = createActivity("First", scenario.settings);
+    const base: Scenario = {
+      ...scenario,
+      activities: [a1],
+      bands: [{ id: "b1", name: "Orphan", insertBeforeActivityId: "deleted-id" }],
+    };
+    const inserted = createActivity("New", scenario.settings);
+    const updated = insertActivityAfterBand(base, inserted, "b1")!;
+    expect(updated.activities.map((a) => a.id)).toEqual([a1.id, inserted.id]);
+    expect(updated.bands![0]!.insertBeforeActivityId).toBe(inserted.id);
   });
 });
 

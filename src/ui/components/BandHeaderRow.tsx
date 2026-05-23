@@ -16,6 +16,9 @@ interface BandHeaderRowProps {
   onUpdate: (bandId: string, updates: Partial<ActivityBand>) => void;
   onDelete: (bandId: string) => void;
   autoFocus?: boolean;
+  onInsertAfterBand?: () => void;
+  isLastRow?: boolean;
+  isAnyDragging?: boolean;
 }
 
 export function BandHeaderRow({
@@ -25,6 +28,9 @@ export function BandHeaderRow({
   onUpdate,
   onDelete,
   autoFocus,
+  onInsertAfterBand,
+  isLastRow,
+  isAnyDragging,
 }: BandHeaderRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [editValue, setEditValue] = useState(band.name);
@@ -67,7 +73,7 @@ export function BandHeaderRow({
   return (
     <div
       ref={setNodeRef}
-      className={`grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-sm ${
+      className={`group/row relative grid items-center gap-1 px-1 py-1.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-sm ${
         isDragging ? "opacity-80 z-10 shadow-md" : ""
       }`}
       style={{
@@ -186,6 +192,31 @@ export function BandHeaderRow({
           </button>
         )}
       </div>
+
+      {/* Insert-activity strip — appears on row hover, immediately below this band header. */}
+      {!locked && !isDragging && !isAnyDragging && !isLastRow && onInsertAfterBand && (
+        <button
+          type="button"
+          aria-label={`Insert activity after section ${band.name || 'unnamed section'}`}
+          tabIndex={-1}
+          // `onInsertAfterBand` is pre-bound by the grid using the CURRENT
+          // band.id (captured at render time). Rapid double-clicks insert
+          // twice against the same bandId — both new activities land at the
+          // same band-anchor position, with reverse insertion order.
+          onClick={onInsertAfterBand}
+          className="absolute -bottom-1 left-0 right-0 h-2 z-20 flex items-center
+                     opacity-0 group-hover/row:opacity-100 transition-opacity"
+        >
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px
+                          bg-blue-400 dark:bg-blue-500 pointer-events-none" />
+          <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 top-1/2
+                          w-4 h-4 rounded-full bg-blue-400 dark:bg-blue-500
+                          flex items-center justify-center
+                          text-white text-xs leading-none font-semibold pointer-events-none">
+            +
+          </div>
+        </button>
+      )}
     </div>
   );
 }
