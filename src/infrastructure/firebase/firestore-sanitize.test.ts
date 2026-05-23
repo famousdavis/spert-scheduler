@@ -1,18 +1,9 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, vi } from "vitest";
-
-// Mock firebase/firestore deleteField with an observable sentinel so we can
-// assert the merge-aware sanitizer emits it for cleared keys instead of just
-// stripping them.
-vi.mock("firebase/firestore", () => ({
-  deleteField: vi.fn(() => "__delete__"),
-}));
-
+import { describe, it, expect } from "vitest";
 import {
   sanitizeForFirestore,
-  sanitizeForFirestoreMerge,
   stripFirestoreFields,
   stripSimulationResultsForCloud,
 } from "./firestore-sanitize";
@@ -167,83 +158,6 @@ describe("stripSimulationResultsForCloud", () => {
     expect(result.scenarios[0]!.bands).toEqual([
       { id: "b1", name: "Phase 1", insertBeforeActivityId: "a1", color: "#3366FF" },
     ]);
-  });
-});
-
-describe("sanitizeForFirestoreMerge", () => {
-  it("replaces undefined map-keys with deleteField sentinels", () => {
-    // Regression: clearing a custom Gantt color (preset click sets the
-    // custom* fields to `undefined`) used to leave the old value on the
-    // Firestore document because `merge:true` deep-merges and the strip
-    // path omitted the key. With deleteField sentinels, the merge actually
-    // removes the field on the server.
-    const input = {
-      ganttAppearance: {
-        colorPreset: "classic",
-        customPlannedColor: undefined,
-        customInProgressColor: undefined,
-        customCompletedColor: "#65a30d",
-      },
-    };
-    const result = sanitizeForFirestoreMerge(input) as {
-      ganttAppearance: Record<string, unknown>;
-    };
-    expect(result.ganttAppearance.colorPreset).toBe("classic");
-    expect(result.ganttAppearance.customCompletedColor).toBe("#65a30d");
-    expect(result.ganttAppearance.customPlannedColor).toBe("__delete__");
-    expect(result.ganttAppearance.customInProgressColor).toBe("__delete__");
-  });
-
-  it("passes through primitives unchanged", () => {
-    expect(sanitizeForFirestoreMerge(42)).toBe(42);
-    expect(sanitizeForFirestoreMerge("hello")).toBe("hello");
-    expect(sanitizeForFirestoreMerge(true)).toBe(true);
-    expect(sanitizeForFirestoreMerge(null)).toBe(null);
-  });
-
-  it("preserves null values (null is distinct from undefined)", () => {
-    const input = { a: null, b: 1, c: undefined };
-    const result = sanitizeForFirestoreMerge(input) as Record<string, unknown>;
-    expect(result.a).toBe(null);
-    expect(result.b).toBe(1);
-    expect(result.c).toBe("__delete__");
-  });
-
-  it("strips undefined inside arrays (deleteField is forbidden in arrays)", () => {
-    // Arrays are atomic under merge:true — the whole array is replaced — so
-    // we never need deleteField inside them. Firestore also rejects
-    // deleteField sentinels nested in arrays.
-    const input = {
-      bands: [
-        { id: "b1", name: "Phase", insertBeforeActivityId: null, color: undefined },
-      ],
-    };
-    const result = sanitizeForFirestoreMerge(input) as {
-      bands: Record<string, unknown>[];
-    };
-    expect(result.bands[0]).toEqual({
-      id: "b1",
-      name: "Phase",
-      insertBeforeActivityId: null,
-    });
-    expect("color" in result.bands[0]!).toBe(false);
-  });
-
-  it("recurses into nested maps", () => {
-    const input = {
-      level1: {
-        keep: 1,
-        clear: undefined,
-        level2: { keep2: 2, clear2: undefined },
-      },
-    };
-    const result = sanitizeForFirestoreMerge(input) as {
-      level1: { keep: number; clear: unknown; level2: { keep2: number; clear2: unknown } };
-    };
-    expect(result.level1.keep).toBe(1);
-    expect(result.level1.clear).toBe("__delete__");
-    expect(result.level1.level2.keep2).toBe(2);
-    expect(result.level1.level2.clear2).toBe("__delete__");
   });
 });
 

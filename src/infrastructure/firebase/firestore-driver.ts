@@ -32,7 +32,6 @@ import {
 } from "./firebase";
 import {
   sanitizeForFirestore,
-  sanitizeForFirestoreMerge,
   stripFirestoreFields,
   stripSimulationResultsForCloud,
 } from "./firestore-sanitize";
@@ -271,11 +270,7 @@ export class FirestoreDriver {
       const cleaned = stripSimulationResultsForCloud(project);
       // eslint-disable-next-line sonarjs/no-unused-vars
       const { id: _docId, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
-      // Merge-aware sanitize: `undefined` map-keys become `deleteField()`
-      // sentinels so that fields cleared locally (e.g. custom Gantt colors
-      // reset by a preset click) are actually removed on the server doc
-      // instead of lingering through Firestore's deep merge.
-      const data = sanitizeForFirestoreMerge({
+      const data = sanitizeForFirestore({
         ...rest,
         schemaVersion: SCHEMA_VERSION,
         updatedAt: serverTimestamp(),
@@ -289,9 +284,25 @@ export class FirestoreDriver {
         );
       }
 
-      // merge: true preserves owner/members fields set during create()
+      // mergeFields (not merge:true). `merge: true` performs a *deep*
+      // merge on map fields — so ganttAppearance was being merged with the
+      // server-side map field-by-field, leaving keys that had transitioned
+      // to undefined (e.g. cleared custom colors after a preset click)
+      // alive on the server. v0.45.6 patched that by emitting deleteField()
+      // sentinels for cleared keys, but mixing deleteField sentinels with
+      // regular values in the same nested map proved unreliable in practice
+      // (a freshly-set sibling like customCompletedColor would not survive).
+      //
+      // mergeFields explicitly lists the top-level keys to update; each
+      // named field is wholesale REPLACED with the value in `data`. No deep
+      // merge, no sentinels needed: the new ganttAppearance map simply
+      // omits any cleared sub-field. Owner/members are excluded so they
+      // stay under the control of create() and removeCollaborator().
+      const mergeFields = Object.keys(data).filter(
+        (k) => k !== "owner" && k !== "members"
+      );
       const ref = doc(db, PROJECTS_COL, project.id);
-      await setDoc(ref, data, { merge: true });
+      await setDoc(ref, data, { mergeFields });
     } catch (e) {
       console.error("Firestore write error:", e);
       this.onSaveErrorCb?.(e);

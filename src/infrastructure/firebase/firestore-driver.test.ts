@@ -80,7 +80,7 @@ function makeProject(id: string): Project {
   };
 }
 
-describe("FirestoreDriver.doSave (merge sentinel behavior)", () => {
+describe("FirestoreDriver.doSave (mergeFields semantics)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     setDocSpy.mockClear();
@@ -90,21 +90,22 @@ describe("FirestoreDriver.doSave (merge sentinel behavior)", () => {
     vi.useRealTimers();
   });
 
-  it("emits deleteField sentinels for cleared map keys so merge:true actually removes them", async () => {
-    // Regression for the "Gantt custom colors return after refresh" bug:
-    // when a preset click clears customPlannedColor/customInProgressColor by
-    // setting them to `undefined`, the debounced save must include
-    // deleteField() sentinels for those keys. Without the sentinels,
-    // Firestore's deep merge leaves the prior values on the server doc.
-    const driver = new FirestoreDriver("uid-1");
-    const project = makeProject("p1");
+  it("uses mergeFields (not merge:true) and excludes owner/members from the field list", async () => {
+    // Regression for the v0.45.6/v0.45.7 "Gantt custom colors don't persist
+    // after refresh" thread: switching from merge:true (deep-merge maps,
+    // requires deleteField sentinels for nested clears) to mergeFields
+    // (wholesale-replace each named top-level field) so ganttAppearance is
+    // replaced atomically and cleared sub-fields are simply absent from
+    // the new map. Owner/members stay under the control of create() and
+    // removeCollaborator() — never written by the debounced save path.
+    const driver = new FirestoreDriver("uid-mergefields");
+    const project = makeProject("p-mergefields");
     project.ganttAppearance = {
       nameColumnWidth: "normal",
       activityFontSize: "normal",
       rowDensity: "normal",
       barLabel: "duration",
       colorPreset: "classic",
-      // Two cleared fields + one freshly-set field — matches the user repro.
       customPlannedColor: undefined,
       customInProgressColor: undefined,
       customCompletedColor: "#65a30d",
@@ -113,15 +114,29 @@ describe("FirestoreDriver.doSave (merge sentinel behavior)", () => {
     };
 
     driver.save(project);
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(300);
 
     expect(setDocSpy).toHaveBeenCalledTimes(1);
     const [, payload, opts] = setDocSpy.mock.calls[0]!;
-    expect(opts).toEqual({ merge: true });
     const data = payload as { ganttAppearance: Record<string, unknown> };
+
+    // The freshly-set Completed color is present in the payload.
     expect(data.ganttAppearance.customCompletedColor).toBe("#65a30d");
-    expect(data.ganttAppearance.customPlannedColor).toBe("__delete__");
-    expect(data.ganttAppearance.customInProgressColor).toBe("__delete__");
+    // Cleared sub-fields are simply absent (no deleteField sentinel needed).
+    expect("customPlannedColor" in data.ganttAppearance).toBe(false);
+    expect("customInProgressColor" in data.ganttAppearance).toBe(false);
+
+    // setDoc options: mergeFields, NOT merge:true.
+    expect(opts).toHaveProperty("mergeFields");
+    expect(opts).not.toHaveProperty("merge");
+    const mergeFields = (opts as { mergeFields: string[] }).mergeFields;
+    expect(mergeFields).toContain("ganttAppearance");
+    expect(mergeFields).toContain("scenarios");
+    expect(mergeFields).toContain("updatedAt");
+    // Owner/members must be off the list so the debounced save never
+    // overwrites the ACL fields managed by create() / removeCollaborator().
+    expect(mergeFields).not.toContain("owner");
+    expect(mergeFields).not.toContain("members");
   });
 });
 
