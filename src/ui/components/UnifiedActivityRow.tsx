@@ -24,7 +24,7 @@ import {
   distributionShortLabel,
   statusLabel,
 } from "@domain/helpers/format-labels";
-import { computeElapsedDays } from "./activity-row-helpers";
+import { computeElapsedDays, focusField } from "./activity-row-helpers";
 import {
   constraintBadgeClass,
   constraintBadgeLabel,
@@ -33,6 +33,7 @@ import {
   handleCrossRowTabNav,
   handleInRowTabNav,
 } from "./unified-activity-helpers";
+import { useBufferedField } from "@ui/hooks/use-buffered-field";
 import { EstimateInputs } from "./EstimateInputs";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";
@@ -261,6 +262,14 @@ export function UnifiedActivityRow({
   const isComplete = activity.status === "complete";
   const isInProgress = activity.status === "inProgress";
 
+  const confidenceApplies =
+    activity.distributionType === "normal" || activity.distributionType === "logNormal";
+
+  const tabFieldOrder = useMemo(
+    () => buildTabFieldOrder(heuristicEnabled, confidenceApplies, isComplete, isInProgress),
+    [heuristicEnabled, confidenceApplies, isComplete, isInProgress]
+  );
+
   const handleTabNav = useCallback(
     (
       e: React.KeyboardEvent,
@@ -268,20 +277,35 @@ export function UnifiedActivityRow({
     ) => {
       if (e.key !== "Tab") return;
 
-      const confidenceApplies =
-        activity.distributionType === "normal" || activity.distributionType === "logNormal";
-      const fieldOrder = buildTabFieldOrder(heuristicEnabled, confidenceApplies, isComplete, isInProgress);
-      const idx = fieldOrder.indexOf(currentField);
+      const idx = tabFieldOrder.indexOf(currentField);
 
       if (handleOffOrderTabNav(e, currentField, activity.id, heuristicEnabled, idx, confidenceApplies)) return;
 
-      const lastField = fieldOrder[fieldOrder.length - 1];
+      const lastField = tabFieldOrder[tabFieldOrder.length - 1];
       if (handleCrossRowTabNav(e, currentField, lastField, activity.id, heuristicEnabled)) return;
 
-      handleInRowTabNav(e, fieldOrder, idx, activity.id);
+      handleInRowTabNav(e, tabFieldOrder, idx, activity.id);
     },
-    [activity.id, activity.distributionType, isComplete, isInProgress, heuristicEnabled]
+    // activity.distributionType removed — now captured via confidenceApplies → tabFieldOrder
+    [activity.id, tabFieldOrder, heuristicEnabled, confidenceApplies]
   );
+
+  // Stabilize the commit closure so useBufferedField.handleBlur is not
+  // rebuilt on every parent render (only when activity.id or onUpdate change).
+  const handleNameCommit = useCallback(
+    (name: string) => onUpdate(activity.id, { name }),
+    [activity.id, onUpdate]
+  );
+
+  // key={activity.id} in UnifiedActivityGrid ensures remount on entity change —
+  // required for useState initialization in useBufferedField to be correct.
+  const {
+    localValue: localName,
+    setLocalValue: setLocalName,
+    handleFocus: handleNameFocus,
+    handleBlur: handleNameBlur,
+    revertValue: revertNameValue,
+  } = useBufferedField(activity.name, handleNameCommit);
 
   const estimateFields = useMemo(
     () => [
@@ -364,14 +388,49 @@ export function UnifiedActivityRow({
           )}
           <input
             ref={nameInputRef}
+            id={`activity-name-${activity.id}`}
             data-row-id={activity.id}
             data-field="name"
             name="activityName"
+            autoComplete="off"
             aria-label="Activity name"
             type="text"
-            value={activity.name}
-            onChange={(e) => onUpdate(activity.id, { name: e.target.value })}
-            onKeyDown={(e) => handleTabNav(e, "name")}
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+            onFocus={handleNameFocus}
+            onBlur={handleNameBlur}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                // Do NOT call onUpdate here. Blur from focusField will commit
+                // via the change-aware guard. An explicit commit would
+                // double-fire because focusedSnapshot still holds the
+                // pre-edit value at this point.
+                //
+                // "name" is always at index 0 per buildTabFieldOrder; the
+                // defensive indexOf form is kept against future tab-order
+                // refactors.
+                const nameIdx = tabFieldOrder.indexOf("name");
+                const nextField =
+                  nameIdx >= 0 && nameIdx < tabFieldOrder.length - 1
+                    ? tabFieldOrder[nameIdx + 1]
+                    : undefined;
+                if (!nextField || !focusField(activity.id, nextField)) {
+                  nameInputRef.current?.blur();
+                }
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                // revertValue() sets suppressNextBlur + queues the state
+                // revert. .blur() must follow immediately — see
+                // useBufferedField revertValue JSDoc.
+                revertNameValue();
+                nameInputRef.current?.blur();
+                return;
+              }
+              handleTabNav(e, "name");
+            }}
             disabled={isLocked}
             className="flex-1 min-w-0 px-1.5 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             placeholder="Add an activity name"

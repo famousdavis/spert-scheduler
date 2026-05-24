@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.46.1",
+    date: "2026-05-23",
+    sections: [
+      {
+        title: "Fix — activity name and section header name inputs no longer drop characters in cloud mode",
+        items: [
+          "The activity name input and the section (band) header name input no longer drop or revert characters during cloud sync. The bug was structural and exposed in v0.45.7: per-keystroke controlled input + per-keystroke debounced cloud save means every debounced Firestore write produces a server-ack snapshot (hasPendingWrites: false) that flows back through subscribeToProject → mergeProject and replaces the project in the Zustand store with the value at debounce-fire time — silently overwriting any keystrokes typed since.",
+          "Reverting v0.45.7's 500ms → 200ms debounce reduction is not the fix: fast typists hit the same race at 500ms, and the shorter window is needed to prevent losing click-driven changes on fast refresh. The fix is at the input layer.",
+          "Both inputs now buffer their value in local state via a new useBufferedField hook. While focused, external state updates (Firestore echoes, undo, collaborator renames) are ignored. On focus loss the buffer commits to the store if and only if the typed value differs from the value the user saw when they focused the field (a focus-time snapshot, not compared against the live external value). A user who focuses and blurs without typing never overwrites a remote update that arrived while focused.",
+          "Commit timing: name persists on any focus loss (Tab, Shift+Tab, Enter, click-away, modal open) — not per keystroke. Undo granularity changes from per-keystroke to per-edit-session.",
+          "Enter (activity name) commits via the resulting blur and advances focus to the next tab-order field (Min in standard mode, ML in heuristic mode). Enter (section header) commits via blur and advances focus to the Add Activity button. Escape reverts to the value at the time the field was focused.",
+          "Concurrent-edit note: if a collaborator renames a field while your cursor is in it, your focus-loss value wins (last-blur-wins; accepted for a primarily single-user tool).",
+          "Follow-up (v0.46.2): the ActivityEditModal name field and notes textarea (highest impact remaining — long-form typing), milestone names, scenario rename, and project rename carry the same structural exposure and will be moved onto useBufferedField next.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.46.0",
     date: "2026-05-23",
     sections: [

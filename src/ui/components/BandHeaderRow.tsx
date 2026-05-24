@@ -1,13 +1,14 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { ActivityBand } from "@domain/models/types";
 import { BandColorPicker } from "./BandColorPicker";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
 import { hexToTintedBackground } from "@ui/helpers/color-utils";
+import { useBufferedField } from "@ui/hooks/use-buffered-field";
 
 interface BandHeaderRowProps {
   band: ActivityBand;
@@ -33,7 +34,6 @@ export function BandHeaderRow({
   isAnyDragging,
 }: BandHeaderRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const [editValue, setEditValue] = useState(band.name);
   const [pickerOpen, setPickerOpen] = useState(false);
   const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
 
@@ -57,15 +57,21 @@ export function BandHeaderRow({
     }
   }, [autoFocus]);
 
-  useEffect(() => {
-    setEditValue(band.name); // eslint-disable-line react-hooks/set-state-in-effect -- syncs local edit buffer with external band.name changes (e.g., cloud sync)
-  }, [band.name]);
+  // Stabilize commit so useBufferedField.handleBlur is not rebuilt on every
+  // parent render.
+  const handleBandNameCommit = useCallback(
+    (name: string) => onUpdate(band.id, { name }),
+    [band.id, onUpdate]
+  );
 
-  const commitName = () => {
-    if (editValue !== band.name) {
-      onUpdate(band.id, { name: editValue });
-    }
-  };
+  // key={band.id} in UnifiedActivityGrid ensures remount on entity change.
+  const {
+    localValue: editValue,
+    setLocalValue: setEditValue,
+    handleFocus: handleNameFocus,
+    handleBlur: commitName,
+    revertValue: revertNameValue,
+  } = useBufferedField(band.name, handleBandNameCommit);
 
   const swatchBg = band.color ?? "transparent";
   const tintedBg = band.color ? hexToTintedBackground(band.color) : null;
@@ -147,13 +153,16 @@ export function BandHeaderRow({
           aria-label="Section name"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
+          onFocus={handleNameFocus}
           onBlur={commitName}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              commitName();
-              // Move focus to "+ Add Activity" — the most likely next action
-              // after naming a section. Tab from there lands on "+ Section".
+              // Do NOT call commitName() explicitly here. focusing the next
+              // element fires blur → commitName runs via the change-aware
+              // guard. An explicit commit + the subsequent blur would
+              // double-fire because focusedSnapshot still holds the pre-edit
+              // value at this point.
               const addBtn = document.querySelector<HTMLElement>(
                 '[data-field="add-activity"]'
               );
@@ -164,7 +173,9 @@ export function BandHeaderRow({
               }
             } else if (e.key === "Escape") {
               e.preventDefault();
-              setEditValue(band.name);
+              // revertValue() sets suppressNextBlur + queues the revert.
+              // .blur() must follow immediately — see useBufferedField JSDoc.
+              revertNameValue();
               nameInputRef.current?.blur();
             }
           }}

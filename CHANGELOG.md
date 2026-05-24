@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.46.1 — 2026-05-23
+
+### Fix — activity name and section header name inputs no longer drop characters in cloud mode
+
+The activity name input and the section (band) header name input no longer drop or revert characters during cloud sync. The bug was structural and exposed in v0.45.7: the per-keystroke controlled input pattern + per-keystroke debounced cloud save means that every debounced Firestore write produces a server-acknowledgment snapshot (`hasPendingWrites: false`) that flows back through `subscribeToProject` → `mergeProject` and replaces the project in the Zustand store. The replacement carries the value at debounce-fire time, not what the user has typed since — so any keystrokes between debounce-fire and server-ack are silently overwritten when React re-renders the controlled input from the store.
+
+Reverting v0.45.7's 500ms → 200ms debounce reduction is not the fix: fast typists hit the same race at 500ms, and the shorter window is needed to prevent losing click-driven changes on fast refresh. The fix is at the input layer.
+
+Both the activity name and section header name inputs now buffer their value in local state via a new `useBufferedField` hook. While the input is focused, external state updates (Firestore echoes, undo, real-time collaborator renames) are ignored — the buffer holds whatever the user has typed. On focus loss the buffer commits to the store if and only if the typed value differs from the value the user saw when they focused the field (a snapshot taken at focus time, not compared against the live external value). A user who focuses a field and blurs without typing never overwrites a remote update that arrived while focused.
+
+Commit timing: name persists on any focus loss (Tab, Shift+Tab, Enter, click-away, modal open) — not per keystroke. Undo granularity changes from per-keystroke to per-edit-session.
+
+Enter (activity name) commits via the resulting blur and advances focus to the next tab-order field (Min in standard mode, ML in heuristic mode). Enter (section header) commits via blur and advances focus to the Add Activity button. Escape reverts to the value at the time the field was focused (in the rare multi-client case where a collaborator updated the name while you were focused, Escape lands on the original pre-collaborator value, accepted for a primarily single-user tool).
+
+Concurrent-edit note: if a collaborator renames a field while your cursor is in it, your focus-loss value wins (last-blur-wins).
+
+Implementation: new pure hook `src/ui/hooks/use-buffered-field.ts` (focus guard via ref, focused-value snapshot ref, change-aware blur, suppressNextBlur flag for Escape). Both call sites stabilize the commit closure via `useCallback` to keep the hook's `handleBlur` identity stable across keystrokes. The BandHeaderRow's Enter handler no longer calls its commit function explicitly before moving focus — that would double-fire onto the change-aware guard now that the guard compares against the focus-time snapshot rather than live external value. Net commit semantics unchanged.
+
+Follow-up (v0.46.2): the ActivityEditModal name field and notes textarea (highest impact remaining — long-form typing), milestone names, scenario rename, and project rename carry the same structural exposure and will be moved onto `useBufferedField` next.
+
 ## 0.46.0 — 2026-05-23
 
 ### Added — insert an activity at any position in the grid
