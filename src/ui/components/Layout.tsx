@@ -132,7 +132,7 @@ export function Layout() {
           | Licensed under GNU GPL v3 |{" "}
           <button
             onClick={() => setShortcutsOpen(true)}
-            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
             title="Keyboard shortcuts (?)"
           >
             Keyboard shortcuts

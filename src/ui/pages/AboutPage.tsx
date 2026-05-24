@@ -46,7 +46,7 @@ export function AboutPage() {
             rel="noopener noreferrer"
             className="mt-3 inline-block rounded bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
           >
-            Quick Reference Guide
+            Open Quick Reference Guide (PDF)
           </a>
         </section>
 
