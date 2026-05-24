@@ -12,6 +12,42 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.46.2",
+    date: "2026-05-24",
+    sections: [
+      {
+        title: "Fixed — milestone names + project/scenario rename inputs no longer drop characters in cloud mode",
+        items: [
+          "v0.46.1 fixed the activity grid name input and section header name input against the cloud-sync echo race. v0.46.2 extends the same fix to two component files (MilestonePanel + the shared InlineEdit), covering three rename sites.",
+          "Milestone name (MilestonePanel) — was a fully controlled per-keystroke input, identical to the pre-v0.46.1 activity name pattern.",
+          "Project rename and scenario tab rename — both backed by the shared InlineEdit component, which had the same useState + sync useEffect pattern as pre-v0.46.1 BandHeaderRow (sync without focus guard, vulnerable to mid-typing overwrite from server-ack snapshots).",
+          "InlineEdit was migrated to use useBufferedField internally; both call sites inherit the fix. To support InlineEdit's reject-empty-trim policy, the hook's onCommit callback now receives a controls argument (controls.reset()) that allows a caller to resync the buffer after a rejected commit — distinct from revertValue() (which reverts to the focus-time snapshot and arms the Escape/blur-suppress flag). BufferedFieldControls is exported from the hook for use at call sites.",
+          "InlineEdit's Enter handler now calls inputRef.current?.blur() explicitly before exiting edit mode. The prior implementation relied on React firing a synthetic blur event during the conditional unmount of the focused input — version-inconsistent behavior. The explicit .blur() removes the dependency.",
+          "Same behavioral semantics as v0.46.1 apply to all three sites: commit timing is now per-edit-session (focus loss / Enter / click-away) instead of per-keystroke; external rename while focused is suppressed (last-blur-wins); a focused-and-blurred-without-typing field does not overwrite remote updates that arrived during focus.",
+        ],
+      },
+      {
+        title: "Added — Escape revert on milestone name input",
+        items: [
+          "Pressing Escape on a milestone name input now reverts the typed text to the value at the time of focus. No Escape handling existed on this input before v0.46.2.",
+        ],
+      },
+      {
+        title: "Changed — Escape revert on InlineEdit (project + scenario rename) now uses focus-time snapshot",
+        items: [
+          "Previously, InlineEdit's Escape reset to the current prop value at the time of Escape. The new behavior reverts to the value at the time the user entered edit mode (the focus-time snapshot). In a concurrent-edit scenario, this means Escape shows the value the user saw when they started editing, not a value that arrived from a collaborator mid-edit. The display span shows the current store value once edit mode exits in both cases.",
+        ],
+      },
+      {
+        title: "Not migrated (intentionally)",
+        items: [
+          "The ActivityEditModal name field and notes textarea are not migrated. The modal uses useState(prop) initializers without a sync useEffect; while open, the modal's local state is not subscribed to external store updates. It commits atomically on the Save button with no per-keystroke write path. Migrating it to useBufferedField would not fix a real bug.",
+          "The NewProjectDialog, NewScenarioDialog, and CloneScenarioDialog follow the same Save-button pattern and are similarly unaffected.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.46.1",
     date: "2026-05-23",
     sections: [

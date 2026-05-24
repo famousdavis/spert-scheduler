@@ -1,9 +1,10 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { Activity, Milestone, MilestoneBufferInfo } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
+import { useBufferedField } from "@ui/hooks/use-buffered-field";
 
 interface MilestonePanelProps {
   milestones: Milestone[];
@@ -16,6 +17,51 @@ interface MilestonePanelProps {
   onSetStartsAt: (activityId: string, milestoneId: string | null) => void;
   isLocked?: boolean;
   formatActivityName?: (a: Activity) => string;
+}
+
+interface MilestoneNameInputProps {
+  milestoneId: string;
+  name: string;
+  disabled: boolean;
+  onCommit: (milestoneId: string, name: string) => void;
+}
+
+// Non-exported — buffered name input for a milestone row. Hooks can't be
+// called inside .map(), so we extract a sub-component keyed on m.id.
+function MilestoneNameInput({ milestoneId, name, disabled, onCommit }: MilestoneNameInputProps) {
+  const handleCommit = useCallback(
+    (next: string) => onCommit(milestoneId, next),
+    [milestoneId, onCommit],
+  );
+  const { localValue, setLocalValue, handleFocus, handleBlur, revertValue } = useBufferedField(
+    name,
+    handleCommit,
+  );
+
+  return (
+    <input
+      id={`milestone-name-${milestoneId}`}
+      type="text"
+      name="milestoneName"
+      autoComplete="off"
+      aria-label="Milestone name"
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          revertValue();
+          e.currentTarget.blur();
+        }
+        // No Enter handling — milestone names commit on blur/Tab.
+      }}
+      disabled={disabled}
+      className="flex-1 min-w-0 px-2 py-1 text-sm font-medium border border-transparent hover:border-gray-200 dark:hover:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none disabled:opacity-60"
+      placeholder="Milestone name"
+    />
+  );
 }
 
 function formatMilestoneCount(count: number): string {
@@ -59,6 +105,11 @@ export function MilestonePanel({
     setNewName("");
     setNewDate("");
   };
+
+  const handleMilestoneNameCommit = useCallback(
+    (id: string, nextName: string) => onUpdateMilestone(id, { name: nextName }),
+    [onUpdateMilestone],
+  );
 
   // Build a map: milestoneId → assigned activities
   const milestoneActivities = new Map<string, Activity[]>();
@@ -121,17 +172,14 @@ export function MilestonePanel({
           >
             {/* Header row: name, date, health, delete */}
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                name="milestoneName"
-                aria-label="Milestone name"
-                value={m.name}
-                onChange={(e) => onUpdateMilestone(m.id, { name: e.target.value })}
-                disabled={isLocked}
-                className="flex-1 min-w-0 px-2 py-1 text-sm font-medium border border-transparent hover:border-gray-200 dark:hover:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded focus:border-blue-400 focus:outline-none disabled:opacity-60"
-                placeholder="Milestone name"
+              <MilestoneNameInput
+                milestoneId={m.id}
+                name={m.name}
+                disabled={!!isLocked}
+                onCommit={handleMilestoneNameCommit}
               />
               <input
+                id={`milestone-target-date-${m.id}`}
                 type="date"
                 name="milestoneTargetDate"
                 aria-label="Milestone target date"

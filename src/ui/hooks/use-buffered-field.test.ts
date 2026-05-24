@@ -3,11 +3,11 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useBufferedField } from "./use-buffered-field";
+import { useBufferedField, type BufferedFieldControls } from "./use-buffered-field";
 
 interface HookProps {
   externalValue: string;
-  onCommit: (value: string) => void;
+  onCommit: (value: string, controls: BufferedFieldControls) => void;
 }
 
 function setup(initial: HookProps) {
@@ -39,7 +39,7 @@ describe("useBufferedField", () => {
       result.current.handleBlur();
     });
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith("AB");
+    expect(onCommit).toHaveBeenCalledWith("AB", expect.any(Object));
   });
 
   it("unfocused sync: external updates flow into localValue when not focused", () => {
@@ -101,7 +101,7 @@ describe("useBufferedField", () => {
     });
 
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith("new");
+    expect(onCommit).toHaveBeenCalledWith("new", expect.any(Object));
   });
 
   it("Escape (revertValue + blur): reverts without committing", () => {
@@ -146,6 +146,51 @@ describe("useBufferedField", () => {
       result.current.handleBlur();
     });
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith("user typed");
+    expect(onCommit).toHaveBeenCalledWith("user typed", expect.any(Object));
+  });
+
+  it("controls.reset() resyncs the buffer to externalValue from inside onCommit", () => {
+    // Reject-empty pattern: onCommit detects whitespace-only input and resets.
+    const onCommit = vi.fn((_value: string, controls: BufferedFieldControls) => {
+      if (!_value.trim()) controls.reset();
+    });
+    const { result } = setup({ externalValue: "A", onCommit });
+
+    act(() => {
+      result.current.handleFocus();
+    });
+    act(() => {
+      result.current.setLocalValue("  "); // whitespace — change-aware guard passes: "  " !== "A"
+    });
+    act(() => {
+      result.current.handleBlur();
+    });
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith("  ", expect.any(Object));
+    expect(result.current.localValue).toBe("A"); // reset() snapped back to externalValue
+  });
+
+  it("controls.reset() uses the current externalValue, not the focus-time snapshot", () => {
+    const onCommit = vi.fn((_value: string, controls: BufferedFieldControls) => {
+      controls.reset();
+    });
+    const { result, rerender } = setup({ externalValue: "A", onCommit });
+
+    act(() => {
+      result.current.handleFocus(); // snapshot = "A"
+    });
+    act(() => {
+      result.current.setLocalValue("typed");
+    });
+    rerender({ externalValue: "B", onCommit }); // focus guard suppresses; localValue stays "typed"
+
+    act(() => {
+      result.current.handleBlur(); // "typed" !== "A" → guard passes → onCommit fires
+    });
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith("typed", expect.any(Object));
+    expect(result.current.localValue).toBe("B"); // reset() used current externalValue "B", not snapshot "A"
   });
 });
