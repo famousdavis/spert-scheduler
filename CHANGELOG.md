@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.46.3 — 2026-05-24
+
+About page + footer polish — standardizes the QRG button label across the SPERT® Suite and fixes a footer link color inconsistency.
+
+### Changed — About page QRG button label standardized
+- Renamed the QRG download button from `Quick Reference Guide` to `Open Quick Reference Guide (PDF)` so the label matches the canonical convention used across the SPERT® Suite (Forecaster, MyScrumBudget, AHP, Story Map).
+
+### Fixed — footer "Keyboard shortcuts" link styled blue
+- The "Keyboard shortcuts" button in the global footer was the only footer link rendered in gray (`text-gray-500 dark:text-gray-400`). All sibling links (Version, SPERT® Suite, Terms of Service, Privacy Policy, License) use the blue link color. Restyled to match.
+
 ## 0.46.2 — 2026-05-24
 
 ### Fixed — milestone names + project/scenario rename inputs no longer drop characters in cloud mode

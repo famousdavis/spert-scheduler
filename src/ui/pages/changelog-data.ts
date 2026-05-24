@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.46.3",
+    date: "2026-05-24",
+    sections: [
+      {
+        title: "Changed — About page QRG button label standardized",
+        items: [
+          "Renamed the QRG download button from \"Quick Reference Guide\" to \"Open Quick Reference Guide (PDF)\" so the label matches the canonical convention used across the SPERT® Suite (Forecaster, MyScrumBudget, AHP, Story Map).",
+        ],
+      },
+      {
+        title: "Fixed — footer \"Keyboard shortcuts\" link styled blue",
+        items: [
+          "The \"Keyboard shortcuts\" button in the global footer was the only footer link rendered in gray. All sibling links (Version, SPERT® Suite, Terms of Service, Privacy Policy, License) use the blue link color. Restyled to match.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.46.2",
     date: "2026-05-24",
     sections: [
