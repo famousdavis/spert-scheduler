@@ -985,6 +985,164 @@ describe("useProjectStore", () => {
     });
   });
 
+  describe("mergeProject preserves simulationResults (v0.46.4 regression)", () => {
+    // Lesson from v0.46.4: simulation results are local-only ephemeral state
+    // that never round-trip through Firestore (stripSimulationResultsForCloud
+    // strips them on every cloud write). Each cloud save triggers an
+    // onSnapshot echo from the server with hasPendingWrites: false; that
+    // echo passed the FirestoreDriver guard and reached mergeProject, which
+    // wholesale-replaced the in-memory project. Result: simulation results
+    // computed locally vanished moments after the user clicked Run.
+    // mergeProject now preserves the current in-memory simulationResults on
+    // each scenario when merging an incoming snapshot. Lookup is by scenario
+    // ID so collaborator add/remove/reorder is handled correctly.
+    it("preserves in-memory simulationResults when echo arrives with them stripped", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Sim Preservation Test", null);
+      const scenarioId = project.scenarios[0]!.id;
+
+      const fakeRun = {
+        id: "run-1",
+        timestamp: "2026-05-24T00:00:00.000Z",
+        trialCount: 1000,
+        seed: "seed-1",
+        engineVersion: "test",
+        percentiles: { 50: 10, 95: 20 },
+        histogramBins: [],
+        mean: 10,
+        standardDeviation: 1,
+        minSample: 8,
+        maxSample: 12,
+        samples: [9, 10, 11],
+      };
+      useProjectStore.getState().setSimulationResults(
+        project.id,
+        scenarioId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fakeRun as any,
+      );
+
+      // Sanity: results are live in memory before the echo arrives.
+      const beforeEcho = useProjectStore
+        .getState()
+        .getProject(project.id)!;
+      expect(beforeEcho.scenarios[0]!.simulationResults?.id).toBe("run-1");
+
+      // Simulate the Firestore server-ack echo: same project shape, but
+      // every scenario's simulationResults is undefined (the strip).
+      const echo = {
+        ...beforeEcho,
+        scenarios: beforeEcho.scenarios.map((s) => ({
+          ...s,
+          simulationResults: undefined,
+        })),
+      };
+      useProjectStore.getState().mergeProject(echo);
+
+      const after = useProjectStore.getState().getProject(project.id)!;
+      expect(after.scenarios[0]!.simulationResults?.id).toBe("run-1");
+      expect(after.scenarios[0]!.simulationResults?.samples).toEqual([9, 10, 11]);
+    });
+
+    it("scenario added by remote collaborator has undefined simulationResults; existing scenarios retain theirs", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Remote Add Test", null);
+      const baselineId = project.scenarios[0]!.id;
+
+      const fakeRun = {
+        id: "run-baseline",
+        timestamp: "2026-05-24T00:00:00.000Z",
+        trialCount: 1000,
+        seed: "seed",
+        engineVersion: "test",
+        percentiles: { 50: 5 },
+        histogramBins: [],
+        mean: 5,
+        standardDeviation: 0,
+        minSample: 5,
+        maxSample: 5,
+        samples: [5],
+      };
+      useProjectStore.getState().setSimulationResults(
+        project.id,
+        baselineId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fakeRun as any,
+      );
+
+      const current = useProjectStore.getState().getProject(project.id)!;
+      // Echo carries an additional scenario the in-memory state hasn't seen.
+      const echo = {
+        ...current,
+        scenarios: [
+          ...current.scenarios.map((s) => ({
+            ...s,
+            simulationResults: undefined,
+          })),
+          {
+            ...current.scenarios[0]!,
+            id: "new-from-collab",
+            name: "Optimistic",
+            simulationResults: undefined,
+          },
+        ],
+      };
+      useProjectStore.getState().mergeProject(echo);
+
+      const after = useProjectStore.getState().getProject(project.id)!;
+      expect(after.scenarios).toHaveLength(2);
+      expect(after.scenarios[0]!.id).toBe(baselineId);
+      expect(after.scenarios[0]!.simulationResults?.id).toBe("run-baseline");
+      expect(after.scenarios[1]!.id).toBe("new-from-collab");
+      expect(after.scenarios[1]!.simulationResults).toBeUndefined();
+    });
+
+    it("setSimulationResults does NOT emit a cloud save (v0.46.4)", async () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("No-Emit Test", null);
+      const scenarioId = project.scenarios[0]!.id;
+
+      // Drain any microtasks queued by addProject before subscribing.
+      await Promise.resolve();
+
+      const events: string[] = [];
+      const unsub = cloudSyncBus.subscribe((event) => {
+        if (event.projectId === project.id) {
+          events.push(event.type);
+        }
+      });
+
+      const fakeRun = {
+        id: "run-no-emit",
+        timestamp: "2026-05-24T00:00:00.000Z",
+        trialCount: 1,
+        seed: "x",
+        engineVersion: "test",
+        percentiles: {},
+        histogramBins: [],
+        mean: 1,
+        standardDeviation: 0,
+        minSample: 1,
+        maxSample: 1,
+        samples: [1],
+      };
+      useProjectStore.getState().setSimulationResults(
+        project.id,
+        scenarioId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fakeRun as any,
+      );
+
+      // Flush any deferred microtask-emit (pre-fix path) so we catch it.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      unsub();
+
+      expect(events).toHaveLength(0);
+    });
+  });
+
   describe("insertActivityAfterActivity", () => {
     it("inserts after the target activity and returns the new ID", () => {
       const store = useProjectStore.getState();

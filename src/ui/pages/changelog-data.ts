@@ -12,6 +12,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.46.4",
+    date: "2026-05-24",
+    sections: [
+      {
+        title: "Fixed — simulation results no longer vanish moments after Run in cloud mode",
+        items: [
+          "In cloud storage mode, clicking Run Simulation showed results that then disappeared within a second. The bug did not occur in local mode and was invisible offline. Root cause was a Firestore-echo race against the Zustand store.",
+          "setSimulationResults wrote the new run into the in-memory store and queued a cloud save. FirestoreDriver.save() (debounced 200 ms) calls stripSimulationResultsForCloud() before writing — simulation results are large, transient, and recomputable, so they never round-trip through Firestore.",
+          "Firestore acknowledged the write and fired an onSnapshot echo with hasPendingWrites: false. The driver's existing hasPendingWrites guard catches only the optimistic local-write snapshot; this second snapshot passed through and reached mergeProject, which wholesale-replaced the in-memory project with a copy that had simulationResults: undefined on every scenario. The user's results were silently wiped.",
+          "mergeProject now preserves in-memory simulationResults per-scenario (matched by scenario ID) when a snapshot arrives. Simulation results are local-only ephemeral state — we never accept them from a Firestore snapshot. Lookup-by-ID correctly handles collaborator scenario add/remove/reorder.",
+          "setSimulationResults no longer emits a cloud save. The cloud save it triggered produced no useful Firestore delta (results are stripped on the way out) and was the most common trigger of the echo race. localStorage save is preserved.",
+          "A new mergeWithLocalSimulationResults helper encodes the preservation logic at module scope to keep mergeProject's nested-function depth within lint limits.",
+          "Known gap (documented in setProjects): the initial cloud-load and spert:models-changed re-fetch path still wholesale-replaces state. Acceptable today because the initial load runs before the user can compute anything, and models-changed only fires on invitation claims.",
+          "Regression tests added: echo with simulationResults: undefined preserves the in-memory run; a remote-added scenario has simulationResults: undefined while existing scenarios retain theirs; setSimulationResults emits no cloudSyncBus save event.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.46.3",
     date: "2026-05-24",
     sections: [

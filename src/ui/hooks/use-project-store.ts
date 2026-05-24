@@ -161,6 +161,31 @@ function snapshotProject(project: Project): Project {
   };
 }
 
+/**
+ * Build a merged project where each incoming scenario carries over the
+ * current in-memory `simulationResults` (matched by scenario ID). Used by
+ * `mergeProject` to defend against the cloud-echo race (v0.46.4): Firestore
+ * strips simulation results on every write, so every server-ack snapshot
+ * delivers `simulationResults: undefined` and would otherwise wipe freshly-
+ * computed runs. Pulled out as a module-level helper to keep `mergeProject`'s
+ * nested-function depth within lint limits.
+ */
+function mergeWithLocalSimulationResults(
+  incoming: Project,
+  current: Project
+): Project {
+  const priorById = new Map(current.scenarios.map((s) => [s.id, s]));
+  return {
+    ...incoming,
+    scenarios: incoming.scenarios.map((s) => {
+      const prior = priorById.get(s.id);
+      return prior
+        ? { ...s, simulationResults: prior.simulationResults }
+        : s;
+    }),
+  };
+}
+
 /** Map over a project list, transforming only the project whose id matches `projectId`. */
 function updateProjectInList(
   projects: Project[],
@@ -979,7 +1004,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         ...s,
         simulationResults: results,
       }));
-      persist(projects, projectId);
+      // Save to localStorage but DO NOT emit a cloud-sync save. Simulation
+      // results are stripped on write (stripSimulationResultsForCloud) and
+      // never round-trip through Firestore, so a cloud emit here would
+      // produce a no-op delta on the server but still trigger an onSnapshot
+      // echo that delivers a stripped-results project back to mergeProject
+      // — the very race v0.46.4 closes. (mergeProject also defends against
+      // this for echoes triggered by other mutations; suppressing the emit
+      // here removes the most common trigger.)
+      let toCache = projects.find((p) => p.id === projectId);
+      if (toCache) {
+        const prefs = loadPreferences();
+        if (!prefs.storeFullSimulationData) {
+          toCache = stripSimulationSamples(toCache);
+        }
+        repo.save(toCache);
+      }
       return { projects };
     });
   },
@@ -1369,18 +1409,39 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     }
     // Update the index to match
     repo.reorderIndex(projects.map((p) => p.id));
+    // KNOWN GAP (v0.46.4): the v0.46.4 fix preserves simulationResults
+    // across mergeProject (post-write echo) but NOT here. setProjects is
+    // the initial-cloud-load and spert:models-changed re-fetch path; it
+    // wholesale-replaces in-memory state with Firestore-delivered projects
+    // that have simulationResults stripped. If a user has freshly-computed
+    // results in memory and a cloud refresh fires, the results are wiped.
+    // Acceptable today because (a) initial load happens before user can
+    // run anything, and (b) models-changed is rare and tied to invitation
+    // claims. Revisit if either assumption changes.
     set({ projects, loadError: false, loadErrors: [], undoStack: [], redoStack: [] });
   },
 
   mergeProject: (project: Project) => {
     set((state) => {
-      const exists = state.projects.some((p) => p.id === project.id);
-      const projects = exists
-        ? state.projects.map((p) => (p.id === project.id ? project : p))
-        : [...state.projects, project];
+      // Simulation results are local-only ephemeral state — we never accept
+      // them from a Firestore snapshot. The strip on write
+      // (stripSimulationResultsForCloud) means every cloud echo reports
+      // undefined; preserve in-memory values to avoid wiping a freshly-
+      // computed run. See mergeWithLocalSimulationResults helper above.
+      const existing = state.projects.find((p) => p.id === project.id);
+      const merged = existing
+        ? mergeWithLocalSimulationResults(project, existing)
+        : project;
+      const projects = existing
+        ? state.projects.map((p) => (p.id === project.id ? merged : p))
+        : [...state.projects, merged];
       return { projects };
     });
-    // Update localStorage cache
+    // Update localStorage cache. Note: pass the original `project`, not the
+    // sim-results-preserved version — localStorage reflects the snapshot as
+    // delivered (the preservation above is a UI-state concern, not a
+    // persistence one — `repo.save` already respects storeFullSimulationData
+    // for its own strip).
     repo.save(project);
   },
 

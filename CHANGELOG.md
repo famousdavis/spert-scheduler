@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.46.4 — 2026-05-24
+
+### Fixed — simulation results no longer vanish moments after Run in cloud mode
+
+In cloud storage mode, clicking **Run Simulation** showed results that then disappeared within a second. The bug did not occur in local mode and was invisible offline. Root cause was a Firestore-echo race against the Zustand store:
+
+1. `setSimulationResults` wrote the new run into the in-memory store and queued a cloud save.
+2. `FirestoreDriver.save()` is debounced 200 ms; before writing it calls `stripSimulationResultsForCloud()` (results are large, transient, and recomputable — they do not belong in Firestore).
+3. Firestore acknowledged the write and fired an `onSnapshot` echo with `hasPendingWrites: false`. The driver's existing `hasPendingWrites` guard only catches the optimistic local-write snapshot; this second snapshot passed through.
+4. The echo reached `mergeProject`, which wholesale-replaced the in-memory project with a copy that had `simulationResults: undefined` on every scenario. The user's results were silently wiped.
+
+Three coordinated changes close the race:
+
+- **`mergeProject` now preserves in-memory `simulationResults` per-scenario** (matched by scenario ID) when a snapshot arrives. Simulation results are local-only ephemeral state — we never accept them from a Firestore snapshot. Lookup-by-ID correctly handles collaborator scenario add/remove/reorder: a remote scenario the local state hasn't seen gets `simulationResults: undefined` (no prior to carry over), and a deleted scenario is dropped with the incoming list.
+- **`setSimulationResults` no longer emits a cloud save.** The cloud save it triggered produced no useful Firestore delta (results are stripped on the way out) and was the most common trigger of the echo race. localStorage save is preserved.
+- **A new `mergeWithLocalSimulationResults` helper** encodes the preservation logic at module scope to keep `mergeProject`'s nested-function depth within lint limits.
+
+Known gap (documented in `setProjects`): the initial cloud-load and `spert:models-changed` re-fetch path still wholesale-replaces state. This is acceptable today because the initial load runs before the user can compute anything, and `models-changed` only fires on invitation claims. Revisit if either assumption changes.
+
+Regression tests in `use-project-store.test.ts`:
+- echo with `simulationResults: undefined` preserves the in-memory run
+- a remote-added scenario has `simulationResults: undefined`; existing scenarios retain theirs
+- `setSimulationResults` emits no `cloudSyncBus` save event
+
 ## 0.46.3 — 2026-05-24
 
 About page + footer polish — standardizes the QRG button label across the SPERT® Suite and fixes a footer link color inconsistency.
