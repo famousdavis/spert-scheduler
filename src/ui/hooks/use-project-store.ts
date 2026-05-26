@@ -1403,22 +1403,33 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   setProjects: (projects: Project[]) => {
     activeUndoGroup = null;
-    // Also sync to localStorage so local cache stays current
+    // Sync to localStorage. Intentionally uses the Firestore-delivered `projects`
+    // (simulationResults stripped), not the in-memory-merged version built below —
+    // localStorage mirrors Firestore state, not UI-ephemeral computation results.
     for (const project of projects) {
       repo.save(project);
     }
-    // Update the index to match
     repo.reorderIndex(projects.map((p) => p.id));
-    // KNOWN GAP (v0.46.4): the v0.46.4 fix preserves simulationResults
-    // across mergeProject (post-write echo) but NOT here. setProjects is
-    // the initial-cloud-load and spert:models-changed re-fetch path; it
-    // wholesale-replaces in-memory state with Firestore-delivered projects
-    // that have simulationResults stripped. If a user has freshly-computed
-    // results in memory and a cloud refresh fires, the results are wiped.
-    // Acceptable today because (a) initial load happens before user can
-    // run anything, and (b) models-changed is rare and tied to invitation
-    // claims. Revisit if either assumption changes.
-    set({ projects, loadError: false, loadErrors: [], undoStack: [], redoStack: [] });
+    set((state) => {
+      // Preserve in-memory simulationResults for projects already in the store (v0.47.0 SC1-1).
+      // Firestore delivers projects with simulationResults stripped; a spert:models-changed
+      // re-fetch (invitation claim) would otherwise wipe a freshly-computed run the user is
+      // actively viewing. Applies mergeWithLocalSimulationResults — the same helper used by
+      // mergeProject since v0.46.4 — per project, falling back to the Firestore-delivered
+      // version for projects not yet in memory.
+      //
+      // At initial cloud load, state.projects already contains localStorage-restored projects
+      // (loadProjects() runs from page-mount useEffects before driver.loadAll() resolves).
+      // The merge also preserves any session-cached simulation results from those restored
+      // projects, which is desirable. The spert:models-changed re-fetch path benefits most
+      // in practice, as it can fire while freshly-computed (in-session) results are live.
+      const inMemoryById = new Map(state.projects.map((p) => [p.id, p]));
+      const merged = projects.map((p) => {
+        const existing = inMemoryById.get(p.id);
+        return existing ? mergeWithLocalSimulationResults(p, existing) : p;
+      });
+      return { projects: merged, loadError: false, loadErrors: [], undoStack: [], redoStack: [] };
+    });
   },
 
   mergeProject: (project: Project) => {

@@ -177,7 +177,17 @@ export class FirestoreDriver {
     const result = ProjectSchema.safeParse(data);
     if (!result.success) return null;
 
-    const project = result.data as Project;
+    // Re-attach `owner` from the raw document. `stripFirestoreFields` removes
+    // `owner` before Zod parse; ProjectSchema then applies .default(null), so
+    // `result.data.owner` is always null after parse. Without this re-attach,
+    // any caller of `driver.load()` receives a project with `owner: null`,
+    // silently suppressing the SharingSection ownership gate.
+    // Matches the identical re-attach pattern in `subscribeToProject` (~line 414)
+    // and the `_owner` re-attachment in `processProjectDoc` (~line 136).
+    const project = {
+      ...(result.data as Project),
+      owner: (raw.owner as string | undefined) ?? null,
+    };
 
     // Write-forward: persist migrated schema immediately to prevent
     // multi-device race where a v0.19.x client overwrites patched fields

@@ -1141,6 +1141,45 @@ describe("useProjectStore", () => {
 
       expect(events).toHaveLength(0);
     });
+
+    it("setProjects preserves in-memory simulationResults on re-fetch (SC1-1)", () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("setProjects Sim Preservation", null);
+      const scenarioId = project.scenarios[0]!.id;
+      const fakeRun = {
+        id: "run-sc1-1",
+        timestamp: "2026-05-26T00:00:00.000Z",
+        trialCount: 1000,
+        seed: "seed-sc1-1",
+        engineVersion: "test",
+        percentiles: { 50: 15, 95: 25 },
+        histogramBins: [],
+        mean: 15,
+        standardDeviation: 2,
+        minSample: 10,
+        maxSample: 20,
+        samples: [14, 15, 16],
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      useProjectStore.getState().setSimulationResults(project.id, scenarioId, fakeRun as any);
+      // Anti-false-pass guard: confirm results are live in memory before calling setProjects.
+      const beforeRefetch = useProjectStore.getState().getProject(project.id)!;
+      expect(beforeRefetch.scenarios[0]!.simulationResults?.id).toBe("run-sc1-1");
+      // Simulate a spert:models-changed re-fetch: same project shape, simulationResults stripped.
+      const cloudProject = {
+        ...beforeRefetch,
+        scenarios: beforeRefetch.scenarios.map((s) => ({
+          ...s,
+          simulationResults: undefined,
+        })),
+      };
+      useProjectStore.getState().setProjects([cloudProject]);
+      // In-memory state must preserve simulationResults (the fix).
+      // Without the fix, this would be undefined.
+      const after = useProjectStore.getState().getProject(project.id)!;
+      expect(after.scenarios[0]!.simulationResults?.id).toBe("run-sc1-1");
+      expect(after.scenarios[0]!.simulationResults?.samples).toEqual([14, 15, 16]);
+    });
   });
 
   describe("insertActivityAfterActivity", () => {

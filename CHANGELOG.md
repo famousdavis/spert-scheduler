@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.47.0 — 2026-05-26
+
+### Fixed — cloud storage hardening (7 findings from dual audit)
+
+Tightened seven gaps in the cloud sync path, surfaced by a dual code/architecture audit. None were user-facing regressions in normal flows, but each broadened the failure surface enough to bite a real user in a near-future scenario. All fixes follow established patterns already in the codebase (echo-guard, idempotent cleanup, sim-results preservation).
+
+- **Scenario notes textarea — echo guard.** The notes textarea was a store-bound controlled input with per-keystroke writes. In cloud mode, every keystroke fed the 200 ms debounced save, and each server-ack snapshot fell through `mergeProject`, overwriting in-progress typing the moment the user paused. The fix adds a `useBufferedField`-style local buffer (`localNotes`) and a focus-guard ref — incoming `scenarioNotes` prop updates are suppressed while the textarea is focused. Per-keystroke `onScenarioNotesChange` commits are preserved so the undo-group system still receives a commit on every keystroke. On blur, the buffer re-syncs FROM the store so mid-edit Ctrl+Z becomes visible. The character count below the textarea also reads from the buffer so it stays in sync with typed text during focus. (A3-1, the highest-severity finding.)
+
+- **Permission-denied eviction — cancel pending save first.** When a project's snapshot listener received `permission-denied` (membership revoked server-side), the existing handler called `removeProjectLocally` and surfaced the "project was removed" toast — but a debounced save queued ≤200 ms earlier would still fire against the revoked-access project, hit PERMISSION_DENIED, and trigger a paired "Cloud sync error" toast. The fix calls `driverRef.current?.cancelPendingSave(projectId)` before eviction, eliminating the second toast. (I2-1.)
+
+- **Externally-revoked sign-out — full cleanup.** When Firebase revokes a session without a user-initiated `signOut()` call (token expiry, server-side session purge), `onAuthStateChanged(null)` fired with no cleanup running — in-memory Zustand state retained the previous user's projects, and per-user UID-namespaced localStorage was not cleared until the next sign-in re-derived everything. The fix adds an `else` branch to the `onAuthStateChanged` callback that calls `runSignOutCleanup()` directly (matching the pattern of paths 1 and 2). All cleanup steps are idempotent: when path 1 fires `runSignOutCleanup()` explicitly before `firebaseSignOut`, the subsequent `onAuthStateChanged(null)` runs cleanup a second time with no harmful effect (empty Maps, empty arrays, `removeItem` on absent keys). (E1-3.)
+
+- **`driver.load()` — re-attach owner.** `stripFirestoreFields` strips `owner` from the raw Firestore document before Zod parse; the schema then applies `.default(null)`, leaving every `driver.load()` result with `owner: null`. `subscribeToProject` and `processProjectDoc` already re-attach `raw.owner ?? null` after parse; `load()` was the remaining gap. Any future caller of `driver.load()` would silently break the SharingSection ownership gate. (H2-1.)
+
+- **`spert:models-changed` re-fetch — data-loss guard.** The initial cloud-load path already protects against a transient 0-project response (skips replacement when cloud is empty but local has projects). The invitation-claim re-fetch path lacked this symmetry — a backend hiccup during a claim could wipe the in-memory project list the user was actively working with. The fix mirrors the existing guard. (I1-1.)
+
+- **`setProjects` — preserve in-memory simulation results.** v0.46.4 closed the post-write echo race in `mergeProject` via `mergeWithLocalSimulationResults`, but `setProjects` (called on initial cloud load and `spert:models-changed` re-fetch) still wholesale-replaced state. A user with freshly-computed results in memory could lose them on the next re-fetch. The fix applies the same merge helper, walking the in-memory project map by id and falling back to the Firestore-delivered version for unknown projects. Initial-load benefits too: `loadProjects()` runs from page-mount `useEffect`s before `driver.loadAll()` resolves, so localStorage-restored projects with cached results are preserved through the cloud hydration. (SC1-1.)
+
+- **Changelog grep guard.** Documented a pre-merge grep pattern scoped to the `date:` field that catches placeholder strings (e.g., `2026-MM-DD`) without false-positiving on real dates in narrative body text. (M3-1.)
+
+Regression tests added: `driver.load()` owner re-attachment (2 tests); `setProjects` preserves in-memory simulation results across re-fetch (1 test). Total tests: 1576 → 1579.
+
 ## 0.46.4 — 2026-05-24
 
 ### Fixed — simulation results no longer vanish moments after Run in cloud mode

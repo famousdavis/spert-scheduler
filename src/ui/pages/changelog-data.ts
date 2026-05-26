@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.47.0",
+    date: "2026-05-26",
+    sections: [
+      {
+        title: "Fixed — cloud storage hardening (7 findings from dual audit)",
+        items: [
+          "Scenario notes textarea: added echo guard (local buffer + focus guard ref) preventing server-ack snapshots from overwriting in-progress typing. Per-keystroke commits preserved so undo/redo grouping continues to work correctly. Character count now reflects typed text during focus rather than the lagging store value (A3-1).",
+          "Permission-denied eviction: pending debounced save is now cancelled before project is removed from local state, eliminating a spurious 'Cloud sync error' toast that appeared alongside the 'project removed' message (I2-1).",
+          "Externally-revoked sign-out (token expiry) now runs full cleanup — zeroing in-memory state and clearing per-user localStorage — matching the behavior of user-initiated sign-out. All cleanup steps are idempotent for the double-run that follows explicit sign-out (E1-3).",
+          "driver.load(): re-attaches owner from the raw Firestore document after Zod parse, matching the existing pattern in subscribeToProject and processProjectDoc (H2-1).",
+          "spert:models-changed re-fetch: added data-loss guard matching the initial-load path; a transient 0-project response no longer wipes the in-memory project list (I1-1).",
+          "setProjects: preserves in-memory simulationResults for already-loaded projects during re-fetches, applying the same mergeWithLocalSimulationResults helper introduced in v0.46.4. Benefits both the invitation-claim re-fetch path and the initial cloud load (SC1-1).",
+          "Changelog date parsing: documented pre-merge grep guard scoped to the date: field to catch placeholder dates before they reach production (M3-1).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.46.4",
     date: "2026-05-24",
     sections: [

@@ -308,6 +308,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         claimPendingInvitationsAndNotify(firebaseUser);
+      } else {
+        // Path 3 — externally-revoked credentials (token expiry, server-side revocation).
+        // Paths 1 and 2 call runSignOutCleanup() explicitly before firebaseSignOut;
+        // this path fires when Firebase revokes the session without a user-initiated action.
+        // Run cleanup to wipe in-memory state and per-user localStorage — semantically
+        // equivalent to user-initiated sign-out. setUser(null) runs unconditionally below.
+        //
+        // runSignOutCleanup() handles its own errors internally and never re-throws.
+        // All cleanup steps are idempotent: path 1's runSignOutCleanup() then triggers
+        // onAuthStateChanged(null), running cleanup a second time with no harmful effect.
+        await runSignOutCleanup();
       }
       // Single setUser call site — null on sign-out, AuthUser on sign-in.
       setUser(firebaseUser ? toAuthUser(firebaseUser) : null);

@@ -41,6 +41,7 @@ vi.mock("firebase/firestore", () => ({
 }));
 
 import {
+  getDoc,
   onSnapshot,
   runTransaction,
   where,
@@ -441,6 +442,59 @@ describe("FirestoreDriver.subscribeToProject", () => {
     expect(callback).toHaveBeenCalledWith(
       expect.objectContaining({ owner: null })
     );
+  });
+});
+
+describe("FirestoreDriver.load() – owner re-attachment (H2-1)", () => {
+  // getDoc is mocked as vi.fn() in the vi.mock("firebase/firestore") factory above.
+  // These tests verify that driver.load() re-attaches raw.owner after Zod parse,
+  // matching the pattern already present in subscribeToProject and processProjectDoc.
+  beforeEach(() => {
+    vi.mocked(getDoc).mockReset();
+  });
+
+  it("re-attaches owner from the raw Firestore document after Zod parse", async () => {
+    const expectedOwner = "uid-owner-h21";
+    vi.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: "p-h21",
+      data: () => ({
+        id: "p-h21",
+        name: "H2-1 Test Project",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        schemaVersion: SCHEMA_VERSION,
+        scenarios: [],
+        owner: expectedOwner,
+        members: { [expectedOwner]: "owner" },
+      }),
+    } as never);
+    const driver = new FirestoreDriver("uid-test");
+    const result = await driver.load("p-h21");
+    expect(result).not.toBeNull();
+    expect(result?.owner).toBe(expectedOwner);
+  });
+
+  it("sets owner to null when the raw document has no owner field (documentation)", async () => {
+    // This test documents the null-owner defensive case. It passes both before and
+    // after the H2-1 fix because Zod's .default(null) and the explicit ?? null
+    // both produce null for an absent owner field. Test 1 above is the regression guard.
+    vi.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: "p-h21-noowner",
+      data: () => ({
+        id: "p-h21-noowner",
+        name: "No Owner Project",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        schemaVersion: SCHEMA_VERSION,
+        scenarios: [],
+        members: {},
+        // owner intentionally absent — ?? null must produce null, not undefined
+      }),
+    } as never);
+    const driver = new FirestoreDriver("uid-test");
+    const result = await driver.load("p-h21-noowner");
+    expect(result).not.toBeNull();
+    expect(result?.owner).toBeNull();
   });
 });
 

@@ -107,6 +107,11 @@ export function useCloudSync(): void {
           // so the user can keep reading the last-known snapshot.
           const code = (error as { code?: string } | undefined)?.code;
           if (code === "permission-denied") {
+            // v0.47.0 (I2-1): cancel any pending debounced save before evicting.
+            // Without this, a queued 200 ms timer fires after eviction, hits
+            // PERMISSION_DENIED, and triggers a spurious "Cloud sync error" toast
+            // alongside the "project removed" message — a confusing pair for the user.
+            driverRef.current?.cancelPendingSave(projectId);
             removeProjectLocally(projectId);
             toast.info(
               "A project was removed because you no longer have access."
@@ -357,6 +362,17 @@ export function useCloudSync(): void {
           ...p,
           owner: _owner,
         }));
+        // v0.47.0 (I1-1): data-loss guard — mirrors the same protection in the
+        // initial loadAll() path. If a transient backend issue returns 0 projects,
+        // do not wipe the in-memory project list the user is actively working with.
+        const localProjects = useProjectStore.getState().projects;
+        if (projects.length === 0 && localProjects.length > 0) {
+          console.warn(
+            `spert:models-changed returned 0 projects but local has ${localProjects.length} — skipping replacement to protect in-memory data`
+          );
+          useProjectStore.getState().setCloudDataLoaded(true);
+          return;
+        }
         setProjects(projects);
         for (const project of projects) {
           // Idempotent — listenedIdsRef guards re-subscription.
