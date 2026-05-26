@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useId, useState, useCallback, type ReactNode } from "react";
+import { useId, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { ToggleSwitch } from "./ToggleSwitch";
 import type { Activity, ActivityBand, ActivityDependency, DeterministicSchedule, Milestone, ScenarioSettings, Calendar, MilestoneBufferInfo } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
@@ -189,6 +189,22 @@ export function ScenarioSummaryCard({
 
   // Scenario notes state
   const [notesOpen, setNotesOpen] = useState(false);
+  // A3 echo guard (v0.47.0): buffer scenario notes in local state to prevent
+  // server-ack snapshots from overwriting in-progress typing. The focus guard
+  // ref suppresses incoming prop updates while the user is actively typing.
+  // Per-keystroke onChange → onScenarioNotesChange commits are preserved so
+  // the undo-group system continues to receive a commit on every keystroke.
+  const [localNotes, setLocalNotes] = useState(scenarioNotes ?? "");
+  const isNotesFocusedRef = useRef(false);
+  // Sync local buffer from prop when not focused (cloud echo, undo, peer edit).
+  // When focused, incoming store updates are suppressed — user's in-progress
+  // text takes priority. On blur, localNotes is synced FROM the store
+  // (making mid-edit Ctrl+Z visible) rather than committing TO the store.
+  useEffect(() => {
+    if (!isNotesFocusedRef.current) {
+      setLocalNotes(scenarioNotes ?? ""); // eslint-disable-line react-hooks/set-state-in-effect -- intentional: syncs buffer with external prop only when not focused
+    }
+  }, [scenarioNotes]);
   const baseId = useId();
   const startDateId = `${baseId}-start`;
   const targetFinishId = `${baseId}-target`;
@@ -356,10 +372,24 @@ export function ScenarioSummaryCard({
             id={notesId}
             name="scenarioNotes"
             aria-label="Scenario notes"
-            value={scenarioNotes ?? ""}
-            onChange={(e) => onScenarioNotesChange?.(e.target.value || undefined)}
-            onFocus={onScenarioNotesFocus}
-            onBlur={onScenarioNotesBlur}
+            value={localNotes}
+            onChange={(e) => {
+              const v = e.target.value;
+              setLocalNotes(v);                         // update local buffer
+              onScenarioNotesChange?.(v || undefined);  // per-keystroke commit (undo-group dep)
+            }}
+            onFocus={() => {
+              isNotesFocusedRef.current = true;
+              onScenarioNotesFocus?.();
+            }}
+            onBlur={() => {
+              isNotesFocusedRef.current = false;
+              // Sync FROM store on blur — makes mid-edit Ctrl+Z visible at blur time.
+              // Do NOT call onScenarioNotesChange(localNotes) here — that direction
+              // writes TO the store and silently reverts any undo applied while focused.
+              setLocalNotes(scenarioNotes ?? "");
+              onScenarioNotesBlur?.();
+            }}
             maxLength={2000}
             rows={3}
             disabled={isLocked}
@@ -367,7 +397,7 @@ export function ScenarioSummaryCard({
             className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-0.5">
-            {(scenarioNotes ?? "").length}/2000
+            {localNotes.length}/2000
           </p>
         </div>
       )}
