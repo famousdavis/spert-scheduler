@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.47.1 — 2026-05-27
+
+### Fixed — cloud storage create/delete races
+
+- **Add Project race (critical, user-reported).** In cloud storage mode, creating a new project produced a "A project was removed because you no longer have access" toast followed by a "Project Not Found" screen. Root cause: `addProjectListener` was called synchronously in the `"create"` branch of the sync-bus handler, before `driver.create()` resolved. The Firestore SDK sends the listen request and the `setDoc` request as independent operations; the listen frequently reached the server first. The `get` rule evaluated against a null `resource` (doc not yet created) → `permission-denied` → the v0.45.3 eviction path fired (`cancelPendingSave` + `removeProjectLocally` + the "no access" toast). The fix moves `addProjectListener` into the `.then()` callback of `driver.create()`, aligning the create path with the `loadAll` and `spert:models-changed` paths, which already gate listener attachment on a confirmed Firestore read.
+
+- **Zombie reappear on delete — two paths closed.** A deleted project could reappear in the UI under two distinct timing conditions:
+  - *Path A (loaded project + concurrent edit).* A project loaded via `loadAll` or `spert:models-changed` has a real-time listener attached. The user clicks Delete. Before `deleteDoc` acks at the server, a collaborator edit (or any other server-side modification) triggers an `onSnapshot` delivery. `mergeProject` sees `existing === undefined` (project removed locally) and falls into the `[...state.projects, merged]` branch, re-inserting the project. Fixed by refactoring `unsubscribersRef` from a flat `Unsubscribe[]` array to a `Map<string, Unsubscribe>` (eliminating the now-redundant `listenedIdsRef`) and tearing down the project's listener inline in the `"delete"` branch before `driver.remove()` fires.
+  - *Path B (fast add-then-delete during in-flight create).* `emitDelete` fires before `driver.create()` resolves. No listener exists yet, so there is nothing to unsubscribe. Later, when create resolves, the `.then()` callback would normally call `addProjectListener` — but the project has been removed from the Zustand store by `deleteProject`. The initial snapshot would fire and `mergeProject` would re-insert. Fixed by adding a `getProject(project.id)` guard in the create's `.then()` callback. Since `deleteProject`'s `set()` runs before `emitDelete` fires, `getProject` returns `undefined` by the time `.then()` executes and `addProjectListener` is skipped.
+
+- **Failed-create ghost project.** If `driver.create()` rejects (network outage, transient backend error), the `.catch()` block previously fired `reportCloudSyncError()` but left the project in the local store. Each subsequent edit would emit `emitSave` → `doSave()` → `setDoc({ mergeFields })` against a never-written document → Firestore's `create` rule rejected (no `members` in the payload) → PERMISSION_DENIED → an error toast on every keystroke until the user refreshed. The `.catch()` now also calls `driver.cancelPendingSave(project.id)` (kills any debounced save the user armed during the in-flight create) and `removeProjectLocally(project.id)` (rolls back the local entry). `removeProjectLocally` — not `deleteProject` — is correct here because the document was never written to Firestore, so an `emitDelete` / `driver.remove()` must not fire.
+
+- **Bug 2 (`doSave` against non-existent doc) explicitly retired in code comments.** An earlier v0.47.1 draft proposed chaining `doSave` calls behind the in-flight create. The Firestore SDK (configured with `memoryLocalCache()`) serializes writes from a single client through an internal mutation queue (FIFO), so `driver.create()`'s `setDoc` is always enqueued before any subsequent `doSave()` `setDoc` and the server processes them in submission order regardless of network latency. No chaining is needed; a comment explaining the invariant replaces the absent code.
+
+Regression tests added: `use-cloud-sync-create.test.ts` (4 tests — TC-1 Bug 1, TC-2 Path B, TC-3 Path A, TC-4 failed-create rollback).
+
 ## 0.47.0 — 2026-05-26
 
 ### Fixed — cloud storage hardening (7 findings from dual audit)

@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.47.1",
+    date: "2026-05-27",
+    sections: [
+      {
+        title: "Fixed — cloud storage create/delete races",
+        items: [
+          "Add Project race (critical, user-reported): in cloud storage mode, creating a new project produced a 'A project was removed because you no longer have access' toast followed by a 'Project Not Found' screen. Root cause was that addProjectListener was called synchronously in the 'create' branch before driver.create() resolved — the Firestore SDK sends the listen request and the setDoc request as independent operations and the listen frequently reached the server first, where the get rule evaluated against a null resource → permission-denied → the v0.45.3 eviction path fired. The listener is now attached inside the .then() callback of driver.create(), matching the loadAll and spert:models-changed paths which already gate on a confirmed Firestore read.",
+          "Zombie reappear on delete — Path A (loaded project + concurrent edit): a project loaded via loadAll or spert:models-changed has a real-time listener attached. User clicks Delete. Before deleteDoc acks, a collaborator's server-side edit triggers an onSnapshot delivery. mergeProject sees existing === undefined and falls into the [...state.projects, merged] branch, re-inserting the deleted project. Fixed by refactoring unsubscribersRef from Unsubscribe[] to Map<string, Unsubscribe> (eliminating the now-redundant listenedIdsRef) and tearing down the project's listener inline in the 'delete' branch before driver.remove() fires.",
+          "Zombie reappear on delete — Path B (fast add-then-delete during in-flight create): emitDelete fires before driver.create() resolves. No listener exists yet to tear down. When create eventually resolves, the .then() callback would normally attach a listener, whose initial snapshot would then re-insert the locally-deleted project. Fixed by adding a getProject(project.id) guard in the create's .then() callback — since deleteProject's set() runs before emitDelete fires, getProject is already undefined by .then() time and addProjectListener is skipped.",
+          "Failed-create ghost project: if driver.create() rejects (network outage, transient backend error), the .catch() previously left the project in the local store. Each subsequent edit emitted emitSave → doSave → setDoc({mergeFields}) against a never-written document → Firestore's create rule rejected (no members in payload) → PERMISSION_DENIED on every keystroke. The .catch() now also calls driver.cancelPendingSave(project.id) (kills any debounced save the user armed during the in-flight create) and removeProjectLocally(project.id) (rolls back the local entry). removeProjectLocally is correct rather than deleteProject because the document was never written, so emitDelete / driver.remove() must not fire.",
+          "Bug 2 explicitly retired in code comments: an earlier draft proposed chaining doSave calls behind the in-flight create. The Firestore SDK (memoryLocalCache) serializes writes from a single client through an internal mutation queue (FIFO), so driver.create()'s setDoc is always enqueued before any subsequent doSave() setDoc and the server processes them in submission order regardless of network latency. No chaining is needed; a comment in the 'save' branch documents the invariant in place of the absent code.",
+          "Regression tests added: use-cloud-sync-create.test.ts (4 tests — TC-1 Bug 1, TC-2 Path B, TC-3 Path A, TC-4 failed-create rollback).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.47.0",
     date: "2026-05-26",
     sections: [
