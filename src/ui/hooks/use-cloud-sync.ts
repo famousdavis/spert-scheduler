@@ -47,8 +47,10 @@ export function useCloudSync(): void {
   const { user } = useAuth();
   const { mode } = useStorage();
   const driverRef = useRef<FirestoreDriver | null>(null);
-  const unsubscribersRef = useRef<Unsubscribe[]>([]);
-  const listenedIdsRef = useRef<Set<string>>(new Set());
+  // Map<projectId, Unsubscribe> replaces both the flat Unsubscribe[] array and
+  // a separate listenedIdsRef. Map.has() is the dedup guard; Map.get() enables
+  // per-project teardown on delete (Path A zombie fix).
+  const unsubscribersRef = useRef<Map<string, Unsubscribe>>(new Map());
   const initialLoadDoneRef = useRef(false);
 
   const isCloudActive = mode === "cloud" && user !== null;
@@ -83,8 +85,7 @@ export function useCloudSync(): void {
   const addProjectListener = useCallback(
     (projectId: string) => {
       const driver = driverRef.current;
-      if (!driver || listenedIdsRef.current.has(projectId)) return;
-      listenedIdsRef.current.add(projectId);
+      if (!driver || unsubscribersRef.current.has(projectId)) return;
       const unsub = driver.subscribeToProject(
         projectId,
         (updated) => {
@@ -95,10 +96,10 @@ export function useCloudSync(): void {
             `Real-time listener died for project ${projectId}:`,
             error
           );
-          // Note: deleting from listenedIdsRef allows addProjectListener to re-subscribe,
+          // Note: deleting from the Map allows addProjectListener to re-subscribe,
           // but nothing currently triggers resubscription for existing projects.
           // A full reconnect mechanism is deferred.
-          listenedIdsRef.current.delete(projectId);
+          unsubscribersRef.current.delete(projectId);
 
           // v0.45.3: permission-denied means membership was revoked
           // server-side. Evict the local mirror so the user doesn't see
@@ -119,16 +120,17 @@ export function useCloudSync(): void {
           }
         }
       );
-      unsubscribersRef.current.push(unsub);
+      unsubscribersRef.current.set(projectId, unsub);
     },
     [mergeProject, removeProjectLocally]
   );
 
-  // Helper: clean up all real-time listeners
+  // Helper: clean up all real-time listeners.
+  // Two-step: call each unsub explicitly, then drop the entries. Map.clear()
+  // alone does not invoke the unsub functions — the loop is required.
   const cleanupListeners = useCallback(() => {
-    for (const unsub of unsubscribersRef.current) unsub();
-    unsubscribersRef.current = [];
-    listenedIdsRef.current.clear();
+    for (const unsub of unsubscribersRef.current.values()) unsub();
+    unsubscribersRef.current.clear();
   }, []);
 
   // Create/dispose driver when cloud mode or user changes
@@ -270,31 +272,76 @@ export function useCloudSync(): void {
       const project = getProject(event.projectId);
 
       switch (event.type) {
-        case "save":
+        case "save": {
+          // No in-flight chaining needed. The Firestore SDK (memoryLocalCache)
+          // serializes writes from a single client through an internal mutation
+          // queue (FIFO). driver.create()'s setDoc is enqueued before any
+          // subsequent doSave() setDoc — the server processes them in submission
+          // order regardless of network latency or cold-connection delays.
           if (project) driver.save(project);
           break;
-        case "create":
-          if (project) {
-            driver.cancelPendingSave(project.id);
-            driver.create(project).catch((e) => {
+        }
+        case "create": {
+          if (!project) break;
+          driver.cancelPendingSave(project.id);
+          driver
+            .create(project)
+            .then(() => {
+              // Attach listener only after the doc exists at the server (Bug 1
+              // fix). All other listener-attach paths (loadAll,
+              // spert:models-changed) already gate on a confirmed Firestore read
+              // — this aligns the create path.
+              //
+              // Guard: if the user deleted this project while the create was in
+              // flight (fast add-then-delete), getProject returns undefined and
+              // we skip the attach, preventing a snapshot-driven zombie
+              // re-insertion (Path B fix). deleteProject's set() runs before
+              // emitDelete fires, so getProject is already undefined here by
+              // the time .then() executes.
+              if (getProject(project.id)) {
+                addProjectListener(project.id);
+              }
+            })
+            .catch((e: unknown) => {
               console.error("Failed to create project in Firestore:", e);
               reportCloudSyncError();
+              // Roll back the local project so a failed create doesn't leave a
+              // ghost entry, and cancel any debounced save the user might have
+              // armed by editing the new project before the rejection landed.
+              // Without the cancel, the timer fires post-rollback and hits
+              // PERMISSION_DENIED on the create rule (no members in mergeFields
+              // payload). removeProjectLocally (not deleteProject) is correct
+              // here: the document was never written, so emitDelete /
+              // driver.remove() must not fire.
+              driver.cancelPendingSave(project.id);
+              removeProjectLocally(project.id);
             });
-            addProjectListener(project.id);
-          }
           break;
-        case "delete":
+        }
+        case "delete": {
           driver.cancelPendingSave(event.projectId);
-          driver.remove(event.projectId).catch((e) => {
+          // Tear down the real-time listener before removing the doc (Path A
+          // fix). If the listener stays live, a collaborator edit arriving
+          // between the local delete and the deleteDoc server ack triggers
+          // mergeProject, which re-inserts the deleted project into the store
+          // (zombie reappear). unsubscribersRef is now a Map so we can target
+          // exactly this project's unsub.
+          const unsub = unsubscribersRef.current.get(event.projectId);
+          if (unsub) {
+            unsub();
+            unsubscribersRef.current.delete(event.projectId);
+          }
+          driver.remove(event.projectId).catch((e: unknown) => {
             console.error("Failed to delete project from Firestore:", e);
             reportCloudSyncError();
           });
           break;
+        }
       }
     };
 
     return cloudSyncBus.subscribe(handleSyncEvent);
-  }, [isCloudActive, getProject, addProjectListener, reportCloudSyncError]);
+  }, [isCloudActive, getProject, addProjectListener, reportCloudSyncError, removeProjectLocally]);
 
   // Sync preferences to cloud when they change
   useEffect(() => {
@@ -375,7 +422,7 @@ export function useCloudSync(): void {
         }
         setProjects(projects);
         for (const project of projects) {
-          // Idempotent — listenedIdsRef guards re-subscription.
+          // Idempotent — unsubscribersRef.has() guards re-subscription.
           addProjectListener(project.id);
         }
         useProjectStore.getState().setCloudDataLoaded(true);
