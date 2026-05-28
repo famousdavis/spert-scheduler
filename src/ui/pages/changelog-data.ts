@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.47.2",
+    date: "2026-05-28",
+    sections: [
+      {
+        title: "Changed — surface the sign-out local-cache wipe to the user",
+        items: [
+          "When you sign out of cloud storage, SPERT Scheduler wipes the locally-cached copy of your cloud projects from this browser profile (v0.42.6 M4 hardening — prevents a shared device from leaking your data to the next user). Until now the wipe was completely silent across all three sign-out paths (deliberate sign-out, ToS version mismatch, externally-revoked credentials). A user who hadn't seen the auth event would return to an empty project list and reasonably conclude their data was lost.",
+          "Deliberate sign-out (Path 1): the auth chip's Sign Out action now opens a confirmation modal explaining that locally-cached projects on this device will be removed and that the cloud-side data is unchanged. Cancel is default-focused (the non-destructive choice), matching the precedent set by KeepOrDiscardLocalModal.",
+          "ToS mismatch or externally-revoked credentials (Paths 2 & 3): if the user's session ends without them having clicked Sign Out (token expiry, server-side revocation, forced sign-out from a ToS version bump), a persistent info toast now fires explaining what happened and that signing in again restores everything from cloud storage. The toast does NOT auto-dismiss — the default 3-second toast duration is too short for a 150+ character explanation of an empty project list. The user must dismiss it explicitly.",
+          "Initial page loads with no auth session (no user ever signed in this session) suppress the toast — there is no cached state to explain.",
+          "Classification is via two module-level flags in AuthProvider: expectedSignOut (set when the app initiates sign-out via useAuth().signOut()) and wasSignedIn (set when any authenticated user has been observed). The toast fires only when wasSignedIn && !expectedSignOut.",
+          "The wipe itself is unchanged — the v0.42.6 security guarantee is preserved. The only difference is that the user is now informed.",
+          "Regression tests added: 4 in SignOutConfirmModal.test.tsx (render + Cancel/Sign-out button behavior + default focus on Cancel) and 4 in AuthProvider.test.tsx (one TC per observable sign-out transition — Path 1 / Path 3 / initial-load-null — plus an explicit duration: 0 lock against future timeout normalization refactors).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.47.1",
     date: "2026-05-27",
     sections: [

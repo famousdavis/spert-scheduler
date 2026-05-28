@@ -15,6 +15,7 @@ import type { AuthUser } from "@ui/providers/AuthProvider";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { ConsentModal } from "./ConsentModal";
 import { KeepOrDiscardLocalModal } from "./KeepOrDiscardLocalModal";
+import { SignOutConfirmModal } from "./SignOutConfirmModal";
 import { SignInButtons } from "./auth/SignInButtons";
 
 // ── Icons ──────────────────────────────────────────────────────────────
@@ -302,7 +303,19 @@ export function StorageLoginModal({
   const isSignedInLocal = !!user && mode !== "cloud";
   const signedIn = !!user;
 
-  const handleSignOut = useCallback(async () => {
+  // v0.47.2: sign-out is gated behind SignOutConfirmModal so the user is
+  // informed before the v0.42.6 M4 local-cache wipe runs. handleSignOutClick
+  // opens the modal; handleSignOutConfirmed runs the actual sign-out after
+  // the user confirms.
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
+
+  const handleSignOutClick = useCallback(() => {
+    if (signingOut) return;
+    setSignOutConfirmOpen(true);
+  }, [signingOut]);
+
+  const handleSignOutConfirmed = useCallback(async () => {
+    setSignOutConfirmOpen(false);
     if (signingOut) return;
     setSigningOut(true);
     try {
@@ -350,7 +363,7 @@ export function StorageLoginModal({
                   <IdentityCard
                     user={user}
                     signingOut={signingOut}
-                    onSignOut={handleSignOut}
+                    onSignOut={handleSignOutClick}
                   />
                 )}
 
@@ -427,6 +440,12 @@ export function StorageLoginModal({
         onOpenChange={setConfirmDiscardOpen}
         onKeep={handleKeepLocalCopy}
         onDiscard={handleDiscardLocalCopy}
+      />
+
+      <SignOutConfirmModal
+        open={signOutConfirmOpen}
+        onOpenChange={setSignOutConfirmOpen}
+        onConfirm={handleSignOutConfirmed}
       />
     </>
   );
