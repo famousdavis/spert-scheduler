@@ -48,6 +48,28 @@ import { INVITATIONS_ENABLED } from "@app/featureFlags";
 import { denormalizeLastFirst } from "@ui/helpers/auth-name";
 import { toast } from "@ui/hooks/use-notification-store";
 
+// v0.47.2 — sign-out classification flags for the user-facing wipe
+// notification. The v0.42.6 (M4) hardening wipes the active UID localStorage
+// namespace on every sign-out path; until v0.47.2 this was completely silent.
+// We now toast the user when the wipe was unanticipated.
+//
+// expectedSignOut: set to `true` when the app itself initiates sign-out
+//   because the user clicked Sign Out (StorageLoginModal → SignOutConfirmModal
+//   → useAuth().signOut(), which is Path 1). The modal already explained the
+//   wipe, so the subsequent onAuthStateChanged(null) suppresses the toast.
+//
+// wasSignedIn: tracks whether we have seen a non-null firebaseUser this
+//   session. Distinguishes a transition from signed-in to signed-out (Path 2
+//   or 3 — toast eligible) from a first page load with no auth session at all
+//   (no toast — there is no cached state to explain).
+//
+// Both are module-level rather than refs because AuthProvider is a singleton
+// component mounted once at app boot. They survive React commits but are
+// dropped (correctly) on full page reload. HMR may leave them in an
+// inconsistent state during dev; production boots fresh.
+let expectedSignOut = false;
+let wasSignedIn = false;
+
 export interface AuthUser {
   uid: string;
   email: string | null;
@@ -274,6 +296,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // `loading: true` until the next onAuthStateChanged(null) fired.
       setLoading(false);
       if (firebaseUser) {
+        // v0.47.2: mark this session as "had an authenticated user" so a
+        // future onAuthStateChanged(null) can distinguish a sign-out
+        // transition (toast eligible) from an initial-page-load-with-no-user
+        // (no toast — nothing was cached, nothing to explain).
+        wasSignedIn = true;
         // Profile dual-write BEFORE the ToS check so the user is discoverable
         // by the bulk-invitation system even if they decline ToS this session
         // (orphan profile is the suite-wide accepted trade-off — see PR body).
@@ -309,15 +336,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         claimPendingInvitationsAndNotify(firebaseUser);
       } else {
-        // Path 3 — externally-revoked credentials (token expiry, server-side revocation).
-        // Paths 1 and 2 call runSignOutCleanup() explicitly before firebaseSignOut;
-        // this path fires when Firebase revokes the session without a user-initiated action.
-        // Run cleanup to wipe in-memory state and per-user localStorage — semantically
-        // equivalent to user-initiated sign-out. setUser(null) runs unconditionally below.
-        //
-        // runSignOutCleanup() handles its own errors internally and never re-throws.
-        // All cleanup steps are idempotent: path 1's runSignOutCleanup() then triggers
-        // onAuthStateChanged(null), running cleanup a second time with no harmful effect.
+        // v0.47.2: classify which of three sign-out paths produced this null
+        // user event and decide whether to surface the v0.42.6 M4 local-cache
+        // wipe to the user.
+        //   - expectedSignOut === true  → Path 1 (deliberate sign-out). The
+        //     SignOutConfirmModal already explained the wipe; double-messaging
+        //     would be noise. No toast.
+        //   - expectedSignOut === false && wasSignedIn === true → Path 2 (ToS
+        //     version mismatch — forced sign-out from the branch above) or
+        //     Path 3 (externally-revoked credentials — token expiry or
+        //     server-side revocation). The user did not anticipate this; they
+        //     are about to see an empty project list with no explanation.
+        //     Persistent info toast: duration: 0 means the toast does not
+        //     auto-dismiss (the default 3 s is too short for a 150+ char
+        //     message explaining a wiped cache to a returning user). The user
+        //     dismisses explicitly.
+        //   - wasSignedIn === false → initial page load with no auth session;
+        //     nothing was cached and nothing to explain. No toast.
+        if (wasSignedIn && !expectedSignOut) {
+          toast.info(
+            "Your session ended on this device, and locally-cached projects were removed. Your projects are safe in cloud storage — sign in again to restore them.",
+            0,
+          );
+        }
+        expectedSignOut = false;
+        wasSignedIn = false;
+        // Path 3 cleanup. Paths 1 and 2 already called runSignOutCleanup()
+        // explicitly before firebaseSignOut; this re-run is idempotent
+        // (empty Maps, empty arrays, removeItem on absent keys — all no-ops).
+        // The registry handles its own errors internally and never re-throws.
         await runSignOutCleanup();
       }
       // Single setUser call site — null on sign-out, AuthUser on sign-in.
@@ -365,6 +412,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (!auth) return;
+    // v0.47.2: mark Path 1. The user clicked Sign Out and confirmed via the
+    // SignOutConfirmModal — they already saw the local-cache wipe explanation,
+    // so the upcoming onAuthStateChanged(null) callback must suppress the
+    // recovery toast. Set BEFORE the awaits so any concurrent null callback
+    // (theoretically possible if Firebase races us, though gated by
+    // StorageLoginModal's signingOut state) reads the correct value.
+    expectedSignOut = true;
     localStorage.removeItem(LS_TOS_ACCEPTED_VERSION);
     localStorage.removeItem(LS_TOS_WRITE_PENDING);
     // Run the registered cleanup (cancel pending saves, clear in-memory
