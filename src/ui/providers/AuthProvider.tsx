@@ -70,6 +70,17 @@ import { toast } from "@ui/hooks/use-notification-store";
 let expectedSignOut = false;
 let wasSignedIn = false;
 
+/** Reset the module-level sign-out classification flags between tests. Never
+ *  call from production code. Mirrors the test-only reset pattern of
+ *  `_resetLegacyMigrationForTests()` in `local-storage-repository.ts` (the
+ *  eslint-disable below is required because this is a component module, unlike
+ *  that precedent). Required for TC-5/TC-6 test-order independence. */
+// eslint-disable-next-line react-refresh/only-export-components -- test-only helper for module-level sign-out flags
+export function _resetSignOutFlagsForTests(): void {
+  expectedSignOut = false;
+  wasSignedIn = false;
+}
+
 export interface AuthUser {
   uid: string;
   email: string | null;
@@ -276,6 +287,62 @@ function claimPendingInvitationsAndNotify(firebaseUser: FirebaseUser): void {
   });
 }
 
+/**
+ * Handle an `onAuthStateChanged(null)` event. Extracted from the callback so the
+ * callback stays under the cognitive-complexity lint limit.
+ *
+ * v0.47.2: classify which case produced this null user event and decide whether
+ * to surface the v0.42.6 M4 local-cache wipe to the user. Four cases reach here
+ * (three sign-out paths + initial page load):
+ *   - expectedSignOut === true → Path 1 (deliberate sign-out). The
+ *     SignOutConfirmModal already explained the wipe; double-messaging would be
+ *     noise. No toast.
+ *   - expectedSignOut === false && wasSignedIn === true → Path 2 (ToS version
+ *     mismatch — forced sign-out, second callback; firebaseSignOut in the
+ *     if-branch triggers a second onAuthStateChanged(null) where this runs) or
+ *     Path 3 (externally-revoked credentials — token expiry / server-side
+ *     revocation). The user did not anticipate this. Persistent info toast:
+ *     duration: 0 means no auto-dismiss (the default 3 s is too short for a 150+
+ *     char message explaining a wiped cache). The user dismisses explicitly.
+ *   - wasSignedIn === false → Path 4: initial page load with no auth session;
+ *     nothing was cached and nothing to explain. No toast, and (v0.47.3) no
+ *     cleanup — see guard below.
+ */
+async function handleNullAuthState(): Promise<void> {
+  if (wasSignedIn && !expectedSignOut) {
+    toast.info(
+      "Your session ended on this device, and locally-cached projects were removed. Your projects are safe in cloud storage — sign in again to restore them.",
+      0,
+    );
+  }
+  const hadSession = wasSignedIn; // capture before reset — gates cleanup below
+  expectedSignOut = false;
+  wasSignedIn = false;
+  // Path 3 cleanup. Path 1 calls runSignOutCleanup() before firebaseSignOut
+  // (one callback — idempotent here). Path 2 calls runSignOutCleanup() before
+  // firebaseSignOut in the if-branch, then firebaseSignOut triggers this second
+  // callback (also idempotent — UID-namespaced keys already cleared). The
+  // registry handles its own errors and never re-throws.
+  //
+  // Guard (v0.47.3): skip when no signed-in session was seen this page load
+  // (Path 4: wasSignedIn === false at callback time). activeNamespace is still
+  // "local" here — StorageProvider's namespace useEffect guards on authLoading
+  // and has not yet fired — so an unguarded cleanup wipes every
+  // spert:project:local:* key and all user preferences loaded moments earlier.
+  // The else-branch cleanup was added in v0.47.0 (audit finding E1-3) for
+  // externally-revoked sessions but was never gated for the initial-load null,
+  // making this the root cause of local-mode data loss in v0.47.0–v0.47.2.
+  // Gating on hadSession does NOT regress E1-3: in-session revocation (Path 3)
+  // still has wasSignedIn === true and still cleans up; the only skipped case is
+  // "never signed in this load," where there is no signed-in residue to clear
+  // and any UID-namespaced cache is structurally inaccessible to other users per
+  // the v0.42.6 namespacing. Structural follow-up tracked in MEMORY.md
+  // (feedback_auth_state_signal_separation.md).
+  if (hadSession) {
+    await runSignOutCleanup();
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   // No loading state needed if Firebase not configured
@@ -336,36 +403,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         claimPendingInvitationsAndNotify(firebaseUser);
       } else {
-        // v0.47.2: classify which of three sign-out paths produced this null
-        // user event and decide whether to surface the v0.42.6 M4 local-cache
-        // wipe to the user.
-        //   - expectedSignOut === true  → Path 1 (deliberate sign-out). The
-        //     SignOutConfirmModal already explained the wipe; double-messaging
-        //     would be noise. No toast.
-        //   - expectedSignOut === false && wasSignedIn === true → Path 2 (ToS
-        //     version mismatch — forced sign-out from the branch above) or
-        //     Path 3 (externally-revoked credentials — token expiry or
-        //     server-side revocation). The user did not anticipate this; they
-        //     are about to see an empty project list with no explanation.
-        //     Persistent info toast: duration: 0 means the toast does not
-        //     auto-dismiss (the default 3 s is too short for a 150+ char
-        //     message explaining a wiped cache to a returning user). The user
-        //     dismisses explicitly.
-        //   - wasSignedIn === false → initial page load with no auth session;
-        //     nothing was cached and nothing to explain. No toast.
-        if (wasSignedIn && !expectedSignOut) {
-          toast.info(
-            "Your session ended on this device, and locally-cached projects were removed. Your projects are safe in cloud storage — sign in again to restore them.",
-            0,
-          );
-        }
-        expectedSignOut = false;
-        wasSignedIn = false;
-        // Path 3 cleanup. Paths 1 and 2 already called runSignOutCleanup()
-        // explicitly before firebaseSignOut; this re-run is idempotent
-        // (empty Maps, empty arrays, removeItem on absent keys — all no-ops).
-        // The registry handles its own errors internally and never re-throws.
-        await runSignOutCleanup();
+        await handleNullAuthState();
       }
       // Single setUser call site — null on sign-out, AuthUser on sign-in.
       setUser(firebaseUser ? toAuthUser(firebaseUser) : null);

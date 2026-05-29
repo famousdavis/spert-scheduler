@@ -25,6 +25,15 @@
  * branches identically. Driving the ToS branch end-to-end would require
  * mocking `getDoc` + a truthy `db` for a structurally identical outcome,
  * so we cover the classification logic via TC-2.
+ *
+ * TC-5 / TC-6 (v0.47.3) — cleanup gate. Beyond the toast, the else-branch
+ * `runSignOutCleanup()` must be gated on whether a session existed this page
+ * load. v0.47.0 (audit finding E1-3) added the else-branch cleanup for
+ * externally-revoked sessions but ran it unconditionally, so the initial-load
+ * null callback (no prior sign-in) wiped local-mode projects and preferences.
+ * TC-5 asserts Path 4 (initial load) does NOT clean up; TC-6 asserts Path 3
+ * (post-sign-in revocation) still does. Order-independence is guaranteed by
+ * `_resetSignOutFlagsForTests()` in `beforeEach`.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -105,8 +114,9 @@ vi.mock("@ui/hooks/use-notification-store", () => ({
   },
 }));
 
-import { AuthProvider, useAuth } from "./AuthProvider";
+import { AuthProvider, useAuth, _resetSignOutFlagsForTests } from "./AuthProvider";
 import { toast } from "@ui/hooks/use-notification-store";
+import { runSignOutCleanup } from "@infrastructure/persistence/sign-out-cleanup-registry";
 
 const RECOVERY_MESSAGE =
   /Your session ended on this device, and locally-cached projects were removed/i;
@@ -137,6 +147,11 @@ beforeEach(() => {
   localStorage.clear();
   hoisted.capturedCallback = null;
   vi.mocked(toast.info).mockClear();
+  vi.mocked(runSignOutCleanup).mockClear();
+  // Reset module-level flags so TC-5/TC-6 (and TC-1..TC-4) are order-independent:
+  // a preceding test that ends with wasSignedIn === true must not contaminate
+  // the next test's starting state.
+  _resetSignOutFlagsForTests();
 });
 
 afterEach(() => {
@@ -236,5 +251,65 @@ describe("AuthProvider — sign-out wipe notification (v0.47.2)", () => {
     expect(toast.info).toHaveBeenCalled();
     const [, duration] = vi.mocked(toast.info).mock.calls[0]!;
     expect(duration).toBe(0);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // TC-5 — Path 4 (initial page load, never signed in):
+  //        runSignOutCleanup must NOT be called.
+  //        Regression test for v0.47.3. Root cause: the else-branch cleanup
+  //        (added in v0.47.0, E1-3) fired unconditionally with
+  //        activeNamespace="local", destroying all spert:project:local:* keys
+  //        and user preferences on every browser reopen in v0.47.0–v0.47.2.
+  //        TC-3 covers toast suppression for this path; this test covers the
+  //        destructive side-effect. Order-independence is guaranteed by
+  //        _resetSignOutFlagsForTests() in beforeEach.
+  // ─────────────────────────────────────────────────────────────────────
+  it("TC-5: initial page load with no auth session does NOT call runSignOutCleanup", async () => {
+    captureAuth();
+    expect(hoisted.capturedCallback).not.toBeNull();
+
+    // First and only onAuthStateChanged event: null. wasSignedIn was never set.
+    await act(async () => {
+      hoisted.capturedCallback?.(null);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(runSignOutCleanup).not.toHaveBeenCalled();
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // TC-6 — Path 3 (external revocation after sign-in):
+  //        runSignOutCleanup MUST be called exactly once.
+  //        Symmetric invariant: locks the hadSession gate against
+  //        over-tightening (e.g., adding `&& expectedSignOut` would silently
+  //        break Path 3, the only path where the else-branch cleanup is the
+  //        primary wipe).
+  //
+  //        Note: db: null in the mock causes checkReturningUserTos to
+  //        short-circuit to true, so Path 2's if-branch is unreachable in this
+  //        test environment. TC-6 validates the structural shape of Path 3
+  //        only. Full Path-2 two-callback coverage is deferred (tracked in
+  //        MEMORY.md: feedback_auth_state_signal_separation.md).
+  // ─────────────────────────────────────────────────────────────────────
+  it("TC-6: silent null transition AFTER signed-in session DOES call runSignOutCleanup once", async () => {
+    captureAuth();
+    expect(hoisted.capturedCallback).not.toBeNull();
+
+    // Sign in → wasSignedIn := true
+    await act(async () => {
+      hoisted.capturedCallback?.(mockUser);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Firebase revokes externally — null fires without app initiation.
+    await act(async () => {
+      hoisted.capturedCallback?.(null);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(runSignOutCleanup).toHaveBeenCalledTimes(1);
   });
 });
