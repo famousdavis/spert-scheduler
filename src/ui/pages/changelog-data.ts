@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.47.3",
+    date: "2026-05-28",
+    sections: [
+      {
+        title: "Fixed — local-mode projects and preferences reset on app reopen",
+        items: [
+          "In localStorage mode with Firebase configured, project data and user preferences could be reset when the app was reopened. This was a regression in v0.47.0–v0.47.2 (May 26–28, 2026); cloud-mode users and deployments without Firebase were never affected.",
+          "Root cause: the onAuthStateChanged(null) Firebase callback — which fires on every page load to resolve the initial auth state — ran the sign-out cleanup sequence unconditionally, even when no user had ever signed in. At that moment StorageProvider's namespace effect had not yet run (it guards on authLoading), so the active namespace was still 'local'. The cleanup deleted every spert:project:local:* key in localStorage and reset all user preferences to defaults.",
+          "The else-branch cleanup was added in v0.47.0 (audit finding E1-3) to clear residue after an externally-revoked session, but it was never gated for the initial-load case. The wasSignedIn flag added in v0.47.2 gated the recovery toast but not this cleanup call.",
+          "The full impact while the regression was live: project tiles could appear briefly then vanish, or simply be empty on later reopens (projects reset); theme and default settings reset (preferences reset); last-active scenario tab reset (scenario memory reset).",
+          "Fix: the cleanup call is now gated on hadSession — whether a non-null Firebase user was observed this page load. Genuine sign-out events (deliberate sign-out, ToS-mismatch forced sign-out, and externally-revoked credentials) are unaffected, and the v0.47.0 E1-3 hardening for revoked sessions is preserved (in-session revocation still runs cleanup). Two tests added: TC-5 (initial load does not clean up) and TC-6 (post-sign-in revocation still does). A test-only _resetSignOutFlagsForTests() export ensures test-order independence.",
+          "Data already reset is not recoverable from localStorage. If you previously used Export All Projects, your .json export file is the recovery path.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.47.2",
     date: "2026-05-28",
     sections: [

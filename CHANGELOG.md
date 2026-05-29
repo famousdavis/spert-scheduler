@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.47.3 — 2026-05-28
+
+### Fixed — local-mode projects and preferences reset on app reopen (v0.47.0–v0.47.2 regression)
+
+In localStorage mode with Firebase configured, project data and user preferences could be reset when the app was reopened. The trigger was on the page-load auth path, not a sign-out: the `onAuthStateChanged(null)` callback — which Firebase fires on every page load to resolve the initial auth state — was calling `runSignOutCleanup()` unconditionally, including on the initial load when no user had ever signed in. At that moment `StorageProvider`'s namespace `useEffect` had not yet run (it guards on `authLoading`), so the active namespace was still `"local"`. The cleanup then deleted all `spert:project:local:*` localStorage keys (projects), wiped all user preferences (theme, default trial count, distribution type, confidence level, activity and project targets, heuristic settings, dependency mode, Parkinson's Law toggle, calendar configuration, and RAG thresholds), and cleared per-project scenario memory.
+
+The else-branch cleanup was introduced in **v0.47.0** (audit finding E1-3) to clear residue after an externally-revoked session, but it was never gated for the initial-load null callback. The `wasSignedIn` flag added in v0.47.2 gated the recovery toast but not this cleanup call.
+
+- **Fix.** The cleanup call is now gated on `hadSession` — whether a non-null Firebase user was observed this page load. Genuine sign-out events (deliberate sign-out, ToS-mismatch forced sign-out, and externally-revoked credentials) are unaffected, and the v0.47.0 E1-3 hardening for revoked sessions is preserved: in-session revocation still has `wasSignedIn === true` and still runs cleanup. The only skipped case is "never signed in this page load," where there is no signed-in residue to clear. (`AuthProvider.tsx`)
+
+This regression affected local-mode reopens between **v0.47.0 (2026-05-26) and v0.47.2 (2026-05-28)**. Cloud-mode users (whose data lives in Firestore) and deployments without Firebase configured were never affected. Data already reset is not recoverable from localStorage; if you previously used **Export All Projects**, your `.json` export file is the recovery path.
+
+Regression tests added: 2 in `AuthProvider.test.tsx` — TC-5 (Path 4 / initial load does NOT call cleanup) and TC-6 (Path 3 / post-sign-in revocation still does). A test-only `_resetSignOutFlagsForTests()` export ensures test-order independence.
+
 ## 0.47.2 — 2026-05-28
 
 ### Changed — surface the sign-out local-cache wipe to the user
