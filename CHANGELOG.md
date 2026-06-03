@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.47.4 — 2026-06-02
+
+### Fixed — Firestore `serverTimestamp()` write-path: corrected guard comments/test (internal) + Cloud Function timestamp consistency
+
+Internal correctness and data-quality hardening around the `updatedAt` server timestamp written to `spertscheduler_projects` documents. No user-facing behavior change in the app itself.
+
+- **Corrected the v0.45.9 guard documentation and regression test.** The comments in `firestore-driver.ts` and the regression test in `firestore-driver.test.ts` claimed the Firebase **client** SDK `serverTimestamp()` sentinel has no enumerable own properties and that the recursive `sanitizeForFirestore` pass degrades it to `{}`. That is not true for the installed SDK (firebase 12.11.0): the sentinel has an **enumerable `_methodName` property**, so the sanitizer rebuilds it as the plain map `{ _methodName: 'serverTimestamp' }` — the exact shape that leaked into production project documents before v0.45.9 moved the sentinel to a post-sanitize sibling key. Comments now describe the real shape, and the test fixture uses the real production sentinel shape so the guard fails loudly (via reference-equality) if the sentinel is ever run back through the sanitizer. **No behavioral change to the save path** — all three current write paths (`create`, `doSave`, `migrateLocalToCloud`) were already correct. (`firestore-driver.ts`, `firestore-driver.test.ts`)
+
+- **Cloud Function timestamp consistency (separate repo, deployed).** The suite's `claimPendingInvitations` Cloud Function was writing `updatedAt: Date.now()` (a plain JS number) to `spertscheduler_projects` when a user claimed a project invitation — inconsistent with the Firestore `Timestamp` written by every other path. It now writes `FieldValue.serverTimestamp()`, so all live write paths to the collection produce a consistent `Timestamp`. This function lives in the SPERT Suite Cloud Functions and has been deployed to the `spert-suite` project. Combined with the admin-tool patch of the existing pre-v0.45.9 sentinel documents, the collection is consistent end-to-end.
+
 ## 0.47.3 — 2026-05-28
 
 ### Fixed — local-mode projects and preferences reset on app reopen (v0.47.0–v0.47.2 regression)

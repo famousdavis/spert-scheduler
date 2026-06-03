@@ -217,9 +217,11 @@ export class FirestoreDriver {
     const { id: _id, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
 
     // Add `updatedAt: serverTimestamp()` AFTER sanitize — see doSave() for
-    // the rationale. The Firestore sentinel has no enumerable own properties
-    // and is silently corrupted into `{}` if it passes through the recursive
-    // strip-undefined sanitizer.
+    // the rationale. The Firestore client sentinel has an enumerable
+    // `_methodName` property, so passing it through the recursive
+    // `sanitizeForFirestore` rebuilds it as the plain map
+    // `{ _methodName: 'serverTimestamp' }` (the exact shape that leaked into
+    // production) instead of resolving server-side to a write timestamp.
     const data = {
       ...sanitizeForFirestore({
         ...rest,
@@ -287,13 +289,14 @@ export class FirestoreDriver {
       // eslint-disable-next-line sonarjs/no-unused-vars
       const { id: _docId, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
       // Sanitize the project payload, then add `updatedAt: serverTimestamp()`
-      // AFTER the sanitize pass. The Firestore sentinel returned by
-      // `serverTimestamp()` is an object with no enumerable own properties
-      // — `Object.entries(sentinel)` returns `[]` — so passing it through
-      // the recursive `sanitizeForFirestore` corrupts it into `{}`,
-      // silently writing an empty map to `updatedAt` instead of the
-      // server-side write timestamp. Attaching the sentinel post-sanitize
-      // preserves it intact for the SDK to recognize.
+      // AFTER the sanitize pass. The Firestore client sentinel returned by
+      // `serverTimestamp()` has an enumerable `_methodName` property —
+      // `Object.entries(sentinel)` returns `[["_methodName","serverTimestamp"]]`
+      // — so passing it through the recursive `sanitizeForFirestore` rebuilds
+      // it as the plain map `{ _methodName: 'serverTimestamp' }` (the exact
+      // shape that leaked into production `spertscheduler_projects` docs)
+      // instead of resolving server-side to a write timestamp. Attaching the
+      // sentinel post-sanitize preserves it intact for the SDK to recognize.
       const data = {
         ...sanitizeForFirestore({
           ...rest,
