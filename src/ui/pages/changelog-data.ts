@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.47.4",
+    date: "2026-06-02",
+    sections: [
+      {
+        title:
+          "Fixed — Firestore serverTimestamp() write-path comments/test (internal) + Cloud Function timestamp consistency",
+        items: [
+          "Internal correctness and data-quality hardening around the updatedAt server timestamp written to spertscheduler_projects documents. No user-facing behavior change in the app itself.",
+          "Corrected the v0.45.9 guard documentation and regression test. The comments in firestore-driver.ts and the test in firestore-driver.test.ts claimed the Firebase client SDK serverTimestamp() sentinel has no enumerable own properties and that the recursive sanitizeForFirestore pass degrades it to {}. That is not true for the installed SDK (firebase 12.11.0): the sentinel has an enumerable _methodName property, so the sanitizer rebuilds it as { _methodName: 'serverTimestamp' } — the exact shape that leaked into production project docs before v0.45.9 moved the sentinel to a post-sanitize sibling key. Comments now describe the real shape, and the test fixture uses the real production sentinel shape so the guard fails loudly (via reference-equality) if the sentinel is ever run back through the sanitizer. No behavioral change — all three current write paths (create, doSave, migrateLocalToCloud) were already correct.",
+          "Cloud Function timestamp consistency (separate repo, deployed). The suite's claimPendingInvitations Cloud Function was writing updatedAt: Date.now() (a plain JS number) to spertscheduler_projects when a user claimed a project invitation — inconsistent with the Firestore Timestamp written by every other path. It now writes FieldValue.serverTimestamp(), so all live write paths to the collection produce a consistent Timestamp. Deployed to the spert-suite project; combined with the admin-tool patch of the existing pre-v0.45.9 sentinel docs, the collection is consistent end-to-end.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.47.3",
     date: "2026-05-28",
     sections: [
