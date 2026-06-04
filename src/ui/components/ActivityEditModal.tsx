@@ -857,9 +857,13 @@ export function ActivityEditModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 maxLength={2000}
-                rows={3}
+                rows={5}
                 placeholder="Add notes about this activity…"
-                className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none"
+                // resize-y exposes the native bottom-right grab handle (vertical only); the
+                // browser owns the drag, so releasing the mouse outside the modal still
+                // completes correctly. min-h floors the box at its 5-row open height so the
+                // user can drag it taller but never shorter than the default.
+                className="w-full min-h-[114px] text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-y focus:border-blue-400 focus:outline-none"
               />
               <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-0.5">
                 {notes.length}/2000

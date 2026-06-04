@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.47.5 — 2026-06-03
+
+### Improved — resizable, taller Notes box in the Activity edit modal
+
+The **Notes** field in the Activity edit modal (the modal that opens when you click a Gantt bar or an activity's edit pencil) is now easier to work with for longer notes.
+
+- **Taller by default.** The box now opens at 5 lines instead of 3, showing two more lines of text without scrolling.
+- **Drag to resize.** A native grab handle in the bottom-right corner lets you drag the box taller (vertical only) — the same handle style used elsewhere in the SPERT Suite. Because the resize is handled by the browser, releasing the mouse anywhere — even outside the modal or window — completes the resize cleanly.
+- **Won't shrink below the default.** A `min-height` floor equal to the 5-line open size means you can grow the box but never drag it smaller than how it opens. (`ActivityEditModal.tsx`)
+
 ## 0.47.4 — 2026-06-02
 
 ### Fixed — Firestore `serverTimestamp()` write-path: corrected guard comments/test (internal) + Cloud Function timestamp consistency
