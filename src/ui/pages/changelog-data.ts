@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.47.5",
+    date: "2026-06-03",
+    sections: [
+      {
+        title: "Improved — resizable, taller Notes box in the Activity edit modal",
+        items: [
+          "The Notes field in the Activity edit modal (opened by clicking a Gantt bar or an activity's edit pencil) now opens at 5 lines instead of 3, showing two more lines of text without scrolling.",
+          "A native grab handle in the bottom-right corner lets you drag the Notes box taller (vertical only) — the same handle style used elsewhere in the SPERT Suite. Because the resize is handled by the browser, releasing the mouse anywhere (even outside the modal or window) completes the resize cleanly.",
+          "A minimum-height floor equal to the 5-line open size means you can grow the box but never drag it smaller than how it opens.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.47.4",
     date: "2026-06-02",
     sections: [
