@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.47.6 — 2026-06-04
+
+### Improved — Gantt tooltips now wait for you to settle before appearing
+
+Hovering around the Gantt chart no longer makes tooltips flicker up and chase the cursor as you sweep across bars, the finish-target line, and dependency arrows.
+
+- **Hover-intent delay.** A tooltip now appears only after the cursor has rested on the same element for **1.5 seconds**. Previously tooltips appeared instantly on mouse-enter and repositioned on every move, so moving across the chart popped a constant stream of tooltips.
+- **Sweeping shows nothing.** Moving the cursor across the chart cancels each pending tooltip the moment you leave an element, so quick passes never surface a tooltip — you only see one when you deliberately pause on something.
+- **Unchanged once shown.** After the delay elapses, the tooltip still follows the cursor while you stay on that element, and the dependency-arrow highlight remains instant for responsive visual feedback. (`GanttChart.tsx`)
+
 ## 0.47.5 — 2026-06-03
 
 ### Improved — resizable, taller Notes box in the Activity edit modal

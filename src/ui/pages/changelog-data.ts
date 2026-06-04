@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.47.6",
+    date: "2026-06-04",
+    sections: [
+      {
+        title: "Improved — Gantt tooltips now wait for you to settle before appearing",
+        items: [
+          "Gantt tooltips (on activity bars, the finish-target line, and dependency arrows) now appear only after the cursor has rested on the same element for 1.5 seconds. Previously they appeared instantly and repositioned on every move, so sweeping the cursor across the chart popped a constant stream of flickering tooltips.",
+          "Moving the cursor across the chart cancels each pending tooltip the moment you leave an element, so quick passes never surface a tooltip — you only see one when you deliberately pause on something.",
+          "Once the delay elapses the tooltip still follows the cursor while you stay on that element, and the dependency-arrow highlight remains instant for responsive visual feedback.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.47.5",
     date: "2026-06-03",
     sections: [
