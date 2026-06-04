@@ -35,6 +35,13 @@ import {
 import { GanttSvgDefs } from "./GanttSvgDefs";
 import { GanttLegend } from "./GanttLegend";
 
+/**
+ * Hover-intent delay (ms) before a Gantt tooltip appears. The cursor must rest on a
+ * target for this long before its tooltip surfaces; sweeping across the chart cancels
+ * each pending timer on mouse-leave, so no tooltip flickers up while the cursor moves.
+ */
+const TOOLTIP_HOVER_DELAY_MS = 1500;
+
 function formatLagLabel(lagDays: number): string {
   if (lagDays === 0) return "";
   if (lagDays > 0) return `, +${lagDays}d`;
@@ -287,6 +294,46 @@ export function GanttChart({
     y: number;
     text: string;
   } | null>(null);
+
+  // Hover-intent delay machinery (see TOOLTIP_HOVER_DELAY_MS). A single pending
+  // timer is shared across all hover targets (bars, finish line, dependency arrows).
+  const tooltipTimerRef = useRef<number | null>(null);
+  const pendingTooltipRef = useRef<{ x: number; y: number; text: string } | null>(null);
+
+  const hideTooltip = useCallback(() => {
+    if (tooltipTimerRef.current !== null) {
+      window.clearTimeout(tooltipTimerRef.current);
+      tooltipTimerRef.current = null;
+    }
+    pendingTooltipRef.current = null;
+    setTooltip(null);
+  }, []);
+
+  const scheduleTooltip = useCallback((x: number, y: number, text: string) => {
+    pendingTooltipRef.current = { x, y, text };
+    // The delay is measured from when the cursor entered the element, so an
+    // already-pending timer is left running rather than reset on each re-entry.
+    if (tooltipTimerRef.current === null) {
+      tooltipTimerRef.current = window.setTimeout(() => {
+        tooltipTimerRef.current = null;
+        if (pendingTooltipRef.current) setTooltip(pendingTooltipRef.current);
+      }, TOOLTIP_HOVER_DELAY_MS);
+    }
+  }, []);
+
+  const moveTooltip = useCallback((x: number, y: number) => {
+    // Track the latest cursor position so a still-pending tooltip surfaces next to
+    // the cursor, and an already-visible tooltip follows it.
+    if (pendingTooltipRef.current) {
+      pendingTooltipRef.current = { ...pendingTooltipRef.current, x, y };
+    }
+    setTooltip((prev) => (prev ? { ...prev, x, y } : null));
+  }, []);
+
+  // Cancel any pending tooltip timer on unmount.
+  useEffect(() => () => {
+    if (tooltipTimerRef.current !== null) window.clearTimeout(tooltipTimerRef.current);
+  }, []);
 
   // Inline name editing state — tagged so the same input overlay can edit
   // either an activity name or a band (section header) name.
@@ -566,7 +613,7 @@ export function GanttChart({
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
           className="select-none"
           style={{ background: c.bg }}
-          onMouseLeave={() => setTooltip(null)}
+          onMouseLeave={hideTooltip}
         >
           <GanttSvgDefs
             orderedActivities={orderedActivities}
@@ -718,9 +765,9 @@ export function GanttChart({
             const targetTooltip = `Finish Target: ${formatDate(targetFinishDate)}`;
             return (
               <g
-                onMouseEnter={(e) => setTooltip({ x: e.clientX, y: e.clientY, text: targetTooltip })}
-                onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, text: targetTooltip })}
-                onMouseLeave={() => setTooltip(null)}
+                onMouseEnter={(e) => scheduleTooltip(e.clientX, e.clientY, targetTooltip)}
+                onMouseMove={(e) => moveTooltip(e.clientX, e.clientY)}
+                onMouseLeave={hideTooltip}
               >
                 {/* Invisible wider hit area for easier hovering */}
                 <line
@@ -954,18 +1001,10 @@ export function GanttChart({
                     } else {
                       text = `${tooltipName}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`;
                     }
-                    setTooltip({
-                      x: e.clientX,
-                      y: e.clientY,
-                      text,
-                    });
+                    scheduleTooltip(e.clientX, e.clientY, text);
                   }}
-                  onMouseMove={(e) =>
-                    setTooltip((prev) =>
-                      prev ? { ...prev, x: e.clientX, y: e.clientY } : null
-                    )
-                  }
-                  onMouseLeave={() => setTooltip(null)}
+                  onMouseMove={(e) => moveTooltip(e.clientX, e.clientY)}
+                  onMouseLeave={hideTooltip}
                 />
 
                 {/* Activity name — clickable for inline rename when unlocked */}
@@ -1212,13 +1251,13 @@ export function GanttChart({
               style={{ pointerEvents: isLocked ? "none" : "stroke" }}
               className={!isLocked && onEditDependency ? "cursor-pointer" : ""}
               onMouseEnter={!isLocked ? (e) => {
+                // Highlight is instant for responsive visual feedback; only the
+                // text tooltip is gated behind the hover-intent delay.
                 setHoveredDep({ from: ap.dep.fromActivityId, to: ap.dep.toActivityId });
-                setTooltip({ x: e.clientX, y: e.clientY, text: ap.label });
+                scheduleTooltip(e.clientX, e.clientY, ap.label);
               } : undefined}
-              onMouseMove={!isLocked ? (e) =>
-                setTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)
-              : undefined}
-              onMouseLeave={!isLocked ? () => { setHoveredDep(null); setTooltip(null); } : undefined}
+              onMouseMove={!isLocked ? (e) => moveTooltip(e.clientX, e.clientY) : undefined}
+              onMouseLeave={!isLocked ? () => { setHoveredDep(null); hideTooltip(); } : undefined}
               onClick={!isLocked && onEditDependency ? () =>
                 onEditDependency(ap.dep.fromActivityId, ap.dep.toActivityId)
               : undefined}
