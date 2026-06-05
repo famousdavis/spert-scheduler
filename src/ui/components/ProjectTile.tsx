@@ -157,7 +157,7 @@ export function ProjectTile({
             type="button"
             onPointerDown={stopDown}
             onClick={(e) => e.stopPropagation()}
-            className="absolute top-3 right-3 p-1 text-gray-500 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+            className="absolute top-3 right-3 p-1 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
             title="Delete project"
             aria-label="Delete project"
           >
