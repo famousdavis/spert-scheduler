@@ -28,6 +28,13 @@ import { ConfirmDialog } from "./ConfirmDialog";
 
 interface SharingSectionProps {
   projectId: string;
+  /**
+   * When true, render for embedding inside a host modal: start expanded (so
+   * members fetch immediately), and drop the outer card chrome + collapse
+   * header + inner padding. Defaults to false → the Settings-page layout is
+   * unchanged.
+   */
+  embedded?: boolean;
 }
 
 /**
@@ -93,9 +100,10 @@ function MemberRowControls({
  * The Legacy variant is retained as the rollback safety net per Lesson 23. It
  * stays in tree until v0.43.x once the bulk-sharing path has shipped stably.
  */
-export function SharingSection({ projectId }: SharingSectionProps) {
-  if (INVITATIONS_ENABLED) return <BulkSharingSection projectId={projectId} />;
-  return <LegacySharingSection projectId={projectId} />;
+export function SharingSection({ projectId, embedded }: SharingSectionProps) {
+  if (INVITATIONS_ENABLED)
+    return <BulkSharingSection projectId={projectId} embedded={embedded} />;
+  return <LegacySharingSection projectId={projectId} embedded={embedded} />;
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -105,7 +113,7 @@ export function SharingSection({ projectId }: SharingSectionProps) {
 // deleted `removeProjectMember` helper (returned `{success, error}`).
 // ────────────────────────────────────────────────────────────────────────
 
-function LegacySharingSection({ projectId }: SharingSectionProps) {
+function LegacySharingSection({ projectId, embedded }: SharingSectionProps) {
   const { user } = useAuth();
   const { mode } = useStorage();
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -115,7 +123,7 @@ function LegacySharingSection({ projectId }: SharingSectionProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(!embedded);
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -183,29 +191,31 @@ function LegacySharingSection({ projectId }: SharingSectionProps) {
   const isOwner = members.some((m) => m.uid === user.uid && m.role === "owner");
 
   return (
-    <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-6 py-4 text-left"
-      >
-        <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-          Sharing
-        </h2>
-        <svg
-          className={`w-5 h-5 text-gray-400 transition-transform ${
-            collapsed ? "" : "rotate-180"
-          }`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
+    <section className={embedded ? "" : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"}>
+      {!embedded && (
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full flex items-center justify-between px-6 py-4 text-left"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+            Sharing
+          </h2>
+          <svg
+            className={`w-5 h-5 text-gray-400 transition-transform ${
+              collapsed ? "" : "rotate-180"
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      )}
 
-      {!collapsed && (
-        <div className="px-6 pb-6 space-y-4 max-w-3xl">
+      {(embedded || !collapsed) && (
+        <div className={`space-y-4 max-w-3xl ${embedded ? "" : "px-6 pb-6"}`}>
           {loading ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Loading members...
@@ -314,7 +324,7 @@ function LegacySharingSection({ projectId }: SharingSectionProps) {
 
 type OwnerStatus = "loading" | "owner" | "not-owner" | "error";
 
-function BulkSharingSection({ projectId }: SharingSectionProps) {
+function BulkSharingSection({ projectId, embedded }: SharingSectionProps) {
   const { user } = useAuth();
   const { mode } = useStorage();
   const driver = getCloudSyncDriver();
@@ -330,7 +340,7 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(!embedded);
   // Tracks whether the most-recent loadMembers attempt failed. Drives the
   // OwnerStatus derivation below; cleared on the next successful fetch.
   const [membersFetchError, setMembersFetchError] = useState(false);
@@ -489,29 +499,31 @@ function BulkSharingSection({ projectId }: SharingSectionProps) {
   };
 
   return (
-    <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-6 py-4 text-left"
-      >
-        <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-          Sharing
-        </h2>
-        <svg
-          className={`w-5 h-5 text-gray-400 transition-transform ${
-            collapsed ? "" : "rotate-180"
-          }`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
+    <section className={embedded ? "" : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"}>
+      {!embedded && (
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full flex items-center justify-between px-6 py-4 text-left"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+            Sharing
+          </h2>
+          <svg
+            className={`w-5 h-5 text-gray-400 transition-transform ${
+              collapsed ? "" : "rotate-180"
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      )}
 
-      {!collapsed && (
-        <div className="px-6 pb-6 space-y-4 max-w-3xl">
+      {(embedded || !collapsed) && (
+        <div className={`space-y-4 max-w-3xl ${embedded ? "" : "px-6 pb-6"}`}>
           {ownerStatus === "error" ? (
             // Lesson 60: visible error replaces section content (header stays
             // so users can collapse). Independent of the per-action `error`

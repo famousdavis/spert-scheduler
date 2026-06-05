@@ -44,6 +44,7 @@ export function TileColorPicker({ value, onChange }: TileColorPickerProps) {
     <div ref={containerRef} className="relative">
       <button
         onClick={handleToggle}
+        onPointerDown={(e) => e.stopPropagation()}
         className="p-1 flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors"
         title="Set tile color"
         aria-label="Set tile color"
@@ -55,8 +56,9 @@ export function TileColorPicker({ value, onChange }: TileColorPickerProps) {
       </button>
       {open && (
         <div
-          className="absolute left-0 top-full mt-1 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg p-2 w-44"
+          className="absolute right-0 bottom-full mb-1 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg p-2 w-44"
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="grid grid-cols-4 gap-1.5">
             {PROJECT_TILE_COLORS.map((c) => {
