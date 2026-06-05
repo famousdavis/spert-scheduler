@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.48.0",
+    date: "2026-06-04",
+    sections: [
+      {
+        title: "Improved — redesigned project tiles on the dashboard",
+        items: [
+          "Grab anywhere on a project tile to drag and reorder it — the small dotted drag handle is gone. A single click still opens the project; a deliberate drag reorders it.",
+          "Click a project's name to open it from the keyboard too (Tab to the name, then press Enter or Space).",
+          "Action icons now live in the tile corners. The trash icon is always visible in the top-right; the share, archive, clone, and color-picker icons appear when you hover the tile (top-right delete, bottom-right archive/clone/color, bottom-left share).",
+          "Deleting a project now uses the app's standard confirmation dialog (with dark-mode styling) instead of the plain browser pop-up.",
+          "New Share icon (cloud mode, projects you own) opens a sharing dialog right on the dashboard — no need to open the project first.",
+          "Choosing a tile color now tints the whole card with a soft wash of that color, in addition to the colored left edge, in both light and dark mode.",
+          "The color picker moved to the bottom-right of the tile.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.47.6",
     date: "2026-06-04",
     sections: [

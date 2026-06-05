@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -14,17 +13,19 @@ import {
 import type { DragEndEvent } from "@dnd-kit/core";
 import {
   SortableContext,
-  sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useShallow } from "zustand/react/shallow";
+import type { Project } from "@domain/models/types";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
 import { useProjectStore, type LoadError } from "@ui/hooks/use-project-store";
 import { NewProjectDialog } from "@ui/components/NewProjectDialog";
 import { ProjectTile } from "@ui/components/ProjectTile";
+import { ShareProjectModal } from "@ui/components/ShareProjectModal";
 import { ImportSection } from "@ui/components/ImportSection";
 import { downloadFile } from "@ui/helpers/download";
+import { canShareProject } from "@ui/helpers/canShareProject";
 import { formatDateISO } from "@core/calendar/calendar";
 import { serializeExport } from "@app/api/export-import-service";
 import { toast } from "@ui/hooks/use-notification-store";
@@ -105,17 +106,17 @@ export function ProjectsPage() {
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [sharingProject, setSharingProject] = useState<Project | null>(null);
 
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
 
+  // Mouse-only drag (D4): the whole tile is the drag surface, so a KeyboardSensor
+  // would conflict with Enter/Space-to-open on the focusable name button.
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
@@ -363,6 +364,11 @@ export function ProjectsPage() {
                   onArchive={archiveProject}
                   onUnarchive={unarchiveProject}
                   onChangeTileColor={handleChangeTileColor}
+                  onShare={
+                    canShareProject(mode, user?.uid, project.owner)
+                      ? () => setSharingProject(project)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -375,6 +381,14 @@ export function ProjectsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onCreate={handleCreate}
+      />
+
+      <ShareProjectModal
+        project={sharingProject}
+        open={sharingProject !== null}
+        onOpenChange={(o) => {
+          if (!o) setSharingProject(null);
+        }}
       />
     </div>
   );

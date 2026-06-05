@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.48.0 — 2026-06-04
+
+### Improved — redesigned project tiles on the dashboard
+
+The project cards on the dashboard got a ground-up interaction and visual refresh, borrowing idioms from across the SPERT Suite (Story Map's grabbable cards, Forecaster's share/trash icons, MyScrumBudget's tile tint).
+
+- **Grab anywhere to reorder.** The whole tile is now the drag surface — the small dotted drag handle is gone. A single click still opens the project; a deliberate drag (8px threshold) reorders it. Drag is mouse-only by design.
+- **Keyboard-openable.** The project name is now a focusable button — Tab to it and press Enter or Space to open the project.
+- **Corner action icons.** The **trash** icon is always visible in the top-right. The **share**, **archive/unarchive**, **clone**, and **color-picker** icons reveal on hover (or keyboard focus): archive/clone/color at the bottom-right, share at the bottom-left.
+- **Standard delete confirmation.** Deleting a project now routes through the app's Radix `ConfirmDialog` (dark-mode aware) instead of the blocking native `window.confirm()` pop-up.
+- **Share from the dashboard.** A new Share icon (shown only in cloud mode for projects you own) opens a sharing dialog directly on the dashboard, wrapping the existing Sharing panel — no need to open the project first.
+- **Whole-tile color tint.** Choosing a tile color now washes the entire card with a soft, theme-aware tint of that color in addition to the existing colored left edge. The color picker moved to the bottom-right of the tile. (`ProjectTile.tsx`, `ShareProjectModal.tsx`, `TileColorPicker.tsx`, `SharingSection.tsx`, `ProjectsPage.tsx`, `canShareProject.ts`)
+
 ## 0.47.6 — 2026-06-04
 
 ### Improved — Gantt tooltips now wait for you to settle before appearing
