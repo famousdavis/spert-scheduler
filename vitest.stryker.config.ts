@@ -33,6 +33,17 @@ export default defineConfig({
       "src/integration/sequential-constraints.test.ts",
       "src/integration/dependency-roundtrip.test.ts",
       "src/integration/full-workflow.test.ts",
+      // Conditional sampling (v0.49.0): cover the newly-mutated distribution and
+      // simulation files, including the four pre-existing distribution test files
+      // whose source is now under mutation via the src/core/distributions/ glob.
+      "src/core/distributions/factory.test.ts",
+      "src/core/distributions/uniform.test.ts",
+      "src/core/distributions/triangular.test.ts",
+      "src/core/distributions/normal.test.ts",
+      "src/core/distributions/log-normal.test.ts",
+      "src/core/distributions/truncated.test.ts",
+      "src/core/simulation/monte-carlo.test.ts",
+      "src/integration/conditional-sampling.test.ts",
     ],
   },
 });

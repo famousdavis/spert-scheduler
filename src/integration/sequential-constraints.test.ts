@@ -210,14 +210,14 @@ describe("Sequential constraints — Monte Carlo simulation", () => {
         null, // Activity 1: no constraint
         { type: "SNET", offsetFromStart: 100, mode: "hard" }, // Activity 2: SNET at offset 100
       ],
-    });
+    }).samples;
 
     // Without constraint
     const unconstrainedSamples = runTrials({
       activities,
       trialCount: 1000,
       rngSeed: "test-seed-42",
-    });
+    }).samples;
 
     // Average constrained duration should be significantly larger
     const avgConstrained = Array.from(constrainedSamples).reduce((a, b) => a + b, 0) / 1000;
@@ -240,13 +240,13 @@ describe("Sequential constraints — Monte Carlo simulation", () => {
         null,
         { type: "SNET", offsetFromStart: 200, mode: "soft" },
       ],
-    });
+    }).samples;
 
     const without = runTrials({
       activities,
       trialCount: 1000,
       rngSeed: "test-seed-42",
-    });
+    }).samples;
 
     // Same seed, same activities — soft constraint should produce identical results
     expect(Array.from(withSoft)).toEqual(Array.from(without));
@@ -262,13 +262,13 @@ describe("Sequential constraints — Monte Carlo simulation", () => {
       trialCount: 500,
       rngSeed: "test-seed-99",
       sequentialConstraints: [null],
-    });
+    }).samples;
 
     const without = runTrials({
       activities,
       trialCount: 500,
       rngSeed: "test-seed-99",
-    });
+    }).samples;
 
     // All-null constraint array should match unconstrained
     // Note: different code paths (position-tracking vs simple sum) but same results

@@ -68,3 +68,28 @@ describe("LogNormalDistribution", () => {
     expect(() => new LogNormalDistribution(10, -1)).toThrow();
   });
 });
+
+describe("LogNormalDistribution.cdf", () => {
+  it("round-trips with inverseCDF (1e-5)", () => {
+    const dist = new LogNormalDistribution(10, 4);
+    for (const p of [0.01, 0.1, 0.5, 0.9, 0.99]) {
+      expect(dist.cdf(dist.inverseCDF(p))).toBeCloseTo(p, 5);
+    }
+  });
+
+  it("cdf(x) = 0 for x <= 0 (support guard)", () => {
+    const dist = new LogNormalDistribution(10, 4);
+    expect(dist.cdf(0)).toBe(0);
+    expect(dist.cdf(-5)).toBe(0);
+  });
+
+  it("is monotonic non-decreasing on (0, inf)", () => {
+    const dist = new LogNormalDistribution(10, 4);
+    let prev = -Infinity;
+    for (let i = 1; i <= 100; i++) {
+      const c = dist.cdf((40 * i) / 100);
+      expect(c).toBeGreaterThanOrEqual(prev);
+      prev = c;
+    }
+  });
+});

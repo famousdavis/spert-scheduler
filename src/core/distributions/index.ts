@@ -7,3 +7,8 @@ export { LogNormalDistribution } from "./log-normal";
 export { TriangularDistribution } from "./triangular";
 export { UniformDistribution } from "./uniform";
 export { createDistributionForActivity } from "./factory";
+export {
+  buildMcDistribution,
+  TruncatedDistribution,
+  DegenerateDistribution,
+} from "./truncated";

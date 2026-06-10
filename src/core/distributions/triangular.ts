@@ -63,4 +63,15 @@ export class TriangularDistribution implements Distribution {
       return b - Math.sqrt((1 - p) * (b - a) * (b - c));
     }
   }
+
+  cdf(x: number): number {
+    // Constructor guarantees a < b; (c - a) and (b - c) zero-denominators are
+    // unreachable (their only x-domain is caught by the endpoint guards above).
+    if (x <= this.a) return 0;
+    if (x >= this.b) return 1;
+    if (x <= this.c) {
+      return (x - this.a) ** 2 / ((this.b - this.a) * (this.c - this.a));
+    }
+    return 1 - (this.b - x) ** 2 / ((this.b - this.a) * (this.b - this.c));
+  }
 }

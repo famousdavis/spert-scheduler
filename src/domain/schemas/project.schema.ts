@@ -197,6 +197,7 @@ export const SimulationRunSchema = z.object({
     mean: z.number(),
     standardDeviation: z.number().nonnegative(),
   })).optional(),
+  modelExhaustedActivityIds: z.array(z.string().max(64)).max(500).optional(),
 });
 
 // -- Scenario ----------------------------------------------------------------

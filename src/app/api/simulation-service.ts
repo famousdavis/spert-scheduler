@@ -72,7 +72,7 @@ export function runSimulationSync(
       activityEarliestStart,
       constraintMap,
     });
-    const result = computeSimulationStats(depResult.samples, trialCount, rngSeed);
+    const result = computeSimulationStats(depResult.samples, trialCount, rngSeed, depResult.exhaustedIds);
     if (depResult.milestoneSamples) {
       result.milestoneResults = computeMilestoneStats(depResult.milestoneSamples, trialCount);
     }

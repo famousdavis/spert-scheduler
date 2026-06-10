@@ -72,6 +72,26 @@ function normalQuantile(p: number): number {
 
 export { normalQuantile };
 
+/**
+ * Approximation of erf(z) for all real z, accurate to ~1.5e-7 (A&S 7.1.26).
+ * Handles negative z via the odd-symmetry identity erf(-z) = -erf(z).
+ * WITHOUT this reflection, cdf(x) for x < mu returns ~0.92 instead of ~0.16
+ * (Phi(-1) ~= 0.16 is the correct value one sigma below the mean).
+ */
+function normalErf(z: number): number {
+  if (z < 0) return -normalErf(-z); // odd symmetry — required for x < mu
+  const t = 1 / (1 + 0.3275911 * z);
+  const poly =
+    t *
+    (0.254829592 +
+      t *
+        (-0.284496736 +
+          t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+  return 1 - poly * Math.exp(-z * z);
+}
+
+export { normalErf };
+
 export class NormalDistribution implements Distribution {
   constructor(
     private readonly mu: number,
@@ -105,5 +125,11 @@ export class NormalDistribution implements Distribution {
   inverseCDF(p: number): number {
     if (this.sigma === 0) return this.mu;
     return this.mu + this.sigma * normalQuantile(p);
+  }
+
+  cdf(x: number): number {
+    if (this.sigma === 0) return x < this.mu ? 0 : 1;
+    const z = (x - this.mu) / (this.sigma * Math.SQRT2);
+    return Math.max(0, Math.min(1, 0.5 * (1 + normalErf(z))));
   }
 }

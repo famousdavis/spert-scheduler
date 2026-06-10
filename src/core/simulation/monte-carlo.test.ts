@@ -131,7 +131,7 @@ describe("runMonteCarloSimulation", () => {
       trialCount: 1000,
       rngSeed: "meta-test",
     });
-    expect(result.engineVersion).toBe("1.0.0");
+    expect(result.engineVersion).toBe("1.1.0");
     expect(result.seed).toBe("meta-test");
   });
 
@@ -481,7 +481,7 @@ describe("Monte Carlo with non-standard work week deterministic floors", () => {
             trialCount: 100,
             rngSeed: "pbt-floor",
             deterministicDurations: floors,
-          });
+          }).samples;
           const floorSum = floors.reduce((s, f) => s + f, 0);
           for (let i = 0; i < result.length; i++) {
             if (result[i]! < floorSum) return false;
@@ -580,7 +580,7 @@ describe("Parkinson's Law invariants", () => {
             trialCount: 100,
             rngSeed: "parkinson-pbt",
             deterministicDurations: floors,
-          });
+          }).samples;
           const total = floors.reduce((s, f) => s + f, 0);
           for (let i = 0; i < samples.length; i++) {
             if (samples[i]! < total) return false;

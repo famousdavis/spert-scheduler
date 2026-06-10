@@ -4,6 +4,7 @@
 import type { Activity, ActivityDependency, SimulationRun } from "@domain/models/types";
 import { ENGINE_VERSION } from "@domain/models/types";
 import { createDistributionForActivity } from "@core/distributions/factory";
+import { buildMcDistribution } from "@core/distributions/truncated";
 import type { Distribution } from "@core/distributions/distribution";
 import { createSeededRng } from "@infrastructure/rng";
 import {
@@ -48,7 +49,7 @@ export interface MonteCarloInput {
  * Parkinson's Law: each activity's duration is at least its deterministic
  * (scheduled) duration, because work expands to fill time allotted.
  */
-export function runTrials(input: MonteCarloInput): Float64Array {
+export function runTrials(input: MonteCarloInput): { samples: Float64Array; exhaustedIds: string[] } {
   const {
     activities,
     trialCount,
@@ -65,12 +66,17 @@ export function runTrials(input: MonteCarloInput): Float64Array {
   // Separate completed activities from active ones
   let completedSum = 0;
   const distributions: Distribution[] = [];
+  const exhaustedIds: string[] = [];
 
   for (const activity of activities) {
     if (activity.status === "complete" && activity.actualDuration != null) {
       completedSum += activity.actualDuration;
     } else {
-      distributions.push(createDistributionForActivity(activity));
+      // Conditional sampling seam: in-progress activities draw from X | X > t.
+      const base = createDistributionForActivity(activity);
+      const { dist, isExhausted } = buildMcDistribution(activity, base);
+      distributions.push(dist);
+      if (isExhausted) exhaustedIds.push(activity.id);
     }
   }
 
@@ -175,7 +181,7 @@ export function runTrials(input: MonteCarloInput): Float64Array {
     }
   }
 
-  return samples;
+  return { samples, exhaustedIds };
 }
 
 // -- Dependency-aware Monte Carlo --------------------------------------------
@@ -209,6 +215,7 @@ export interface DependencyMonteCarloInput {
 export interface DependencyTrialsResult {
   samples: Float64Array;
   milestoneSamples?: Map<string, Float64Array>;
+  exhaustedIds: string[];
 }
 
 export function runDependencyTrials(input: DependencyMonteCarloInput): DependencyTrialsResult {
@@ -235,12 +242,17 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
   const completedDurations = new Map<string, number>();
   const activeDistributions = new Map<string, Distribution>();
   const activeFloors = new Map<string, number>();
+  const exhaustedIds: string[] = [];
 
   for (const activity of activities) {
     if (activity.status === "complete" && activity.actualDuration != null) {
       completedDurations.set(activity.id, activity.actualDuration);
     } else {
-      activeDistributions.set(activity.id, createDistributionForActivity(activity));
+      // Conditional sampling seam (dependency mode): X | X > t for in-progress.
+      const base = createDistributionForActivity(activity);
+      const { dist, isExhausted } = buildMcDistribution(activity, base);
+      activeDistributions.set(activity.id, dist);
+      if (isExhausted) exhaustedIds.push(activity.id);
       activeFloors.set(
         activity.id,
         deterministicDurationMap?.get(activity.id) ?? 0
@@ -311,7 +323,7 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
     }
   }
 
-  return { samples, milestoneSamples };
+  return { samples, milestoneSamples, exhaustedIds };
 }
 
 /**
@@ -342,7 +354,8 @@ export function computeMilestoneStats(
 export function computeSimulationStats(
   samples: Float64Array,
   trialCount: number,
-  rngSeed: string
+  rngSeed: string,
+  exhaustedIds?: string[]
 ): SimulationRun {
   sortSamples(samples);
 
@@ -357,7 +370,7 @@ export function computeSimulationStats(
   }
   const histogramSamples = samples.subarray(0, p99EndIdx);
 
-  return {
+  const result: SimulationRun = {
     id: "", // Set by caller (service layer)
     timestamp: new Date().toISOString(),
     trialCount,
@@ -371,12 +384,18 @@ export function computeSimulationStats(
     maxSample: samples[trialCount - 1] ?? 0,
     samples: Array.from(samples),
   };
+  // Omit-when-empty: keeps planned-only / complete-only runs shape-identical to today
+  // (matches the milestoneResults precedent).
+  if (exhaustedIds && exhaustedIds.length > 0) {
+    result.modelExhaustedActivityIds = exhaustedIds;
+  }
+  return result;
 }
 
 /**
  * Run a Monte Carlo simulation. Pure function, no DOM, no Worker API.
  */
 export function runMonteCarloSimulation(input: MonteCarloInput): SimulationRun {
-  const samples = runTrials(input);
-  return computeSimulationStats(samples, input.trialCount, input.rngSeed);
+  const { samples, exhaustedIds } = runTrials(input);
+  return computeSimulationStats(samples, input.trialCount, input.rngSeed, exhaustedIds);
 }

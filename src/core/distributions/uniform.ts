@@ -43,4 +43,9 @@ export class UniformDistribution implements Distribution {
     }
     return this.a + p * (this.b - this.a);
   }
+
+  cdf(x: number): number {
+    if (this.a === this.b) return x < this.a ? 0 : 1; // zero-width point mass
+    return Math.max(0, Math.min(1, (x - this.a) / (this.b - this.a)));
+  }
 }
