@@ -92,4 +92,11 @@ describe("LogNormalDistribution.cdf", () => {
       prev = c;
     }
   });
+
+  it("point mass (naturalSD === 0): step at naturalMean", () => {
+    const dist = new LogNormalDistribution(10, 0); // sigmaLog === 0
+    expect(dist.cdf(9.999)).toBe(0);
+    expect(dist.cdf(10)).toBe(1);
+    expect(dist.cdf(10.001)).toBe(1);
+  });
 });

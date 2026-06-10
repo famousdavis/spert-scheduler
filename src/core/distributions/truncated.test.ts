@@ -13,6 +13,7 @@ import { UniformDistribution } from "./uniform";
 import { TriangularDistribution } from "./triangular";
 import { NormalDistribution } from "./normal";
 import { createSeededRng } from "@infrastructure/rng";
+import type { Distribution } from "./distribution";
 import type { Activity } from "@domain/models/types";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
@@ -86,6 +87,15 @@ describe("TruncatedDistribution", () => {
     expect(trunc.cdf(100)).toBeCloseTo(1, 10);
   });
 
+  it("inverseCDF round-trips with cdf: cdf(inverseCDF(p)) ~= p", () => {
+    const base = new UniformDistribution(0, 100);
+    const t = 40;
+    const trunc = new TruncatedDistribution(base, base.cdf(t), t);
+    for (const p of [0.1, 0.25, 0.5, 0.75, 0.9]) {
+      expect(trunc.cdf(trunc.inverseCDF(p))).toBeCloseTo(p, 10);
+    }
+  });
+
   it("mean/variance/parameters throw (no production consumers; see file-header note)", () => {
     const trunc = new TruncatedDistribution(new UniformDistribution(0, 100), 0.4, 40);
     expect(() => trunc.mean()).toThrow(/not implemented/);
@@ -149,6 +159,37 @@ describe("buildMcDistribution", () => {
     const activity = makeActivity({ status: "inProgress", actualDuration: undefined });
     const { dist, isExhausted } = buildMcDistribution(activity, base);
     expect(dist).toBe(base);
+    expect(isExhausted).toBe(false);
+  });
+
+  it("complete activity → base distribution unchanged (status guard)", () => {
+    // The caller already filters complete activities, but the seam guard must hold:
+    // a complete activity with a valid actualDuration must NOT be wrapped/truncated.
+    const base = new TriangularDistribution(2, 5, 12);
+    const activity = makeActivity({ status: "complete", actualDuration: 7 });
+    const { dist, isExhausted } = buildMcDistribution(activity, base);
+    expect(dist).toBe(base);
+    expect(isExhausted).toBe(false);
+  });
+
+  it("non-finite cdf (defense-in-depth) → base, isExhausted false", () => {
+    // Guards against a future distribution whose cdf returns NaN. Without the guard,
+    // p0 = NaN would flow into a TruncatedDistribution.
+    const nanBase: Distribution = {
+      sample: () => 0,
+      mean: () => 0,
+      variance: () => 0,
+      parameters: () => ({}),
+      inverseCDF: () => 0,
+      cdf: () => NaN,
+    };
+    const activity = makeActivity({
+      status: "inProgress",
+      actualDuration: 5,
+      distributionType: "triangular",
+    });
+    const { dist, isExhausted } = buildMcDistribution(activity, nanBase);
+    expect(dist).toBe(nanBase);
     expect(isExhausted).toBe(false);
   });
 
