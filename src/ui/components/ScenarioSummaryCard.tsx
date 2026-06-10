@@ -10,6 +10,7 @@ import {
   parseDateISO,
   addWorkingDays,
   formatDateISO,
+  formatExportTimestamp,
 } from "@core/calendar/calendar";
 import {
   ACTIVITY_PERCENTILE_OPTIONS,
@@ -120,7 +121,7 @@ function useScheduleExport({
     setExporting(true);
     try {
       const arrayBuffer = await exportScheduleXlsx(params);
-      const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatDateISO(new Date())}.xlsx`;
+      const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatExportTimestamp(new Date())}.xlsx`;
       downloadFile(arrayBuffer, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     } finally {
       setExporting(false);
@@ -131,7 +132,7 @@ function useScheduleExport({
     const params = buildExportParams();
     if (!params) return;
     const csv = exportScheduleCsv(params);
-    const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatDateISO(new Date())}.csv`;
+    const filename = `${sanitizeFilename(projectName)} - ${sanitizeFilename(scenarioName)} Schedule ${formatExportTimestamp(new Date())}.csv`;
     downloadFile(csv, filename, "text/csv");
   }, [buildExportParams, projectName, scenarioName]);
 

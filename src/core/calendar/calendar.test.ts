@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
 import {
   formatDateISO,
+  formatExportTimestamp,
   parseDateISO,
   formatDateDisplay,
   isWorkingDay,
@@ -32,6 +33,24 @@ describe("formatDateISO / parseDateISO", () => {
   it("pads single-digit months and days", () => {
     const date = new Date(2025, 0, 5); // Jan 5
     expect(formatDateISO(date)).toBe("2025-01-05");
+  });
+});
+
+describe("formatExportTimestamp", () => {
+  it("appends a T<HH-MM-SS> suffix to the ISO date", () => {
+    const date = new Date(2026, 5, 10, 15, 48, 30); // Jun 10 2026, 15:48:30 local
+    expect(formatExportTimestamp(date)).toBe("2026-06-10T15-48-30");
+  });
+
+  it("zero-pads single-digit hours, minutes, and seconds", () => {
+    const date = new Date(2025, 0, 5, 9, 4, 7); // Jan 5 2025, 09:04:07 local
+    expect(formatExportTimestamp(date)).toBe("2025-01-05T09-04-07");
+  });
+
+  it("uses no colons (filesystem-safe)", () => {
+    const stamp = formatExportTimestamp(new Date(2026, 11, 31, 23, 59, 58));
+    expect(stamp).toBe("2026-12-31T23-59-58");
+    expect(stamp).not.toContain(":");
   });
 });
 

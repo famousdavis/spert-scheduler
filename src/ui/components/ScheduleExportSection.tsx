@@ -12,7 +12,7 @@ import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
-import { formatDateISO } from "@core/calendar/calendar";
+import { formatExportTimestamp } from "@core/calendar/calendar";
 import {
   computeDeterministicSchedule,
   computeDependencySchedule,
@@ -102,7 +102,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
     setExporting(true);
     try {
       const arrayBuffer = await exportScheduleXlsx(params);
-      const filename = `spert-scheduler ${sanitizeFilename(params.projectName)} - ${sanitizeFilename(params.scenarioName)} Schedule ${formatDateISO(new Date())}.xlsx`;
+      const filename = `spert-scheduler ${sanitizeFilename(params.projectName)} - ${sanitizeFilename(params.scenarioName)} Schedule ${formatExportTimestamp(new Date())}.xlsx`;
       downloadFile(arrayBuffer, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     } finally {
       setExporting(false);
@@ -113,7 +113,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
     const params = buildParams();
     if (!params) return;
     const csv = exportScheduleCsv(params);
-    const filename = `spert-scheduler ${sanitizeFilename(params.projectName)} - ${sanitizeFilename(params.scenarioName)} Schedule ${formatDateISO(new Date())}.csv`;
+    const filename = `spert-scheduler ${sanitizeFilename(params.projectName)} - ${sanitizeFilename(params.scenarioName)} Schedule ${formatExportTimestamp(new Date())}.csv`;
     downloadFile(csv, filename, "text/csv");
   }, [buildParams]);
 

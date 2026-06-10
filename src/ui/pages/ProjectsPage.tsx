@@ -27,7 +27,7 @@ import { ImportSection } from "@ui/components/ImportSection";
 import { downloadFile } from "@ui/helpers/download";
 import { buildProjectExportFilename } from "@ui/helpers/export-filename";
 import { canShareProject } from "@ui/helpers/canShareProject";
-import { formatDateISO } from "@core/calendar/calendar";
+import { formatExportTimestamp } from "@core/calendar/calendar";
 import { serializeExport } from "@app/api/export-import-service";
 import { toast } from "@ui/hooks/use-notification-store";
 
@@ -171,7 +171,7 @@ export function ProjectsPage() {
     (projectId: string) => {
       const raw = getCorruptedProjectRawData(projectId);
       if (raw) {
-        const filename = `corrupted-project-${projectId}-${formatDateISO(new Date())}.json`;
+        const filename = `corrupted-project-${projectId}-${formatExportTimestamp(new Date())}.json`;
         downloadFile(raw, filename, "application/json");
       }
     },
@@ -194,7 +194,7 @@ export function ProjectsPage() {
 
   const handleExportAll = useCallback(() => {
     const json = serializeExport(activeProjects);
-    const filename = `spert-scheduler-export-${formatDateISO(new Date())}.json`;
+    const filename = `spert-scheduler-export-${formatExportTimestamp(new Date())}.json`;
     downloadFile(json, filename, "application/json");
   }, [activeProjects]);
 
@@ -208,7 +208,7 @@ export function ProjectsPage() {
       const json = serializeExport([project], { includeSimulationResults: false });
       const filename = buildProjectExportFilename(
         project.name,
-        formatDateISO(new Date())
+        formatExportTimestamp(new Date())
       );
       downloadFile(json, filename, "application/json");
       toast.success(`Exported "${project.name}"`);

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.49.2 — 2026-06-10
+
+### Improved — export filenames now include a time-of-day stamp
+
+Every file the app exports now carries a `THH-MM-SS` time qualifier after the date (e.g. `spert-scheduler-My Project-2026-06-10T15-48-30.json`), so when several exports land in the same folder on the same day, the latest one is obvious at a glance.
+
+- **Everywhere a file is downloaded:** the per-tile single-project export, Settings → Export Projects, Settings → Schedule Export, the dashboard Export All and corrupted-project recovery exports, and the project-page schedule (XLSX/CSV) and simulation-results (CSV) exports.
+- The time is local wall-clock time and uses hyphens instead of colons, so filenames stay valid on Windows/macOS/Linux. (New `formatExportTimestamp` in `core/calendar/calendar.ts` is the single source of truth.)
+
 ## 0.49.1 — 2026-06-10
 
 ### Added — one-click project export from the dashboard
