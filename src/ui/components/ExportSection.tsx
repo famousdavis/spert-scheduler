@@ -8,7 +8,7 @@ import {
 import type { Project } from "@domain/models/types";
 import { downloadFile } from "@ui/helpers/download";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { formatDateISO } from "@core/calendar/calendar";
+import { formatExportTimestamp } from "@core/calendar/calendar";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 
 interface ExportSectionProps {
@@ -50,7 +50,7 @@ export function ExportSection({ projects }: ExportSectionProps) {
       includePreferences,
       preferences: includePreferences ? preferences : undefined,
     });
-    const filename = `spert-scheduler-export-${formatDateISO(new Date())}.json`;
+    const filename = `spert-scheduler-export-${formatExportTimestamp(new Date())}.json`;
     downloadFile(json, filename, "application/json");
   }, [
     projects,

@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.2",
+    date: "2026-06-10",
+    sections: [
+      {
+        title: "Improved — export filenames now include a time-of-day stamp",
+        items: [
+          "Every file you export now has a THH-MM-SS time qualifier appended after the date (e.g. ...2026-06-10T15-48-30.json), so when several exports land in the same folder on the same day, the most recent one is obvious at a glance.",
+          "Applies everywhere the app downloads a file: the per-tile single-project export, Settings → Export Projects, Settings → Schedule Export, the dashboard Export All / corrupted-project recovery exports, and the project-page schedule (XLSX/CSV) and simulation-results (CSV) exports.",
+          "The time is your local wall-clock time and uses hyphens instead of colons so the filename stays valid on Windows, macOS, and Linux.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.1",
     date: "2026-06-10",
     sections: [

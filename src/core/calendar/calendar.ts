@@ -18,6 +18,22 @@ export function formatDateISO(date: Date): string {
 }
 
 /**
+ * Format a Date to "YYYY-MM-DDTHH-MM-SS" for export filenames.
+ *
+ * Uses local-time components (matching {@link formatDateISO}) so the stamp
+ * reflects the user's wall clock at export time. The "T" mirrors ISO 8601; the
+ * time uses hyphen separators (not colons) so the result is a valid filename on
+ * Windows/macOS/Linux. The seconds-resolution suffix lets users spot the most
+ * recent export at a glance when several land in the same folder on one day.
+ */
+export function formatExportTimestamp(date: Date): string {
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${formatDateISO(date)}T${hh}-${mm}-${ss}`;
+}
+
+/**
  * Format a "YYYY-MM-DD" ISO string for display.
  * Pure string transform — no Date object construction, no timezone issues.
  */

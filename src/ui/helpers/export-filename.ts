@@ -6,7 +6,7 @@ import { sanitizeFilename } from "./download";
 /**
  * Build the download filename for a single-project JSON export.
  *
- * Format: `spert-scheduler-<sanitized project name>-<dateISO>.json`
+ * Format: `spert-scheduler-<sanitized project name>-<stamp>.json`
  *
  * The leading `spert-scheduler-` identifies the source app at a glance when the
  * file lands in a Downloads folder beside exports from other tools, and the
@@ -15,11 +15,12 @@ import { sanitizeFilename } from "./download";
  * (illegal characters → `_`, empty → `Untitled`).
  *
  * @param projectName  Raw project name (may contain spaces or illegal chars).
- * @param dateISO      Date stamp in `YYYY-MM-DD` form (e.g. from `formatDateISO`).
+ * @param stamp        Date/time stamp, e.g. `formatExportTimestamp(new Date())`
+ *                     → `2026-06-10T15-48-30` (or a bare `YYYY-MM-DD`).
  */
 export function buildProjectExportFilename(
   projectName: string,
-  dateISO: string
+  stamp: string
 ): string {
-  return `spert-scheduler-${sanitizeFilename(projectName)}-${dateISO}.json`;
+  return `spert-scheduler-${sanitizeFilename(projectName)}-${stamp}.json`;
 }
