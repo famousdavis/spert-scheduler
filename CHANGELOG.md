@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.49.1 — 2026-06-10
+
+### Added — one-click project export from the dashboard
+
+Hover any project tile on the dashboard to reveal a new download icon (the first of the four icons in the tile's bottom-right corner). A single click exports that one project as a JSON backup — no trip to Settings → Export Projects.
+
+- **Per-tile export.** The download icon appears on hover/focus, styled and behaving like the tile's other corner icons, in both local and cloud mode and for archived projects too.
+- **Self-identifying filename.** Exports are named `spert-scheduler-<project name>-<date>.json` so each download is easy to attribute to a project (and to this app).
+- **Same format as the Settings export.** A single-project JSON envelope that re-imports normally; simulation results are excluded to keep the file small (the Settings export default), and global preferences are never bundled. (`ProjectTile.tsx`, `ProjectsPage.tsx`, `export-filename.ts`)
+
 ## 0.49.0 — 2026-06-10
 
 ### Improved — smarter forecasts for in-progress activities (conditional Monte Carlo sampling)

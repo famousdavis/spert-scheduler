@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.1",
+    date: "2026-06-10",
+    sections: [
+      {
+        title: "Added — one-click project export from the dashboard",
+        items: [
+          "Hover any project tile on the dashboard to reveal a new download icon — the first of the four icons in the tile's bottom-right corner. One click exports just that project as a JSON backup, with no trip to Settings → Export Projects.",
+          "Exports are named spert-scheduler-<project name>-<date>.json, so each download is easy to attribute to a project (and to this app).",
+          "It's the same JSON format as the Settings export and re-imports normally. Simulation results are excluded to keep the file small (the Settings export default), and global preferences are never bundled into a single-project export.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.0",
     date: "2026-06-10",
     sections: [

@@ -25,6 +25,7 @@ import { ProjectTile } from "@ui/components/ProjectTile";
 import { ShareProjectModal } from "@ui/components/ShareProjectModal";
 import { ImportSection } from "@ui/components/ImportSection";
 import { downloadFile } from "@ui/helpers/download";
+import { buildProjectExportFilename } from "@ui/helpers/export-filename";
 import { canShareProject } from "@ui/helpers/canShareProject";
 import { formatDateISO } from "@core/calendar/calendar";
 import { serializeExport } from "@app/api/export-import-service";
@@ -197,6 +198,24 @@ export function ProjectsPage() {
     downloadFile(json, filename, "application/json");
   }, [activeProjects]);
 
+  // One-click export of a single project from its dashboard tile. Simulation
+  // results are excluded to keep the file small (the Settings export default);
+  // global user preferences are never bundled into a single-project export.
+  const handleExportProject = useCallback(
+    (id: string) => {
+      const project = projects.find((p) => p.id === id);
+      if (!project) return;
+      const json = serializeExport([project], { includeSimulationResults: false });
+      const filename = buildProjectExportFilename(
+        project.name,
+        formatDateISO(new Date())
+      );
+      downloadFile(json, filename, "application/json");
+      toast.success(`Exported "${project.name}"`);
+    },
+    [projects]
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -364,6 +383,7 @@ export function ProjectsPage() {
                   onArchive={archiveProject}
                   onUnarchive={unarchiveProject}
                   onChangeTileColor={handleChangeTileColor}
+                  onExport={handleExportProject}
                   onShare={
                     canShareProject(mode, user?.uid, project.owner)
                       ? () => setSharingProject(project)

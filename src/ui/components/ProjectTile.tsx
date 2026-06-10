@@ -24,6 +24,7 @@ interface ProjectTileProps {
   onUnarchive?: (id: string) => void;
   onChangeTileColor?: (id: string, color: string | undefined) => void;
   onShare?: () => void;
+  onExport?: (id: string) => void;
 }
 
 function projectTileBorderClass(isDragging: boolean, archived: boolean): string {
@@ -47,6 +48,7 @@ export function ProjectTile({
   onUnarchive,
   onChangeTileColor,
   onShare,
+  onExport,
 }: ProjectTileProps) {
   const formatDate = useDateFormat();
   // Whole tile is the drag surface: spread {...listeners} on the root. Omit
@@ -106,6 +108,10 @@ export function ProjectTile({
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
     onShare?.();
+  };
+  const handleExport = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onExport?.(project.id);
   };
 
   return (
@@ -210,10 +216,35 @@ export function ProjectTile({
         </button>
       )}
 
-      {/* Bottom-right cluster — hover/focus: archive, clone, color picker */}
+      {/* Bottom-right cluster — hover/focus: export, archive, clone, color picker */}
       <div
         className={`absolute bottom-3 right-3 flex items-center gap-1 ${REVEAL}`}
       >
+        {onExport && (
+          <button
+            type="button"
+            onClick={handleExport}
+            onPointerDown={stopDown}
+            className={`${ICON_BTN} hover:text-blue-500 dark:hover:text-blue-400`}
+            title="Export project"
+            aria-label="Export project"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+        )}
         {project.archived
           ? onUnarchive && (
               <button
