@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.49.0 — 2026-06-10
+
+### Improved — smarter forecasts for in-progress activities (conditional Monte Carlo sampling)
+
+When an activity is in progress, the simulation now uses what it has actually observed — that the activity has already run for its elapsed time and isn't finished yet — instead of sampling as if it hadn't started. Previously a long-running in-progress activity could keep forecasting "almost done" no matter how far it overran (the classic "90%-done-for-three-weeks" problem); now the forecast conditions on elapsed time and shifts realistically.
+
+- **Left-truncated sampling.** Each in-progress activity's Monte Carlo draws are now conditioned on "duration > elapsed-so-far," so the P95 and the schedule buffer widen honestly as an activity slips — while the deterministic schedule and your published dates stay anchored to the plan.
+- **No more finishing in the past.** With Parkinson's Law turned off, an in-progress activity can no longer draw a duration shorter than the time it has already consumed.
+- **Model-exhaustion signal.** When an in-progress activity has run so long that its original estimate carries essentially no remaining information, the simulation flags it (recorded on the run as `modelExhaustedActivityIds`) rather than inventing a precise number — a prompt to re-estimate or split that activity. The simulation engine version advances to 1.1.0.
+- Planned and complete activities, and all existing percentiles for projects without in-progress activities, are unchanged. (`truncated.ts`, `monte-carlo.ts`, distribution `cdf` additions)
+
+### Fixed — dependency-mode constraints in the synchronous simulation fallback
+
+If the Web Worker failed to start and the app fell back to running the simulation on the main thread, dependency-mode runs silently ignored hard scheduling constraints (MSO/SNET/MFO/FNET), producing different percentiles than the normal worker path. The fallback now applies the same constraints as the worker. (`simulation-service.ts`)
+
 ## 0.48.0 — 2026-06-04
 
 ### Improved — redesigned project tiles on the dashboard

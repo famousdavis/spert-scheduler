@@ -12,6 +12,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.0",
+    date: "2026-06-10",
+    sections: [
+      {
+        title:
+          "Improved — smarter forecasts for in-progress activities (conditional Monte Carlo sampling)",
+        items: [
+          'When an activity is in progress, the simulation now conditions on what it has observed — that the activity has already run for its elapsed time and isn\'t finished — instead of sampling as if it hadn\'t started. This fixes the classic "90%-done-for-three-weeks" optimism, where a long-running activity kept forecasting "almost done" no matter how far it overran.',
+          'Each in-progress activity\'s Monte Carlo draws are conditioned on "duration > elapsed-so-far," so the P95 and the schedule buffer widen honestly as an activity slips — while the deterministic schedule and your published dates stay anchored to the plan.',
+          'With Parkinson\'s Law turned off, an in-progress activity can no longer draw a duration shorter than the time it has already consumed (no more "finishing in the past").',
+          "When an in-progress activity has run so long that its original estimate carries essentially no remaining information, the simulation flags it as model-exhausted rather than inventing a precise number — a prompt to re-estimate or split it. The simulation engine version advances to 1.1.0.",
+          "Planned and complete activities, and all percentiles for projects without in-progress activities, are unchanged.",
+        ],
+      },
+      {
+        title:
+          "Fixed — dependency-mode constraints in the synchronous simulation fallback",
+        items: [
+          "If the Web Worker failed to start and the simulation fell back to the main thread, dependency-mode runs silently ignored hard scheduling constraints (MSO/SNET/MFO/FNET), producing different percentiles than the normal worker path. The fallback now applies the same constraints as the worker.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.48.0",
     date: "2026-06-04",
     sections: [
