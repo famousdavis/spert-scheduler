@@ -19,8 +19,12 @@ export interface SimulationServiceCallbacks {
 /**
  * Synchronous simulation fallback used when Worker creation fails.
  * Handles both dependency-mode (graph-based) and sequential-mode runs.
+ *
+ * Exported for regression testing of the dependency-mode constraint path
+ * (the public `runSimulation` entry point reaches this only when Worker
+ * construction throws, which does not happen deterministically under vitest).
  */
-function runSimulationSync(
+export function runSimulationSync(
   activities: Activity[],
   trialCount: number,
   rngSeed: string,
@@ -42,6 +46,21 @@ function runSimulationSync(
     const activityEarliestStart = dependencyParams.activityEarliestStart
       ? new Map(Object.entries(dependencyParams.activityEarliestStart))
       : undefined;
+    // Convert constraintMap (Record → Map) with the same validation filter as the
+    // worker path (simulation.worker.ts). Omitting this silently dropped hard
+    // scheduling constraints (MSO/SNET/MFO/FNET) in the sync fallback, diverging
+    // from the worker path for the same project.
+    const VALID_CONSTRAINT_TYPES = ["MSO", "MFO", "SNET", "SNLT", "FNET", "FNLT"];
+    const VALID_CONSTRAINT_MODES = ["hard", "soft"];
+    const constraintMap = dependencyParams.constraintMap
+      ? new Map(Object.entries(dependencyParams.constraintMap).filter(
+          (entry): entry is [string, { type: string; offsetFromStart: number; mode: string }] =>
+            entry[1] != null
+            && typeof entry[1].offsetFromStart === "number"
+            && VALID_CONSTRAINT_TYPES.includes(entry[1].type)
+            && VALID_CONSTRAINT_MODES.includes(entry[1].mode)
+        ))
+      : undefined;
 
     const depResult = runDependencyTrials({
       activities,
@@ -51,8 +70,9 @@ function runSimulationSync(
       deterministicDurationMap: durMap,
       milestoneActivityIds,
       activityEarliestStart,
+      constraintMap,
     });
-    const result = computeSimulationStats(depResult.samples, trialCount, rngSeed);
+    const result = computeSimulationStats(depResult.samples, trialCount, rngSeed, depResult.exhaustedIds);
     if (depResult.milestoneSamples) {
       result.milestoneResults = computeMilestoneStats(depResult.milestoneSamples, trialCount);
     }

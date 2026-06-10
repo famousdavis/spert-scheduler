@@ -111,3 +111,31 @@ describe("TriangularDistribution", () => {
     }
   });
 });
+
+describe("TriangularDistribution.cdf", () => {
+  it("round-trips with inverseCDF (cdf(inverseCDF(p)) ~= p)", () => {
+    const dist = new TriangularDistribution(2, 5, 12);
+    for (const p of [0.01, 0.1, 0.5, 0.9, 0.99]) {
+      expect(dist.cdf(dist.inverseCDF(p))).toBeCloseTo(p, 10);
+    }
+  });
+
+  it("is monotonic non-decreasing across the support", () => {
+    const dist = new TriangularDistribution(2, 5, 12);
+    let prev = -Infinity;
+    for (let i = 0; i <= 100; i++) {
+      const c = dist.cdf(2 + (10 * i) / 100);
+      expect(c).toBeGreaterThanOrEqual(prev);
+      prev = c;
+    }
+  });
+
+  it("endpoints cdf(min)=0, cdf(max)=1, cdf(mode)=(c-a)/(b-a); clamps outside", () => {
+    const dist = new TriangularDistribution(2, 5, 12);
+    expect(dist.cdf(2)).toBe(0);
+    expect(dist.cdf(12)).toBe(1);
+    expect(dist.cdf(5)).toBeCloseTo((5 - 2) / (12 - 2), 10);
+    expect(dist.cdf(0)).toBe(0);
+    expect(dist.cdf(20)).toBe(1);
+  });
+});

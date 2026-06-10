@@ -63,6 +63,11 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
       const startTime = performance.now();
 
       let samples: Float64Array;
+      // Shared accumulator: BOTH branches assign it, and the single computeSimulationStats
+      // call below threads it. The param is optional, so the sequential branch's threading
+      // is NOT forced by the type-checker — this is the default production path, so it must
+      // be wired explicitly (and is covered by a dedicated test).
+      let exhaustedIds: string[] = [];
       let milestoneResults: Record<string, { percentiles: Record<number, number>; mean: number; standardDeviation: number }> | undefined;
 
       if (payload.dependencyMode && payload.dependencies) {
@@ -107,6 +112,7 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
           progressInterval: PROGRESS_INTERVAL,
         });
         samples = depResult.samples;
+        exhaustedIds = depResult.exhaustedIds;
         if (depResult.milestoneSamples) {
           milestoneResults = computeMilestoneStats(depResult.milestoneSamples, payload.trialCount);
         }
@@ -126,7 +132,7 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
           return null;
         });
 
-        samples = runTrials({
+        const trials = runTrials({
           activities: payload.activities,
           trialCount: payload.trialCount,
           rngSeed: payload.rngSeed,
@@ -135,12 +141,15 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
           onProgress: postProgress,
           progressInterval: PROGRESS_INTERVAL,
         });
+        samples = trials.samples;
+        exhaustedIds = trials.exhaustedIds;
       }
 
       const result = computeSimulationStats(
         samples,
         payload.trialCount,
-        payload.rngSeed
+        payload.rngSeed,
+        exhaustedIds
       );
 
       if (milestoneResults) {

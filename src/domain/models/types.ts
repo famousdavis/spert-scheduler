@@ -8,7 +8,7 @@
 // -- Version Constants -------------------------------------------------------
 
 /** Informational. Recorded in SimulationRun for auditability. */
-export const ENGINE_VERSION = "1.0.0";
+export const ENGINE_VERSION = "1.1.0";
 
 /** Operational. Drives persistence migration system. */
 export const SCHEMA_VERSION = 21;
@@ -208,6 +208,12 @@ export interface SimulationRun {
     mean: number;
     standardDeviation: number;
   }>;
+  /**
+   * Activity IDs whose planning-time estimate is exhausted (in-progress elapsed time
+   * has consumed essentially all of the modeled probability mass). Conditional-sampling
+   * breach signal. Omitted (not []) when empty. See core/distributions/truncated.ts.
+   */
+  modelExhaustedActivityIds?: string[];
 }
 
 export interface Scenario {

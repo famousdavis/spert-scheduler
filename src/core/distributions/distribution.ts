@@ -9,4 +9,6 @@ export interface Distribution {
   variance(): number;
   parameters(): Record<string, number>;
   inverseCDF(p: number): number;
+  /** Forward CDF F(x) = P(X <= x), clamped to [0, 1]. Used for conditional sampling. */
+  cdf(x: number): number;
 }

@@ -109,3 +109,36 @@ describe("UniformDistribution", () => {
     );
   });
 });
+
+describe("UniformDistribution.cdf", () => {
+  it("round-trips with inverseCDF (cdf(inverseCDF(p)) ~= p)", () => {
+    const dist = new UniformDistribution(5, 25);
+    for (const p of [0.01, 0.1, 0.5, 0.9, 0.99]) {
+      expect(dist.cdf(dist.inverseCDF(p))).toBeCloseTo(p, 10);
+    }
+  });
+
+  it("is monotonic non-decreasing across the support", () => {
+    const dist = new UniformDistribution(5, 25);
+    let prev = -Infinity;
+    for (let i = 0; i <= 100; i++) {
+      const c = dist.cdf(5 + (20 * i) / 100);
+      expect(c).toBeGreaterThanOrEqual(prev);
+      prev = c;
+    }
+  });
+
+  it("endpoints cdf(min)=0, cdf(max)=1; clamps outside the support", () => {
+    const dist = new UniformDistribution(5, 25);
+    expect(dist.cdf(5)).toBe(0);
+    expect(dist.cdf(25)).toBe(1);
+    expect(dist.cdf(0)).toBe(0);
+    expect(dist.cdf(100)).toBe(1);
+  });
+
+  it("point mass (a === b): step at a", () => {
+    const dist = new UniformDistribution(7, 7);
+    expect(dist.cdf(6.999)).toBe(0);
+    expect(dist.cdf(7)).toBe(1);
+  });
+});

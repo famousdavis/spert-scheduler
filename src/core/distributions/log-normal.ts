@@ -64,4 +64,11 @@ export class LogNormalDistribution implements Distribution {
     if (this.sigmaLog === 0) return this.naturalMean;
     return Math.exp(this.muLog + this.sigmaLog * normalQuantile(p));
   }
+
+  cdf(x: number): number {
+    if (x <= 0) return 0;
+    if (this.sigmaLog === 0) return x < this.naturalMean ? 0 : 1;
+    // Route through the internal normal so CDF and inverseCDF share muLog/sigmaLog.
+    return this.normalDist.cdf(Math.log(x));
+  }
 }
