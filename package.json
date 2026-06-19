@@ -1,7 +1,7 @@
 {
   "name": "spert-scheduler",
   "private": true,
-  "version": "0.49.2",
+  "version": "0.49.3",
   "type": "module",
   "license": "GPL-3.0",
   "engines": {
@@ -59,7 +59,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.2",
-    "vite": "^7.3.1",
+    "vite": "^7.3.2",
     "vitest": "^4.1.2"
   }
 }
