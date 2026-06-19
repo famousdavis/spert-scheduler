@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.49.3 — 2026-06-19
+
+### Security — upgrade vite 7.3.1 → 7.3.2 to close three dev-server advisories
+
+A targeted dependency security update: it bumps the `vite` build/dev toolchain from 7.3.1 to 7.3.2 — the smallest move that closes three published advisories — and changes nothing else. `vitest` stays at 4.1.2, and no application code, runtime dependency, or data schema is touched.
+
+- **GHSA-p9ff-h696-f583 (High) — arbitrary file read via the dev-server WebSocket.** Reported against 7.3.1; no longer present in vite's advisory set on 7.3.2.
+- **GHSA-v2wj-q39q-566r (High) — `server.fs.deny` bypass via crafted query strings.** Closed by 7.3.2.
+- **GHSA-4w7w-66w2-5vf9 (Moderate) — path traversal in optimized-deps `.map` requests.** Closed by 7.3.2.
+- **Two Windows-only advisories remain deferred by design.** GHSA-fx2h-pf6j-xcff and GHSA-v6wh-96g9-6wx3 are fixed in vite 7.3.5, which has not yet cleared the project's 60-day fresh-release window; they are scheduled for a follow-up around 2026-07-31. Vite is a dev/build-time dependency, so neither advisory reaches a production bundle.
+- No runtime dependencies changed and no `npm audit fix` was run; the pre-existing production-dependency advisories (firebase/react-router-dom/exceljs transitive chains) are tracked separately and out of scope here. All gates pass with zero regressions: 1,662 tests, the production build, and the 18-error/1-warning lint baseline are all unchanged.
+
 ## 0.49.2 — 2026-06-10
 
 ### Improved — export filenames now include a time-of-day stamp

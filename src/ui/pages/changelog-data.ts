@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.3",
+    date: "2026-06-19",
+    sections: [
+      {
+        title: "Security — updated the build toolchain to close three advisories",
+        items: [
+          "Upgraded the Vite build/development toolchain from 7.3.1 to 7.3.2 to close three published security advisories: two High-severity (an arbitrary file read via the dev-server WebSocket, and a server.fs.deny access-control bypass) and one Moderate (a path traversal in optimized-dependency source maps).",
+          "This is a build-time-only change — Vite is not part of the shipped app — so there is no change to any feature, to your data, or to how the app behaves.",
+          "Two remaining Windows-only advisories are intentionally deferred to a follow-up (around the end of July 2026), because their fix is in a Vite release that has not yet cleared our 60-day fresh-release waiting period.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.2",
     date: "2026-06-10",
     sections: [
