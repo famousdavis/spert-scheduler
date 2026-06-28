@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.9",
+    date: "2026-06-28",
+    sections: [
+      {
+        title: "Maintenance — internal code-quality refactor",
+        items: [
+          "Reworked how the schedule's calendar-configuration error is computed internally so it is derived rather than set while the page renders, eliminating a React anti-pattern flagged during the recent tooling upgrade. This is an internal-only change with no effect on the app's behavior, your data, or any feature.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.8",
     date: "2026-06-28",
     sections: [

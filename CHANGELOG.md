@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.49.9 — 2026-06-28
+
+### Maintenance — lift the dependency-schedule calendar error out of render
+
+- Refactored `ProjectPage` so the dependency-mode schedule's `CalendarConfigurationError` is **derived** rather than set during render. The schedule `useMemo` now returns `{ schedule, calendarError }` purely; the displayed error is derived from that result in dependency mode, or from the sequential `useSchedule` state otherwise (the two paths stay mutually exclusive on `dependencyMode`).
+- Removes the two `react-hooks/set-state-in-render` `eslint-disable` comments added in v0.49.6 — the anti-pattern is eliminated, not suppressed — without introducing a `set-state-in-effect` (the value is derived, not synced through an effect). The ESLint baseline is unchanged at 23 problems (17 cognitive-complexity + 6 set-state-in-effect).
+- Behavior is identical: a `CalendarConfigurationError` still surfaces its message in the schedule banner and a successful recompute still clears it. No runtime dependency or data schema is affected; all 1,662 tests pass.
+
 ## 0.49.8 — 2026-06-28
 
 ### Maintenance — soak-currency dev-dependency minors

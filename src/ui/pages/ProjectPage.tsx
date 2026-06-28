@@ -12,7 +12,7 @@ import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
-import type { Activity, ScenarioSettings } from "@domain/models/types";
+import type { Activity, ScenarioSettings, DeterministicSchedule } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE } from "@domain/models/types";
 import { formatDateISO, parseDateISO, addWorkingDays, countWorkingDays } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
@@ -106,7 +106,7 @@ export function ProjectPage() {
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
   const [allActivitiesValid, setAllActivitiesValid] = useState(true);
-  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [sequentialCalendarError, setSequentialCalendarError] = useState<string | null>(null);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [editingDependency, setEditingDependency] = useState<{ fromActivityId: string; toActivityId: string } | null>(null);
   const [addingDependencyFromId, setAddingDependencyFromId] = useState<string | null>(null);
@@ -180,7 +180,7 @@ export function ProjectPage() {
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.probabilityTarget ?? 0.5,
     workCalendar,
-    setCalendarError
+    setSequentialCalendarError
   );
 
   const depMode = scenario?.settings.dependencyMode;
@@ -190,12 +190,21 @@ export function ProjectPage() {
   const probTarget = scenario?.settings.probabilityTarget;
   const milestones = scenario?.milestones;
 
-  const dependencySchedule = useMemo(() => {
-    if (!depMode || !activities || activities.length === 0 || !dependencies || !startDate || probTarget == null) return null;
+  // Compute the dependency schedule purely — no state-setting during render. Its
+  // `calendarError` field is consumed below to derive the displayed error, never stored:
+  //   string    → the CalendarConfigurationError message to surface
+  //   null      → schedule computed successfully → no calendar error
+  //   undefined → not this path's concern (dep mode off, or a non-calendar throw —
+  //               the sequential useSchedule drives the error via state instead)
+  const dependencyScheduleResult = useMemo<{
+    schedule: DeterministicSchedule | null;
+    calendarError: string | null | undefined;
+  }>(() => {
+    if (!depMode || !activities || activities.length === 0 || !dependencies || !startDate || probTarget == null) {
+      return { schedule: null, calendarError: undefined };
+    }
     try {
-      // eslint-disable-next-line react-hooks/set-state-in-render -- pre-existing: clears calendar error as the schedule memo recomputes (follow-up: lift error-setting out of useMemo)
-      setCalendarError(null);
-      return computeDependencySchedule(
+      const schedule = computeDependencySchedule(
         activities,
         dependencies,
         startDate,
@@ -203,14 +212,23 @@ export function ProjectPage() {
         workCalendar,
         milestones
       );
+      return { schedule, calendarError: null };
     } catch (err) {
       if (err instanceof CalendarConfigurationError) {
-        // eslint-disable-next-line react-hooks/set-state-in-render -- pre-existing: surfaces calendar config error from the schedule memo (follow-up: lift error-setting out of useMemo)
-        setCalendarError(err.message);
+        return { schedule: null, calendarError: err.message };
       }
-      return null;
+      return { schedule: null, calendarError: undefined };
     }
   }, [depMode, activities, dependencies, startDate, probTarget, workCalendar, milestones]);
+
+  const dependencySchedule = dependencyScheduleResult.schedule;
+
+  // Unified calendar error for display. In dependency mode the schedule memo above
+  // derives it (no state write); otherwise the sequential useSchedule drives
+  // `sequentialCalendarError`. The two paths are mutually exclusive on depMode.
+  const calendarError = depMode
+    ? (dependencyScheduleResult.calendarError ?? null)
+    : sequentialCalendarError;
 
   // Critical path activity IDs (only in dependency mode)
   const criticalPathIds = useMemo(() => {
