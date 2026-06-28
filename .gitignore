@@ -36,3 +36,5 @@ reports/mutation/
 
 # Vercel
 .vercel
+
+lint-baseline.json

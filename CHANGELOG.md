@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.49.4 — 2026-06-27
+
+### Security — production advisory cleanup + Node 22 → 24 LTS adoption
+
+- **firebase 12.11.0 → 12.12.1** — clears the protobufjs CRITICAL RCE advisory chain and the @grpc/grpc-js HIGH advisory.
+- **react-router-dom 7.13.2 → 7.15.1** — clears 5 react-router advisories (HIGH RCE, 2 HIGH DoS, 1 moderate, 1 low CSRF); the server-mode vectors are unreachable in this client-only SPA.
+- **react / react-dom 19.2.4 → 19.2.5** — soaked maintenance release.
+- **tailwindcss / @tailwindcss/vite 4.2.2 → 4.2.4** — soaked lockstep pair.
+- **jsdom 28.1.0 → 29.1.0** — soaked major test-environment upgrade (60 days).
+- **undici HIGH cleared by the dependency regen** — re-resolves to the patched 7.28.0.
+- **Node 22 → 24 LTS** — engines.node, .nvmrc, and @types/node 22.19.15 → 24.12.2.
+- **4 advisories remain, all dev/build-time only:** two Windows-only Vite issues and a related Windows-only esbuild issue (all cleared by the deferred Vite 7.3.x bump, ~2026-07-31), plus the exceljs → uuid moderate (fixable only by a breaking exceljs downgrade). None reach the production bundle.
+
 ## 0.49.3 — 2026-06-19
 
 ### Security — upgrade vite 7.3.1 → 7.3.2 to close three dev-server advisories
