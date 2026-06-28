@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.7",
+    date: "2026-06-28",
+    sections: [
+      {
+        title: "Maintenance — test toolchain refresh",
+        items: [
+          "Updated the test runner (Vitest) and mutation-testing tools (Stryker) to their latest patch releases. This is a development-tooling-only change with no effect on the app's behavior, your data, or any feature.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.6",
     date: "2026-06-28",
     sections: [
