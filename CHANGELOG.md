@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.49.5 — 2026-06-27
+
+### Maintenance — TypeScript 5.9.3 → 6.0.3
+
+- **typescript 5.9.3 → 6.0.3** — major compiler upgrade. typescript-eslint 8.59.1 already admits TS 6 (peer `<6.1.0`), so linting is unaffected.
+- **tsconfig migration for TS 6:** removed the deprecated `baseUrl` option (slated for removal in TS 7) and made the `paths` targets relative. Module resolution is unchanged; the app/test path aliases are defined independently in `vite.config.ts`.
+- Build-time-only change; no application code, runtime dependency, or data schema is affected.
+
 ## 0.49.4 — 2026-06-27
 
 ### Security — production advisory cleanup + Node 22 → 24 LTS adoption

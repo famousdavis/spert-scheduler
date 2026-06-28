@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.5",
+    date: "2026-06-27",
+    sections: [
+      {
+        title: "Maintenance — TypeScript 6 compiler upgrade",
+        items: [
+          "Upgraded the TypeScript compiler from 5.9.3 to 6.0.3 (a major version). This is a build-time-only change with no effect on the app's behavior, your data, or any feature.",
+          "Modernized the TypeScript project configuration for TypeScript 6 (removed a deprecated option and made path mappings relative); module resolution is unchanged.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.4",
     date: "2026-06-27",
     sections: [
