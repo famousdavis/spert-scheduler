@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.4",
+    date: "2026-06-27",
+    sections: [
+      {
+        title: "Security — production dependency cleanup and Node 24 LTS adoption",
+        items: [
+          "Upgraded Firebase (12.11.0 → 12.12.1) and React Router (7.13.2 → 7.15.1), clearing a critical remote-code-execution advisory chain and several high-severity advisories in production dependencies.",
+          "Refreshed the test and build toolchain (jsdom, @types/node) and adopted Node.js 24 LTS for local development and deployment.",
+          "The remaining advisories are all dev/build-time only — two Windows-only Vite issues and a related esbuild issue (deferred to an upcoming follow-up), plus an export-library issue that only a breaking downgrade would resolve — and none reach the shipped app.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.3",
     date: "2026-06-19",
     sections: [
