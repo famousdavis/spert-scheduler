@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.6",
+    date: "2026-06-28",
+    sections: [
+      {
+        title: "Maintenance — ESLint 10 toolchain upgrade",
+        items: [
+          "Upgraded the ESLint linter (9 → 10) and its React Hooks plugin (7.0.1 → 7.1.1). This is a development-tooling-only change with no effect on the app's behavior, your data, or any feature.",
+          "Annotated a few existing, intentional React patterns to satisfy the stricter new lint rules; no runtime code changed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.5",
     date: "2026-06-27",
     sections: [

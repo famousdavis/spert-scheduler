@@ -180,9 +180,9 @@ export function PrintGanttChart({
       elementProximityPx: 25,                                   // was PRINT_ELEMENT_PROXIMITY_PX inline
       minSpacingPx: printDensityPx,
     }),
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- printDensityPx instability acceptable in print-only context
     [allTicks, minTs, range, areaW, ra.printLeftMargin, finishX, milestoneXPositions, todayX, targetX, printDensityPx]
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  ); // NOSONAR — printDensityPx instability acceptable in print-only context
+  );
 
   const hasCriticalPath = dependencyMode && criticalPathIds && criticalPathIds.size > 0;
 

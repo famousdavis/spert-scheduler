@@ -44,6 +44,7 @@ export function useAutoRunSimulation({
   );
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const activitiesRef = useRef(scenario?.activities);
+  // eslint-disable-next-line react-hooks/refs -- intentional latest-value ref latch, read in the debounced effect (not during render)
   activitiesRef.current = scenario?.activities;
 
   useEffect(() => {

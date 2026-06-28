@@ -203,7 +203,7 @@ export function ScenarioSummaryCard({
   // (making mid-edit Ctrl+Z visible) rather than committing TO the store.
   useEffect(() => {
     if (!isNotesFocusedRef.current) {
-      setLocalNotes(scenarioNotes ?? ""); // eslint-disable-line react-hooks/set-state-in-effect -- intentional: syncs buffer with external prop only when not focused
+      setLocalNotes(scenarioNotes ?? "");
     }
   }, [scenarioNotes]);
   const baseId = useId();

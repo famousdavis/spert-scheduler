@@ -69,6 +69,7 @@ export function HolidayLoader({ calendar, countries, onUpdate }: HolidayLoaderPr
 
   // -- Refs for stable access in handlers -------------------------------------
   const calendarRef = useRef(calendar);
+  // eslint-disable-next-line react-hooks/refs -- intentional latest-value ref latch, read in handlers/effects (not during render)
   calendarRef.current = calendar;
 
   // -- Helpers ----------------------------------------------------------------
