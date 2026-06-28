@@ -82,7 +82,7 @@ export function useGanttLayout({
     const el = svgContainerRef?.current;
     if (!el) return;
     // Read initial width
-    setContainerWidth(el.clientWidth); // eslint-disable-line react-hooks/set-state-in-effect -- sync with DOM measurement
+    setContainerWidth(el.clientWidth);
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setContainerWidth(entry.contentRect.width);

@@ -105,7 +105,7 @@ export function useBufferedField(
 
   useEffect(() => {
     if (!isFocused.current) {
-      setLocalValue(externalValue); // eslint-disable-line react-hooks/set-state-in-effect -- intentional: syncs buffer with external value (cloud sync, undo) only when not focused
+      setLocalValue(externalValue);
     }
   }, [externalValue]);
 

@@ -29,7 +29,7 @@ export function useGridFocus(activities: Activity[], bands: ActivityBand[]) {
       const target = targetId ? activities.find((a) => a.id === targetId) : null;
       const focusId = target?.id ?? activities[activities.length - 1]?.id;
       if (focusId) {
-        setFocusActivityId(focusId); // eslint-disable-line react-hooks/set-state-in-effect -- coordinating ref-based flag with focus state
+        setFocusActivityId(focusId);
       }
       pendingFocusIdRef.current = null;
       pendingActivityRef.current = false;

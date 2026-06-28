@@ -193,6 +193,7 @@ export function ProjectPage() {
   const dependencySchedule = useMemo(() => {
     if (!depMode || !activities || activities.length === 0 || !dependencies || !startDate || probTarget == null) return null;
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-render -- pre-existing: clears calendar error as the schedule memo recomputes (follow-up: lift error-setting out of useMemo)
       setCalendarError(null);
       return computeDependencySchedule(
         activities,
@@ -204,6 +205,7 @@ export function ProjectPage() {
       );
     } catch (err) {
       if (err instanceof CalendarConfigurationError) {
+        // eslint-disable-next-line react-hooks/set-state-in-render -- pre-existing: surfaces calendar config error from the schedule memo (follow-up: lift error-setting out of useMemo)
         setCalendarError(err.message);
       }
       return null;

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.49.6 — 2026-06-28
+
+### Maintenance — ESLint 9 → 10 + react-hooks 7.0.1 → 7.1.1
+
+- **eslint 9.39.4 → 10.2.1**, **@eslint/js 9.39.4 → 10.0.1**, **eslint-plugin-react-hooks 7.0.1 → 7.1.1** (atomic upgrade; sonarjs, react-refresh, and typescript-eslint all already admit ESLint 10).
+- react-hooks 7.1.1 adds stricter rules (`refs`, `set-state-in-render`) and broader `set-state-in-effect` detection. Existing intentional patterns (latest-value ref latches, a schedule-error `useMemo`) are annotated with scoped `eslint-disable` comments, and a previously misplaced disable in the print Gantt chart was corrected. No application behavior changed.
+- Tooling-only change; no runtime dependency or data schema is affected.
+
 ## 0.49.5 — 2026-06-27
 
 ### Maintenance — TypeScript 5.9.3 → 6.0.3
