@@ -22,11 +22,10 @@
     "noUncheckedIndexedAccess": true,
 
     /* Paths */
-    "baseUrl": ".",
     "paths": {
-      "@domain/*": ["src/domain/*"],
-      "@core/*": ["src/core/*"],
-      "@infrastructure/*": ["src/infrastructure/*"]
+      "@domain/*": ["./src/domain/*"],
+      "@core/*": ["./src/core/*"],
+      "@infrastructure/*": ["./src/infrastructure/*"]
     }
   },
   "include": ["src/workers/**/*.ts"]

@@ -23,14 +23,13 @@
     "noUncheckedIndexedAccess": true,
 
     /* Paths */
-    "baseUrl": ".",
     "paths": {
-      "@domain/*": ["src/domain/*"],
-      "@core/*": ["src/core/*"],
-      "@infrastructure/*": ["src/infrastructure/*"],
-      "@app/*": ["src/app/*"],
-      "@ui/*": ["src/ui/*"],
-      "@workers/*": ["src/workers/*"]
+      "@domain/*": ["./src/domain/*"],
+      "@core/*": ["./src/core/*"],
+      "@infrastructure/*": ["./src/infrastructure/*"],
+      "@app/*": ["./src/app/*"],
+      "@ui/*": ["./src/ui/*"],
+      "@workers/*": ["./src/workers/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
