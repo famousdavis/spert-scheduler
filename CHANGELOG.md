@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.49.7 — 2026-06-28
+
+### Maintenance — test toolchain (Vitest 4.1.5 + Stryker 9.6.1)
+
+- **vitest 4.1.2 → 4.1.5** and **@vitest/coverage-v8 4.1.2 → 4.1.5** (atomic; exact-peer pinned).
+- **@stryker-mutator/core, /vitest-runner, /typescript-checker 9.6.0 → 9.6.1** (atomic cluster).
+- Test/mutation toolchain only; all 1,662 tests pass and the Stryker dry run is green under TypeScript 6 + ESLint 10. No runtime dependency or data schema affected.
+
 ## 0.49.6 — 2026-06-28
 
 ### Maintenance — ESLint 9 → 10 + react-hooks 7.0.1 → 7.1.1
