@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.49.8 — 2026-06-28
+
+### Maintenance — soak-currency dev-dependency minors
+
+- **eslint-plugin-sonarjs 4.0.2 → 4.0.3**, **fast-check 4.6.0 → 4.7.0**, **globals 17.4.0 → 17.5.0** — soaked minor updates to development/test tooling. Lint findings unchanged, all 1,662 tests pass. No runtime dependency or data schema affected.
+- Closes the v0.49.4–0.49.8 dependency-upgrade campaign (Node 24 LTS, TypeScript 6, ESLint 10, Vitest/Stryker, and security advisory cleanup).
+
 ## 0.49.7 — 2026-06-28
 
 ### Maintenance — test toolchain (Vitest 4.1.5 + Stryker 9.6.1)
