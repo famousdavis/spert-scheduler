@@ -265,22 +265,25 @@ export function DependencyPanel({
           {sortedDependencies.map((dep, i) => (
             <div
               key={`${dep.fromActivityId}-${dep.toActivityId}-${i}`}
-              className={`flex items-center gap-2 text-sm py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 group${onEditDependency ? " cursor-pointer" : ""}`}
+              className={`flex items-start gap-2 text-sm py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 group${onEditDependency ? " cursor-pointer" : ""}`}
               onClick={onEditDependency ? () => onEditDependency(dep.fromActivityId, dep.toActivityId) : undefined}
             >
-              <span className="text-gray-700 dark:text-gray-300 truncate max-w-[180px]" title={getActivityName(dep.fromActivityId)}>
-                {getActivityName(dep.fromActivityId)}
-              </span>
-              <span className="text-gray-400 dark:text-gray-500 shrink-0">→</span>
-              <span className="text-gray-700 dark:text-gray-300 truncate max-w-[180px]" title={getActivityName(dep.toActivityId)}>
-                {getActivityName(dep.toActivityId)}
-              </span>
-              <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-                ({dependencyLabel(dep.type)}{formatLagSuffix(dep.lagDays)})
-              </span>
+              {/* Predecessor → successor names shown in full; the group wraps to new lines on a narrow panel, keeping each name intact rather than truncating it. */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0 flex-1">
+                <span className="text-gray-700 dark:text-gray-300" title={getActivityName(dep.fromActivityId)}>
+                  {getActivityName(dep.fromActivityId)}
+                </span>
+                <span className="text-gray-400 dark:text-gray-500 shrink-0">→</span>
+                <span className="text-gray-700 dark:text-gray-300" title={getActivityName(dep.toActivityId)}>
+                  {getActivityName(dep.toActivityId)}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                  ({dependencyLabel(dep.type)}{formatLagSuffix(dep.lagDays)})
+                </span>
+              </div>
               {/* Editable lag */}
               {!isLocked && (
-                <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                   <select
                     name="dependencyType"
                     aria-label="Dependency type"
