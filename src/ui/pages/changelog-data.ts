@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.10",
+    date: "2026-06-29",
+    sections: [
+      {
+        title: "Improved — full activity names in the Dependencies panel",
+        items: [
+          "Linked activity names in the Dependencies panel are no longer cut off with an ellipsis. Each predecessor and successor name now shows in full — on one line when there's room, and wrapping to its own line (kept whole) on a narrow panel.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.9",
     date: "2026-06-28",
     sections: [

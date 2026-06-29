@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.49.10 — 2026-06-29
+
+### Improved — full activity names in the Dependencies panel
+
+- The Dependencies panel no longer truncates linked activity names at a fixed 180px width with an ellipsis — each predecessor and successor name now displays in full.
+- On a wide panel the names sit on a single line; on a narrow panel the predecessor → successor pair wraps to separate lines, each name kept whole (word-wrapped) rather than clipped. The hover-revealed type/lag/remove controls stay right-aligned.
+- Presentation-only change in `DependencyPanel.tsx`; no runtime dependency or data schema is affected, and all 1,662 tests pass.
+
 ## 0.49.9 — 2026-06-28
 
 ### Maintenance — lift the dependency-schedule calendar error out of render
