@@ -75,7 +75,7 @@ All computation runs in the browser. There is no backend.
 - **Baseline scenarios:** The first scenario in every project is the Baseline (protected from deletion). Additional scenarios can be cloned from any existing scenario for what-if analysis or re-baselining.
 - **Four distribution types:** Normal, LogNormal, Triangular, Uniform — with automatic recommendation per activity.
 - **Holiday calendar:** Multi-day holiday ranges with global overrides per project. Country holidays via Nager.Date API (100+ countries) with built-in US holidays as offline fallback.
-- **Configurable work week:** Interactive pill toggles for any day combination (Mon-Fri, Sun-Thu, non-contiguous). Per-project converted work days to override non-work days as working days.
+- **Configurable work week:** Interactive pill toggles for any day combination (Mon-Fri, Sun-Thu, non-contiguous). Per-project converted work days to override non-work days as working days, and per-project forced work days to override global (company-wide) holidays into working days — project-added holidays are never overridable.
 - **Export/Import:** JSON-based project backup and restore on the Settings page, with schema migration and conflict resolution (skip, replace, import as copy).
 - **CSV Export:** Simulation results exportable as CSV with metadata, summary statistics, and percentile table.
 - **User Preferences:** Configurable defaults (trial count, distribution, confidence, targets, date format, theme) stored separately from project data.
@@ -108,6 +108,7 @@ Project
   │           ├── countryCodes?: string[]
   │           └── locale?: string
   ├── convertedWorkDays?: string[]  (YYYY-MM-DD dates)
+  ├── forcedWorkDays?: string[]  (YYYY-MM-DD dates — global-holiday overrides)
   └── scenarios: Scenario[]
         ├── id, name, startDate
         ├── activities: Activity[]
@@ -132,7 +133,10 @@ Project
         └── simulationResults?: SimulationRun
 
 WorkCalendar (runtime, not persisted)
-  ├── isWorkDay(date): boolean     (priority: holiday→false, convertedDay→true, weekMask)
+  ├── isWorkDay(date): boolean     (priority: forcedDay→true, holiday→false, convertedDay→true, weekMask)
+  │     NOTE: "project holidays are never overridable" is enforced by buildWorkCalendar's
+  │     assembly-time filter (forcedWorkDays never contains a project-holiday date), NOT by
+  │     this runtime priority order — the class sees only one merged holiday set.
   ├── addWorkDays(date, days): Date
   ├── nextWorkDay(date): Date
   └── countWorkDays(from, to): number
@@ -226,7 +230,7 @@ Two Zustand stores, separated by concern:
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
 - User preferences: `localStorage["spert:user-preferences"]`
-- Schema versioned (`SCHEMA_VERSION = 10`) with sequential migrations (v1→v2→…→v10)
+- Schema versioned (`SCHEMA_VERSION = 22`) with sequential migrations (v1→v2→…→v22)
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
 
@@ -240,6 +244,7 @@ Two Zustand stores, separated by concern:
 - Simulation results stripped before cloud save (Firestore 1 MB doc limit)
 - `memoryLocalCache()` avoids stale security rule decisions that persist in IndexedDB
 - One-way migration from localStorage to Firestore with collision handling
+- **Accepted version-skew risk:** the Firestore load path migrates only *older* documents (`schemaVersion < SCHEMA_VERSION`) and has no future-version guard (unlike local storage's `future_version` error). An out-of-date client that loads a project written at a newer schema will have unknown fields silently stripped by Zod and will drop them on its next save — this applies to every schema field ever added (e.g. `forcedWorkDays`, v22), and fixing it is a separate cross-cutting task.
 
 ### Storage Optimization
 

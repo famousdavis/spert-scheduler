@@ -96,7 +96,7 @@ Work week and calendar inputs are validated at multiple layers:
 
 - **`workDays` array:** Validated as integers 0–6 (Sunday–Saturday), minimum 1 day, maximum 7 days. Stored in UserPreferences.
 - **`CalendarConfigurationError`:** Thrown by `buildWorkCalendar()` when the combination of work week mask, holidays, and converted work days produces no reachable work days. Caught in the UI with an error banner.
-- **Priority stack:** Work day resolution follows a strict priority: holidays → non-work day (overrides everything), converted work days → work day (overrides week mask), work week mask → fallback.
+- **Priority stack:** Work day resolution follows a strict priority: forced work days → work day (global-holiday overrides), holidays → non-work day, converted work days → work day (overrides week mask), work week mask → fallback. The "project holidays are never overridable" guarantee is enforced at assembly time — `buildWorkCalendar()` filters `forcedWorkDays` against the project's own holidays before construction — not by the runtime priority order, which sees only one merged holiday set.
 - **Holiday range limit:** Multi-day holidays spanning more than 366 days are rejected by `buildHolidaySet()` to prevent denial-of-service via unbounded date expansion. Zod schema enforces this at the validation layer.
 - **Iteration guards:** `addWorkingDays` and related calendar functions have a 10,000 iteration safety limit to prevent infinite loops from degenerate calendars.
 

@@ -117,6 +117,7 @@ describe("cloneProject", () => {
       showActivityIds: true,
       archived: true,
       convertedWorkDays: ["2025-07-04"],
+      forcedWorkDays: ["2025-11-27"],
       globalCalendarOverride: {
         holidays: [
           {
@@ -202,11 +203,13 @@ describe("cloneProject", () => {
     expect(clone.globalCalendarOverride).toEqual(source.globalCalendarOverride);
   });
 
-  it("copies array refs (convertedWorkDays, holidays) instead of aliasing", () => {
+  it("copies array refs (convertedWorkDays, forcedWorkDays, holidays) instead of aliasing", () => {
     const source = makeProject();
     const clone = cloneProject(source, "Source (Copy)");
     expect(clone.convertedWorkDays).not.toBe(source.convertedWorkDays);
     expect(clone.convertedWorkDays).toEqual(source.convertedWorkDays);
+    expect(clone.forcedWorkDays).not.toBe(source.forcedWorkDays);
+    expect(clone.forcedWorkDays).toEqual(source.forcedWorkDays);
     expect(clone.globalCalendarOverride!.holidays).not.toBe(
       source.globalCalendarOverride!.holidays
     );
