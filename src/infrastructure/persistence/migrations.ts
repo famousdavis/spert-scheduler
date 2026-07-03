@@ -6,6 +6,16 @@
  * v1 ships with an empty migrations map. Infrastructure in place for future schema changes.
  *
  * Each migration transforms data from version N to version N+1.
+ *
+ * INVARIANT — migrations must be add-if-missing idempotent: check for existing
+ * data before writing a default, never unconditionally overwrite. A stale
+ * (pre-v0.50.1, unguarded) cloud client's resave relabels a document's
+ * schemaVersion down to its own build's version WITHOUT touching newer
+ * top-level fields it doesn't know about (doSave's mergeFields lists only the
+ * keys present on the saving client's own object). A later client can
+ * therefore legitimately re-run a migration over data that already contains
+ * the fields that migration introduces — the reported schemaVersion
+ * undercounts what the document actually holds.
  */
 export type Migration = (data: unknown) => unknown;
 

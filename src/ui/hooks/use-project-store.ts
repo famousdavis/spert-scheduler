@@ -509,6 +509,22 @@ export interface ProjectStore {
   // Error recovery
   getCorruptedProjectRawData: (id: string) => string | null;
   removeCorruptedProject: (id: string) => void;
+
+  // Cloud load errors (future-version guard, v0.50.1)
+  /**
+   * Replace the cloud-sourced subset of `loadErrors`, preserving local-sourced
+   * entries. Called after every cloud loadAll() resolution — so a project that
+   * stops erroring drops out on the next refresh — and with [] on cloud-sync
+   * teardown. Must run AFTER setProjects on any path that calls both:
+   * setProjects resets loadErrors wholesale as a side effect of its write.
+   */
+  setCloudLoadErrors: (errors: LoadError[]) => void;
+  /**
+   * Add or replace a single cloud-sourced load error by projectId. The filter
+   * is source-aware so a same-id local-sourced entry is never displaced.
+   * Used by the mid-session future-version subscription path.
+   */
+  upsertCloudLoadError: (error: LoadError) => void;
 }
 
 function persist(projects: Project[], projectId?: string) {
@@ -668,7 +684,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       }
     }
 
-    set({ projects, loadError: errors.length > 0, loadErrors: errors });
+    // Replace only the local-sourced error subset. Cloud-sourced entries (set
+    // by useCloudSync's loadAll/subscription paths) must survive this call:
+    // ProjectsPage runs loadProjects() on every mount, in BOTH storage modes,
+    // and nothing re-runs the cloud loadAll to restore a wiped entry. (v0.50.1)
+    set((state) => {
+      const cloudOnly = state.loadErrors.filter((e) => e.source === "cloud");
+      const merged = [...cloudOnly, ...errors];
+      return { projects, loadError: merged.length > 0, loadErrors: merged };
+    });
   },
 
   addProject: (name, owner) => {
@@ -1576,6 +1600,26 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     set((state) => ({
       loadErrors: state.loadErrors.filter((e) => e.projectId !== id),
       loadError: state.loadErrors.filter((e) => e.projectId !== id).length > 0,
+    }));
+  },
+
+  setCloudLoadErrors: (errors: LoadError[]) => {
+    set((state) => {
+      const localOnly = state.loadErrors.filter((e) => e.source !== "cloud");
+      const merged = [...localOnly, ...errors];
+      return { loadErrors: merged, loadError: merged.length > 0 };
+    });
+  },
+
+  upsertCloudLoadError: (error: LoadError) => {
+    set((state) => ({
+      loadErrors: [
+        ...state.loadErrors.filter(
+          (e) => !(e.projectId === error.projectId && e.source === "cloud")
+        ),
+        error,
+      ],
+      loadError: true,
     }));
   },
 

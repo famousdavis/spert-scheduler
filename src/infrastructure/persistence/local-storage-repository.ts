@@ -120,6 +120,13 @@ export interface LoadError {
   message: string;
   details?: string;
   rawPreview?: string; // First 200 chars of raw JSON for debugging
+  /**
+   * Where the error was detected. Absent/undefined means local storage (this
+   * repository's construction sites set nothing); the Firestore load paths
+   * set "cloud". The store's error actions use this to keep local- and
+   * cloud-sourced entries from replacing each other. (v0.50.1)
+   */
+  source?: "local" | "cloud";
 }
 
 export type LoadResult<T> =

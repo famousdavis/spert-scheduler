@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { useProjectStore } from "./use-project-store";
+import { useProjectStore, type LoadError } from "./use-project-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import { createProject } from "@app/api/project-service";
 
@@ -1432,5 +1432,122 @@ describe("useProjectStore", () => {
       expect(useProjectStore.getState().projects).toBe(beforeProjects);
       expect(useProjectStore.getState().undoStack).toBe(beforeUndo);
     });
+  });
+});
+
+describe("cloud load errors (future-version guard, v0.50.1)", () => {
+  const cloudErr = (projectId: string): LoadError => ({
+    projectId,
+    projectName: `Cloud ${projectId}`,
+    type: "future_version",
+    source: "cloud",
+    message: "Project was created with a newer version of SPERT Scheduler",
+  });
+  const localErr = (projectId: string): LoadError => ({
+    projectId,
+    projectName: `Local ${projectId}`,
+    type: "json_parse",
+    message: "Failed to parse project data as JSON",
+    // no source — local-storage-repository's construction sites set nothing
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    useProjectStore.setState({ projects: [], loadError: false, loadErrors: [] });
+  });
+
+  it("setCloudLoadErrors replaces only the cloud-sourced subset", () => {
+    useProjectStore.setState({
+      loadErrors: [localErr("p-local"), cloudErr("p-old-cloud")],
+      loadError: true,
+    });
+
+    useProjectStore.getState().setCloudLoadErrors([cloudErr("p-new-cloud")]);
+
+    const errs = useProjectStore.getState().loadErrors;
+    expect(errs.some((e) => e.projectId === "p-local")).toBe(true); // local untouched
+    expect(errs.some((e) => e.projectId === "p-old-cloud")).toBe(false); // stale cloud dropped
+    expect(errs.some((e) => e.projectId === "p-new-cloud")).toBe(true); // fresh cloud added
+    expect(useProjectStore.getState().loadError).toBe(true);
+  });
+
+  it("setCloudLoadErrors([]) clears cloud entries and recomputes the banner flag", () => {
+    useProjectStore.setState({ loadErrors: [cloudErr("p-cloud")], loadError: true });
+
+    useProjectStore.getState().setCloudLoadErrors([]);
+
+    expect(useProjectStore.getState().loadErrors).toHaveLength(0);
+    expect(useProjectStore.getState().loadError).toBe(false);
+  });
+
+  it("upsertCloudLoadError adds, replaces by projectId, and never displaces a same-id local entry", () => {
+    useProjectStore.setState({ loadErrors: [localErr("p-1")], loadError: true });
+
+    useProjectStore.getState().upsertCloudLoadError(cloudErr("p-1"));
+    let errs = useProjectStore.getState().loadErrors;
+    // Same projectId, different source — both coexist.
+    expect(errs).toHaveLength(2);
+
+    const replacement = { ...cloudErr("p-1"), message: "updated" };
+    useProjectStore.getState().upsertCloudLoadError(replacement);
+    errs = useProjectStore.getState().loadErrors;
+    expect(errs).toHaveLength(2); // replaced, not appended
+    expect(errs.find((e) => e.source === "cloud")?.message).toBe("updated");
+    expect(errs.some((e) => e.source !== "cloud" && e.projectId === "p-1")).toBe(true);
+    expect(useProjectStore.getState().loadError).toBe(true);
+  });
+
+  it("loadProjects preserves cloud-sourced errors while replacing local ones", () => {
+    // A stale local error (its underlying storage problem is gone — storage is
+    // empty) plus a live cloud error. loadProjects must regenerate the local
+    // subset and leave the cloud subset alone: ProjectsPage calls it on every
+    // mount in BOTH modes, and nothing re-runs the cloud loadAll to restore a
+    // wiped entry.
+    useProjectStore.setState({
+      loadErrors: [cloudErr("p-cloud"), localErr("p-stale-local")],
+      loadError: true,
+    });
+
+    useProjectStore.getState().loadProjects();
+
+    const errs = useProjectStore.getState().loadErrors;
+    expect(errs.some((e) => e.projectId === "p-cloud" && e.source === "cloud")).toBe(true);
+    expect(errs.some((e) => e.projectId === "p-stale-local")).toBe(false);
+    expect(useProjectStore.getState().loadError).toBe(true); // cloud entry keeps the banner on
+  });
+
+  it("loadProjects with no errors of either source clears the banner flag", () => {
+    useProjectStore.setState({ loadErrors: [localErr("p-old")], loadError: true });
+
+    useProjectStore.getState().loadProjects();
+
+    expect(useProjectStore.getState().loadErrors).toHaveLength(0);
+    expect(useProjectStore.getState().loadError).toBe(false);
+  });
+
+  it("loadProjects regenerates local errors from storage alongside preserved cloud entries", () => {
+    const project = useProjectStore.getState().addProject("Corrupt Me", null);
+    // Corrupt the persisted JSON for that project. Key layout per
+    // LocalStorageRepository's docstring: "spert:project:{ns}:{id}" — the
+    // startsWith filter excludes the "spert:project-index:{ns}" index key.
+    const key = Object.keys(localStorage).find(
+      (k) => k.startsWith("spert:project:") && k.includes(project.id),
+    );
+    expect(key).toBeDefined();
+    localStorage.setItem(key!, "{not valid json");
+    useProjectStore.setState({
+      projects: [],
+      loadErrors: [cloudErr("p-cloud")],
+      loadError: true,
+    });
+
+    useProjectStore.getState().loadProjects();
+
+    const errs = useProjectStore.getState().loadErrors;
+    expect(
+      errs.some((e) => e.projectId === project.id && e.type === "json_parse" && e.source !== "cloud"),
+    ).toBe(true);
+    expect(errs.some((e) => e.projectId === "p-cloud" && e.source === "cloud")).toBe(true);
+    expect(useProjectStore.getState().loadError).toBe(true);
   });
 });
