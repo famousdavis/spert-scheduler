@@ -45,7 +45,7 @@ export interface WorkDayContext {
   workWeekMask: boolean[]; // precomputed length-7 array
   holidays: Set<string>; // ISO date strings
   convertedWorkDays: Set<string>; // ISO date strings
-  forcedWorkDays?: Set<string>; // reserved — planned v0.20.0
+  forcedWorkDays?: Set<string>; // ISO date strings — global-holiday overrides (pre-filtered: never contains project-holiday dates)
 }
 
 // -- buildWorkWeekMask -------------------------------------------------------
@@ -100,27 +100,34 @@ export function buildHolidaySet(holidays: Holiday[]): Set<string> {
 
 /**
  * v0.19.0 implementation of WorkCalendar.
- * Encapsulates configurable work week, holidays, and converted work days.
+ * Encapsulates configurable work week, holidays, converted work days, and
+ * forced work days (global holidays overridden to work days).
  */
 export class ProjectWorkCalendar implements WorkCalendar {
   private readonly workWeekMask: boolean[];
   private readonly holidays: Set<string>;
   private readonly convertedWorkDays: Set<string>;
+  private readonly forcedWorkDays: Set<string>;
 
   constructor(context: WorkDayContext) {
     this.workWeekMask = context.workWeekMask;
     this.holidays = context.holidays;
     this.convertedWorkDays = context.convertedWorkDays;
+    this.forcedWorkDays = context.forcedWorkDays ?? new Set();
   }
 
   /**
    * Priority stack:
-   * 1. Holiday check — if the date is a holiday, return false (holidays always win)
-   * 2. Converted work day — if in convertedWorkDays, return true
-   * 3. Work week mask — consult workWeekMask[date.getDay()]
+   * 1. Forced work day — if in forcedWorkDays, return true (overrides a global
+   *    holiday; a project-added holiday is never in this set — see
+   *    buildWorkCalendar's filter)
+   * 2. Holiday check — if the date is a holiday, return false
+   * 3. Converted work day — if in convertedWorkDays, return true
+   * 4. Work week mask — consult workWeekMask[date.getDay()]
    */
   isWorkDay(date: Date): boolean {
     const iso = formatDateISO(date);
+    if (this.forcedWorkDays.has(iso)) return true;
     if (this.holidays.has(iso)) return false;
     if (this.convertedWorkDays.has(iso)) return true;
     return this.workWeekMask[date.getDay()]!;
@@ -170,17 +177,35 @@ export class ProjectWorkCalendar implements WorkCalendar {
 // -- Factory -----------------------------------------------------------------
 
 /**
- * Build a ProjectWorkCalendar from raw data.
+ * Build a ProjectWorkCalendar from raw calendar inputs.
  * This is the single assembly point for the work calendar.
+ *
+ * Contract: `projectHolidays` must be exactly the project's own holidays (the
+ * same array used to derive the project's contribution to the effective
+ * holiday set). It is used both to include those holidays in the effective set
+ * and to determine forced-work-day eligibility — there is exactly one place a
+ * caller supplies project holidays, by design, so the two uses can never fall
+ * out of sync. A forcedWorkDays date that is also a project holiday is
+ * filtered out here: project holidays are absolute and never overridable.
  */
 export function buildWorkCalendar(
   workDays: number[],
-  holidays: Holiday[],
-  convertedWorkDays: string[]
+  globalHolidays: Holiday[],
+  convertedWorkDays: string[],
+  overrides: { forcedWorkDays?: string[]; projectHolidays?: Holiday[] } = {}
 ): ProjectWorkCalendar {
+  const { forcedWorkDays = [], projectHolidays = [] } = overrides;
+  const globalHolidaySet = buildHolidaySet(globalHolidays);
+  const projectHolidaySet = buildHolidaySet(projectHolidays);
+  const holidaySet = new Set([...globalHolidaySet, ...projectHolidaySet]);
+  const eligibleForced = new Set(
+    forcedWorkDays.filter((d) => !projectHolidaySet.has(d))
+  );
+
   return new ProjectWorkCalendar({
     workWeekMask: buildWorkWeekMask(workDays),
-    holidays: buildHolidaySet(holidays),
+    holidays: holidaySet,
     convertedWorkDays: new Set(convertedWorkDays),
+    forcedWorkDays: eligibleForced,
   });
 }

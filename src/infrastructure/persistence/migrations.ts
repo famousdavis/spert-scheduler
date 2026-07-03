@@ -347,6 +347,19 @@ function migrateV20toV21(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v21 → v22: Add forcedWorkDays array to project.
+ * Defaults to empty array for existing projects.
+ */
+function migrateV21toV22(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  if (project.forcedWorkDays === undefined) {
+    project.forcedWorkDays = [];
+  }
+  project.schemaVersion = 22;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -368,6 +381,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   18: migrateV18toV19,
   19: migrateV19toV20,
   20: migrateV20toV21,
+  21: migrateV21toV22,
 };
 
 /**

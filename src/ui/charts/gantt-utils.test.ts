@@ -21,6 +21,7 @@ import {
   PRINT_LEFT, PRINT_ROW, PRINT_BAR_H,
   resolveGanttAppearance, GANTT_COLOR_PRESETS,
 } from "./gantt-constants";
+import { buildWorkCalendar } from "@core/calendar/work-calendar";
 
 // -- dateToX ------------------------------------------------------------------
 
@@ -660,6 +661,28 @@ describe("computeWeekendShadingRects", () => {
     // Should have a rect for the trailing Sat-Sun span
     expect(rects.length).toBe(1);
     expect(rects[0]!.width).toBeGreaterThan(0);
+  });
+
+  it("excludes a forced-work-day date from the shading rects", () => {
+    // All-week mask; Wed 2026-03-04 is a global holiday — the only non-work day
+    // in the range. Forcing it removes the shading entirely.
+    const start = "2026-03-02";
+    const end = "2026-03-06";
+    const minTs = new Date(start + "T00:00:00").getTime();
+    const maxTs = new Date(end + "T00:00:00").getTime();
+    const holiday = [
+      { id: "g1", name: "Holiday", startDate: "2026-03-04", endDate: "2026-03-04" },
+    ];
+    const withoutOverride = buildWorkCalendar([0, 1, 2, 3, 4, 5, 6], holiday, []);
+    const withOverride = buildWorkCalendar([0, 1, 2, 3, 4, 5, 6], holiday, [], {
+      forcedWorkDays: ["2026-03-04"],
+    });
+    expect(
+      computeWeekendShadingRects(withoutOverride, start, end, minTs, maxTs - minTs, 600, 0).length
+    ).toBe(1);
+    expect(
+      computeWeekendShadingRects(withOverride, start, end, minTs, maxTs - minTs, 600, 0)
+    ).toEqual([]);
   });
 });
 

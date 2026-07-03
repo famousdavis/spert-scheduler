@@ -4,7 +4,6 @@
 import { useMemo } from "react";
 import { usePreferencesStore } from "./use-preferences-store";
 import { useProjectStore } from "./use-project-store";
-import { mergeCalendars } from "@core/calendar/calendar";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 
@@ -12,8 +11,11 @@ const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5];
 
 /**
  * Single assembly point for the project work calendar.
- * Merges preferences (work week config) + global holidays + project holidays + converted work days
- * into a memoized ProjectWorkCalendar instance.
+ * Combines preferences (work week config + global holidays) with the project's
+ * own holidays, converted work days, and forced work days (global-holiday
+ * overrides) into a memoized ProjectWorkCalendar instance. The global/project
+ * holiday merge happens inside buildWorkCalendar, which also filters
+ * forcedWorkDays against project holidays (project holidays are absolute).
  *
  * This is the ONLY place buildWorkCalendar() should be called in the codebase.
  */
@@ -30,18 +32,27 @@ export function useWorkCalendar(projectId: string): WorkCalendar {
   const convertedWorkDays = useProjectStore(
     (s) => s.projects.find((p) => p.id === projectId)?.convertedWorkDays
   );
+  const forcedWorkDays = useProjectStore(
+    (s) => s.projects.find((p) => p.id === projectId)?.forcedWorkDays
+  );
 
-  return useMemo(() => {
-    const merged = mergeCalendars(globalCalendar, projectCalendarOverride);
-    return buildWorkCalendar(
+  return useMemo(
+    () =>
+      buildWorkCalendar(
+        workDays,
+        globalCalendar?.holidays ?? [],
+        convertedWorkDays ?? [],
+        {
+          forcedWorkDays: forcedWorkDays ?? [],
+          projectHolidays: projectCalendarOverride?.holidays ?? [],
+        }
+      ),
+    [
+      globalCalendar,
+      projectCalendarOverride,
+      convertedWorkDays,
+      forcedWorkDays,
       workDays,
-      merged?.holidays ?? [],
-      convertedWorkDays ?? []
-    );
-  }, [
-    globalCalendar,
-    projectCalendarOverride,
-    convertedWorkDays,
-    workDays,
-  ]);
+    ]
+  );
 }

@@ -106,5 +106,9 @@ export function useAutoRunSimulation({
     scenario?.settings.rngSeed,
     scenario?.settings.parkinsonsLawEnabled,
     scenario?.milestones,
+    // Recompute when calendar inputs change (converted/forced work days,
+    // project holidays, global calendar, work-week mask) — workCalendar is the
+    // memoized value from useWorkCalendar(), stable across unrelated renders.
+    workCalendar,
   ]);
 }

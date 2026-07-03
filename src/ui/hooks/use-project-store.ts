@@ -405,6 +405,13 @@ export interface ProjectStore {
   addConvertedWorkDay: (projectId: string, date: string) => void;
   removeConvertedWorkDay: (projectId: string, date: string) => void;
 
+  // Forced Work Days (global-holiday overrides)
+  setForcedWorkDays: (projectId: string, dates: string[]) => void;
+  addForcedWorkDay: (projectId: string, date: string) => void;
+  removeForcedWorkDay: (projectId: string, date: string) => void;
+  removeWorkDayOverride: (projectId: string, date: string) => void;
+  upgradeToForcedWorkDay: (projectId: string, date: string) => void;
+
   // Import
   importProjects: (params: ImportApplyParams) => ImportOutcome;
   importScenarioToProject: (projectId: string, scenario: Scenario) => void;
@@ -1067,6 +1074,87 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         ...p,
         convertedWorkDays: filterOut(p.convertedWorkDays, date),
       }));
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  setForcedWorkDays: (projectId, dates) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) =>
+        p.id === projectId ? { ...p, forcedWorkDays: dates } : p
+      );
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  addForcedWorkDay: (projectId, date) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        const existing = p.forcedWorkDays ?? [];
+        if (existing.includes(date)) return p;
+        return { ...p, forcedWorkDays: [...existing, date].sort() };
+      });
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  removeForcedWorkDay: (projectId, date) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = updateProjectInList(state.projects, projectId, (p) => ({
+        ...p,
+        forcedWorkDays: filterOut(p.forcedWorkDays, date),
+      }));
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  /**
+   * Removes a date from both convertedWorkDays and forcedWorkDays in one
+   * operation. Used by the unified editor's chip-remove action, which doesn't
+   * know or care which array a given chip's date lives in (and, rarely, a
+   * hand-edited/imported project could have the same date in both).
+   */
+  removeWorkDayOverride: (projectId, date) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = updateProjectInList(state.projects, projectId, (p) => ({
+        ...p,
+        convertedWorkDays: filterOut(p.convertedWorkDays, date),
+        forcedWorkDays: filterOut(p.forcedWorkDays, date),
+      }));
+      persist(projects, projectId);
+      return { projects };
+    });
+  },
+
+  /**
+   * Moves a date from convertedWorkDays to forcedWorkDays in one operation
+   * (one undo frame, one persist). Used only by the chip-level "Convert to
+   * forced override" recovery action — the case where a date already in
+   * convertedWorkDays later became a global holiday.
+   */
+  upgradeToForcedWorkDay: (projectId, date) => {
+    pushUndo(projectId);
+    set((state) => {
+      const projects = state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        const forced = p.forcedWorkDays ?? [];
+        return {
+          ...p,
+          convertedWorkDays: filterOut(p.convertedWorkDays, date),
+          forcedWorkDays: forced.includes(date)
+            ? forced
+            : [...forced, date].sort(),
+        };
+      });
       persist(projects, projectId);
       return { projects };
     });

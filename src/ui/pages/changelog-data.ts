@@ -12,6 +12,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.50.0",
+    date: "2026-07-03",
+    sections: [
+      {
+        title: "Added — override company holidays per project",
+        items: [
+          "You can now make a company-wide holiday a working day for a single project. The Calendar page's per-project converted work days panel is now a unified override editor: one date field and one chip list handle both weekend conversions and company-holiday overrides. Adding a holiday date asks for confirmation first, and when the holiday spans multiple days a \"Convert all N days\" button converts the whole range in one click — weekend days inside the range are never silently converted to work days.",
+          "Project-specific holidays are absolute: only holidays that come from the company-wide calendar can be converted. Attempting to convert a project holiday is blocked with guidance to remove it from the project's holiday list instead.",
+          "Override chips now show live status. If a holiday later lands on one of your converted dates, its chip grays out with an explanation — and when the date can be recovered (a company holiday shadowing a converted day), a one-click \"Convert to forced override\" action restores it.",
+          "Fixed: with auto-run enabled, the simulation now re-runs automatically when calendar settings change (holidays, converted or forced work days, work week). Previously the displayed results could go stale until you edited something unrelated.",
+          "Heads-up for shared cloud projects: teammates running an older version of the app won't see holiday overrides, and saving from an old version can drop them. Everyone sharing a project should refresh to the current version.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.49.10",
     date: "2026-06-29",
     sections: [

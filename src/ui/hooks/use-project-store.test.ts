@@ -60,6 +60,79 @@ describe("useProjectStore", () => {
     expect(useProjectStore.getState().projects).toHaveLength(0);
   });
 
+  describe("forced work day actions", () => {
+    function seed() {
+      return useProjectStore.getState().addProject("Calendar Project", null);
+    }
+
+    it("addForcedWorkDay inserts sorted and dedupes", () => {
+      const project = seed();
+      useProjectStore.getState().addForcedWorkDay(project.id, "2025-12-25");
+      useProjectStore.getState().addForcedWorkDay(project.id, "2025-01-01");
+      useProjectStore.getState().addForcedWorkDay(project.id, "2025-12-25");
+      const p = useProjectStore.getState().getProject(project.id)!;
+      expect(p.forcedWorkDays).toEqual(["2025-01-01", "2025-12-25"]);
+    });
+
+    it("setForcedWorkDays replaces the array wholesale", () => {
+      const project = seed();
+      useProjectStore.getState().addForcedWorkDay(project.id, "2025-01-01");
+      useProjectStore
+        .getState()
+        .setForcedWorkDays(project.id, ["2025-07-04", "2025-11-27"]);
+      const p = useProjectStore.getState().getProject(project.id)!;
+      expect(p.forcedWorkDays).toEqual(["2025-07-04", "2025-11-27"]);
+    });
+
+    it("removeForcedWorkDay removes only the given date", () => {
+      const project = seed();
+      useProjectStore
+        .getState()
+        .setForcedWorkDays(project.id, ["2025-01-01", "2025-12-25"]);
+      useProjectStore.getState().removeForcedWorkDay(project.id, "2025-01-01");
+      const p = useProjectStore.getState().getProject(project.id)!;
+      expect(p.forcedWorkDays).toEqual(["2025-12-25"]);
+    });
+
+    it("removeWorkDayOverride clears a date from both arrays in one call", () => {
+      const project = seed();
+      useProjectStore
+        .getState()
+        .setConvertedWorkDays(project.id, ["2025-03-08", "2025-12-25"]);
+      useProjectStore.getState().setForcedWorkDays(project.id, ["2025-12-25"]);
+      useProjectStore.getState().removeWorkDayOverride(project.id, "2025-12-25");
+      const p = useProjectStore.getState().getProject(project.id)!;
+      expect(p.convertedWorkDays).toEqual(["2025-03-08"]);
+      expect(p.forcedWorkDays).toEqual([]);
+    });
+
+    it("upgradeToForcedWorkDay moves a date between arrays in one undo frame", () => {
+      const project = seed();
+      useProjectStore.getState().setConvertedWorkDays(project.id, ["2025-12-25"]);
+      useProjectStore.getState().upgradeToForcedWorkDay(project.id, "2025-12-25");
+
+      const upgraded = useProjectStore.getState().getProject(project.id)!;
+      expect(upgraded.convertedWorkDays).toEqual([]);
+      expect(upgraded.forcedWorkDays).toEqual(["2025-12-25"]);
+
+      // One undo restores both sides of the move — a single frame was pushed.
+      useProjectStore.getState().undo();
+      const reverted = useProjectStore.getState().getProject(project.id)!;
+      expect(reverted.convertedWorkDays).toEqual(["2025-12-25"]);
+      expect(reverted.forcedWorkDays ?? []).toEqual([]);
+    });
+
+    it("forced work days persist and reload", () => {
+      const project = seed();
+      useProjectStore.getState().addForcedWorkDay(project.id, "2025-12-25");
+
+      useProjectStore.setState({ projects: [] });
+      useProjectStore.getState().loadProjects();
+      const p = useProjectStore.getState().getProject(project.id)!;
+      expect(p.forcedWorkDays).toEqual(["2025-12-25"]);
+    });
+  });
+
   describe("cloneProject", () => {
     it("creates a new project with the (Copy) suffix", () => {
       const store = useProjectStore.getState();

@@ -392,6 +392,35 @@ describe("ProjectSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts project with forcedWorkDays", () => {
+    const result = ProjectSchema.safeParse({
+      ...validProject,
+      forcedWorkDays: ["2025-07-04", "2025-12-25"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts project without forcedWorkDays (backward compat)", () => {
+    const result = ProjectSchema.safeParse(validProject);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects forcedWorkDays with invalid date", () => {
+    const result = ProjectSchema.safeParse({
+      ...validProject,
+      forcedWorkDays: ["not-a-date"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects forcedWorkDays with impossible date", () => {
+    const result = ProjectSchema.safeParse({
+      ...validProject,
+      forcedWorkDays: ["2025-02-29"],
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("HolidaySchema range limit", () => {

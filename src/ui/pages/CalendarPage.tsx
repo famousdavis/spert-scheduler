@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { CalendarEditor } from "@ui/components/CalendarEditor";
-import { ConvertedWorkDaysEditor } from "@ui/components/ConvertedWorkDaysEditor";
+import { WorkDayOverrideEditor } from "@ui/components/WorkDayOverrideEditor";
 import { WEEKDAY_LABELS } from "@domain/models/types";
 
 export function CalendarPage() {
@@ -54,7 +54,7 @@ export function CalendarPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Add holidays that apply only to a specific project (e.g., team
             offsite, vendor shutdown). You can also convert specific non-work
-            days into work days per project.
+            days — including company holidays — into work days per project.
           </p>
           <div className="mt-4 space-y-6">
             {projects
@@ -77,20 +77,11 @@ export function CalendarPage() {
                         .setProjectCalendar(project.id, calendar);
                     }}
                   />
-                  <ConvertedWorkDaysEditor
+                  <WorkDayOverrideEditor
                     projectId={project.id}
                     convertedWorkDays={project.convertedWorkDays ?? []}
+                    forcedWorkDays={project.forcedWorkDays ?? []}
                     projectCalendarOverride={project.globalCalendarOverride}
-                    onAdd={(date) =>
-                      useProjectStore
-                        .getState()
-                        .addConvertedWorkDay(project.id, date)
-                    }
-                    onRemove={(date) =>
-                      useProjectStore
-                        .getState()
-                        .removeConvertedWorkDay(project.id, date)
-                    }
                   />
                 </div>
               ))}

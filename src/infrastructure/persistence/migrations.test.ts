@@ -1105,4 +1105,27 @@ describe("applyMigrations", () => {
     expect(s1.milestones).toEqual([]);
     expect(s1.bands).toEqual([]);
   });
+
+  // -- v21 → v22 --------------------------------------------------------------
+
+  it("v21→v22: adds forcedWorkDays field", () => {
+    const v21Data = {
+      schemaVersion: 21,
+      scenarios: [],
+    };
+    const result = applyMigrations(v21Data, 21, 22) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(22);
+    expect(result.forcedWorkDays).toEqual([]);
+  });
+
+  it("v21→v22: does not overwrite existing forcedWorkDays", () => {
+    const v21Data = {
+      schemaVersion: 21,
+      forcedWorkDays: ["2025-01-01"],
+      scenarios: [],
+    };
+    const result = applyMigrations(v21Data, 21, 22) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(22);
+    expect(result.forcedWorkDays).toEqual(["2025-01-01"]);
+  });
 });

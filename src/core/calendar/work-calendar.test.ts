@@ -443,3 +443,61 @@ describe("buildWorkCalendar", () => {
     expect(cal.isWorkDay(new Date(2025, 0, 4))).toBe(true); // Converted Saturday
   });
 });
+
+// ---------------------------------------------------------------------------
+// forcedWorkDays — global-holiday overrides
+// ---------------------------------------------------------------------------
+
+describe("forcedWorkDays (global-holiday overrides)", () => {
+  const globalHolidays: Holiday[] = [
+    { id: "g1", name: "New Year", startDate: "2025-01-01", endDate: "2025-01-01" },
+  ];
+
+  it("a forced work day overrides a global holiday", () => {
+    const cal = buildWorkCalendar([1, 2, 3, 4, 5], globalHolidays, [], {
+      forcedWorkDays: ["2025-01-01"],
+    });
+    expect(cal.isWorkDay(new Date(2025, 0, 1))).toBe(true); // Wednesday holiday, forced
+  });
+
+  it("a project holiday is not overridable even when present in forcedWorkDays", () => {
+    const projectHolidays: Holiday[] = [
+      { id: "p1", name: "Team Offsite", startDate: "2025-01-02", endDate: "2025-01-02" },
+    ];
+    const cal = buildWorkCalendar([1, 2, 3, 4, 5], [], [], {
+      forcedWorkDays: ["2025-01-02"],
+      projectHolidays,
+    });
+    // The assembly-time filter drops the forced entry: project holidays are absolute.
+    expect(cal.isWorkDay(new Date(2025, 0, 2))).toBe(false);
+  });
+
+  it("compound case: a Saturday that is also a global holiday, forced → work day", () => {
+    const satHoliday: Holiday[] = [
+      { id: "g2", name: "Founders Day", startDate: "2025-01-04", endDate: "2025-01-04" },
+    ];
+    const cal = buildWorkCalendar([1, 2, 3, 4, 5], satHoliday, [], {
+      forcedWorkDays: ["2025-01-04"],
+    });
+    expect(cal.isWorkDay(new Date(2025, 0, 4))).toBe(true); // beats holiday AND mask
+  });
+
+  it("projectHolidays passed via overrides join the effective holiday set", () => {
+    const projectHolidays: Holiday[] = [
+      { id: "p1", name: "Team Offsite", startDate: "2025-01-03", endDate: "2025-01-03" },
+    ];
+    const cal = buildWorkCalendar([1, 2, 3, 4, 5], globalHolidays, [], {
+      projectHolidays,
+    });
+    expect(cal.isWorkDay(new Date(2025, 0, 1))).toBe(false); // global holiday
+    expect(cal.isWorkDay(new Date(2025, 0, 3))).toBe(false); // project holiday
+    expect(cal.isWorkDay(new Date(2025, 0, 2))).toBe(true); // plain Thursday
+  });
+
+  it("a stale forced entry (no holiday on that date) still yields a work day", () => {
+    const cal = buildWorkCalendar([1, 2, 3, 4, 5], [], [], {
+      forcedWorkDays: ["2025-01-04"], // Saturday, no holiday anywhere
+    });
+    expect(cal.isWorkDay(new Date(2025, 0, 4))).toBe(true);
+  });
+});

@@ -190,3 +190,40 @@ describe("calendar layering: global + project", () => {
     expect(mergedEnd >= projectEnd).toBe(true);
   });
 });
+
+describe("calendar layering: forced work days (global-holiday overrides)", () => {
+  it("a forced work day overrides a global holiday end-to-end", () => {
+    const global: Calendar = {
+      holidays: [{ id: "h1", name: "Global Day", startDate: "2025-01-07", endDate: "2025-01-07" }],
+    };
+    const holidayCal = buildWorkCalendar([1, 2, 3, 4, 5], global.holidays, []);
+    const forcedCal = buildWorkCalendar([1, 2, 3, 4, 5], global.holidays, [], {
+      forcedWorkDays: ["2025-01-07"],
+    });
+    const singleAct = [makeActivity({ id: "a1", min: 3, mostLikely: 3, max: 3 })];
+    const withHoliday = computeDeterministicSchedule(singleAct, "2025-01-06", 0.5, holidayCal);
+    const withOverride = computeDeterministicSchedule(singleAct, "2025-01-06", 0.5, forcedCal);
+    const noHoliday = computeDeterministicSchedule(singleAct, "2025-01-06", 0.5);
+    // The override restores the no-holiday schedule; the plain holiday stretches it.
+    expect(withOverride.projectEndDate).toBe(noHoliday.projectEndDate);
+    expect(withHoliday.projectEndDate > withOverride.projectEndDate).toBe(true);
+  });
+
+  it("the same date carrying a project-added holiday stays non-work", () => {
+    const global: Calendar = {
+      holidays: [{ id: "h1", name: "Global Day", startDate: "2025-01-07", endDate: "2025-01-07" }],
+    };
+    const project: Calendar = {
+      holidays: [{ id: "h2", name: "Team Offsite", startDate: "2025-01-07", endDate: "2025-01-07" }],
+    };
+    const cal = buildWorkCalendar([1, 2, 3, 4, 5], global.holidays, [], {
+      forcedWorkDays: ["2025-01-07"],
+      projectHolidays: project.holidays,
+    });
+    expect(cal.isWorkDay(new Date(2025, 0, 7))).toBe(false);
+    const singleAct = [makeActivity({ id: "a1", min: 3, mostLikely: 3, max: 3 })];
+    const schedule = computeDeterministicSchedule(singleAct, "2025-01-06", 0.5, cal);
+    const noHoliday = computeDeterministicSchedule(singleAct, "2025-01-06", 0.5);
+    expect(schedule.projectEndDate > noHoliday.projectEndDate).toBe(true);
+  });
+});

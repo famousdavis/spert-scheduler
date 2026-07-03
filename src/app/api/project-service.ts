@@ -233,6 +233,9 @@ export function cloneProject(source: Project, newName: string): Project {
     convertedWorkDays: source.convertedWorkDays
       ? [...source.convertedWorkDays]
       : undefined,
+    forcedWorkDays: source.forcedWorkDays
+      ? [...source.forcedWorkDays]
+      : undefined,
     targetFinishDate: source.targetFinishDate,
     showTargetOnGantt: source.showTargetOnGantt,
     showActivityIds: source.showActivityIds,

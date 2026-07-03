@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.50.0 — 2026-07-03
+
+### Added — override company holidays per project (forced work days)
+
+- A project can now mark a date that is a holiday **only because of the global (company-wide) calendar** as a working day for that project. Project-added holidays remain absolute and can never be overridden.
+- New `forcedWorkDays?: string[]` field on `Project` (schema v21 → v22 migration, defaults to `[]`). `isWorkDay` resolves forced work days first; the "project holidays are never overridable" guarantee is enforced by an assembly-time filter in `buildWorkCalendar()`, which now also merges global + project holidays internally (single supply point for project holidays). `mergeCalendars` no longer has production call sites but is kept as a tested pure helper.
+- The Converted Work Days panel on the Calendar page is now a unified work-day override editor (`WorkDayOverrideEditor`, renaming `ConvertedWorkDaysEditor`): one date field and one chip list handle both weekend conversions and holiday overrides. Adding a company-holiday date raises an inline confirm banner (focus management, Escape-to-cancel, `role="status"`/`aria-live`); when exactly one multi-day holiday matches, a "Convert all N days" button converts only dates where the holiday is the sole reason they're non-work — weekends inside a shutdown range are never silently forced — in one click, one undo frame (`setForcedWorkDays`).
+- Chips now show live status computed from `isWorkDay`, not array membership: an entry that is no longer an effective work day (a holiday landed on it later) renders grayed with an explanatory tooltip, and the one recoverable case — a converted day now shadowed by a *global* holiday — offers an inline "Convert to forced override" upgrade (atomic `upgradeToForcedWorkDay`, single undo frame).
+- Five new store actions: `setForcedWorkDays`, `addForcedWorkDay`, `removeForcedWorkDay`, plus atomic `removeWorkDayOverride` (chip removal clears both arrays in one call) and `upgradeToForcedWorkDay`. Project clone copies the new field; export/import and cloud sync carry it with no special-casing. New pure helper module `classify-work-day-override.ts` (add routing, chip status, holiday matching, bulk eligibility) keeps the editor's decision logic unit-tested.
+- **Fixed (pre-existing):** with auto-run enabled, the simulation now re-runs when calendar inputs change. The debounced auto-run effect read the work calendar without depending on it, so converted-work-day and project-holiday edits (and now forced work days, global calendar, and work-week changes) left stale results on screen until an unrelated edit.
+- **Known limitation (pre-existing pattern for every schema addition, stated for transparency):** in cloud mode, an out-of-date client (schema ≤ 21) that loads and re-saves a project written at schema 22 silently drops `forcedWorkDays` for all sharers — the Firestore load path migrates only older documents and has no future-version guard (unlike local storage). Documented in ARCHITECTURE.md; fixing the general gap is a separate task.
+- 46 new tests (1,662 → 1,708 across 83 files); all pass. Zero existing tests changed — the new `buildWorkCalendar` options parameter is backward-compatible by construction.
+
 ## 0.49.10 — 2026-06-29
 
 ### Improved — full activity names in the Dependencies panel
