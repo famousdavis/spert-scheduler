@@ -52,6 +52,12 @@ export function useCloudSync(): void {
   // per-project teardown on delete (Path A zombie fix).
   const unsubscribersRef = useRef<Map<string, Unsubscribe>>(new Map());
   const initialLoadDoneRef = useRef(false);
+  // Projects already handled by the onFutureVersion path (v0.50.1). The
+  // underlying snapshot listener is torn down on first detection, but this
+  // set is the certain guard: even if a stray snapshot slips through, the
+  // handler no-ops — no repeat toasts, no repeat eviction/error churn.
+  // Reset alongside the other session refs on driver (re)initialization.
+  const notifiedFutureVersionIdsRef = useRef<Set<string>>(new Set());
 
   const isCloudActive = mode === "cloud" && user !== null;
 
@@ -118,6 +124,49 @@ export function useCloudSync(): void {
               "A project was removed because you no longer have access."
             );
           }
+        },
+        ({ schemaVersion, appSchemaVersion }) => {
+          // v0.50.1 future-version guard: a newer client (higher SCHEMA_VERSION)
+          // wrote this project mid-session. This client must not consume the
+          // snapshot — Zod would silently strip the unknown fields — and must
+          // not save its stale in-memory copy back over the newer document.
+          if (notifiedFutureVersionIdsRef.current.has(projectId)) return;
+          notifiedFutureVersionIdsRef.current.add(projectId);
+
+          // Tear the listener down properly. This callback arrives on
+          // onSnapshot's SUCCESS path — a fully live subscription — unlike the
+          // permission-denied branch above, where Firestore has already
+          // terminated the stream and only Map cleanup is needed. Without the
+          // unsub() call the underlying listener would keep firing forever and
+          // would survive cleanupListeners() (which only sees tracked entries),
+          // leaking past sign-out. Same live-listener teardown as the sync-bus
+          // "delete" branch below.
+          const activeUnsub = unsubscribersRef.current.get(projectId);
+          activeUnsub?.();
+          unsubscribersRef.current.delete(projectId);
+
+          driverRef.current?.cancelPendingSave(projectId);
+          const projectName = useProjectStore
+            .getState()
+            .projects.find((p) => p.id === projectId)?.name;
+          // Eviction is what structurally prevents the corruption: the sync-bus
+          // save handler looks projects up by id, so a project absent from the
+          // store can never be saved — for any field, on any future edit.
+          removeProjectLocally(projectId);
+          useProjectStore.getState().upsertCloudLoadError({
+            projectId,
+            projectName,
+            type: "future_version",
+            source: "cloud",
+            message: "Project was updated with a newer version of SPERT Scheduler",
+            details: `Project schema version: ${schemaVersion}, App schema version: ${appSchemaVersion}. Please update the app to see the latest changes.`,
+          });
+          // Mid-session detections toast because no banner is on-screen yet;
+          // load-time detections (the loadAll paths) rely on the dashboard
+          // banner alone. Deliberate asymmetry, not an inconsistency.
+          toast.info(
+            "A project was removed from view because it was updated with a newer app version — update to see it again."
+          );
         }
       );
       unsubscribersRef.current.set(projectId, unsub);
@@ -147,6 +196,8 @@ export function useCloudSync(): void {
       // Reset the startup grace gate for every (re)initialization of the
       // driver — covers refresh, sign-out/sign-in, and local↔cloud switches.
       errorToastsReadyRef.current = false;
+      // Fresh session, fresh future-version dedup state (v0.50.1).
+      notifiedFutureVersionIdsRef.current = new Set();
       let graceTimer: ReturnType<typeof setTimeout> | null = null;
       // Mirror initialLoadDoneRef into reactive store state so the UI can
       // gate the file picker on cloud-data hydration (pitfall #88/#89).
@@ -167,7 +218,7 @@ export function useCloudSync(): void {
       // Initial load from Firestore
       driver
         .loadAll()
-        .then(async (cloudProjects) => {
+        .then(async ({ projects: cloudProjects, errors }) => {
           if (cancelled) return;
 
           // Strip _owner/_members metadata before setting in store, but
@@ -179,8 +230,25 @@ export function useCloudSync(): void {
             owner: _owner,
           }));
 
+          // v0.50.1: evict any locally-mirrored copy of a project classified
+          // future-version, unconditionally and BEFORE the data-loss guard —
+          // this is concrete knowledge about specific ids, not the transient
+          // 0-project failure the guard protects against. Without this, the
+          // guard branch could leave a stale, fully-editable mirror copy in
+          // the store with no listener attached. cancelPendingSave is provably
+          // unneeded here (handleSyncEvent drops save events until
+          // initialLoadDoneRef flips below, so no timer can be armed) but is
+          // kept for symmetry with the models-changed site at zero cost.
+          for (const error of errors) {
+            if (error.type === "future_version") {
+              driverRef.current?.cancelPendingSave(error.projectId);
+              removeProjectLocally(error.projectId);
+            }
+          }
+
           // Data-loss guard: if cloud is empty but local has projects, skip
-          // replacement to protect un-migrated local data
+          // replacement to protect un-migrated local data. Reads the
+          // POST-eviction list — the eviction above may have shrunk it.
           const localProjects = useProjectStore.getState().projects;
           if (projects.length === 0 && localProjects.length > 0) {
             console.warn(
@@ -189,6 +257,9 @@ export function useCloudSync(): void {
           } else {
             setProjects(projects);
           }
+          // LAST store write for error state on this path: setProjects resets
+          // loadErrors wholesale as a side effect, so reporting must follow it.
+          useProjectStore.getState().setCloudLoadErrors(errors);
 
           // Load and merge cloud preferences (cloud wins for existing fields)
           try {
@@ -241,6 +312,12 @@ export function useCloudSync(): void {
         driverRef.current = null;
         currentDriver = null;
         cleanupListeners();
+        // v0.50.1: cloud-sourced load errors describe state this client can
+        // no longer observe once sync stops — clear them so they don't linger
+        // unactionable (Export/Delete are suppressed for future_version) after
+        // a sign-out or mode switch. loadProjects() no longer wipes them for
+        // us: it preserves the cloud subset by design.
+        useProjectStore.getState().setCloudLoadErrors([]);
       };
     } else {
       // Switching to local mode or signing out
@@ -257,9 +334,12 @@ export function useCloudSync(): void {
       initialLoadDoneRef.current = false;
       useProjectStore.getState().setCloudDataLoaded(false);
       cleanupListeners();
+      // v0.50.1: idempotent with the cleanup-function clear above; covers the
+      // second, distinct point where cloud sync genuinely stops.
+      useProjectStore.getState().setCloudLoadErrors([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.uid is the only relevant identity; full user object would cause unnecessary re-runs
-  }, [isCloudActive, user?.uid, setProjects, addProjectListener, cleanupListeners]);
+  }, [isCloudActive, user?.uid, setProjects, addProjectListener, cleanupListeners, removeProjectLocally]);
 
   // Subscribe to sync bus events (store → Firestore)
   useEffect(() => {
@@ -404,23 +484,41 @@ export function useCloudSync(): void {
     useProjectStore.getState().setCloudDataLoaded(false);
     driver
       .loadAll()
-      .then((cloudProjects) => {
-        const projects = cloudProjects.map(({ _owner, _members, ...p }) => ({
+      .then(({ projects: rawProjects, errors }) => {
+        const projects = rawProjects.map(({ _owner, _members, ...p }) => ({
           ...p,
           owner: _owner,
         }));
+
+        // v0.50.1: evict future-version projects BEFORE the data-loss guard
+        // (concrete per-id knowledge, not a transient failure). Unlike the
+        // initial-load site, this path runs mid-session with saves live, so a
+        // debounced save timer for a just-classified project could be armed —
+        // cancel it before it writes the stale copy back.
+        for (const error of errors) {
+          if (error.type === "future_version") {
+            driverRef.current?.cancelPendingSave(error.projectId);
+            removeProjectLocally(error.projectId);
+          }
+        }
+
         // v0.47.0 (I1-1): data-loss guard — mirrors the same protection in the
         // initial loadAll() path. If a transient backend issue returns 0 projects,
-        // do not wipe the in-memory project list the user is actively working with.
+        // do not wipe the in-memory project list the user is actively working
+        // with. Reads the POST-eviction list.
         const localProjects = useProjectStore.getState().projects;
         if (projects.length === 0 && localProjects.length > 0) {
           console.warn(
             `spert:models-changed returned 0 projects but local has ${localProjects.length} — skipping replacement to protect in-memory data`
           );
+          // Both exits report errors; setProjects never ran on this one.
+          useProjectStore.getState().setCloudLoadErrors(errors);
           useProjectStore.getState().setCloudDataLoaded(true);
           return;
         }
         setProjects(projects);
+        // After setProjects specifically — it resets loadErrors on write.
+        useProjectStore.getState().setCloudLoadErrors(errors);
         for (const project of projects) {
           // Idempotent — unsubscribersRef.has() guards re-subscription.
           addProjectListener(project.id);
@@ -432,7 +530,7 @@ export function useCloudSync(): void {
         // Defensive flip-to-true so the UI doesn't wedge on the disabled state.
         useProjectStore.getState().setCloudDataLoaded(true);
       });
-  }, [mode, addProjectListener, setProjects]);
+  }, [mode, addProjectListener, setProjects, removeProjectLocally]);
 
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;

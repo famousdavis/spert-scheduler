@@ -316,22 +316,33 @@ export function ProjectsPage() {
                           {isExpanded ? "Hide details" : "Show details"}
                         </button>
                       )}
-                      <button
-                        onClick={() => handleExportCorrupted(error.projectId)}
-                        className="px-2 py-1 text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 hover:bg-amber-300 dark:hover:bg-amber-700 rounded"
-                        title="Export raw data for recovery"
-                      >
-                        Export
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleDeleteCorrupted(error.projectId, error.projectName)
-                        }
-                        className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 rounded"
-                        title="Delete corrupted project"
-                      >
-                        Delete
-                      </button>
+                      {/* Export/Delete are recovery actions for DAMAGED data.
+                          A future_version project isn't damaged — it's newer
+                          than this app build (and for cloud-sourced errors,
+                          both buttons would operate on local storage anyway).
+                          Offering "Delete" next to a perfectly good, possibly
+                          shared project is a footgun; the error resolves
+                          itself once the app is updated. (v0.50.1) */}
+                      {error.type !== "future_version" && (
+                        <>
+                          <button
+                            onClick={() => handleExportCorrupted(error.projectId)}
+                            className="px-2 py-1 text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 hover:bg-amber-300 dark:hover:bg-amber-700 rounded"
+                            title="Export raw data for recovery"
+                          >
+                            Export
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDeleteCorrupted(error.projectId, error.projectName)
+                            }
+                            className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 rounded"
+                            title="Delete corrupted project"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -45,6 +45,7 @@ import type { Project, UserPreferences } from "@domain/models/types";
 import { ProjectSchema } from "@domain/schemas/project.schema";
 import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
 import { applyMigrations } from "@infrastructure/persistence/migrations";
+import type { LoadError } from "@infrastructure/persistence/local-storage-repository";
 
 const PROJECTS_COL = "spertscheduler_projects";
 const SETTINGS_COL = "spertscheduler_settings";
@@ -58,6 +59,24 @@ export interface FirestoreProjectMeta {
 
 /** Maximum document size warning threshold (bytes). */
 const DOC_SIZE_WARNING_BYTES = 800_000;
+
+/**
+ * Outcome of processing one Firestore project document (v0.50.1).
+ * - "ok": valid project (possibly migrated forward)
+ * - "future_version": written by a newer app build (schemaVersion >
+ *   SCHEMA_VERSION) — must not be loaded, migrated, or resaved; Zod would
+ *   silently strip the unknown fields and a later save would write the
+ *   stripped object back over the newer document
+ * - "skip": corrupted/invalid — silently excluded, matching pre-existing
+ *   behavior (deliberately unchanged by the future-version guard)
+ */
+type ProcessDocResult =
+  | {
+      kind: "ok";
+      project: Project & { _owner: string; _members: Record<string, ProjectRole> };
+    }
+  | { kind: "future_version"; error: LoadError }
+  | { kind: "skip" };
 
 /**
  * Firestore project storage driver.
@@ -77,11 +96,14 @@ export class FirestoreDriver {
 
   /**
    * Load all projects the user has access to.
-   * Returns projects with _owner and _members metadata attached.
+   * Returns projects with _owner and _members metadata attached, plus a
+   * LoadError entry for each future-version document (v0.50.1) — those are
+   * excluded from `projects` and must not be resaved by this client.
    */
-  async loadAll(): Promise<
-    (Project & { _owner: string; _members: Record<string, ProjectRole> })[]
-  > {
+  async loadAll(): Promise<{
+    projects: (Project & { _owner: string; _members: Record<string, ProjectRole> })[];
+    errors: LoadError[];
+  }> {
     if (!db) throw new Error("Firestore not initialized");
 
     const q = query(
@@ -93,41 +115,67 @@ export class FirestoreDriver {
       _owner: string;
       _members: Record<string, ProjectRole>;
     })[] = [];
+    const errors: LoadError[] = [];
 
     for (const docSnap of snap.docs) {
-      const project = await this.processProjectDoc(docSnap);
-      if (project) projects.push(project);
+      const result = await this.processProjectDoc(docSnap);
+      if (result.kind === "ok") projects.push(result.project);
+      else if (result.kind === "future_version") errors.push(result.error);
+      // "skip" → no-op: corrupted/invalid docs keep their pre-existing
+      // silent-exclusion behavior.
     }
 
-    return projects;
+    return { projects, errors };
   }
 
   /**
    * Processes a single Firestore document snapshot into a typed Project.
    * May write back to Firestore if schema migration was applied (write-forward pattern).
-   * Returns null if the document is corrupted or fails schema validation.
+   * Returns a discriminated ProcessDocResult: "skip" for corrupted/invalid
+   * documents (pre-existing behavior), "future_version" for documents written
+   * by a newer app build (v0.50.1 guard — mirrors local storage's
+   * validateSchemaVersion).
    */
   private async processProjectDoc(
     docSnap: QueryDocumentSnapshot,
-  ): Promise<(Project & { _owner: string; _members: Record<string, ProjectRole> }) | null> {
+  ): Promise<ProcessDocResult> {
     const raw = docSnap.data();
     const stripped = stripFirestoreFields(raw);
     const projectData = { id: docSnap.id, ...stripped };
 
-    let data: unknown = projectData;
     const schemaVersion =
       typeof stripped.schemaVersion === "number" ? stripped.schemaVersion : 1;
+
+    // Future-version guard BEFORE migrate/parse: there is nothing to migrate
+    // backward to, and Zod would "succeed" by silently dropping the fields
+    // this build doesn't know about.
+    if (schemaVersion > SCHEMA_VERSION) {
+      return {
+        kind: "future_version",
+        error: {
+          projectId: docSnap.id,
+          projectName:
+            typeof stripped.name === "string" ? stripped.name : undefined,
+          type: "future_version",
+          source: "cloud",
+          message: "Project was created with a newer version of SPERT Scheduler",
+          details: `Project schema version: ${schemaVersion}, App schema version: ${SCHEMA_VERSION}. Please update the app.`,
+        },
+      };
+    }
+
+    let data: unknown = projectData;
     const wasMigrated = schemaVersion < SCHEMA_VERSION;
     if (wasMigrated) {
       try {
         data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
       } catch {
-        return null; // skip corrupted project
+        return { kind: "skip" }; // skip corrupted project
       }
     }
 
     const result = ProjectSchema.safeParse(data);
-    if (!result.success) return null;
+    if (!result.success) return { kind: "skip" };
 
     const project = result.data as Project & {
       _owner: string;
@@ -145,7 +193,7 @@ export class FirestoreDriver {
       }
     }
 
-    return project;
+    return { kind: "ok", project };
   }
 
   /**
@@ -168,6 +216,17 @@ export class FirestoreDriver {
       typeof stripped.schemaVersion === "number"
         ? stripped.schemaVersion
         : 1;
+
+    // Future-version guard (v0.50.1): mirrors processProjectDoc. No richer
+    // error channel here — this method has no production callers today; the
+    // guard keeps the public API safe for whenever it is called.
+    if (schemaVersion > SCHEMA_VERSION) {
+      console.warn(
+        `Project ${id} has schemaVersion ${schemaVersion}, newer than this app's ${SCHEMA_VERSION} — update the app to load it.`
+      );
+      return null;
+    }
+
     const wasMigrated = schemaVersion < SCHEMA_VERSION;
     if (wasMigrated) {
       data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
@@ -379,11 +438,22 @@ export class FirestoreDriver {
   /**
    * Subscribe to real-time changes for a single project.
    * Uses hasPendingWrites for echo prevention.
+   *
+   * `onFutureVersion` (v0.50.1) fires — instead of `callback` — when a
+   * snapshot's schemaVersion is newer than this build's SCHEMA_VERSION.
+   * That is valid data this client must not consume (Zod would silently
+   * strip the unknown fields), which is semantically distinct from
+   * `onError`'s SDK failures (permission-denied, connection loss); reusing
+   * `onError` would misroute the permission-denied eviction logic.
    */
   subscribeToProject(
     id: string,
     callback: (project: Project) => void,
-    onError?: (error: unknown) => void
+    onError?: (error: unknown) => void,
+    onFutureVersion?: (info: {
+      schemaVersion: number;
+      appSchemaVersion: number;
+    }) => void
   ): Unsubscribe {
     if (!db) return () => {};
 
@@ -404,6 +474,12 @@ export class FirestoreDriver {
           typeof stripped.schemaVersion === "number"
             ? stripped.schemaVersion
             : 1;
+
+        if (schemaVersion > SCHEMA_VERSION) {
+          onFutureVersion?.({ schemaVersion, appSchemaVersion: SCHEMA_VERSION });
+          return;
+        }
+
         if (schemaVersion < SCHEMA_VERSION) {
           try {
             data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);

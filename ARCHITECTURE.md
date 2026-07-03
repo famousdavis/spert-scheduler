@@ -239,12 +239,12 @@ Two Zustand stores, separated by concern:
 - Conditional Firebase init: when `VITE_FIREBASE_API_KEY` is missing, Firebase code is a no-op
 - Firestore collections: `spertscheduler_projects/{id}`, `spertscheduler_profiles/{uid}`, `spertscheduler_settings/{uid}`, `users/{uid}` (ToS acceptance, shared across SPERT Suite)
 - Event bus pattern (`cloudSyncBus`) decouples synchronous Zustand store from async Firestore writes
-- Debounced saves (500ms) with `beforeunload` flush for pending writes
+- Debounced saves (200 ms) with `beforeunload` flush for pending writes
 - Real-time `onSnapshot` listeners with `hasPendingWrites` echo prevention
 - Simulation results stripped before cloud save (Firestore 1 MB doc limit)
 - `memoryLocalCache()` avoids stale security rule decisions that persist in IndexedDB
 - One-way migration from localStorage to Firestore with collision handling
-- **Accepted version-skew risk:** the Firestore load path migrates only *older* documents (`schemaVersion < SCHEMA_VERSION`) and has no future-version guard (unlike local storage's `future_version` error). An out-of-date client that loads a project written at a newer schema will have unknown fields silently stripped by Zod and will drop them on its next save — this applies to every schema field ever added (e.g. `forcedWorkDays`, v22), and fixing it is a separate cross-cutting task.
+- **Future-version guard (v0.50.1, closes the previously accepted version-skew risk):** every Firestore load path (`loadAll`/`processProjectDoc`, `load`, `subscribeToProject`'s snapshot callback) now rejects documents whose `schemaVersion` is newer than the running app's, mirroring local storage's `future_version` error. Detection *prevents* the resave, not just names it: the project is evicted from the in-memory store (`removeProjectLocally` — the sync-bus save handler looks projects up by id, so an absent project can never be saved), its pending debounced save is cancelled, and a mid-session detection also tears down the project's live snapshot listener. Affected projects surface in the dashboard load-error banner ("Newer version") with Export/Delete suppressed — the project isn't damaged, the app is out of date. Mid-session detections additionally show a one-time toast; load-time detections rely on the banner alone (deliberate asymmetry: the banner is already on-screen after a load). One scope correction to the earlier note: a stale client's `mergeFields`-based save never touched a genuinely new *top-level* field it didn't know about (e.g. `forcedWorkDays`, v22) — `mergeFields` lists only keys present on the saving client's own object — so the real exposure was fields nested inside existing top-level structures (`scenarios` holds most schema evolution) plus the `schemaVersion` relabel a stale save performs. Unguarded historical clients can still relabel, which is why migrations must stay add-if-missing idempotent (see `migrations.ts`).
 
 ### Storage Optimization
 

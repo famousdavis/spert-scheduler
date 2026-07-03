@@ -8,6 +8,9 @@
  * TC-2 — Path B: fast add-then-delete during in-flight create skips listener
  * TC-3 — Path A: delete tears down a previously-attached listener
  * TC-4 — Failed-create rollback removes the ghost project from the store
+ * TC-5/TC-6 — v0.50.1 future-version guard: initial-load classification
+ *   (eviction + the banner-entry-survives-setProjects ordering) and the
+ *   mid-session onFutureVersion wiring (unsub, cancel, evict, report, toast)
  *
  * Approach: mock the AuthProvider, StorageProvider, and FirestoreDriver
  * constructor; drive the hook through the real cloudSyncBus + useProjectStore
@@ -20,6 +23,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 
 import type { Project, UserPreferences } from "@domain/models/types";
+import { SCHEMA_VERSION } from "@domain/models/types";
 
 // Mock providers BEFORE importing the hook so vi.mock hoisting catches them.
 vi.mock("@ui/providers/AuthProvider", () => ({
@@ -72,11 +76,14 @@ vi.mock("@infrastructure/simulation/simulation-cancellation", () => ({
 
 import { useCloudSync } from "./use-cloud-sync";
 import { useProjectStore } from "./use-project-store";
+import { useNotificationStore } from "./use-notification-store";
 
 function freshDriverMock(): DriverMock {
   return {
     onSaveError: vi.fn(),
-    loadAll: vi.fn().mockResolvedValue([]),
+    // v0.50.1 shape: { projects, errors }. A bare [] here would destructure to
+    // undefined and silently throw the hook into its load-failure .catch path.
+    loadAll: vi.fn().mockResolvedValue({ projects: [], errors: [] }),
     loadPreferences: vi.fn().mockResolvedValue({} as Partial<UserPreferences>),
     subscribeToProject: vi.fn<(id: string, cb: (p: Project) => void, onErr?: (e: unknown) => void) => Unsub>(
       () => () => {},
@@ -120,7 +127,8 @@ async function waitForInitialLoad(): Promise<void> {
 
 beforeEach(() => {
   localStorage.clear();
-  useProjectStore.setState({ projects: [], loadError: false });
+  useProjectStore.setState({ projects: [], loadError: false, loadErrors: [] });
+  useNotificationStore.setState({ notifications: [] });
   driverMock = freshDriverMock();
   // Silence error logs from the .catch() branches — they're expected in
   // failure-path tests and would otherwise pollute the test output.
@@ -260,5 +268,143 @@ describe("useCloudSync — create/delete race regressions (v0.47.1)", () => {
     expect(useProjectStore.getState().getProject(created!.id)).toBeUndefined();
     expect(driverMock.cancelPendingSave).toHaveBeenCalledWith(created!.id);
     expect(driverMock.remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("useCloudSync — future-version guard (v0.50.1)", () => {
+  function futureVersionError(projectId: string, projectName: string) {
+    return {
+      projectId,
+      projectName,
+      type: "future_version" as const,
+      source: "cloud" as const,
+      message: "Project was created with a newer version of SPERT Scheduler",
+      details: `Project schema version: ${SCHEMA_VERSION + 1}, App schema version: ${SCHEMA_VERSION}. Please update the app.`,
+    };
+  }
+
+  it("TC-5: initial load evicts a future-version project's stale mirror copy and the banner entry survives setProjects (ordering regression guard)", async () => {
+    // Seed the store the way loadProjects() would from the localStorage
+    // mirror — including a stale copy of the project that is future-version
+    // in the cloud. addProject's emitCreate fires before the hook subscribes
+    // to the bus, so no create round-trip is triggered.
+    let cloudOk: Project | undefined;
+    let staleCopy: Project | undefined;
+    act(() => {
+      cloudOk = useProjectStore.getState().addProject("Cloud OK", "test-uid");
+      staleCopy = useProjectStore.getState().addProject("Stale Future", "test-uid");
+    });
+
+    driverMock.loadAll = vi.fn().mockResolvedValue({
+      projects: [
+        { ...cloudOk!, _owner: "test-uid", _members: { "test-uid": "owner" } },
+      ],
+      errors: [futureVersionError(staleCopy!.id, "Stale Future")],
+    });
+
+    renderHook(() => useCloudSync());
+    await waitForInitialLoad();
+
+    const state = useProjectStore.getState();
+    // Evicted: the stale mirror copy is gone; the valid project loaded.
+    expect(state.projects.some((p) => p.id === staleCopy!.id)).toBe(false);
+    expect(state.projects.some((p) => p.id === cloudOk!.id)).toBe(true);
+    // The ordering regression guard: setProjects resets loadErrors wholesale,
+    // so the error report must land AFTER it. This assertion fails if the two
+    // store writes are ever reordered.
+    const err = state.loadErrors.find((e) => e.projectId === staleCopy!.id);
+    expect(err).toBeDefined();
+    expect(err!.type).toBe("future_version");
+    expect(err!.source).toBe("cloud");
+    expect(state.loadError).toBe(true);
+    // No listener attaches for the future-version project; one for the ok one.
+    expect(driverMock.subscribeToProject).toHaveBeenCalledTimes(1);
+    expect(driverMock.subscribeToProject.mock.calls[0]![0]).toBe(cloudOk!.id);
+  });
+
+  it("TC-6: mid-session onFutureVersion unsubscribes the live listener, cancels saves, evicts, reports, and toasts once", async () => {
+    const unsubSpy = vi.fn();
+    let capturedOnFutureVersion:
+      | ((info: { schemaVersion: number; appSchemaVersion: number }) => void)
+      | undefined;
+    driverMock.subscribeToProject = vi.fn(
+      (
+        _id: string,
+        _cb: (p: Project) => void,
+        _onErr?: (e: unknown) => void,
+        onFutureVersion?: (info: {
+          schemaVersion: number;
+          appSchemaVersion: number;
+        }) => void,
+      ) => {
+        capturedOnFutureVersion = onFutureVersion;
+        return unsubSpy;
+      },
+    );
+
+    let live: Project | undefined;
+    act(() => {
+      live = useProjectStore.getState().addProject("Live Project", "test-uid");
+    });
+    driverMock.loadAll = vi.fn().mockResolvedValue({
+      projects: [
+        { ...live!, _owner: "test-uid", _members: { "test-uid": "owner" } },
+      ],
+      errors: [],
+    });
+
+    renderHook(() => useCloudSync());
+    await waitForInitialLoad();
+    expect(driverMock.subscribeToProject).toHaveBeenCalledTimes(1);
+    expect(capturedOnFutureVersion).toBeDefined();
+
+    // Deliver the signal asynchronously — the real onSnapshot never fires in
+    // the same tick as the subscribe call, and the handler's Map lookup
+    // depends on the attach (unsubscribersRef.set) having completed. A
+    // synchronous delivery here would look up an empty Map entry and let the
+    // unsub assertion pass for the wrong reason.
+    await act(async () => {
+      await Promise.resolve();
+      capturedOnFutureVersion!({
+        schemaVersion: SCHEMA_VERSION + 1,
+        appSchemaVersion: SCHEMA_VERSION,
+      });
+    });
+
+    // The LIVE listener is actually unsubscribed, not just untracked — unlike
+    // the permission-denied branch, where Firestore already ended the stream.
+    expect(unsubSpy).toHaveBeenCalledTimes(1);
+    // Armed debounced save cancelled before it can write the stale copy back.
+    expect(driverMock.cancelPendingSave).toHaveBeenCalledWith(live!.id);
+    // Evicted — structurally blocks any later sync-bus save for this id.
+    const state = useProjectStore.getState();
+    expect(state.projects.some((p) => p.id === live!.id)).toBe(false);
+    const err = state.loadErrors.find((e) => e.projectId === live!.id);
+    expect(err?.type).toBe("future_version");
+    expect(err?.source).toBe("cloud");
+    // Exactly one info toast.
+    const infoToasts = () =>
+      useNotificationStore
+        .getState()
+        .notifications.filter(
+          (n) => n.type === "info" && n.message.includes("newer app version"),
+        );
+    expect(infoToasts()).toHaveLength(1);
+
+    // Dedup ref: a second delivery is a complete no-op — no extra unsub call,
+    // no duplicate banner entry, no repeat toast.
+    act(() => {
+      capturedOnFutureVersion!({
+        schemaVersion: SCHEMA_VERSION + 1,
+        appSchemaVersion: SCHEMA_VERSION,
+      });
+    });
+    expect(unsubSpy).toHaveBeenCalledTimes(1);
+    expect(
+      useProjectStore
+        .getState()
+        .loadErrors.filter((e) => e.projectId === live!.id),
+    ).toHaveLength(1);
+    expect(infoToasts()).toHaveLength(1);
   });
 });

@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.50.1",
+    date: "2026-07-03",
+    sections: [
+      {
+        title: "Fixed — protection against edits from outdated app versions (cloud)",
+        items: [
+          "Cloud projects saved by a newer version of SPERT Scheduler than the one you're running are now detected and set aside instead of being loaded with data missing. Previously — as noted in the v0.50.0 changelog — an out-of-date browser tab could load such a project without its newer fields and silently drop them for everyone sharing the project on its next save. This closes that gap.",
+          "A project in this state appears in the dashboard's notice banner labeled \"Newer version\" with instructions to update the app. It is not shown in the project list and can't be edited from the outdated tab — and it is completely unharmed. The banner's Export and Delete recovery actions are hidden for this case, since the project isn't corrupted and deleting it would be a mistake; everything returns to normal once the tab picks up the current version.",
+          "If a teammate on a newer version updates a shared project while you have it open in an outdated tab, the project is removed from view with an explanatory notification, and any unsaved edit in flight is stopped before it can overwrite the newer data. Refreshing the tab restores full access.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.50.0",
     date: "2026-07-03",
     sections: [

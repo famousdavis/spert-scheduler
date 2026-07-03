@@ -42,6 +42,7 @@ vi.mock("firebase/firestore", () => ({
 
 import {
   getDoc,
+  getDocs,
   onSnapshot,
   runTransaction,
   where,
@@ -444,6 +445,40 @@ describe("FirestoreDriver.subscribeToProject", () => {
       expect.objectContaining({ owner: null })
     );
   });
+
+  it("future-version snapshot invokes onFutureVersion once, never the project callback (v0.50.1)", () => {
+    const callback = vi.fn();
+    const onFutureVersion = vi.fn();
+    vi.mocked(onSnapshot).mockImplementationOnce(
+      ((_ref: unknown, cb: (snap: unknown) => void) => {
+        cb({
+          metadata: { hasPendingWrites: false },
+          exists: () => true,
+          id: "p-future",
+          data: () => ({
+            id: "p-future",
+            name: "Future Project",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            schemaVersion: SCHEMA_VERSION + 1,
+            scenarios: [],
+            owner: "uid-owner",
+            members: { "uid-owner": "owner" },
+          }),
+        });
+        return () => {};
+      }) as never
+    );
+    const driver = new FirestoreDriver("uid-owner");
+    driver.subscribeToProject("p-future", callback, undefined, onFutureVersion);
+    // The snapshot is valid data this build can't consume — it must be routed
+    // to onFutureVersion, not silently Zod-stripped and handed to callback.
+    expect(callback).not.toHaveBeenCalled();
+    expect(onFutureVersion).toHaveBeenCalledTimes(1);
+    expect(onFutureVersion).toHaveBeenCalledWith({
+      schemaVersion: SCHEMA_VERSION + 1,
+      appSchemaVersion: SCHEMA_VERSION,
+    });
+  });
 });
 
 describe("FirestoreDriver.load() – owner re-attachment (H2-1)", () => {
@@ -496,6 +531,78 @@ describe("FirestoreDriver.load() – owner re-attachment (H2-1)", () => {
     const result = await driver.load("p-h21-noowner");
     expect(result).not.toBeNull();
     expect(result?.owner).toBeNull();
+  });
+
+  it("returns null for a future-version document and never write-forwards (v0.50.1)", async () => {
+    setDocSpy.mockClear();
+    vi.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: "p-future",
+      data: () => ({
+        id: "p-future",
+        name: "Future Project",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        schemaVersion: SCHEMA_VERSION + 1,
+        scenarios: [],
+        owner: "uid-owner",
+        members: { "uid-owner": "owner" },
+      }),
+    } as never);
+    const driver = new FirestoreDriver("uid-test");
+    const result = await driver.load("p-future");
+    expect(result).toBeNull();
+    expect(setDocSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("FirestoreDriver.loadAll – future-version classification (v0.50.1)", () => {
+  it("mixed batch: future-version doc becomes an error, valid doc loads, nothing is written", async () => {
+    setDocSpy.mockClear();
+    const docs = [
+      {
+        id: "p-ok",
+        data: () => ({
+          id: "p-ok",
+          name: "Current Project",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          // Exactly SCHEMA_VERSION so the valid doc is not write-forward
+          // eligible — lets the test assert setDoc is never called AT ALL,
+          // which is the corruption-prevention claim, not just classification.
+          schemaVersion: SCHEMA_VERSION,
+          scenarios: [],
+          owner: "uid-owner",
+          members: { "uid-owner": "owner" },
+        }),
+      },
+      {
+        id: "p-future",
+        data: () => ({
+          id: "p-future",
+          name: "Future Project",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          schemaVersion: SCHEMA_VERSION + 1,
+          scenarios: [],
+          owner: "uid-owner",
+          members: { "uid-owner": "owner" },
+        }),
+      },
+    ];
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs } as never);
+
+    const driver = new FirestoreDriver("uid-owner");
+    const { projects, errors } = await driver.loadAll();
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0]!.id).toBe("p-ok");
+    expect(projects[0]!._owner).toBe("uid-owner");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      projectId: "p-future",
+      projectName: "Future Project",
+      type: "future_version",
+      source: "cloud",
+    });
+    expect(setDocSpy).not.toHaveBeenCalled();
   });
 });
 
