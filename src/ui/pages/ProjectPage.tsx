@@ -43,6 +43,12 @@ import { SharingSection } from "@ui/components/SharingSection";
 import { ActivityEditModal } from "@ui/components/ActivityEditModal";
 import { DependencyEditModal } from "@ui/components/DependencyEditModal";
 import { WarningsPanel } from "@ui/components/WarningsPanel";
+import { isFirebaseAvailable } from "@infrastructure/firebase/firebase";
+import { useAiConnectivity } from "@ui/hooks/use-ai-connectivity";
+import { ConnectAiConsentModal } from "@ui/components/ConnectAI/ConnectAiConsentModal";
+import { ConnectAiPanel } from "@ui/components/ConnectAI/ConnectAiPanel";
+import { AI_CONSENT_KEY, AI_SESSION_ID_KEY, AI_CONSENT_VERSION } from "@app/ai-connectivity-constants";
+import type { AiOpResult } from "@app/api/ai-batch-service";
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -173,6 +179,57 @@ export function ProjectPage() {
 
   // Assembled work calendar: work week + holidays + converted work days
   const workCalendar = useWorkCalendar(id ?? "");
+
+  // ── AI Connectivity ──────────────────────────────────────────────────────
+  // Mounted here (not a wrapping layout) because activeScenarioId and the
+  // assembled workCalendar are both local to this component.
+  const applyAiBatch = useProjectStore((s) => s.applyAiBatch);
+  const clearAiUndoFrame = useProjectStore((s) => s.clearAiUndoFrame);
+  const [aiFeed, setAiFeed] = useState<AiOpResult[]>([]);
+  const [showAiConsent, setShowAiConsent] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const handleAiResults = useCallback((results: AiOpResult[]) => {
+    setAiFeed((prev) => [...results, ...prev].slice(0, 100));
+  }, []);
+  const { sessionState, startSession, stopSession, changePermissions } = useAiConnectivity({
+    project: project ?? null,
+    activeScenarioId,
+    workCalendar,
+    applyAiBatch,
+    clearAiUndoFrame,
+    onResults: handleAiResults,
+  });
+  const handleConnectAiClick = useCallback(() => {
+    if (sessionState.sessionActive) {
+      setShowAiPanel(true);
+      return;
+    }
+    const stored = (() => {
+      try {
+        return JSON.parse(localStorage.getItem(AI_CONSENT_KEY) ?? "null") as
+          | { version?: number; read?: boolean }
+          | null;
+      } catch {
+        return null;
+      }
+    })();
+    const storedSessionId = localStorage.getItem(AI_SESSION_ID_KEY);
+    if (stored?.version === AI_CONSENT_VERSION && storedSessionId) {
+      startSession(stored.read ?? false)
+        .then((ok) => { if (ok) setShowAiPanel(true); })
+        .catch(console.error);
+    } else {
+      setShowAiConsent(true);
+    }
+  }, [sessionState.sessionActive, startSession]);
+  const handleAiConsentConnect = useCallback(async (consentRead: boolean) => {
+    const ok = await startSession(consentRead);
+    if (ok) {
+      setShowAiConsent(false);
+      setShowAiPanel(true);
+    }
+    return ok;
+  }, [startSession]);
 
   // Deterministic schedule — uses sequential or dependency-aware engine
   const sequentialSchedule = useSchedule(
@@ -474,6 +531,25 @@ export function ProjectPage() {
           />
         </h1>
         <div className="flex items-center gap-1">
+          {isFirebaseAvailable && (
+            <button
+              onClick={handleConnectAiClick}
+              title={sessionState.sessionActive ? "AI session active" : "Connect an AI assistant"}
+              aria-label={sessionState.sessionActive ? "AI session active" : "Connect an AI assistant"}
+              className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded-md no-print transition-colors ${
+                sessionState.sessionActive
+                  ? "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              }`}
+            >
+              {sessionState.sessionActive && (
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  sessionState.aiConnected ? "bg-blue-500 animate-pulse" : "bg-gray-400"
+                }`} />
+              )}
+              {sessionState.sessionActive ? "AI" : "Connect AI"}
+            </button>
+          )}
           <button
             onClick={() => window.print()}
             className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
@@ -891,6 +967,20 @@ export function ProjectPage() {
           targetRAGColor={targetRAGColor}
         />
       )}
+
+      <ConnectAiConsentModal
+        open={showAiConsent}
+        onClose={() => setShowAiConsent(false)}
+        onConnect={handleAiConsentConnect}
+      />
+      <ConnectAiPanel
+        open={showAiPanel}
+        onClose={() => setShowAiPanel(false)}
+        sessionState={sessionState}
+        onChangePermissions={changePermissions}
+        onDisconnect={stopSession}
+        feedItems={aiFeed}
+      />
     </div>
   );
 }

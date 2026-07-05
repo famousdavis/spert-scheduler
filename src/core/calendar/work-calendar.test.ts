@@ -8,7 +8,10 @@ import {
   buildWorkCalendar,
   ProjectWorkCalendar,
   CalendarConfigurationError,
+  advanceToNextWorkingDay,
+  CALENDAR_ITERATION_LIMIT_MESSAGE,
 } from "./work-calendar";
+import { addWorkingDays, countWorkingDays } from "./calendar";
 import type { Holiday } from "@domain/models/types";
 
 // ---------------------------------------------------------------------------
@@ -499,5 +502,100 @@ describe("forcedWorkDays (global-holiday overrides)", () => {
       forcedWorkDays: ["2025-01-04"], // Saturday, no holiday anywhere
     });
     expect(cal.isWorkDay(new Date(2025, 0, 4))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// advanceToNextWorkingDay — the shared seed-advance helper that replaced every
+// unguarded `while (!isWorkingDay(...)) { date.setDate(...) }` loop in the repo.
+// ---------------------------------------------------------------------------
+
+describe("advanceToNextWorkingDay", () => {
+  const workWeek = () => buildWorkCalendar([1, 2, 3, 4, 5], [], []);
+
+  it("returns the same day (cloned, never the same reference) when the seed is already a working day", () => {
+    const cal = workWeek();
+    const monday = new Date(2025, 0, 6); // Monday
+    const result = advanceToNextWorkingDay(monday, cal);
+    expect(result.getTime()).toBe(monday.getTime());
+    expect(result).not.toBe(monday);
+  });
+
+  it("advances a weekend seed to the next working day", () => {
+    const cal = workWeek();
+    // Sat Jan 4 2025 → Mon Jan 6 (Sun Jan 5 also skipped)
+    const result = advanceToNextWorkingDay(new Date(2025, 0, 4), cal);
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(0);
+    expect(result.getDate()).toBe(6);
+    expect(result.getDay()).toBe(1); // Monday
+  });
+
+  it("advances a holiday seed to the next working day", () => {
+    const holidays: Holiday[] = [
+      { id: "1", name: "Holiday", startDate: "2025-01-06", endDate: "2025-01-06" },
+    ];
+    const cal = buildWorkCalendar([1, 2, 3, 4, 5], holidays, []);
+    // Mon Jan 6 is a holiday → Tue Jan 7
+    const result = advanceToNextWorkingDay(new Date(2025, 0, 6), cal);
+    expect(result.getDate()).toBe(7);
+  });
+
+  it("does not mutate the input date", () => {
+    const cal = workWeek();
+    const input = new Date(2025, 0, 4); // Saturday
+    const originalTime = input.getTime();
+    advanceToNextWorkingDay(input, cal);
+    expect(input.getTime()).toBe(originalTime);
+  });
+
+  it("throws CalendarConfigurationError (bounded, not a hang) on a zero-working-day calendar", () => {
+    const cal = buildWorkCalendar([], [], []); // no work days at all
+    expect(() => advanceToNextWorkingDay(new Date(2025, 0, 6), cal)).toThrow(
+      CalendarConfigurationError
+    );
+  });
+
+  it("uses the built-in Mon-Fri fallback when no calendar is passed", () => {
+    // Sat Jan 4 → Mon Jan 6 with the default weekend fallback
+    const result = advanceToNextWorkingDay(new Date(2025, 0, 4));
+    expect(result.getDate()).toBe(6);
+    expect(result.getDay()).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CALENDAR_ITERATION_LIMIT_MESSAGE — prefix contract for the AI-snapshot
+// classifier (§4.7). The free-standing calendar.ts helpers throw plain Errors
+// whose two distinct messages must both start with this exported constant, so
+// the classifier can match by prefix rather than by a duplicated literal.
+// ---------------------------------------------------------------------------
+
+describe("CALENDAR_ITERATION_LIMIT_MESSAGE", () => {
+  it("is the prefix of addWorkingDays' 'excessive consecutive holidays' message", () => {
+    const cal = buildWorkCalendar([], [], []); // impossible: never finds a work day
+    let message = "";
+    try {
+      addWorkingDays(new Date(2025, 0, 6), 1, cal);
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).not.toBe("");
+    expect(message.startsWith(CALENDAR_ITERATION_LIMIT_MESSAGE)).toBe(true);
+    expect(message).toContain("excessive consecutive holidays"); // distinct suffix #1
+  });
+
+  it("is the prefix of countWorkingDays' distinct 'date range too large' message", () => {
+    const cal = buildWorkCalendar([1, 2, 3, 4, 5], [], []);
+    // A span > MAX_CALENDAR_ITERATIONS days trips the count guard regardless of calendar.
+    let message = "";
+    try {
+      countWorkingDays(new Date(2025, 0, 1), new Date(2065, 0, 1), cal);
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).not.toBe("");
+    expect(message.startsWith(CALENDAR_ITERATION_LIMIT_MESSAGE)).toBe(true);
+    expect(message).toContain("date range too large"); // distinct suffix #2
   });
 });

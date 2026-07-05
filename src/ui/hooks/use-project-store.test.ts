@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useProjectStore, type LoadError } from "./use-project-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import { createProject } from "@app/api/project-service";
+import type { AiOp } from "@app/api/ai-batch-service";
 
 describe("useProjectStore", () => {
   beforeEach(() => {
@@ -608,6 +609,142 @@ describe("useProjectStore", () => {
       useProjectStore.getState().undo();
       const reverted = useProjectStore.getState().getProject(project.id)!;
       expect(reverted.scenarios[0]!.notes).toBeUndefined();
+    });
+  });
+
+  describe("applyAiBatch (§4.4)", () => {
+    const s = () => useProjectStore.getState();
+
+    function seedProject() {
+      const project = s().addProject("AI Project", null);
+      return { projectId: project.id, scenarioId: project.scenarios[0]!.id };
+    }
+
+    // A create_activity op always changes the project, so it always opens or
+    // extends an AI undo frame.
+    function actOp(scenarioId: string | undefined, id: string): AiOp {
+      return { seq: 1, op: "create_activity", payload: { scenarioId, id, name: id, min: 1, mostLikely: 2, max: 3 } };
+    }
+
+    it("pushes one AI undo frame for a changing batch", () => {
+      const { projectId, scenarioId } = seedProject();
+      const before = s().undoStack.length;
+      const results = s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      expect(results[0]!.outcome).toEqual({ status: "applied" });
+      expect(s().undoStack.length).toBe(before + 1);
+    });
+
+    it("extends the same frame for a second batch within the idle window (no new frame)", () => {
+      const { projectId, scenarioId } = seedProject();
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      const afterFirst = s().undoStack.length;
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a2")], scenarioId);
+      expect(s().undoStack.length).toBe(afterFirst); // extended, not a fresh push
+    });
+
+    it("does not push a frame for a no-op batch, and reports the skip reason", () => {
+      const { projectId, scenarioId } = seedProject();
+      const before = s().undoStack.length;
+      const results = s().applyAiBatch(
+        projectId,
+        [{ seq: 1, op: "rename_activity", payload: { scenarioId, id: "ghost", name: "X" } }],
+        scenarioId
+      );
+      expect(results[0]!.outcome).toEqual({ status: "skipped", reason: "not_found" });
+      expect(s().undoStack.length).toBe(before);
+    });
+
+    it("returns all-not_found for a missing project without touching state", () => {
+      const results = s().applyAiBatch("ghost-project", [actOp("sc", "a1")], "sc");
+      expect(results[0]!.outcome).toEqual({ status: "skipped", reason: "not_found" });
+    });
+
+    it("undo clears the frame so the next batch opens a fresh one", () => {
+      const { projectId, scenarioId } = seedProject();
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      s().undo();
+      const afterUndo = s().undoStack.length;
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a2")], scenarioId);
+      expect(s().undoStack.length).toBe(afterUndo + 1); // fresh, not extend
+    });
+
+    it("setProjects clears the frame so the next batch opens a fresh one", () => {
+      const { projectId, scenarioId } = seedProject();
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      s().setProjects(s().projects); // wipes undoStack + clears the frame
+      const afterSet = s().undoStack.length;
+      expect(afterSet).toBe(0);
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a2")], scenarioId);
+      expect(s().undoStack.length).toBe(1); // fresh frame; would stay 0 if it extended
+    });
+
+    it("importProjects replacing the paired project clears the frame", () => {
+      const { projectId, scenarioId } = seedProject();
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      const replacement = { ...createProject("Replaced"), id: projectId };
+      s().importProjects({
+        importedProjects: [replacement],
+        decisions: [{ importedProjectId: projectId, kind: "id", originalExistingId: projectId, action: "replace" }],
+      });
+      const afterImport = s().undoStack.length; // projectId entries filtered out
+      const newScenarioId = s().getProject(projectId)!.scenarios[0]!.id;
+      s().applyAiBatch(projectId, [actOp(newScenarioId, "b1")], newScenarioId);
+      expect(s().undoStack.length).toBe(afterImport + 1); // fresh, not extend
+    });
+
+    it("a plain human edit ends the frame (pushUndo's first line)", () => {
+      const { projectId, scenarioId } = seedProject();
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      s().updateScenarioNotes(projectId, scenarioId, "a human note"); // runs pushUndo → clears frame
+      const afterHuman = s().undoStack.length;
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a2")], scenarioId);
+      expect(s().undoStack.length).toBe(afterHuman + 1); // fresh, not extend
+    });
+
+    it("a grouped human edit clears the frame at group open (beginUndoGroup runs pushUndo first)", () => {
+      const { projectId, scenarioId } = seedProject();
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      s().beginUndoGroup(projectId); // pushUndo runs before activeUndoGroup is set → clears frame
+      s().endUndoGroup(); // no clear here, and none needed
+      const afterGroup = s().undoStack.length;
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a2")], scenarioId);
+      expect(s().undoStack.length).toBe(afterGroup + 1); // fresh, not extend
+    });
+
+    it("clearAiUndoFrame (hook teardown) ends the frame so a re-pairing opens fresh", () => {
+      const { projectId, scenarioId } = seedProject();
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      const afterFirst = s().undoStack.length;
+      s().clearAiUndoFrame(projectId); // teardown for this project's pairing
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a2")], scenarioId);
+      expect(s().undoStack.length).toBe(afterFirst + 1); // fresh, not extend
+    });
+
+    it("clearAiUndoFrame is scoped: a different project's id does not end the frame", () => {
+      const { projectId, scenarioId } = seedProject();
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId);
+      const afterFirst = s().undoStack.length;
+      s().clearAiUndoFrame("some-other-project"); // must not affect this frame
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a2")], scenarioId);
+      expect(s().undoStack.length).toBe(afterFirst); // still extends
+    });
+
+    it("emits a cloud save for a changing batch and none for a no-op batch", async () => {
+      const { projectId, scenarioId } = seedProject();
+      const saves: string[] = [];
+      const unsub = cloudSyncBus.subscribe((e) => {
+        if (e.type === "save") saves.push(e.projectId);
+      });
+      s().applyAiBatch(projectId, [actOp(scenarioId, "a1")], scenarioId); // changes → persist → emit
+      s().applyAiBatch(
+        projectId,
+        [{ seq: 1, op: "rename_activity", payload: { scenarioId, id: "ghost", name: "X" } }],
+        scenarioId
+      ); // no-op → no persist → no emit
+      // persist() defers emitSave via queueMicrotask; flush it.
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+      unsub();
+      expect(saves).toEqual([projectId]);
     });
   });
 

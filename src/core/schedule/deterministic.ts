@@ -11,7 +11,7 @@ import type {
   Milestone,
   ScheduledActivity,
 } from "@domain/models/types";
-import type { WorkCalendar } from "@core/calendar/work-calendar";
+import { advanceToNextWorkingDay, type WorkCalendar } from "@core/calendar/work-calendar";
 import { createDistributionForActivity } from "@core/distributions/factory";
 import {
   addWorkingDays,
@@ -21,7 +21,6 @@ import {
   countWorkingDays,
   formatDateISO,
   parseDateISO,
-  isWorkingDay,
 } from "@core/calendar/calendar";
 import { buildDependencyGraph, computeCriticalPathDuration } from "./dependency-graph";
 import {
@@ -89,9 +88,7 @@ export function computeDeterministicSchedule(
   let currentDate = parseDateISO(startDate);
 
   // Ensure start date is a working day
-  while (!isWorkingDay(currentDate, calendar)) {
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
+  currentDate = advanceToNextWorkingDay(currentDate, calendar);
 
   for (const activity of activities) {
     const isActual = activity.status === "complete" && activity.actualDuration != null;
@@ -260,10 +257,8 @@ export function computeDependencySchedule(
   // Activity lookup
   const activityMap = new Map(activities.map((a) => [a.id, a]));
 
-  const projectStart = parseDateISO(startDate);
-  while (!isWorkingDay(projectStart, calendar)) {
-    projectStart.setDate(projectStart.getDate() + 1);
-  }
+  let projectStart = parseDateISO(startDate);
+  projectStart = advanceToNextWorkingDay(projectStart, calendar);
 
   // -- Forward pass (with constraint tracking) --------------------------------
   // For each activity, compute:
@@ -341,10 +336,8 @@ export function computeDependencySchedule(
     if (activity.startsAtMilestoneId && milestones) {
       const milestone = milestones.find((m) => m.id === activity.startsAtMilestoneId);
       if (milestone) {
-        const milestoneDate = parseDateISO(milestone.targetDate);
-        while (!isWorkingDay(milestoneDate, calendar)) {
-          milestoneDate.setDate(milestoneDate.getDate() + 1);
-        }
+        let milestoneDate = parseDateISO(milestone.targetDate);
+        milestoneDate = advanceToNextWorkingDay(milestoneDate, calendar);
         if (milestoneDate > activityStart) {
           activityStart = milestoneDate;
         }
@@ -352,9 +345,7 @@ export function computeDependencySchedule(
     }
 
     // Ensure start is a working day
-    while (!isWorkingDay(activityStart, calendar)) {
-      activityStart.setDate(activityStart.getDate() + 1);
-    }
+    activityStart = advanceToNextWorkingDay(activityStart, calendar);
 
     const activityEnd = activityEndDate(activityStart, duration, calendar);
 

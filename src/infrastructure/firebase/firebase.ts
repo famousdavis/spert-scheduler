@@ -90,3 +90,28 @@ export function getResendInvite(): HttpsCallable<
 > | null {
   return functions ? httpsCallable(functions, "resendInvite") : null;
 }
+
+/**
+ * AI Connectivity: server-side session teardown (best-effort). Deletes the
+ * shared anonymous-session doc + its subcollections when a pairing ends. If it
+ * fails, the session's `expiresAt` TTL cleans up within 7 days.
+ */
+export function getTeardownAiSession(): HttpsCallable<
+  { sessionId: string },
+  { success?: boolean }
+> | null {
+  return functions ? httpsCallable(functions, "teardownAiSession") : null;
+}
+
+/**
+ * AI Connectivity: mint a single-use WORD-NNNN pairing code for an AI session.
+ * `sessionId` is the anonymous-session capability token created by the
+ * connectivity hook. The user reads the code aloud/pastes it to their AI, which
+ * calls `resolve_session_code` on the MCP server.
+ */
+export function getGeneratePairingCode(): HttpsCallable<
+  { sessionId: string },
+  { code: string; expiresAt: string }
+> | null {
+  return functions ? httpsCallable(functions, "generatePairingCode") : null;
+}

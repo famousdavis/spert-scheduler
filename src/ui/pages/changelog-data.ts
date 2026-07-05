@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.51.0",
+    date: "2026-07-05",
+    sections: [
+      {
+        title: "Added — Connect AI: work on your project with an AI assistant",
+        items: [
+          "You can now connect an AI assistant to the project you have open and let it read and edit your schedule for you. Click Connect AI, approve the connection, and you'll get a short pairing code to give your AI client. From then on the assistant can make changes — and each one is shown in a live feed as it happens. The app never sends your data to an AI on its own; it only applies the changes the assistant asks for, in order, through the same checks your own edits go through. Disconnect at any time to end the session.",
+          "You stay in control with two levels of access. Read access lets the assistant see a snapshot of your project only. Edit access — which you approve separately — is required before it can change anything.",
+          "What an assistant can do: create activities and update their three-point estimates, confidence, and distribution; add notes, checklist items, and deliverables; create and edit milestones and assign activities to them; and add, remove, or change dependencies (dependency mode must already be on for that scenario). What it can't do, on purpose: delete activities, milestones, scenarios, or projects; create or copy scenarios; change scheduling constraints or an activity's status; or start a simulation run.",
+          "Works with both local and cloud-synced projects, and a whole set of AI changes can be undone in one step.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.50.1",
     date: "2026-07-03",
     sections: [

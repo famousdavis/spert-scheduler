@@ -7,6 +7,8 @@ import type {
   Activity,
   ActivityBand,
   Calendar,
+  ChecklistItem,
+  DeliverableItem,
   ScenarioSettings,
 } from "@domain/models/types";
 import {
@@ -396,6 +398,69 @@ export function addActivityToScenario(
     bands: newBands,
     simulationResults: undefined, // Invalidate stale results
   };
+}
+
+/**
+ * A single qualitative-content change to an activity: append a note, add or
+ * toggle checklist/deliverable items. Distinct from {@link updateActivity} in
+ * that it is **non-invalidating** — none of these edits change the schedule, so
+ * `simulationResults` is deliberately left intact.
+ */
+export type QualitativePatch =
+  | { op: "appendNote"; text: string }
+  | { op: "addChecklistItems"; items: ChecklistItem[] }
+  | { op: "toggleChecklistItem"; itemId: string; completed: boolean }
+  | { op: "addDeliverableItems"; items: DeliverableItem[] }
+  | { op: "toggleDeliverableItem"; itemId: string; completed: boolean };
+
+/**
+ * Apply a qualitative-content patch to one activity. Always allocates (callers
+ * gate no-ops upstream). Coalesces `notes ?? ""`, `checklist ?? []`, and
+ * `deliverables ?? []` on read: the human-creation path ({@link createActivity})
+ * omits all three fields, so they are `undefined` on human-created activities,
+ * and these ops target any activity by id — reading them defensively is
+ * required, not optional. Does NOT touch `simulationResults`.
+ */
+export function patchActivityQualitative(
+  scenario: Scenario,
+  activityId: string,
+  patch: QualitativePatch
+): Scenario {
+  return {
+    ...scenario,
+    activities: scenario.activities.map((a) =>
+      a.id === activityId ? applyQualitativePatch(a, patch) : a
+    ),
+  };
+}
+
+function applyQualitativePatch(activity: Activity, patch: QualitativePatch): Activity {
+  switch (patch.op) {
+    case "appendNote": {
+      // Explicit coalescing (not the ternary's incidental undefined-safety):
+      // `notes` is undefined on human-created activities.
+      const current = activity.notes ?? "";
+      return { ...activity, notes: current ? `${current}\n\n${patch.text}` : patch.text };
+    }
+    case "addChecklistItems":
+      return { ...activity, checklist: [...(activity.checklist ?? []), ...patch.items] };
+    case "toggleChecklistItem":
+      return {
+        ...activity,
+        checklist: (activity.checklist ?? []).map((it) =>
+          it.id === patch.itemId ? { ...it, completed: patch.completed } : it
+        ),
+      };
+    case "addDeliverableItems":
+      return { ...activity, deliverables: [...(activity.deliverables ?? []), ...patch.items] };
+    case "toggleDeliverableItem":
+      return {
+        ...activity,
+        deliverables: (activity.deliverables ?? []).map((it) =>
+          it.id === patch.itemId ? { ...it, completed: patch.completed } : it
+        ),
+      };
+  }
 }
 
 export function removeActivityFromScenario(

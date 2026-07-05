@@ -15,6 +15,7 @@ import {
   removeActivityFromScenario,
   insertActivityAfter,
   insertActivityAfterBand,
+  patchActivityQualitative,
 } from "./project-service";
 import type { Project, Scenario, SimulationRun } from "@domain/models/types";
 import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION } from "@domain/models/types";
@@ -37,6 +38,89 @@ describe("createProject", () => {
   it("uses provided startDate for Baseline", () => {
     const project = createProject("Test", "2025-06-01");
     expect(project.scenarios[0]!.startDate).toBe("2025-06-01");
+  });
+});
+
+describe("patchActivityQualitative", () => {
+  // createActivity omits notes/checklist/deliverables → all undefined. These
+  // ops target ANY activity by id, so the common case is a human-created
+  // activity with all three fields undefined; the transform must coalesce, not
+  // assume the arrays/string are present.
+  function humanActivityScenario() {
+    const scenario = createScenario("Test", "2025-01-06");
+    const a = createActivity("Task 1", scenario.settings);
+    return { scenario: addActivityToScenario(scenario, a), id: a.id };
+  }
+
+  it("createActivity omits notes/checklist/deliverables (fixture premise)", () => {
+    const { scenario, id } = humanActivityScenario();
+    const a = scenario.activities.find((x) => x.id === id)!;
+    expect(a.notes).toBeUndefined();
+    expect(a.checklist).toBeUndefined();
+    expect(a.deliverables).toBeUndefined();
+  });
+
+  it("appendNote on undefined notes yields exactly the new text (no 'undefined' prefix)", () => {
+    const { scenario, id } = humanActivityScenario();
+    const updated = patchActivityQualitative(scenario, id, { op: "appendNote", text: "First note" });
+    expect(updated.activities.find((a) => a.id === id)!.notes).toBe("First note");
+  });
+
+  it("appendNote separates from existing notes with a blank line", () => {
+    const { scenario, id } = humanActivityScenario();
+    let s = patchActivityQualitative(scenario, id, { op: "appendNote", text: "First" });
+    s = patchActivityQualitative(s, id, { op: "appendNote", text: "Second" });
+    expect(s.activities.find((a) => a.id === id)!.notes).toBe("First\n\nSecond");
+  });
+
+  it("addChecklistItems on undefined checklist starts a fresh array (no throw)", () => {
+    const { scenario, id } = humanActivityScenario();
+    const updated = patchActivityQualitative(scenario, id, {
+      op: "addChecklistItems",
+      items: [{ id: "c1", text: "Do X", completed: false }],
+    });
+    expect(updated.activities.find((a) => a.id === id)!.checklist).toEqual([
+      { id: "c1", text: "Do X", completed: false },
+    ]);
+  });
+
+  it("addDeliverableItems on undefined deliverables starts a fresh array (no throw)", () => {
+    const { scenario, id } = humanActivityScenario();
+    const updated = patchActivityQualitative(scenario, id, {
+      op: "addDeliverableItems",
+      items: [{ id: "d1", text: "Ship Y", completed: false }],
+    });
+    expect(updated.activities.find((a) => a.id === id)!.deliverables).toEqual([
+      { id: "d1", text: "Ship Y", completed: false },
+    ]);
+  });
+
+  it("toggleChecklistItem flips completed on the matching item", () => {
+    const { scenario, id } = humanActivityScenario();
+    let s = patchActivityQualitative(scenario, id, {
+      op: "addChecklistItems",
+      items: [{ id: "c1", text: "Do X", completed: false }],
+    });
+    s = patchActivityQualitative(s, id, { op: "toggleChecklistItem", itemId: "c1", completed: true });
+    expect(s.activities.find((a) => a.id === id)!.checklist![0]!.completed).toBe(true);
+  });
+
+  it("toggleDeliverableItem against an undefined array does not throw (coalesces to [])", () => {
+    const { scenario, id } = humanActivityScenario();
+    const updated = patchActivityQualitative(scenario, id, {
+      op: "toggleDeliverableItem",
+      itemId: "missing",
+      completed: true,
+    });
+    expect(updated.activities.find((a) => a.id === id)!.deliverables).toEqual([]);
+  });
+
+  it("is non-invalidating: preserves simulationResults", () => {
+    const { scenario, id } = humanActivityScenario();
+    const fakeResults = { id: "sim1" } as unknown as SimulationRun;
+    const withResults = { ...scenario, simulationResults: fakeResults };
+    const updated = patchActivityQualitative(withResults, id, { op: "appendNote", text: "note" });
+    expect(updated.simulationResults).toBe(fakeResults);
   });
 });
 

@@ -2,11 +2,11 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Activity, Calendar, Milestone, ActivityDependency } from "@domain/models/types";
-import type { WorkCalendar } from "@core/calendar/work-calendar";
+import { advanceToNextWorkingDay, type WorkCalendar } from "@core/calendar/work-calendar";
 import type { DependencySimulationParams } from "@core/simulation/worker-client";
 import { computeDeterministicDurations, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
-import { parseDateISO, isWorkingDay, countWorkingDays } from "@core/calendar/calendar";
+import { parseDateISO, countWorkingDays } from "@core/calendar/calendar";
 
 /** Per-activity constraint info for sequential MC (parallel to activities array). */
 export type SequentialConstraintEntry = { type: string; offsetFromStart: number; mode: string } | null;
@@ -33,17 +33,13 @@ function resolveConstraintOffsets(
   );
   if (constrained.length === 0) return undefined;
 
-  const projStart = parseDateISO(startDate);
-  while (!isWorkingDay(projStart, calendar)) {
-    projStart.setDate(projStart.getDate() + 1);
-  }
+  let projStart = parseDateISO(startDate);
+  projStart = advanceToNextWorkingDay(projStart, calendar);
 
   const map: Record<string, ConstraintOffsetEntry> = {};
   for (const a of constrained) {
-    const cDate = parseDateISO(a.constraintDate!);
-    while (!isWorkingDay(cDate, calendar)) {
-      cDate.setDate(cDate.getDate() + 1);
-    }
+    let cDate = parseDateISO(a.constraintDate!);
+    cDate = advanceToNextWorkingDay(cDate, calendar);
     map[a.id] = {
       type: a.constraintType!,
       offsetFromStart: countWorkingDays(projStart, cDate, calendar),

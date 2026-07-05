@@ -1,8 +1,8 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import type { Holiday } from "@domain/models/types";
-import { formatDateISO, parseDateISO } from "./calendar";
+import type { Calendar, Holiday } from "@domain/models/types";
+import { formatDateISO, isWorkingDay, parseDateISO } from "./calendar";
 
 /** Maximum iterations for working day calculations to prevent infinite loops */
 const MAX_CALENDAR_ITERATIONS = 10000;
@@ -94,6 +94,46 @@ export function buildHolidaySet(holidays: Holiday[]): Set<string> {
     }
   }
   return set;
+}
+
+// -- advanceToNextWorkingDay -------------------------------------------------
+
+/**
+ * Prefix shared by the free-standing `calendar.ts` helpers' plain-`Error`
+ * iteration-limit messages (`addWorkingDays`/`subtractWorkingDays` →
+ * "…- check for excessive consecutive holidays", `countWorkingDays` →
+ * "…- date range too large"). Exported so the AI-snapshot classifier
+ * (see the connectivity hook) can match those throws by
+ * `message.startsWith(CALENDAR_ITERATION_LIMIT_MESSAGE)` against this symbol
+ * rather than a duplicated literal that could silently drift.
+ */
+export const CALENDAR_ITERATION_LIMIT_MESSAGE = "Calendar iteration limit exceeded";
+
+/**
+ * Advance a date forward to the next working day, bounded so a calendar with
+ * no working days (all-non-working work week, excessive holidays) throws a
+ * {@link CalendarConfigurationError} instead of looping forever.
+ *
+ * Non-mutating: clones the input and returns a new Date. Call sites that
+ * previously advanced a date in place must reassign the returned value (or,
+ * for a function whose contract is to mutate its argument, copy the result
+ * back with `date.setTime(...)`).
+ */
+export function advanceToNextWorkingDay(
+  date: Date,
+  calendar?: WorkCalendar | Calendar
+): Date {
+  const d = new Date(date);
+  let iterations = 0;
+  while (!isWorkingDay(d, calendar)) {
+    if (++iterations > MAX_CALENDAR_ITERATIONS) {
+      throw new CalendarConfigurationError(
+        "No working day found within the configured calendar — check for an all-non-working work week or excessive holidays."
+      );
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
 }
 
 // -- ProjectWorkCalendar -----------------------------------------------------
