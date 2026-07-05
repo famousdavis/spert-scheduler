@@ -9,6 +9,9 @@
 
 export const AI_CONSENT_VERSION = 1;
 
+/** Suite-wide AI privacy notice (shared across SPERT apps). */
+export const AI_PRIVACY_URL = "https://spertsuite.com/ai-privacy";
+
 // localStorage keys — Scheduler-namespaced.
 export const AI_SESSION_ID_KEY = "spert_scheduler_ai_session_id";
 export const AI_CONSENT_KEY = "spert_scheduler_ai_consent";
