@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.51.0 — 2026-07-05
+
+### Added — Connect AI (read and edit a live project from an AI assistant)
+
+- **New "Connect AI" feature.** An external AI assistant can now read and modify the project you have open in the browser, through the shared SPERT Suite MCP (Model Context Protocol) server. The app itself never calls an AI API — it only drains operation documents the AI writes into a per-browser-session Firestore document tree, and writes back a read-only snapshot of current project state for the AI to read. This mirrors the AI Connectivity feature already shipping in SPERT Story Map, extended to Scheduler's richer, validation-sensitive data model (three-point estimates, distribution types, the dependency graph, milestones, and Monte Carlo simulation results).
+- **How connecting works.** Opening Connect AI creates the session document tree and shows a pairing code (word·number, e.g. `NEITHER·4983`). You give the code to your AI client; the paired browser applies each incoming operation **in order** through the app's own existing pure state-mutation functions, so every AI edit passes the same validation as a manual edit. A live feed shows each applied operation as it lands; Disconnect tears the session down.
+- **Two-tier consent (matches Story Map's shipped model).** A consent modal gates the initial connection. Read Mode exposes only the read-only snapshot; Write Mode is required before any mutation is applied.
+- **What the AI can do (v1).** Create activities; rename them and change their three-point estimate, confidence level, and distribution type (these invalidate simulation results — distribution auto-recommendation applies only at create time). Append notes, add checklist and deliverable items, and toggle existing checklist/deliverable items (these do not invalidate results). Create milestones, edit milestone name/target date, and assign or unassign an activity. Create, remove, and update dependency edges — this requires the target scenario's dependency mode to already be enabled by you. A whole AI batch applies as a single undo frame.
+- **What the AI cannot do (v1), by design.** Delete activities, milestones, scenarios, or projects (dependency-edge removal is the single deletion-shaped exception); create or clone scenarios; edit scheduling constraints; change activity status or actual duration; write scenario settings (dependency-mode and lock state are read-only inputs only); reorder activities or edit band structure; or trigger simulation runs.
+- **Both local-only and cloud-synced projects are supported from day one.**
+- 136 new tests (1,719 → 1,855 across 86 files); all pass. No schema change — `SCHEMA_VERSION` stays 22. The feature relies on the shared MCP server and a Firestore rules update, both already deployed to the `spert-suite` Firebase project.
+
 ## 0.50.1 — 2026-07-03
 
 ### Fixed — cloud future-version guard (closes the v0.50.0 known limitation)
