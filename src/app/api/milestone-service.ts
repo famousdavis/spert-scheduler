@@ -7,9 +7,10 @@ import { generateId } from "./id";
 export function addMilestone(
   scenario: Scenario,
   name: string,
-  targetDate: string
+  targetDate: string,
+  id: string = generateId()
 ): Scenario {
-  const milestone: Milestone = { id: generateId(), name, targetDate };
+  const milestone: Milestone = { id, name, targetDate };
   return {
     ...scenario,
     milestones: [...scenario.milestones, milestone],
@@ -38,6 +39,11 @@ export function updateMilestone(
   milestoneId: string,
   updates: Partial<Omit<Milestone, "id">>
 ): Scenario {
+  const milestone = scenario.milestones.find((m) => m.id === milestoneId);
+  if (!milestone) return scenario; // existence guard (ref-equal)
+  // Value-equality: every provided field already matches → no-op (ref-equal).
+  const keys = Object.keys(updates) as Array<keyof Omit<Milestone, "id">>;
+  if (keys.every((k) => updates[k] === milestone[k])) return scenario;
   return {
     ...scenario,
     milestones: scenario.milestones.map((m) =>
@@ -52,11 +58,19 @@ export function assignActivityToMilestone(
   activityId: string,
   milestoneId: string | null
 ): Scenario {
+  const activity = scenario.activities.find((a) => a.id === activityId);
+  if (!activity) return scenario; // activity must exist (ref-equal)
+  // When assigning (not unassigning), the milestone must exist too.
+  if (milestoneId !== null && !scenario.milestones.some((m) => m.id === milestoneId)) {
+    return scenario;
+  }
+  const nextMilestoneId = milestoneId ?? undefined;
+  if (activity.milestoneId === nextMilestoneId) return scenario; // value-equality (ref-equal)
   return {
     ...scenario,
     activities: scenario.activities.map((a) =>
       a.id === activityId
-        ? { ...a, milestoneId: milestoneId ?? undefined }
+        ? { ...a, milestoneId: nextMilestoneId }
         : a
     ),
     simulationResults: undefined,

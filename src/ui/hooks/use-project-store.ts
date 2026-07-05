@@ -57,6 +57,11 @@ import {
 import type { CloneOptions } from "@app/api/project-service";
 import { generateId } from "@app/api/id";
 import {
+  applyAiOpsToProject,
+  type AiOp,
+  type AiOpResult,
+} from "@app/api/ai-batch-service";
+import {
   LocalStorageRepository,
   type LoadError,
   stripSimulationSamples,
@@ -236,6 +241,15 @@ export interface ProjectStore {
   canRedo: () => boolean;
   beginUndoGroup: (projectId: string) => void;
   endUndoGroup: () => void;
+  /**
+   * Apply a batch of AI-connectivity operations to a project (§4.4). Routes ops
+   * to their target scenario, groups the pairing session's batches into one
+   * coarse undo frame, and persists (cloud sync fires via persist). Returns a
+   * per-op result list for the provenance feed.
+   */
+  applyAiBatch: (projectId: string, ops: AiOp[], openScenarioId: string | null) => AiOpResult[];
+  /** Clear the active AI undo frame if it targets this project (hook teardown). */
+  clearAiUndoFrame: (projectId: string) => void;
 
   // Project CRUD
   loadProjects: () => void;
@@ -560,8 +574,56 @@ function persist(projects: Project[], projectId?: string) {
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => {
+  // -- AI-batch undo frame (§4.4) -----------------------------------------
+  // Collapses an AI pairing session's batches into one coarse undo frame.
+  // Store-singleton lifetime; cleared on the human-edit path (pushUndo's first
+  // line, which fires even at the open of a beginUndoGroup) and at the
+  // teardown/replacement sites (undo/redo/setProjects/clearAllData/
+  // importProjects + the hook's own teardown via clearAiUndoFrame). endUndoGroup
+  // deliberately gets no clear: the group's first edit already ran pushUndo.
+  let activeAiUndoFrame: { projectId: string; lastActivityAt: number } | null = null;
+  const AI_SESSION_IDLE_MS = 5 * 60 * 1000;
+
+  /**
+   * Undo push for an AI batch. Like pushUndo but omits both the group
+   * suppression check and the activeAiUndoFrame clear — pushOrExtendAiUndoFrame
+   * owns that frame's lifecycle.
+   */
+  function pushUndoForAiBatch(projectId: string) {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) return;
+    set((state) => ({
+      undoStack: [
+        ...state.undoStack.slice(-(UNDO_STACK_LIMIT - 1)),
+        { projectId, snapshot: snapshotProject(project) },
+      ],
+      redoStack: [],
+    }));
+  }
+
+  /**
+   * Open a fresh AI undo frame, or extend the current one when it targets the
+   * same project within the idle window (so a burst of AI batches collapses to
+   * a single undo entry).
+   */
+  function pushOrExtendAiUndoFrame(projectId: string) {
+    const now = Date.now();
+    if (
+      activeAiUndoFrame?.projectId === projectId &&
+      now - activeAiUndoFrame.lastActivityAt < AI_SESSION_IDLE_MS
+    ) {
+      activeAiUndoFrame.lastActivityAt = now;
+      return;
+    }
+    pushUndoForAiBatch(projectId);
+    activeAiUndoFrame = { projectId, lastActivityAt: now };
+  }
+
   /** Push current project state to undo stack before mutating */
   function pushUndo(projectId: string) {
+    // Any human edit ends an AI undo frame for this project so the next AI batch
+    // opens a fresh frame rather than silently extending an invalidated one.
+    if (activeAiUndoFrame?.projectId === projectId) activeAiUndoFrame = null;
     // Suppress repeated pushes from the same project while a commit-based
     // group is active — collapses a notes-editing session into one entry.
     if (activeUndoGroup?.projectId === projectId) return;
@@ -611,6 +673,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     // Close any active group before popping so subsequent edits in the same
     // textarea start a fresh group via the defensive onChange wiring.
     activeUndoGroup = null;
+    activeAiUndoFrame = null;
     const { undoStack, projects } = get();
     if (undoStack.length === 0) return;
     const entry = undoStack[undoStack.length - 1]!;
@@ -635,6 +698,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   redo: () => {
     activeUndoGroup = null;
+    activeAiUndoFrame = null;
     const { redoStack, projects } = get();
     if (redoStack.length === 0) return;
     const entry = redoStack[redoStack.length - 1]!;
@@ -668,6 +732,30 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   endUndoGroup: () => {
     activeUndoGroup = null;
+  },
+
+  applyAiBatch: (projectId, ops, openScenarioId) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) {
+      return ops.map((op): AiOpResult => ({
+        op,
+        outcome: { status: "skipped", reason: "not_found" },
+      }));
+    }
+    const { project: next, results } = applyAiOpsToProject(project, ops, openScenarioId);
+    if (next !== project) {
+      pushOrExtendAiUndoFrame(projectId);
+      set((state) => {
+        const projects = state.projects.map((p) => (p.id === projectId ? next : p));
+        persist(projects, projectId); // persist() emits cloudSyncBus.emitSave(projectId)
+        return { projects };
+      });
+    }
+    return results;
+  },
+
+  clearAiUndoFrame: (projectId) => {
+    if (activeAiUndoFrame?.projectId === projectId) activeAiUndoFrame = null;
   },
 
   loadProjects: () => {
@@ -1425,6 +1513,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       };
     });
 
+    // Clear an AI undo frame pointing at a replaced project — its stack entries
+    // were just filtered out, so the next batch would take the extend branch and
+    // push nothing (silently un-undoable). Scoped to the replaced ids like the
+    // stack filtering above (toReplace is the outer-scope source of replaceIdSet).
+    const aiFramePid = activeAiUndoFrame?.projectId;
+    if (aiFramePid != null && toReplace.some((r) => r.oldId === aiFramePid)) {
+      activeAiUndoFrame = null;
+    }
+
     // Side effects (post-set).
     // Zombie session-data defense (pitfall #24): clear stale scenario-memory for ALL paths.
     for (const { oldId } of toReplace) {
@@ -1515,6 +1612,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   setProjects: (projects: Project[]) => {
     activeUndoGroup = null;
+    activeAiUndoFrame = null;
     // Sync to localStorage. Intentionally uses the Firestore-delivered `projects`
     // (simulationResults stripped), not the in-memory-merged version built below —
     // localStorage mirrors Firestore state, not UI-ephemeral computation results.
@@ -1582,6 +1680,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   clearAllData: () => {
     activeUndoGroup = null;
+    activeAiUndoFrame = null;
     set({
       projects: [],
       loadError: false,

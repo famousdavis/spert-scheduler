@@ -10,7 +10,7 @@ import type {
   ScheduledActivity,
   SimulationRun,
 } from "@domain/models/types";
-import type { WorkCalendar } from "@core/calendar/work-calendar";
+import { advanceToNextWorkingDay, type WorkCalendar } from "@core/calendar/work-calendar";
 import { computeMilestoneBuffer } from "@core/schedule/buffer";
 import { computeMilestoneHealth } from "@domain/helpers/format-labels";
 import {
@@ -18,7 +18,6 @@ import {
   countWorkingDays,
   parseDateISO,
   formatDateISO,
-  isWorkingDay,
 } from "@core/calendar/calendar";
 
 interface MilestoneSlackResult {
@@ -41,10 +40,8 @@ function computeMilestoneSlack(
   const bufferedEnd = addWorkingDays(latestEndDate, bufferResult.bufferDays, calendar);
   const bufferedEndDate = formatDateISO(bufferedEnd);
 
-  const adjustedTarget = new Date(targetDate);
-  while (!isWorkingDay(adjustedTarget, calendar)) {
-    adjustedTarget.setDate(adjustedTarget.getDate() + 1);
-  }
+  let adjustedTarget = new Date(targetDate);
+  adjustedTarget = advanceToNextWorkingDay(adjustedTarget, calendar);
 
   const slackDays = bufferedEnd <= adjustedTarget
     ? countWorkingDays(bufferedEnd, adjustedTarget, calendar)

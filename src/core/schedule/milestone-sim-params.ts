@@ -2,8 +2,8 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Activity, Milestone, Calendar } from "@domain/models/types";
-import type { WorkCalendar } from "@core/calendar/work-calendar";
-import { parseDateISO, isWorkingDay, countWorkingDays } from "@core/calendar/calendar";
+import { advanceToNextWorkingDay, type WorkCalendar } from "@core/calendar/work-calendar";
+import { parseDateISO, countWorkingDays } from "@core/calendar/calendar";
 
 export interface MilestoneSimParams {
   milestoneActivityIds?: Record<string, string[]>;
@@ -11,9 +11,10 @@ export interface MilestoneSimParams {
 }
 
 function snapForwardToWorkingDay(date: Date, calendar?: WorkCalendar | Calendar): void {
-  while (!isWorkingDay(date, calendar)) {
-    date.setDate(date.getDate() + 1);
-  }
+  // Preserve this function's mutate-in-place contract: advanceToNextWorkingDay
+  // returns a new Date, so copy the advanced value back into the caller's object.
+  const advanced = advanceToNextWorkingDay(date, calendar);
+  date.setTime(advanced.getTime());
 }
 
 function buildMilestoneActivityMap(

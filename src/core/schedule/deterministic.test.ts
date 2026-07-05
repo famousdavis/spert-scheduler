@@ -9,8 +9,8 @@ import {
   computeDependencyDurations,
   computeActivityUncertaintyDays,
 } from "./deterministic";
-import type { Activity, ActivityDependency } from "@domain/models/types";
-import { buildWorkCalendar } from "@core/calendar/work-calendar";
+import type { Activity, ActivityDependency, Milestone } from "@domain/models/types";
+import { buildWorkCalendar, CalendarConfigurationError } from "@core/calendar/work-calendar";
 import { countWorkingDays, parseDateISO } from "@core/calendar/calendar";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
@@ -26,6 +26,52 @@ function makeActivity(overrides: Partial<Activity> = {}): Activity {
     ...overrides,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Calendar seed-loop hardening: every working-day seed advance now routes
+// through the bounded advanceToNextWorkingDay helper — it throws
+// CalendarConfigurationError instead of hanging, and still advances correctly.
+// ---------------------------------------------------------------------------
+
+describe("calendar seed-loop hardening", () => {
+  const impossibleCalendar = () => buildWorkCalendar([], [], []); // no work days at all
+  const monFri = () => buildWorkCalendar([1, 2, 3, 4, 5], [], []);
+
+  it("computeDeterministicSchedule throws (not hangs) on a zero-working-day calendar", () => {
+    expect(() =>
+      computeDeterministicSchedule([makeActivity({ id: "a1" })], "2025-01-06", 0.5, impossibleCalendar())
+    ).toThrow(CalendarConfigurationError);
+  });
+
+  it("computeDeterministicSchedule advances a weekend start date to the next working day", () => {
+    // 2025-01-04 is a Saturday → first activity must start Monday 2025-01-06
+    const schedule = computeDeterministicSchedule([makeActivity({ id: "a1" })], "2025-01-04", 0.5, monFri());
+    expect(schedule.activities[0]!.startDate).toBe("2025-01-06");
+  });
+
+  it("computeDependencySchedule throws (not hangs) on a zero-working-day calendar", () => {
+    expect(() =>
+      computeDependencySchedule([makeActivity({ id: "a1" })], [], "2025-01-06", 0.5, impossibleCalendar())
+    ).toThrow(CalendarConfigurationError);
+  });
+
+  it("computeDependencySchedule advances a weekend project start to the next working day", () => {
+    const schedule = computeDependencySchedule(
+      [makeActivity({ id: "a1" })], [], "2025-01-04", 0.5, monFri()
+    );
+    expect(schedule.activities[0]!.startDate).toBe("2025-01-06");
+  });
+
+  it("computeDependencySchedule floors a milestone-seeded start onto a working day", () => {
+    const milestones: Milestone[] = [{ id: "ms1", name: "Gate", targetDate: "2025-01-11" }]; // Saturday
+    const schedule = computeDependencySchedule(
+      [makeActivity({ id: "a1", startsAtMilestoneId: "ms1" })],
+      [], "2025-01-06", 0.5, monFri(), milestones
+    );
+    // Milestone target Sat Jan 11 → floor lands on next working day Mon Jan 13
+    expect(schedule.activities[0]!.startDate).toBe("2025-01-13");
+  });
+});
 
 describe("computeDeterministicSchedule", () => {
   it("produces a schedule with correct activity count", () => {

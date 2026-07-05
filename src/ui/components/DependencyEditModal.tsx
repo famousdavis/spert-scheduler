@@ -6,6 +6,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import type { Activity, ActivityDependency, DependencyType } from "@domain/models/types";
 import { DEPENDENCY_TYPES } from "@domain/models/types";
 import { dependencyLabel } from "@domain/helpers/format-labels";
+import { detectCycle } from "@core/schedule/dependency-graph";
 
 interface DependencyEditModalProps {
   fromActivityId?: string;
@@ -66,9 +67,24 @@ export function DependencyEditModal({
           !(isEditMode && from === fromActivityId && to === toActivityId)
       );
       if (isDuplicate) return "This dependency already exists.";
+      // Cycle check against the prospective edge set. In edit mode the original
+      // edge is excluded (a benign retarget must not be rejected for a cycle it
+      // no longer contains); in add mode it is all current edges plus the
+      // proposed one. Type/lag are immaterial to cycle detection, so a
+      // structural placeholder edge suffices.
+      const prospective: ActivityDependency[] = [
+        ...dependencies.filter(
+          (d) =>
+            !(isEditMode && d.fromActivityId === fromActivityId && d.toActivityId === toActivityId)
+        ),
+        { fromActivityId: from, toActivityId: to, type: "FS", lagDays: 0 },
+      ];
+      if (detectCycle(activities.map((a) => a.id), prospective)) {
+        return "This dependency would create a circular reference.";
+      }
       return null;
     },
-    [dependencies, isEditMode, fromActivityId, toActivityId]
+    [dependencies, isEditMode, fromActivityId, toActivityId, activities]
   );
 
   const handleSave = useCallback(() => {

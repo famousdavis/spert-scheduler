@@ -4,6 +4,7 @@
 import { describe, it, expect } from "vitest";
 import { buildSimulationParams } from "./build-simulation-params";
 import type { Activity, Milestone, ActivityDependency } from "@domain/models/types";
+import { buildWorkCalendar, CalendarConfigurationError } from "@core/calendar/work-calendar";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -26,6 +27,25 @@ describe("buildSimulationParams", () => {
   ];
   const milestones: Milestone[] = [];
   const dependencies: ActivityDependency[] = [];
+
+  it("throws CalendarConfigurationError (not hangs) on a zero-working-day calendar when an activity is constrained", () => {
+    // Reaches build-simulation-params.ts sites 37/44 (resolveConstraintOffsets),
+    // which only run when a constrained activity forces date snapping.
+    const constrained: Activity[] = [
+      makeActivity({
+        id: "a1",
+        constraintType: "SNET",
+        constraintDate: "2026-01-10",
+        constraintMode: "soft",
+      }),
+    ];
+    expect(() =>
+      buildSimulationParams(
+        constrained, false, 0.5, dependencies, milestones, "2026-01-05",
+        buildWorkCalendar([], [], []), true,
+      )
+    ).toThrow(CalendarConfigurationError);
+  });
 
   it("returns deterministicDurations and no dependencyParams in sequential mode", () => {
     const result = buildSimulationParams(
