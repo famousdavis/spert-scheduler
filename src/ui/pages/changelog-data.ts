@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.51.1",
+    date: "2026-07-10",
+    sections: [
+      {
+        title: "Added — Connect AI Guide on the About page",
+        items: [
+          "The About page now includes a downloadable Connect AI Guide (PDF), right next to the existing Quick Reference Guide. It's a printable walkthrough for pairing an AI assistant with your project using the Connect AI feature.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.51.0",
     date: "2026-07-05",
     sections: [
