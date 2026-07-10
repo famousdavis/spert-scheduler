@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.51.1 — 2026-07-10
+
+### Added — Connect AI Guide on the About page
+
+- The About page now links a downloadable **Connect AI Guide** (PDF), alongside the existing Quick Reference Guide, for a printable walkthrough of pairing an AI assistant with a project through the Connect AI feature shipped in v0.51.0. Mirrors the equivalent guide link on SPERT Story Map's About page.
+- Presentation-only: adds the `public/SPERTScheduler_Connect_AI_Guide.pdf` asset and one new section in `AboutPage.tsx` (same markup and styling as the adjacent Quick Reference Guide section; opens in a new tab). No runtime dependency or data schema is affected; all 1,855 tests pass. No schema change — `SCHEMA_VERSION` stays 22.
+
 ## 0.51.0 — 2026-07-05
 
 ### Added — Connect AI (read and edit a live project from an AI assistant)

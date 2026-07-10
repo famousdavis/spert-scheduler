@@ -51,6 +51,25 @@ export function AboutPage() {
         </section>
 
         <section>
+          <h2 className="text-lg font-semibold text-blue-600">
+            Connect AI Guide
+          </h2>
+          <p className="mt-2">
+            Pair a compatible AI assistant with your project to read and edit
+            your schedule in real time. Download the Connect AI guide to get
+            started.
+          </p>
+          <a
+            href="/SPERTScheduler_Connect_AI_Guide.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block rounded bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Open Connect AI Guide (PDF)
+          </a>
+        </section>
+
+        <section>
           <h2 className="text-lg font-semibold text-blue-600">How It Works</h2>
           <ul className="mt-2 list-disc space-y-1 pl-6">
             <li>
