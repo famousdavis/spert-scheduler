@@ -58,7 +58,10 @@ function truncate(val: string, max = 80): string {
 
 // -- Header resolution --------------------------------------------------------
 
-// All alias values must be pre-normalized (lowercase, no whitespace) to match normalizeKey output
+// All alias values must be pre-normalized (lowercase, no whitespace) to match normalizeKey output.
+// NOTE: there is intentionally no `description` alias (v0.52.0). The activity
+// `description` field is export-only; a "Description" column in an imported
+// sheet is silently ignored here (unknown headers are dropped). See docs SD-3.
 const HEADER_ALIASES: Record<string, string[]> = {
   activityId: ["activityid", "id", "taskid"],
   name: ["activityname", "name", "task"],

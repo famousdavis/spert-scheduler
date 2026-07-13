@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildSummaryData,
   buildGridRows,
+  buildScheduleHeaders,
   buildPredecessorMap,
   buildSuccessorMap,
   exportScheduleCsv,
@@ -731,7 +732,7 @@ describe("exportScheduleXlsx with bands", () => {
     }
     expect(headerRow).toBeGreaterThan(0);
     // Last header column should be "Type"
-    const lastCol = 17;
+    const lastCol = 18; // sequential mode: 18 columns incl. new Description (Type is last)
     expect(ws.getCell(headerRow, lastCol).value).toBe("Type");
     // Three activities → three data rows after header
     for (let i = 1; i <= 3; i++) {
@@ -752,7 +753,7 @@ describe("exportScheduleXlsx with bands", () => {
     for (let r = 1; r <= 30; r++) {
       if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
     }
-    const lastCol = 17;
+    const lastCol = 18; // sequential mode: 18 columns incl. new Description (Type is last)
     // Order: a1 (header+1), band (header+2), a2, a3
     const bandRowNum = headerRow + 2;
     const nameCell = ws.getCell(bandRowNum, 2);
@@ -858,7 +859,7 @@ describe("exportScheduleXlsx with bands", () => {
     }
     const bandRowNum = headerRow + 1;
     const loadedNameCell = ws.getCell(bandRowNum, 2);
-    const lastCol = 17;
+    const lastCol = 18; // sequential mode: 18 columns incl. new Description (Type is last)
 
     expect(loadedNameCell.fill).toBeDefined();
     expect(loadedNameCell.border?.left).toBeDefined();
@@ -896,5 +897,123 @@ describe("exportScheduleXlsx with bands", () => {
     const fill = loadedNameCell.fill as { fgColor?: { argb?: string } };
     expect(fill.fgColor?.argb?.toUpperCase()).toBe("FFF3F4F6");
     expect(loadedNameCell.border?.left?.style).not.toBe("medium");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Description column (Slice 3)
+// ---------------------------------------------------------------------------
+
+describe("Description column export", () => {
+  const descText = "Wireframe the onboarding flow and validate with three users";
+  const descActivity = makeActivity({
+    id: "a1",
+    name: "Design",
+    description: descText,
+    checklist: [{ id: "c1", text: "Sketch", completed: true }],
+    deliverables: [{ id: "d1", text: "Figma file", completed: false }],
+  });
+
+  function paramsWith(deps: boolean): ScheduleExportParams {
+    return makeParams({
+      activities: [descActivity],
+      schedule: {
+        activities: [
+          { activityId: "a1", name: "Design", duration: 12, startDate: "2026-03-16", endDate: "2026-03-31", isActual: false },
+        ],
+        totalDurationDays: 12,
+        projectEndDate: "2026-03-31",
+      },
+      settings: { ...settings, dependencyMode: deps },
+    });
+  }
+
+  function findHeaderRow(ws: import("exceljs").Worksheet): number {
+    for (let r = 1; r <= 30; r++) {
+      if (ws.getCell(r, 1).value === "#") return r;
+    }
+    return -1;
+  }
+
+  it.each([false, true])("shared builder places Description before Type (deps=%s)", (deps) => {
+    const headers = buildScheduleHeaders(deps, "P50");
+    expect(headers.indexOf("Description")).toBe(headers.length - 2);
+    expect(headers[headers.length - 1]).toBe("Type");
+  });
+
+  it.each([false, true])("CSV emits the Description column and value (deps=%s)", (deps) => {
+    const csv = exportScheduleCsv(paramsWith(deps));
+    const lines = csv.split("\n");
+    const headerCells = lines.find((l) => l.startsWith("#,"))!.split(",");
+    const descIdx = headerCells.indexOf("Description");
+    expect(descIdx).toBe(headerCells.length - 2); // last prose col, before Type
+    const dataCells = lines.find((l) => l.startsWith("1,"))!.split(",");
+    expect(dataCells[descIdx]).toContain("Wireframe");
+    expect(dataCells[dataCells.length - 1]).toBe("Activity"); // Type stays last
+  });
+
+  it.each([false, true])("XLSX places the Description value at lastCol-1 (deps=%s)", async (deps) => {
+    const ExcelJS = await import("exceljs");
+    const headers = buildScheduleHeaders(deps, "P50");
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await exportScheduleXlsx(paramsWith(deps)));
+    const ws = wb.getWorksheet("Schedule")!;
+    const headerRow = findHeaderRow(ws);
+    const descCol = headers.indexOf("Description") + 1; // 1-based
+    expect(descCol).toBe(headers.length - 1);
+    expect(ws.getCell(headerRow, descCol).value).toBe("Description");
+    expect(ws.getCell(headerRow + 1, descCol).value).toBe(descText);
+    // Type stays the terminal column.
+    expect(ws.getCell(headerRow, headers.length).value).toBe("Type");
+  });
+
+  it.each([false, true])("XLSX widths array stays aligned with the header count (deps=%s)", async (deps) => {
+    const ExcelJS = await import("exceljs");
+    const headers = buildScheduleHeaders(deps, "P50");
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await exportScheduleXlsx(paramsWith(deps)));
+    const ws = wb.getWorksheet("Schedule")!;
+    expect(ws.columnCount).toBe(headers.length);
+    // A missing/short `widths` entry would leave the terminal Type column unsized
+    // and shift the intended Description width (40) onto the wrong column.
+    const descCol = headers.indexOf("Description") + 1;
+    expect(ws.getColumn(descCol).width).toBe(40);
+    expect(ws.getColumn(headers.length).width).toBe(10); // Type
+  });
+
+  it.each([false, true])("XLSX wraps Description + both Details prose columns (deps=%s)", async (deps) => {
+    const ExcelJS = await import("exceljs");
+    const headers = buildScheduleHeaders(deps, "P50");
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await exportScheduleXlsx(paramsWith(deps)));
+    const ws = wb.getWorksheet("Schedule")!;
+    const dataRowNum = findHeaderRow(ws) + 1;
+    for (const name of ["Description", "Task Details", "Deliverable Details"]) {
+      const col = headers.indexOf(name) + 1;
+      const cell = ws.getCell(dataRowNum, col);
+      expect(cell.alignment?.wrapText, `${name} (deps=${deps}) should wrap`).toBe(true);
+    }
+  });
+
+  it("CSV neutralizes a formula-injection description", () => {
+    const params = paramsWith(false);
+    params.activities = [makeActivity({ id: "a1", name: "Design", description: "=HYPERLINK(1)" })];
+    const csv = exportScheduleCsv(params);
+    // csvEscape prefixes a leading '=' with a single quote (and quotes the cell).
+    expect(csv).toContain("'=HYPERLINK(1)");
+    expect(csv).not.toMatch(/,=HYPERLINK/);
+  });
+
+  it("XLSX neutralizes a formula-injection description", async () => {
+    const ExcelJS = await import("exceljs");
+    const headers = buildScheduleHeaders(false, "P50");
+    const params = paramsWith(false);
+    params.activities = [makeActivity({ id: "a1", name: "Design", description: "=HYPERLINK(1)" })];
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await exportScheduleXlsx(params));
+    const ws = wb.getWorksheet("Schedule")!;
+    const headerRow = findHeaderRow(ws);
+    const descCol = headers.indexOf("Description") + 1;
+    expect(ws.getCell(headerRow + 1, descCol).value).toBe("'=HYPERLINK(1)");
   });
 });

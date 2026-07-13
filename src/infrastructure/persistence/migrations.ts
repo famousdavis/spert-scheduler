@@ -370,6 +370,17 @@ function migrateV21toV22(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v22 → v23: Add optional per-activity `description` field.
+ * Pure schemaVersion relabel — the field is optional with no default, so
+ * existing projects need no data transform (absent === "no description").
+ */
+function migrateV22toV23(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 23;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -392,6 +403,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   19: migrateV19toV20,
   20: migrateV20toV21,
   21: migrateV21toV22,
+  22: migrateV22toV23,
 };
 
 /**

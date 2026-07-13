@@ -1018,6 +1018,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       removeActivityFromScenario(s, activityId)
     ),
 
+  // NOTE: Activity `description` rides this invalidating path on purpose — it is
+  // NOT given a dedicated qualitative action like the checklist/deliverables/notes
+  // ones below. Description is shared/exported scope text; editing it clears
+  // simulationResults (same as rename), a deliberate trade (see the description
+  // field plan). Do not add an `updateActivityDescription` non-invalidating action.
   updateActivityField: (projectId, scenarioId, activityId, updates) =>
     mutateScenario(projectId, scenarioId, (s) =>
       updateActivity(s, activityId, updates)

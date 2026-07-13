@@ -65,6 +65,10 @@ export interface ActivitySnapshot {
   notes?: string;
   checklist?: ChecklistItem[];
   deliverables?: DeliverableItem[];
+  description?: string;
+  // Set on truncation to preserve the signal that a description exists after the
+  // full text is stripped (so the AI knows not to blind-overwrite it).
+  hasDescription?: boolean;
 }
 
 export interface ScenarioSnapshot {
@@ -216,6 +220,7 @@ function buildActivitySnapshot(activity: Activity, scheduled?: ScheduledActivity
   if (activity.notes !== undefined) snap.notes = activity.notes;
   if (activity.checklist !== undefined) snap.checklist = activity.checklist;
   if (activity.deliverables !== undefined) snap.deliverables = activity.deliverables;
+  if (activity.description !== undefined) snap.description = activity.description;
   return snap;
 }
 
@@ -308,9 +313,12 @@ function mapActivities(
 
 function stripQualitative(a: ActivitySnapshot): ActivitySnapshot {
   const rest = { ...a };
+  // Preserve the existence signal before dropping the text (see hasDescription).
+  if (rest.description) rest.hasDescription = true;
   delete rest.notes;
   delete rest.checklist;
   delete rest.deliverables;
+  delete rest.description;
   return rest;
 }
 
@@ -320,6 +328,7 @@ function minimalActivity(a: ActivitySnapshot): ActivitySnapshot {
   if (a.endDate !== undefined) m.endDate = a.endDate;
   if (a.duration !== undefined) m.duration = a.duration;
   if (a.isCritical !== undefined) m.isCritical = a.isCritical;
+  if (a.hasDescription) m.hasDescription = a.hasDescription;
   return m;
 }
 

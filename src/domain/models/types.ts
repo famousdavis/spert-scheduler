@@ -11,7 +11,7 @@
 export const ENGINE_VERSION = "1.1.0";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 23;
 
 // -- Enums / Union Types -----------------------------------------------------
 
@@ -142,6 +142,7 @@ export interface Activity {
   constraintNote?: string | null; // optional rationale for the constraint
   checklist?: ChecklistItem[]; // task checklist, max 50 items
   deliverables?: DeliverableItem[]; // deliverable checklist, max 50 items
+  description?: string; // plain-language scope, max 2000 chars — shared/exported (unlike notes)
   notes?: string; // free-text activity notes, max 2000 chars
 }
 

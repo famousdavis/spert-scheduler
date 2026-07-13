@@ -98,6 +98,7 @@ export const ActivitySchema = z
     constraintNote: z.string().max(500).nullable().optional(),
     checklist: z.array(ChecklistItemSchema).max(50).optional(),
     deliverables: z.array(DeliverableItemSchema).max(50).optional(),
+    description: z.string().max(2000).optional(),
     notes: z.string().max(2000).optional(),
   })
   .refine((a) => a.min <= a.mostLikely, {

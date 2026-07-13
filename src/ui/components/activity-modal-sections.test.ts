@@ -3,7 +3,10 @@
 
 import { describe, it, expect } from "vitest";
 import type { Activity } from "@domain/models/types";
-import { computeConstraintUpdates } from "./activity-modal-sections";
+import {
+  computeConstraintUpdates,
+  computeDescriptionUpdate,
+} from "./activity-modal-sections";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -95,5 +98,45 @@ describe("computeConstraintUpdates", () => {
     });
     const updates = computeConstraintUpdates(a, "SNET", "2026-01-15", "soft", "");
     expect(updates).toEqual({});
+  });
+});
+
+describe("computeDescriptionUpdate", () => {
+  it("sets a new description (from absent)", () => {
+    const a = makeActivity();
+    expect(computeDescriptionUpdate(a, "Deploy the new API gateway")).toEqual({
+      description: "Deploy the new API gateway",
+    });
+  });
+
+  it("trims surrounding whitespace when setting", () => {
+    const a = makeActivity();
+    expect(computeDescriptionUpdate(a, "  scope text  ")).toEqual({
+      description: "scope text",
+    });
+  });
+
+  it("returns empty object when unchanged", () => {
+    const a = makeActivity({ description: "scope text" });
+    expect(computeDescriptionUpdate(a, "scope text")).toEqual({});
+  });
+
+  it("clears an existing description to undefined (the clear path)", () => {
+    const a = makeActivity({ description: "scope text" });
+    expect(computeDescriptionUpdate(a, "")).toEqual({ description: undefined });
+    // The explicit undefined key is what Object.keys counts as a real change.
+    expect(
+      Object.prototype.hasOwnProperty.call(computeDescriptionUpdate(a, ""), "description"),
+    ).toBe(true);
+  });
+
+  it("treats whitespace-only as a clear", () => {
+    const a = makeActivity({ description: "scope text" });
+    expect(computeDescriptionUpdate(a, "   ")).toEqual({ description: undefined });
+  });
+
+  it("no-op when clearing an already-absent description", () => {
+    const a = makeActivity();
+    expect(computeDescriptionUpdate(a, "")).toEqual({});
   });
 });

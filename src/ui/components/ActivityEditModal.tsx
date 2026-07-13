@@ -36,6 +36,7 @@ import {
   ScheduleContextRow,
   Section,
   computeConstraintUpdates,
+  computeDescriptionUpdate,
   DependenciesDisplaySection,
   ScheduleAnalysisSection,
 } from "@ui/components/activity-modal-sections";
@@ -158,6 +159,7 @@ export function ActivityEditModal({
 
   // -- Local draft state: Notes --
   const [notes, setNotes] = useState<string>(activity?.notes ?? "");
+  const [description, setDescription] = useState<string>(activity?.description ?? "");
 
   // -- Heuristic auto-fill: when ML changes, recalculate min/max --
   const handleMostLikelyBlur = useCallback(() => {
@@ -183,6 +185,8 @@ export function ActivityEditModal({
   const fieldConstraintDateId = `${baseId}-cdate`;
   const fieldConstraintNoteId = `${baseId}-cnote`;
   const fieldNotesId = `${baseId}-notes`;
+  const fieldDescriptionId = `${baseId}-description`;
+  const fieldDescriptionCounterId = `${baseId}-description-counter`;
   const conflictTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -397,8 +401,11 @@ export function ActivityEditModal({
     // Constraint — only include if changed (treat undefined/null as equivalent)
     Object.assign(updates, computeConstraintUpdates(activity, constraintType, constraintDate, constraintMode, constraintNote));
 
+    // Description — trim || undefined; explicit undefined key clears (see helper)
+    Object.assign(updates, computeDescriptionUpdate(activity, description));
+
     return updates;
-  }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote]);
+  }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, description]);
 
   // -- Save: only send changed fields --
   const handleSave = useCallback(() => {
@@ -565,6 +572,27 @@ export function ActivityEditModal({
                     ))}
                   </select>
                 </div>
+              </div>
+              {/* Description — full-width scope text below Name/Status. Compact
+                  2-row start; drag-taller only (do NOT copy Notes' 5-row min-h). */}
+              <div className="mt-3">
+                <label htmlFor={fieldDescriptionId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Description
+                </label>
+                <textarea
+                  id={fieldDescriptionId}
+                  name="activityDescription"
+                  aria-describedby={fieldDescriptionCounterId}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  maxLength={2000}
+                  rows={2}
+                  placeholder="Plain-language scope — what this activity entails…"
+                  className="w-full min-h-[3.5rem] text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-y focus:border-blue-400 focus:outline-none"
+                />
+                <p id={fieldDescriptionCounterId} className="mt-0.5 text-right text-[11px] text-gray-400 dark:text-gray-500">
+                  {description.length}/2000
+                </p>
               </div>
               {/* Schedule context + Actual Duration/Finish (visible when schedule exists) */}
               {scheduledStartDate && sa && (

@@ -23,3 +23,13 @@ Per-project Layer 2 drift guards exist in both replace branches (ID-conflict and
 **Mitigation:** `mergeDecisions` guards `kind` and `originalExistingId` changes in cloud re-validation (when `cloudDataLoaded` flips false→true while a preview is open), so the most common case — a peer mutation that lands between sign-in hydration and confirm — IS surfaced via the amber cloud-refresh banner. The remaining gap is the rarer in-session case where a peer's mutation lands between the preview opening and the user clicking Confirm in normal mode.
 
 **Target:** v0.45.0.
+
+## SD-3 — Activity `description` is not parsed on CSV/clipboard import (v0.52.0)
+
+The optional activity `description` field (added in v0.52.0) is exported to the CSV and Excel schedule exports but is **not** read back by the flat-activity importer. `HEADER_ALIASES` in `src/core/import/flat-activity-parser.ts` has no `description` alias, so a `Description` column in an imported spreadsheet is silently ignored (the resolver only records columns whose normalized header matches a known alias).
+
+**Consequence:** A user who exports the schedule, edits it in a spreadsheet, and re-imports it does not carry descriptions back into the app. In practice this round-trip cannot lose existing data: the schedule-export CSV is not a valid importer input (its first column is `#`, not the required `activityId`, and a summary block precedes the header row), and activity import **always creates a new scenario** rather than overwriting existing activities — so there is no in-place edit path where a dropped `Description` column would overwrite a stored description.
+
+**Mitigation:** None needed for data safety (see above). Description authoring is fully supported via the activity edit modal and the Connect AI `set_activity_description` tool.
+
+**Target:** Deferred — will be added to `HEADER_ALIASES` if/when a description-carrying import path is introduced.

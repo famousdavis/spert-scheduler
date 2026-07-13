@@ -6,6 +6,7 @@ import type { ActivityBand } from "@domain/models/types";
 import {
   buildSummaryData,
   buildGridRows,
+  buildScheduleHeaders,
   type GridRow,
   type ScheduleExportParams,
 } from "./schedule-export-service";
@@ -39,6 +40,7 @@ function buildActivityCells(row: GridRow, hasDeps: boolean): (string | number)[]
   cells.push(row.taskDetails ? row.taskDetails.replace(/; /g, "\n") : "");
   cells.push(row.deliverables ?? "");
   cells.push(row.deliverableDetails ? row.deliverableDetails.replace(/; /g, "\n") : "");
+  cells.push(row.description ?? ""); // Description column (before Type)
   cells.push("Activity"); // Type column
   return cells;
 }
@@ -135,6 +137,18 @@ export async function exportScheduleXlsx(
   const hasDeps = params.settings.dependencyMode;
   const pctLabel = `P${Math.round(params.settings.probabilityTarget * 100)}`;
 
+  // Headers are shared with the CSV formatter; lastCol derives from them so a
+  // future column can never drift from the title merge / band / totals math.
+  const headers = buildScheduleHeaders(hasDeps, pctLabel);
+  const lastCol = headers.length;
+  // Prose columns that need wrapText, located by header identity (Task Details /
+  // Deliverable Details move between cols 14/16 and 22/24 depending on hasDeps).
+  const wrapCols = new Set(
+    ["Description", "Task Details", "Deliverable Details"]
+      .map((h) => headers.indexOf(h))
+      .filter((idx) => idx >= 0),
+  );
+
   const rowMap = new Map(rows.map((r) => [r.activityId, r]));
   const renderItems = buildRenderList(params.activities, params.bands ?? []);
 
@@ -158,7 +172,6 @@ export async function exportScheduleXlsx(
 
   // ---- Title row ----
   let rowNum = 1;
-  const lastCol = hasDeps ? 25 : 17;
   ws.mergeCells(rowNum, 1, rowNum, lastCol);
   const titleCell = ws.getCell(rowNum, 1);
   titleCell.value = xlsxSanitize(`${params.projectName} — ${params.scenarioName}`);
@@ -178,29 +191,8 @@ export async function exportScheduleXlsx(
   // Blank separator row
   rowNum++;
 
-  // ---- Column headers ----
+  // ---- Column headers (built above via buildScheduleHeaders) ----
   const headerRowNum = rowNum;
-  const headers = [
-    "#",
-    "Activity Name",
-    "Min",
-    "Most Likely",
-    "Max",
-    "Confidence",
-    "Distribution",
-    "Status",
-    "Actual",
-    `Duration (${pctLabel})`,
-    "Start Date",
-    "End Date",
-  ];
-  if (hasDeps) {
-    headers.push("Total Float (days)", "Free Float (days)");
-    headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
-  }
-  headers.push("Tasks", "Task Details", "Deliverables", "Deliverable Details");
-  headers.push("Type");
-
   const headerRow = ws.getRow(rowNum);
   headers.forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);
@@ -224,6 +216,8 @@ export async function exportScheduleXlsx(
         const cell = dataRow.getCell(i + 1);
         cell.value = val === "" ? null : xlsxSanitize(val);
         cell.border = thinBorder;
+        // i is the 0-based array index, aligned with the header index.
+        if (wrapCols.has(i)) cell.alignment = { wrapText: true, vertical: "top" };
       });
     } else {
       writeBandRow(ws, rowNum, item.band, lastCol, thinBorder);
@@ -254,7 +248,8 @@ export async function exportScheduleXlsx(
   const colAWidth = Math.min(28, Math.max(5, ...summary.map((r) => r.key.length + 4)));
   const widths = [colAWidth, 30, 8, 12, 8, 16, 14, 12, 8, 14, 14, 14];
   if (hasDeps) widths.push(14, 14, 16, 16, 16, 14, 10, 30);
-  widths.push(8, 40, 12, 40);
+  widths.push(8, 40, 12, 40); // Tasks / Task Details / Deliverables / Deliverable Details
+  widths.push(40); // Description column — always present, before Type
   widths.push(10); // Type column — always present
   ws.columns = widths.map((w) => ({ width: w }));
 
