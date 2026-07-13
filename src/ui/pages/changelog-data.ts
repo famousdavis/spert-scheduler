@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.52.0",
+    date: "2026-07-12",
+    sections: [
+      {
+        title: "Added — Activity Description field",
+        items: [
+          "Activities now have an optional Description — a plain-language summary of what the activity entails, separate from Notes. Use it to capture the scope you'd want to read back or hand off months later, when \"just a sentence or two\" is all you need (Tasks and Deliverables still cover structured breakdowns).",
+          "Edit a description from the activity edit modal, in the General section right below Name and Status.",
+          "Descriptions are included in the CSV and Excel schedule exports (a new Description column) and get their own section in the printable PDF report. Long descriptions and the Task/Deliverable Details columns now wrap in Excel instead of running off a single line.",
+          "The Connect AI assistant can read and set descriptions: create_activity accepts a description, and a new set_activity_description tool overwrites it (an empty value clears it). Like renaming or re-estimating, setting a description clears the current simulation results until you re-run.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.51.1",
     date: "2026-07-10",
     sections: [

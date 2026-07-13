@@ -339,6 +339,43 @@ export function PrintConstraintsTable({
   );
 }
 
+export interface PrintDescriptionsTableProps {
+  scenario: Scenario;
+}
+
+export function PrintDescriptionsTable({ scenario }: PrintDescriptionsTableProps) {
+  const described = scenario.activities.filter((a) => a.description?.trim());
+  if (described.length === 0) return null;
+  return (
+    <section className="mb-3">
+      <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
+        Descriptions ({described.length})
+      </h2>
+      <table className="w-full text-[9px] border-collapse">
+        <thead>
+          <tr className="border-b-2 border-gray-400 text-left">
+            <th className="py-1 pr-1 w-6">#</th>
+            <th className="py-1 pr-1 w-1/4">Activity</th>
+            <th className="py-1">Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {scenario.activities
+            .map((a, i) => ({ activity: a, num: i + 1 }))
+            .filter(({ activity }) => activity.description?.trim())
+            .map(({ activity, num }, idx) => (
+              <tr key={idx} className="border-b border-gray-200">
+                <td className="py-0.5 pr-1 text-gray-500 align-top">{num}</td>
+                <td className="py-0.5 pr-1 font-medium align-top">{activity.name}</td>
+                <td className="py-0.5 text-gray-600 whitespace-pre-wrap">{activity.description}</td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 // -- Item Table (Tasks / Deliverables shared shape) --------------------------
 
 export interface PrintItemTableProps {

@@ -367,3 +367,42 @@ describe("truncateSnapshotToBudget", () => {
     expect(scenario.dependencyValidationErrors).toHaveLength(1); // never dropped
   });
 });
+
+// ---------------------------------------------------------------------------
+// Description in snapshot (Slice 5)
+// ---------------------------------------------------------------------------
+
+describe("Description in snapshot", () => {
+  it("full snapshot carries the activity description (stage 0, no flag)", () => {
+    const { scenario, ids } = makeScenario({ count: 1 });
+    const withDesc: Scenario = {
+      ...scenario,
+      activities: scenario.activities.map((a) =>
+        a.id === ids[0] ? { ...a, description: "Design the onboarding flow" } : a
+      ),
+    };
+    const snap = buildScenarioSnapshot(withDesc, classifyAndComputeScenario(withDesc, monFri()));
+    const act = snap.activities.find((a) => a.id === ids[0])!;
+    expect(act.description).toBe("Design the onboarding flow");
+    expect(act.hasDescription).toBeUndefined(); // flag only appears on truncation
+  });
+
+  it("stage 1 strips the description text but sets hasDescription", () => {
+    const snap = bigSnapshot();
+    snap.scenarios[0]!.activities[1]!.description = "non-critical scope";
+    const full = JSON.stringify(snap).length;
+    const out = truncateSnapshotToBudget(snap, full - 1);
+    const a2 = out.scenarios[0]!.activities[1]!;
+    expect(a2.description).toBeUndefined();
+    expect(a2.hasDescription).toBe(true);
+  });
+
+  it("stage 2 preserves hasDescription on a reduced non-critical activity", () => {
+    const snap = bigSnapshot();
+    snap.scenarios[0]!.activities[1]!.description = "non-critical scope";
+    const out = truncateSnapshotToBudget(snap, 10); // impossibly small → force stage 2
+    const a2 = out.scenarios[0]!.activities[1]!;
+    expect(a2.min).toBeUndefined(); // reduced to minimal
+    expect(a2.hasDescription).toBe(true); // existence flag survives Stage 2
+  });
+});

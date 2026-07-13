@@ -212,6 +212,23 @@ export function computeConstraintUpdates(
   return updates;
 }
 
+/**
+ * Builds the description field update from a draft string.
+ * `trim() || undefined` normalizes empty/whitespace to absent, so clearing an
+ * existing description emits an explicit `{ description: undefined }` (which
+ * `Object.keys` counts, so both save and dismiss-detection see the clear).
+ * Returns `{}` when unchanged.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function computeDescriptionUpdate(
+  activity: Activity,
+  draft: string,
+): Partial<Activity> {
+  const next = draft.trim() || undefined;
+  if (next !== (activity.description ?? undefined)) return { description: next };
+  return {};
+}
+
 /** Display-only list of predecessors/successors for a single activity. */
 export function DependenciesDisplaySection({
   relatedDeps,

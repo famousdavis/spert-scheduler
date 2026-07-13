@@ -22,6 +22,7 @@ import { PrintGanttChart } from "@ui/charts/PrintGanttChart";
 import {
   PrintSummarySection,
   PrintActivityTable,
+  PrintDescriptionsTable,
   PrintDependenciesTable,
   PrintConstraintsTable,
   PrintItemTable,
@@ -96,6 +97,8 @@ export function PrintableReport({
         scheduledActivities={scheduledActivities}
         formatDate={formatDate}
       />
+
+      <PrintDescriptionsTable scenario={scenario} />
 
       <PrintDependenciesTable scenario={scenario} />
 

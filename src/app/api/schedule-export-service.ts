@@ -126,6 +126,7 @@ export interface GridRow {
   taskDetails?: string;
   deliverables?: string;
   deliverableDetails?: string;
+  description?: string;
 }
 
 function buildActivityIndexMap(activities: Activity[]): Map<string, number> {
@@ -228,8 +229,39 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
     if (taskCol) { row.tasks = taskCol.summary; row.taskDetails = taskCol.details; }
     const delCol = formatItemColumn(activity.deliverables);
     if (delCol) { row.deliverables = delCol.summary; row.deliverableDetails = delCol.details; }
+    row.description = activity.description ?? "";
     return row;
   });
+}
+
+/**
+ * Column headers for the schedule grid export, shared by the CSV and XLSX
+ * formatters (their header rows must stay byte-identical). "Description" is the
+ * last prose column, immediately before the terminal "Type" column.
+ */
+export function buildScheduleHeaders(hasDeps: boolean, pctLabel: string): string[] {
+  const headers = [
+    "#",
+    "Activity Name",
+    "Min",
+    "Most Likely",
+    "Max",
+    "Confidence",
+    "Distribution",
+    "Status",
+    "Actual",
+    `Duration (${pctLabel})`,
+    "Start Date",
+    "End Date",
+  ];
+  if (hasDeps) {
+    headers.push("Total Float (days)", "Free Float (days)");
+    headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
+  }
+  headers.push("Tasks", "Task Details", "Deliverables", "Deliverable Details");
+  headers.push("Description");
+  headers.push("Type");
+  return headers;
 }
 
 // ---------------------------------------------------------------------------

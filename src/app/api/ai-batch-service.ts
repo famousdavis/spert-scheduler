@@ -34,6 +34,7 @@ const ACTIVITY_CAP = 500;
 const MILESTONE_CAP = 100;
 const ITEM_CAP = 50;
 const NOTES_MAX = 2000;
+const DESCRIPTION_MAX = 2000;
 const NOTE_SEPARATOR = "\n\n";
 
 // -- Op contract -------------------------------------------------------------
@@ -51,6 +52,7 @@ interface CreateActivityPayload {
   max: number;
   confidenceLevel?: RSMLevel;
   distributionType?: DistributionType;
+  description?: string;
 }
 
 interface UpdateEstimatePayload {
@@ -67,6 +69,14 @@ interface RenameActivityPayload {
   scenarioId?: string;
   id: string;
   name: string;
+}
+
+interface SetDescriptionPayload {
+  scenarioId?: string;
+  id: string;
+  // Typed as `string`, but drained raw from Firestore (no client Zod) — the
+  // handler still guards `typeof` before trusting it. Empty string clears.
+  description: string;
 }
 
 interface AppendNotePayload {
@@ -134,6 +144,7 @@ export type AiOp =
   | { seq: number; op: "create_activity"; payload: CreateActivityPayload }
   | { seq: number; op: "update_activity_estimate"; payload: UpdateEstimatePayload }
   | { seq: number; op: "rename_activity"; payload: RenameActivityPayload }
+  | { seq: number; op: "set_activity_description"; payload: SetDescriptionPayload }
   | { seq: number; op: "append_activity_note"; payload: AppendNotePayload }
   | { seq: number; op: "add_checklist_items"; payload: AddItemsPayload }
   | { seq: number; op: "add_deliverable_items"; payload: AddItemsPayload }
@@ -212,6 +223,8 @@ function handleCreateActivity(scenario: Scenario, p: CreateActivityPayload): OpR
     status: "planned" as const,
     checklist: [],
     deliverables: [],
+    // Optional on create → coalesce (opposite of the set path, which guards).
+    description: p.description?.trim() || undefined,
   });
   if (!parsed.success) return skip(scenario, "invalid");
   return applied(addActivityToScenario(scenario, parsed.data));
@@ -265,6 +278,24 @@ function handleRename(scenario: Scenario, p: RenameActivityPayload): OpResult {
   if (!parsed.success) return skip(scenario, "invalid");
   if (parsed.data.name === activity.name) return skip(scenario, "value_unchanged");
   return applied(updateActivity(scenario, p.id, { name: parsed.data.name }));
+}
+
+// Overwrite (destructive): empty string clears. Invalidates simulationResults.
+function handleSetDescription(scenario: Scenario, p: SetDescriptionPayload): OpResult {
+  // Presence guard (load-bearing): ops are drained raw with no client Zod, and
+  // `description` is optional on ActivitySchema, so a missing field would pass
+  // safeParse. Do NOT coalesce here — an absent field must fail, not mass-clear.
+  if (typeof p.description !== "string") return skip(scenario, "invalid");
+  const activity = scenario.activities.find((a) => a.id === p.id);
+  if (!activity) return skip(scenario, "not_found");
+  // Explicit length pre-check BEFORE safeParse so over-length reads as
+  // would_exceed_length (a bare handleRename clone would surface it as invalid).
+  if (p.description.length > DESCRIPTION_MAX) return skip(scenario, "would_exceed_length");
+  const next = p.description.trim() || undefined;
+  const parsed = ActivitySchema.safeParse({ ...activity, description: next });
+  if (!parsed.success) return skip(scenario, "invalid");
+  if (next === (activity.description ?? undefined)) return skip(scenario, "value_unchanged");
+  return applied(updateActivity(scenario, p.id, { description: next }));
 }
 
 // -- Qualitative ops ---------------------------------------------------------
@@ -449,6 +480,8 @@ export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
       return handleUpdateEstimate(scenario, op.payload);
     case "rename_activity":
       return handleRename(scenario, op.payload);
+    case "set_activity_description":
+      return handleSetDescription(scenario, op.payload);
     case "append_activity_note":
       return handleAppendNote(scenario, op.payload);
     case "add_checklist_items":

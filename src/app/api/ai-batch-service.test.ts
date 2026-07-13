@@ -126,6 +126,27 @@ describe("create_activity", () => {
       )
     ).toEqual({ status: "skipped", reason: "cap_exceeded" });
   });
+
+  it("threads an optional description (coalesced + trimmed)", () => {
+    const { project, scenarioId } = build({ activityCount: 0 });
+    const res = one(
+      project,
+      { seq: 1, op: "create_activity", payload: { id: "new1", name: "New", min: 1, mostLikely: 2, max: 3, description: "  scope text  " } },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(activityOf(res.project, scenarioId, "new1").description).toBe("scope text");
+  });
+
+  it("normalizes a whitespace-only description away on create", () => {
+    const { project, scenarioId } = build({ activityCount: 0 });
+    const res = one(
+      project,
+      { seq: 1, op: "create_activity", payload: { id: "new2", name: "New", min: 1, mostLikely: 2, max: 3, description: "   " } },
+      scenarioId
+    );
+    expect(activityOf(res.project, scenarioId, "new2").description).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -203,6 +224,81 @@ describe("rename_activity", () => {
     expect(
       outcome(project, { seq: 1, op: "rename_activity", payload: { id: a0.id, name: a0.name } }, scenarioId)
     ).toEqual({ status: "skipped", reason: "value_unchanged" });
+  });
+});
+
+describe("set_activity_description", () => {
+  const seed = (project: Project, scenarioId: string, id: string, description: string) =>
+    one(project, { seq: 1, op: "set_activity_description", payload: { id, description } }, scenarioId).project;
+
+  it("sets a trimmed description (applied) and invalidates simulation results", () => {
+    const { project, scenarioId, activityIds } = build();
+    const fake = { id: "sim" } as unknown as NonNullable<Scenario["simulationResults"]>;
+    const withResults = withPatch(project, scenarioId, { simulationResults: fake });
+    const res = one(
+      withResults,
+      { seq: 1, op: "set_activity_description", payload: { id: activityIds[0]!, description: "  Build the API gateway  " } },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(activityOf(res.project, scenarioId, activityIds[0]!).description).toBe("Build the API gateway");
+    expect(scenarioOf(res.project, scenarioId).simulationResults).toBeUndefined();
+  });
+
+  it("clears an existing description when passed an empty string", () => {
+    const { project, scenarioId, activityIds } = build();
+    const seeded = seed(project, scenarioId, activityIds[0]!, "scope");
+    const res = one(
+      seeded,
+      { seq: 2, op: "set_activity_description", payload: { id: activityIds[0]!, description: "" } },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(activityOf(res.project, scenarioId, activityIds[0]!).description).toBeUndefined();
+  });
+
+  it("value_unchanged when the description already matches", () => {
+    const { project, scenarioId, activityIds } = build();
+    const seeded = seed(project, scenarioId, activityIds[0]!, "scope");
+    expect(
+      outcome(seeded, { seq: 2, op: "set_activity_description", payload: { id: activityIds[0]!, description: "scope" } }, scenarioId)
+    ).toEqual({ status: "skipped", reason: "value_unchanged" });
+  });
+
+  it("value_unchanged when clearing an already-absent description", () => {
+    const { project, scenarioId, activityIds } = build();
+    expect(
+      outcome(project, { seq: 1, op: "set_activity_description", payload: { id: activityIds[0]!, description: "" } }, scenarioId)
+    ).toEqual({ status: "skipped", reason: "value_unchanged" });
+  });
+
+  it("would_exceed_length when over 2000 chars", () => {
+    const { project, scenarioId, activityIds } = build();
+    expect(
+      outcome(project, { seq: 1, op: "set_activity_description", payload: { id: activityIds[0]!, description: "x".repeat(2001) } }, scenarioId)
+    ).toEqual({ status: "skipped", reason: "would_exceed_length" });
+  });
+
+  it("not_found for an unknown activity id", () => {
+    const { project, scenarioId } = build();
+    expect(
+      outcome(project, { seq: 1, op: "set_activity_description", payload: { id: "nope", description: "x" } }, scenarioId)
+    ).toEqual({ status: "skipped", reason: "not_found" });
+  });
+
+  it("invalid (presence guard) when the description field is absent", () => {
+    const { project, scenarioId, activityIds } = build();
+    // Ops are drained raw with no client Zod; a missing field must fail rather
+    // than coalesce to a silent mass-clear.
+    const op = { seq: 1, op: "set_activity_description", payload: { id: activityIds[0]! } } as unknown as AiOp;
+    expect(outcome(project, op, scenarioId)).toEqual({ status: "skipped", reason: "invalid" });
+  });
+
+  it("locked scenario skips with locked", () => {
+    const { project, scenarioId, activityIds } = build({ locked: true });
+    expect(
+      outcome(project, { seq: 1, op: "set_activity_description", payload: { id: activityIds[0]!, description: "x" } }, scenarioId)
+    ).toEqual({ status: "skipped", reason: "locked" });
   });
 });
 

@@ -47,8 +47,10 @@ checklist/deliverable item BEFORE calling a tool (e.g. "act-auth", "ms-launch").
 Reuse the same id to update or reference that entity later.
 
 TOOLS THAT WORK WITHOUT READ MODE (Write is always on once paired):
-  scheduler_create_activity, scheduler_update_activity_estimate,
-  scheduler_rename_activity, scheduler_append_activity_note,
+  scheduler_create_activity (accepts an optional 'description'),
+  scheduler_update_activity_estimate,
+  scheduler_rename_activity, scheduler_set_activity_description,
+  scheduler_append_activity_note,
   scheduler_add_checklist_items / scheduler_add_deliverable_items,
   scheduler_toggle_checklist_item / scheduler_toggle_deliverable_item,
   scheduler_create_milestone, scheduler_update_milestone,
@@ -66,6 +68,15 @@ NOTES CAVEAT
 scheduler_append_activity_note appends to an activity's notes (max 2000 chars).
 If an append would overflow, the tool rejects it — keep notes concise or split
 across activities rather than retrying the same long text.
+
+DESCRIPTION CAVEAT
+scheduler_set_activity_description OVERWRITES an activity's plain-language scope
+description (max 2000 chars); passing an empty string CLEARS it. It also
+invalidates simulation results. It works without Read Mode, but because it is
+destructive and with Read Mode off you have no snapshot of the existing text,
+prefer setting 'description' at create time, or enable Read Mode first so you can
+see what you would replace. In a truncated Read-Mode snapshot, activities that
+already have a description are flagged with hasDescription: true.
 
 VERIFYING
 Writes are queued and applied in my browser a moment later. If Read Mode is on,

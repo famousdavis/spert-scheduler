@@ -4,6 +4,7 @@
 import {
   buildSummaryData,
   buildGridRows,
+  buildScheduleHeaders,
   type ScheduleExportParams,
 } from "./schedule-export-service";
 import { buildRenderList } from "@ui/helpers/band-utils";
@@ -36,27 +37,8 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
   }
   lines.push("");
 
-  // Column headers
-  const headers = [
-    "#",
-    "Activity Name",
-    "Min",
-    "Most Likely",
-    "Max",
-    "Confidence",
-    "Distribution",
-    "Status",
-    "Actual",
-    `Duration (${pctLabel})`,
-    "Start Date",
-    "End Date",
-  ];
-  if (hasDeps) {
-    headers.push("Total Float (days)", "Free Float (days)");
-    headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
-  }
-  headers.push("Tasks", "Task Details", "Deliverables", "Deliverable Details");
-  headers.push("Type");
+  // Column headers (shared with the XLSX formatter — keep byte-identical)
+  const headers = buildScheduleHeaders(hasDeps, pctLabel);
   lines.push(headers.map(csvEscape).join(","));
 
   // Data rows — iterate render list (activities + bands interleaved)
@@ -87,6 +69,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
         );
       }
       cells.push(row.tasks ?? "", row.taskDetails ?? "", row.deliverables ?? "", row.deliverableDetails ?? "");
+      cells.push(row.description ?? "");
       cells.push("Activity");
       lines.push(cells.map(csvEscape).join(","));
     } else {
@@ -120,7 +103,8 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
   if (hasDeps) {
     totalCells.push("", "", "", "", "", "", "", "");
   }
-  totalCells.push("", "", "", "");
+  totalCells.push("", "", "", ""); // Tasks / Task Details / Deliverables / Deliverable Details
+  totalCells.push(""); // Description column
   totalCells.push(""); // Type column
   lines.push(totalCells.map(csvEscape).join(","));
 

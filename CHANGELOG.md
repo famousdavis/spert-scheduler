@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.52.0 — 2026-07-12
+
+### Added — Activity Description field
+
+- **New optional `description` on activities.** A plain-language summary of what an activity entails, distinct from `notes`: Description is the shareable "what this activity is" you'd want to read back or hand off months later; Notes remains the private catch-all (risks, jottings). Tasks and Deliverables still cover structured breakdowns — Description covers "just a sentence or two."
+- **Editable in the activity edit modal**, General section, in a full-width compact 2-row textarea directly below the Name/Status row (2000-char cap with a live counter). Like renaming or re-estimating, editing a description **invalidates simulation results** (Notes/checklist/deliverables deliberately do not) — a conscious trade, since Description is schedule-shareable content.
+- **Exports:** Description is a new right-edge column in the CSV and Excel schedule exports (before the `Type` column), and renders as its own section in the printable PDF report. In Excel, the Description column and the previously-single-line Task Details / Deliverable Details columns now wrap. Both formatters now share a single header builder, and the XLSX `lastCol` is derived from the header count so column math can't drift.
+- **Connect AI:** `scheduler_create_activity` accepts an optional `description`, and a new **`scheduler_set_activity_description`** tool (the suite's 17th `scheduler_*` tool) overwrites it — an empty string clears it; setting it invalidates simulation results. Truncated Read-Mode snapshots flag activities that already have a description with `hasDescription: true` so the assistant knows not to blind-overwrite. The shared `spert-suite` MCP server was bumped to `1.6.0`.
+- **Schema:** `SCHEMA_VERSION` **22 → 23** (pure `schemaVersion` relabel — the field is optional with no default; the bump activates the future-version guard so up-to-date-guarded clients refuse a v23 document rather than silently stripping `description`).
+- **Not in v1 (deferred):** CSV *import* of Description (an unknown "Description" column is silently ignored — see SD-3), a grid indicator, a results-staleness affordance, and Notes-in-exports. All by design.
+
 ## 0.51.1 — 2026-07-10
 
 ### Added — Connect AI Guide on the About page

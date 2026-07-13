@@ -7,6 +7,7 @@ const OP_LABELS: Record<string, string> = {
   create_activity: "Create activity",
   update_activity_estimate: "Update estimate",
   rename_activity: "Rename activity",
+  set_activity_description: "Set description",
   append_activity_note: "Add note",
   add_checklist_items: "Add checklist items",
   add_deliverable_items: "Add deliverable items",
