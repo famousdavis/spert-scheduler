@@ -1,6 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
+import type { Activity } from "@domain/models/types";
 import { focusField, focusNextRow, focusPrevRow } from "./activity-row-helpers";
 
 export function constraintBadgeClass(
@@ -26,6 +27,27 @@ export function constraintBadgeLabel(
 ): string {
   if (!constraintType) return "—";
   return `${constraintType}${constraintMode === "soft" ? " S" : ""}`;
+}
+
+/** True when at least one activity in the list carries a scheduling constraint. */
+export function hasAnyConstraint(activities: Activity[]): boolean {
+  return activities.some((a) => a.constraintType != null);
+}
+
+/**
+ * Whether the activity grid should render the Constraint column + cells.
+ *
+ * Dependency mode always shows it — the column doubles as the per-row
+ * "add a constraint" affordance for a feature that's central to that mode.
+ * Sequential mode only shows it once at least one activity actually has a
+ * constraint, so the freed 80px track flows into the (1fr) Name column the
+ * rest of the time.
+ */
+export function shouldShowConstraintColumn(
+  dependencyMode: boolean | undefined,
+  activities: Activity[],
+): boolean {
+  return !!dependencyMode || hasAnyConstraint(activities);
 }
 
 export function maxTabTarget(shiftKey: boolean, confidenceApplies: boolean): "ml" | "confidence" | "distribution" {
