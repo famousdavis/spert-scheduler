@@ -54,7 +54,7 @@ interface UnifiedActivityRowProps {
   heuristicMinPercent?: number;
   heuristicMaxPercent?: number;
   calendar?: WorkCalendar | Calendar;
-  dependencyMode?: boolean;
+  showConstraintColumn?: boolean;
   onEditActivity?: (activityId: string) => void;
   hasConstraintWarning?: boolean;
   activityNumber?: number;
@@ -137,7 +137,7 @@ export function UnifiedActivityRow({
   heuristicMinPercent = 50,
   heuristicMaxPercent = 200,
   calendar,
-  dependencyMode,
+  showConstraintColumn,
   onEditActivity,
   hasConstraintWarning,
   activityNumber,
@@ -147,7 +147,7 @@ export function UnifiedActivityRow({
 }: UnifiedActivityRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formatDate = useDateFormat();
-  const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
+  const gridCols = showConstraintColumn ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
 
   useEffect(() => {
     if (autoFocusName && nameInputRef.current) {
@@ -482,8 +482,8 @@ export function UnifiedActivityRow({
         )}
       </div>
 
-      {/* Constraint badge (dependency mode only) */}
-      {dependencyMode && (
+      {/* Constraint badge (shown whenever the Constraint column is visible) */}
+      {showConstraintColumn && (
         <div className="px-0.5">
           <button
             type="button"

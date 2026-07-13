@@ -29,6 +29,7 @@ import { UnifiedActivityRow } from "./UnifiedActivityRow";
 import { BandHeaderRow } from "./BandHeaderRow";
 import { BulkActionToolbar } from "./BulkActionToolbar";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
+import { shouldShowConstraintColumn } from "./unified-activity-helpers";
 import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
 import { useGridFocus, useGridSelection } from "@ui/hooks/use-grid-state";
 
@@ -90,7 +91,8 @@ export function UnifiedActivityGrid({
   constraintWarningIds,
   activityNumberMap,
 }: UnifiedActivityGridProps) {
-  const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
+  const showConstraintColumn = shouldShowConstraintColumn(dependencyMode, activities);
+  const gridCols = showConstraintColumn ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
   const [, setInvalidIds] = useState<Set<string>>(new Set());
   // Global drag suppression for the insert-strip overlay. Wired through
   // DndContext callbacks below. `useDndContext()` can't be used here because
@@ -311,7 +313,7 @@ export function UnifiedActivityGrid({
         <div className="text-right px-1">Dur.</div>
         <div className="px-1">Start</div>
         <div className="px-1">End</div>
-        {dependencyMode && <div className="px-1">Constraint</div>}
+        {showConstraintColumn && <div className="px-1">Constraint</div>}
         <div className="text-right px-1.5">Min</div>
         <div className="text-right px-1.5">ML</div>
         <div className="text-right px-1.5">Max</div>
@@ -342,7 +344,7 @@ export function UnifiedActivityGrid({
         </div>
         <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
         <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
-        {dependencyMode && <div />}
+        {showConstraintColumn && <div />}
         <div />
         <div />
         <div />
@@ -392,7 +394,7 @@ export function UnifiedActivityGrid({
                   heuristicMinPercent={heuristicMinPercent}
                   heuristicMaxPercent={heuristicMaxPercent}
                   calendar={calendar}
-                  dependencyMode={dependencyMode}
+                  showConstraintColumn={showConstraintColumn}
                   onEditActivity={onEditActivity}
                   hasConstraintWarning={constraintWarningIds?.has(activity.id)}
                   onInsertAfterActivity={
@@ -410,7 +412,7 @@ export function UnifiedActivityGrid({
                 key={item.band.id}
                 band={item.band}
                 locked={!!isScenarioLocked}
-                dependencyMode={!!dependencyMode}
+                showConstraintColumn={showConstraintColumn}
                 onUpdate={onUpdateBand}
                 onDelete={onDeleteBand}
                 autoFocus={item.band.id === focusBandId}
@@ -451,7 +453,7 @@ export function UnifiedActivityGrid({
           </div>
           <div />
           <div />
-          {dependencyMode && <div />}
+          {showConstraintColumn && <div />}
           <div className="text-right tabular-nums px-1">{summary.totalMin}</div>
           <div className="text-right tabular-nums px-1">{summary.totalML}</div>
           <div className="text-right tabular-nums px-1">{summary.totalMax}</div>

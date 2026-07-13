@@ -13,7 +13,7 @@ import { useBufferedField } from "@ui/hooks/use-buffered-field";
 interface BandHeaderRowProps {
   band: ActivityBand;
   locked: boolean;
-  dependencyMode: boolean;
+  showConstraintColumn: boolean;
   onUpdate: (bandId: string, updates: Partial<ActivityBand>) => void;
   onDelete: (bandId: string) => void;
   autoFocus?: boolean;
@@ -25,7 +25,7 @@ interface BandHeaderRowProps {
 export function BandHeaderRow({
   band,
   locked,
-  dependencyMode,
+  showConstraintColumn,
   onUpdate,
   onDelete,
   autoFocus,
@@ -35,7 +35,7 @@ export function BandHeaderRow({
 }: BandHeaderRowProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const gridCols = dependencyMode ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
+  const gridCols = showConstraintColumn ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
 
   const {
     attributes,

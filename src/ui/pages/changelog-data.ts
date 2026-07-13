@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.52.1",
+    date: "2026-07-13",
+    sections: [
+      {
+        title: "Changed — Constraint column now shows in sequential mode",
+        items: [
+          "When dependency mode is off, the activity grid's Constraint column now appears as soon as any activity has a scheduling constraint. Previously it only showed with dependency mode on, so a constraint you'd set was hidden in the grid — visible only on the Gantt chart or inside the activity's edit modal. With no constraints set, the column stays hidden and the Name column keeps the extra width, exactly as before.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.52.0",
     date: "2026-07-12",
     sections: [

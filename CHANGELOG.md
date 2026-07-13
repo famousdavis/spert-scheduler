@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.52.1 — 2026-07-13
+
+### Changed — Constraint column visibility in sequential mode
+
+- The activity grid's **Constraint** column now appears in sequential mode (dependency mode off) as soon as **at least one activity carries a scheduling constraint** (`constraintType`), instead of only when dependency mode is on. Previously a constraint set while in sequential mode was invisible in the grid — discoverable only via the Gantt chart or the activity edit modal — even though the sequential deterministic scheduler already honors it (and already computed the same conflict/warning data used for the badge). Once the column is shown, each row's cell behaves as it does in dependency mode: a badge for constrained activities and a clickable "—" affordance to add one on the rest.
+- Dependency mode is unchanged — the column always shows there, even with zero constraints. When no activity has a constraint, sequential mode still hides the column and the freed 80px track flows back into the (1fr) Name column, exactly as before. Visibility is now gated on `dependencyMode || hasAnyConstraint(activities)`.
+- Purely presentational: no data-model, persistence, or scheduling-logic change. Scoped to `UnifiedActivityGrid`, `UnifiedActivityRow`, and `BandHeaderRow` plus a new `shouldShowConstraintColumn`/`hasAnyConstraint` helper pair. 8 new unit tests (1,886 → 1,894 across 86 files); all pass. No schema change — `SCHEMA_VERSION` stays 23.
+
 ## 0.52.0 — 2026-07-12
 
 ### Added — Activity Description field

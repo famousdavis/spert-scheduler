@@ -2,9 +2,12 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { Activity } from "@domain/models/types";
 import {
   constraintBadgeClass,
   constraintBadgeLabel,
+  hasAnyConstraint,
+  shouldShowConstraintColumn,
   maxTabTarget,
   buildTabFieldOrder,
   handleOffOrderTabNav,
@@ -32,6 +35,20 @@ beforeEach(() => {
 function makeKeyEvent(shiftKey: boolean, target?: HTMLElement): React.KeyboardEvent {
   const preventDefault = vi.fn();
   return { shiftKey, target: target as unknown as EventTarget, preventDefault } as unknown as React.KeyboardEvent;
+}
+
+function makeActivity(overrides: Partial<Activity> = {}): Activity {
+  return {
+    id: "a1",
+    name: "Activity 1",
+    distributionType: "normal",
+    confidenceLevel: "mediumConfidence",
+    min: 1,
+    mostLikely: 2,
+    max: 3,
+    status: "planned",
+    ...overrides,
+  } as Activity;
 }
 
 describe("constraintBadgeClass", () => {
@@ -286,5 +303,47 @@ describe("handleInRowTabNav", () => {
     const e = makeKeyEvent(false);
     handleInRowTabNav(e, ["name", "ml", "max"], 2, "a1");
     expect(focusFieldMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("hasAnyConstraint", () => {
+  it("returns false for an empty list", () => {
+    expect(hasAnyConstraint([])).toBe(false);
+  });
+
+  it("returns false when no activity has a constraintType", () => {
+    expect(hasAnyConstraint([makeActivity(), makeActivity({ id: "a2" })])).toBe(false);
+  });
+
+  it("returns true when at least one activity has a constraintType", () => {
+    const activities = [
+      makeActivity(),
+      makeActivity({ id: "a2", constraintType: "MSO", constraintDate: "2026-01-15", constraintMode: "hard" }),
+    ];
+    expect(hasAnyConstraint(activities)).toBe(true);
+  });
+});
+
+describe("shouldShowConstraintColumn", () => {
+  it("is true in dependency mode even with zero constraints", () => {
+    expect(shouldShowConstraintColumn(true, [makeActivity()])).toBe(true);
+  });
+
+  it("is false in sequential mode with zero constraints", () => {
+    expect(shouldShowConstraintColumn(false, [makeActivity()])).toBe(false);
+  });
+
+  it("is true in sequential mode once a constraint exists", () => {
+    const activities = [makeActivity({ constraintType: "FNLT", constraintDate: "2026-02-01", constraintMode: "soft" })];
+    expect(shouldShowConstraintColumn(false, activities)).toBe(true);
+  });
+
+  it("is true in dependency mode regardless of constraints", () => {
+    const activities = [makeActivity({ constraintType: "MFO", constraintDate: "2026-03-01", constraintMode: "hard" })];
+    expect(shouldShowConstraintColumn(true, activities)).toBe(true);
+  });
+
+  it("is false in sequential mode when undefined dependencyMode and no constraints", () => {
+    expect(shouldShowConstraintColumn(undefined, [makeActivity()])).toBe(false);
   });
 });
