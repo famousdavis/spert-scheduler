@@ -10,9 +10,29 @@ import {
   CalendarConfigurationError,
   advanceToNextWorkingDay,
   CALENDAR_ITERATION_LIMIT_MESSAGE,
+  isCalendarError,
 } from "./work-calendar";
 import { addWorkingDays, countWorkingDays } from "./calendar";
 import type { Holiday } from "@domain/models/types";
+
+// ---------------------------------------------------------------------------
+// isCalendarError (shared two-shape predicate)
+// ---------------------------------------------------------------------------
+
+describe("isCalendarError (shared two-shape predicate)", () => {
+  it("recognizes a CalendarConfigurationError instance", () => {
+    expect(isCalendarError(new CalendarConfigurationError("no valid work days"))).toBe(true);
+  });
+
+  it("recognizes a plain Error with the iteration-limit message prefix", () => {
+    expect(isCalendarError(new Error(`${CALENDAR_ITERATION_LIMIT_MESSAGE} - date range too large`))).toBe(true);
+  });
+
+  it("does not misclassify an unrelated error", () => {
+    expect(isCalendarError(new Error("PERT mean must be > 0, got 0"))).toBe(false);
+    expect(isCalendarError("not even an Error")).toBe(false);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // buildWorkWeekMask

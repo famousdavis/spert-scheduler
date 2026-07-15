@@ -110,6 +110,28 @@ export function buildHolidaySet(holidays: Holiday[]): Set<string> {
 export const CALENDAR_ITERATION_LIMIT_MESSAGE = "Calendar iteration limit exceeded";
 
 /**
+ * True iff `err` is one of this module's two calendar-configuration throw
+ * shapes: a `CalendarConfigurationError` instance (all-non-working-days,
+ * thrown by `advanceToNextWorkingDay` and friends in this file), or a plain
+ * `Error` whose message starts with `CALENDAR_ITERATION_LIMIT_MESSAGE`
+ * (thrown by the free-standing `addWorkingDays`/`subtractWorkingDays`/
+ * `countWorkingDays` helpers in `calendar.ts`).
+ *
+ * Centralized here — rather than re-implemented at each call site — so the
+ * AI-snapshot classifier and the UI's schedule-error banner can never drift
+ * out of sync on what counts as a calendar error. (v0.53.0: a UI-side
+ * reimplementation that checked only `instanceof CalendarConfigurationError`
+ * shipped in an earlier draft of this fix and missed the second shape; this
+ * function exists so that mistake can't be made in a second place.)
+ */
+export function isCalendarError(err: unknown): boolean {
+  return (
+    err instanceof CalendarConfigurationError ||
+    (err instanceof Error && err.message.startsWith(CALENDAR_ITERATION_LIMIT_MESSAGE))
+  );
+}
+
+/**
  * Advance a date forward to the next working day, bounded so a calendar with
  * no working days (all-non-working work week, excessive holidays) throws a
  * {@link CalendarConfigurationError} instead of looping forever.

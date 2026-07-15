@@ -324,8 +324,10 @@ export function parseFlatActivityTable(
       continue;
     }
 
-    // Normalize distribution (optional — default to "normal") — parsed before
-    // confidence because empty confidence is allowed for triangular/uniform
+    // Normalize distribution (optional — defaults to the scenario's configured
+    // default distribution type, DEFAULT_SCENARIO_SETTINGS.defaultDistributionType,
+    // currently "triangular") — parsed before confidence because empty confidence
+    // is allowed for triangular/uniform
     let distributionType: DistributionType = DEFAULT_SCENARIO_SETTINGS.defaultDistributionType;
     if (rawDistribution) {
       const distKey = normalizeKey(rawDistribution);
@@ -336,7 +338,7 @@ export function parseFlatActivityTable(
         warnings.push({
           row: rowNum,
           column: "Distribution",
-          message: `Unrecognized distribution "${truncate(rawDistribution)}". Defaulting to "normal".`,
+          message: `Unrecognized distribution "${truncate(rawDistribution)}". Defaulting to "${distributionType}".`,
           severity: "warning",
         });
       }

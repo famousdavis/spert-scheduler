@@ -18,6 +18,7 @@ import {
   computeDependencySchedule,
 } from "@core/schedule/deterministic";
 import { computeScheduleBuffer } from "@core/schedule/buffer";
+import { toast } from "@ui/hooks/use-notification-store";
 
 interface ScheduleExportSectionProps {
   projects: Project[];
@@ -97,7 +98,13 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
   }, [selectedProject, selectedScenario, workCalendar, dateFormat]);
 
   const handleExportXlsx = useCallback(async () => {
-    const params = buildParams();
+    let params: ScheduleExportParams | null;
+    try {
+      params = buildParams();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      return;
+    }
     if (!params) return;
     setExporting(true);
     try {
@@ -110,7 +117,13 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
   }, [buildParams]);
 
   const handleExportCsv = useCallback(() => {
-    const params = buildParams();
+    let params: ScheduleExportParams | null;
+    try {
+      params = buildParams();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      return;
+    }
     if (!params) return;
     const csv = exportScheduleCsv(params);
     const filename = `spert-scheduler ${sanitizeFilename(params.projectName)} - ${sanitizeFilename(params.scenarioName)} Schedule ${formatExportTimestamp(new Date())}.csv`;

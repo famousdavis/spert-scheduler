@@ -282,3 +282,30 @@ describe("buildMcDistribution", () => {
     expect(sumT / N).toBeGreaterThan(sumB / N);
   });
 });
+
+describe("buildMcDistribution — degenerate Triangular base (a === c === b)", () => {
+  it("below the point mass (t < a): nothing learned yet, base returned unchanged", () => {
+    const base = new TriangularDistribution(5, 5, 5);
+    const activity = makeActivity({ status: "inProgress", actualDuration: 3, distributionType: "triangular" });
+    const { dist, isExhausted } = buildMcDistribution(activity, base);
+    expect(dist).toBe(base); // p0 = base.cdf(3) = 0 -> "nothing learned" branch
+    expect(isExhausted).toBe(false);
+  });
+
+  it("exactly at the point mass (t === a): breached — the boundary this fix depends on", () => {
+    const base = new TriangularDistribution(5, 5, 5);
+    const activity = makeActivity({ status: "inProgress", actualDuration: 5, distributionType: "triangular" });
+    const { dist, isExhausted } = buildMcDistribution(activity, base);
+    expect(isExhausted).toBe(true);
+    expect(dist).toBeInstanceOf(DegenerateDistribution);
+    expect(dist.sample(createSeededRng("degen-boundary"))).toBe(5);
+  });
+
+  it("past the point mass (t > a): still breached", () => {
+    const base = new TriangularDistribution(5, 5, 5);
+    const activity = makeActivity({ status: "inProgress", actualDuration: 9, distributionType: "triangular" });
+    const { dist, isExhausted } = buildMcDistribution(activity, base);
+    expect(isExhausted).toBe(true);
+    expect(dist).toBeInstanceOf(DegenerateDistribution);
+  });
+});

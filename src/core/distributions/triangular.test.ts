@@ -62,8 +62,38 @@ describe("TriangularDistribution", () => {
     expect(() => new TriangularDistribution(1, 12, 10)).toThrow();
   });
 
-  it("throws for a == b", () => {
-    expect(() => new TriangularDistribution(5, 5, 5)).toThrow();
+  describe("degenerate (a === c === b)", () => {
+    it("does not throw when all three estimates are equal", () => {
+      expect(() => new TriangularDistribution(5, 5, 5)).not.toThrow();
+    });
+
+    it("sample always returns the constant value", () => {
+      const dist = new TriangularDistribution(5, 5, 5);
+      const rng = createSeededRng("tri-degenerate");
+      for (let i = 0; i < 1000; i++) {
+        expect(dist.sample(rng)).toBe(5);
+      }
+    });
+
+    it("inverseCDF returns the constant value for any p in [0,1]", () => {
+      const dist = new TriangularDistribution(7, 7, 7);
+      for (const p of [0, 0.01, 0.25, 0.5, 0.75, 0.99, 1]) {
+        expect(dist.inverseCDF(p)).toBe(7);
+      }
+    });
+
+    it("cdf is a step function at the constant (matches Uniform/Normal/LogNormal convention)", () => {
+      const dist = new TriangularDistribution(7, 7, 7);
+      expect(dist.cdf(6.999)).toBe(0);
+      expect(dist.cdf(7)).toBe(1);
+      expect(dist.cdf(7.001)).toBe(1);
+    });
+
+    it("mean and variance are correct for a point mass", () => {
+      const dist = new TriangularDistribution(3, 3, 3);
+      expect(dist.mean()).toBe(3);
+      expect(dist.variance()).toBe(0);
+    });
   });
 
   it("property: all samples bounded (fast-check)", () => {
@@ -75,7 +105,6 @@ describe("TriangularDistribution", () => {
         (x, y, z) => {
           const sorted = [x, y, z].sort((a, b) => a - b);
           const [a, c, b] = sorted as [number, number, number];
-          if (a === b) return true; // skip degenerate
           const dist = new TriangularDistribution(a, c, b);
           const rng = createSeededRng("fc-tri");
           for (let i = 0; i < 100; i++) {

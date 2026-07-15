@@ -27,8 +27,10 @@ function makeScenario(opts: { dependencyMode?: boolean; count?: number } = {}) {
   const ids: string[] = [];
   for (let i = 0; i < (opts.count ?? 2); i++) {
     const a = createActivity(`Task ${i + 1}`, scenario.settings);
-    // Explicit valid estimates so the schedule computes cleanly — createActivity
-    // defaults are blank/degenerate and would throw → "unknown".
+    // Explicit estimates (rather than createActivity's degenerate 1/1/1 default)
+    // so these scenarios produce a meaningful, non-trivial schedule to assert on.
+    // (As of v0.53.0 a degenerate default no longer throws — it's a valid point
+    // mass — so this is about test signal, not avoiding a crash.)
     scenario = addActivityToScenario(scenario, {
       ...a,
       min: 3,
@@ -109,19 +111,19 @@ describe("classifyAndComputeScenario", () => {
     expect(classifyAndComputeScenario(scenario, zeroCal()).scheduleStatus).toBe("calendar_misconfigured");
   });
 
-  it("unknown for a non-calendar throw (degenerate triangular a=c=b)", () => {
+  it("unknown for a non-calendar throw (triangular min > max order violation)", () => {
     const { scenario } = makeScenario({ count: 1 });
-    const degenerate: Scenario = {
+    const invalid: Scenario = {
       ...scenario,
       activities: scenario.activities.map((a) => ({
         ...a,
         min: 5,
-        mostLikely: 5,
-        max: 5,
+        mostLikely: 3,
+        max: 1,
         distributionType: "triangular" as const,
       })),
     };
-    expect(classifyAndComputeScenario(degenerate, monFri()).scheduleStatus).toBe("unknown");
+    expect(classifyAndComputeScenario(invalid, monFri()).scheduleStatus).toBe("unknown");
   });
 });
 
