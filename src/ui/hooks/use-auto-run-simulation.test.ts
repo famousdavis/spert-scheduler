@@ -6,6 +6,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useAutoRunSimulation } from "./use-auto-run-simulation";
 import { usePreferencesStore } from "./use-preferences-store";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
+import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
 import { DEFAULT_SCENARIO_SETTINGS } from "@domain/models/types";
 import type { Scenario } from "@domain/models/types";
 
@@ -121,5 +122,30 @@ describe("useAutoRunSimulation", () => {
       vi.advanceTimersByTime(600);
     });
     expect(runSimulation).not.toHaveBeenCalled();
+  });
+
+  it("swallows a buildSimulationParams throw: no call to runSimulation, no uncaught exception", () => {
+    vi.mocked(buildSimulationParams).mockImplementationOnce(() => {
+      throw new Error("PERT mean must be > 0, got 0");
+    });
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const runSimulation = vi.fn();
+    renderHook((p) => useAutoRunSimulation(p), {
+      initialProps: {
+        projectId: "p1",
+        scenario: makeScenario(),
+        allActivitiesValid: true,
+        workCalendar: buildWorkCalendar([1, 2, 3, 4, 5], [], []),
+        isRunning: false,
+        runSimulation,
+        setSimulationResults: vi.fn(),
+      },
+    });
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(runSimulation).not.toHaveBeenCalled();
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
+    consoleWarnSpy.mockRestore();
   });
 });

@@ -18,8 +18,7 @@ import type {
 } from "@domain/models/types";
 import {
   type WorkCalendar,
-  CalendarConfigurationError,
-  CALENDAR_ITERATION_LIMIT_MESSAGE,
+  isCalendarError,
 } from "@core/calendar/work-calendar";
 import {
   computeDeterministicSchedule,
@@ -103,13 +102,6 @@ export interface ScenarioComputation {
 // ---------------------------------------------------------------------------
 // Pre-classification + schedule computation
 // ---------------------------------------------------------------------------
-
-function isCalendarError(err: unknown): boolean {
-  return (
-    err instanceof CalendarConfigurationError ||
-    (err instanceof Error && err.message.startsWith(CALENDAR_ITERATION_LIMIT_MESSAGE))
-  );
-}
 
 function hasInvalidLogNormal(scenario: Scenario): boolean {
   return scenario.activities.some(

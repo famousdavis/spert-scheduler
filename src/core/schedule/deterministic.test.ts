@@ -124,7 +124,8 @@ describe("computeDeterministicSchedule", () => {
   });
 
   it("enforces minimum 1 working day duration", () => {
-    // Use normal with tiny values (triangular with a=c=b would throw)
+    // Normal with tiny values; could equally use a degenerate Triangular (a=c=b)
+    // since v0.53.0, but Normal keeps this test decoupled from that change.
     const normalActivities = [
       makeActivity({
         id: "a1",
@@ -140,6 +141,20 @@ describe("computeDeterministicSchedule", () => {
       0.1 // Low percentile => very small duration
     );
     expect(schedule.activities[0]!.duration).toBeGreaterThanOrEqual(1);
+  });
+
+  it("one invalid activity (triangular min > max) still fails the whole schedule, visibly", () => {
+    const activities = [
+      makeActivity({ id: "a1", name: "Good Task" }),
+      makeActivity({ id: "a2", name: "Bad Task", min: 5, mostLikely: 3, max: 1, distributionType: "triangular" }),
+    ];
+    // per §4.9, the factory now names the offending activity in the thrown message
+    expect(() =>
+      computeDeterministicSchedule(activities, "2025-01-06", 0.5)
+    ).toThrow(/Bad Task/);
+    expect(() =>
+      computeDependencySchedule(activities, [], "2025-01-06", 0.5)
+    ).toThrow(/Bad Task/);
   });
 
   it("returns project start date as end date for empty activity list", () => {

@@ -384,6 +384,15 @@ export function GanttChart({
   const tc = isDark ? TARGET_COLORS.dark : TARGET_COLORS.light;
 
   // Uncertainty data
+  //
+  // Deliberately unwrapped — not a silent-failure gap. computeActivityUncertaintyDays
+  // routes every activity through the same createDistributionForActivity call as
+  // computeSchedule/computeDependencySchedule (see deterministic.ts). This component
+  // only renders once ProjectPage.tsx's `{schedule && ...}` gate is satisfied, which
+  // means the same activities already passed the factory without throwing on this
+  // render — so this call cannot throw for an activity that made it this far. See
+  // the v0.53.0 implementation plan, §2/§3/§9 for the full reasoning (same carve-out
+  // class as ProjectPage.tsx's criticalPathIds memo).
   const uncertaintyMap = useMemo(
     () => computeActivityUncertaintyDays(activities, activityTarget, projectTarget),
     [activities, activityTarget, projectTarget]

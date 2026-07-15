@@ -12,6 +12,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.53.0",
+    date: "2026-07-14",
+    sections: [
+      {
+        title: "Fixed — Zero-uncertainty activities now schedule instead of silently breaking",
+        items: [
+          "An activity whose Min, Most Likely, and Max are all the same value (a fixed, no-uncertainty duration — e.g. a 7-day cruise) is now fully supported. Previously, with the default Triangular distribution, such an activity caused the Gantt chart and schedule to silently never appear — no error, no explanation, so the app looked broken. This also fixes the common workflow of laying out all your activities and dependencies before entering any real estimates: new activities default to 1/1/1, which now schedules cleanly as a 1-day bar. Any older project that contained such an activity — and couldn't be scheduled or simulated at all — will simply start working.",
+        ],
+      },
+      {
+        title: "Fixed — Schedule and simulation failures are now shown instead of swallowed",
+        items: [
+          "When a schedule or Monte Carlo run can't be computed (for example, an activity with an impossible estimate that arrived via import or an older file), the app now shows a clear message naming the affected activity, rather than a button that appears to do nothing. This covers the Gantt/schedule banner, the Run Simulation button, auto-run, the scenario comparison table, and schedule export.",
+          "Calendar configuration problems now show the calendar-specific guidance for both kinds of misconfiguration — an all-non-working-week and an impossible date range / excessive-holiday run — where before only the first kind was recognized.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.52.1",
     date: "2026-07-13",
     sections: [

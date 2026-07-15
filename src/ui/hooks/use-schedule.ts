@@ -8,35 +8,42 @@ import type {
   DeterministicSchedule,
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
-import { CalendarConfigurationError } from "@core/calendar/work-calendar";
+import { isCalendarError } from "@core/calendar/work-calendar";
 import { computeSchedule } from "@app/api/schedule-service";
+
+export interface ScheduleError {
+  message: string;
+  isCalendarError: boolean;
+}
 
 /**
  * Memoized deterministic schedule computation.
  * Recomputes only when activities, startDate, probabilityTarget, or calendar change.
  *
- * If the calendar configuration has no valid work days, fires onCalendarError
- * (if provided) with the error message.
+ * Fires onScheduleError (if provided) with every schedule computation failure —
+ * not just calendar misconfigurations. The isCalendarError flag on the error
+ * distinguishes a genuine calendar problem (checked via the shared, two-shape
+ * work-calendar.ts#isCalendarError predicate) from every other schedule error,
+ * so callers can show the right advice for each. Fires with `null` on success.
  */
 export function useSchedule(
   activities: Activity[],
   startDate: string,
   probabilityTarget: number,
   calendar?: WorkCalendar | Calendar,
-  onCalendarError?: (msg: string | null) => void
+  onScheduleError?: (error: ScheduleError | null) => void
 ): DeterministicSchedule | null {
   return useMemo(() => {
     if (activities.length === 0) return null;
     try {
       const result = computeSchedule(activities, startDate, probabilityTarget, calendar);
-      onCalendarError?.(null);
+      onScheduleError?.(null);
       return result;
     } catch (err) {
-      if (err instanceof CalendarConfigurationError) {
-        onCalendarError?.(err.message);
-      }
+      const message = err instanceof Error ? err.message : String(err);
+      onScheduleError?.({ message, isCalendarError: isCalendarError(err) });
       return null;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- onCalendarError is a setState, stable ref
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- onScheduleError is a setState, stable ref
   }, [activities, startDate, probabilityTarget, calendar]);
 }

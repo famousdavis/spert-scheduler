@@ -6,7 +6,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useProjectActions } from "@ui/hooks/use-project-actions";
 import { useSimulation } from "@ui/hooks/use-simulation";
-import { useSchedule } from "@ui/hooks/use-schedule";
+import { useSchedule, type ScheduleError } from "@ui/hooks/use-schedule";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
 import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
@@ -18,11 +18,12 @@ import { formatDateISO, parseDateISO, addWorkingDays, countWorkingDays } from "@
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { computeTargetRAGColor } from "@core/schedule/target-rag";
-import { CalendarConfigurationError } from "@core/calendar/work-calendar";
+import { isCalendarError } from "@core/calendar/work-calendar";
 import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
-import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
+import { buildSimulationParams, type SimulationParams } from "@ui/helpers/build-simulation-params";
 import { currentSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
+import { toast } from "@ui/hooks/use-notification-store";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
 import { DependencyPanel } from "@ui/components/DependencyPanel";
 import { MilestonePanel } from "@ui/components/MilestonePanel";
@@ -49,6 +50,30 @@ import { ConnectAiConsentModal } from "@ui/components/ConnectAI/ConnectAiConsent
 import { ConnectAiPanel } from "@ui/components/ConnectAI/ConnectAiPanel";
 import { AI_CONSENT_KEY, AI_SESSION_ID_KEY, AI_CONSENT_VERSION } from "@app/ai-connectivity-constants";
 import type { AiOpResult } from "@app/api/ai-batch-service";
+
+/**
+ * Banner copy for a schedule-computation error. isCalendarError (set via the
+ * shared, two-shape work-calendar.ts predicate) picks the calendar-specific
+ * heading/advice; every other error gets the generic estimate-oriented copy.
+ * Module-level early-null-return helper so the branch stays out of ProjectPage's
+ * render body (keeps the component's cognitive complexity down).
+ */
+function getScheduleErrorBanner(
+  error: ScheduleError | null
+): { heading: string; message: string; advice: string } | null {
+  if (!error) return null;
+  return error.isCalendarError
+    ? {
+        heading: "Calendar Configuration Error",
+        message: error.message,
+        advice: "Check your work week settings in Settings.",
+      }
+    : {
+        heading: "Schedule Error",
+        message: error.message,
+        advice: "Check the affected activity's estimates and settings.",
+      };
+}
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -112,7 +137,7 @@ export function ProjectPage() {
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
   const [allActivitiesValid, setAllActivitiesValid] = useState(true);
-  const [sequentialCalendarError, setSequentialCalendarError] = useState<string | null>(null);
+  const [sequentialScheduleError, setSequentialScheduleError] = useState<ScheduleError | null>(null);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [editingDependency, setEditingDependency] = useState<{ fromActivityId: string; toActivityId: string } | null>(null);
   const [addingDependencyFromId, setAddingDependencyFromId] = useState<string | null>(null);
@@ -237,7 +262,7 @@ export function ProjectPage() {
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.probabilityTarget ?? 0.5,
     workCalendar,
-    setSequentialCalendarError
+    setSequentialScheduleError
   );
 
   const depMode = scenario?.settings.dependencyMode;
@@ -247,18 +272,18 @@ export function ProjectPage() {
   const probTarget = scenario?.settings.probabilityTarget;
   const milestones = scenario?.milestones;
 
-  // Compute the dependency schedule purely — no state-setting during render. Its
-  // `calendarError` field is consumed below to derive the displayed error, never stored:
-  //   string    → the CalendarConfigurationError message to surface
-  //   null      → schedule computed successfully → no calendar error
-  //   undefined → not this path's concern (dep mode off, or a non-calendar throw —
-  //               the sequential useSchedule drives the error via state instead)
+  // Compute the dependency schedule purely — no state-setting during render.
+  // null = no error (including "not yet computed"/n/a); every thrown error has an
+  // owner now, so this is a simple ScheduleError | null contract — no third,
+  // "undefined" state. isCalendarError (via the shared work-calendar.ts predicate)
+  // distinguishes a genuine calendar problem from every other schedule error, so
+  // the banner (below) can show the right advice for each.
   const dependencyScheduleResult = useMemo<{
     schedule: DeterministicSchedule | null;
-    calendarError: string | null | undefined;
+    scheduleError: ScheduleError | null;
   }>(() => {
     if (!depMode || !activities || activities.length === 0 || !dependencies || !startDate || probTarget == null) {
-      return { schedule: null, calendarError: undefined };
+      return { schedule: null, scheduleError: null };
     }
     try {
       const schedule = computeDependencySchedule(
@@ -269,23 +294,20 @@ export function ProjectPage() {
         workCalendar,
         milestones
       );
-      return { schedule, calendarError: null };
+      return { schedule, scheduleError: null };
     } catch (err) {
-      if (err instanceof CalendarConfigurationError) {
-        return { schedule: null, calendarError: err.message };
-      }
-      return { schedule: null, calendarError: undefined };
+      const message = err instanceof Error ? err.message : String(err);
+      return { schedule: null, scheduleError: { message, isCalendarError: isCalendarError(err) } };
     }
   }, [depMode, activities, dependencies, startDate, probTarget, workCalendar, milestones]);
 
   const dependencySchedule = dependencyScheduleResult.schedule;
 
-  // Unified calendar error for display. In dependency mode the schedule memo above
+  // Unified schedule error for display. In dependency mode the schedule memo above
   // derives it (no state write); otherwise the sequential useSchedule drives
-  // `sequentialCalendarError`. The two paths are mutually exclusive on depMode.
-  const calendarError = depMode
-    ? (dependencyScheduleResult.calendarError ?? null)
-    : sequentialCalendarError;
+  // `sequentialScheduleError`. The two paths are mutually exclusive on depMode.
+  const scheduleError = depMode ? dependencyScheduleResult.scheduleError : sequentialScheduleError;
+  const scheduleErrorBanner = getScheduleErrorBanner(scheduleError);
 
   // Critical path activity IDs (only in dependency mode)
   const criticalPathIds = useMemo(() => {
@@ -298,6 +320,21 @@ export function ProjectPage() {
       const durationMap = computeDependencyDurations(activities, probTarget);
       return computeCriticalPathActivities(graph, durationMap).criticalActivityIds;
     } catch {
+      // Deliberately left as a bare, silent catch — not generalized like the memos
+      // above (see ProjectPage.tsx's dependencyScheduleResult memo, and
+      // use-schedule.ts). computeDependencyDurations (called here) and
+      // computeDependencySchedule (called by dependencyScheduleResult, same
+      // activities/dependencies) both route every activity through the same
+      // createDistributionForActivity call — whatever throws here also throws
+      // there, so the schedule-error banner is already showing the same
+      // underlying message whenever this silently drops, for any well-formed
+      // scenario (one with a non-empty startDate — the one guard this memo and
+      // dependencyScheduleResult's don't share, practically unreachable
+      // otherwise). The cost of a swallowed failure here is critical-path
+      // highlighting on the Gantt not appearing — cosmetic, not the "app looks
+      // broken" failure mode this release exists to fix. This is a deliberate
+      // scope decision (see the v0.53.0 implementation plan, §2/§3/§5/§9), not
+      // an oversight.
       return null;
     }
   }, [depMode, activities, dependencies, probTarget]);
@@ -450,16 +487,22 @@ export function ProjectPage() {
   const handleRunSimulation = useCallback(() => {
     if (!id || !scenario) return;
 
-    const params = buildSimulationParams(
-      scenario.activities,
-      scenario.settings.dependencyMode,
-      scenario.settings.probabilityTarget,
-      scenario.dependencies,
-      scenario.milestones,
-      scenario.startDate,
-      workCalendar,
-      scenario.settings.parkinsonsLawEnabled ?? true,
-    );
+    let params: SimulationParams;
+    try {
+      params = buildSimulationParams(
+        scenario.activities,
+        scenario.settings.dependencyMode,
+        scenario.settings.probabilityTarget,
+        scenario.dependencies,
+        scenario.milestones,
+        scenario.startDate,
+        workCalendar,
+        scenario.settings.parkinsonsLawEnabled ?? true,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      return;
+    }
     // v0.42.6 (M2): see use-auto-run-simulation.ts for the full pattern.
     // Capture generation at dispatch; discard the result if sign-out has
     // bumped the counter while the worker was in flight.
@@ -623,14 +666,17 @@ export function ProjectPage() {
         </p>
       )}
 
-      {/* Calendar configuration error banner */}
-      {calendarError && (
+      {/* Schedule computation error banner (was calendar-specific; now general).
+          Heading + advice come from getScheduleErrorBanner (module-level), whose
+          isCalendarError branch uses the shared, two-shape work-calendar.ts
+          predicate — not a narrower reimplementation. */}
+      {scheduleErrorBanner && (
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-sm font-medium text-red-800 dark:text-red-300">
-            Calendar Configuration Error
+            {scheduleErrorBanner.heading}
           </p>
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-            {calendarError} Check your work week settings in Settings.
+            {scheduleErrorBanner.message} {scheduleErrorBanner.advice}
           </p>
         </div>
       )}

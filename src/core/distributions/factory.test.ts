@@ -69,6 +69,17 @@ describe("createDistributionForActivity", () => {
     expect(() => createDistributionForActivity(activity)).toThrow();
   });
 
+  it("wraps a Triangular order-violation with the activity's name", () => {
+    const activity = makeActivity({
+      name: "Bad Row",
+      min: 5,
+      mostLikely: 3,
+      max: 1,
+      distributionType: "triangular",
+    });
+    expect(() => createDistributionForActivity(activity)).toThrow(/Bad Row/);
+  });
+
   it("creates UniformDistribution for uniform type", () => {
     const dist = createDistributionForActivity(
       makeActivity({ distributionType: "uniform" })

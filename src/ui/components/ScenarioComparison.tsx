@@ -45,6 +45,7 @@ interface ScenarioComparison {
   scenario: Scenario;
   schedule: DeterministicSchedule | null;
   buffer: ScheduleBuffer | null;
+  error: string | null;
 }
 
 interface ScenarioComparisonProps {
@@ -58,6 +59,7 @@ function computeEntry(
 ): ScenarioComparison {
   let schedule: DeterministicSchedule | null = null;
   let buffer: ScheduleBuffer | null = null;
+  let error: string | null = null;
 
   if (scenario.activities.length > 0) {
     try {
@@ -76,8 +78,8 @@ function computeEntry(
             scenario.settings.probabilityTarget,
             calendar
           );
-    } catch {
-      // leave null
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
     }
   }
 
@@ -90,7 +92,7 @@ function computeEntry(
     );
   }
 
-  return { scenario, schedule, buffer };
+  return { scenario, schedule, buffer, error };
 }
 
 function bestOf(
@@ -297,6 +299,15 @@ export function ScenarioComparisonTable({
         {entries.some((e) => !e.scenario.simulationResults) && (
           <p className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100">
             Run simulation on all scenarios for complete comparison data.
+          </p>
+        )}
+        {entries.some((e) => e.error) && (
+          <p className="px-4 py-2 text-xs text-red-500 border-t border-gray-100">
+            Could not compute a schedule for:{" "}
+            {entries
+              .filter((e) => e.error)
+              .map((e) => `${e.scenario.name} (${e.error})`)
+              .join("; ")}
           </p>
         )}
       </div>

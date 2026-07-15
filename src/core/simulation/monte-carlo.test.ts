@@ -658,6 +658,19 @@ describe("degenerate inputs", () => {
     expect(result.standardDeviation).toBe(0);
   });
 
+  it("min=max=mostLikely with triangular: all trials equal", () => {
+    const activities = [
+      makeActivity({ id: "a1", min: 5, mostLikely: 5, max: 5, distributionType: "triangular" }),
+    ];
+    const result = runMonteCarloSimulation({
+      activities,
+      trialCount: 1000,
+      rngSeed: "tri-zero-variance",
+    });
+    for (const sample of result.samples) expect(sample).toBe(5);
+    expect(result.standardDeviation).toBe(0);
+  });
+
   it("min=max=mostLikely=0: all trials zero", () => {
     const activities = [
       makeActivity({ id: "a1", min: 0, mostLikely: 0, max: 0 }),

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.53.0 — 2026-07-14
+
+### Fixed — Degenerate (zero-uncertainty) estimates are now a valid, non-crashing input
+
+- **A three-point estimate where `min === mostLikely === max` now schedules and simulates cleanly** instead of silently breaking. `TriangularDistribution` (the default distribution) alone threw on a zero-width estimate; `Normal`, `LogNormal`, and `Uniform` already treated it as a point mass. `TriangularDistribution` now handles its own degenerate case the same self-contained way — a point mass at the constant, with `cdf(a) = 1`, `variance = 0`, and (critically) **the same one RNG draw per sample** as before, so no existing seeded simulation changes. This fixes both the "fixed-duration activity" case (e.g. a 7-day cruise) and the "lay out all activities/dependencies before estimating" workflow (new activities default to `1/1/1`), which previously produced a blank Gantt with no error. Backward compatible: any saved project that contained such an activity — and could not be scheduled at all — now works. No schema change (`SCHEMA_VERSION` stays 23); no `ENGINE_VERSION` bump.
+
+### Fixed — Schedule/simulation failures are now visible everywhere they can occur
+
+- Generalized the schedule/simulation catch sites so **any** computation failure surfaces a human-readable message instead of a silent `null` or an uncaught exception: the sequential schedule hook, the dependency-mode schedule memo, the manual **Run Simulation** handler (toast), auto-run (developer `console.warn`, deliberately no user toast for the background feature), the **Scenario Comparison** table (per-scenario caveat), and **Schedule Export** (toast). `createDistributionForActivity` now wraps **all four** distribution types' construction errors with the offending activity's name, so a bad row (e.g. a `min > max` order violation reaching the engine via the edit modal or an imported file) is identifiable.
+- **Calendar-error classification fixed and centralized.** A single shared `isCalendarError` predicate in `work-calendar.ts` now recognizes **both** calendar-throw shapes — the `CalendarConfigurationError` instance (all-non-working-week) *and* the plain `Error` iteration-limit throw (`addWorkingDays`/`subtractWorkingDays`/`countWorkingDays`, e.g. an impossible date range or an excessive-holiday run) — so both get the calendar-specific banner heading and advice. The AI-snapshot classifier now reuses this same predicate instead of a private copy.
+- `criticalPathIds` (critical-path highlighting) and the Gantt uncertainty-shading memo are **deliberately** left as safe silent computations, documented in-code: each shares its exact failure condition with an already-generalized sibling, so the error banner is already shown whenever either would fail (for any well-formed scenario). Also fixed a stale CSV-import warning message/comment that said "normal" while the code uses the configured default (`triangular`).
+- ~20 new/updated tests (degenerate `TriangularDistribution` behavior incl. the `cdf(a)=1` boundary and the in-progress/truncated-sampling seam; the `isCalendarError` two-shape predicate; factory name-wrapping; a "one bad row fails the whole schedule, visibly" regression). No new source or test files.
+
 ## 0.52.1 — 2026-07-13
 
 ### Changed — Constraint column visibility in sequential mode
