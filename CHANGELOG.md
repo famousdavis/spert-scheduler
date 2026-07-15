@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.53.1 — 2026-07-15
+
+### Changed — Clearer message when a project can't be shown
+
+- The `/project/:id` screen shown when a project isn't in your list — after you delete it, when it's un-shared or removed on another device, or when an old link no longer resolves — no longer reads "Project not found." That 404-style wording implied a failed search or an error, which was jarring right after a deliberate delete. It now reads "This project is no longer available." with a one-line explanation ("It may have been deleted or is no longer shared with you.") above the existing "Back to projects" link.
+- Presentation-only: a copy/markup change to a single fallback branch in `ProjectPage.tsx`, plus light dark-mode styling. No data-model, routing, or behavior change; the delete flow and the fallback's trigger conditions are untouched. No schema change — `SCHEMA_VERSION` stays 23.
+
+### Added — AI Privacy Notice link in the footer
+
+- The persistent footer now includes an **AI Privacy Notice** link, between *Privacy Policy* and *License* (`SPERT® Suite | Terms of Service | Privacy Policy | AI Privacy Notice | License`), pointing to the suite-wide notice at `https://spertsuite.com/ai-privacy`. The link belonged with the **Connect AI** feature (v0.51.0) — it already appears in the Connect AI consent dialog — but was omitted from the footer at the time. This matches the footer treatment already shipped in SPERT Story Map.
+- Presentation-only: one `<a>` added to `Layout.tsx`, reusing the existing `AI_PRIVACY_URL` constant (`@app/ai-connectivity-constants`). No schema change — `SCHEMA_VERSION` stays 23.
+
 ## 0.53.0 — 2026-07-14
 
 ### Fixed — Degenerate (zero-uncertainty) estimates are now a valid, non-crashing input

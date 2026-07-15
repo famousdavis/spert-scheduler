@@ -12,6 +12,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.53.1",
+    date: "2026-07-15",
+    sections: [
+      {
+        title: "Changed — Friendlier message when a project can't be shown",
+        items: [
+          "Opening a project that's no longer in your list — because you just deleted it, it was un-shared or removed on another device, or you followed an old link — now shows \"This project is no longer available\" with a short explanation, instead of the error-sounding \"Project not found.\" The \"Back to projects\" link is unchanged.",
+        ],
+      },
+      {
+        title: "Added — AI Privacy Notice link in the footer",
+        items: [
+          "The footer now links the suite-wide AI Privacy Notice, alongside Terms of Service, Privacy Policy, and License. It explains how your data is handled when you use Connect AI; the link was already in the Connect AI consent dialog but had been missing from the footer since Connect AI shipped.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.53.0",
     date: "2026-07-14",
     sections: [

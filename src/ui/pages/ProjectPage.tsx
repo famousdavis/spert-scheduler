@@ -546,10 +546,15 @@ export function ProjectPage() {
   if (!project) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400">Project not found.</p>
+        <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+          This project is no longer available.
+        </p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          It may have been deleted or is no longer shared with you.
+        </p>
         <button
           onClick={() => navigate("/projects")}
-          className="mt-2 text-blue-600 hover:underline text-sm"
+          className="mt-4 text-blue-600 hover:underline text-sm"
         >
           Back to projects
         </button>
