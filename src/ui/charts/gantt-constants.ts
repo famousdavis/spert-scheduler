@@ -44,6 +44,18 @@ export const PRINT_ARROW_SIZE = 6;
 export const PRINT_MIN_TICK_PX = 40;
 export const PRINT_PROJECT_NAME_H = 16;
 export const PRINT_MILESTONE_EXTRA_TOP = 14;
+/** Padding (px) subtracted from the print name column width to get the usable text
+ *  budget: reserves the right-anchor offset plus a little left-edge breathing room so
+ *  a label neither touches the bars nor clips at the SVG's left edge. */
+export const PRINT_NAME_EDGE_PAD = 8;
+/** Average glyph advance as a fraction of font size, used to convert the print name
+ *  column's pixel budget into a character limit. Matches the 0.6 factor the Gantt
+ *  bar-label fit checks use; a slight over-estimate, so truncation errs toward not
+ *  overflowing (a too-wide name clips harmlessly at the left edge rather than mid-word). */
+export const PRINT_NAME_CHAR_ADVANCE = 0.6;
+/** Floor on the derived print name char limit — a guard against a pathologically
+ *  narrow future column preset; never binds for the current narrow/normal/wide set. */
+export const PRINT_NAME_MIN_CHARS = 8;
 
 // --- Color palette ---
 export const COLORS = {
@@ -244,16 +256,30 @@ export function resolveGanttAppearance(
   const fontSizeMap = { small: 11, normal: 12, large: 14, xl: 16 } as const;
   const nameFontSize = fontSizeMap[s.activityFontSize];
 
-  // Name column width → leftMargin + charLimit (base limits calibrated for 12px)
+  // Name column width → leftMargin + charLimit (interactive base limits calibrated for 12px)
   const nameColumnMap = {
-    narrow:  { leftMargin: 180, baseCharLimit: 24, printLeftMargin: 120, basePrintCharLimit: 18 },
-    normal:  { leftMargin: 260, baseCharLimit: 38, printLeftMargin: 170, basePrintCharLimit: 26 },
-    wide:    { leftMargin: 360, baseCharLimit: 54, printLeftMargin: 230, basePrintCharLimit: 36 },
+    narrow:  { leftMargin: 180, baseCharLimit: 24, printLeftMargin: 120 },
+    normal:  { leftMargin: 260, baseCharLimit: 38, printLeftMargin: 170 },
+    wide:    { leftMargin: 360, baseCharLimit: 54, printLeftMargin: 230 },
   } as const;
   const col = nameColumnMap[s.nameColumnWidth];
   const fontScale = 12 / nameFontSize;
   const nameCharLimit = Math.floor(col.baseCharLimit * fontScale);
-  const printNameCharLimit = Math.floor(col.basePrintCharLimit * fontScale);
+
+  // Print name char limit is DERIVED from the column's pixel width and the actual print
+  // font size, not a hardcoded per-width constant. The print label is right-anchored at
+  // `printLeftMargin - 4` and grows leftward toward the SVG's left edge, so the usable
+  // text budget is `printLeftMargin - PRINT_NAME_EDGE_PAD`; dividing by the average glyph
+  // advance (font size × PRINT_NAME_CHAR_ADVANCE) yields how many characters fit. This
+  // fills the whole column — the previous fixed limits were calibrated for a ~12px font
+  // and truncated at ~2/3 of the 7px print column's real capacity, ellipsizing names with
+  // a third of the column unused (v0.53.2). Print font size mirrors PrintGanttChart's
+  // `fs7 = round(7 × nameFontSize / 12)`.
+  const printFontSize = Math.round(7 * (nameFontSize / 12));
+  const printNameCharLimit = Math.max(
+    PRINT_NAME_MIN_CHARS,
+    Math.floor((col.printLeftMargin - PRINT_NAME_EDGE_PAD) / (printFontSize * PRINT_NAME_CHAR_ADVANCE)),
+  );
 
   // Row density
   const densityMap = {

@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.53.2",
+    date: "2026-07-15",
+    sections: [
+      {
+        title: "Fixed — Gantt chart in the PDF report shows more of each activity name",
+        items: [
+          "In the printed and PDF Gantt chart, long activity and section names were shortened with an \"…\" even when there was unused space in the name column — for example \"Respond to Vendor Questions\" showed as \"Respond to Vendor Questi…\". The name column is now filled to its real capacity, so names that fit are shown in full and only genuinely too-long names are shortened. This is a print-only change: the timeline and bars are unchanged, so charts for long, multi-year projects keep exactly the same spacing.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.53.1",
     date: "2026-07-15",
     sections: [
