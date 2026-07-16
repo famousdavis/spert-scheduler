@@ -410,13 +410,16 @@ describe("resolveGanttAppearance", () => {
     expect(ra.leftMargin).toBe(180);
     expect(ra.nameCharLimit).toBe(24);
     expect(ra.printLeftMargin).toBe(120);
-    expect(ra.printNameCharLimit).toBe(18);
+    // Derived: floor((120 - 8) / (7 * 0.6)) = floor(26.66) = 26
+    expect(ra.printNameCharLimit).toBe(26);
   });
 
   it("wide name column increases leftMargin and charLimit", () => {
     const ra = resolveGanttAppearance({ nameColumnWidth: "wide", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     expect(ra.leftMargin).toBe(360);
     expect(ra.nameCharLimit).toBe(54);
+    // Derived: floor((230 - 8) / (7 * 0.6)) = floor(52.85) = 52
+    expect(ra.printNameCharLimit).toBe(52);
   });
 
   it("compact row density produces smaller dimensions", () => {
@@ -525,9 +528,35 @@ describe("resolveGanttAppearance", () => {
   it("printNameCharLimit scales inversely with font size", () => {
     const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
     const large = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "large", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
-    // normal: 26 * 12/12 = 26, large: 26 * 12/14 = 22
-    expect(normal.printNameCharLimit).toBe(26);
-    expect(large.printNameCharLimit).toBe(22);
+    // Derived from the 170px column and the print font size (round(7 * f/12)):
+    //   normal → font 7 → floor((170-8)/(7*0.6)) = floor(38.57) = 38
+    //   large  → font 8 → floor((170-8)/(8*0.6)) = floor(33.75) = 33
+    expect(normal.printNameCharLimit).toBe(38);
+    expect(large.printNameCharLimit).toBe(33);
+    expect(large.printNameCharLimit).toBeLessThan(normal.printNameCharLimit);
+  });
+
+  it("printNameCharLimit fills the column and never overflows it (v0.53.2 R1)", () => {
+    // The derived limit must use the column better than the old fixed 26 (the bug this
+    // fixed) yet keep `limit chars × glyph advance` within the usable text budget so a
+    // right-anchored label cannot run off the SVG's left edge.
+    const widths = ["narrow", "normal", "wide"] as const;
+    const fonts = ["small", "normal", "large", "xl"] as const;
+    for (const nameColumnWidth of widths) {
+      for (const activityFontSize of fonts) {
+        const ra = resolveGanttAppearance({ nameColumnWidth, activityFontSize, rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+        const printFontSize = Math.round(7 * (ra.nameFontSize / 12));
+        // No overflow: limit chars at the assumed advance fit the budget (printLeftMargin - 8).
+        // +0.5 tolerance keeps the exact-integer-quotient combos (e.g. normal + xl) FP-stable.
+        expect(ra.printNameCharLimit * printFontSize * 0.6).toBeLessThanOrEqual(ra.printLeftMargin - 8 + 0.5);
+        // Uses the space: at least the old fixed floor for this width class.
+        expect(ra.printNameCharLimit).toBeGreaterThanOrEqual(18);
+      }
+    }
+    // The reported case: at normal width/font, a 27-char name ("Respond to Vendor
+    // Questions") now fits in full where the old 26-char cap ellipsized it.
+    const normal = resolveGanttAppearance({ nameColumnWidth: "normal", activityFontSize: "normal", rowDensity: "normal", barLabel: "duration", colorPreset: "classic", weekendShading: false, fitToWindow: false }, false);
+    expect(normal.printNameCharLimit).toBeGreaterThanOrEqual("Respond to Vendor Questions".length);
   });
 
   it("narrow + XL font produces reduced char limits", () => {

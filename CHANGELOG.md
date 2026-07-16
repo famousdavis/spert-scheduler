@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.53.2 — 2026-07-15
+
+### Fixed — Gantt PDF report shows more of each activity name
+
+- The **printed/PDF Gantt chart** truncated activity and section-band names with an ellipsis well before the name column was full — e.g. "Respond to Vendor Questions" became "Respond to Vendor Questi…" — leaving roughly a third of the column's width unused. The cause: the print name-column character limit was a hardcoded per-width constant (26 at the default column) calibrated for a ~12px font, but print names render at ~7px, so the cap truncated at about two-thirds of the column's real character capacity.
+- The print limit is now **derived from the column's pixel width and the actual print font size** (`floor((printLeftMargin − PRINT_NAME_EDGE_PAD) / (fontSize × 0.6))`, reusing the 0.6 average-glyph-advance factor the Gantt bar-label fit checks already use) instead of a fixed constant. At the default column this raises the limit from 26 to 38 characters, so "Respond to Vendor Questions" and "Vendor Evaluation & Ranking" (27 chars) now print in full and only genuinely over-long names are ellipsized. It scales automatically with the name-column-width and activity-font-size settings (narrow 18→26, wide 36→52 at the default font). By construction `limit × glyph-advance ≤ column width`, so a right-anchored label can't overflow into the bars.
+- Print-only and layout-preserving: the name-column width and the timeline plotting area are unchanged, so charts for long (multi-year) timelines keep exactly the same date resolution — names simply grow leftward into the already-reserved column space. The interactive on-screen Gantt is untouched (its limit was already calibrated to its column). No schema change — `SCHEMA_VERSION` stays 23.
+
 ## 0.53.1 — 2026-07-15
 
 ### Changed — Clearer message when a project can't be shown
