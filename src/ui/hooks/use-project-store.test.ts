@@ -311,7 +311,7 @@ describe("useProjectStore", () => {
     // undo frame, and the shared undoStack (not reset in beforeEach) would fill
     // to UNDO_STACK_LIMIT and break later undo-count assertions. The guard under
     // test returns before pushUndo, so the rejected call pushes nothing.
-    const base = createProject("Scenario Cap Test", null);
+    const base = createProject("Scenario Cap Test");
     const baseline = base.scenarios[0]!;
     const scenarios = Array.from({ length: MAX_SCENARIOS_PER_PROJECT }, (_, i) => ({
       ...baseline,
