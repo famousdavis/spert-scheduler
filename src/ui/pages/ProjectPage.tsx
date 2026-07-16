@@ -13,7 +13,7 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { Activity, ScenarioSettings, DeterministicSchedule } from "@domain/models/types";
-import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE } from "@domain/models/types";
+import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import { formatDateISO, parseDateISO, addWorkingDays, countWorkingDays } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
@@ -449,6 +449,12 @@ export function ProjectPage() {
   const handleAddScenario = useCallback(
     (name: string, sourceScenarioId: string) => {
       if (!id || !project) return;
+      if (project.scenarios.length >= MAX_SCENARIOS_PER_PROJECT) {
+        toast.error(
+          `This project already has the maximum of ${MAX_SCENARIOS_PER_PROJECT} scenarios. Remove one to add another.`
+        );
+        return;
+      }
       const newId = duplicateScenario(id, sourceScenarioId, name);
       if (newId) setActiveScenarioId(newId);
     },
@@ -478,10 +484,16 @@ export function ProjectPage() {
   const handleClone = useCallback(
     (newName: string, dropCompleted: boolean) => {
       if (!id || !cloneSourceId) return;
+      if (project && project.scenarios.length >= MAX_SCENARIOS_PER_PROJECT) {
+        toast.error(
+          `This project already has the maximum of ${MAX_SCENARIOS_PER_PROJECT} scenarios. Remove one to add another.`
+        );
+        return;
+      }
       const newId = duplicateScenario(id, cloneSourceId, newName, { dropCompleted });
       if (newId) setActiveScenarioId(newId);
     },
-    [id, cloneSourceId, duplicateScenario, setActiveScenarioId]
+    [id, project, cloneSourceId, duplicateScenario, setActiveScenarioId]
   );
 
   const handleRunSimulation = useCallback(() => {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.53.3 — 2026-07-16
+
+### Changed — Per-project scenario limit raised from 20 to 50
+
+- The maximum number of scenarios a single project may hold is now **50** (was 20), supporting workflows that add a scenario per week — e.g. a weekly snapshot of an active project — which now fit more than a year in one project. The limit is a single source of truth, `MAX_SCENARIOS_PER_PROJECT` in `src/domain/models/types.ts`, consumed by the Zod `ProjectSchema.scenarios` cap, the store's create-time guards, and the UI messaging.
+- **Create-time enforcement added.** Previously only the *load/import* path validated the cap (`ProjectSchema.safeParse`); the "+" (add) and clone actions were unguarded, so a project could exceed the limit in memory and then fail to load on the next session. `duplicateScenario` and `importScenarioToProject` now no-op at the cap, and the add/clone handlers surface a toast — the invariant now holds at the mutation layer, not only at load.
+- Storage impact is negligible for typical projects: a ~20-activity scenario is ~8 KB with simulation samples stripped (the local-mode default), so 50 such scenarios ≈ 0.4 MB — well under both the browser localStorage quota and the Firestore 1 MB document limit. No schema shape change — `SCHEMA_VERSION` stays 23; no migration required.
+
 ## 0.53.2 — 2026-07-15
 
 ### Fixed — Gantt PDF report shows more of each activity name

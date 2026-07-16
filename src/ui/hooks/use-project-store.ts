@@ -16,6 +16,7 @@ import type {
   ScenarioSettings,
   SimulationRun,
 } from "@domain/models/types";
+import { MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import {
   createProject,
   cloneProject as cloneProjectFn,
@@ -879,6 +880,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   duplicateScenario: (projectId, scenarioId, newName, options) => {
+    // Invariant guard (before pushUndo so a rejected clone leaves no dead undo
+    // entry): never grow a project past the schema's scenario cap, or the doc
+    // would fail ProjectSchema.safeParse on its next load. UI paths toast first;
+    // this is the belt-and-suspenders enforcement for any programmatic caller.
+    const target = get().projects.find((p) => p.id === projectId);
+    if (target && target.scenarios.length >= MAX_SCENARIOS_PER_PROJECT) {
+      return undefined;
+    }
     pushUndo(projectId);
     let newCloneId: string | undefined;
     set((state) => {
@@ -1585,6 +1594,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   importScenarioToProject: (projectId, scenario) => {
+    // Same scenario-cap invariant as duplicateScenario (ActivityImportSection
+    // also guards + toasts before calling; this protects the store directly).
+    const target = get().projects.find((p) => p.id === projectId);
+    if (target && target.scenarios.length >= MAX_SCENARIOS_PER_PROJECT) {
+      return;
+    }
     pushUndo(projectId);
     set((state) => {
       const projects = state.projects.map((p) =>
