@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useId, useState, useCallback, useMemo } from "react";
+import { useId, useRef, useState, useCallback, useMemo } from "react";
 import type { SimulationRun } from "@domain/models/types";
 import { cdf, lookupProbability } from "@core/analytics/analytics";
 import { exportSimulationCSV } from "@app/api/csv-export-service";
@@ -10,6 +10,7 @@ import { formatExportTimestamp } from "@core/calendar/calendar";
 import { HistogramChart } from "@ui/charts/HistogramChart";
 import { CDFChart } from "@ui/charts/CDFChart";
 import { PercentileTable } from "@ui/charts/PercentileTable";
+import { CopyImageButton } from "@ui/components/CopyImageButton";
 
 function healthColor(pct: number, greenPct: number, amberPct: number): string {
   if (pct >= greenPct) return "#16a34a";
@@ -82,6 +83,12 @@ export function SimulationPanel({
     actPct !== undefined && simulationResults
       ? simulationResults.percentiles[actPct]
       : undefined;
+
+  // Capture targets for the panel-level copy-image buttons. Anchoring the buttons
+  // to the panels (not each chart's internal wrapper) keeps both icons at the same
+  // title-row height even though the CDF panel has an extra "Finish by" row.
+  const histogramCaptureRef = useRef<HTMLDivElement>(null);
+  const cdfCaptureRef = useRef<HTMLDivElement>(null);
 
   // Date probability lookup state
   const [targetDate, setTargetDate] = useState("");
@@ -217,7 +224,10 @@ export function SimulationPanel({
 
           {/* Charts */}
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 pb-2">
+            <div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 pb-2">
+              <div className="absolute top-2 right-2 z-10">
+                <CopyImageButton targetRef={histogramCaptureRef} title="Copy chart as image" />
+              </div>
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Distribution Histogram{" "}
                 <span className="font-normal italic text-gray-400 dark:text-gray-500">
@@ -233,9 +243,15 @@ export function SimulationPanel({
                 }
                 activityPercentileValue={activityPercentileValue}
                 deterministicDuration={deterministicDuration}
+                captureRef={histogramCaptureRef}
               />
             </div>
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 pb-2">
+            <div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 pb-2">
+              {simulationResults.samples.length > 0 && (
+                <div className="absolute top-2 right-2 z-10">
+                  <CopyImageButton targetRef={cdfCaptureRef} title="Copy chart as image" />
+                </div>
+              )}
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Cumulative Distribution
               </h4>
@@ -274,6 +290,7 @@ export function SimulationPanel({
                   targetProbability={targetLookup?.probability}
                   targetLabel={targetLookup?.label}
                   targetColor={targetLookup?.color}
+                  captureRef={cdfCaptureRef}
                 />
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-sm text-gray-400 dark:text-gray-500">
@@ -284,7 +301,7 @@ export function SimulationPanel({
           </div>
 
           {/* Percentile Table */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 max-w-md">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 max-w-lg">
             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Percentile Summary
             </h4>
@@ -292,6 +309,7 @@ export function SimulationPanel({
               percentiles={simulationResults.percentiles}
               probabilityTarget={probabilityTarget}
               samples={simulationResults.samples}
+              formatDurationAsDate={formatDurationAsDate}
             />
           </div>
         </div>
