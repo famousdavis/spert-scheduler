@@ -12,6 +12,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.53.4",
+    date: "2026-07-16",
+    sections: [
+      {
+        title: "Added — Projected finish dates and a copy button in the Percentile Summary",
+        items: [
+          "The Percentile Summary table (below the simulation charts) now shows a \"Finish date\" column next to \"Duration (days),\" giving the projected calendar finish date for each percentile from P5 to P99. Dates use the same working-day and holiday math as the rest of the schedule and follow your date-format preference; the P95 (target) row matches the \"Finish w/Buffer\" date on the summary card. The column appears whenever the scenario has a start date.",
+          "The Percentile Summary now has a copy-to-image button in its header — the same one the Distribution Histogram and Cumulative Distribution charts already have — so you can drop the table straight into a status report or email.",
+        ],
+      },
+      {
+        title: "Fixed — Copy-image icon on the Cumulative Distribution chart now lines up with the histogram's",
+        items: [
+          "The copy-image icon on the Cumulative Distribution chart sat lower than the matching icon on the Distribution Histogram, because the \"Finish by\" lookup row pushed it down. Both icons are now positioned in their panel's title row, so they align at the same height.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.53.3",
     date: "2026-07-16",
     sections: [

@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useRef } from "react";
+import type { RefObject } from "react";
 import {
   LineChart,
   Line,
@@ -13,7 +13,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { CDFPoint } from "@domain/models/types";
-import { CopyImageButton } from "@ui/components/CopyImageButton";
 
 interface CDFChartProps {
   points: CDFPoint[];
@@ -24,6 +23,8 @@ interface CDFChartProps {
   targetProbability?: number;
   targetLabel?: string;
   targetColor?: string;
+  /** Attached to the capture div so the panel's copy-image button can target it. */
+  captureRef: RefObject<HTMLDivElement | null>;
 }
 
 export function CDFChart({
@@ -35,9 +36,8 @@ export function CDFChart({
   targetProbability,
   targetLabel,
   targetColor = "#f59e0b",
+  captureRef,
 }: CDFChartProps) {
-  const chartRef = useRef<HTMLDivElement>(null);
-
   // Filter out any points with non-finite values (defensive check)
   const data = points
     .filter(
@@ -49,73 +49,68 @@ export function CDFChart({
     }));
 
   return (
-    <div className="relative">
-      <div className="absolute -top-8 -right-2 z-10">
-        <CopyImageButton targetRef={chartRef} title="Copy chart as image" />
-      </div>
-      <div ref={chartRef} className="bg-white dark:bg-gray-800">
-        <ResponsiveContainer width="100%" height={350}>
-          <LineChart
-            data={data}
-            margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="value"
-              type="number"
-              tick={{ fontSize: 11 }}
-              tickFormatter={(v) => String(Math.round(v))}
-              label={{ value: "Duration (days)", position: "insideBottom", offset: -5, fontSize: 12 }}
-              domain={["dataMin", "dataMax"]}
-            />
-            <YAxis
-              tick={{ fontSize: 11 }}
-              label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
-              domain={[0, 100]}
-            />
-            <Tooltip
-              formatter={(value) => [`${Math.round(Number(value ?? 0))}%`, "Probability"]}
-              labelFormatter={(label: unknown) => {
-                const days = Math.round(Number(label));
-                const base = `${days} days`;
-                if (!formatDurationAsDate) return base;
-                const date = formatDurationAsDate(days);
-                return date ? `${base}  —  Finish: ${date}` : base;
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="probability"
-              stroke="#3b82f6"
-              dot={false}
-              strokeWidth={2}
-            />
+    <div ref={captureRef} className="bg-white dark:bg-gray-800">
+      <ResponsiveContainer width="100%" height={350}>
+        <LineChart
+          data={data}
+          margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="value"
+            type="number"
+            tick={{ fontSize: 11 }}
+            tickFormatter={(v) => String(Math.round(v))}
+            label={{ value: "Duration (days)", position: "insideBottom", offset: -5, fontSize: 12 }}
+            domain={["dataMin", "dataMax"]}
+          />
+          <YAxis
+            tick={{ fontSize: 11 }}
+            label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
+            domain={[0, 100]}
+          />
+          <Tooltip
+            formatter={(value) => [`${Math.round(Number(value ?? 0))}%`, "Probability"]}
+            labelFormatter={(label: unknown) => {
+              const days = Math.round(Number(label));
+              const base = `${days} days`;
+              if (!formatDurationAsDate) return base;
+              const date = formatDurationAsDate(days);
+              return date ? `${base}  —  Finish: ${date}` : base;
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="probability"
+            stroke="#3b82f6"
+            dot={false}
+            strokeWidth={2}
+          />
+          <ReferenceLine
+            y={probabilityTarget * 100}
+            stroke="#10b981"
+            strokeDasharray="5 5"
+            label={{
+              value: `P${Math.round(probabilityTarget * 100)} = ${percentileValue.toFixed(1)} days`,
+              position: "right",
+              fontSize: 11,
+            }}
+          />
+          {targetDuration != null && targetProbability != null && (
             <ReferenceLine
-              y={probabilityTarget * 100}
-              stroke="#10b981"
+              x={targetDuration}
+              stroke={targetColor}
               strokeDasharray="5 5"
               label={{
-                value: `P${Math.round(probabilityTarget * 100)} = ${percentileValue.toFixed(1)} days`,
-                position: "right",
+                value: targetLabel ?? `${Math.round(targetProbability)}%`,
+                position: "insideTopRight",
                 fontSize: 11,
+                fill: targetColor,
               }}
             />
-            {targetDuration != null && targetProbability != null && (
-              <ReferenceLine
-                x={targetDuration}
-                stroke={targetColor}
-                strokeDasharray="5 5"
-                label={{
-                  value: targetLabel ?? `${Math.round(targetProbability)}%`,
-                  position: "insideTopRight",
-                  fontSize: 11,
-                  fill: targetColor,
-                }}
-              />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+          )}
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 }

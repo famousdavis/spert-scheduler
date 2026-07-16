@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.53.4 — 2026-07-16
+
+### Added — Projected finish dates and a copy button in the Percentile Summary
+
+- The **Percentile Summary** table (below the Monte Carlo charts) now shows a **Finish date** column beside *Duration (days)*, giving the projected calendar finish date for each percentile (P5 … P99). It uses the same working-day / holiday-aware date math as the rest of the schedule and follows your date-format preference; the P95 (target) row's date matches the "Finish w/Buffer" date on the summary card. The column appears whenever the scenario has a start date — otherwise the table falls back to the original two columns.
+- The Percentile Summary now has a **copy-to-image button** in its header, matching the Distribution Histogram and Cumulative Distribution charts, so the table can be dropped into a status report or email in one click.
+
+### Fixed — Copy-image icon on the Cumulative Distribution chart aligned with the histogram's
+
+- The copy-image icon on the **Cumulative Distribution** chart sat lower than the one on the **Distribution Histogram**: the "Finish by" lookup row between the title and the chart pushed the icon's anchor down. Both chart copy buttons are now anchored to their panel's title row, so the two icons line up at the same height. Internally the button was lifted out of each chart component (`HistogramChart`, `CDFChart`) up to the panel in `SimulationPanel`, which also removed a duplicated positioned wrapper from both charts.
+- Presentation-only. No schema change — `SCHEMA_VERSION` stays 23.
+
 ## 0.53.3 — 2026-07-16
 
 ### Changed — Per-project scenario limit raised from 20 to 50
