@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useProjectStore, type LoadError } from "./use-project-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import { createProject } from "@app/api/project-service";
+import { MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import type { AiOp } from "@app/api/ai-batch-service";
 
 describe("useProjectStore", () => {
@@ -301,6 +302,30 @@ describe("useProjectStore", () => {
 
     const result = store.duplicateScenario(project.id, "nonexistent-scenario", "Clone");
     expect(result).toBeUndefined();
+  });
+
+  it("duplicateScenario is a no-op once the scenario cap is reached", () => {
+    const store = useProjectStore.getState();
+    // Build a project already AT the cap and inject it directly. We avoid
+    // reaching the cap via real duplicate calls on purpose: each would push an
+    // undo frame, and the shared undoStack (not reset in beforeEach) would fill
+    // to UNDO_STACK_LIMIT and break later undo-count assertions. The guard under
+    // test returns before pushUndo, so the rejected call pushes nothing.
+    const base = createProject("Scenario Cap Test", null);
+    const baseline = base.scenarios[0]!;
+    const scenarios = Array.from({ length: MAX_SCENARIOS_PER_PROJECT }, (_, i) => ({
+      ...baseline,
+      id: `cap-s${i + 1}`,
+      name: `Scenario ${i + 1}`,
+    }));
+    const atCap = { ...base, scenarios };
+    useProjectStore.setState({ projects: [atCap] });
+
+    // One more must be rejected without growing the project past the schema cap
+    const result = store.duplicateScenario(atCap.id, scenarios[0]!.id, "Overflow");
+    expect(result).toBeUndefined();
+    const after = useProjectStore.getState().getProject(atCap.id)!;
+    expect(after.scenarios).toHaveLength(MAX_SCENARIOS_PER_PROJECT);
   });
 
   it("cloning a middle scenario inserts clone at source index", () => {

@@ -13,6 +13,19 @@ export const ENGINE_VERSION = "1.1.0";
 /** Operational. Drives persistence migration system. */
 export const SCHEMA_VERSION = 23;
 
+// -- Schema Limits -----------------------------------------------------------
+
+/**
+ * Maximum number of scenarios a single project may hold. Enforced at three
+ * layers that MUST stay in sync via this constant: the Zod
+ * `ProjectSchema.scenarios` cap (the load/import gate), the create-time store
+ * guards (`duplicateScenario` / `importScenarioToProject`), and the UI toasts
+ * that explain the block. Bounded because each project persists as a single
+ * document (one localStorage key; one Firestore ≤1 MB doc), so the count also
+ * caps payload size. Raising it: change only this value — see CHANGELOG 0.53.3.
+ */
+export const MAX_SCENARIOS_PER_PROJECT = 50;
+
 // -- Enums / Union Types -----------------------------------------------------
 
 export const RSM_LEVELS = [

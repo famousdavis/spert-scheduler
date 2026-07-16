@@ -10,6 +10,7 @@ import {
   ActivityBandSchema,
   ScenarioSchema,
 } from "./project.schema";
+import { MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 
 describe("ActivitySchema", () => {
   const validActivity = {
@@ -418,6 +419,30 @@ describe("ProjectSchema", () => {
     const result = ProjectSchema.safeParse({
       ...validProject,
       forcedWorkDays: ["2025-02-29"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  // Scenario cap (v0.53.3): raised 20 -> MAX_SCENARIOS_PER_PROJECT (50).
+  const makeScenarios = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      ...validProject.scenarios[0],
+      id: `s${i + 1}`,
+      name: `Scenario ${i + 1}`,
+    }));
+
+  it("accepts a project with the maximum number of scenarios", () => {
+    const result = ProjectSchema.safeParse({
+      ...validProject,
+      scenarios: makeScenarios(MAX_SCENARIOS_PER_PROJECT),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a project with one more than the maximum scenarios", () => {
+    const result = ProjectSchema.safeParse({
+      ...validProject,
+      scenarios: makeScenarios(MAX_SCENARIOS_PER_PROJECT + 1),
     });
     expect(result.success).toBe(false);
   });

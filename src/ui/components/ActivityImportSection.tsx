@@ -21,7 +21,7 @@ import { parseFlatActivityTable } from "@core/import/flat-activity-parser";
 import type { CSVParseResult, CSVImportError } from "@core/import/types";
 import { generateId } from "@app/api/id";
 import type { Project, Scenario, ScenarioSettings } from "@domain/models/types";
-import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION } from "@domain/models/types";
+import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import type { ImportApplyParams } from "@ui/hooks/use-project-store";
 import type { ImportOutcome } from "@app/api/export-import-service";
 
@@ -250,15 +250,15 @@ export function ActivityImportSection({
         `Imported ${result.activities.length} activities into new project "${finalName}".`
       );
     } else {
-      // Add to existing project — check 20-scenario limit
+      // Add to existing project — check the scenario limit
       const target = projects.find((p) => p.id === targetProjectId);
       if (!target) {
         toast.error("Target project not found.");
         return;
       }
-      if (target.scenarios.length >= 20) {
+      if (target.scenarios.length >= MAX_SCENARIOS_PER_PROJECT) {
         toast.error(
-          "This project already has 20 scenarios (the maximum). Please remove a scenario or create a new project."
+          `This project already has ${MAX_SCENARIOS_PER_PROJECT} scenarios (the maximum). Please remove a scenario or create a new project.`
         );
         return;
       }

@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.53.3",
+    date: "2026-07-16",
+    sections: [
+      {
+        title: "Changed — Projects can now hold up to 50 scenarios",
+        items: [
+          "The per-project scenario limit has been raised from 20 to 50. If you add a scenario every week — for example a weekly snapshot of an active project — a single project now comfortably holds more than a full year's worth, with room to spare. Existing projects are unaffected; you simply won't run into the old limit.",
+          "The \"+\" (add) and clone buttons on the scenario tabs, and the \"import activities into an existing project\" flow, now show a clear message when a project is already at the 50-scenario maximum. Removing a scenario frees a slot again.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.53.2",
     date: "2026-07-15",
     sections: [

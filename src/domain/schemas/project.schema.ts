@@ -9,6 +9,7 @@ import {
   DEPENDENCY_TYPES,
   CONSTRAINT_TYPES,
   CONSTRAINT_MODES,
+  MAX_SCENARIOS_PER_PROJECT,
 } from "../models/types";
 
 // -- Primitive Schemas -------------------------------------------------------
@@ -264,7 +265,7 @@ export const ProjectSchema = z.object({
   showTargetOnGantt: z.boolean().optional(),
   showActivityIds: z.boolean().optional(),
   ganttAppearance: GanttAppearanceSettingsSchema.optional(),
-  scenarios: z.array(ScenarioSchema).max(20),
+  scenarios: z.array(ScenarioSchema).max(MAX_SCENARIOS_PER_PROJECT),
   archived: z.boolean().optional(),
   tileColor: z
     .string()
