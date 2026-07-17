@@ -29,7 +29,7 @@ interface SimulationPanelProps {
   allActivitiesValid: boolean;
   hasActivities: boolean;
   autoRunEnabled?: boolean;
-  deterministicDuration?: number;
+  deterministicSpan?: number;
   projectName?: string;
   scenarioName?: string;
   formatDurationAsDate?: (days: number) => string;
@@ -51,7 +51,7 @@ export function SimulationPanel({
   allActivitiesValid,
   hasActivities,
   autoRunEnabled,
-  deterministicDuration,
+  deterministicSpan,
   projectName,
   scenarioName,
   formatDurationAsDate,
@@ -242,7 +242,7 @@ export function SimulationPanel({
                   simulationResults.percentiles[targetPct] ?? simulationResults.mean
                 }
                 activityPercentileValue={activityPercentileValue}
-                deterministicDuration={deterministicDuration}
+                deterministicSpan={deterministicSpan}
                 captureRef={histogramCaptureRef}
               />
             </div>

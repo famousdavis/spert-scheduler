@@ -52,6 +52,7 @@ const schedule: DeterministicSchedule = {
     { activityId: "a3", name: "Test", duration: 8, startDate: "2026-04-15", endDate: "2026-04-24", isActual: true },
   ],
   totalDurationDays: 30,
+  spanDays: 30,
   projectEndDate: "2026-04-24",
 };
 
@@ -70,7 +71,7 @@ const settings: ScenarioSettings = {
 };
 
 const buffer: ScheduleBuffer = {
-  deterministicTotal: 30,
+  deterministicSpan: 30,
   projectTargetDuration: 38,
   bufferDays: 8,
   activityProbabilityTarget: 0.5,
@@ -87,6 +88,7 @@ function makeParams(overrides?: Partial<ScheduleExportParams>): ScheduleExportPa
   return {
     projectName: "My Project",
     scenarioName: "Baseline",
+    startDate: "2026-03-16",
     activities,
     schedule,
     buffer,
@@ -113,6 +115,7 @@ describe("buildSummaryData", () => {
     expect(keys).toContain("Duration (w/o Buffer)");
     expect(keys).toContain("Finish (w/ Buffer)");
     expect(keys).toContain("Duration (w/ Buffer)");
+    expect(keys).toContain("Constraint Delay");
     expect(keys).toContain("Activity Target");
     expect(keys).toContain("Project Target");
     expect(keys).toContain("Schedule Buffer");
@@ -209,6 +212,7 @@ describe("buildGridRows", () => {
             { activityId: "a4", name: "Stale", duration: 10, startDate: "2026-03-16", endDate: "2026-03-27", isActual: false },
           ],
           totalDurationDays: 10,
+          spanDays: 10,
           projectEndDate: "2026-03-27",
         },
       })
@@ -248,6 +252,7 @@ describe("buildGridRows", () => {
             { activityId: "a1", name: "Design", duration: 10, startDate: "2026-03-16", endDate: "2026-03-27", isActual: false },
           ],
           totalDurationDays: 10,
+          spanDays: 10,
           projectEndDate: "2026-03-27",
         },
       })
@@ -264,6 +269,7 @@ describe("buildGridRows", () => {
             { activityId: "a1", name: "Design", duration: 10, startDate: "2026-03-16", endDate: "2026-03-27", isActual: false },
           ],
           totalDurationDays: 10,
+          spanDays: 10,
           projectEndDate: "2026-03-27",
         },
       })
@@ -342,6 +348,7 @@ describe("exportScheduleCsv", () => {
             { activityId: "a1", name: 'Design, Phase "1"', duration: 12, startDate: "2026-03-16", endDate: "2026-03-31", isActual: false },
           ],
           totalDurationDays: 12,
+          spanDays: 12,
           projectEndDate: "2026-03-31",
         },
       })
@@ -361,6 +368,7 @@ describe("exportScheduleCsv", () => {
               { activityId: "a1", name, duration: 10, startDate: "2026-03-16", endDate: "2026-03-27", isActual: false },
             ],
             totalDurationDays: 10,
+            spanDays: 10,
             projectEndDate: "2026-03-27",
           },
         })
@@ -446,11 +454,13 @@ describe("float columns in export", () => {
       { activityId: "a3", name: "Test", duration: 8, startDate: "2026-04-15", endDate: "2026-04-24", isActual: true, totalFloat: 5, freeFloat: 5 },
     ],
     totalDurationDays: 30,
+    spanDays: 30,
     projectEndDate: "2026-04-24",
   };
   const depParams: ScheduleExportParams = {
     projectName: "Float Test",
     scenarioName: "Baseline",
+    startDate: "2026-03-16",
     activities,
     schedule: depSchedule,
     buffer,
@@ -922,6 +932,7 @@ describe("Description column export", () => {
           { activityId: "a1", name: "Design", duration: 12, startDate: "2026-03-16", endDate: "2026-03-31", isActual: false },
         ],
         totalDurationDays: 12,
+        spanDays: 12,
         projectEndDate: "2026-03-31",
       },
       settings: { ...settings, dependencyMode: deps },
@@ -1015,5 +1026,94 @@ describe("Description column export", () => {
     const headerRow = findHeaderRow(ws);
     const descCol = headers.indexOf("Description") + 1;
     expect(ws.getCell(headerRow + 1, descCol).value).toBe("'=HYPERLINK(1)");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSummaryData — constraint idle, disclosure, and span-based buffered fields (0.54.1)
+// ---------------------------------------------------------------------------
+
+describe("buildSummaryData — constraint idle and disclosure (0.54.1)", () => {
+  const base = {
+    projectName: "Constrained",
+    scenarioName: "S",
+    startDate: "2026-01-05", // Monday
+    activities: [makeActivity({ id: "a1", name: "Work" })],
+    settings,
+    dependencies: [],
+    milestones: [],
+    dateFormat: "MM/DD/YYYY" as const,
+  };
+  // Span 10 (project start Mon 2026-01-05 → Fri 2026-01-16 inclusive); work-sum 6 → 4 idle days.
+  const constrainedSchedule: DeterministicSchedule = {
+    activities: [
+      { activityId: "a1", name: "Work", duration: 6, startDate: "2026-01-13", endDate: "2026-01-16", isActual: false },
+    ],
+    totalDurationDays: 6,
+    spanDays: 10,
+    projectEndDate: "2026-01-16",
+  };
+  const constrainedBuffer: ScheduleBuffer = {
+    deterministicSpan: 10,
+    projectTargetDuration: 13.2,
+    bufferDays: 3, // round(13.2 − 10)
+    activityProbabilityTarget: 0.5,
+    projectProbabilityTarget: 0.95,
+  };
+  const val = (summary: { key: string; value: string }[], k: string) =>
+    summary.find((r) => r.key === k)!.value;
+
+  it("buffered finish, duration, and constraint delay close the arithmetic exactly", () => {
+    const summary = buildSummaryData({ ...base, schedule: constrainedSchedule, buffer: constrainedBuffer });
+    // Duration w/Buffer = round(P) = 13; Constraint Delay = span − work = 4; Buffer = 3.
+    expect(val(summary, "Duration (w/ Buffer)")).toBe("13 working days");
+    expect(val(summary, "Constraint Delay")).toBe("4 days");
+    expect(val(summary, "Schedule Buffer")).toBe("3 days");
+    // Buffered finish = durationToFinishDateISO(start Mon 2026-01-05, 13.2) = Wed 2026-01-21.
+    expect(val(summary, "Finish (w/ Buffer)")).toBe("01/21/2026");
+    // work 6 + delay 4 + buffer 3 = 13 = round(P), exactly.
+    expect(6 + 4 + 3).toBe(Math.round(constrainedBuffer.projectTargetDuration));
+  });
+
+  it("suppresses the constraint-delay figure (N/A) on an error-conflicted schedule with positive idle", () => {
+    const conflicted: DeterministicSchedule = {
+      ...constrainedSchedule,
+      constraintConflicts: [
+        {
+          type: "constraint-conflict",
+          activityId: "a1",
+          activityName: "Work",
+          constraintType: "FNLT",
+          constraintDate: "2026-01-10",
+          constraintMode: "hard",
+          computedDate: "2026-01-16",
+          deltaWorkingDays: 4,
+          severity: "error",
+          message: "unmet FNLT",
+        },
+      ],
+    };
+    const summary = buildSummaryData({ ...base, schedule: conflicted, buffer: constrainedBuffer });
+    // Positive idle (10 − 6 = 4) but an error-severity conflict → N/A, not "4 days".
+    expect(val(summary, "Constraint Delay")).toBe("N/A");
+  });
+
+  it("shows a Constraint Delay row of 0 days on an unconstrained schedule", () => {
+    const summary = buildSummaryData(makeParams());
+    expect(summary.map((r) => r.key)).toContain("Constraint Delay");
+    expect(val(summary, "Constraint Delay")).toBe("0 days"); // span 30 − work 30
+  });
+
+  it("N/A constraint delay when the buffer is absent", () => {
+    const summary = buildSummaryData({ ...base, schedule: constrainedSchedule, buffer: null });
+    expect(val(summary, "Constraint Delay")).toBe("N/A");
+    expect(val(summary, "Finish (w/ Buffer)")).toBe("N/A");
+    expect(val(summary, "Duration (w/ Buffer)")).toBe("N/A");
+  });
+
+  it("Saturday scenario start advances to the next working day before the buffered finish", () => {
+    // startDate Sat 2026-01-03 → effective Mon 2026-01-05: same buffered finish as the Monday fixture.
+    const summary = buildSummaryData({ ...base, startDate: "2026-01-03", schedule: constrainedSchedule, buffer: constrainedBuffer });
+    expect(val(summary, "Finish (w/ Buffer)")).toBe("01/21/2026");
   });
 });

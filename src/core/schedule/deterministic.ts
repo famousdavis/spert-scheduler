@@ -130,11 +130,18 @@ export function computeDeterministicSchedule(
     (sum, a) => sum + a.duration,
     0
   );
+  const projectEndISO = lastActivity ? lastActivity.endDate : formatDateISO(currentDate);
+  // Inclusive span in the MC duration domain (includes constraint idle). currentDate
+  // has been advanced past the last activity by the loop, so use the raw startDate.
+  const spanDays = lastActivity
+    ? countWorkingDays(parseDateISO(startDate), parseDateISO(projectEndISO), calendar) + 1
+    : 0;
 
   return {
     activities: scheduledActivities,
     totalDurationDays: totalDuration,
-    projectEndDate: lastActivity ? lastActivity.endDate : formatDateISO(currentDate),
+    spanDays,
+    projectEndDate: projectEndISO,
     constraintConflicts: conflicts.length > 0 ? conflicts : undefined,
   };
 }
@@ -574,10 +581,16 @@ export function computeDependencySchedule(
 
   // Total duration is the critical path length (consistent with Monte Carlo computation)
   const totalDurationDays = computeCriticalPathDuration(graph, durationMap);
+  // Inclusive span in the MC duration domain: project start → constraint/milestone-
+  // adjusted end. projectStart is the advanced start (never mutated after line ~260).
+  const spanDays = scheduledActivities.length > 0
+    ? countWorkingDays(projectStart, parseDateISO(projectEndISO), calendar) + 1
+    : 0;
 
   return {
     activities: scheduledActivities,
     totalDurationDays,
+    spanDays,
     projectEndDate: projectEndISO,
     constraintConflicts: conflicts.length > 0 ? conflicts : undefined,
     dependencyConflicts: dependencyConflicts.length > 0 ? dependencyConflicts : undefined,

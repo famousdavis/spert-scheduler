@@ -13,9 +13,8 @@ import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { APP_VERSION } from "@app/constants";
 import {
-  parseDateISO,
-  addWorkingDays,
   formatDateISO,
+  durationToFinishDateISO,
 } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { PrintGanttChart } from "@ui/charts/PrintGanttChart";
@@ -57,17 +56,15 @@ export function PrintableReport({
   const projPct = Math.round(scenario.settings.projectProbabilityTarget * 100);
   const simulationResults = scenario.simulationResults;
 
-  // Compute buffered finish date
-  const bufferedEndDate =
-    schedule && buffer && buffer.bufferDays > 0
-      ? formatDateISO(
-          addWorkingDays(
-            parseDateISO(schedule.projectEndDate),
-            buffer.bufferDays,
-            calendar
-          )
-        )
-      : null;
+  // Buffered finish date, sourced from the MC project-target percentile (agrees with
+  // the Percentile Summary by construction). Text surfaces show it whenever a buffer
+  // exists — including negative/zero buffers (§7). The print Gantt gets a guarded
+  // value: it draws a buffer bar only for a positive buffer (matching the interactive
+  // chart), and an unguarded negative value would end the timeline before the last bar.
+  const bufferedEndDate = buffer
+    ? durationToFinishDateISO(scenario.startDate, buffer.projectTargetDuration, calendar)
+    : null;
+  const ganttBufferedEndDate = buffer && buffer.bufferDays > 0 ? bufferedEndDate : null;
 
   return (
     <div className="print-report hidden print:block bg-white text-black p-4 text-xs">
@@ -139,7 +136,7 @@ export function PrintableReport({
           activityTarget={scenario.settings.probabilityTarget}
           projectTarget={scenario.settings.projectProbabilityTarget}
           calendar={calendar}
-          bufferedEndDate={bufferedEndDate}
+          bufferedEndDate={ganttBufferedEndDate}
           formatDate={formatDate}
           milestones={scenario.milestones}
           milestoneBuffers={milestoneBuffers}

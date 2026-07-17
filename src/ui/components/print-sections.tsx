@@ -59,6 +59,15 @@ export function PrintSummarySection({
   const actPct = Math.round(scenario.settings.probabilityTarget * 100);
   const projPct = Math.round(scenario.settings.projectProbabilityTarget * 100);
 
+  // Constraint-delay disclosure (idle working days on hard date constraints / milestone
+  // floors). Suppressed on error-conflicted schedules — decomposition out of warranty.
+  const hasErrorConflict =
+    schedule?.constraintConflicts?.some((c) => c.severity === "error") ?? false;
+  const constraintDelayDays =
+    schedule && buffer ? buffer.deterministicSpan - schedule.totalDurationDays : null;
+  const showConstraintDelay =
+    constraintDelayDays !== null && constraintDelayDays > 0 && !hasErrorConflict;
+
   return (
     <section className="mb-3 print-section-keep">
       <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
@@ -66,7 +75,6 @@ export function PrintSummarySection({
       </h2>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          {/* eslint-disable-next-line sonarjs/table-header -- presentation layout table, no logical header row */}
           <table className="w-full text-xs">
             <tbody>
               <tr>
@@ -100,11 +108,15 @@ export function PrintSummarySection({
               <tr>
                 <td className="py-0.5 text-gray-600">Duration (w/Buffer):</td>
                 <td className="py-0.5 font-medium">
-                  {schedule && buffer && buffer.bufferDays > 0
-                    ? `${schedule.totalDurationDays + buffer.bufferDays} working days`
-                    : "—"}
+                  {buffer ? `${Math.round(buffer.projectTargetDuration)} working days` : "—"}
                 </td>
               </tr>
+              {showConstraintDelay && (
+                <tr>
+                  <td className="py-0.5 text-gray-600">Constraint Delay:</td>
+                  <td className="py-0.5 font-medium">+{constraintDelayDays} working days</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

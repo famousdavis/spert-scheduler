@@ -7,9 +7,7 @@ import type { Activity, ActivityBand, ActivityDependency, DeterministicSchedule,
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
-  parseDateISO,
-  addWorkingDays,
-  formatDateISO,
+  durationToFinishDateISO,
   formatExportTimestamp,
 } from "@core/calendar/calendar";
 import {
@@ -82,6 +80,7 @@ interface ScenarioSummaryCardProps {
 interface UseScheduleExportParams {
   projectName: string;
   scenarioName: string;
+  startDate: string;
   activities: Activity[];
   bands: ActivityBand[];
   schedule: DeterministicSchedule | null;
@@ -96,6 +95,7 @@ interface UseScheduleExportParams {
 function useScheduleExport({
   projectName,
   scenarioName,
+  startDate,
   activities,
   bands,
   schedule,
@@ -112,8 +112,8 @@ function useScheduleExport({
 
   const buildExportParams = useCallback((): ScheduleExportParams | null => {
     if (!schedule) return null;
-    return { projectName, scenarioName, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat };
-  }, [projectName, scenarioName, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat]);
+    return { projectName, scenarioName, startDate, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat };
+  }, [projectName, scenarioName, startDate, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat]);
 
   const handleExportXlsx = useCallback(async () => {
     const params = buildExportParams();
@@ -218,21 +218,26 @@ export function ScenarioSummaryCard({
 
   // Schedule export state
   const { exporting, exportDisabled, handleExportXlsx, handleExportCsv } = useScheduleExport({
-    projectName, scenarioName, activities, bands, schedule, buffer,
+    projectName, scenarioName, startDate, activities, bands, schedule, buffer,
     settings, dependencies, milestones, calendar, hasSimulationResults,
   });
 
-  // Compute buffered finish date by adding buffer working days to the deterministic end date
-  const bufferedEndDate =
-    schedule && buffer && buffer.bufferDays > 0
-      ? formatDateISO(
-          addWorkingDays(
-            parseDateISO(schedule.projectEndDate),
-            buffer.bufferDays,
-            calendar
-          )
-        )
-      : null;
+  // Buffered finish date, sourced from the MC project-target percentile so it agrees
+  // with the Percentile Summary by construction. Shown whenever a buffer exists —
+  // including a negative buffer, whose finish is earlier than the no-buffer date (§7).
+  const bufferedEndDate = buffer
+    ? durationToFinishDateISO(startDate, buffer.projectTargetDuration, calendar)
+    : null;
+
+  // Constraint-delay disclosure: idle working days the deterministic schedule waits on
+  // hard date constraints (and milestone floors in dependency mode). Suppressed on
+  // error-conflicted schedules — the decomposition is out of warranty there.
+  const hasErrorConflict =
+    schedule?.constraintConflicts?.some((c) => c.severity === "error") ?? false;
+  const constraintDelayDays =
+    schedule && buffer ? buffer.deterministicSpan - schedule.totalDurationDays : null;
+  const showConstraintDelay =
+    constraintDelayDays !== null && constraintDelayDays > 0 && !hasErrorConflict;
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
@@ -338,9 +343,9 @@ export function ScenarioSummaryCard({
             Duration w/Buffer
           </span>
           <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
-            {schedule && buffer && buffer.bufferDays > 0 ? (
+            {buffer ? (
               <>
-                {schedule.totalDurationDays + buffer.bufferDays}{" "}
+                {Math.round(buffer.projectTargetDuration)}{" "}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
                   working days
                 </span>
@@ -648,6 +653,19 @@ export function ScenarioSummaryCard({
             }
             return bufferContent;
           })()}
+
+          {showConstraintDelay && (
+            <span
+              className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"
+              title="Working days the deterministic schedule waits on hard date constraints (and milestone start floors in dependency mode) beyond the work itself. Duration + Constraint delay + Schedule Buffer = Duration w/Buffer."
+            >
+              <span className="text-gray-300 dark:text-gray-600">·</span>
+              Constraint delay:
+              <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+                +{constraintDelayDays} days
+              </span>
+            </span>
+          )}
 
           {/* Export buttons — right-aligned */}
           <div className="flex items-center gap-2 ml-auto no-print">

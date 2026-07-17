@@ -76,7 +76,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
         );
 
     const buffer = computeScheduleBuffer(
-      schedule.totalDurationDays,
+      schedule.spanDays,
       selectedScenario.simulationResults.percentiles,
       settings.probabilityTarget,
       settings.projectProbabilityTarget
@@ -85,6 +85,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
     return {
       projectName: selectedProject.name,
       scenarioName: selectedScenario.name,
+      startDate: selectedScenario.startDate,
       activities: selectedScenario.activities,
       schedule,
       buffer,

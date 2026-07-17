@@ -21,7 +21,7 @@ interface HistogramChartProps {
   percentileTarget: number;
   percentileValue: number;
   activityPercentileValue?: number;
-  deterministicDuration?: number;
+  deterministicSpan?: number;
   /** Attached to the capture div so the panel's copy-image button can target it. */
   captureRef: RefObject<HTMLDivElement | null>;
 }
@@ -32,7 +32,7 @@ export function HistogramChart({
   percentileTarget,
   percentileValue,
   activityPercentileValue,
-  deterministicDuration,
+  deterministicSpan,
   captureRef,
 }: HistogramChartProps) {
   // Filter out any bins with non-finite values (defensive check)
@@ -48,9 +48,9 @@ export function HistogramChart({
       count: bin.count,
     }));
 
-  // Buffer left edge: deterministic duration (P50 schedule total) when available,
-  // otherwise fall back to MC activity percentile value
-  const bufferLeft = deterministicDuration ?? activityPercentileValue;
+  // Buffer left edge: deterministic schedule span (P50, constraint-adjusted) when
+  // available, otherwise fall back to MC activity percentile value
+  const bufferLeft = deterministicSpan ?? activityPercentileValue;
   const showBufferZone =
     bufferLeft !== undefined &&
     bufferLeft < percentileValue;

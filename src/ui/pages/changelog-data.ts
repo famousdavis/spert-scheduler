@@ -12,6 +12,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.54.1",
+    date: "2026-07-17",
+    sections: [
+      {
+        title: "Fixed — Schedule buffer no longer double-counts constraint waiting time",
+        items: [
+          "When a scenario waits on a hard date constraint — for example a \"Start No Earlier Than\" that parks an activity for weeks — the Schedule Buffer used to come out too large because it counted that idle waiting time twice. The buffer is now measured the same way the simulation measures duration, so \"Finish w/Buffer\" always matches the target-percentile date in the Percentile Summary. On a constrained project the buffer and the buffered finish date get noticeably tighter; unconstrained projects are unchanged.",
+          "New \"Constraint delay\" figure. The summary card, printed report, and schedule export now show how many working days a scenario is waiting on hard date constraints, so the arithmetic reads cleanly: Duration + Constraint delay + Schedule Buffer = Duration w/Buffer. It appears only when there is a delay to explain.",
+          "Schedule-health (Green/Amber/Red) target dates now use the same date math as the Percentile Summary, so a borderline health indicator may shift by a step. Finish dates for scenarios that start on a weekend or holiday — previously a working day early — are also fixed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.54.0",
     date: "2026-07-17",
     sections: [
@@ -31,7 +45,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Added — Projected finish dates and a copy button in the Percentile Summary",
         items: [
-          "The Percentile Summary table (below the simulation charts) now shows a \"Finish date\" column next to \"Duration (days),\" giving the projected calendar finish date for each percentile from P5 to P99. Dates use the same working-day and holiday math as the rest of the schedule and follow your date-format preference; the P95 (target) row matches the \"Finish w/Buffer\" date on the summary card. The column appears whenever the scenario has a start date.",
+          "The Percentile Summary table (below the simulation charts) now shows a \"Finish date\" column next to \"Duration (days),\" giving the projected calendar finish date for each percentile from P5 to P99. Dates use the same working-day and holiday math as the rest of the schedule and follow your date-format preference; the P95 (target) row matches the \"Finish w/Buffer\" date on the summary card. The column appears whenever the scenario has a start date. (Correction in 0.54.1: this match held only for schedules without hard-constraint idle; the buffer was corrected to agree for all schedules in 0.54.1.)",
           "The Percentile Summary now has a copy-to-image button in its header — the same one the Distribution Histogram and Cumulative Distribution charts already have — so you can drop the table straight into a status report or email.",
         ],
       },

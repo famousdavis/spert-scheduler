@@ -19,7 +19,7 @@ describe("computeScheduleBuffer", () => {
   it("computes positive buffer when MC percentile > deterministic total", () => {
     const result = computeScheduleBuffer(200, percentiles, 0.5, 0.95);
     expect(result).not.toBeNull();
-    expect(result!.deterministicTotal).toBe(200);
+    expect(result!.deterministicSpan).toBe(200);
     expect(result!.projectTargetDuration).toBe(260);
     expect(result!.bufferDays).toBe(60);
     expect(result!.activityProbabilityTarget).toBe(0.5);
@@ -62,6 +62,16 @@ describe("computeScheduleBuffer", () => {
     const result = computeScheduleBuffer(200, simPercentiles, 0.5, 0.95);
     expect(result).not.toBeNull();
     expect(result!.bufferDays).toBe(32);
+  });
+
+  it("bufferDays equals round(projectTargetDuration) − span for an integer span (0.54.1 identity)", () => {
+    // For an integer span S, round(P − S) === round(P) − S. This is the identity the
+    // buffer/percentile agreement rests on: duration w/buffer = round(P) = S + bufferDays.
+    const p: Record<number, number> = { 95: 232.4 };
+    const result = computeScheduleBuffer(200, p, 0.5, 0.95);
+    expect(result!.deterministicSpan).toBe(200);
+    expect(result!.bufferDays).toBe(Math.round(232.4) - 200); // 232 − 200 = 32
+    expect(200 + result!.bufferDays).toBe(Math.round(result!.projectTargetDuration));
   });
 
   it("rounds buffer to whole number", () => {

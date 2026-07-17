@@ -5,19 +5,20 @@
  * Schedule Buffer Calculation
  *
  * The schedule buffer is the difference between the Monte Carlo percentile
- * at the project probability target and the deterministic schedule total.
+ * at the project probability target and the deterministic schedule span
+ * (project start → constraint-adjusted finish, inclusive).
  *
- * Example: If the deterministic schedule at P50 per-activity is 200 days,
+ * Example: If the deterministic schedule span at P50 per-activity is 200 days,
  * and the Monte Carlo P95 is 232 days, the buffer is 32 days.
  * This buffer represents the contingency needed for project-level confidence.
  */
 
 export interface ScheduleBuffer {
-  /** Sum of activity durations from the deterministic schedule (at activity P-target) */
-  deterministicTotal: number;
+  /** Deterministic schedule span in working days (project start → constraint-adjusted finish, inclusive; since 0.54.1). Same duration domain as the MC percentiles. */
+  deterministicSpan: number;
   /** Monte Carlo percentile value at the project probability target */
   projectTargetDuration: number;
-  /** projectTargetDuration - deterministicTotal */
+  /** projectTargetDuration - deterministicSpan */
   bufferDays: number;
   /** The activity-level probability target used for deterministic scheduling (e.g. 0.50) */
   activityProbabilityTarget: number;
@@ -28,14 +29,14 @@ export interface ScheduleBuffer {
 /**
  * Compute the schedule buffer.
  *
- * @param deterministicTotal - Total working days from the deterministic schedule
+ * @param deterministicSpan - Deterministic schedule span in working days (same duration domain as the MC percentiles)
  * @param simulationPercentiles - Percentile lookup from Monte Carlo results (e.g. { 50: 198, 85: 220, 95: 232 })
  * @param activityProbabilityTarget - The per-activity probability target (for display)
  * @param projectProbabilityTarget - The project-level probability target (for MC lookup)
  * @returns ScheduleBuffer or null if the required percentile is not available
  */
 export function computeScheduleBuffer(
-  deterministicTotal: number,
+  deterministicSpan: number,
   simulationPercentiles: Record<number, number>,
   activityProbabilityTarget: number,
   projectProbabilityTarget: number
@@ -48,9 +49,9 @@ export function computeScheduleBuffer(
   }
 
   return {
-    deterministicTotal,
+    deterministicSpan,
     projectTargetDuration,
-    bufferDays: Math.round(projectTargetDuration - deterministicTotal),
+    bufferDays: Math.round(projectTargetDuration - deterministicSpan),
     activityProbabilityTarget,
     projectProbabilityTarget,
   };

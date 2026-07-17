@@ -14,11 +14,7 @@ import { computeSchedule } from "@app/api/schedule-service";
 import { computeDependencySchedule } from "@core/schedule/deterministic";
 import { cdf } from "@core/analytics/analytics";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import {
-  parseDateISO,
-  addWorkingDays,
-  formatDateISO,
-} from "@core/calendar/calendar";
+import { durationToFinishDateISO } from "@core/calendar/calendar";
 import { CDFComparisonChart, type CDFDataset } from "@ui/charts/CDFComparisonChart";
 import { CopyImageButton } from "./CopyImageButton";
 
@@ -85,7 +81,7 @@ function computeEntry(
 
   if (schedule && scenario.simulationResults) {
     buffer = computeScheduleBuffer(
-      schedule.totalDurationDays,
+      schedule.spanDays,
       scenario.simulationResults.percentiles,
       scenario.settings.probabilityTarget,
       scenario.settings.projectProbabilityTarget
@@ -118,10 +114,8 @@ export function ScenarioComparisonTable({
   const formatDurationAsDate = useCallback(
     (days: number): string => {
       if (!firstStartDate) return "";
-      const rounded = Math.round(days);
-      if (rounded <= 0) return "";
-      const finish = addWorkingDays(parseDateISO(firstStartDate), rounded - 1, calendar);
-      return formatDate(formatDateISO(finish));
+      const finish = durationToFinishDateISO(firstStartDate, days, calendar);
+      return finish ? formatDate(finish) : "";
     },
     [firstStartDate, calendar, formatDate]
   );
@@ -147,10 +141,15 @@ export function ScenarioComparisonTable({
   const durations = entries.map((e) => e.schedule?.totalDurationDays ?? null);
   const buffers = entries.map((e) => e.buffer?.bufferDays ?? null);
   const totalDurations = entries.map((e) =>
-    e.schedule && e.buffer && e.buffer.bufferDays > 0
-      ? e.schedule.totalDurationDays + e.buffer.bufferDays
-      : e.schedule?.totalDurationDays ?? null
+    e.buffer ? Math.round(e.buffer.projectTargetDuration) : e.schedule?.totalDurationDays ?? null
   );
+  const constraintDelays = entries.map((e) => {
+    if (!e.schedule || !e.buffer) return null;
+    const hasErrorConflict = e.schedule.constraintConflicts?.some((c) => c.severity === "error") ?? false;
+    if (hasErrorConflict) return null;
+    return e.buffer.deterministicSpan - e.schedule.totalDurationDays;
+  });
+  const anyConstraintDelay = constraintDelays.some((d) => d !== null && d > 0);
   const means = entries.map(
     (e) => e.scenario.simulationResults?.mean ?? null
   );
@@ -190,16 +189,22 @@ export function ScenarioComparisonTable({
       label: "Buffer (days)",
       values: buffers.map(formatSignedBuffer),
     },
+    ...(anyConstraintDelay
+      ? [{
+          label: "Constraint Delay (days)",
+          values: constraintDelays.map((d) => (d !== null ? String(d) : null)),
+        }]
+      : []),
     {
       label: "End Date (w/buffer)",
       values: entries.map((e) => {
-        if (!e.schedule || !e.buffer || e.buffer.bufferDays <= 0) return null;
-        const buffered = addWorkingDays(
-          parseDateISO(e.schedule.projectEndDate),
-          e.buffer.bufferDays,
+        if (!e.buffer) return null;
+        const buffered = durationToFinishDateISO(
+          e.scenario.startDate,
+          e.buffer.projectTargetDuration,
           calendar
         );
-        return formatDate(formatDateISO(buffered));
+        return buffered ? formatDate(buffered) : null;
       }),
     },
     {
