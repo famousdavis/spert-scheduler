@@ -27,12 +27,23 @@ import {
   updateDependencyLag,
   updateDependencyType,
 } from "./dependency-service";
+import {
+  BulkCreateActivitiesSchema,
+  BulkCreateDependenciesSchema,
+  BulkCreateMilestonesSchema,
+  BulkAssignMilestonesSchema,
+} from "./ai-bulk-schemas";
 
 // -- Caps (mirror the Zod schema `.max()` constraints) -----------------------
 
 const ACTIVITY_CAP = 500;
 const MILESTONE_CAP = 100;
 const ITEM_CAP = 50;
+// Mirrors the domain-schema dependency cap. Enforced in createDependencyCore
+// (P0.4) — the ONLY sanctioned singular-path outcome change: before this guard
+// the singular path had no cap check and applied the 2001st edge in memory,
+// risking a persist-time failure (Spike V4). A per-item `cap_exceeded` skip.
+const DEPENDENCY_CAP = 2000;
 const NOTES_MAX = 2000;
 const DESCRIPTION_MAX = 2000;
 const NOTE_SEPARATOR = "\n\n";
@@ -140,6 +151,67 @@ interface UpdateDependencyPayload {
   type?: DependencyType;
 }
 
+// -- Bulk op payloads (Phase 1) ----------------------------------------------
+// Domain-typed views of the structurally-parsed payloads. The dispatcher parses
+// each raw payload with the matching structural schema (ai-bulk-schemas.ts),
+// then casts to these types at that single boundary — sound because the enum
+// fields (confidenceLevel/distributionType/type) are re-validated per item in
+// the cores (a bad value reads as an `invalid` item, never a corrupt apply).
+
+interface BulkActivityItem {
+  id: string;
+  name: string;
+  min: number;
+  mostLikely: number;
+  max: number;
+  confidenceLevel?: RSMLevel;
+  distributionType?: DistributionType;
+  description?: string;
+  // Bulk-only convenience field: an initial note seeded after the create
+  // applies. The singular create tool has no note field.
+  note?: string;
+}
+
+interface BulkCreateActivitiesPayload {
+  scenarioId?: string;
+  activities: BulkActivityItem[];
+}
+
+interface BulkDependencyItem {
+  fromActivityId: string;
+  toActivityId: string;
+  type?: DependencyType;
+  lagDays?: number;
+}
+
+interface BulkCreateDependenciesPayload {
+  // Required at the tool layer; optional here so `op.payload.scenarioId` reads
+  // uniformly across the union (matches CreateDependencyPayload).
+  scenarioId?: string;
+  dependencies: BulkDependencyItem[];
+}
+
+interface BulkMilestoneItem {
+  id: string;
+  name: string;
+  targetDate: string;
+}
+
+interface BulkCreateMilestonesPayload {
+  scenarioId?: string;
+  milestones: BulkMilestoneItem[];
+}
+
+interface BulkAssignmentItem {
+  activityId: string;
+  milestoneId: string;
+}
+
+interface BulkAssignMilestonesPayload {
+  scenarioId?: string;
+  assignments: BulkAssignmentItem[];
+}
+
 export type AiOp =
   | { seq: number; op: "create_activity"; payload: CreateActivityPayload }
   | { seq: number; op: "update_activity_estimate"; payload: UpdateEstimatePayload }
@@ -156,7 +228,11 @@ export type AiOp =
   | { seq: number; op: "unassign_milestone"; payload: AssignMilestonePayload }
   | { seq: number; op: "create_dependency"; payload: CreateDependencyPayload }
   | { seq: number; op: "remove_dependency"; payload: RemoveDependencyPayload }
-  | { seq: number; op: "update_dependency"; payload: UpdateDependencyPayload };
+  | { seq: number; op: "update_dependency"; payload: UpdateDependencyPayload }
+  | { seq: number; op: "bulk_create_activities"; payload: BulkCreateActivitiesPayload }
+  | { seq: number; op: "bulk_create_dependencies"; payload: BulkCreateDependenciesPayload }
+  | { seq: number; op: "bulk_create_milestones"; payload: BulkCreateMilestonesPayload }
+  | { seq: number; op: "bulk_assign_milestones"; payload: BulkAssignMilestonesPayload };
 
 export type AiSkipReason =
   | "not_found"
@@ -169,10 +245,46 @@ export type AiSkipReason =
   | "no_open_scenario"
   | "would_exceed_length"
   | "dependency_mode_off"
+  | "stale_order"
+  | "invalid_order"
   | "unknown_noop"
   | "unknown_op";
 
-type ItemReject = "cap_exceeded" | "invalid" | "duplicate";
+// Per-item skip reasons for the `partial` outcome. Widened (P0.1) so the shared
+// item-level cores can surface the full vocabulary through the bulk handlers.
+// ItemReject ⊂ AiSkipReason, so a core reason lifts to a singular `skip()`
+// directly; the bulk path narrows via toItemReject().
+export type ItemReject =
+  | "cap_exceeded"
+  | "invalid"
+  | "duplicate"
+  | "not_found"
+  | "cycle"
+  | "value_unchanged";
+
+export type BulkSection = "activities" | "milestones" | "assignments" | "dependencies";
+
+export interface SkippedItem {
+  // Section-local when `section` is present, else the payload-array index.
+  index: number;
+  // activities/milestones → the item's id; assignments → the activityId;
+  // dependencies → "fromActivityId->toActivityId".
+  id?: string;
+  reason: ItemReject;
+  section?: BulkSection;
+}
+
+interface SectionCount {
+  applied: number;
+  skipped: number;
+}
+
+export interface BulkSectionCounts {
+  activities?: SectionCount;
+  milestones?: SectionCount;
+  assignments?: SectionCount;
+  dependencies?: SectionCount;
+}
 
 export type AiOpOutcome =
   | { status: "applied" }
@@ -180,7 +292,10 @@ export type AiOpOutcome =
   | {
       status: "partial";
       appliedCount: number;
-      skippedItems: Array<{ index: number; reason: ItemReject }>;
+      skippedItems: SkippedItem[];
+      // Composite-only producer (bulk_import_schedule, Phase 2). Never set by
+      // handleAddItems or the single-array bulk handlers.
+      sections?: BulkSectionCounts;
     };
 
 export type AiOpResult = { op: AiOp; outcome: AiOpOutcome };
@@ -196,11 +311,47 @@ const applied = (scenario: Scenario): OpResult => ({
   outcome: { status: "applied" },
 });
 
+// -- Shared item-level cores -------------------------------------------------
+// A core applies ONE item to a scenario and returns either the next scenario
+// (accept) or a skip reason. Cores are the single source of the rich per-item
+// reason vocabulary, shared by the singular handlers (which lift a reject
+// straight to skip(), since ItemReject ⊂ AiSkipReason) and by the bulk handlers
+// (which narrow via toItemReject and accumulate). Cores assume dependency mode
+// is ON where relevant — the mode guard lives in the handler wrappers
+// (decision 12 / P0.0).
+
+type CoreResult =
+  | { ok: true; scenario: Scenario }
+  | { ok: false; reason: AiSkipReason };
+
+const accept = (scenario: Scenario): CoreResult => ({ ok: true, scenario });
+const reject = (reason: AiSkipReason): CoreResult => ({ ok: false, reason });
+
+/**
+ * Narrow a core reason to an ItemReject for the bulk `partial` outcome. The six
+ * ItemReject members pass through; anything else (would_exceed_length, the
+ * whole-op reasons, etc.) is defensively mapped to `invalid` — expected
+ * unreachable in the bulk paths, asserted so in unit tests (P0.1).
+ */
+function toItemReject(reason: AiSkipReason): ItemReject {
+  switch (reason) {
+    case "cap_exceeded":
+    case "invalid":
+    case "duplicate":
+    case "not_found":
+    case "cycle":
+    case "value_unchanged":
+      return reason;
+    default:
+      return "invalid";
+  }
+}
+
 // -- Activity ops ------------------------------------------------------------
 
-function handleCreateActivity(scenario: Scenario, p: CreateActivityPayload): OpResult {
-  if (scenario.activities.length >= ACTIVITY_CAP) return skip(scenario, "cap_exceeded");
-  if (scenario.activities.some((a) => a.id === p.id)) return skip(scenario, "duplicate");
+function createActivityCore(scenario: Scenario, p: CreateActivityPayload): CoreResult {
+  if (scenario.activities.length >= ACTIVITY_CAP) return reject("cap_exceeded");
+  if (scenario.activities.some((a) => a.id === p.id)) return reject("duplicate");
 
   const confidenceLevel = p.confidenceLevel ?? scenario.settings.defaultConfidenceLevel;
   // Auto-recommendation applies only at create time. recommendDistribution's
@@ -208,8 +359,10 @@ function handleCreateActivity(scenario: Scenario, p: CreateActivityPayload): OpR
   const distributionType =
     p.distributionType ??
     recommendDistribution(p.min, p.mostLikely, p.max, confidenceLevel).recommended;
+  // logNormal PERT-mean guard: explicit CORE logic, NOT part of ActivitySchema.
+  // It must travel with the extraction (the schema cannot express it).
   if (distributionType === "logNormal" && computePertMean(p.min, p.mostLikely, p.max) <= 0) {
-    return skip(scenario, "invalid");
+    return reject("invalid");
   }
 
   const parsed = ActivitySchema.safeParse({
@@ -226,8 +379,13 @@ function handleCreateActivity(scenario: Scenario, p: CreateActivityPayload): OpR
     // Optional on create → coalesce (opposite of the set path, which guards).
     description: p.description?.trim() || undefined,
   });
-  if (!parsed.success) return skip(scenario, "invalid");
-  return applied(addActivityToScenario(scenario, parsed.data));
+  if (!parsed.success) return reject("invalid");
+  return accept(addActivityToScenario(scenario, parsed.data));
+}
+
+function handleCreateActivity(scenario: Scenario, p: CreateActivityPayload): OpResult {
+  const r = createActivityCore(scenario, p);
+  return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
 }
 
 function mergeEstimateFields(activity: Activity, p: UpdateEstimatePayload): Activity {
@@ -300,13 +458,22 @@ function handleSetDescription(scenario: Scenario, p: SetDescriptionPayload): OpR
 
 // -- Qualitative ops ---------------------------------------------------------
 
-function handleAppendNote(scenario: Scenario, p: AppendNotePayload): OpResult {
+function appendNoteCore(scenario: Scenario, p: { id: string; text: string }): CoreResult {
   const activity = scenario.activities.find((a) => a.id === p.id);
-  if (!activity) return skip(scenario, "not_found");
+  if (!activity) return reject("not_found");
   const current = activity.notes ?? "";
   const nextLength = (current ? current.length + NOTE_SEPARATOR.length : 0) + p.text.length;
-  if (nextLength > NOTES_MAX) return skip(scenario, "would_exceed_length");
-  return applied(patchActivityQualitative(scenario, p.id, { op: "appendNote", text: p.text }));
+  // would_exceed_length is an AiSkipReason, not an ItemReject. In the bulk
+  // create path this branch is unreachable (the note lands on a freshly-created
+  // activity whose notes are empty, and is ≤2000 chars); if it ever fired there
+  // it would narrow to `invalid` via toItemReject. See the 1A invariant.
+  if (nextLength > NOTES_MAX) return reject("would_exceed_length");
+  return accept(patchActivityQualitative(scenario, p.id, { op: "appendNote", text: p.text }));
+}
+
+function handleAppendNote(scenario: Scenario, p: AppendNotePayload): OpResult {
+  const r = appendNoteCore(scenario, p);
+  return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
 }
 
 function classifyNewItem(
@@ -379,12 +546,17 @@ function handleToggleItem(
 
 // -- Milestone ops -----------------------------------------------------------
 
-function handleCreateMilestone(scenario: Scenario, p: CreateMilestonePayload): OpResult {
-  if (scenario.milestones.length >= MILESTONE_CAP) return skip(scenario, "cap_exceeded");
-  if (scenario.milestones.some((m) => m.id === p.id)) return skip(scenario, "duplicate");
+function createMilestoneCore(scenario: Scenario, p: CreateMilestonePayload): CoreResult {
+  if (scenario.milestones.length >= MILESTONE_CAP) return reject("cap_exceeded");
+  if (scenario.milestones.some((m) => m.id === p.id)) return reject("duplicate");
   const parsed = MilestoneSchema.safeParse({ id: p.id, name: p.name, targetDate: p.targetDate });
-  if (!parsed.success) return skip(scenario, "invalid");
-  return applied(addMilestone(scenario, parsed.data.name, parsed.data.targetDate, parsed.data.id));
+  if (!parsed.success) return reject("invalid");
+  return accept(addMilestone(scenario, parsed.data.name, parsed.data.targetDate, parsed.data.id));
+}
+
+function handleCreateMilestone(scenario: Scenario, p: CreateMilestonePayload): OpResult {
+  const r = createMilestoneCore(scenario, p);
+  return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
 }
 
 function handleUpdateMilestone(scenario: Scenario, p: UpdateMilestonePayload): OpResult {
@@ -408,41 +580,71 @@ function handleUpdateMilestone(scenario: Scenario, p: UpdateMilestonePayload): O
   return next === scenario ? skip(scenario, "unknown_noop") : applied(next);
 }
 
+function assignMilestoneCore(
+  scenario: Scenario,
+  activityId: string,
+  milestoneId: string
+): CoreResult {
+  const activity = scenario.activities.find((a) => a.id === activityId);
+  if (!activity) return reject("not_found");
+  if (!scenario.milestones.some((m) => m.id === milestoneId)) return reject("not_found");
+  const next = assignActivityToMilestone(scenario, activityId, milestoneId);
+  return next === scenario ? reject("value_unchanged") : accept(next);
+}
+
 function handleAssign(scenario: Scenario, p: AssignMilestonePayload, assign: boolean): OpResult {
+  if (assign) {
+    const milestoneId = p.milestoneId ?? null;
+    // A null/absent target can only be not_found. Pre-extraction the activity
+    // was checked first, then the milestone; either missing yielded not_found,
+    // so collapsing the null case here is outcome-preserving.
+    if (milestoneId === null) return skip(scenario, "not_found");
+    const r = assignMilestoneCore(scenario, p.activityId, milestoneId);
+    return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
+  }
+  // Unassign path: no shared core (the bulk surface has no unassign tool).
   const activity = scenario.activities.find((a) => a.id === p.activityId);
   if (!activity) return skip(scenario, "not_found");
-  const milestoneId = assign ? p.milestoneId ?? null : null;
-  if (assign && (milestoneId === null || !scenario.milestones.some((m) => m.id === milestoneId))) {
-    return skip(scenario, "not_found");
-  }
-  const next = assignActivityToMilestone(scenario, p.activityId, milestoneId);
+  const next = assignActivityToMilestone(scenario, p.activityId, null);
   return next === scenario ? skip(scenario, "value_unchanged") : applied(next);
 }
 
 // -- Dependency ops (Read Mode + dependencyMode gated) -----------------------
 
-function handleCreateDependency(scenario: Scenario, p: CreateDependencyPayload): OpResult {
-  if (!(scenario.settings.dependencyMode ?? false)) return skip(scenario, "dependency_mode_off");
+function createDependencyCore(scenario: Scenario, p: CreateDependencyPayload): CoreResult {
+  // Cores assume dependency mode is ON (the wrapper guards it — decision 12).
+  // P0.4 cap: before this guard the singular path had no cap check and applied
+  // the 2001st edge in memory; a per-item cap_exceeded skip past the limit.
+  if (scenario.dependencies.length >= DEPENDENCY_CAP) return reject("cap_exceeded");
   const ids = scenario.activities.map((a) => a.id);
   const idSet = new Set(ids);
-  if (!idSet.has(p.fromActivityId) || !idSet.has(p.toActivityId)) return skip(scenario, "not_found");
-  if (p.fromActivityId === p.toActivityId) return skip(scenario, "invalid");
+  if (!idSet.has(p.fromActivityId) || !idSet.has(p.toActivityId)) return reject("not_found");
+  if (p.fromActivityId === p.toActivityId) return reject("invalid");
   if (
     scenario.dependencies.some(
       (d) => d.fromActivityId === p.fromActivityId && d.toActivityId === p.toActivityId
     )
   ) {
-    return skip(scenario, "duplicate");
+    return reject("duplicate");
   }
   const type = p.type ?? "FS";
   const lagDays = p.lagDays ?? 0;
+  // detectCycle runs on the UNION of the existing deps and the trial edge, so an
+  // edge can be `cycle` even when the submitted set alone is acyclic. In a bulk
+  // call array order therefore decides WHICH edges of a cyclic union skip.
   const trial = [
     ...scenario.dependencies,
     { fromActivityId: p.fromActivityId, toActivityId: p.toActivityId, type, lagDays },
   ];
-  if (detectCycle(ids, trial)) return skip(scenario, "cycle");
+  if (detectCycle(ids, trial)) return reject("cycle");
   const next = addDependency(scenario, p.fromActivityId, p.toActivityId, type, lagDays);
-  return next === scenario ? skip(scenario, "unknown_noop") : applied(next);
+  return next === scenario ? reject("unknown_noop") : accept(next);
+}
+
+function handleCreateDependency(scenario: Scenario, p: CreateDependencyPayload): OpResult {
+  if (!(scenario.settings.dependencyMode ?? false)) return skip(scenario, "dependency_mode_off");
+  const r = createDependencyCore(scenario, p);
+  return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
 }
 
 function handleRemoveDependency(scenario: Scenario, p: RemoveDependencyPayload): OpResult {
@@ -468,6 +670,107 @@ function handleUpdateDependency(scenario: Scenario, p: UpdateDependencyPayload):
     next = updateDependencyType(next, p.fromActivityId, p.toActivityId, p.type);
   }
   return next === scenario ? skip(scenario, "value_unchanged") : applied(next);
+}
+
+// -- Bulk ops (Phase 1) ------------------------------------------------------
+// Each single-array bulk handler runs the shared item cores in array order and
+// accumulates one `partial` outcome. Per F3-3, zero skips collapse to
+// `{status:"applied"}` (the handleAddItems precedent); `partial` appears only
+// when at least one item skipped. `sections` is composite-only (Phase 2) and
+// never set here. Structural parsing runs once at the dispatcher boundary
+// (P0.0 step 1) before any of these; here every item is shape-valid.
+
+function bulkOutcome(appliedCount: number, skippedItems: SkippedItem[]): AiOpOutcome {
+  return skippedItems.length === 0
+    ? { status: "applied" }
+    : { status: "partial", appliedCount, skippedItems };
+}
+
+function handleBulkCreateActivities(scenario: Scenario, p: BulkCreateActivitiesPayload): OpResult {
+  let scn = scenario;
+  const skippedItems: SkippedItem[] = [];
+  let appliedCount = 0;
+  p.activities.forEach((item, index) => {
+    const r = createActivityCore(scn, item);
+    if (!r.ok) {
+      skippedItems.push({ index, id: item.id, reason: toItemReject(r.reason) });
+      return;
+    }
+    scn = r.scenario;
+    appliedCount++;
+    // Bulk-only: seed an initial note AFTER the create applied (composing two
+    // cores). A per-item create skip above suppresses it; whitespace-only notes
+    // are dropped silently. The append cannot exceed length on a fresh,
+    // empty-notes activity (the 1A invariant), so an (unreachable) failure here
+    // is dropped without reverting the create or marking the item skipped.
+    const note = item.note?.trim();
+    if (note) {
+      const nr = appendNoteCore(scn, { id: item.id, text: note });
+      if (nr.ok) scn = nr.scenario;
+    }
+  });
+  return { scenario: scn, outcome: bulkOutcome(appliedCount, skippedItems) };
+}
+
+function handleBulkCreateDependencies(
+  scenario: Scenario,
+  p: BulkCreateDependenciesPayload
+): OpResult {
+  // Mode guard in the wrapper (decision 12 / P0.0): OFF → whole-op skip with no
+  // per-item results. The core assumes mode on and never returns this reason.
+  if (!(scenario.settings.dependencyMode ?? false)) return skip(scenario, "dependency_mode_off");
+  let scn = scenario;
+  const skippedItems: SkippedItem[] = [];
+  let appliedCount = 0;
+  p.dependencies.forEach((item, index) => {
+    const r = createDependencyCore(scn, item);
+    if (!r.ok) {
+      skippedItems.push({
+        index,
+        id: `${item.fromActivityId}->${item.toActivityId}`,
+        reason: toItemReject(r.reason),
+      });
+    } else {
+      scn = r.scenario;
+      appliedCount++;
+    }
+  });
+  return { scenario: scn, outcome: bulkOutcome(appliedCount, skippedItems) };
+}
+
+function handleBulkCreateMilestones(scenario: Scenario, p: BulkCreateMilestonesPayload): OpResult {
+  let scn = scenario;
+  const skippedItems: SkippedItem[] = [];
+  let appliedCount = 0;
+  p.milestones.forEach((item, index) => {
+    const r = createMilestoneCore(scn, item);
+    if (!r.ok) {
+      skippedItems.push({ index, id: item.id, reason: toItemReject(r.reason) });
+    } else {
+      scn = r.scenario;
+      appliedCount++;
+    }
+  });
+  return { scenario: scn, outcome: bulkOutcome(appliedCount, skippedItems) };
+}
+
+function handleBulkAssignMilestones(scenario: Scenario, p: BulkAssignMilestonesPayload): OpResult {
+  let scn = scenario;
+  const skippedItems: SkippedItem[] = [];
+  let appliedCount = 0;
+  // Repeated activityId entries apply last-wins: a later entry re-assigning the
+  // same activity to the same milestone reads as value_unchanged against the
+  // intermediate state (stated in the tool description).
+  p.assignments.forEach((item, index) => {
+    const r = assignMilestoneCore(scn, item.activityId, item.milestoneId);
+    if (!r.ok) {
+      skippedItems.push({ index, id: item.activityId, reason: toItemReject(r.reason) });
+    } else {
+      scn = r.scenario;
+      appliedCount++;
+    }
+  });
+  return { scenario: scn, outcome: bulkOutcome(appliedCount, skippedItems) };
 }
 
 // -- Dispatcher --------------------------------------------------------------
@@ -506,6 +809,30 @@ export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
       return handleRemoveDependency(scenario, op.payload);
     case "update_dependency":
       return handleUpdateDependency(scenario, op.payload);
+    // Bulk ops (Phase 1): structural parse first (P0.0 step 1) — a whole-payload
+    // shape failure is the only path to a whole-op `invalid` (decision 9). The
+    // cast bridges the structural (string-enum) parse to the domain-typed
+    // payload; enum values are re-validated per item in the cores.
+    case "bulk_create_activities": {
+      const parsed = BulkCreateActivitiesSchema.safeParse(op.payload);
+      if (!parsed.success) return skip(scenario, "invalid");
+      return handleBulkCreateActivities(scenario, parsed.data as BulkCreateActivitiesPayload);
+    }
+    case "bulk_create_dependencies": {
+      const parsed = BulkCreateDependenciesSchema.safeParse(op.payload);
+      if (!parsed.success) return skip(scenario, "invalid");
+      return handleBulkCreateDependencies(scenario, parsed.data as BulkCreateDependenciesPayload);
+    }
+    case "bulk_create_milestones": {
+      const parsed = BulkCreateMilestonesSchema.safeParse(op.payload);
+      if (!parsed.success) return skip(scenario, "invalid");
+      return handleBulkCreateMilestones(scenario, parsed.data as BulkCreateMilestonesPayload);
+    }
+    case "bulk_assign_milestones": {
+      const parsed = BulkAssignMilestonesSchema.safeParse(op.payload);
+      if (!parsed.success) return skip(scenario, "invalid");
+      return handleBulkAssignMilestones(scenario, parsed.data as BulkAssignMilestonesPayload);
+    }
     default:
       // Unreachable for well-typed input; a defensive floor for a malformed
       // op string drained from Firestore.
