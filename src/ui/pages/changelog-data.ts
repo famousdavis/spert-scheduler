@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.54.0",
+    date: "2026-07-17",
+    sections: [
+      {
+        title: "Fixed — \"Must Finish On\" and \"Finish No Earlier Than\" constraints now simulate finishing on the constraint date",
+        items: [
+          "When an activity had a hard \"Must Finish On\" or \"Finish No Earlier Than\" date constraint, the Monte Carlo simulation modeled it finishing one working day too early — even though the schedule and every date shown already put the finish on the constraint date. The simulation now matches, so the constrained percentiles are no longer understated by a day.",
+          "This only affects projects that use a hard \"Must Finish On\" or \"Finish No Earlier Than\" constraint. After re-running the simulation on such a project, some of the higher percentiles may rise by up to one working day. Projects that use only \"Start No Earlier Than\" / \"Must Start On\" — or no hard date constraints — are unchanged.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.53.4",
     date: "2026-07-16",
     sections: [

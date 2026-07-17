@@ -131,7 +131,7 @@ describe("runMonteCarloSimulation", () => {
       trialCount: 1000,
       rngSeed: "meta-test",
     });
-    expect(result.engineVersion).toBe("1.1.0");
+    expect(result.engineVersion).toBe("1.1.1");
     expect(result.seed).toBe("meta-test");
   });
 
@@ -921,5 +921,129 @@ describe("deterministic floor edge cases", () => {
     });
     // Some samples should be below what a high floor would impose
     expect(result.minSample).toBeLessThan(20);
+  });
+});
+
+describe("hard MFO/FNET finish ON the constraint date (v0.54.0)", () => {
+  // A 0-based finish index f maps to the exclusive finish offset f + 1 in the
+  // MC integer domain. Before v0.54.0, binding MFO/FNET trials finished at
+  // `offset` (one working day early) instead of `offset + 1`. Bounded
+  // (triangular) single-activity fixtures make binding/non-binding deterministic
+  // per trial, and single activities keep projectDuration = the pinned activity's
+  // own finish (projectDuration = max(earlyFinish) over all activities).
+  const bounded = (overrides: Partial<Activity> = {}): Activity =>
+    makeActivity({ min: 3, mostLikely: 5, max: 10, distributionType: "triangular", ...overrides });
+
+  const all = (samples: Float64Array, value: number): boolean =>
+    Array.from(samples).every((s) => s === value);
+
+  it("sequential binding MFO: every trial finishes at offset + 1 (was offset)", () => {
+    // offset 12 is at/after the max finish (10) — the MFO floor pins the finish.
+    const { samples } = runTrials({
+      activities: [bounded()],
+      trialCount: 500,
+      rngSeed: "mfo-seq-bind",
+      sequentialConstraints: [{ type: "MFO", offsetFromStart: 12, mode: "hard" }],
+    });
+    expect(all(samples, 13)).toBe(true);
+  });
+
+  it("sequential binding FNET: every trial finishes at offset + 1 (was offset)", () => {
+    const { samples } = runTrials({
+      activities: [bounded()],
+      trialCount: 500,
+      rngSeed: "fnet-seq-bind",
+      sequentialConstraints: [{ type: "FNET", offsetFromStart: 12, mode: "hard" }],
+    });
+    expect(all(samples, 13)).toBe(true);
+  });
+
+  it("dependency binding MFO: project duration pins to offset + 1 (was offset)", () => {
+    const { samples } = runDependencyTrials({
+      activities: [bounded()],
+      dependencies: [],
+      trialCount: 500,
+      rngSeed: "mfo-dep-bind",
+      constraintMap: new Map([["a1", { type: "MFO", offsetFromStart: 12, mode: "hard" }]]),
+    });
+    expect(all(samples, 13)).toBe(true);
+  });
+
+  it("dependency binding FNET: project duration floors to offset + 1 (was offset)", () => {
+    const { samples } = runDependencyTrials({
+      activities: [bounded()],
+      dependencies: [],
+      trialCount: 500,
+      rngSeed: "fnet-dep-bind",
+      constraintMap: new Map([["a1", { type: "FNET", offsetFromStart: 12, mode: "hard" }]]),
+    });
+    expect(all(samples, 13)).toBe(true);
+  });
+
+  it("FNET trigger boundary: integer naturalEnd === offset extends to offset + 1", () => {
+    // Fixed-duration (complete) activity: naturalEnd is exactly 5; FNET offset 5.
+    // The old `offset > naturalEnd` trigger (5 > 5 = false) missed this boundary
+    // and finished one working day early.
+    const { samples } = runTrials({
+      activities: [makeActivity({ status: "complete", actualDuration: 5 })],
+      trialCount: 100,
+      rngSeed: "fnet-boundary",
+      sequentialConstraints: [{ type: "FNET", offsetFromStart: 5, mode: "hard" }],
+    });
+    expect(all(samples, 6)).toBe(true);
+  });
+
+  it("FNET float-domain: naturalEnd in (offset, offset+1) extends to offset + 1", () => {
+    // Duration bounded in (5, 6): every naturalEnd sits strictly between the
+    // constraint offset and offset + 1, exercising the float trigger. No
+    // deterministicDurations — integer Parkinson floors would collapse the band.
+    const { samples } = runTrials({
+      activities: [makeActivity({ min: 5.1, mostLikely: 5.5, max: 5.9, distributionType: "triangular" })],
+      trialCount: 2000,
+      rngSeed: "fnet-float",
+      sequentialConstraints: [{ type: "FNET", offsetFromStart: 5, mode: "hard" }],
+    });
+    expect(all(samples, 6)).toBe(true);
+  });
+
+  it("non-binding sequential MFO/FNET: samples identical to unconstrained (floor not tripped)", () => {
+    const activities = [bounded()];
+    const unconstrained = Array.from(runTrials({ activities, trialCount: 2000, rngSeed: "nb-seq" }).samples);
+    for (const type of ["MFO", "FNET"] as const) {
+      const constrained = runTrials({
+        activities,
+        trialCount: 2000,
+        rngSeed: "nb-seq",
+        sequentialConstraints: [{ type, offsetFromStart: 1, mode: "hard" }],
+      }).samples;
+      expect(Array.from(constrained)).toEqual(unconstrained);
+    }
+  });
+
+  it("non-binding dependency MFO: the pin still yields offset + 1 (dependency MFO ignores natural finish)", () => {
+    // Dependency-mode MFO is a pin (not a floor): even a low offset forces the
+    // finish. This asserts the +1 shift on the pin (was offset).
+    const { samples } = runDependencyTrials({
+      activities: [bounded()],
+      dependencies: [],
+      trialCount: 500,
+      rngSeed: "mfo-dep-nb",
+      constraintMap: new Map([["a1", { type: "MFO", offsetFromStart: 1, mode: "hard" }]]),
+    });
+    expect(all(samples, 2)).toBe(true);
+  });
+
+  it("SNET/MSO unchanged: start pins to the constraint offset (finish = offset + duration)", () => {
+    // Regression guard — the SNET/MSO integer domain is not touched by this PR
+    // (start ON the date is already correct).
+    for (const type of ["SNET", "MSO"] as const) {
+      const { samples } = runTrials({
+        activities: [makeActivity({ status: "complete", actualDuration: 5 })],
+        trialCount: 100,
+        rngSeed: `${type}-guard`,
+        sequentialConstraints: [{ type, offsetFromStart: 8, mode: "hard" }],
+      });
+      expect(all(samples, 13)).toBe(true); // start pinned to 8, + duration 5
+    }
   });
 });

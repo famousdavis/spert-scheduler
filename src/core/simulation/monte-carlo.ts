@@ -130,16 +130,17 @@ export function runTrials(input: MonteCarloInput): { samples: Float64Array; exha
               currentPos = Math.max(currentPos, offset);
               break;
             case "MFO": {
-              // Pin finish at constraint offset; back-calculate start
-              const es = Math.max(offset - duration, currentPos);
+              // Finish ON the constraint date (offset + 1 = exclusive finish);
+              // floor semantics in sequential mode — a later natural finish overruns it.
+              const es = Math.max(offset + 1 - duration, currentPos);
               currentPos = es;
               break;
             }
             case "FNET": {
-              // Push finish to at least constraint offset
+              // Push finish to at least the constraint date (offset + 1 = exclusive finish)
               const naturalEnd = currentPos + duration;
-              if (offset > naturalEnd) {
-                currentPos = offset - duration;
+              if (offset + 1 > naturalEnd) {
+                currentPos = offset + 1 - duration;
               }
               break;
             }

@@ -8,7 +8,7 @@
 // -- Version Constants -------------------------------------------------------
 
 /** Informational. Recorded in SimulationRun for auditability. */
-export const ENGINE_VERSION = "1.1.0";
+export const ENGINE_VERSION = "1.1.1";
 
 /** Operational. Drives persistence migration system. */
 export const SCHEMA_VERSION = 23;
