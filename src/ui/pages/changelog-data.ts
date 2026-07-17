@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.55.0",
+    date: "2026-07-17",
+    sections: [
+      {
+        title: "Added — Connect AI can build a schedule in a handful of calls (bulk tools)",
+        items: [
+          "The AI connection gained four bulk tools: create many activities, milestones, milestone assignments, or dependencies in a single call instead of one call per item. A 27-activity / 34-dependency / 5-milestone project that used to need ~130 tool calls now takes four. Creating activities in bulk can also seed each activity's scope description and an initial note in the same call.",
+          "Per-item results stay visible. A bulk call is all-or-nothing where it is queued, but items apply independently in your browser: the AI activity feed now shows how many items applied versus skipped and why — duplicate id, would-create-a-cycle, unknown reference, invalid estimate, limit reached. An acyclic dependency set still applies in full regardless of the order it was sent.",
+          "Bulk dependency creation keeps the single-edge guardrails: it requires Read Mode and a dependency-mode scenario, and re-checks dependency mode in your browser before applying. If you turn dependency mode off between the AI's call and your browser applying it, the whole dependency call is skipped rather than half-applied.",
+          "Internal robustness: closed a latent gap where the 2001st dependency on a scenario could be applied in memory and later make the project fail to load. No schema or simulation-engine change (SCHEMA_VERSION stays 23; ENGINE_VERSION stays 1.1.1).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.54.1",
     date: "2026-07-17",
     sections: [

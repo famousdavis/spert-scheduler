@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.55.0 — 2026-07-17
+
+### Added — Connect AI can build a schedule in a handful of calls (bulk tools)
+
+- The AI connection gained four **bulk tools** so an assistant can build or extend a schedule far faster and without tripping the per-minute call limit: create many **activities**, **milestones**, **milestone assignments**, or **dependencies** in a single call instead of one call per item. A 27-activity / 34-dependency / 5-milestone project that previously needed ~130 tool calls now takes four. Bulk activity creation can also seed each activity's scope **description** and an initial **note** in the same call.
+- **Per-item results stay visible.** A bulk call is all-or-nothing where it is queued, but items apply independently in your browser: the **AI activity feed** now shows how many items applied versus skipped and why — duplicate id, would-create-a-cycle, unknown reference, invalid estimate, limit reached, and so on. Behavior of an individual edge is unchanged: an acyclic dependency set applies in full regardless of the order it was sent.
+- **Bulk dependency creation keeps the single-edge guardrails.** It still requires Read Mode and a scenario with dependency mode enabled, and it re-checks dependency mode in your browser before applying — if you turn dependency mode off between the AI's call and your browser applying it, the entire dependency call is skipped rather than half-applied.
+- Internal robustness: closed a latent gap where the 2001st dependency on a scenario could be applied in memory (and later make the project fail to load) — bulk and single-edge creation now both enforce the 2000-edge limit per item. No schema or simulation-engine change (`SCHEMA_VERSION` stays 23; `ENGINE_VERSION` stays 1.1.1).
+
 ## 0.54.1 — 2026-07-17
 
 ### Fixed — Schedule buffer no longer double-counts constraint waiting time
