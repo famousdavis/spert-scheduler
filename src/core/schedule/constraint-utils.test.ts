@@ -170,17 +170,17 @@ describe("constraint-utils", () => {
       expect(result.ef).toBe(15);
     });
 
-    it("MFO hard: pins EF and back-calculates ES", () => {
+    it("MFO hard: pins EF to constraintOffset + 1 (finishes ON the date) and back-calculates ES", () => {
       const result = applyForwardConstraintInt(5, 10, 5, "MFO", 12, "hard", 0);
-      expect(result.ef).toBe(12);
-      expect(result.es).toBe(7); // 12 - 5
+      expect(result.ef).toBe(13); // offset 12 + 1 (finish ON 0-based working-day index 12)
+      expect(result.es).toBe(8); // 13 - 5
     });
 
     it("MFO hard: temporal inversion guard — ES floored to maxPredEF", () => {
-      // Long duration: ES = EF - duration = 12 - 15 = -3, but maxPredEF = 5
+      // Long duration: ES = EF - duration = 13 - 15 = -2, but maxPredEF = 5
       const result = applyForwardConstraintInt(5, 20, 15, "MFO", 12, "hard", 5);
-      expect(result.ef).toBe(12);
-      expect(result.es).toBe(5); // max(-3, 5) = 5
+      expect(result.ef).toBe(13);
+      expect(result.es).toBe(5); // max(-2, 5) = 5
     });
 
     it("SNET hard: clamps ES to constraint offset", () => {
@@ -189,16 +189,16 @@ describe("constraint-utils", () => {
       expect(result.ef).toBe(12);
     });
 
-    it("FNET hard: clamps EF and back-calculates ES", () => {
+    it("FNET hard: clamps EF to constraintOffset + 1 and back-calculates ES", () => {
       const result = applyForwardConstraintInt(3, 8, 5, "FNET", 15, "hard", 0);
-      expect(result.ef).toBe(15);
-      expect(result.es).toBe(10); // 15 - 5
+      expect(result.ef).toBe(16); // max(efNet 8, offset 15 + 1)
+      expect(result.es).toBe(11); // 16 - 5
     });
 
     it("FNET hard: temporal inversion guard", () => {
       const result = applyForwardConstraintInt(3, 8, 12, "FNET", 15, "hard", 5);
-      expect(result.ef).toBe(15);
-      expect(result.es).toBe(5); // max(15-12=3, 5) = 5
+      expect(result.ef).toBe(16);
+      expect(result.es).toBe(5); // max(16-12=4, 5) = 5
     });
 
     it("SNLT hard: no per-trial effect", () => {
@@ -706,28 +706,30 @@ describe("applyForwardConstraintInt — boundary equality", () => {
   });
 
   it("MFO hard: maxPredEF clamp at exact boundary", () => {
-    // ef = 5; es = 5-3=2; es = max(2, maxPredEF=2) = 2
+    // ef = 5+1 = 6; es = 6-3 = 3; es = max(3, maxPredEF=2) = 3
     const result = applyForwardConstraintInt(5, 8, 3, "MFO", 5, "hard", 2);
-    expect(result.es).toBe(2);
-    expect(result.ef).toBe(5);
+    expect(result.es).toBe(3);
+    expect(result.ef).toBe(6);
   });
 
   it("MFO hard: maxPredEF clamp raises es above computed", () => {
-    // ef = 5; es = 5-3=2; es = max(2, maxPredEF=4) = 4
+    // ef = 5+1 = 6; es = 6-3 = 3; es = max(3, maxPredEF=4) = 4
     const result = applyForwardConstraintInt(5, 8, 3, "MFO", 5, "hard", 4);
     expect(result.es).toBe(4);
   });
 
   it("FNET hard: ef pushed when constraintOffset > efNet", () => {
     const result = applyForwardConstraintInt(5, 8, 3, "FNET", 12, "hard", 3);
-    expect(result.ef).toBe(12);
-    expect(result.es).toBe(9); // 12 - 3
+    expect(result.ef).toBe(13); // max(efNet 8, offset 12 + 1)
+    expect(result.es).toBe(10); // 13 - 3
   });
 
-  it("FNET hard: no push when constraintOffset equals efNet", () => {
+  it("FNET hard: pushes to offset + 1 when constraintOffset equals efNet (inclusive finish)", () => {
+    // constraintOffset 8 is a 0-based index; finishing ON it = exclusive offset 9,
+    // one working day past the natural efNet of 8 — so the floor pushes (v0.54.0).
     const result = applyForwardConstraintInt(5, 8, 3, "FNET", 8, "hard", 3);
-    expect(result.ef).toBe(8);
-    expect(result.es).toBe(5);
+    expect(result.ef).toBe(9); // max(efNet 8, offset 8 + 1)
+    expect(result.es).toBe(6); // 9 - 3
   });
 
   it("soft mode returns unchanged values for all constraint types", () => {

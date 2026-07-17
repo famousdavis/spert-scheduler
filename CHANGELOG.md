@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.54.0 — 2026-07-17
+
+### Fixed — Hard "Must Finish On" / "Finish No Earlier Than" constraints now simulate finishing on the constraint date
+
+- In Monte Carlo, a hard **Must Finish On (MFO)** or **Finish No Earlier Than (FNET)** constraint pinned the activity's finish to one working day *before* the constraint date. The deterministic schedule (and every calendar-date display) already finished **on** the date, so the two disagreed by one working day and the constrained upper percentiles were understated. The cause was an inclusive/exclusive off-by-one in the MC integer domain: finishing *on* a 0-based working-day index `f` requires the exclusive finish offset `f + 1`, but the engine used `f`.
+- Fixed at all four MC constraint seams — the dependency-mode forward pass (`applyForwardConstraintInt`, MFO + FNET) and the sequential inline path (`monte-carlo.ts`, MFO + FNET) — so both scheduling modes now simulate the finish landing on the constraint date. **Start No Earlier Than / Must Start On** (which start *on* the date and were already correct) and all soft constraints are untouched.
+- **Impact:** projects with a hard MFO/FNET constraint will see affected upper (constrained-tail) percentiles rise by up to one working day after re-running the simulation. Projects with no hard MFO/FNET constraint produce byte-identical simulation samples. `ENGINE_VERSION` is bumped 1.1.0 → 1.1.1 (provenance only — recorded in each simulation run for auditability). No schema change — `SCHEMA_VERSION` stays 23.
+
 ## 0.53.4 — 2026-07-16
 
 ### Added — Projected finish dates and a copy button in the Percentile Summary

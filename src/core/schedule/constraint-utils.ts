@@ -146,9 +146,10 @@ export function applyForwardConstraintInt(
     }
 
     case "MFO": {
-      // ef = constraintOffset; es = ef - duration
-      // Temporal inversion guard: es must not precede predecessor finish
-      const ef = constraintOffset;
+      // Finish ON the constraint date: a 0-based finish index maps to the
+      // exclusive finish offset constraintOffset + 1. es = ef - duration.
+      // Temporal inversion guard: es must not precede predecessor finish.
+      const ef = constraintOffset + 1;
       let es = ef - duration;
       es = Math.max(es, maxPredEF);
       return { es, ef };
@@ -164,9 +165,10 @@ export function applyForwardConstraintInt(
     }
 
     case "FNET": {
-      // ef = max(efNet, constraintOffset); es = ef - duration
-      // Temporal inversion guard: es must not precede predecessor finish
-      const ef = Math.max(efNet, constraintOffset);
+      // Finish NO EARLIER THAN the constraint date (floor): a 0-based finish
+      // index maps to the exclusive finish offset constraintOffset + 1. es = ef - duration.
+      // Temporal inversion guard: es must not precede predecessor finish.
+      const ef = Math.max(efNet, constraintOffset + 1);
       let es = ef - duration;
       es = Math.max(es, maxPredEF);
       return { es, ef };
