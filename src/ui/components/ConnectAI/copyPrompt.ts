@@ -54,7 +54,9 @@ TOOLS THAT WORK WITHOUT READ MODE (Write is always on once paired):
   scheduler_add_checklist_items / scheduler_add_deliverable_items,
   scheduler_toggle_checklist_item / scheduler_toggle_deliverable_item,
   scheduler_create_milestone, scheduler_update_milestone,
-  scheduler_assign_milestone / scheduler_unassign_milestone.
+  scheduler_assign_milestone / scheduler_unassign_milestone,
+  scheduler_bulk_create_activities, scheduler_bulk_create_milestones,
+  scheduler_bulk_assign_milestones.
 
 TOOLS THAT REQUIRE READ MODE (ask me to enable it in the Connect AI panel):
   scheduler_get_project — read the current activities, schedule, and ids.
@@ -63,6 +65,23 @@ TOOLS THAT REQUIRE READ MODE (ask me to enable it in the Connect AI panel):
   scheduler_create_dependency / scheduler_remove_dependency /
   scheduler_update_dependency — these also require the target scenario to have
     dependency mode enabled (pass scenarioId).
+  scheduler_bulk_create_dependencies — same gate; create many edges at once.
+
+BULK TOOLS (prefer these when building)
+When CREATING more than ~3 of anything, use the bulk tool — one call and one
+rate-limit token instead of many singular calls:
+  - scheduler_bulk_create_activities: 25-50 items per call when they carry
+    descriptions/notes, up to 100 for light items. If your output is truncated
+    mid-call the server rejects the whole call, so keep batches modest.
+  - scheduler_bulk_create_milestones, scheduler_bulk_assign_milestones.
+  - scheduler_bulk_create_dependencies (Read Mode + a dependency-mode scenario).
+Each bulk call is all-or-nothing at the server, but items are applied
+independently in my browser: which items applied vs skipped (duplicate, cycle,
+not found, invalid, ...) shows in my app's AI activity feed — call
+scheduler_get_project to confirm. For dependencies, an acyclic edge set applies
+fully regardless of array order; order only decides WHICH edges skip if the set
+(together with existing edges) forms a cycle — fix the cycle and resend only
+the skipped edges.
 
 NOTES CAVEAT
 scheduler_append_activity_note appends to an activity's notes (max 2000 chars).

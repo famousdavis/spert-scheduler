@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.55.1",
+    date: "2026-07-17",
+    sections: [
+      {
+        title: "Changed — Connect AI prompt now lists the bulk tools",
+        items: [
+          "The \"Copy prompt\" text for connecting an AI assistant now advertises the four bulk tools and how to use them (batch sizing for activities; the cycle-ordering note for dependencies). Prompt text only — the tools shipped in 0.55.0 and went live server-side first, so the assistant is never told about a tool the server cannot yet handle.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.55.0",
     date: "2026-07-17",
     sections: [
