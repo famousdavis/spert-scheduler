@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.55.1 — 2026-07-17
+
+### Changed — Connect AI prompt now lists the bulk tools
+
+- The **Copy prompt** text for connecting an AI assistant now advertises the four bulk tools (create many activities, milestones, milestone assignments, or dependencies per call) plus how to use them — batch sizing for activities and the cycle-ordering note for dependencies. This is prompt text only; the tools themselves shipped in 0.55.0 and went live server-side first, so the assistant is never told about a tool the server cannot yet handle.
+
 ## 0.55.0 — 2026-07-17
 
 ### Added — Connect AI can build a schedule in a handful of calls (bulk tools)
