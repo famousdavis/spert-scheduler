@@ -1294,3 +1294,64 @@ describe("conflict result shape", () => {
     expect(schedule.constraintConflicts!.length).toBeGreaterThan(0);
   });
 });
+
+describe("DeterministicSchedule.spanDays (0.54.1)", () => {
+  const startDate = "2025-01-06"; // Monday
+
+  it("sequential unconstrained: spanDays equals totalDurationDays and the inclusive working-day span", () => {
+    const schedule = computeDeterministicSchedule(
+      [makeActivity({ id: "a1" }), makeActivity({ id: "a2" })],
+      startDate,
+      0.5
+    );
+    expect(schedule.spanDays).toBe(schedule.totalDurationDays);
+    expect(schedule.spanDays).toBe(
+      countWorkingDays(parseDateISO(startDate), parseDateISO(schedule.projectEndDate)) + 1
+    );
+  });
+
+  it("empty project: spanDays is 0 in both modes", () => {
+    expect(computeDeterministicSchedule([], startDate, 0.5).spanDays).toBe(0);
+    expect(computeDependencySchedule([], [], startDate, 0.5).spanDays).toBe(0);
+  });
+
+  it("hard SNET idle: spanDays exceeds totalDurationDays by the idle working days", () => {
+    // SNET pushes the single activity ~two weeks out; the span includes the idle gap,
+    // the work-sum (totalDurationDays) does not.
+    const schedule = computeDeterministicSchedule(
+      [makeActivity({ id: "a1", constraintType: "SNET", constraintDate: "2025-01-20", constraintMode: "hard" })],
+      startDate,
+      0.5
+    );
+    expect(schedule.spanDays).toBeGreaterThan(schedule.totalDurationDays);
+    expect(schedule.spanDays).toBe(
+      countWorkingDays(parseDateISO(startDate), parseDateISO(schedule.projectEndDate)) + 1
+    );
+  });
+
+  it("dependency unconstrained: spanDays equals totalDurationDays", () => {
+    const schedule = computeDependencySchedule(
+      [makeActivity({ id: "a1" }), makeActivity({ id: "a2" })],
+      [{ fromActivityId: "a1", toActivityId: "a2", type: "FS", lagDays: 0 }],
+      startDate,
+      0.5
+    );
+    expect(schedule.spanDays).toBe(schedule.totalDurationDays);
+    expect(schedule.spanDays).toBe(
+      countWorkingDays(parseDateISO(startDate), parseDateISO(schedule.projectEndDate)) + 1
+    );
+  });
+
+  it("holiday-aware: idle working days on the calendar count toward the span", () => {
+    const monFri = buildWorkCalendar([1, 2, 3, 4, 5], [], []);
+    const schedule = computeDeterministicSchedule(
+      [makeActivity({ id: "a1" })],
+      startDate,
+      0.5,
+      monFri
+    );
+    expect(schedule.spanDays).toBe(
+      countWorkingDays(parseDateISO(startDate), parseDateISO(schedule.projectEndDate), monFri) + 1
+    );
+  });
+});

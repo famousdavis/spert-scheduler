@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { formatDateISO, addWorkingDays, parseDateISO } from "@core/calendar/calendar";
+import { durationToFinishDateISO } from "@core/calendar/calendar";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { Calendar } from "@domain/models/types";
 
@@ -39,8 +39,9 @@ export function computeTargetRAGColor(params: TargetRAGParams): RAGColor {
   const amberDuration = percentiles[amberPct];
   if (greenDuration == null || amberDuration == null) return "gray";
 
-  const greenFinish = formatDateISO(addWorkingDays(parseDateISO(startDate), greenDuration, calendar));
-  const amberFinish = formatDateISO(addWorkingDays(parseDateISO(startDate), amberDuration, calendar));
+  const greenFinish = durationToFinishDateISO(startDate, greenDuration, calendar);
+  const amberFinish = durationToFinishDateISO(startDate, amberDuration, calendar);
+  if (!greenFinish || !amberFinish) return "gray";
 
   if (greenFinish <= targetFinishDate) return "green";
   if (amberFinish <= targetFinishDate) return "amber";

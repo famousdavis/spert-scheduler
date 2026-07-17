@@ -14,7 +14,7 @@ import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
 import type { Activity, ScenarioSettings, DeterministicSchedule } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
-import { formatDateISO, parseDateISO, addWorkingDays, countWorkingDays } from "@core/calendar/calendar";
+import { formatDateISO, parseDateISO, countWorkingDays, durationToFinishDateISO } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { computeTargetRAGColor } from "@core/schedule/target-rag";
@@ -341,9 +341,9 @@ export function ProjectPage() {
 
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
 
-  // Schedule buffer = MC percentile at project target - deterministic total
+  // Schedule buffer = MC percentile at project target - deterministic span
   const buffer = useScheduleBuffer(
-    schedule?.totalDurationDays ?? null,
+    schedule?.spanDays ?? null,
     scenario?.simulationResults,
     scenario?.settings.probabilityTarget ?? 0.5,
     scenario?.settings.projectProbabilityTarget ?? 0.95
@@ -399,10 +399,8 @@ export function ProjectPage() {
     (days: number): string => {
       const sd = scenario?.startDate;
       if (!sd) return "";
-      const rounded = Math.round(days);
-      if (rounded <= 0) return "";
-      const finish = addWorkingDays(parseDateISO(sd), rounded - 1, workCalendar);
-      return formatDate(formatDateISO(finish));
+      const finish = durationToFinishDateISO(sd, days, workCalendar);
+      return finish ? formatDate(finish) : "";
     },
     [scenario?.startDate, workCalendar, formatDate]
   );
@@ -908,7 +906,7 @@ export function ProjectPage() {
             allActivitiesValid={allActivitiesValid}
             hasActivities={scenario.activities.length > 0}
             autoRunEnabled={autoRunSimulation}
-            deterministicDuration={schedule?.totalDurationDays}
+            deterministicSpan={schedule?.spanDays}
             projectName={project.name}
             scenarioName={scenario.name}
             formatDurationAsDate={formatDurationAsDate}

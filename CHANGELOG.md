@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.54.1 — 2026-07-17
+
+### Fixed — Schedule buffer no longer double-counts constraint waiting time
+
+- When a scenario held a hard date constraint that forced idle working days (e.g. a *Start No Earlier Than* that parks an activity for weeks), the **Schedule Buffer** double-counted that idle time: the buffer was measured against the work content (sum of activity durations) while the Monte Carlo percentile it was compared to already included the idle span. The buffer — and the **Finish w/Buffer** date — came out too large by roughly the idle. The buffer is now measured against the schedule **span** (project start → constraint-adjusted finish, inclusive), the same duration domain as the simulation, so **Finish w/Buffer always equals the P-target row's date in the Percentile Summary**. On the reference project the buffer drops from ~37 to ~17 working days and Finish w/Buffer moves from 03/31 to 03/03.
+- **New "Constraint delay" figure.** The summary card, print report, and schedule export now disclose the idle working days a scenario waits on hard date constraints (and milestone start floors in dependency mode), closing the arithmetic **Duration + Constraint delay + Schedule Buffer = Duration w/Buffer** exactly (e.g. 128 + 20 + 17 = 165). It appears only when there is idle to explain; unconstrained scenarios are visually unchanged.
+- **Schedule-health (RAG) target dates** now use the same working-day conversion as the Percentile Summary (the start day counts as day 1). Previously the Green/Amber threshold dates landed one to two working days late, so a borderline health chip may shift by a step.
+- **Non-working-day starts fixed.** Percentile and finish dates for scenarios whose start date fell on a weekend or holiday were computed one working day early; the conversion now advances to the effective (next working) start first.
+- Presentation/compute layer only — no simulation-engine or schema change (`SCHEMA_VERSION` stays 23; `ENGINE_VERSION` stays 1.1.1). The Percentile Summary, histogram, and CDF are unchanged; the buffer and its dependent displays now agree with them. The dead `ScheduleExportButton` component (no importers) was removed.
+
 ## 0.54.0 — 2026-07-17
 
 ### Fixed — Hard "Must Finish On" / "Finish No Earlier Than" constraints now simulate finishing on the constraint date
@@ -12,7 +22,7 @@
 
 ### Added — Projected finish dates and a copy button in the Percentile Summary
 
-- The **Percentile Summary** table (below the Monte Carlo charts) now shows a **Finish date** column beside *Duration (days)*, giving the projected calendar finish date for each percentile (P5 … P99). It uses the same working-day / holiday-aware date math as the rest of the schedule and follows your date-format preference; the P95 (target) row's date matches the "Finish w/Buffer" date on the summary card. The column appears whenever the scenario has a start date — otherwise the table falls back to the original two columns.
+- The **Percentile Summary** table (below the Monte Carlo charts) now shows a **Finish date** column beside *Duration (days)*, giving the projected calendar finish date for each percentile (P5 … P99). It uses the same working-day / holiday-aware date math as the rest of the schedule and follows your date-format preference; the P95 (target) row's date matches the "Finish w/Buffer" date on the summary card. The column appears whenever the scenario has a start date — otherwise the table falls back to the original two columns. *[Correction (0.54.1): the P95-row match with "Finish w/Buffer" held only for schedules without hard-constraint idle; the buffer was corrected to agree for all schedules in 0.54.1.]*
 - The Percentile Summary now has a **copy-to-image button** in its header, matching the Distribution Histogram and Cumulative Distribution charts, so the table can be dropped into a status report or email in one click.
 
 ### Fixed — Copy-image icon on the Cumulative Distribution chart aligned with the histogram's

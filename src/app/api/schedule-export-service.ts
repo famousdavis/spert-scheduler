@@ -15,10 +15,8 @@ import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { RSM_LABELS } from "@domain/models/types";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import {
-  formatDateISO,
   formatDateDisplay,
-  parseDateISO,
-  addWorkingDays,
+  durationToFinishDateISO,
 } from "@core/calendar/calendar";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 
@@ -29,6 +27,7 @@ import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 export interface ScheduleExportParams {
   projectName: string;
   scenarioName: string;
+  startDate: string; // raw scenario start (ISO) — basis for buffered-finish date math
   activities: Activity[];
   schedule: DeterministicSchedule;
   buffer: ScheduleBuffer | null;
@@ -53,6 +52,7 @@ export function buildSummaryData(params: ScheduleExportParams): SummaryRow[] {
   const {
     projectName,
     scenarioName,
+    startDate,
     schedule,
     buffer,
     settings,
@@ -61,17 +61,23 @@ export function buildSummaryData(params: ScheduleExportParams): SummaryRow[] {
   } = params;
 
   const fmt = (iso: string) => formatDateDisplay(iso, dateFormat);
+  const hasErrorConflict =
+    schedule.constraintConflicts?.some((c) => c.severity === "error") ?? false;
 
-  let bufferedFinish = "N/A";
-  let bufferedDuration = "N/A";
+  // Buffered finish/duration are sourced from the MC project-target percentile so
+  // they agree with the Percentile Summary by construction (see buffer/span design).
   const bufferDaysStr = buffer ? `${buffer.bufferDays}` : "N/A";
-
-  if (buffer && buffer.bufferDays > 0) {
-    const endDate = parseDateISO(schedule.projectEndDate);
-    const bDate = addWorkingDays(endDate, buffer.bufferDays, calendar);
-    bufferedFinish = fmt(formatDateISO(bDate));
-    bufferedDuration = `${schedule.totalDurationDays + buffer.bufferDays}`;
-  }
+  const bufferedFinishISO = buffer
+    ? durationToFinishDateISO(startDate, buffer.projectTargetDuration, calendar)
+    : null;
+  const bufferedFinish = bufferedFinishISO ? fmt(bufferedFinishISO) : "N/A";
+  const bufferedDuration = buffer ? `${Math.round(buffer.projectTargetDuration)}` : "N/A";
+  // work + constraint delay + buffer = duration w/buffer. Suppressed (N/A) when the
+  // buffer is absent or the schedule has an error-severity constraint conflict.
+  const constraintDelay =
+    buffer && !hasErrorConflict
+      ? `${buffer.deterministicSpan - schedule.totalDurationDays} days`
+      : "N/A";
 
   return [
     { key: "Project", value: projectName },
@@ -81,6 +87,7 @@ export function buildSummaryData(params: ScheduleExportParams): SummaryRow[] {
     { key: "Duration (w/o Buffer)", value: `${schedule.totalDurationDays} working days` },
     { key: "Finish (w/ Buffer)", value: bufferedFinish },
     { key: "Duration (w/ Buffer)", value: bufferedDuration === "N/A" ? "N/A" : `${bufferedDuration} working days` },
+    { key: "Constraint Delay", value: constraintDelay },
     { key: "Activity Target", value: `P${Math.round(settings.probabilityTarget * 100)}` },
     { key: "Project Target", value: `P${Math.round(settings.projectProbabilityTarget * 100)}` },
     { key: "Schedule Buffer", value: bufferDaysStr === "N/A" ? "N/A" : `${bufferDaysStr} days` },

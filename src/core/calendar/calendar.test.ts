@@ -15,6 +15,7 @@ import {
   activityStartDate,
   countWorkingDays,
   mergeCalendars,
+  durationToFinishDateISO,
 } from "./calendar";
 import { buildWorkCalendar, ProjectWorkCalendar } from "./work-calendar";
 import type { Calendar } from "@domain/models/types";
@@ -618,5 +619,53 @@ describe("activityStartDate", () => {
     const wed = new Date(2025, 0, 8);
     const start = activityStartDate(wed, 1);
     expect(formatDateISO(start)).toBe("2025-01-08");
+  });
+});
+
+describe("durationToFinishDateISO", () => {
+  it("working-day start: N working days lands on the inclusive finish (start = day 1)", () => {
+    // Mon 2026-01-05 + 5 working days (inclusive) → Fri 2026-01-09.
+    expect(durationToFinishDateISO("2026-01-05", 5)).toBe("2026-01-09");
+    expect(durationToFinishDateISO("2026-01-05", 5)).toBe(
+      formatDateISO(addWorkingDays(parseDateISO("2026-01-05"), 4))
+    );
+  });
+
+  it("one-day duration finishes on the (working) start day", () => {
+    expect(durationToFinishDateISO("2026-01-05", 1)).toBe("2026-01-05");
+  });
+
+  it("non-working start advances to the next working day before counting", () => {
+    // Sat 2026-01-03, 5 working days → effective start Mon 2026-01-05 → Fri 2026-01-09 (not Thu).
+    expect(durationToFinishDateISO("2026-01-03", 5)).toBe("2026-01-09");
+    expect(durationToFinishDateISO("2026-01-03", 5)).not.toBe("2026-01-08");
+  });
+
+  it("returns null for durations that round to zero or below", () => {
+    expect(durationToFinishDateISO("2026-01-05", 0)).toBeNull();
+    expect(durationToFinishDateISO("2026-01-05", 0.49)).toBeNull();
+    expect(durationToFinishDateISO("2026-01-05", -3)).toBeNull();
+  });
+
+  it("rounds the duration to the nearest whole working day (4.5 → 5)", () => {
+    expect(durationToFinishDateISO("2026-01-05", 4.5)).toBe(
+      durationToFinishDateISO("2026-01-05", 5)
+    );
+  });
+
+  it("PBT: inverse of countWorkingDays for integer durations (working-day start)", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 250 }), (n) => {
+        const finish = durationToFinishDateISO("2026-01-05", n)!;
+        const span = countWorkingDays(parseDateISO("2026-01-05"), parseDateISO(finish)) + 1;
+        expect(span).toBe(n);
+      })
+    );
+  });
+
+  it("inverse of countWorkingDays holds from a non-working start (measured from effective start)", () => {
+    const finish = durationToFinishDateISO("2026-01-03", 12)!; // Sat start → effective Mon 2026-01-05
+    const span = countWorkingDays(parseDateISO("2026-01-05"), parseDateISO(finish)) + 1;
+    expect(span).toBe(12);
   });
 });

@@ -17,6 +17,7 @@ import {
   addWorkingDays,
   parseDateISO,
   formatDateISO,
+  durationToFinishDateISO,
 } from "@core/calendar/calendar";
 import { computeActivityUncertaintyDays } from "@core/schedule/deterministic";
 import { dependencyLabel } from "@domain/helpers/format-labels";
@@ -398,13 +399,13 @@ export function GanttChart({
     [activities, activityTarget, projectTarget]
   );
 
-  // Compute buffered end date
+  // Compute buffered end date from the MC project-target percentile (agrees with the
+  // Percentile Summary). Bar guard kept at bufferDays > 0 (§7.3); by the integer identity
+  // the bar (projectEndDate → here) is exactly bufferDays working days wide.
   const bufferedEndDate = useMemo(() => {
     if (!buffer || buffer.bufferDays <= 0) return null;
-    return formatDateISO(
-      addWorkingDays(parseDateISO(projectEndDate), buffer.bufferDays, calendar)
-    );
-  }, [projectEndDate, buffer, calendar]);
+    return durationToFinishDateISO(projectStartDate, buffer.projectTargetDuration, calendar);
+  }, [projectStartDate, buffer, calendar]);
 
   // Activities are rendered in their original grid order.
   // Dependency arrows render correctly regardless of row order.

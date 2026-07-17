@@ -242,6 +242,31 @@ export function activityStartDate(
 }
 
 /**
+ * Convert a duration in working days from a project start date (start day =
+ * day 1) to its inclusive finish date. If the start date is not a working day,
+ * the effective start is the next working day — matching the deterministic
+ * scheduler and the Monte Carlo engine's offset basis. Mirrors the Percentile
+ * Summary's conversion: finish = addWorkingDays(effStart, round(days) - 1).
+ * Returns null when the rounded duration is <= 0.
+ *
+ * Uses the local isWorkingDay + addWorkingDays(raw, 1) to advance a non-working
+ * start rather than importing advanceToNextWorkingDay from work-calendar.ts —
+ * that value import would create a runtime cycle (work-calendar imports from
+ * calendar); the advance is behavior-identical.
+ */
+export function durationToFinishDateISO(
+  startDateISO: string,
+  days: number,
+  calendar?: WorkCalendar | Calendar,
+): string | null {
+  const rounded = Math.round(days);
+  if (rounded <= 0) return null;
+  const raw = parseDateISO(startDateISO);
+  const start = isWorkingDay(raw, calendar) ? raw : addWorkingDays(raw, 1, calendar);
+  return formatDateISO(addWorkingDays(start, rounded - 1, calendar));
+}
+
+/**
  * Count working days between two dates (inclusive of start, exclusive of end).
  */
 export function countWorkingDays(

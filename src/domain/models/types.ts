@@ -357,6 +357,14 @@ export interface DependencyConflict {
 export interface DeterministicSchedule {
   activities: ScheduledActivity[];
   totalDurationDays: number;
+  /**
+   * Inclusive working-day span from project start to projectEndDate (start day =
+   * day 1). Unlike totalDurationDays (work content only), includes idle working
+   * days forced by hard date constraints and, in dependency mode, milestone start
+   * floors — the same duration domain as the Monte Carlo samples. 0 when there are
+   * no activities.
+   */
+  spanDays: number;
   projectEndDate: string; // "YYYY-MM-DD"
   constraintConflicts?: ConstraintConflict[];
   dependencyConflicts?: DependencyConflict[];

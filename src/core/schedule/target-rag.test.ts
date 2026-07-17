@@ -71,22 +71,35 @@ describe("computeTargetRAGColor", () => {
   });
 
   it("returns green when target exactly matches the green-percentile finish date", () => {
-    // P80 = 1 working day from 2026-01-06 (Monday) → finish = 2026-01-07 (Tuesday)
-    // We need the EXACT date, so use a 1-day duration from a known Monday
+    // Corrected conversion (start day = day 1): P80 = 5 working days from Mon 2026-01-05
+    // finishes Fri 2026-01-09. Hand-derived golden, independent of durationToFinishDateISO.
     const result = computeTargetRAGColor(makeParams({
       startDate: "2026-01-05",  // Monday
-      targetFinishDate: "2026-01-06",  // Tuesday = 1 working day later
-      percentiles: { 50: 0, 80: 1 },
+      targetFinishDate: "2026-01-09",  // Friday = the P80 finish exactly
+      percentiles: { 50: 3, 80: 5 },
     }));
     expect(result).toBe("green");
   });
 
-  it("handles zero-duration percentiles (green when target is on start date)", () => {
+  it("returns amber one working day inside the green-percentile finish (boundary flip)", () => {
+    // Same fixture, target one working day earlier than the P80 finish (Thu 2026-01-08).
+    // P50 = 3 → finishes Wed 2026-01-07 ≤ target, so amber. Under the pre-0.54.1
+    // (start-day-late) conversion the green finish landed a day later and this read redder.
+    const result = computeTargetRAGColor(makeParams({
+      startDate: "2026-01-05",
+      targetFinishDate: "2026-01-08",  // Thursday
+      percentiles: { 50: 3, 80: 5 },
+    }));
+    expect(result).toBe("amber");
+  });
+
+  it("returns gray when a percentile duration rounds to zero or below (null conversion)", () => {
+    // durationToFinishDateISO returns null for days <= 0, so the RAG is gray (0.54.1).
     const result = computeTargetRAGColor(makeParams({
       startDate: "2026-01-05",
       targetFinishDate: "2026-01-05",
       percentiles: { 50: 0, 80: 0 },
     }));
-    expect(result).toBe("green");
+    expect(result).toBe("gray");
   });
 });

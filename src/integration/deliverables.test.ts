@@ -169,6 +169,7 @@ describe("Deliverables in schedule export", () => {
         { activityId: "a2", name: "Develop", duration: 5, startDate: "2026-04-01", endDate: "2026-04-07", isActual: false },
       ],
       totalDurationDays: 17,
+      spanDays: 17,
       projectEndDate: "2026-04-07",
     };
 
@@ -189,6 +190,7 @@ describe("Deliverables in schedule export", () => {
     const rows = buildGridRows({
       projectName: "Test",
       scenarioName: "Baseline",
+      startDate: "2026-03-16",
       activities,
       schedule,
       buffer: null,
@@ -233,6 +235,7 @@ describe("Deliverables in schedule export", () => {
         { activityId: "a1", name: "Design", duration: 12, startDate: "2026-03-16", endDate: "2026-03-31", isActual: false },
       ],
       totalDurationDays: 12,
+      spanDays: 12,
       projectEndDate: "2026-03-31",
     };
 
@@ -253,6 +256,7 @@ describe("Deliverables in schedule export", () => {
     const csv = exportScheduleCsv({
       projectName: "Test",
       scenarioName: "Baseline",
+      startDate: "2026-03-16",
       activities,
       schedule,
       buffer: null,

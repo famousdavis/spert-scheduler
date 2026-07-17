@@ -8,22 +8,22 @@ import type { ScheduleBuffer } from "@core/schedule/buffer";
 
 /**
  * Memoized schedule buffer computation.
- * Returns the buffer (difference between MC project percentile and deterministic total),
- * or null if simulation results are not available.
+ * Returns the buffer (difference between the MC project percentile and the
+ * deterministic schedule span), or null if simulation results are not available.
  */
 export function useScheduleBuffer(
-  deterministicTotal: number | null,
+  deterministicSpan: number | null,
   simulationResults: SimulationRun | undefined,
   activityProbabilityTarget: number,
   projectProbabilityTarget: number
 ): ScheduleBuffer | null {
   return useMemo(() => {
-    if (deterministicTotal === null || !simulationResults) return null;
+    if (deterministicSpan === null || !simulationResults) return null;
     return computeScheduleBuffer(
-      deterministicTotal,
+      deterministicSpan,
       simulationResults.percentiles,
       activityProbabilityTarget,
       projectProbabilityTarget
     );
-  }, [deterministicTotal, simulationResults, activityProbabilityTarget, projectProbabilityTarget]);
+  }, [deterministicSpan, simulationResults, activityProbabilityTarget, projectProbabilityTarget]);
 }
