@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.7",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Changed — React and state-library updates",
+        items: [
+          "Updated React (19.2.5 → 19.2.6) and Zustand (5.0.12 → 5.0.13). Routine maintenance updates to the current stable, well-soaked releases of the app's UI runtime (React / React DOM) and its in-memory state store (Zustand). There is no user-facing behavior change — the app boots, loads projects from local or cloud storage, and renders charts exactly as before. Verified against the full test suite and a live render check (project load + chart rendering).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.57.6",
     date: "2026-07-18",
     sections: [
