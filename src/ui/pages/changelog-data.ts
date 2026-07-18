@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.6",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Changed — Firebase SDK update",
+        items: [
+          "Updated the Firebase SDK (12.12.1 → 12.13.0). Firebase powers the app's optional cloud storage — account sign-in and cross-device project sync. This is a routine maintenance update to the current stable release; there is no change to how sign-in, sharing, or cloud sync behave, and no action is needed. Local-only use is entirely unaffected — the app runs with zero Firebase code when cloud storage isn't configured.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.57.5",
     date: "2026-07-18",
     sections: [
