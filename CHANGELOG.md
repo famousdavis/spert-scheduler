@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.57.7 — 2026-07-18
+
+### Changed — React and state-library updates
+
+- **Updated React (19.2.5 → 19.2.6) and Zustand (5.0.12 → 5.0.13).** Routine maintenance updates to the current stable, well-soaked releases of the app's UI runtime (React / React DOM) and its in-memory state store (Zustand). There is no user-facing behavior change — the app boots, loads projects from local or cloud storage, and renders charts exactly as before. Verified against the full test suite and a live render check (project load + chart rendering).
+
 ## 0.57.6 — 2026-07-18
 
 ### Changed — Firebase SDK update
