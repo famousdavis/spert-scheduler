@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.57.8 — 2026-07-18
+
+### Changed — Development tooling updates (lint / test)
+
+- **Updated development-only tooling:** ESLint 10.2.1 → 10.4.0, typescript-eslint 8.59.1 → 8.59.4, globals 17.5.0 → 17.6.0, and fast-check 4.7.0 → 4.8.0. These affect only the local linting and property-testing setup — none are part of the deployed application, and there is no user-facing change. The full test suite passes and linting shows no new findings.
+
 ## 0.57.7 — 2026-07-18
 
 ### Changed — React and state-library updates
