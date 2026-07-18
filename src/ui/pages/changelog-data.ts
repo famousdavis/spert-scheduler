@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.8",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Changed — Development tooling updates (lint / test)",
+        items: [
+          "Updated development-only tooling: ESLint 10.2.1 → 10.4.0, typescript-eslint 8.59.1 → 8.59.4, globals 17.5.0 → 17.6.0, and fast-check 4.7.0 → 4.8.0. These affect only the local linting and property-testing setup — none are part of the deployed application, and there is no user-facing change. The full test suite passes and linting shows no new findings.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.57.7",
     date: "2026-07-18",
     sections: [
