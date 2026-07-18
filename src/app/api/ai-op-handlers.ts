@@ -7,7 +7,12 @@
 // the exported handle* functions are called by the ai-batch-service dispatcher.
 
 import type { Scenario, Activity, ChecklistItem } from "@domain/models/types";
-import { ActivitySchema, MilestoneSchema, ChecklistItemSchema } from "@domain/schemas/project.schema";
+import {
+  ActivitySchema,
+  MilestoneSchema,
+  ChecklistItemSchema,
+  ActivityDependencySchema,
+} from "@domain/schemas/project.schema";
 import { computePertMean } from "@core/estimation/spert";
 import { recommendDistribution } from "@core/recommendation/recommendation";
 import { detectCycle } from "@core/schedule/dependency-graph";
@@ -61,6 +66,25 @@ const DEPENDENCY_CAP = 2000;
 const NOTES_MAX = 2000;
 const DESCRIPTION_MAX = 2000;
 const NOTE_SEPARATOR = "\n\n";
+// A1: finite ceiling on a single activity's estimate fields at the AI-write
+// boundary (10 years). NOT on ActivitySchema — the shared schema also gates
+// every project load, so a schema-level ceiling would brick pre-existing
+// projects holding larger values. Enforced in the activity cores instead, like
+// the logNormal PERT-mean guard below. Defense-in-depth (fail fast) behind the
+// MAX_CALENDAR_ITERATIONS guard; does not bound aggregate spans across activities.
+const ESTIMATE_MAX = 3650;
+// A6: absolute ceiling on a single add-items op's array length. Well above
+// ITEM_CAP (50) so the per-item cap_exceeded feed reporting is untouched below
+// it; this only stops unbounded loop work from an arbitrarily large payload.
+const ADD_ITEMS_MAX = 500;
+
+// A1 helper: an estimate field is out of range if it is non-finite or over the
+// ceiling. `undefined` (an absent optional field on the update path) is in range
+// — only PROVIDED fields are checked, so the AI can still edit legacy activities
+// whose stored estimates already exceed the ceiling.
+function estimateOutOfRange(v: number | undefined): boolean {
+  return v !== undefined && (!Number.isFinite(v) || v > ESTIMATE_MAX);
+}
 
 // -- Shared item-level cores -------------------------------------------------
 // A core applies ONE item to a scenario and returns either the next scenario
@@ -76,6 +100,11 @@ const NOTE_SEPARATOR = "\n\n";
 export function createActivityCore(scenario: Scenario, p: CreateActivityPayload): CoreResult {
   if (scenario.activities.length >= ACTIVITY_CAP) return reject("cap_exceeded");
   if (scenario.activities.some((a) => a.id === p.id)) return reject("duplicate");
+  // A1: finite ceiling on estimates, before distribution recommendation so
+  // garbage never feeds recommendDistribution/computePertMean.
+  if (estimateOutOfRange(p.min) || estimateOutOfRange(p.mostLikely) || estimateOutOfRange(p.max)) {
+    return reject("invalid");
+  }
 
   const confidenceLevel = p.confidenceLevel ?? scenario.settings.defaultConfidenceLevel;
   // Auto-recommendation applies only at create time. recommendDistribution's
@@ -176,6 +205,16 @@ export function updateActivityCore(
   const activity = scenario.activities.find((a) => a.id === id);
   if (!activity) return reject("not_found");
 
+  // A1: finite ceiling on estimates — PROVIDED fields only (an over-ceiling
+  // stored estimate must not block a rename/confidence/description edit).
+  if (
+    estimateOutOfRange(fields.min) ||
+    estimateOutOfRange(fields.mostLikely) ||
+    estimateOutOfRange(fields.max)
+  ) {
+    return reject("invalid");
+  }
+
   // Length pre-check on the RAW description (before trim), mirroring the singular
   // set-description path: over-length reads as would_exceed_length on the
   // singular path and narrows to `invalid` in the bulk path (toItemReject).
@@ -234,6 +273,10 @@ export function handleSetDescription(scenario: Scenario, p: SetDescriptionPayloa
 // -- Qualitative ops ---------------------------------------------------------
 
 export function appendNoteCore(scenario: Scenario, p: { id: string; text: string }): CoreResult {
+  // Presence/type guard (A3, load-bearing): ops are drained raw with no client
+  // Zod, so an array/object `text` must fail outright, not silently coerce via
+  // `.length`. Mirrors the guard in handleSetDescription.
+  if (typeof p.text !== "string") return reject("invalid");
   const activity = scenario.activities.find((a) => a.id === p.id);
   if (!activity) return reject("not_found");
   const current = activity.notes ?? "";
@@ -270,6 +313,10 @@ export function handleAddItems(
   p: AddItemsPayload,
   kind: "checklist" | "deliverable"
 ): OpResult {
+  // A6: reject an oversized payload before the activity lookup, so the outcome
+  // is deterministic regardless of whether the target exists. Above ADD_ITEMS_MAX
+  // only — below it, per-item cap_exceeded reporting is unchanged.
+  if (p.items.length > ADD_ITEMS_MAX) return skip(scenario, "cap_exceeded");
   const activity = scenario.activities.find((a) => a.id === p.id);
   if (!activity) return skip(scenario, "not_found");
 
@@ -408,6 +455,16 @@ export function createDependencyCore(scenario: Scenario, p: CreateDependencyPayl
   }
   const type = p.type ?? "FS";
   const lagDays = p.lagDays ?? 0;
+  // A2: validate the DEFAULTED type/lagDays against the domain schema (the strict
+  // enum + int(-365..365) bounds run only on load otherwise). Validating
+  // post-default avoids rejecting legitimate creates that omit these fields.
+  const depParsed = ActivityDependencySchema.safeParse({
+    fromActivityId: p.fromActivityId,
+    toActivityId: p.toActivityId,
+    type,
+    lagDays,
+  });
+  if (!depParsed.success) return reject("invalid");
   // detectCycle runs on the UNION of the existing deps and the trial edge, so an
   // edge can be `cycle` even when the submitted set alone is acyclic. In a bulk
   // call array order therefore decides WHICH edges of a cyclic union skip.
@@ -432,6 +489,18 @@ export function handleRemoveDependency(scenario: Scenario, p: RemoveDependencyPa
   return next === scenario ? skip(scenario, "not_found") : applied(next);
 }
 
+// A2 helper: validate whichever of type/lagDays a dependency-update carries,
+// against the domain schema's enum + int(-365..365) bounds. Only present fields
+// are checked (partial). Extracted to keep handleUpdateDependency flat.
+function isValidDependencyUpdate(p: UpdateDependencyPayload): boolean {
+  return ActivityDependencySchema.pick({ type: true, lagDays: true })
+    .partial()
+    .safeParse({
+      ...(p.type !== undefined ? { type: p.type } : {}),
+      ...(p.lagDays !== undefined ? { lagDays: p.lagDays } : {}),
+    }).success;
+}
+
 export function handleUpdateDependency(scenario: Scenario, p: UpdateDependencyPayload): OpResult {
   if (!(scenario.settings.dependencyMode ?? false)) return skip(scenario, "dependency_mode_off");
   // Explicit existence check — the sub-transforms cannot distinguish
@@ -441,6 +510,8 @@ export function handleUpdateDependency(scenario: Scenario, p: UpdateDependencyPa
   );
   if (!exists) return skip(scenario, "not_found");
   if (p.lagDays === undefined && p.type === undefined) return skip(scenario, "invalid");
+  // A2: reject a bad enum/range before touching the sub-transforms.
+  if (!isValidDependencyUpdate(p)) return skip(scenario, "invalid");
   let next = scenario;
   if (p.lagDays !== undefined) {
     next = updateDependencyLag(next, p.fromActivityId, p.toActivityId, p.lagDays);

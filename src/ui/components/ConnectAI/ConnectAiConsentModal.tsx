@@ -84,8 +84,9 @@ export function ConnectAiConsentModal({
                 <span className="font-medium text-gray-900 dark:text-gray-100">Read Mode</span>{" "}
                 (optional)
                 <span className="block text-xs text-gray-500 dark:text-gray-400">
-                  Let the AI read the current schedule and activity ids so it can
-                  make context-aware edits. Required for dependency edits.
+                  Let the AI read the current schedule, including activity notes,
+                  descriptions, and checklist/deliverable items, so it can make
+                  context-aware edits. Required for dependency edits.
                 </span>
               </span>
             </label>

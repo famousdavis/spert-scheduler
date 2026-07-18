@@ -35,12 +35,14 @@ When the user signs in and switches to cloud mode, data is stored in Firestore:
 - `spertscheduler_profiles/{uid}` — User display name and email (for sharing lookup)
 - `spertscheduler_settings/{uid}` — User preferences
 
-**Security rules** (`firestore.rules`) enforce role-based access:
+**Security rules** enforce role-based access:
 - Only project members can read projects
 - Only owners and editors can write
 - Editors cannot modify `owner` or `members` fields (privilege escalation prevention)
-- Profiles are readable by all authenticated users (for email-based member lookup)
+- Profiles are readable by authenticated users under a `limit(1)` constraint (share-by-email lookup without bulk enumeration)
 - Settings are private (owner-only read/write)
+
+**Canonical ruleset location:** the deployed rules are SPERT-suite-wide (all apps share one Firestore project and one Auth tenant). The canonical file lives in the Landing Page repo (`/Users/william/Documents/spert-landing-page/firestore.rules`) and is deployed by paste-replace into the Firebase Console for project `spert-suite`. This repo's local `firestore.rules` is a **reference-only verbatim mirror** of that file's body (never deployed from here); `preferences-firestore-sync.test.ts` reads it at runtime as a drift guard on the settings allowlist.
 
 **Simulation results are stripped** before cloud saves to stay within the Firestore 1 MB document limit and reduce data exposure.
 
@@ -49,15 +51,19 @@ When the user signs in and switches to cloud mode, data is stored in Firestore:
 When deploying SPERT Scheduler, configure your web server with these security headers:
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com; font-src 'self'; worker-src 'self' blob:; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com https://date.nager.at; object-src 'none'; base-uri 'self'; form-action 'self'
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com; font-src 'self'; worker-src 'self' blob:; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com https://date.nager.at; object-src 'none'; base-uri 'self'; form-action 'self'
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
 ```
 
+This matches the `Content-Security-Policy` meta tag shipped in `index.html`. Two grants warrant a note:
+- **`script-src 'unsafe-eval'`**: not used by any first-party code. It is required by one vendored dependency — ExcelJS, used for XLSX schedule export — whose bundled `setImmediate` polyfill contains a `new Function("")` branch. A production-bundle audit (v0.57.4) confirmed this is the *only* `new Function`/`eval` occurrence in the entire shipped build (zero from html2canvas, zero first-party). Removing the grant is likely safe but must be verified empirically in both Chromium and Firefox against XLSX export **and** chart copy-to-clipboard (html2canvas) before it can be dropped; treated as a deferred hardening item, not a release blocker.
+- **`connect-src https://*.run.app`**: the Connect AI feature's Cloud Run MCP server endpoint.
+
 ### Header Explanations
 
-- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-inline'` for styles is required by Tailwind CSS. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `font-src 'self'` restricts fonts to same-origin. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore, auth API calls, and Nager.Date holiday API. `object-src 'none'` blocks plugins. `base-uri 'self'` prevents base tag hijacking. `form-action 'self'` restricts form submissions to same-origin.
+- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-eval'` is required only by the ExcelJS `setImmediate` polyfill (see note above), not by any first-party code. `'unsafe-inline'` for styles is required by Tailwind CSS. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `font-src 'self'` restricts fonts to same-origin. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore, auth API calls, the Connect AI Cloud Run MCP endpoint (`*.run.app`), and the Nager.Date holiday API. `object-src 'none'` blocks plugins. `base-uri 'self'` prevents base tag hijacking. `form-action 'self'` restricts form submissions to same-origin.
 - **X-Content-Type-Options**: Prevents MIME-type sniffing attacks.
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.
@@ -123,9 +129,40 @@ Targeted audit of the v0.21.0 SS/FF dependency type additions, Firestore rules, 
 - **Firestore enum validation documented:** `ActivityDependency.type`, `constraintType`, and `constraintMode` are validated client-side via Zod strict enums but not at the Firestore rules level. Documented as an accepted risk in Known Limitations.
 - **Firestore list rule documented:** The `spertscheduler_projects` list rule's `resource.data` limitation and the `where()` query workaround are documented in Known Limitations.
 
+## AI Connectivity (Connect AI)
+
+Connect AI is an opt-in feature that lets an external AI assistant (via a Cloud Run MCP server) read a snapshot of the currently-open project and submit structured edit operations, applied in the user's browser.
+
+**Session/consent lifecycle:**
+- A session is started only after an explicit consent modal. **Write consent** (the AI may submit edits) is always required to start; **Read Mode** (the AI may read a project snapshot) is a separate, optional, per-session toggle.
+- Sessions live in Firestore under `anonymous_sessions/{sessionId}` with a short pairing code and a 7-day TTL; the browser refreshes `browserConnectedAt`/`lastActiveAt` via heartbeat and tears the session down on disconnect.
+- Consent transitions are reconciled fail-closed: if a Read-Mode upgrade or downgrade write to the session doc fails transiently, local state reverts to the server's actual value and the session start aborts rather than optimistically claiming a permission the server didn't record (v0.57.4, finding A4).
+
+**Read-Mode snapshot — what it includes and excludes:**
+- **Includes** (single open project only): the schedule and activity ids, plus free-text fields — activity notes, descriptions, and checklist/deliverable item text — so the AI can make context-aware edits. The consent copy names these fields explicitly (v0.57.4, finding A5).
+- **Excludes**: owner uid, members/sharing, email, any other project, and calendar/holiday data. Snapshots are size-budgeted and never written when Read Mode is off.
+
+**Write-op validation (defense-in-depth):** AI ops are authored exclusively by the MCP server's Admin SDK (`anonymous_sessions/.../ops` is `allow write: if false` at the rules layer — a client, including a malicious pairing-code holder, cannot inject ops). The browser re-validates every op at the application boundary before persisting: activity estimates are bounded (finite, ≤ 3650 days), dependency `type`/`lagDays` are validated against the domain enum/range, note text is type-checked, and per-op array lengths are capped (v0.57.4, findings A1–A3, A6). Op-handler exceptions log the op type/seq only, never the payload, which carries the user's own free text (finding A7).
+
+The `anonymous_sessions` ruleset (session docs, ops subcollection, and per-session snapshot) is part of the canonical SPERT-suite ruleset described above.
+
+## v0.57.4 Security Audit (AI Connectivity)
+
+Targeted audit of the Connect AI feature (v0.51.0–v0.57.3) and its consent/session model, plus two CSP/`firestore.rules` documentation-drift leads. AI write-ops are Admin-SDK-only at the rules layer; the client-side validations below are defense-in-depth behind that boundary, and also guard against an honest AI mistake persisting a value that would fail to load next session.
+
+- **Activity-estimate ceiling (A1, Low):** `createActivityCore`/`updateActivityCore` (`ai-op-handlers.ts`) now reject an AI-submitted estimate that is non-finite or exceeds 3,650 days (10 years), before it can feed the working-day schedule math. Enforced at the AI-write boundary (not on the shared `ActivitySchema`, which also gates project load — a schema-level ceiling would have made pre-existing projects holding larger values fail to load). The update path checks only *provided* estimate fields, so the AI can still edit legacy activities whose stored estimates predate the ceiling. This bounds per-field magnitude only; aggregate spans across many activities remain backstopped by the existing `MAX_CALENDAR_ITERATIONS` guard and its catch sites.
+- **Dependency `type`/`lagDays` validation (A2, Medium):** `createDependencyCore` and `handleUpdateDependency` now validate dependency `type` (enum `FS`/`SS`/`FF`) and `lagDays` (integer, −365…365) against `ActivityDependencySchema` before persisting — previously these ran only on load, so a bad value could persist and then brick the project on next load.
+- **Note-text type guard (A3, Medium):** `appendNoteCore` now rejects a non-string `text` (array/object) outright instead of coercing it via `.length`, mirroring the guard already present on the set-description path.
+- **Consent-transition integrity (A4, Medium):** `resumeSession` now handles a failed consent *upgrade* symmetrically with a failed *downgrade* — it reverts local consent and aborts the session start rather than letting the UI claim Read Mode is on while the server records it off. Covered by a new targeted `use-ai-connectivity.test.ts` hook suite.
+- **Read-Mode consent copy (A5, Low):** the consent modal now names the free-text fields (activity notes, descriptions, checklist/deliverable items) included in the Read-Mode snapshot, which was previously described only as "the current schedule and activity ids."
+- **Add-items length bound (A6, Low):** `handleAddItems` now rejects an oversized items array (> 500) before iterating, so an arbitrarily large payload cannot drive unbounded work; per-item cap reporting below that bound is unchanged.
+- **Op-exception logging (A7, Low):** the op-handler catch site logs the op type and seq instead of the full op object, which carried the user's own activity names/notes/descriptions.
+- **CSP documentation reconciliation (C1, Low):** `SECURITY.md`'s recommended CSP now matches the shipped `index.html` (`'unsafe-eval'`, `https://*.run.app`), with the `'unsafe-eval'` rationale documented (ExcelJS `setImmediate` polyfill — the only `new Function` in the production bundle). Empirical cross-browser removal is a deferred hardening item.
+- **Stale local rules file (C2, Low):** the repo's reference-only `firestore.rules` was re-synced to a verbatim mirror of the canonical ruleset (adding the `anonymous_sessions` AI section and project-rule hardening it previously lacked), while preserving the settings allowlist the drift-guard test reads. The AI Connectivity data/consent model and the canonical-rules location are now documented here.
+
 ## Defensive Measures
 
-- **No `eval()` or `Function()`** — no dynamic code execution
+- **No first-party `eval()` or `Function()`** — no first-party dynamic code execution. One vendored dependency (ExcelJS) ships a `setImmediate` polyfill with a rarely-hit `new Function("")` branch, the sole reason `'unsafe-eval'` remains in the CSP (see Recommended Deployment Headers); removal pending a cross-browser export/chart-copy verification
 - **No `dangerouslySetInnerHTML`** — all content rendered as text
 - **No inline scripts** — all JavaScript loaded via ES modules
 - **Error boundaries** — graceful recovery from unexpected errors

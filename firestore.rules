@@ -1,82 +1,718 @@
-// ⚠️ REFERENCE-ONLY / HISTORICAL — DO NOT DEPLOY FROM THIS FILE
-//
-// The canonical SPERT-suite-wide Firestore rules live in the Landing
-// Page repo (/Users/william/Documents/spert-landing-page/firestore.rules)
-// since May 2026. This file remains for historical reference and may
-// be deleted in a future cleanup pass. Do not edit and deploy from
-// here — changes will not propagate to production.
-//
-// Deploy workflow: paste-replace into the Firebase Console (canonical),
-// or `firebase deploy --only firestore:rules --project spert-suite`
-// from the Landing Page repo (fallback). See the canonical guide at
-// /Users/william/Documents/SPERT Documentation/cloud-storage-guide/ARCHITECTURE.md
-// §21.11.
-
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
+
+// ⚠️ REFERENCE-ONLY MIRROR — DO NOT DEPLOY FROM THIS FILE
+//
+// The canonical, deployed SPERT-suite-wide Firestore ruleset lives in the
+// Landing Page repo:
+//   /Users/william/Documents/spert-landing-page/firestore.rules
+// It is deployed by paste-replace into the Firebase Console for project
+// `spert-suite` (or `firebase deploy --only firestore:rules` from that repo).
+// Editing THIS copy changes nothing in production.
+//
+// The rules below are a verbatim mirror of that canonical file's body, kept
+// here so the Scheduler repo carries an accurate view of the access rules that
+// govern its data — including the AI Connectivity `anonymous_sessions` ruleset
+// the previous stale copy lacked. `preferences-firestore-sync.test.ts` reads
+// this file at runtime as a drift guard between the Zod preferences schema and
+// the deployed settings allowlist, so keep it synced with canonical.
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    // Helper: check if the user is authenticated
     function isAuth() {
       return request.auth != null;
     }
-
-    // ── Projects ──
-    match /spertscheduler_projects/{projectId} {
-      allow list: if isAuth() &&
+    // Helper: check if the user is a member of a project (via get() — for subcollections)
+    function isMemberGet(projectId) {
+      return isAuth() &&
+        request.auth.uid in get(/databases/$(database)/documents/ganttapp_projects/$(projectId)).data.members;
+    }
+    // Helper: check if the user has a specific role on a project (via get() — for subcollections)
+    function hasRoleGet(projectId, role) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/ganttapp_projects/$(projectId)).data.members[request.auth.uid] == role;
+    }
+    // Helper: check if user can write to a project (owner or editor, via get() — for subcollections)
+    function canWriteGet(projectId) {
+      return hasRoleGet(projectId, 'owner') || hasRoleGet(projectId, 'editor');
+    }
+    // ── GanttApp ─────────────────────────────────────────────
+    // v0.21.0: list rule relaxed to `if isAuth()`. App-side constrained
+    // query (where(`members.${uid}`, 'in', [...])) does the per-user
+    // filtering server-side. Rules cannot validate dynamic field paths
+    // in where() clauses, so list permission has to be authenticated-only.
+    // Matches the suite-wide canonical pattern.
+    //
+    // v0.22.2 (S4 — field allowlists). Field lists must match the
+    // converters in src/shared/utils/firestore-converters.ts:
+    //   - ganttAppProjectFields()   ← projectToFirestoreMeta()
+    //   - ganttAppReleaseFields()   ← releaseToFirestore()
+    //   - ganttAppSnapshotFields()  ← snapshotToFirestore()
+    // If the converters start writing a new field, add it here in the
+    // same PR or the corresponding writes will start failing silently.
+    // chartColors / chartDisplaySettings are NOT on project docs — those
+    // live on ganttapp_settings/{uid} (separate collection rule below).
+    function ganttAppProjectFields() {
+      return [
+        'name', 'owner', 'members', 'finishDate', 'order',
+        'workDays', 'legendLabels',
+        'schemaVersion', 'createdAt', 'updatedAt',
+        '_originRef', '_changeLog'
+      ];
+    }
+    function ganttAppReleaseFields() {
+      return [
+        'name', 'startDate', 'earlyFinishDate', 'lateFinishDate',
+        'hidden', 'status', 'mostLikelyFinishDate', 'order'
+      ];
+    }
+    function ganttAppSnapshotFields() {
+      return [
+        'name', 'timestamp', 'releases',
+        'projectFinishDate', 'chartColors', 'legendLabels', 'preparedBy'
+      ];
+    }
+    match /ganttapp_projects/{projectId} {
+      allow list: if isAuth();
+      allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
-
-      allow get: if isAuth() && request.auth.uid in resource.data.members;
-
-      allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
-
-      // Update: editors can update, but only owners can change owner/members.
-      // This prevents privilege escalation by editors.
+      // v0.22.2 (S2): bind top-level `owner` field to caller's UID.
+      // v0.22.2 (S4): keys().hasOnly() allowlist — any unknown key on a new
+      // doc is unambiguously an attack and must be rejected.
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(ganttAppProjectFields());
+      // v0.22.2 (S4): affectedKeys().hasOnly() allowlist on update. We use
+      // affectedKeys() rather than keys() so legacy docs with stale unknown
+      // fields can still be edited (existing fields preserved; no NEW
+      // unknown fields permitted).
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.members[request.auth.uid] == 'owner'
-                    );
-
-      allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ganttAppProjectFields());
+      allow delete: if isAuth() &&
+        resource.data.members[request.auth.uid] == 'owner';
+      // v0.22.2 (S4): split `allow write` into create + update + delete so
+      // we can apply the field allowlist on create/update without affecting
+      // delete (which has no resource.data to allowlist against on the
+      // request side).
+      match /releases/{releaseId} {
+        allow read: if isMemberGet(projectId);
+        allow create: if canWriteGet(projectId)
+                      && request.resource.data.keys().hasOnly(ganttAppReleaseFields());
+        allow update: if canWriteGet(projectId)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ganttAppReleaseFields());
+        allow delete: if canWriteGet(projectId);
+      }
+      match /snapshots/{snapshotId} {
+        allow read: if isMemberGet(projectId);
+        allow create: if canWriteGet(projectId)
+                      && request.resource.data.keys().hasOnly(ganttAppSnapshotFields());
+        allow update: if canWriteGet(projectId)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ganttAppSnapshotFields());
+        allow delete: if canWriteGet(projectId);
+      }
     }
-
-    // ── User profiles ──
-    // Profiles must be readable by all authenticated users to support
-    // email-based member lookup in the sharing UI.
-    match /spertscheduler_profiles/{userId} {
-      allow read: if isAuth();
+    // v0.22.2 (S1): replaced `allow read: if isAuth()` with get +
+    // limit(1)-constrained list. Blocks bulk profile enumeration by any
+    // authenticated SPERT user (shared auth tenant). Matches
+    // spertsuite_profiles / spertahp_profiles / spertstorymap_profiles.
+    // Companion app-side change deletes the legacy single-email
+    // shareProject() helper (which did a full-collection getDocs scan).
+    match /ganttapp_profiles/{userId} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
       allow write: if isAuth() && request.auth.uid == userId;
     }
-
-    // ── User settings ──
+    match /ganttapp_settings/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+    // ── SPERT Story Map ──────────────────────────────────────
+    // Story Map v0.29.2 security audit (M5 + L6/L7):
+    //   - create: bind top-level `owner` field to caller (matches the
+    //     pattern already used by Forecaster, CFD, AHP). Closes a footgun
+    //     where the members map said the caller was 'owner' but the
+    //     top-level `owner` could point to any other UID, breaking
+    //     driver-side guards (firestoreDriver.removeCollaborator Guard 2).
+    //   - profiles: replace `allow read` with `get` + limit(1)-constrained
+    //     `list`. Matches spertahp_profiles (v0.7.2 fix 3.6, Option B) and
+    //     spertsuite_profiles. Blocks bulk profile enumeration by any
+    //     authed SPERT user while preserving one-email-at-a-time lookups.
+    //     Companion app-side change: ProjectSharingPanel.tsx legacy
+    //     single-add query now includes limit(1).
+    //
+    // v0.46.2 security audit (field allowlist on UPDATE). spertstorymap_projects
+    // was the only project collection without a hasOnly() field allowlist, so an
+    // editor could add arbitrary fields to a project doc via a crafted update
+    // (the owner/members escalation guard below was the only constraint). This
+    // closes that gap on the UPDATE path. The list below MUST stay in sync with
+    // src/lib/validateProduct.ts KNOWN_PRODUCT_FIELDS (minus the export-only
+    // fields _storageRef/_exportedBy/_exportedById, which firestoreDriver strips
+    // before write) plus the driver-written owner/members/updatedAt. If
+    // validateProduct gains a persisted field OR firestoreDriver.doSaveProduct
+    // starts writing a new one, add it here in the SAME deploy or saves will
+    // fail silently with PERMISSION_DENIED.
+    //
+    // UPDATE-only (not create): firestoreDriver.createProduct strips only `id`
+    // (unlike doSaveProduct, which also strips the _owner/_members aliases and
+    // the export-only fields), so a keys().hasOnly() on create could reject a
+    // legitimate create that still carries an alias field. The create rule
+    // already binds owner == caller and members[caller] == 'owner', so the
+    // create surface is self-owned. affectedKeys().hasOnly() on update is safe:
+    // doSaveProduct's mergeFields only ever touch allowlisted fields; the
+    // _changeLog arrayUnion write touches only _changeLog; owner member-
+    // management touches members. Legacy docs with stale unknown fields stay
+    // editable — affectedKeys() checks only the changed keys, not the whole doc.
+    function spertStoryMapProjectFields() {
+      return [
+        'name', 'description', 'createdAt', 'updatedAt', 'schemaVersion',
+        'sizeMapping', 'releases', 'sprints', 'sprintCadenceWeeks',
+        'themes', 'releaseCardOrder', 'sizingCardOrder', 'cardColorLabels',
+        '_originRef', '_changeLog',
+        'owner', 'members'
+      ];
+    }
+    match /spertstorymap_projects/{projectId} {
+      allow list: if isAuth();
+      allow get: if isAuth() && request.auth.uid in resource.data.members;
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.members[request.auth.uid] == 'owner'
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertStoryMapProjectFields());
+      allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
+    }
+    match /spertstorymap_profiles/{uid} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+    match /spertstorymap_settings/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+    // ── SPERT Scheduler ──────────────────────────────────────
+    // v0.42.0: list rule relaxed to `if isAuth()` to match the suite-wide
+    // canonical pattern. App-side query uses constrained
+    // where(`members.${uid}`, 'in', ['owner','editor','viewer']) for
+    // server-side filtering. Required prerequisite for the bulk-sharing
+    // invitation system to discover existing users across the suite.
+    //
+    // v0.42.6 (H2 — field allowlist). The list below MUST stay in sync
+    // with src/domain/schemas/project.schema.ts ProjectSchema (the
+    // 14 schema-defined keys) plus the cloud-only fields written by
+    // src/infrastructure/firebase/firestore-driver.ts:
+    //   - schema-defined: name, createdAt, schemaVersion, owner,
+    //     globalCalendarOverride, convertedWorkDays, forcedWorkDays,
+    //     targetFinishDate, showTargetOnGantt, showActivityIds,
+    //     ganttAppearance, scenarios, archived, tileColor
+    //   - driver-only: members (set in create() at line 213), updatedAt
+    //     (serverTimestamp on every save at line 264)
+    //   - intentionally omitted: id (the doc id, destructured out before
+    //     setDoc at firestore-driver.ts:207 and 260)
+    // If ProjectSchema gains a field OR the driver starts writing a new
+    // field, add it here in the SAME PR or saves will fail silently with
+    // PERMISSION_DENIED on the client (caught and logged in
+    // firestore-driver.ts:280).
+    //
+    // forcedWorkDays (July 2026 hotfix): shipped in ProjectSchema at
+    // Scheduler v0.50.0 (schema v22) but was omitted from this allowlist
+    // until now, so every migrated project (the v21→v22 migration injects
+    // forcedWorkDays: []) failed the create-rule keys().hasOnly() check —
+    // clones and first-time cloud creates were rejected with
+    // PERMISSION_DENIED. See the header entry for the full write-up.
+    function spertSchedulerProjectFields() {
+      return [
+        'name', 'owner', 'members',
+        'schemaVersion', 'createdAt', 'updatedAt',
+        'scenarios', 'globalCalendarOverride', 'convertedWorkDays',
+        'forcedWorkDays', 'targetFinishDate', 'showTargetOnGantt',
+        'showActivityIds', 'ganttAppearance', 'archived', 'tileColor'
+      ];
+    }
+    match /spertscheduler_projects/{projectId} {
+      allow list: if isAuth();
+      allow get: if isAuth() && request.auth.uid in resource.data.members;
+      // v0.42.6 (H1): bind top-level `owner` field to caller's UID.
+      // v0.42.6 (H2): keys().hasOnly() allowlist on create.
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(spertSchedulerProjectFields());
+      // v0.42.6 (H2): affectedKeys().hasOnly() allowlist on update. Uses
+      // affectedKeys() not keys() so legacy docs with stale unknown fields
+      // can still be edited (existing fields preserved; no NEW unknown
+      // fields permitted on the diff).
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.members[request.auth.uid] == 'owner'
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertSchedulerProjectFields());
+      allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
+    }
+    // v0.42.6 (H3): replaced `allow read: if isAuth()` with get +
+    // limit(1)-constrained list. Blocks bulk profile enumeration by any
+    // authenticated SPERT user (shared auth tenant). Matches
+    // spertsuite_profiles / spertahp_profiles / spertstorymap_profiles /
+    // ganttapp_profiles. Companion app-side fix in v0.42.6:
+    // src/infrastructure/firebase/firestore-sharing.ts findUserByEmail()
+    // query now includes limit(1) so the app-side path stays correct
+    // even if this rule is regressed in the future.
+    match /spertscheduler_profiles/{userId} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+    // v0.22.2 security fix (L2): added hasOnly() to prevent arbitrary field writes
+    // v0.28.0: added targetFinishGreenPct, targetFinishAmberPct
+    // v0.34.7: added suppressLocalStorageWarning
     match /spertscheduler_settings/{userId} {
       allow read: if isAuth() && request.auth.uid == userId;
-      allow write: if isAuth() && request.auth.uid == userId
+      allow write: if isAuth()
+                   && request.auth.uid == userId
                    && request.resource.data.keys().hasOnly([
-                        'defaultTrialCount', 'defaultDistributionType', 'defaultConfidenceLevel',
-                        'defaultActivityTarget', 'defaultProjectTarget', 'dateFormat',
-                        'autoRunSimulation', 'theme', 'storeFullSimulationData',
-                        'defaultHeuristicEnabled', 'defaultHeuristicMinPercent', 'defaultHeuristicMaxPercent',
-                        'defaultDependencyMode', 'defaultParkinsonsLawEnabled',
-                        'globalCalendar', 'ganttViewMode', 'ganttShowToday',
-                        'ganttShowCriticalPath', 'ganttShowProjectName', 'ganttShowArrows',
-                        'defaultHolidayCountry', 'workDays',
-                        'targetFinishGreenPct', 'targetFinishAmberPct',
-                        'suppressLocalStorageWarning'
-                      ]);
+                     'defaultTrialCount',
+                     'defaultDistributionType',
+                     'defaultConfidenceLevel',
+                     'defaultActivityTarget',
+                     'defaultProjectTarget',
+                     'dateFormat',
+                     'autoRunSimulation',
+                     'theme',
+                     'storeFullSimulationData',
+                     'defaultHeuristicEnabled',
+                     'defaultHeuristicMinPercent',
+                     'defaultHeuristicMaxPercent',
+                     'defaultDependencyMode',
+                     'globalCalendar',
+                     'ganttViewMode',
+                     'ganttShowToday',
+                     'ganttShowCriticalPath',
+                     'ganttShowProjectName',
+                     'ganttShowArrows',
+                     'defaultHolidayCountry',
+                     'workDays',
+                     'defaultParkinsonsLawEnabled',
+                     'targetFinishGreenPct',
+                     'targetFinishAmberPct',
+                     'suppressLocalStorageWarning'
+                   ]);
     }
+    // ── SPERT Forecaster ─────────────────────────────────────
+    // Note: Forecaster uses a separate `owner` field (not in members map)
+    // `members` map contains only editors/viewers
+    match /spertforecaster_projects/{projectId} {
+      allow list: if isAuth();
+      allow get: if isAuth() &&
+        (resource.data.owner == request.auth.uid || request.auth.uid in resource.data.members);
+      allow create: if isAuth() &&
+        request.resource.data.owner == request.auth.uid;
+      allow update: if isAuth()
+                    && (resource.data.owner == request.auth.uid || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.owner == request.auth.uid
+                    );
+      allow delete: if isAuth() &&
+        resource.data.owner == request.auth.uid;
+    }
+    // Forecaster profiles hardening (companion fix: spert-forecaster
+    // v0.35.3, PR #138, commit 4082e00): replaced `allow read: if isAuth()`
+    // with auth-only `get` plus limit(1)-constrained `list`. This was the
+    // LONE remaining un-hardened profile rule in the suite — closed in this
+    // pass so all profile collections now share the canonical get +
+    // limit(1)-list pattern (matches the other seven: spertsuite_profiles /
+    // spertahp_profiles / spertstorymap_profiles / ganttapp_profiles /
+    // spertscheduler_profiles / spertcfd_profiles / myscrumbudget_profiles).
+    // Blocks bulk enumeration of every Forecaster user's
+    // email/displayName/photoURL by any authenticated SPERT user (shared
+    // auth tenant). The companion app-side fix constrained the legacy
+    // findUserByEmail query to limit(1) so the app-side path stays correct
+    // even if this rule is regressed. Client-side audit confirmed the
+    // collaborator-hydration and owner-display paths use individual getDoc()
+    // calls (unaffected by a list constraint); the active invite path routes
+    // through sendInvitationEmail (Cloud Function, Admin SDK, bypasses rules).
+    match /spertforecaster_profiles/{uid} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+    match /spertforecaster_settings/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+    // ── MyScrumBudget ────────────────────────────────────────
+    // v0.28.2 (M5 — field allowlist). Field list MUST stay in sync with
+    // src/lib/storage/firestoreRepo.ts:
+    //   - createProject: top-level keys on doc creation
+    //   - saveProject: subset of keys on every merge save
+    //   - importAll: same as createProject (full setDoc, no merge)
+    //   - removeCollaborator transaction in src/lib/firebase/invitations.ts
+    //     uses dot-path `members.${targetUid}`; affectedKeys() resolves to
+    //     ['members'] which is on the allowlist.
+    // If firestoreRepo starts writing a new top-level field, add it here in
+    // the SAME PR or saves will fail silently with PERMISSION_DENIED.
+    // color + archived (July 2026): both are top-level scalar fields written
+    // as `field ?? null`; see the header entry for why color's null default
+    // slipped past keys().hasOnly() while a non-null value would not.
+    function myScrumBudgetProjectFields() {
+      return [
+        'name', 'startDate', 'endDate',
+        'reforecasts', 'activeReforecastId', 'color', 'archived',
+        'owner', 'members', 'order',
+        '_teamSnapshot', '_originRef', '_changeLog',
+        'schemaVersion', 'createdAt', 'updatedAt'
+      ];
+    }
+    match /myscrumbudget_projects/{projectId} {
+      allow list: if isAuth();
+      allow get: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      // v0.28.2 (M4): bind top-level `owner` field to caller's UID.
+      // v0.28.2 (M5): keys().hasOnly() allowlist on create.
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(myScrumBudgetProjectFields());
+      // v0.28.2 (M5): affectedKeys().hasOnly() allowlist on update. Uses
+      // affectedKeys() not keys() so legacy docs with stale unknown fields
+      // can still be edited (existing fields preserved; no NEW unknown
+      // fields permitted on the diff).
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.members[request.auth.uid] == 'owner'
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(myScrumBudgetProjectFields());
+      allow delete: if isAuth() &&
+        resource.data.members[request.auth.uid] == 'owner';
+    }
+    // v0.28.2 (H1): replaced `allow read: if isAuth()` with auth-only
+    // `get` plus limit(1)-constrained `list`. Blocks bulk profile
+    // enumeration by any authenticated SPERT user (shared auth tenant).
+    // Matches spertsuite_profiles / spertahp_profiles /
+    // spertstorymap_profiles / ganttapp_profiles / spertscheduler_profiles
+    // / spertcfd_profiles. Companion app-side change in MSB v0.28.2
+    // deletes the legacy SharingSection.tsx + sharing.ts findUidByEmail /
+    // addProjectMember (dead under INVITATIONS_ENABLED=true since
+    // v0.28.0). Active bulk-invite path runs through
+    // callSendInvitationEmail (Cloud Function) and never reads
+    // myscrumbudget_profiles directly.
+    match /myscrumbudget_profiles/{userId} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+    match /myscrumbudget_settings/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+    // ── SPERT-CFD helpers (inline, no get() needed — monolithic docs) ──
+    function isCfdMember(data) {
+      return request.auth.uid in data.members;
+    }
+    function isCfdOwner(data) {
+      return data.members[request.auth.uid] == 'owner';
+    }
+    function isCfdEditor(data) {
+      return data.members[request.auth.uid] in ['owner', 'editor'];
+    }
+    // v0.12.2 (M-2 — field allowlist). Field list MUST stay in sync
+    // with src/lib/firestore-driver.ts:
+    //   - createProject (top-level keys written on doc creation):
+    //     name, createdAt, updatedAt, workflow, snapshots, settings,
+    //     _version, owner, members, schemaVersion, _originRef,
+    //     _changeLog
+    //   - buildSavePayload (debounced saveProject merge):
+    //     name, updatedAt, workflow, snapshots, settings, _version
+    //   - removeCollaborator transaction: members, updatedAt
+    //   - sharing-modal.tsx handleChangeRole: members
+    // If the driver starts writing a new top-level field, add it here
+    // in the SAME PR or saves will fail silently with PERMISSION_DENIED
+    // on the client (caught and logged in firestore-driver.ts).
+    function spertCfdProjectFields() {
+      return [
+        'name', 'owner', 'members',
+        'createdAt', 'updatedAt',
+        'workflow', 'snapshots', 'settings',
+        '_version', 'schemaVersion',
+        '_originRef', '_changeLog'
+      ];
+    }
+    // ── SPERT-CFD Projects (monolithic docs, no subcollections) ──
+    match /spertcfd_projects/{projectId} {
+      // Intentionally more permissive than other apps — list returns all
+      // docs, client-side where() clause filters to member-of projects.
+      allow list: if isAuth();
+      allow get: if isAuth() && isCfdMember(resource.data);
 
+      // v0.12.2 (M-2): keys().hasOnly() allowlist on create. Any unknown
+      // key on a new doc is unambiguously an attack and must be rejected.
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(spertCfdProjectFields());
+
+      // v0.12.2 (M-2): affectedKeys().hasOnly() allowlist on update. Uses
+      // affectedKeys() rather than keys() so legacy docs with stale unknown
+      // fields can still be edited (existing fields preserved; no NEW
+      // unknown fields permitted on the diff).
+      allow update: if isAuth()
+                    && isCfdEditor(resource.data)
+                    && (
+                      // Non-owners cannot change owner or members
+                      (!request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['owner', 'members']))
+                      // Owners can change anything
+                      || isCfdOwner(resource.data)
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertCfdProjectFields());
+
+      allow delete: if isAuth() && isCfdOwner(resource.data);
+    }
+    // ── SPERT-CFD User Profiles ──
+    // v0.12.2 (M-1): replaced `allow read: if isAuth()` with get +
+    // limit(1)-constrained list. Blocks bulk profile enumeration by any
+    // authenticated SPERT user (shared auth tenant). Matches
+    // spertsuite_profiles / spertahp_profiles / spertstorymap_profiles /
+    // ganttapp_profiles / spertscheduler_profiles. Companion app-side
+    // change in CFD v0.12.2: deletes the legacy handleAddMemberLegacy
+    // path in sharing-modal.tsx, which was the only code path that did
+    // a profile-collection scan (single-email lookup). The active bulk-
+    // invite path goes through callSendInvitationEmail (Cloud Function)
+    // and never reads spertcfd_profiles directly.
+    match /spertcfd_profiles/{userId} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+    // ── SPERT-CFD Per-User Settings ──
+    // v0.12.2 (L-2): added keys().hasOnly() to prevent arbitrary field
+    // writes. Today CFD stores only `projectOrder` here (per
+    // src/lib/firestore-driver.ts loadProjectOrder / createProject /
+    // deleteProject / reorderProjects). If CFD ever adds more per-user
+    // settings, this allowlist must be updated in lock-step.
+    match /spertcfd_settings/{userId} {
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow write: if isAuth()
+                   && request.auth.uid == userId
+                   && request.resource.data.keys().hasOnly(['projectOrder']);
+    }
+    // ── SPERT-AHP (v0.2.0, April 2026; hardened v0.7.2) ──────
+    // Monolithic document model: one doc per AHP decision at
+    // spertahp_projects/{modelId}. All data (meta, structure, collaborators,
+    // responses, synthesis) is inlined. No subcollections — checks use
+    // resource.data inline, no get() helpers needed. Three-role sharing model
+    // (owner/editor/viewer) in the members map; isVoting is a separate
+    // per-editor boolean on the embedded collaborators array (not visible
+    // to security rules).
+    //
+    // v0.7.2 security fix (audit finding 3.3): editors can no longer write
+    // owner-governed fields (resultsVisibility, synthesis, publishedSynthesisId,
+    // collaborators). Previously the UI gated these to owners but the rule
+    // only protected owner/members — allowing an editor to bypass via direct
+    // adapter calls.
+    match /spertahp_projects/{modelId} {
+      allow list: if isAuth();
+      allow get: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      resource.data.members[request.auth.uid] == 'owner'
+                      || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                           'owner',
+                           'members',
+                           'resultsVisibility',
+                           'synthesis',
+                           'publishedSynthesisId',
+                           'collaborators'
+                         ])
+                    );
+      allow delete: if isAuth() &&
+        resource.data.members[request.auth.uid] == 'owner';
+    }
+    // v0.7.2 security fix (audit finding 3.6, Option B): replaced `allow read`
+    // with get + limit-constrained list. Blocks bulk enumeration of the
+    // profiles collection by any authenticated Firebase user (shared auth
+    // tenant with the rest of the SPERT suite). The share-by-email flow in
+    // SharingSection still works because its query is limit(1)-constrained.
+    // Does not prevent one-email-at-a-time probing — that's acknowledged as
+    // a deliberate tradeoff for share-by-email UX without a Cloud Function.
+    match /spertahp_profiles/{uid} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+    match /spertahp_settings/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+    // ── Suite-wide invitation infrastructure ─────────────────
+    // SPERT AHP v0.11.0 introduces an email-based project invitation flow
+    // that is designed to be reused by every SPERT app (suite-wide, not
+    // per-app). All four collections below are written exclusively by
+    // Cloud Functions via the Admin SDK; clients only read.
+    //
+    // spertsuite_invitations: pending invitation tokens. Two-branch read
+    // rule: either the invitee (matched by verified email) or the inviter
+    // (the model owner) may list/get. The email_verified gate on the
+    // invitee branch protects against unverified email-password Firebase
+    // Auth identities (irrelevant today since SPERT only uses Google +
+    // Microsoft OAuth, but durable against future provider expansion).
+    //
+    // SECURITY MODEL — `allow write: if false` is the architectural backstop
+    // for the invitation lifecycle. Two implications:
+    //   1. Resend cap (5×/invitation): enforced server-side in the
+    //      `resendInvite` Cloud Function, which reads emailSendCount and
+    //      rejects further sends when count >= 5. The client-side button
+    //      disable in SharingSection.tsx (BulkSharingSection > pending list)
+    //      is UX only — it is NOT the security control. Removing the disable
+    //      would not unlock more sends; the CF would still reject.
+    //   2. emailSendCount tampering: impossible. Clients cannot patch the
+    //      counter to reset it because all writes are blocked at the rule
+    //      layer. Only the resendInvite Cloud Function (Admin SDK) can
+    //      increment the counter.
+    // If this rule is ever relaxed (e.g., to allow client-side
+    // acknowledgement writes), the resend cap MUST be re-enforced via a
+    // matching `request.resource.data.emailSendCount <=
+    // resource.data.emailSendCount + 1` constraint on the new write rule.
+    //
+    // spertsuite_profiles: cross-app profile mirror. Each app writes its
+    // own user's profile here on sign-in (alongside its app-specific
+    // _profiles doc). The list rule is limit(1)-constrained — same
+    // pattern as spertahp_profiles — to prevent bulk enumeration while
+    // permitting one-email-at-a-time lookups inside Cloud Functions.
+    //
+    // spertsuite_rate_limits: per-user invitation send counters
+    // ({ date: ISO string, count: number }, resets when date rolls over).
+    // Read and written exclusively by sendInvitationEmail. Clients have
+    // no business touching this collection — `read, write: if false`.
+    //
+    // spertsuite_notification_throttle: per-(recipient, model) "you've
+    // been added" notification throttle. Doc id is
+    // "{recipientUid}_{modelId}". Stores last-sent timestamp;
+    // sendInvitationEmail consults this before emailing an existing user
+    // that they have been added to a model, so an owner rapidly
+    // re-adding/removing the same person does not spam them. Read and
+    // written exclusively by Cloud Functions.
+    match /spertsuite_invitations/{tokenId} {
+      allow get, list: if isAuth() && (
+        (request.auth.token.email_verified == true
+          && request.auth.token.email == resource.data.inviteeEmail)
+        || request.auth.uid == resource.data.inviterUid
+      );
+      allow write: if false;
+    }
+    match /spertsuite_profiles/{uid} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+    match /spertsuite_rate_limits/{uid} {
+      allow read, write: if false;
+    }
+    match /spertsuite_notification_throttle/{docId} {
+      allow read, write: if false;
+    }
     // ── ToS acceptance records (shared across all SPERT apps) ──
+    // v0.22.2 security fix (M1): added hasOnly() to prevent arbitrary field writes
     match /users/{uid} {
       allow read: if isAuth() && request.auth.uid == uid;
-      allow write: if isAuth() && request.auth.uid == uid
+      allow write: if isAuth()
+                   && request.auth.uid == uid
                    && request.resource.data.keys().hasOnly([
-                        'acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'
-                      ]);
+                     'acceptedAt',
+                     'tosVersion',
+                     'privacyPolicyVersion',
+                     'appId',
+                     'authProvider'
+                   ]);
+    }
+    // ── AI Connectivity (anonymous sessions) ─────────────────
+    // Phase 1 of the AI Connectivity feature (SPERT Story Map). Pairs an
+    // unauthenticated browser with the user's AI chatbot via a short-lived
+    // capability token (the sessionId UUID). The MCP server (mcpSpertSuite
+    // Cloud Function) reads/writes via the Admin SDK and bypasses these
+    // rules; the rules below govern only direct browser access.
+    //
+    // THREAT MODEL (accepted for Phase 1 — see AI plan §4 / D2):
+    //   - Session create is unauthenticated (anonymous capability token).
+    //   - ops/ is Admin-SDK-only (write:false) — no browser injection
+    //     surface into the AI's instruction stream.
+    //   - snapshot/ is browser-writable (the browser pushes the read-mode
+    //     snapshot) but NOT browser-readable: only the Admin-SDK MCP server
+    //     reads it (S4 hardening — get:false).
+    //   - A sessionId-holder can tamper consentRead / openProductId /
+    //     heartbeat fields — accepted under the capability-token model.
+    //   - list is disabled everywhere to prevent enumeration of tokens.
+    match /anonymous_sessions/{sessionId} {
+      // Create: the 9 required browser-owned fields, plus an OPTIONAL appId
+      // (hasOnly-allowed, not hasAll-required, for the rollout window — old
+      // browser builds omit it, and a missing appId must pass). lastSeq is
+      // set to 0 here; the MCP server (Admin SDK) owns every later increment,
+      // and the update rule below blocks the browser from changing it.
+      // aiLastSeenAt is MCP-server-owned and must be ABSENT on create —
+      // hasOnly() rejects it.
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
+          'openProductId', 'consentWrite', 'consentRead', 'lastSeq',
+          'appVersion'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
+          'openProductId', 'consentWrite', 'consentRead', 'lastSeq',
+          'appVersion', 'appId'
+        ])
+        && request.resource.data.consentWrite == true
+        && request.resource.data.consentRead is bool
+        && request.resource.data.lastSeq == 0;
+      allow get: if true;
+      allow list: if false;
+      // Browser may update only heartbeat fields, openProductId, and
+      // consentRead. aiLastSeenAt and lastSeq stay Admin-only.
+      allow update: if
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'browserConnectedAt', 'lastActiveAt', 'expiresAt',
+          'openProductId', 'consentRead'
+        ])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['consentRead'])
+          || request.resource.data.consentRead is bool
+        );
+      allow delete: if false; // teardownAiSession callable uses Admin SDK
+      match /ops/{opId} {
+        allow get, list: if true;
+        allow write: if false; // Admin SDK only — prevents prompt injection
+      }
+      match /snapshot/{doc} {
+        // S4: the browser only WRITES the snapshot (read-mode push); the
+        // MCP server reads it via Admin SDK. get:false shrinks the browser
+        // read surface to zero.
+        allow get: if false;
+        allow list: if false;
+        allow write: if true; // browser enforces the consentRead gate
+      }
+    }
+    match /pairing_codes/{code} {
+      // Admin-only: generatePairingCode + resolve_session_code use the
+      // Admin SDK (bypasses rules). No browser access.
+      allow read, write: if false;
     }
   }
 }

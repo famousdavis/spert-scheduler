@@ -711,6 +711,168 @@ describe("remove_dependency / update_dependency (dependencyMode on)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// v0.57.4 AI-write validation hardening (A1, A2, A3, A6)
+// ---------------------------------------------------------------------------
+
+describe("v0.57.4 AI-write validation hardening", () => {
+  // A1 — finite ceiling on activity estimates
+  describe("estimate ceiling (A1)", () => {
+    it("create rejects an estimate above the 3650 ceiling", () => {
+      const { project, scenarioId } = build({ activityCount: 0 });
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "create_activity", payload: { id: "big", name: "Big", min: 1, mostLikely: 2, max: 4000 } },
+          scenarioId
+        )
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+
+    it("create accepts exactly the ceiling and rejects one over (boundary)", () => {
+      const { project, scenarioId } = build({ activityCount: 0 });
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "create_activity", payload: { id: "edge", name: "Edge", min: 1, mostLikely: 2, max: 3650 } },
+          scenarioId
+        )
+      ).toEqual({ status: "applied" });
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "create_activity", payload: { id: "over", name: "Over", min: 1, mostLikely: 2, max: 3651 } },
+          scenarioId
+        )
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+
+    it("update rejects a provided estimate above the ceiling", () => {
+      const { project, scenarioId, activityIds } = build();
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "update_activity_estimate", payload: { id: activityIds[0]!, max: 99999 } },
+          scenarioId
+        )
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+
+    it("update of an UNtouched field still succeeds when the stored estimate already exceeds the ceiling", () => {
+      // Legacy data: a project persisted (via the grid, which commits regardless
+      // of validation) an activity whose estimate is over the AI-write ceiling.
+      // A rename must NOT reject on that untouched estimate — provided-fields only.
+      const { project, scenarioId, activityIds } = build();
+      const legacy = withPatch(project, scenarioId, {
+        activities: scenarioOf(project, scenarioId).activities.map((a) =>
+          a.id === activityIds[0] ? { ...a, min: 5000, mostLikely: 6000, max: 7000 } : a
+        ),
+      });
+      expect(
+        outcome(legacy, { seq: 1, op: "rename_activity", payload: { id: activityIds[0]!, name: "Renamed" } }, scenarioId)
+      ).toEqual({ status: "applied" });
+    });
+  });
+
+  // A2 — dependency type/lagDays validation
+  describe("dependency type/lagDays validation (A2)", () => {
+    it("create rejects an unknown dependency type", () => {
+      const { project, scenarioId, activityIds } = build({ dependencyMode: true });
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "create_dependency", payload: { scenarioId, fromActivityId: activityIds[0]!, toActivityId: activityIds[1]!, type: "XX" as never } },
+          scenarioId
+        )
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+
+    it("create rejects a fractional lagDays", () => {
+      const { project, scenarioId, activityIds } = build({ dependencyMode: true });
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "create_dependency", payload: { scenarioId, fromActivityId: activityIds[0]!, toActivityId: activityIds[1]!, lagDays: 3.5 } },
+          scenarioId
+        )
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+
+    it("create rejects an out-of-range lagDays", () => {
+      const { project, scenarioId, activityIds } = build({ dependencyMode: true });
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "create_dependency", payload: { scenarioId, fromActivityId: activityIds[0]!, toActivityId: activityIds[1]!, lagDays: 400 } },
+          scenarioId
+        )
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+
+    it("create still succeeds when type/lagDays are omitted (defaulting must not break)", () => {
+      const { project, scenarioId, activityIds } = build({ dependencyMode: true });
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "create_dependency", payload: { scenarioId, fromActivityId: activityIds[0]!, toActivityId: activityIds[1]! } },
+          scenarioId
+        )
+      ).toEqual({ status: "applied" });
+    });
+
+    it("update rejects an unknown type / out-of-range lag", () => {
+      const { project, scenarioId, activityIds } = build({ dependencyMode: true });
+      const seeded = one(
+        project,
+        { seq: 1, op: "create_dependency", payload: { scenarioId, fromActivityId: activityIds[0]!, toActivityId: activityIds[1]! } },
+        scenarioId
+      ).project;
+      expect(
+        outcome(seeded, { seq: 2, op: "update_dependency", payload: { scenarioId, fromActivityId: activityIds[0]!, toActivityId: activityIds[1]!, type: "ZZ" as never } }, scenarioId)
+      ).toEqual({ status: "skipped", reason: "invalid" });
+      expect(
+        outcome(seeded, { seq: 2, op: "update_dependency", payload: { scenarioId, fromActivityId: activityIds[0]!, toActivityId: activityIds[1]!, lagDays: -400 } }, scenarioId)
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+  });
+
+  // A3 — appendNoteCore typeof guard
+  describe("append_activity_note typeof guard (A3)", () => {
+    it("rejects a non-string text (array)", () => {
+      const { project, scenarioId, activityIds } = build();
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "append_activity_note", payload: { id: activityIds[0]!, text: ["arr"] as unknown as string } },
+          scenarioId
+        )
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+
+    it("rejects a non-string text (object)", () => {
+      const { project, scenarioId, activityIds } = build();
+      expect(
+        outcome(
+          project,
+          { seq: 1, op: "append_activity_note", payload: { id: activityIds[0]!, text: { x: 1 } as unknown as string } },
+          scenarioId
+        )
+      ).toEqual({ status: "skipped", reason: "invalid" });
+    });
+  });
+
+  // A6 — add-items array length bound
+  describe("add-items length bound (A6)", () => {
+    it("rejects an oversized items array before touching the activity", () => {
+      const { project, scenarioId, activityIds } = build();
+      const items = Array.from({ length: 501 }, (_, i) => ({ id: `i${i}`, text: "t" }));
+      expect(
+        outcome(project, { seq: 1, op: "add_checklist_items", payload: { id: activityIds[0]!, items } }, scenarioId)
+      ).toEqual({ status: "skipped", reason: "cap_exceeded" });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Project-level orchestration
 // ---------------------------------------------------------------------------
 
