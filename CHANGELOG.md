@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.56.1 — 2026-07-18
+
+### Changed — Connect AI prompt now advertises the Phase 2 bulk tools
+
+- The **Copy prompt** text for connecting an AI assistant now lists the two new bulk tools and how to use them: `scheduler_bulk_update_activities` (patch names/estimates/confidence/distribution/descriptions across up to 100 activities in one call — absent fields unchanged, empty-string description clears, repeated ids apply in order) and `scheduler_bulk_import` (build a whole schedule — activities, milestones, assignments, dependencies — in one call, with the section order, the dependency all-or-nothing rule, and the not-found cascade spelled out). The general steering was widened from "creating more than ~3 of anything" to "creating **or updating** more than ~3." Prompt text only — the tools shipped in 0.56.0 and went live server-side first (serverInfo 1.8.0), so the assistant is never told about a tool the server cannot yet handle.
+
 ## 0.56.0 — 2026-07-17
 
 ### Added — Bulk AI tools, Phase 2: update many activities and import a whole schedule
