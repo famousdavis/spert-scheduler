@@ -324,11 +324,15 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
     snapshotTimerRef.current = setTimeout(writeSnapshot, 2000);
   }, [writeSnapshot]);
 
-  // Reactive snapshot refresh on any project edit (human or applied AI batch).
+  // Reactive snapshot refresh on any snapshot input change: project edits
+  // (human or applied AI batch), the open scenario, or the assembled work
+  // calendar (global work week / holidays live in preferences, so they change
+  // without changing `project`). writeSnapshot reads all three via refs; this
+  // effect is the only thing that schedules the rewrite.
   useEffect(() => {
     if (!sessionState.sessionActive || !sessionState.consentRead) return;
     scheduleSnapshot();
-  }, [project, sessionState.sessionActive, sessionState.consentRead, scheduleSnapshot]);
+  }, [project, activeScenarioId, workCalendar, sessionState.sessionActive, sessionState.consentRead, scheduleSnapshot]);
 
   // ── Op listener handlers ───────────────────────────────────────────────────
   const makeOpHandlers = useCallback((sessionId: string) => {
@@ -477,6 +481,11 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
       activeSessionIdRef.current = sessionId;
 
       if (prevConsentRead !== null) {
+        // Resuming a live session (e.g. after a page reload): seed asOfSeq from
+        // the persisted per-session cursor so the first snapshot written doesn't
+        // regress to 0 — the server-side snapshot may already carry the higher
+        // value from before the reload. The fresh/recreate path below re-zeroes.
+        lastAppliedSeqRef.current = getLastSeq(sessionId);
         const outcome = await resumeSession(database, sessionId, consentRead, prevConsentRead, project.id);
         if (outcome === "abort") { activeSessionIdRef.current = null; return false; }
         if (outcome === "recreate") {

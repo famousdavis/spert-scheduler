@@ -19,6 +19,7 @@ import {
   durationToFinishDateISO,
 } from "@core/calendar/calendar";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
+import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -226,7 +227,10 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
     }
     if (predMap) row.predecessors = predMap.get(activity.id) ?? "";
     if (succMap) row.successors = succMap.get(activity.id) ?? "";
-    if (settings.dependencyMode) {
+    // Same rule as the grid's shouldShowConstraintColumn (v0.52.1): dependency
+    // mode always carries the constraint fields; sequential mode carries them
+    // once any activity actually has a constraint (sequential MC honors them).
+    if (settings.dependencyMode || hasAnyConstraint(activities)) {
       row.constraintType = activity.constraintType ?? "";
       row.constraintDate = activity.constraintDate ? fmt(activity.constraintDate) : "";
       row.constraintMode = activity.constraintMode ?? "";
@@ -245,8 +249,17 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
  * Column headers for the schedule grid export, shared by the CSV and XLSX
  * formatters (their header rows must stay byte-identical). "Description" is the
  * last prose column, immediately before the terminal "Type" column.
+ *
+ * `hasConstraints` controls the four Constraint columns independently of
+ * `hasDeps` (a sequential-mode scenario with a constrained activity exports
+ * them too — the grid's v0.52.1 rule). It defaults to `hasDeps`, which is the
+ * pre-v0.57.3 behavior: dependency mode always includes them.
  */
-export function buildScheduleHeaders(hasDeps: boolean, pctLabel: string): string[] {
+export function buildScheduleHeaders(
+  hasDeps: boolean,
+  pctLabel: string,
+  hasConstraints: boolean = hasDeps,
+): string[] {
   const headers = [
     "#",
     "Activity Name",
@@ -263,7 +276,10 @@ export function buildScheduleHeaders(hasDeps: boolean, pctLabel: string): string
   ];
   if (hasDeps) {
     headers.push("Total Float (days)", "Free Float (days)");
-    headers.push("Predecessors", "Successors", "Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
+    headers.push("Predecessors", "Successors");
+  }
+  if (hasConstraints) {
+    headers.push("Constraint Type", "Constraint Date", "Constraint Mode", "Constraint Note");
   }
   headers.push("Tasks", "Task Details", "Deliverables", "Deliverable Details");
   headers.push("Description");

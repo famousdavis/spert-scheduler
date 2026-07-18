@@ -5,8 +5,10 @@ import {
   buildSummaryData,
   buildGridRows,
   buildScheduleHeaders,
+  type GridRow,
   type ScheduleExportParams,
 } from "./schedule-export-service";
+import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
 import { buildRenderList } from "@ui/helpers/band-utils";
 
 function csvEscape(value: string | number): string {
@@ -21,11 +23,51 @@ function csvEscape(value: string | number): string {
   return str;
 }
 
+// One activity's cell values, aligned with buildScheduleHeaders (the CSV twin
+// of the XLSX formatter's buildActivityCells — CSV keeps "; "-joined details).
+function buildCsvActivityCells(
+  row: GridRow,
+  hasDeps: boolean,
+  hasConstraints: boolean,
+): (string | number)[] {
+  const cells: (string | number)[] = [
+    row.num,
+    row.name,
+    row.min,
+    row.mostLikely,
+    row.max,
+    row.confidence,
+    row.distribution,
+    row.status,
+    row.actual,
+    row.duration,
+    row.startDate,
+    row.endDate,
+  ];
+  if (hasDeps) {
+    cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
+    cells.push(row.predecessors ?? "", row.successors ?? "");
+  }
+  if (hasConstraints) {
+    cells.push(
+      row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
+      row.constraintNote ?? "",
+    );
+  }
+  cells.push(row.tasks ?? "", row.taskDetails ?? "", row.deliverables ?? "", row.deliverableDetails ?? "");
+  cells.push(row.description ?? "");
+  cells.push("Activity");
+  return cells;
+}
+
 export function exportScheduleCsv(params: ScheduleExportParams): string {
   const lines: string[] = [];
   const summary = buildSummaryData(params);
   const rows = buildGridRows(params);
   const hasDeps = params.settings.dependencyMode;
+  // Grid parity (v0.52.1 rule): constraint columns also export in sequential
+  // mode once any activity carries a constraint.
+  const hasConstraints = hasDeps || hasAnyConstraint(params.activities);
   const pctLabel = `P${Math.round(params.settings.probabilityTarget * 100)}`;
 
   const rowMap = new Map(rows.map((r) => [r.activityId, r]));
@@ -38,7 +80,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
   lines.push("");
 
   // Column headers (shared with the XLSX formatter — keep byte-identical)
-  const headers = buildScheduleHeaders(hasDeps, pctLabel);
+  const headers = buildScheduleHeaders(hasDeps, pctLabel, hasConstraints);
   lines.push(headers.map(csvEscape).join(","));
 
   // Data rows — iterate render list (activities + bands interleaved)
@@ -46,32 +88,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
     if (item.kind === "activity") {
       const row = rowMap.get(item.activity.id);
       if (!row) continue; // safety: should never fire — renderItems built from params.activities
-      const cells: (string | number)[] = [
-        row.num,
-        row.name,
-        row.min,
-        row.mostLikely,
-        row.max,
-        row.confidence,
-        row.distribution,
-        row.status,
-        row.actual,
-        row.duration,
-        row.startDate,
-        row.endDate,
-      ];
-      if (hasDeps) {
-        cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
-        cells.push(
-          row.predecessors ?? "", row.successors ?? "",
-          row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
-          row.constraintNote ?? "",
-        );
-      }
-      cells.push(row.tasks ?? "", row.taskDetails ?? "", row.deliverables ?? "", row.deliverableDetails ?? "");
-      cells.push(row.description ?? "");
-      cells.push("Activity");
-      lines.push(cells.map(csvEscape).join(","));
+      lines.push(buildCsvActivityCells(row, hasDeps, hasConstraints).map(csvEscape).join(","));
     } else {
       // Band row: blank cells except Activity Name (col 1) and Type (last col)
       const cells = headers.map(() => "");
@@ -101,7 +118,10 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
     "",
   ];
   if (hasDeps) {
-    totalCells.push("", "", "", "", "", "", "", "");
+    totalCells.push("", "", "", ""); // Floats + Predecessors / Successors
+  }
+  if (hasConstraints) {
+    totalCells.push("", "", "", ""); // Constraint Type / Date / Mode / Note
   }
   totalCells.push("", "", "", ""); // Tasks / Task Details / Deliverables / Deliverable Details
   totalCells.push(""); // Description column

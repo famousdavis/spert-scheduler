@@ -1,7 +1,7 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useProjectActions } from "@ui/hooks/use-project-actions";
@@ -48,6 +48,7 @@ import { isFirebaseAvailable } from "@infrastructure/firebase/firebase";
 import { useAiConnectivity } from "@ui/hooks/use-ai-connectivity";
 import { ConnectAiConsentModal } from "@ui/components/ConnectAI/ConnectAiConsentModal";
 import { ConnectAiPanel } from "@ui/components/ConnectAI/ConnectAiPanel";
+import type { AiFeedItem } from "@ui/components/ConnectAI/AiActivityFeed";
 import { AI_CONSENT_KEY, AI_SESSION_ID_KEY, AI_CONSENT_VERSION } from "@app/ai-connectivity-constants";
 import type { AiOpResult } from "@app/api/ai-batch-service";
 
@@ -210,11 +211,16 @@ export function ProjectPage() {
   // assembled workCalendar are both local to this component.
   const applyAiBatch = useProjectStore((s) => s.applyAiBatch);
   const clearAiUndoFrame = useProjectStore((s) => s.clearAiUndoFrame);
-  const [aiFeed, setAiFeed] = useState<AiOpResult[]>([]);
+  const [aiFeed, setAiFeed] = useState<AiFeedItem[]>([]);
   const [showAiConsent, setShowAiConsent] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  // Page-lifetime-unique feed keys: op seqs restart per session, so keying feed
+  // rows by seq collides after a disconnect/reconnect (duplicate React keys).
+  const aiFeedIdRef = useRef(0);
   const handleAiResults = useCallback((results: AiOpResult[]) => {
-    setAiFeed((prev) => [...results, ...prev].slice(0, 100));
+    setAiFeed((prev) =>
+      [...results.map((result) => ({ feedId: ++aiFeedIdRef.current, result })), ...prev].slice(0, 100)
+    );
   }, []);
   const { sessionState, startSession, stopSession, changePermissions } = useAiConnectivity({
     project: project ?? null,
@@ -255,6 +261,12 @@ export function ProjectPage() {
     }
     return ok;
   }, [startSession]);
+  // The feed is session-scoped: an explicit disconnect ends the session (a
+  // later connect always creates a fresh one), so drop the old session's rows.
+  const handleAiDisconnect = useCallback(async () => {
+    await stopSession();
+    setAiFeed([]);
+  }, [stopSession]);
 
   // Deterministic schedule — uses sequential or dependency-aware engine
   const sequentialSchedule = useSchedule(
@@ -1039,7 +1051,7 @@ export function ProjectPage() {
         onClose={() => setShowAiPanel(false)}
         sessionState={sessionState}
         onChangePermissions={changePermissions}
-        onDisconnect={stopSession}
+        onDisconnect={handleAiDisconnect}
         feedItems={aiFeed}
       />
     </div>

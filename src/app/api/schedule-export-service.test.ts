@@ -100,6 +100,14 @@ function makeParams(overrides?: Partial<ScheduleExportParams>): ScheduleExportPa
   };
 }
 
+/** Locate the grid header row ("#" in col 1) in a parsed XLSX worksheet. */
+function findHeaderRow(ws: import("exceljs").Worksheet): number {
+  for (let r = 1; r <= 30; r++) {
+    if (ws.getCell(r, 1).value === "#") return r;
+  }
+  return -1;
+}
+
 // ---------------------------------------------------------------------------
 // buildSummaryData
 // ---------------------------------------------------------------------------
@@ -531,6 +539,96 @@ describe("float columns in export", () => {
 // xlsxSanitize — formula injection guard for XLSX cells
 // ---------------------------------------------------------------------------
 
+describe("constraint columns in sequential mode (v0.57.3)", () => {
+  // Grid parity: v0.52.1 shows the grid's Constraint column in sequential mode
+  // once any activity has a constraint; the exports adopt the same rule.
+  const constrainedActivities: Activity[] = [
+    makeActivity({
+      id: "a1",
+      name: "Design",
+      constraintType: "SNET",
+      constraintDate: "2026-03-20",
+      constraintMode: "hard",
+      constraintNote: "Vendor kickoff",
+    }),
+    makeActivity({ id: "a2", name: "Develop" }),
+    makeActivity({ id: "a3", name: "Test" }),
+  ];
+  const seqConstrainedParams = (): ScheduleExportParams =>
+    makeParams({ activities: constrainedActivities });
+
+  it("buildScheduleHeaders emits constraint columns without dep columns when hasConstraints alone is set", () => {
+    const headers = buildScheduleHeaders(false, "P50", true);
+    expect(headers.indexOf("Constraint Type")).toBe(headers.indexOf("End Date") + 1);
+    expect(headers).toContain("Constraint Date");
+    expect(headers).toContain("Constraint Mode");
+    expect(headers).toContain("Constraint Note");
+    expect(headers).not.toContain("Total Float (days)");
+    expect(headers).not.toContain("Predecessors");
+  });
+
+  it("buildScheduleHeaders third arg defaults to hasDeps (pre-v0.57.3 shapes preserved)", () => {
+    expect(buildScheduleHeaders(true, "P50")).toEqual(buildScheduleHeaders(true, "P50", true));
+    expect(buildScheduleHeaders(false, "P50")).toEqual(buildScheduleHeaders(false, "P50", false));
+    expect(buildScheduleHeaders(false, "P50")).not.toContain("Constraint Type");
+  });
+
+  it("buildGridRows carries constraint fields in sequential mode when any activity is constrained", () => {
+    const rows = buildGridRows(seqConstrainedParams());
+    expect(rows[0]!.constraintType).toBe("SNET");
+    expect(rows[0]!.constraintDate).toBe("03/20/2026");
+    expect(rows[0]!.constraintMode).toBe("hard");
+    expect(rows[0]!.constraintNote).toBe("Vendor kickoff");
+    // Unconstrained sibling gets empty strings (columns exist for every row).
+    expect(rows[1]!.constraintType).toBe("");
+  });
+
+  it("buildGridRows omits constraint fields in sequential mode when no activity is constrained", () => {
+    const rows = buildGridRows(makeParams());
+    expect(rows[0]!.constraintType).toBeUndefined();
+  });
+
+  it("CSV exports constraint columns and values for a constrained sequential scenario", () => {
+    const csv = exportScheduleCsv(seqConstrainedParams());
+    const lines = csv.split("\n");
+    const headerCells = lines.find((l) => l.startsWith("#,"))!.split(",");
+    const typeIdx = headerCells.indexOf("Constraint Type");
+    expect(typeIdx).toBe(headerCells.indexOf("End Date") + 1);
+    expect(headerCells).not.toContain("Predecessors");
+    const dataCells = lines.find((l) => l.startsWith("1,"))!.split(",");
+    expect(dataCells[typeIdx]).toBe("SNET");
+    expect(dataCells[typeIdx + 1]).toBe("03/20/2026");
+    expect(dataCells[typeIdx + 2]).toBe("hard");
+    expect(dataCells[typeIdx + 3]).toBe("Vendor kickoff");
+    // Totals row stays aligned with the widened header row.
+    const totalCells = lines[lines.length - 1]!.split(",");
+    expect(totalCells.length).toBe(headerCells.length);
+  });
+
+  it("CSV keeps the sequential no-constraint shape unchanged", () => {
+    const csv = exportScheduleCsv(makeParams());
+    const headerCells = csv.split("\n").find((l) => l.startsWith("#,"))!.split(",");
+    expect(headerCells).not.toContain("Constraint Type");
+  });
+
+  it("XLSX exports constraint columns, values, and aligned widths for a constrained sequential scenario", async () => {
+    const ExcelJS = await import("exceljs");
+    const headers = buildScheduleHeaders(false, "P50", true);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await exportScheduleXlsx(seqConstrainedParams()));
+    const ws = wb.getWorksheet("Schedule")!;
+    const headerRow = findHeaderRow(ws);
+    const typeCol = headers.indexOf("Constraint Type") + 1; // 1-based
+    expect(ws.getCell(headerRow, typeCol).value).toBe("Constraint Type");
+    expect(ws.getCell(headerRow + 1, typeCol).value).toBe("SNET");
+    expect(ws.getCell(headerRow + 1, typeCol + 3).value).toBe("Vendor kickoff");
+    // Widths stay aligned through the split: Description 40, terminal Type 10.
+    expect(ws.columnCount).toBe(headers.length);
+    expect(ws.getColumn(headers.indexOf("Description") + 1).width).toBe(40);
+    expect(ws.getColumn(headers.length).width).toBe(10);
+  });
+});
+
 describe("xlsxSanitize", () => {
   it.each(["=", "+", "-", "@", "\t", "\r"])("prefixes strings starting with '%s'", (ch) => {
     const input = `${ch}dangerous`;
@@ -937,13 +1035,6 @@ describe("Description column export", () => {
       },
       settings: { ...settings, dependencyMode: deps },
     });
-  }
-
-  function findHeaderRow(ws: import("exceljs").Worksheet): number {
-    for (let r = 1; r <= 30; r++) {
-      if (ws.getCell(r, 1).value === "#") return r;
-    }
-    return -1;
   }
 
   it.each([false, true])("shared builder places Description before Type (deps=%s)", (deps) => {
