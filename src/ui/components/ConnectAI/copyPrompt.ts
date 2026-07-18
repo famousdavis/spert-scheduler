@@ -56,7 +56,9 @@ TOOLS THAT WORK WITHOUT READ MODE (Write is always on once paired):
   scheduler_create_milestone, scheduler_update_milestone,
   scheduler_assign_milestone / scheduler_unassign_milestone,
   scheduler_bulk_create_activities, scheduler_bulk_create_milestones,
-  scheduler_bulk_assign_milestones.
+  scheduler_bulk_assign_milestones, scheduler_bulk_update_activities,
+  scheduler_bulk_import (needs Read Mode + a dependency-mode scenario ONLY
+    when you include dependencies; without them it needs neither).
 
 TOOLS THAT REQUIRE READ MODE (ask me to enable it in the Connect AI panel):
   scheduler_get_project — read the current activities, schedule, and ids.
@@ -67,21 +69,39 @@ TOOLS THAT REQUIRE READ MODE (ask me to enable it in the Connect AI panel):
     dependency mode enabled (pass scenarioId).
   scheduler_bulk_create_dependencies — same gate; create many edges at once.
 
-BULK TOOLS (prefer these when building)
-When CREATING more than ~3 of anything, use the bulk tool — one call and one
-rate-limit token instead of many singular calls:
+BULK TOOLS (prefer these when building or revising)
+When CREATING or UPDATING more than ~3 of anything, use a bulk tool — one call
+and one rate-limit token instead of many singular calls:
   - scheduler_bulk_create_activities: 25-50 items per call when they carry
     descriptions/notes, up to 100 for light items. If your output is truncated
     mid-call the server rejects the whole call, so keep batches modest.
   - scheduler_bulk_create_milestones, scheduler_bulk_assign_milestones.
   - scheduler_bulk_create_dependencies (Read Mode + a dependency-mode scenario).
+  - scheduler_bulk_update_activities: change names, estimates, confidence,
+    distribution, and/or descriptions for up to 100 existing activities at once.
+    Each entry patches ONLY the fields you send (absent = unchanged; an empty-
+    string description clears it). The MERGED estimate must keep
+    min <= mostLikely <= max or that one entry is skipped. Repeated ids apply in
+    order — a later entry sees the earlier one's result.
+  - scheduler_bulk_import: build a WHOLE schedule in one call — activities,
+    milestones, assignments, and dependencies together (every section optional;
+    at least one non-empty). Sections apply in order activities -> milestones ->
+    assignments -> dependencies, so an assignment or edge can reference
+    something created earlier in the same call. Including dependencies means you
+    MUST pass scenarioId and it needs Read Mode + that scenario's dependency
+    mode on; that import is all-or-nothing at both queue and apply time (if
+    dependency mode is off the ENTIRE import, activities and milestones too, is
+    declined). An import with no dependencies needs no Read Mode.
 Each bulk call is all-or-nothing at the server, but items are applied
 independently in my browser: which items applied vs skipped (duplicate, cycle,
-not found, invalid, ...) shows in my app's AI activity feed — call
-scheduler_get_project to confirm. For dependencies, an acyclic edge set applies
-fully regardless of array order; order only decides WHICH edges skip if the set
-(together with existing edges) forms a cycle — fix the cycle and resend only
-the skipped edges.
+not found, invalid, no change, ...) shows in my app's AI activity feed — call
+scheduler_get_project to confirm. In an import, an activity or milestone skipped
+because it was never created (invalid, limit reached) takes its dependent
+assignments and edges with it as "not found"; a duplicate does NOT cascade (it
+already exists), which makes re-running an import safe. For dependencies, an
+acyclic edge set applies fully regardless of array order; order only decides
+WHICH edges skip if the set (together with existing edges) forms a cycle — fix
+the cycle and resend only the skipped edges.
 
 NOTES CAVEAT
 scheduler_append_activity_note appends to an activity's notes (max 2000 chars).
