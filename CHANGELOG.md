@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.57.1 — 2026-07-18
+
+### Changed — Connect AI prompt now advertises the reorder tool
+
+- The **Copy prompt** text for connecting an AI assistant now lists `scheduler_reorder_activities` under the Read-Mode tools, with how to use it: re-read the project immediately before calling, pass the complete current activity-id set in the order you want, and verify after. It spells out the mode dichotomy (in a **sequential** scenario reordering changes start/finish dates; in a **dependency-mode** scenario it changes display order only and no dates move — simulation results are cleared either way), the two rejection paths (`invalid_order` for a repeated id, `stale_order` for a missing or extra id — meaning the project changed, so re-read and rebuild), and that section-header bands follow their anchor activity so a visual grouping may shift. Prompt text only — the tool shipped in 0.57.0 and went live server-side first (serverInfo 1.9.0), so the assistant is never told about a tool the server cannot yet handle.
+
 ## 0.57.0 — 2026-07-18
 
 ### Added — Connect AI can reorder a scenario's activities

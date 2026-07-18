@@ -68,6 +68,16 @@ TOOLS THAT REQUIRE READ MODE (ask me to enable it in the Connect AI panel):
   scheduler_update_dependency — these also require the target scenario to have
     dependency mode enabled (pass scenarioId).
   scheduler_bulk_create_dependencies — same gate; create many edges at once.
+  scheduler_reorder_activities — reorder a scenario's activities to EXACTLY a
+    full id list you provide (pass scenarioId). RE-READ scheduler_get_project
+    immediately before calling to get the live ids, pass the COMPLETE current
+    set in your desired order, and verify after. In a sequential scenario this
+    CHANGES start/finish dates; in a dependency-mode scenario it changes DISPLAY
+    ORDER ONLY and no dates move — either way simulation results are cleared and
+    re-run. A repeated id is rejected as invalid_order; a missing or extra id is
+    rejected as stale_order (the project changed since you read it — re-read and
+    rebuild the full list). You cannot see section-header bands: they follow
+    their anchor activity, so warn me that a visual grouping may shift.
 
 BULK TOOLS (prefer these when building or revising)
 When CREATING or UPDATING more than ~3 of anything, use a bulk tool — one call
