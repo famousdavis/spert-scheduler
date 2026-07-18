@@ -12,6 +12,7 @@ import {
   BulkAssignMilestonesSchema,
   BulkUpdateActivitiesSchema,
   BulkImportScheduleSchema,
+  ReorderActivitiesSchema,
 } from "./ai-bulk-schemas";
 
 // Contract test (client half, P0.2 / F3-7). The client validates the drained OP
@@ -34,9 +35,11 @@ interface FieldSpec {
   nonnegative?: boolean;
   pattern?: string;
 }
-// Two op shapes (P2): single-array ops carry `array`/`cap`/`item`; the composite
+// Three op shapes: single-array ops carry `array`/`cap`/`item`; the composite
 // `bulk_import_schedule` carries `sections` (each an optional array with its own
-// `cap`/`item`). Partition and drive each shape with its own describe.each.
+// `cap`/`item`); the scalar-array op `reorder_activities` carries
+// `array`/`cap`/`element` (a bare string array — no per-item object). Partition
+// and drive each shape with its own describe.each.
 interface SingleArrayOpSpec {
   tool: string;
   array: string;
@@ -51,7 +54,13 @@ interface MultiSectionOpSpec {
   tool: string;
   sections: Record<string, SectionSpec>;
 }
-type OpSpec = SingleArrayOpSpec | MultiSectionOpSpec;
+interface ScalarArrayOpSpec {
+  tool: string;
+  array: string;
+  cap: { min: number; max: number };
+  element: { type: "string" | "number"; minLen?: number; maxLen?: number };
+}
+type OpSpec = SingleArrayOpSpec | MultiSectionOpSpec | ScalarArrayOpSpec;
 interface Contract {
   ops: Record<string, OpSpec>;
   schedulerOps: string[];
@@ -71,14 +80,25 @@ const SCHEMAS: Record<string, ZodType> = {
   bulk_assign_milestones: BulkAssignMilestonesSchema,
   bulk_update_activities: BulkUpdateActivitiesSchema,
   bulk_import_schedule: BulkImportScheduleSchema,
+  reorder_activities: ReorderActivitiesSchema,
 };
 
-const isSingleArray = (s: OpSpec): s is SingleArrayOpSpec => "array" in s;
+// Partition by shape. `array`+`item` → single-array; `array`+`element` →
+// scalar-array; `sections` → composite. (Testing `"array" in s` alone would
+// misclassify the itemless scalar-array op.)
+const isSingleArray = (s: OpSpec): s is SingleArrayOpSpec =>
+  "array" in s && "item" in s;
+const isScalarArray = (s: OpSpec): s is ScalarArrayOpSpec =>
+  "array" in s && "element" in s;
+const isSection = (s: OpSpec): s is MultiSectionOpSpec => "sections" in s;
 const singleArrayOps = Object.entries(contract.ops).filter(([, s]) =>
   isSingleArray(s)
 ) as [string, SingleArrayOpSpec][];
-const sectionOps = Object.entries(contract.ops).filter(
-  ([, s]) => !isSingleArray(s)
+const scalarArrayOps = Object.entries(contract.ops).filter(([, s]) =>
+  isScalarArray(s)
+) as [string, ScalarArrayOpSpec][];
+const sectionOps = Object.entries(contract.ops).filter(([, s]) =>
+  isSection(s)
 ) as [string, MultiSectionOpSpec][];
 
 function sample(spec: FieldSpec): unknown {
@@ -175,6 +195,38 @@ describe.each(sectionOps)("client contract (composite) — %s", (op, spec) => {
         }
       }
     });
+  });
+});
+
+// Scalar-array op (reorder_activities). The client schema is structural
+// (z.string(), no element bounds), so this asserts the array field, caps, and
+// element primitive type only — element minLen/maxLen are landing-only rows.
+describe.each(scalarArrayOps)("client contract (scalar array) — %s", (op, spec) => {
+  const schema = SCHEMAS[op]!;
+  const el = spec.element.type === "number" ? 1 : "x";
+  const build = (items: unknown[]) => ({ [spec.array]: items });
+
+  it("has a matching client structural schema", () => {
+    expect(schema).toBeDefined();
+  });
+
+  it("parses a minimal valid payload (cap.min elements)", () => {
+    expect(schema.safeParse(build(Array(spec.cap.min).fill(el))).success).toBe(true);
+  });
+
+  it("requires the array field", () => {
+    expect(schema.safeParse({}).success).toBe(false);
+  });
+
+  it("enforces the array-length cap (min and max)", () => {
+    expect(schema.safeParse(build(Array(spec.cap.min - 1).fill(el))).success).toBe(false);
+    expect(schema.safeParse(build(Array(spec.cap.max).fill(el))).success).toBe(true);
+    expect(schema.safeParse(build(Array(spec.cap.max + 1).fill(el))).success).toBe(false);
+  });
+
+  it("rejects a wrong-typed element", () => {
+    const wrong = spec.element.type === "number" ? "no" : 123;
+    expect(schema.safeParse(build([wrong, el])).success).toBe(false);
   });
 });
 
