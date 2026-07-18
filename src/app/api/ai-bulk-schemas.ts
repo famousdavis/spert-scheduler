@@ -52,6 +52,21 @@ const bulkAssignmentItem = z.object({
   milestoneId: z.string(),
 });
 
+// Phase 2. Every field except `id` is optional — an update patches only the
+// fields it carries (absent = unchanged). Structural only: no enums, no content
+// bounds. The handler's updateActivityCore merges over current values, then
+// validates the merged activity per item.
+const bulkUpdateItem = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  min: z.number().optional(),
+  mostLikely: z.number().optional(),
+  max: z.number().optional(),
+  confidenceLevel: z.string().optional(),
+  distributionType: z.string().optional(),
+  description: z.string().optional(),
+});
+
 export const BulkCreateActivitiesSchema = z.object({
   scenarioId: scenarioIdOpt,
   activities: z.array(bulkActivityItem).min(1).max(100),
@@ -70,4 +85,23 @@ export const BulkCreateMilestonesSchema = z.object({
 export const BulkAssignMilestonesSchema = z.object({
   scenarioId: scenarioIdOpt,
   assignments: z.array(bulkAssignmentItem).min(1).max(500),
+});
+
+// Phase 2 — 2A. Bulk activity update: one array, ≤100 patches.
+export const BulkUpdateActivitiesSchema = z.object({
+  scenarioId: scenarioIdOpt,
+  updates: z.array(bulkUpdateItem).min(1).max(100),
+});
+
+// Phase 2 — 2B. Composite import: four OPTIONAL sections reusing the live
+// Phase-1 item shapes. Sections carry a `.max()` cap but NO `.min(1)` — an
+// absent or explicitly-empty section is structurally valid; the "at least one
+// section non-empty" rule is a server inline check + a drain-time defensive
+// floor (all-empty → whole-op `invalid`), never a structural one.
+export const BulkImportScheduleSchema = z.object({
+  scenarioId: scenarioIdOpt,
+  activities: z.array(bulkActivityItem).max(100).optional(),
+  milestones: z.array(bulkMilestoneItem).max(100).optional(),
+  assignments: z.array(bulkAssignmentItem).max(500).optional(),
+  dependencies: z.array(bulkDependencyItem).max(500).optional(),
 });
