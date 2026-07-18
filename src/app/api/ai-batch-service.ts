@@ -34,6 +34,7 @@ import {
   BulkAssignMilestonesSchema,
   BulkUpdateActivitiesSchema,
   BulkImportScheduleSchema,
+  ReorderActivitiesSchema,
 } from "./ai-bulk-schemas";
 
 // -- Caps (mirror the Zod schema `.max()` constraints) -----------------------
@@ -249,6 +250,13 @@ interface BulkImportSchedulePayload {
   dependencies?: BulkDependencyItem[];
 }
 
+// Reorder (Phase 3): the full current activity-id list, in the desired order.
+// Whole-op by nature — no per-item outcomes.
+interface ReorderActivitiesPayload {
+  scenarioId?: string;
+  orderedActivityIds: string[];
+}
+
 export type AiOp =
   | { seq: number; op: "create_activity"; payload: CreateActivityPayload }
   | { seq: number; op: "update_activity_estimate"; payload: UpdateEstimatePayload }
@@ -271,7 +279,8 @@ export type AiOp =
   | { seq: number; op: "bulk_create_milestones"; payload: BulkCreateMilestonesPayload }
   | { seq: number; op: "bulk_assign_milestones"; payload: BulkAssignMilestonesPayload }
   | { seq: number; op: "bulk_update_activities"; payload: BulkUpdateActivitiesPayload }
-  | { seq: number; op: "bulk_import_schedule"; payload: BulkImportSchedulePayload };
+  | { seq: number; op: "bulk_import_schedule"; payload: BulkImportSchedulePayload }
+  | { seq: number; op: "reorder_activities"; payload: ReorderActivitiesPayload };
 
 export type AiSkipReason =
   | "not_found"
@@ -995,6 +1004,53 @@ function handleBulkImportSchedule(scenario: Scenario, p: BulkImportSchedulePaylo
   return { scenario: scn, outcome: { status: "partial", appliedCount, skippedItems, sections } };
 }
 
+// Reorder (Phase 3): rebuild `activities` from an explicit full id list. The one
+// whole-op-only write in the bulk family — no per-item loop, no `partial`
+// outcome. The precheck order mirrors the server's queue-time prechecks, but
+// THIS is the authoritative pass: state can drift between the server's
+// snapshot-time check and drain, so a queue-time pass never implies a drain-time
+// pass.
+//   invalid_order   — a duplicate id in the requested list
+//   stale_order     — the list is not an exact permutation of the live activity
+//                     ids (missing/extra id or length mismatch) → project changed
+//   value_unchanged — the list already matches the current order
+// On apply: rebuild `activities` in the given order; bands are left untouched
+// (each band re-anchors to its activity at render time via buildRenderList, so a
+// moved anchor carries its band with it — no band mutation). simulationResults is
+// invalidated in BOTH modes, matching the human reorder convention
+// (reorderActivities / reorderWithBands); the dependency-mode message discloses
+// that results re-run even though no dates move.
+function handleReorderActivities(scenario: Scenario, p: ReorderActivitiesPayload): OpResult {
+  const ordered = p.orderedActivityIds;
+
+  // Precheck A — duplicate ids in the requested order → whole-op invalid_order.
+  const seen = new Set<string>();
+  for (const id of ordered) {
+    if (seen.has(id)) return skip(scenario, "invalid_order");
+    seen.add(id);
+  }
+
+  // Precheck B — set-equality vs the live scenario. A (no duplicates) already
+  // holds, so equal length + every requested id present ⇒ exact permutation.
+  const currentIds = scenario.activities.map((a) => a.id);
+  if (currentIds.length !== ordered.length) return skip(scenario, "stale_order");
+  const currentSet = new Set(currentIds);
+  for (const id of ordered) {
+    if (!currentSet.has(id)) return skip(scenario, "stale_order");
+  }
+
+  // Identical order → no-op (no mutation, no invalidation).
+  if (currentIds.every((id, i) => id === ordered[i])) {
+    return skip(scenario, "value_unchanged");
+  }
+
+  // Rebuild the array in the requested order. Every id resolves (set-equality
+  // above), so the lookups are total.
+  const byId = new Map(scenario.activities.map((a) => [a.id, a]));
+  const activities = ordered.map((id) => byId.get(id)!);
+  return applied({ ...scenario, activities, simulationResults: undefined });
+}
+
 // -- Dispatcher --------------------------------------------------------------
 
 export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
@@ -1067,6 +1123,14 @@ export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
       const parsed = BulkImportScheduleSchema.safeParse(op.payload);
       if (!parsed.success) return skip(scenario, "invalid");
       return handleBulkImportSchedule(scenario, parsed.data as BulkImportSchedulePayload);
+    }
+    // Reorder (Phase 3): structural parse (array of ≥2 strings) → whole-op
+    // invalid on shape failure; the handler owns the duplicate / set-equality /
+    // identical-order prechecks and is the authoritative drain-time check.
+    case "reorder_activities": {
+      const parsed = ReorderActivitiesSchema.safeParse(op.payload);
+      if (!parsed.success) return skip(scenario, "invalid");
+      return handleReorderActivities(scenario, parsed.data as ReorderActivitiesPayload);
     }
     default:
       // Unreachable for well-typed input; a defensive floor for a malformed

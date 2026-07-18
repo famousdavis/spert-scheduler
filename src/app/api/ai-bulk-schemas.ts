@@ -105,3 +105,14 @@ export const BulkImportScheduleSchema = z.object({
   assignments: z.array(bulkAssignmentItem).max(500).optional(),
   dependencies: z.array(bulkDependencyItem).max(500).optional(),
 });
+
+// Phase 3. Reorder activities: the FULL current activity-id list for the target
+// scenario, in the desired order. Structural only — a bare string array with the
+// same min/max caps the server enforces (`.min(2)` since a reorder needs ≥2 ids;
+// `.max(500)` mirrors the activity cap). Duplicate ids, set-equality against the
+// live scenario, and identical-order detection are the handler's job, not the
+// structural schema's (a whole-op `invalid` here means envelope corruption only).
+export const ReorderActivitiesSchema = z.object({
+  scenarioId: scenarioIdOpt,
+  orderedActivityIds: z.array(z.string()).min(2).max(500),
+});

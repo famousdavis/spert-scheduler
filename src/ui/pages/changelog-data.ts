@@ -12,6 +12,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.0",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Added — Connect AI can reorder a scenario's activities",
+        items: [
+          "A connected AI assistant can now reorder the activities in a scenario (reorder_activities) — for example, \"put the activities in the order I'd present them to the client.\" You (via the AI) supply the full list of activity ids in the order you want; it must be exactly the scenario's current set, so the tool re-reads your project first and verifies afterward.",
+          "What reordering does depends on the scheduling mode, and the AI is told which applies: in a sequential scenario, activities are scheduled in list order, so reordering changes start and finish dates; in a dependency-driven scenario the schedule follows the dependency graph, so reordering changes display order only — no dates move. Either way, simulation results are cleared and re-run, exactly as a manual drag-reorder already does.",
+          "It is all-or-nothing and guarded against a stale view: the requested list must be an exact permutation of the scenario's current activities. A repeated id is rejected as an invalid order, and any missing or extra id is rejected as a stale order (the project changed since the AI last read it — it is asked to re-read and rebuild the list). Section-header bands stay in place and follow their anchor activity, so a visual grouping may shift when its activity moves.",
+        ],
+      },
+      {
+        title: "Note",
+        items: [
+          "As with the bulk tools, the new tool goes live server-side first; the \"Copy prompt\" text that tells your assistant about it ships in a follow-up (0.57.1) so the assistant is never told about a tool the server cannot yet handle.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.56.1",
     date: "2026-07-18",
     sections: [

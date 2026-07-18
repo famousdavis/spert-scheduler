@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.57.0 — 2026-07-18
+
+### Added — Connect AI can reorder a scenario's activities
+
+- A connected AI assistant can now **reorder the activities in a scenario** (`reorder_activities`) — for example, "put the activities in the order I'd present them to the client." You (via the AI) supply the full list of activity ids in the order you want; it must be exactly the scenario's current set, so the tool re-reads your project first and verifies afterward.
+- **What reordering does depends on the scheduling mode**, and the AI is told which applies: in a **sequential** scenario, activities are scheduled in list order, so reordering **changes start and finish dates**; in a **dependency-driven** scenario the schedule follows the dependency graph, so reordering changes **display order only — no dates move**. Either way, simulation results are cleared and re-run, exactly as a manual drag-reorder already does.
+- **It is all-or-nothing and guarded against a stale view.** The requested list must be an exact permutation of the scenario's current activities: a repeated id is rejected as an *invalid order*, and any missing or extra id is rejected as a *stale order* — meaning the project changed since the AI last read it, so it is asked to re-read and rebuild the list. Nothing is half-applied. Section-header bands are left in place and continue to follow their anchor activity, so a visual grouping may shift when its activity moves.
+- Requires Read Mode. No schema or simulation-engine change (`SCHEMA_VERSION` stays 23; `ENGINE_VERSION` stays 1.1.1).
+
+### Note
+
+- As with the bulk tools, the new tool goes live server-side first; the **Copy prompt** text that tells your assistant about it ships in a follow-up release (0.57.1) so the assistant is never told about a tool the server cannot yet handle.
+
 ## 0.56.1 — 2026-07-18
 
 ### Changed — Connect AI prompt now advertises the Phase 2 bulk tools
