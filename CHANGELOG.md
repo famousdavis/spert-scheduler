@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.57.5 — 2026-07-18
+
+### Security — Development-toolchain dependency updates
+
+- **Cleared four security advisories in the app's build tooling.** Updated the build tool (Vite 7.3.2 → 7.3.6) and pinned two transitive build/test dependencies to their fixed versions (esbuild 0.28.1 and qs 6.15.2, applied via npm `overrides` scoped to their exact parent packages), resolving four advisories flagged by `npm audit` — two in Vite, one in esbuild, and one in the `qs` query-string parser reached only through the mutation-testing toolchain. All four affect only the local development server and build step: they are absent from the deployed application, never reachable by end users, and additionally Windows-only and dev-server-only. There is no runtime, data, or behavior change — this is a supply-chain hygiene update. The two remaining, accepted `npm audit` entries (exceljs → uuid) are unchanged: their vulnerable code path is never exercised, and npm's only offered "fix" is a major downgrade of exceljs.
+
 ## 0.57.4 — 2026-07-18
 
 ### Security — AI Connectivity audit hardening
