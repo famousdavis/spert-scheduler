@@ -170,7 +170,13 @@ function applyOpsToOneScenario(
       results.push({ op, outcome });
       return next;
     } catch (err) {
-      console.error("[AI] op handler threw unexpectedly — treating as no-op", op, err);
+      // A7: log the op's type/seq, not the full payload — it carries the user's
+      // own activity names/notes/descriptions (exposure under telemetry capture
+      // or screen-share).
+      console.error(
+        `[AI] op handler threw unexpectedly — treating as no-op (op=${op.op}, seq=${op.seq})`,
+        err
+      );
       results.push({ op, outcome: { status: "skipped", reason: "invalid" } });
       return acc;
     }

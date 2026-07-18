@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.4",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Security — AI Connectivity audit hardening",
+        items: [
+          "Hardened validation of AI-submitted edits. When a connected AI assistant submits changes, the app now validates them more strictly at the point they're applied in your browser: activity estimates are bounded to a sane maximum, dependency relationship types and lag values are checked against their allowed set and range, note text must be actual text, and the number of checklist/deliverable items in a single operation is capped. Malformed values are skipped with a clear reason in the activity feed instead of being stored — which, before this change, could in rare cases have left a project unable to reload. AI edit operations were already server-authored and never writable directly by a paired assistant; these checks are an additional safety layer.",
+          "Clearer Read-Mode consent copy. The Connect AI consent screen now spells out that Read Mode shares your activity notes, descriptions, and checklist/deliverable text (not only the schedule and activity ids), so the disclosure matches what the AI actually receives.",
+          "More resilient consent toggling. If turning Read Mode on or off fails to reach the server, the app now consistently reverts to the last confirmed state and stops the session rather than showing Read Mode as enabled when the server didn't record it.",
+          "Reduced console exposure. If an AI operation errors, only its type and sequence number are logged — no longer the full operation payload, which could contain your own activity names and notes.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.57.3",
     date: "2026-07-18",
     sections: [

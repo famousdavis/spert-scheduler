@@ -185,6 +185,28 @@ describe("Phase 1 criterion 2 — mixed validity", () => {
     expect(scenarioOf(res.project, scenarioId).activities.map((a) => a.id)).toEqual(["ok1", "ok2"]);
   });
 
+  it("bulk_create_activities skips an over-ceiling estimate per-item (A1), not the whole op", () => {
+    const { project, scenarioId } = baseProject();
+    const op: AiOp = {
+      seq: 1,
+      op: "bulk_create_activities",
+      payload: {
+        activities: [
+          { id: "ok1", name: "Ok1", min: 1, mostLikely: 2, max: 3 },
+          { id: "huge", name: "Huge", min: 1, mostLikely: 2, max: 1e9 }, // over the 3650 ceiling
+          { id: "ok2", name: "Ok2", min: 2, mostLikely: 3, max: 4 },
+        ],
+      },
+    };
+    const res = one(project, op, scenarioId);
+    expect(res.results[0]!.outcome).toEqual({
+      status: "partial",
+      appliedCount: 2,
+      skippedItems: [{ index: 1, id: "huge", reason: "invalid" }],
+    });
+    expect(scenarioOf(res.project, scenarioId).activities.map((a) => a.id)).toEqual(["ok1", "ok2"]);
+  });
+
   it("bulk_create_dependencies reports unknown endpoint (not_found) and cycle", () => {
     const { project, scenarioId } = baseProject({ dependencyMode: true, activityIds: ["a0", "a1", "a2"] });
     const op: AiOp = {

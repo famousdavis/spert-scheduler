@@ -17,6 +17,7 @@ import type {
   DocumentData,
   DocumentSnapshot,
   DocumentChange,
+  DocumentReference,
   FirestoreError,
   Firestore,
 } from "firebase/firestore";
@@ -165,6 +166,17 @@ async function createFreshSession(
 
 type ResumeResult = "ok" | "abort" | "recreate";
 
+// A4: a failed consent UPGRADE (off → Read) left the server at consentRead:false
+// while startSession optimistically set local state to true. Revert local consent
+// and drop any snapshot ref so the UI can't claim Read Mode is on while the server
+// disagrees. Symmetric with the downgrade-failure branch below.
+function revertConsentUpgrade(snapshotRef: DocumentReference, err: unknown): "abort" {
+  writeConsentLocal(false);
+  deleteDoc(snapshotRef).catch(() => {});
+  console.error("[AI] Consent upgrade write failed; aborting resume:", err);
+  return "abort";
+}
+
 async function resumeSession(
   database: Firestore,
   sessionId: string,
@@ -198,6 +210,10 @@ async function resumeSession(
       deleteDoc(snapshotRef).catch(() => {});
       console.error("[AI] Consent downgrade write failed; aborting resume:", err);
       return "abort";
+    }
+    if (!prevConsentRead && consentRead) {
+      // Privilege upgrade (off → Read) failed transiently — symmetric revert.
+      return revertConsentUpgrade(snapshotRef, err);
     }
     console.error("[AI] Resume reconciliation failed; proceeding:", err);
     return "ok";
