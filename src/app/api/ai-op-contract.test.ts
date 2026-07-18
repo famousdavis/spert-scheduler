@@ -10,6 +10,8 @@ import {
   BulkCreateDependenciesSchema,
   BulkCreateMilestonesSchema,
   BulkAssignMilestonesSchema,
+  BulkUpdateActivitiesSchema,
+  BulkImportScheduleSchema,
 } from "./ai-bulk-schemas";
 
 // Contract test (client half, P0.2 / F3-7). The client validates the drained OP
@@ -32,12 +34,24 @@ interface FieldSpec {
   nonnegative?: boolean;
   pattern?: string;
 }
-interface OpSpec {
+// Two op shapes (P2): single-array ops carry `array`/`cap`/`item`; the composite
+// `bulk_import_schedule` carries `sections` (each an optional array with its own
+// `cap`/`item`). Partition and drive each shape with its own describe.each.
+interface SingleArrayOpSpec {
   tool: string;
   array: string;
   cap: { min: number; max: number };
   item: Record<string, FieldSpec>;
 }
+interface SectionSpec {
+  cap: { max: number };
+  item: Record<string, FieldSpec>;
+}
+interface MultiSectionOpSpec {
+  tool: string;
+  sections: Record<string, SectionSpec>;
+}
+type OpSpec = SingleArrayOpSpec | MultiSectionOpSpec;
 interface Contract {
   ops: Record<string, OpSpec>;
   schedulerOps: string[];
@@ -55,7 +69,17 @@ const SCHEMAS: Record<string, ZodType> = {
   bulk_create_dependencies: BulkCreateDependenciesSchema,
   bulk_create_milestones: BulkCreateMilestonesSchema,
   bulk_assign_milestones: BulkAssignMilestonesSchema,
+  bulk_update_activities: BulkUpdateActivitiesSchema,
+  bulk_import_schedule: BulkImportScheduleSchema,
 };
+
+const isSingleArray = (s: OpSpec): s is SingleArrayOpSpec => "array" in s;
+const singleArrayOps = Object.entries(contract.ops).filter(([, s]) =>
+  isSingleArray(s)
+) as [string, SingleArrayOpSpec][];
+const sectionOps = Object.entries(contract.ops).filter(
+  ([, s]) => !isSingleArray(s)
+) as [string, MultiSectionOpSpec][];
 
 function sample(spec: FieldSpec): unknown {
   return spec.type === "number" ? 1 : "x";
@@ -70,11 +94,11 @@ function minimalItem(item: Record<string, FieldSpec>): Record<string, unknown> {
   }
   return out;
 }
-function payload(op: OpSpec, items: unknown[]): Record<string, unknown> {
+function payload(op: SingleArrayOpSpec, items: unknown[]): Record<string, unknown> {
   return { [op.array]: items };
 }
 
-describe.each(Object.entries(contract.ops))("client contract — %s", (op, spec) => {
+describe.each(singleArrayOps)("client contract — %s", (op, spec) => {
   const schema = SCHEMAS[op]!;
 
   it("has a matching client structural schema", () => {
@@ -106,6 +130,51 @@ describe.each(Object.entries(contract.ops))("client contract — %s", (op, spec)
         expect(schema.safeParse(payload(spec, [missing])).success).toBe(false);
       }
     }
+  });
+});
+
+describe.each(sectionOps)("client contract (composite) — %s", (op, spec) => {
+  const schema = SCHEMAS[op]!;
+
+  it("has a matching client structural schema", () => {
+    expect(schema).toBeDefined();
+  });
+
+  it("accepts an all-absent payload structurally (empty_import is a handler check)", () => {
+    // The client schema makes every section optional with no `.min` — the
+    // "at least one section" rule is a server inline check + a drain-time floor,
+    // never structural. So `{}` parses here on purpose.
+    expect(schema.safeParse({}).success).toBe(true);
+  });
+
+  describe.each(Object.entries(spec.sections))("section %s", (section, sspec) => {
+    const build = (items: unknown[]) => ({ [section]: items });
+
+    it("parses a minimal valid section payload", () => {
+      expect(schema.safeParse(build([minimalItem(sspec.item)])).success).toBe(true);
+    });
+
+    it("allows an explicitly-empty section array (no .min)", () => {
+      expect(schema.safeParse(build([])).success).toBe(true);
+    });
+
+    it("enforces the section cap", () => {
+      const item = minimalItem(sspec.item);
+      expect(schema.safeParse(build(Array(sspec.cap.max).fill(item))).success).toBe(true);
+      expect(schema.safeParse(build(Array(sspec.cap.max + 1).fill(item))).success).toBe(false);
+    });
+
+    it("validates every declared item field's presence and primitive type", () => {
+      for (const [field, fspec] of Object.entries(sspec.item)) {
+        const badType = { ...minimalItem(sspec.item), [field]: wrongType(fspec) };
+        expect(schema.safeParse(build([badType])).success).toBe(false);
+        if (fspec.required) {
+          const missing = { ...minimalItem(sspec.item) };
+          delete missing[field];
+          expect(schema.safeParse(build([missing])).success).toBe(false);
+        }
+      }
+    });
   });
 });
 

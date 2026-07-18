@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.56.0 — 2026-07-17
+
+### Added — Bulk AI tools, Phase 2: update many activities and import a whole schedule
+
+- A connected AI assistant can now **update many activities in one call** (`bulk_update_activities`): change names, three-point estimates, confidence, distribution, or descriptions across up to 100 activities at once. Each activity patches only the fields you send — anything you omit is left unchanged, and an empty-string description clears it. Every activity is validated on its own (against its *merged* result, not just the fields you sent), so an update that would push an estimate out of `min <= mostLikely <= max` order is skipped individually while the rest apply.
+- A connected AI assistant can now **build an entire schedule in a single call** (`bulk_import`): activities, milestones, milestone assignments, and dependencies together. Sections apply in a fixed order (activities → milestones → assignments → dependencies), so an assignment or dependency can safely reference an activity or milestone created earlier in the same call. If one activity or milestone is skipped for a reason that means it never got created (invalid, or over the limit), the assignments and edges that depended on it are skipped too — reported as **not found** — rather than silently attaching to nothing. A `duplicate` skip does not cascade, because the entity already exists; that is what makes re-running a completed import a no-op.
+- An import that includes **dependencies is all-or-nothing**: it requires Read Mode and a scenario with dependency mode enabled, and it re-checks dependency mode in your browser before applying. If dependency mode is off (or gets turned off between the AI's call and your browser applying it), the **whole import — including its activities and milestones — is declined** with a single message instead of a half-built schedule.
+- **Per-item results stay visible** in the AI activity feed, now with a per-section summary for imports (e.g. `activities 26/27 · milestones 5/5 · assignments 8/10 · dependencies 30/34`) so a cascade reads as one root cause. No schema or simulation-engine change (`SCHEMA_VERSION` stays 23; `ENGINE_VERSION` stays 1.1.1).
+
+### Note
+
+- The two new tools go live server-side first; the **Copy prompt** text that tells your assistant about them ships in a follow-up release (0.56.1) so the assistant is never told about a tool the server cannot yet handle.
+
 ## 0.55.1 — 2026-07-17
 
 ### Changed — Connect AI prompt now lists the bulk tools

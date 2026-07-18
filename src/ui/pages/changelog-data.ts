@@ -12,6 +12,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.56.0",
+    date: "2026-07-17",
+    sections: [
+      {
+        title: "Added — Bulk AI tools, Phase 2: update many activities and import a whole schedule",
+        items: [
+          "A connected AI assistant can now update many activities in one call (bulk_update_activities): change names, three-point estimates, confidence, distribution, or descriptions across up to 100 activities at once. Each activity patches only the fields you send — anything you omit is left unchanged, and an empty-string description clears it. Every activity is validated on its own; the ones that fail (e.g. an estimate where min ends up above max) are skipped individually while the rest apply.",
+          "A connected AI assistant can now build an entire schedule in a single call (bulk_import): activities, milestones, milestone assignments, and dependencies together. Sections apply in order, so an assignment or dependency can safely reference an activity or milestone created earlier in the same call. If one activity or milestone is skipped, the assignments and edges that depended on it are skipped too (as \"not found\") rather than silently attaching to nothing.",
+          "An import that includes dependencies is all-or-nothing: if the target scenario does not have dependency mode enabled (or it gets turned off before the import is applied), the whole import is declined with a single message instead of a half-built schedule. Re-running a completed import changes nothing — every item comes back as an already-present skip.",
+        ],
+      },
+      {
+        title: "Note",
+        items: [
+          "The two new tools go live server-side first; the \"Copy prompt\" text that tells your assistant about them ships in a follow-up so the assistant is never told about a tool the server cannot yet handle.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.55.1",
     date: "2026-07-17",
     sections: [

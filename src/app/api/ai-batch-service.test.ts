@@ -197,6 +197,18 @@ describe("update_activity_estimate", () => {
       )
     ).toEqual({ status: "skipped", reason: "invalid" });
   });
+
+  // P2 §2 step 2 (disposition 2): the one deliberate singular-outcome change of
+  // Phase 2. An empty patch (only `id`, no updatable field) now rejects
+  // `invalid` via the shared updateActivityCore, where pre-P2 it fell through to
+  // value_unchanged. `invalid` is the more truthful signal (nothing to do).
+  it("invalid when no updatable field is provided (empty patch)", () => {
+    const { project, scenarioId, activityIds } = build();
+    const a0 = activityOf(project, scenarioId, activityIds[0]!);
+    expect(
+      outcome(project, { seq: 1, op: "update_activity_estimate", payload: { id: a0.id } }, scenarioId)
+    ).toEqual({ status: "skipped", reason: "invalid" });
+  });
 });
 
 describe("rename_activity", () => {

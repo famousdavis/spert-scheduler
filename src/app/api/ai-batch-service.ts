@@ -32,6 +32,8 @@ import {
   BulkCreateDependenciesSchema,
   BulkCreateMilestonesSchema,
   BulkAssignMilestonesSchema,
+  BulkUpdateActivitiesSchema,
+  BulkImportScheduleSchema,
 } from "./ai-bulk-schemas";
 
 // -- Caps (mirror the Zod schema `.max()` constraints) -----------------------
@@ -212,6 +214,41 @@ interface BulkAssignMilestonesPayload {
   assignments: BulkAssignmentItem[];
 }
 
+// -- Bulk op payloads (Phase 2) ----------------------------------------------
+
+// The updatable-field subset shared by the singular update handlers and the 2A
+// bulk path. Every field optional (absent = unchanged); `id` lives on the item
+// / is passed separately to the core.
+interface UpdateActivityFields {
+  name?: string;
+  min?: number;
+  mostLikely?: number;
+  max?: number;
+  confidenceLevel?: RSMLevel;
+  distributionType?: DistributionType;
+  description?: string;
+}
+
+interface BulkUpdateActivityItem extends UpdateActivityFields {
+  id: string;
+}
+
+interface BulkUpdateActivitiesPayload {
+  scenarioId?: string;
+  updates: BulkUpdateActivityItem[];
+}
+
+// Composite import (2B): four optional sections, each reusing a Phase-1 item
+// shape. Absent ≠ empty is preserved by the structural schema (optional, no
+// `.min`).
+interface BulkImportSchedulePayload {
+  scenarioId?: string;
+  activities?: BulkActivityItem[];
+  milestones?: BulkMilestoneItem[];
+  assignments?: BulkAssignmentItem[];
+  dependencies?: BulkDependencyItem[];
+}
+
 export type AiOp =
   | { seq: number; op: "create_activity"; payload: CreateActivityPayload }
   | { seq: number; op: "update_activity_estimate"; payload: UpdateEstimatePayload }
@@ -232,7 +269,9 @@ export type AiOp =
   | { seq: number; op: "bulk_create_activities"; payload: BulkCreateActivitiesPayload }
   | { seq: number; op: "bulk_create_dependencies"; payload: BulkCreateDependenciesPayload }
   | { seq: number; op: "bulk_create_milestones"; payload: BulkCreateMilestonesPayload }
-  | { seq: number; op: "bulk_assign_milestones"; payload: BulkAssignMilestonesPayload };
+  | { seq: number; op: "bulk_assign_milestones"; payload: BulkAssignMilestonesPayload }
+  | { seq: number; op: "bulk_update_activities"; payload: BulkUpdateActivitiesPayload }
+  | { seq: number; op: "bulk_import_schedule"; payload: BulkImportSchedulePayload };
 
 export type AiSkipReason =
   | "not_found"
@@ -388,72 +427,123 @@ function handleCreateActivity(scenario: Scenario, p: CreateActivityPayload): OpR
   return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
 }
 
-function mergeEstimateFields(activity: Activity, p: UpdateEstimatePayload): Activity {
-  const merged = { ...activity };
-  if (p.min !== undefined) merged.min = p.min;
-  if (p.mostLikely !== undefined) merged.mostLikely = p.mostLikely;
-  if (p.max !== undefined) merged.max = p.max;
-  if (p.confidenceLevel !== undefined) merged.confidenceLevel = p.confidenceLevel;
-  if (p.distributionType !== undefined) merged.distributionType = p.distributionType;
-  return merged;
+// Shared activity-update core (Phase 2). Extracted from the three singular
+// handlers (handleUpdateEstimate / handleRename / handleSetDescription) so the
+// 2A bulk path composes exactly the same per-item semantics. Outcome-preserving
+// for the singular paths with ONE deliberate, documented exception (P2 §2 step
+// 2): an empty patch (no updatable field present) now rejects `invalid` rather
+// than falling through to `value_unchanged`. The three singular ops each carry a
+// required field (name / description) or, for the estimate op, previously
+// treated an all-absent payload as `value_unchanged`; that lone case flips.
+//
+// Merge-then-validate: provided fields (description normalized first) merge over
+// the activity's current values; the merged activity goes through the full
+// ActivitySchema parse plus the logNormal PERT-mean guard (core logic, NOT part
+// of the schema — it travels with the extraction). value_unchanged is judged
+// AFTER validation, over the provided fields only.
+// Collect only the provided fields into an activity patch, normalizing
+// description (trim; empty/whitespace → undefined = clear). `descProvided`
+// distinguishes "description field present but cleared" (patch.description
+// === undefined) from "description field absent" (no key) — the value-change
+// comparison needs it because a clear IS a change.
+function buildActivityPatch(fields: UpdateActivityFields): {
+  patch: Partial<Activity>;
+  descProvided: boolean;
+} {
+  const patch: Partial<Activity> = {};
+  if (fields.name !== undefined) patch.name = fields.name;
+  if (fields.min !== undefined) patch.min = fields.min;
+  if (fields.mostLikely !== undefined) patch.mostLikely = fields.mostLikely;
+  if (fields.max !== undefined) patch.max = fields.max;
+  if (fields.confidenceLevel !== undefined) patch.confidenceLevel = fields.confidenceLevel;
+  if (fields.distributionType !== undefined) patch.distributionType = fields.distributionType;
+  const descProvided = fields.description !== undefined;
+  if (descProvided) patch.description = fields.description!.trim() || undefined;
+  return { patch, descProvided };
 }
 
-function estimateChanged(activity: Activity, p: UpdateEstimatePayload): boolean {
-  if (p.min !== undefined && p.min !== activity.min) return true;
-  if (p.mostLikely !== undefined && p.mostLikely !== activity.mostLikely) return true;
-  if (p.max !== undefined && p.max !== activity.max) return true;
-  if (p.confidenceLevel !== undefined && p.confidenceLevel !== activity.confidenceLevel) return true;
-  if (p.distributionType !== undefined && p.distributionType !== activity.distributionType) return true;
-  return false;
+// Does applying `patch` change any provided field's value? Judged over the
+// provided fields only (the singular value_unchanged rule). Description is
+// special: `descProvided` with a cleared (undefined) value still counts.
+function activityPatchChanges(
+  activity: Activity,
+  patch: Partial<Activity>,
+  descProvided: boolean
+): boolean {
+  if (patch.name !== undefined && patch.name !== activity.name) return true;
+  if (patch.min !== undefined && patch.min !== activity.min) return true;
+  if (patch.mostLikely !== undefined && patch.mostLikely !== activity.mostLikely) return true;
+  if (patch.max !== undefined && patch.max !== activity.max) return true;
+  if (patch.confidenceLevel !== undefined && patch.confidenceLevel !== activity.confidenceLevel) {
+    return true;
+  }
+  if (patch.distributionType !== undefined && patch.distributionType !== activity.distributionType) {
+    return true;
+  }
+  return descProvided && (patch.description ?? undefined) !== (activity.description ?? undefined);
+}
+
+function updateActivityCore(
+  scenario: Scenario,
+  id: string,
+  fields: UpdateActivityFields
+): CoreResult {
+  const activity = scenario.activities.find((a) => a.id === id);
+  if (!activity) return reject("not_found");
+
+  // Length pre-check on the RAW description (before trim), mirroring the singular
+  // set-description path: over-length reads as would_exceed_length on the
+  // singular path and narrows to `invalid` in the bulk path (toItemReject).
+  // Unreachable in bulk (the server caps description at 2000; replace semantics).
+  if (fields.description !== undefined && fields.description.length > DESCRIPTION_MAX) {
+    return reject("would_exceed_length");
+  }
+
+  const { patch, descProvided } = buildActivityPatch(fields);
+  // Zero updatable fields → invalid (P2 §2 step 2 / disposition 2). A cleared
+  // description still populates a key, so it counts as "provided".
+  if (Object.keys(patch).length === 0) return reject("invalid");
+
+  // Merge-then-validate: the merged activity (not the fragment) goes through the
+  // full ActivitySchema parse plus the logNormal PERT-mean guard.
+  const parsed = ActivitySchema.safeParse({ ...activity, ...patch });
+  if (!parsed.success) return reject("invalid");
+  const d = parsed.data;
+  if (d.distributionType === "logNormal" && computePertMean(d.min, d.mostLikely, d.max) <= 0) {
+    return reject("invalid");
+  }
+
+  if (!activityPatchChanges(activity, patch, descProvided)) return reject("value_unchanged");
+  // Apply the provided-field patch (spread over current leaves omitted fields
+  // untouched). updateActivity invalidates simulationResults, as every singular
+  // update path does today.
+  return accept(updateActivity(scenario, id, patch));
 }
 
 function handleUpdateEstimate(scenario: Scenario, p: UpdateEstimatePayload): OpResult {
-  const activity = scenario.activities.find((a) => a.id === p.id);
-  if (!activity) return skip(scenario, "not_found");
-
-  const parsed = ActivitySchema.safeParse(mergeEstimateFields(activity, p));
-  if (!parsed.success) return skip(scenario, "invalid");
-  const d = parsed.data;
-  if (d.distributionType === "logNormal" && computePertMean(d.min, d.mostLikely, d.max) <= 0) {
-    return skip(scenario, "invalid");
-  }
-  if (!estimateChanged(activity, p)) return skip(scenario, "value_unchanged");
-  return applied(
-    updateActivity(scenario, p.id, {
-      min: d.min,
-      mostLikely: d.mostLikely,
-      max: d.max,
-      confidenceLevel: d.confidenceLevel,
-      distributionType: d.distributionType,
-    })
-  );
+  const r = updateActivityCore(scenario, p.id, {
+    min: p.min,
+    mostLikely: p.mostLikely,
+    max: p.max,
+    confidenceLevel: p.confidenceLevel,
+    distributionType: p.distributionType,
+  });
+  return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
 }
 
 function handleRename(scenario: Scenario, p: RenameActivityPayload): OpResult {
-  const activity = scenario.activities.find((a) => a.id === p.id);
-  if (!activity) return skip(scenario, "not_found");
-  const parsed = ActivitySchema.safeParse({ ...activity, name: p.name });
-  if (!parsed.success) return skip(scenario, "invalid");
-  if (parsed.data.name === activity.name) return skip(scenario, "value_unchanged");
-  return applied(updateActivity(scenario, p.id, { name: parsed.data.name }));
+  const r = updateActivityCore(scenario, p.id, { name: p.name });
+  return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
 }
 
 // Overwrite (destructive): empty string clears. Invalidates simulationResults.
 function handleSetDescription(scenario: Scenario, p: SetDescriptionPayload): OpResult {
-  // Presence guard (load-bearing): ops are drained raw with no client Zod, and
-  // `description` is optional on ActivitySchema, so a missing field would pass
-  // safeParse. Do NOT coalesce here — an absent field must fail, not mass-clear.
+  // Presence guard (load-bearing, singular-only): ops are drained raw with no
+  // client Zod, and `description` is optional on ActivitySchema, so a missing
+  // field would pass safeParse. An absent field must fail, not mass-clear.
   if (typeof p.description !== "string") return skip(scenario, "invalid");
-  const activity = scenario.activities.find((a) => a.id === p.id);
-  if (!activity) return skip(scenario, "not_found");
-  // Explicit length pre-check BEFORE safeParse so over-length reads as
-  // would_exceed_length (a bare handleRename clone would surface it as invalid).
-  if (p.description.length > DESCRIPTION_MAX) return skip(scenario, "would_exceed_length");
-  const next = p.description.trim() || undefined;
-  const parsed = ActivitySchema.safeParse({ ...activity, description: next });
-  if (!parsed.success) return skip(scenario, "invalid");
-  if (next === (activity.description ?? undefined)) return skip(scenario, "value_unchanged");
-  return applied(updateActivity(scenario, p.id, { description: next }));
+  const r = updateActivityCore(scenario, p.id, { description: p.description });
+  return r.ok ? applied(r.scenario) : skip(scenario, r.reason);
 }
 
 // -- Qualitative ops ---------------------------------------------------------
@@ -773,6 +863,138 @@ function handleBulkAssignMilestones(scenario: Scenario, p: BulkAssignMilestonesP
   return { scenario: scn, outcome: bulkOutcome(appliedCount, skippedItems) };
 }
 
+// -- Bulk ops (Phase 2) ------------------------------------------------------
+
+function handleBulkUpdateActivities(scenario: Scenario, p: BulkUpdateActivitiesPayload): OpResult {
+  let scn = scenario;
+  const skippedItems: SkippedItem[] = [];
+  let appliedCount = 0;
+  // Repeated ids apply sequentially: a later entry merges against the state the
+  // earlier one produced, and value_unchanged is judged against that
+  // intermediate state (stated in the tool description).
+  p.updates.forEach((item, index) => {
+    const { id, ...fields } = item;
+    const r = updateActivityCore(scn, id, fields);
+    if (!r.ok) {
+      skippedItems.push({ index, id, reason: toItemReject(r.reason) });
+    } else {
+      scn = r.scenario;
+      appliedCount++;
+    }
+  });
+  return { scenario: scn, outcome: bulkOutcome(appliedCount, skippedItems) };
+}
+
+// Compose create + optional initial note for the composite import's activities
+// section. The note is suppressed when the create skips; an (unreachable) note
+// failure on a fresh, empty-notes activity keeps the create applied (the 1A
+// invariant). Extracted so handleBulkImportSchedule stays a flat orchestration.
+function importActivityWithNote(scenario: Scenario, item: BulkActivityItem): CoreResult {
+  const r = createActivityCore(scenario, item);
+  if (!r.ok) return r;
+  const note = item.note?.trim();
+  if (!note) return r;
+  const nr = appendNoteCore(r.scenario, { id: item.id, text: note });
+  return nr.ok ? nr : r;
+}
+
+// Fold one composite-import section through a core, tagging each skip with its
+// section and section-local index. The evolving `scn` is what makes cascades
+// emergent: an absent-implying skip (invalid/cap_exceeded) never enters `scn`,
+// so a later section's dependent resolves to not_found on its own.
+function runImportSection<T>(
+  scn: Scenario,
+  section: BulkSection,
+  items: T[],
+  apply: (scenario: Scenario, item: T) => CoreResult,
+  idOf: (item: T) => string,
+  skippedItems: SkippedItem[]
+): { scenario: Scenario; count: SectionCount } {
+  let applied = 0;
+  let skipped = 0;
+  items.forEach((item, index) => {
+    const r = apply(scn, item);
+    if (!r.ok) {
+      skippedItems.push({ index, id: idOf(item), reason: toItemReject(r.reason), section });
+      skipped++;
+    } else {
+      scn = r.scenario;
+      applied++;
+    }
+  });
+  return { scenario: scn, count: { applied, skipped } };
+}
+
+// Composite import (2B): apply up to four sections to ONE scenario in a fixed
+// order, delegating each item to its live Phase-1 core. All-or-nothing at BOTH
+// gates is enforced upstream (server queue-time refusal) and here (drain-time
+// whole-op discards); per-item outcomes aggregate into one `partial`.
+function handleBulkImportSchedule(scenario: Scenario, p: BulkImportSchedulePayload): OpResult {
+  const activities = p.activities ?? [];
+  const milestones = p.milestones ?? [];
+  const assignments = p.assignments ?? [];
+  const dependencies = p.dependencies ?? [];
+
+  // Drain-time defensive floor (P2 §3, disposition 9): an all-empty composite is
+  // a server-bug-only state — the server's empty_import inline check refuses it
+  // at queue time. Floor to whole-op invalid; never a false "Applied".
+  const totalItems =
+    activities.length + milestones.length + assignments.length + dependencies.length;
+  if (totalItems === 0) return skip(scenario, "invalid");
+
+  // Drain-time whole-op discard (locked): dependencies present but the scenario
+  // toggled dependency mode off between queue and drain → ALL sections
+  // discarded with a single dependency_mode_off row. No half-imports.
+  if (dependencies.length > 0 && !(scenario.settings.dependencyMode ?? false)) {
+    return skip(scenario, "dependency_mode_off");
+  }
+
+  let scn = scenario;
+  const skippedItems: SkippedItem[] = [];
+  const sections: BulkSectionCounts = {};
+  let appliedCount = 0;
+
+  if (activities.length > 0) {
+    const res = runImportSection(
+      scn, "activities", activities, importActivityWithNote, (i) => i.id, skippedItems
+    );
+    scn = res.scenario;
+    sections.activities = res.count;
+    appliedCount += res.count.applied;
+  }
+  if (milestones.length > 0) {
+    const res = runImportSection(
+      scn, "milestones", milestones, (s, i) => createMilestoneCore(s, i), (i) => i.id, skippedItems
+    );
+    scn = res.scenario;
+    sections.milestones = res.count;
+    appliedCount += res.count.applied;
+  }
+  if (assignments.length > 0) {
+    const res = runImportSection(
+      scn, "assignments", assignments,
+      (s, i) => assignMilestoneCore(s, i.activityId, i.milestoneId),
+      (i) => i.activityId, skippedItems
+    );
+    scn = res.scenario;
+    sections.assignments = res.count;
+    appliedCount += res.count.applied;
+  }
+  if (dependencies.length > 0) {
+    // Mode guarded above; the core assumes dependency mode is on.
+    const res = runImportSection(
+      scn, "dependencies", dependencies, (s, i) => createDependencyCore(s, i),
+      (i) => `${i.fromActivityId}->${i.toActivityId}`, skippedItems
+    );
+    scn = res.scenario;
+    sections.dependencies = res.count;
+    appliedCount += res.count.applied;
+  }
+
+  if (skippedItems.length === 0) return applied(scn);
+  return { scenario: scn, outcome: { status: "partial", appliedCount, skippedItems, sections } };
+}
+
 // -- Dispatcher --------------------------------------------------------------
 
 export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
@@ -832,6 +1054,19 @@ export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
       const parsed = BulkAssignMilestonesSchema.safeParse(op.payload);
       if (!parsed.success) return skip(scenario, "invalid");
       return handleBulkAssignMilestones(scenario, parsed.data as BulkAssignMilestonesPayload);
+    }
+    // Bulk ops (Phase 2): same structural-parse-first discipline. 2A composes
+    // the extracted updateActivityCore; 2B (bulk_import_schedule) orchestrates
+    // the shipped cores across four sections with a drain-time whole-op discard.
+    case "bulk_update_activities": {
+      const parsed = BulkUpdateActivitiesSchema.safeParse(op.payload);
+      if (!parsed.success) return skip(scenario, "invalid");
+      return handleBulkUpdateActivities(scenario, parsed.data as BulkUpdateActivitiesPayload);
+    }
+    case "bulk_import_schedule": {
+      const parsed = BulkImportScheduleSchema.safeParse(op.payload);
+      if (!parsed.success) return skip(scenario, "invalid");
+      return handleBulkImportSchedule(scenario, parsed.data as BulkImportSchedulePayload);
     }
     default:
       // Unreachable for well-typed input; a defensive floor for a malformed

@@ -86,4 +86,15 @@ describe("OP_LABELS", () => {
     expect(OP_LABELS.bulk_create_milestones).toBe("Bulk create milestones");
     expect(OP_LABELS.bulk_assign_milestones).toBe("Bulk assign milestones");
   });
+
+  it("labels the Phase 2 bulk ops", () => {
+    expect(OP_LABELS.bulk_update_activities).toBe("Bulk update activities");
+    expect(OP_LABELS.bulk_import_schedule).toBe("Import schedule");
+  });
 });
+
+// The composite `partial` render (per-section prefix + cascade reason summary)
+// and the whole-op dependency_mode_off skip render are already covered above by
+// the "composite cascade (P0.1 example)" and "whole-op skip" cases — the Phase-1
+// formatter shipped those paths, so Phase 2 (the first live composite producer)
+// adds no formatter code, only these labels.
