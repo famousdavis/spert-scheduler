@@ -12,6 +12,44 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.3",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Fixed — Schedule exports now include constraint columns in sequential mode",
+        items: [
+          "Since 0.52.1 the activity grid shows the Constraint column in a sequential-mode scenario as soon as any activity carries a constraint — and sequential Monte Carlo honors those constraints when computing the very dates being exported. The XLSX and CSV schedule exports, however, still included the four constraint columns (Type / Date / Mode / Note) only in dependency mode, so a constrained sequential schedule exported its constraint-shifted dates with no explanation. Both exports now use the same rule as the grid: dependency mode always includes the constraint columns, and sequential mode includes them once any activity has a constraint. Dependency-only columns (floats, predecessors, successors) are unchanged, as is every export where no constraint exists.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.57.2",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Fixed — Connect AI session and feed corrections",
+        items: [
+          "Resuming an AI session after a page reload no longer resets the snapshot's progress marker. The Read-Mode snapshot carries an asOfSeq marker telling the AI how far its operations have been applied; previously, reconnecting to a live session after a reload wrote the next snapshot with asOfSeq 0 — below values the AI had already seen — which could make an assistant conclude its applied writes never landed. The marker is now seeded from the browser's saved per-session cursor on resume.",
+          "The Read-Mode snapshot now refreshes when you switch scenarios or change your work calendar. Previously the snapshot only refreshed on a project edit, so switching the open scenario (or changing the global work week / holidays in Settings, which shifts every scheduled date) left the AI reading a stale view — including a wrong \"open scenario\" — until the next edit. Both now schedule the same debounced snapshot rewrite.",
+          "The AI activity feed no longer mixes sessions. Feed rows were keyed by each operation's per-session sequence number, which restarts at 1 in every new session — so after a disconnect/reconnect, rows from two sessions could collide (duplicate React keys, with possible misrendered rows). Rows now carry unique keys, and disconnecting clears the feed, matching its session-scoped intent.",
+        ],
+      },
+      {
+        title: "Changed — Internal restructuring of the AI batch service (no behavior change)",
+        items: [
+          "The AI batch service was split along its existing seams into a four-module family: the op contract, the singular handlers with their shared item-level cores, the bulk/composite/reorder handlers, and the dispatcher. Public API, op semantics, and the AI op contract are all preserved exactly; the full pre-existing test suite passes unmodified.",
+        ],
+      },
+      {
+        title: "Dependencies",
+        items: [
+          "zod 4.3.6 → 4.4.3, jsdom 29.1.0 → 29.1.1 (the only outdated packages whose latest stable release is older than 60 days; all newer releases and all major-version bumps were deliberately deferred).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.57.1",
     date: "2026-07-18",
     sections: [

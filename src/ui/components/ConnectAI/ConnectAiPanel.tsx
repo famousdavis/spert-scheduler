@@ -5,9 +5,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { getGeneratePairingCode } from "@infrastructure/firebase/firebase";
 import { buildCopyPrompt } from "./copyPrompt";
-import { AiActivityFeed } from "./AiActivityFeed";
+import { AiActivityFeed, type AiFeedItem } from "./AiActivityFeed";
 import type { AiSessionState } from "@ui/hooks/use-ai-connectivity";
-import type { AiOpResult } from "@app/api/ai-batch-service";
 
 interface ConnectAiPanelProps {
   open: boolean;
@@ -15,7 +14,7 @@ interface ConnectAiPanelProps {
   sessionState: AiSessionState;
   onChangePermissions: (consentRead: boolean) => Promise<boolean>;
   onDisconnect: () => Promise<void>;
-  feedItems: AiOpResult[];
+  feedItems: AiFeedItem[];
 }
 
 export function ConnectAiPanel({

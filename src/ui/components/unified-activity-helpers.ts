@@ -2,7 +2,13 @@
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
 import type { Activity } from "@domain/models/types";
+import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
 import { focusField, focusNextRow, focusPrevRow } from "./activity-row-helpers";
+
+// Re-exported for existing grid-side consumers; the definition moved to the
+// domain layer (v0.57.3) so the schedule-export formatters can share it without
+// an app → UI import.
+export { hasAnyConstraint };
 
 export function constraintBadgeClass(
   hasConstraint: boolean,
@@ -27,11 +33,6 @@ export function constraintBadgeLabel(
 ): string {
   if (!constraintType) return "—";
   return `${constraintType}${constraintMode === "soft" ? " S" : ""}`;
-}
-
-/** True when at least one activity in the list carries a scheduling constraint. */
-export function hasAnyConstraint(activities: Activity[]): boolean {
-  return activities.some((a) => a.constraintType != null);
 }
 
 /**

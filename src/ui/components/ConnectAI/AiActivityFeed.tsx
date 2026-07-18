@@ -10,8 +10,19 @@ const TONE_CLASSES: Record<OutcomeTone, string> = {
   skipped: "text-gray-500 dark:text-gray-400",
 };
 
+/**
+ * One feed row. `feedId` is a page-lifetime-unique key assigned at insertion
+ * (ProjectPage's counter) — op `seq` alone is NOT unique across sessions (each
+ * session's seq space restarts at 1), so keying rows by seq would collide after
+ * a disconnect/reconnect.
+ */
+export interface AiFeedItem {
+  feedId: number;
+  result: AiOpResult;
+}
+
 interface AiActivityFeedProps {
-  items: AiOpResult[];
+  items: AiFeedItem[];
 }
 
 /**
@@ -31,11 +42,11 @@ export function AiActivityFeed({ items }: AiActivityFeedProps) {
   return (
     <ul className="max-h-48 overflow-y-auto space-y-1 text-xs" aria-label="AI activity feed">
       {items.map((item) => {
-        const { text, tone } = describeOutcome(item.outcome);
+        const { text, tone } = describeOutcome(item.result.outcome);
         return (
-          <li key={item.op.seq} className="flex items-center justify-between gap-2">
+          <li key={item.feedId} className="flex items-center justify-between gap-2">
             <span className="text-gray-700 dark:text-gray-300 truncate">
-              {OP_LABELS[item.op.op] ?? item.op.op}
+              {OP_LABELS[item.result.op.op] ?? item.result.op.op}
             </span>
             <span className={`shrink-0 ${TONE_CLASSES[tone]}`}>{text}</span>
           </li>

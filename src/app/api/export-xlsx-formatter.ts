@@ -10,9 +10,14 @@ import {
   type GridRow,
   type ScheduleExportParams,
 } from "./schedule-export-service";
+import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
 import { buildRenderList } from "@ui/helpers/band-utils";
 
-function buildActivityCells(row: GridRow, hasDeps: boolean): (string | number)[] {
+function buildActivityCells(
+  row: GridRow,
+  hasDeps: boolean,
+  hasConstraints: boolean,
+): (string | number)[] {
   const cells: (string | number)[] = [
     row.num,
     row.name,
@@ -29,8 +34,10 @@ function buildActivityCells(row: GridRow, hasDeps: boolean): (string | number)[]
   ];
   if (hasDeps) {
     cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
+    cells.push(row.predecessors ?? "", row.successors ?? "");
+  }
+  if (hasConstraints) {
     cells.push(
-      row.predecessors ?? "", row.successors ?? "",
       row.constraintType ?? "", row.constraintDate ?? "", row.constraintMode ?? "",
       row.constraintNote ?? "",
     );
@@ -135,11 +142,14 @@ export async function exportScheduleXlsx(
   const summary = buildSummaryData(params);
   const rows = buildGridRows(params);
   const hasDeps = params.settings.dependencyMode;
+  // Grid parity (v0.52.1 rule): constraint columns also export in sequential
+  // mode once any activity carries a constraint.
+  const hasConstraints = hasDeps || hasAnyConstraint(params.activities);
   const pctLabel = `P${Math.round(params.settings.probabilityTarget * 100)}`;
 
   // Headers are shared with the CSV formatter; lastCol derives from them so a
   // future column can never drift from the title merge / band / totals math.
-  const headers = buildScheduleHeaders(hasDeps, pctLabel);
+  const headers = buildScheduleHeaders(hasDeps, pctLabel, hasConstraints);
   const lastCol = headers.length;
   // Prose columns that need wrapText, located by header identity (Task Details /
   // Deliverable Details move between cols 14/16 and 22/24 depending on hasDeps).
@@ -210,7 +220,7 @@ export async function exportScheduleXlsx(
       // buildGridRows processed; every activity ID maps and only kind==='activity'
       // items reference IDs in that array.
       const row = rowMap.get(item.activity.id)!;
-      const cells = buildActivityCells(row, hasDeps);
+      const cells = buildActivityCells(row, hasDeps, hasConstraints);
       const dataRow = ws.getRow(rowNum);
       cells.forEach((val, i) => {
         const cell = dataRow.getCell(i + 1);
@@ -247,7 +257,8 @@ export async function exportScheduleXlsx(
   // Auto-fit to the longest summary key with bold font padding, capped at 28.
   const colAWidth = Math.min(28, Math.max(5, ...summary.map((r) => r.key.length + 4)));
   const widths = [colAWidth, 30, 8, 12, 8, 16, 14, 12, 8, 14, 14, 14];
-  if (hasDeps) widths.push(14, 14, 16, 16, 16, 14, 10, 30);
+  if (hasDeps) widths.push(14, 14, 16, 16); // Floats + Predecessors / Successors
+  if (hasConstraints) widths.push(16, 14, 10, 30); // Constraint Type / Date / Mode / Note
   widths.push(8, 40, 12, 40); // Tasks / Task Details / Deliverables / Deliverable Details
   widths.push(40); // Description column — always present, before Type
   widths.push(10); // Type column — always present
