@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.9",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Changed — Test-runner update",
+        items: [
+          "Updated the test runner (Vitest 4.1.5 → 4.1.6, with its matching coverage plugin). Development-only tooling — not part of the deployed application. The full test suite (2,065 tests across 94 files) and the mutation-testing dry-run both pass on the new version. No user-facing change.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.57.8",
     date: "2026-07-18",
     sections: [
