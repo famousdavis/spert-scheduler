@@ -215,6 +215,19 @@ export interface ReorderActivitiesPayload {
   orderedActivityIds: string[];
 }
 
+// Bulk append notes (Phase 4): append one note to each of many EXISTING
+// activities. Item mirrors AppendNotePayload minus scenarioId. Flat single-array
+// shape (like Phase 1/2A) — one `text` per activity, one `partial` outcome.
+export interface BulkAppendNoteItem {
+  id: string;
+  text: string;
+}
+
+export interface BulkAppendNotesPayload {
+  scenarioId?: string;
+  notes: BulkAppendNoteItem[];
+}
+
 export type AiOp =
   | { seq: number; op: "create_activity"; payload: CreateActivityPayload }
   | { seq: number; op: "update_activity_estimate"; payload: UpdateEstimatePayload }
@@ -238,7 +251,8 @@ export type AiOp =
   | { seq: number; op: "bulk_assign_milestones"; payload: BulkAssignMilestonesPayload }
   | { seq: number; op: "bulk_update_activities"; payload: BulkUpdateActivitiesPayload }
   | { seq: number; op: "bulk_import_schedule"; payload: BulkImportSchedulePayload }
-  | { seq: number; op: "reorder_activities"; payload: ReorderActivitiesPayload };
+  | { seq: number; op: "reorder_activities"; payload: ReorderActivitiesPayload }
+  | { seq: number; op: "bulk_append_notes"; payload: BulkAppendNotesPayload };
 
 export type AiSkipReason =
   | "not_found"
@@ -266,7 +280,8 @@ export type ItemReject =
   | "duplicate"
   | "not_found"
   | "cycle"
-  | "value_unchanged";
+  | "value_unchanged"
+  | "would_exceed_length";
 
 export type BulkSection = "activities" | "milestones" | "assignments" | "dependencies";
 
@@ -325,10 +340,21 @@ export const accept = (scenario: Scenario): CoreResult => ({ ok: true, scenario 
 export const reject = (reason: AiSkipReason): CoreResult => ({ ok: false, reason });
 
 /**
- * Narrow a core reason to an ItemReject for the bulk `partial` outcome. The six
- * ItemReject members pass through; anything else (would_exceed_length, the
- * whole-op reasons, etc.) is defensively mapped to `invalid` — expected
- * unreachable in the bulk paths, asserted so in unit tests (P0.1).
+ * Narrow a core reason to an ItemReject for the bulk `partial` outcome. The
+ * seven ItemReject members -- including would_exceed_length, added for
+ * bulk_append_notes -- pass through; anything else (the whole-op-only
+ * reasons, etc.) is defensively mapped to `invalid`.
+ *
+ * would_exceed_length is genuinely reachable from bulk_append_notes (it
+ * targets EXISTING activities whose notes may already be long). It reaches
+ * this function from no other current caller, for two different reasons:
+ * handleBulkUpdateActivities's description-update path requires an incoming
+ * description over 2000 chars, which the client doesn't cap but the server
+ * contract does (unreachable given a well-formed op, not separately tested);
+ * the bulk-create / bulk-import note-seeding paths call the SAME producer
+ * (appendNoteCore) but discard its failure before calling this function at
+ * all (ai-bulk-handlers.ts:78, :186) -- reachable-but-discarded, not
+ * unreachable.
  */
 export function toItemReject(reason: AiSkipReason): ItemReject {
   switch (reason) {
@@ -338,6 +364,7 @@ export function toItemReject(reason: AiSkipReason): ItemReject {
     case "not_found":
     case "cycle":
     case "value_unchanged":
+    case "would_exceed_length":
       return reason;
     default:
       return "invalid";

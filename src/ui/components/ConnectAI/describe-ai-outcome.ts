@@ -33,6 +33,7 @@ export const OP_LABELS: Record<string, string> = {
   bulk_update_activities: "Bulk update activities",
   bulk_import_schedule: "Import schedule",
   reorder_activities: "Reorder activities",
+  bulk_append_notes: "Bulk add notes",
 };
 
 const REASON_LABELS: Record<string, string> = {
@@ -61,6 +62,7 @@ const ITEM_REASON_LABELS: Record<ItemReject, string> = {
   not_found: "not found",
   cycle: "cycle",
   value_unchanged: "no change",
+  would_exceed_length: "too long",
 };
 
 const SECTION_ORDER: Array<keyof BulkSectionCounts> = [

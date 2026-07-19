@@ -1,12 +1,13 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
 
-// -- Bulk AI op handlers (Phases 1–3) ----------------------------------------
+// -- Bulk AI op handlers (Phases 1–4) ----------------------------------------
 // Single-array bulk handlers (Phase 1), the 2A update + 2B composite-import
-// handlers (Phase 2), and the whole-op reorder handler (Phase 3). Each bulk
-// handler composes the shared item-level cores from ai-op-handlers.ts;
-// structural (Zod) parsing runs once at the dispatcher boundary before any of
-// these, so every item here is shape-valid.
+// handlers (Phase 2), the whole-op reorder handler (Phase 3), and the
+// single-array bulk_append_notes handler (Phase 4). Each bulk handler composes
+// the shared item-level cores from ai-op-handlers.ts; structural (Zod) parsing
+// runs once at the dispatcher boundary before any of these, so every item here
+// is shape-valid.
 
 import type { Scenario } from "@domain/models/types";
 import {
@@ -18,6 +19,7 @@ import {
   type BulkUpdateActivitiesPayload,
   type BulkImportSchedulePayload,
   type ReorderActivitiesPayload,
+  type BulkAppendNotesPayload,
   type BulkSection,
   type BulkSectionCounts,
   type SectionCount,
@@ -334,4 +336,37 @@ export function handleReorderActivities(
   const byId = new Map(scenario.activities.map((a) => [a.id, a]));
   const activities = ordered.map((id) => byId.get(id)!);
   return applied({ ...scenario, activities, simulationResults: undefined });
+}
+
+// -- Bulk ops (Phase 4) -------------------------------------------------------
+// Single new op, added after the Phase 1-3 bulk campaign shipped (contract
+// phase 3->4). Same flat single-array shape as Phase 1/2A; appendNoteCore
+// already exists and is already imported above (it seeds notes in the
+// bulk-create path).
+
+export function handleBulkAppendNotes(
+  scenario: Scenario,
+  p: BulkAppendNotesPayload
+): OpResult {
+  let scn = scenario;
+  const skippedItems: SkippedItem[] = [];
+  let appliedCount = 0;
+  // NOT idempotent (unlike bulk_update's last-wins merge): re-running this
+  // payload duplicates every note. Repeated ids WITHIN one call apply
+  // cumulatively in array order (each entry appends against the scenario the
+  // prior entry produced) -- an early entry can push a later entry on the
+  // SAME id over NOTES_MAX even if neither text alone would. would_exceed_
+  // length is genuinely reachable here (unlike the bulk-create seeding path:
+  // these are EXISTING activities whose notes may already be non-empty) and
+  // passes through toItemReject as an ItemReject (D1).
+  p.notes.forEach((item, index) => {
+    const r = appendNoteCore(scn, { id: item.id, text: item.text });
+    if (!r.ok) {
+      skippedItems.push({ index, id: item.id, reason: toItemReject(r.reason) });
+    } else {
+      scn = r.scenario;
+      appliedCount++;
+    }
+  });
+  return { scenario: scn, outcome: bulkOutcome(appliedCount, skippedItems) };
 }

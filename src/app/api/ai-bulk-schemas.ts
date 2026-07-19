@@ -116,3 +116,14 @@ export const ReorderActivitiesSchema = z.object({
   scenarioId: scenarioIdOpt,
   orderedActivityIds: z.array(z.string()).min(2).max(500),
 });
+
+// Phase 4. Bulk append notes: one array, ≤100 items — mirrors the update-activities item cap.
+const bulkAppendNoteItem = z.object({
+  id: z.string(),
+  text: z.string(),
+});
+
+export const BulkAppendNotesSchema = z.object({
+  scenarioId: scenarioIdOpt,
+  notes: z.array(bulkAppendNoteItem).min(1).max(100),
+});

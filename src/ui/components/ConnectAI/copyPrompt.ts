@@ -57,6 +57,7 @@ TOOLS THAT WORK WITHOUT READ MODE (Write is always on once paired):
   scheduler_assign_milestone / scheduler_unassign_milestone,
   scheduler_bulk_create_activities, scheduler_bulk_create_milestones,
   scheduler_bulk_assign_milestones, scheduler_bulk_update_activities,
+  scheduler_bulk_append_notes,
   scheduler_bulk_import (needs Read Mode + a dependency-mode scenario ONLY
     when you include dependencies; without them it needs neither).
 
@@ -93,6 +94,15 @@ and one rate-limit token instead of many singular calls:
     string description clears it). The MERGED estimate must keep
     min <= mostLikely <= max or that one entry is skipped. Repeated ids apply in
     order — a later entry sees the earlier one's result.
+  - scheduler_bulk_append_notes: append one note to up to 100 EXISTING
+    activities in one call. NOT idempotent — re-running duplicates every note;
+    if a call partially fails, resend only the ids that skipped, not the whole
+    call. With Read Mode off you can't see how much note text an activity
+    already has, so keep appended text short and keep batches modest (~25-40
+    when notes carry real content, same reasoning as
+    scheduler_bulk_create_activities) — an append that would push an activity's
+    notes past 2000 chars is skipped as "too long," and a truncated mid-call
+    output gets the whole call rejected.
   - scheduler_bulk_import: build a WHOLE schedule in one call — activities,
     milestones, assignments, and dependencies together (every section optional;
     at least one non-empty). Sections apply in order activities -> milestones ->
@@ -114,9 +124,12 @@ WHICH edges skip if the set (together with existing edges) forms a cycle — fix
 the cycle and resend only the skipped edges.
 
 NOTES CAVEAT
-scheduler_append_activity_note appends to an activity's notes (max 2000 chars).
-If an append would overflow, the tool rejects it — keep notes concise or split
-across activities rather than retrying the same long text.
+scheduler_append_activity_note / scheduler_bulk_append_notes append to an
+activity's notes (max 2000 chars total, existing + new). If an append would
+overflow, that append (or, in bulk, just that one item) is skipped rather than
+truncated — keep notes concise, and remember that with Read Mode off you have no
+visibility into how much note text an activity already has, so a short append
+that's fine on one activity may overflow another.
 
 DESCRIPTION CAVEAT
 scheduler_set_activity_description OVERWRITES an activity's plain-language scope

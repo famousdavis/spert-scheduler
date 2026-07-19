@@ -11,6 +11,7 @@
 // plus the contract types re-exported below) is unchanged by the split.
 
 import type { Project, Scenario } from "@domain/models/types";
+import type { ZodType } from "zod";
 import {
   BulkCreateActivitiesSchema,
   BulkCreateDependenciesSchema,
@@ -19,6 +20,7 @@ import {
   BulkUpdateActivitiesSchema,
   BulkImportScheduleSchema,
   ReorderActivitiesSchema,
+  BulkAppendNotesSchema,
 } from "./ai-bulk-schemas";
 import {
   type AiOp,
@@ -56,6 +58,7 @@ import {
   handleBulkUpdateActivities,
   handleBulkImportSchedule,
   handleReorderActivities,
+  handleBulkAppendNotes,
 } from "./ai-bulk-handlers";
 
 export type {
@@ -70,6 +73,24 @@ export type {
 } from "./ai-op-types";
 
 // -- Dispatcher --------------------------------------------------------------
+
+// Structural-parse-first dispatch for a bulk op (P0.0 step 1 / decision 9): the
+// payload is validated against its structural schema; a shape failure is the
+// ONLY path to a whole-op `invalid`, otherwise the domain-typed handler runs.
+// The `as T` cast bridges the structural (string-enum) parse to the domain
+// payload type — sound because enum values are re-validated per item in the
+// cores. Routing a bulk case through this keeps it from adding a branch to
+// applyAiOpToScenario, which sits at the cognitive-complexity budget.
+function dispatchBulk<T>(
+  scenario: Scenario,
+  payload: unknown,
+  schema: ZodType,
+  handler: (s: Scenario, p: T) => OpResult
+): OpResult {
+  const parsed = schema.safeParse(payload);
+  if (!parsed.success) return skip(scenario, "invalid");
+  return handler(scenario, parsed.data as T);
+}
 
 export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
   switch (op.op) {
@@ -150,6 +171,13 @@ export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
       if (!parsed.success) return skip(scenario, "invalid");
       return handleReorderActivities(scenario, parsed.data as ReorderActivitiesPayload);
     }
+    // Bulk ops (Phase 4): appends one note per EXISTING activity. Routed through
+    // dispatchBulk (not an inline parse+guard like the Phase 1-3 cases) so this
+    // 8th bulk case adds no branch to the switch above, keeping this function
+    // under the cognitive-complexity budget. Behaviour is identical: structural
+    // parse first, whole-op `invalid` on shape failure, then the domain handler.
+    case "bulk_append_notes":
+      return dispatchBulk(scenario, op.payload, BulkAppendNotesSchema, handleBulkAppendNotes);
     default:
       // Unreachable for well-typed input; a defensive floor for a malformed
       // op string drained from Firestore.

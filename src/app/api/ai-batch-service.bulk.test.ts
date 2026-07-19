@@ -736,3 +736,163 @@ describe("Phase 2 criterion 6 — bulk_update_activities idempotency", () => {
     expect(second.project).toBe(first.project);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 4 — bulk_append_notes (append one note per EXISTING activity)
+// ---------------------------------------------------------------------------
+
+describe("bulk_append_notes", () => {
+  it("all items applied → applied outcome; a second append is \\n\\n-separated", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0", "a1"] });
+    const res1 = one(
+      project,
+      {
+        seq: 1,
+        op: "bulk_append_notes",
+        payload: { notes: [{ id: "a0", text: "First" }, { id: "a1", text: "Solo" }] },
+      },
+      scenarioId
+    );
+    expect(res1.results[0]!.outcome).toEqual({ status: "applied" });
+
+    const res2 = one(
+      res1.project,
+      { seq: 2, op: "bulk_append_notes", payload: { notes: [{ id: "a0", text: "Second" }] } },
+      scenarioId
+    );
+    expect(res2.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(scenarioOf(res2.project, scenarioId).activities.find((a) => a.id === "a0")!.notes).toBe(
+      "First\n\nSecond"
+    );
+  });
+
+  it("appends to an empty-notes activity with no leading separator", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0"] });
+    const res = one(
+      project,
+      { seq: 1, op: "bulk_append_notes", payload: { notes: [{ id: "a0", text: "Hello" }] } },
+      scenarioId
+    );
+    expect(scenarioOf(res.project, scenarioId).activities.find((a) => a.id === "a0")!.notes).toBe("Hello");
+  });
+
+  it("partial: an unknown id skips not_found; the rest apply", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0"] });
+    const res = one(
+      project,
+      {
+        seq: 1,
+        op: "bulk_append_notes",
+        payload: { notes: [{ id: "a0", text: "ok" }, { id: "nope", text: "x" }] },
+      },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({
+      status: "partial",
+      appliedCount: 1,
+      skippedItems: [{ index: 1, id: "nope", reason: "not_found" }],
+    });
+    expect(scenarioOf(res.project, scenarioId).activities.find((a) => a.id === "a0")!.notes).toBe("ok");
+  });
+
+  it("partial: an over-cap append passes through as would_exceed_length (D1), not invalid", () => {
+    // Seed a0 with ~1990 chars of existing notes via the bulk-create note field,
+    // then append enough to overflow NOTES_MAX (2000).
+    const { project, scenarioId } = baseProject();
+    const seeded = seedActivities(project, scenarioId, [
+      { id: "a0", name: "A0", min: 1, mostLikely: 2, max: 3, note: "x".repeat(1990) },
+    ]);
+    const res = one(
+      seeded,
+      { seq: 2, op: "bulk_append_notes", payload: { notes: [{ id: "a0", text: "y".repeat(50) }] } },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({
+      status: "partial",
+      appliedCount: 0,
+      skippedItems: [{ index: 0, id: "a0", reason: "would_exceed_length" }],
+    });
+    // Rejected, not truncated: the note stays at its seeded length.
+    expect(scenarioOf(res.project, scenarioId).activities.find((a) => a.id === "a0")!.notes).toBe(
+      "x".repeat(1990)
+    );
+  });
+
+  it("cumulative appends within one call can trip would_exceed_length on the later entry (D1 × D3)", () => {
+    // Neither text alone overflows, but the second folds against the first's result.
+    const { project, scenarioId } = baseProject({ activityIds: ["a0"] });
+    const res = one(
+      project,
+      {
+        seq: 1,
+        op: "bulk_append_notes",
+        payload: { notes: [{ id: "a0", text: "a".repeat(1500) }, { id: "a0", text: "b".repeat(1500) }] },
+      },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({
+      status: "partial",
+      appliedCount: 1,
+      skippedItems: [{ index: 1, id: "a0", reason: "would_exceed_length" }],
+    });
+    expect(scenarioOf(res.project, scenarioId).activities.find((a) => a.id === "a0")!.notes).toBe(
+      "a".repeat(1500)
+    );
+  });
+
+  it("repeated ids append cumulatively in array order", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0"] });
+    const res = one(
+      project,
+      {
+        seq: 1,
+        op: "bulk_append_notes",
+        payload: { notes: [{ id: "a0", text: "one" }, { id: "a0", text: "two" }] },
+      },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(scenarioOf(res.project, scenarioId).activities.find((a) => a.id === "a0")!.notes).toBe("one\n\ntwo");
+  });
+
+  it("is NOT idempotent: re-running the same payload appends the note again", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0"] });
+    const op: AiOp = { seq: 1, op: "bulk_append_notes", payload: { notes: [{ id: "a0", text: "dup" }] } };
+    const first = one(project, op, scenarioId);
+    expect(first.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(scenarioOf(first.project, scenarioId).activities.find((a) => a.id === "a0")!.notes).toBe("dup");
+
+    const second = applyAiOpsToProject(first.project, [op], scenarioId);
+    expect(second.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(second.project).not.toBe(first.project);
+    expect(scenarioOf(second.project, scenarioId).activities.find((a) => a.id === "a0")!.notes).toBe(
+      "dup\n\ndup"
+    );
+  });
+
+  it("does not invalidate simulation results (non-invalidating)", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0"] });
+    const fake = { id: "sim" } as unknown as NonNullable<Scenario["simulationResults"]>;
+    const withResults = withScenarioPatch(project, scenarioId, { simulationResults: fake });
+    const res = one(
+      withResults,
+      { seq: 1, op: "bulk_append_notes", payload: { notes: [{ id: "a0", text: "note" }] } },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(scenarioOf(res.project, scenarioId).simulationResults).toBe(fake);
+  });
+
+  it("structural reject: an empty notes array is a whole-op invalid", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0"] });
+    const op: AiOp = { seq: 1, op: "bulk_append_notes", payload: { notes: [] } };
+    expect(outcomeOf(project, op, scenarioId)).toEqual({ status: "skipped", reason: "invalid" });
+  });
+
+  it("structural reject: more than 100 items is a whole-op invalid", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0"] });
+    const notes = Array.from({ length: 101 }, (_, i) => ({ id: "a0", text: `n${i}` }));
+    const op: AiOp = { seq: 1, op: "bulk_append_notes", payload: { notes } };
+    expect(outcomeOf(project, op, scenarioId)).toEqual({ status: "skipped", reason: "invalid" });
+  });
+});

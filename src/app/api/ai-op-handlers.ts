@@ -217,8 +217,10 @@ export function updateActivityCore(
 
   // Length pre-check on the RAW description (before trim), mirroring the singular
   // set-description path: over-length reads as would_exceed_length on the
-  // singular path and narrows to `invalid` in the bulk path (toItemReject).
-  // Unreachable in bulk (the server caps description at 2000; replace semantics).
+  // singular path, and now passes through as would_exceed_length in the bulk
+  // path too (toItemReject, widened D1) -- previously this narrowed to
+  // `invalid`. Client-unreachable given a well-formed op (the server contract
+  // caps description at 2000 chars; the client structural schema does not).
   if (fields.description !== undefined && fields.description.length > DESCRIPTION_MAX) {
     return reject("would_exceed_length");
   }
@@ -281,10 +283,14 @@ export function appendNoteCore(scenario: Scenario, p: { id: string; text: string
   if (!activity) return reject("not_found");
   const current = activity.notes ?? "";
   const nextLength = (current ? current.length + NOTE_SEPARATOR.length : 0) + p.text.length;
-  // would_exceed_length is an AiSkipReason, not an ItemReject. In the bulk
-  // create path this branch is unreachable (the note lands on a freshly-created
-  // activity whose notes are empty, and is ≤2000 chars); if it ever fired there
-  // it would narrow to `invalid` via toItemReject. See the 1A invariant.
+  // would_exceed_length IS an ItemReject (widened for bulk_append_notes, D1).
+  // Reachable from bulk_append_notes, which targets EXISTING activities that
+  // may already carry notes near the cap. The bulk-CREATE seeding path
+  // (handleBulkCreateActivities) and bulk-import (importActivityWithNote) call
+  // this SAME function but this reason never reaches toItemReject from either:
+  // both discard a failed seed-note result instead of pushing a skippedItem
+  // (ai-bulk-handlers.ts:78, :186) -- and in the well-formed case the seed
+  // note also can't overflow, since it lands on a fresh, empty-notes activity.
   if (nextLength > NOTES_MAX) return reject("would_exceed_length");
   return accept(patchActivityQualitative(scenario, p.id, { op: "appendNote", text: p.text }));
 }
