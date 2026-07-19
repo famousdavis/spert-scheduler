@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.58.0",
+    date: "2026-07-18",
+    sections: [
+      {
+        title: "Added — Bulk add notes via Connect AI",
+        items: [
+          'Added a new Connect AI tool, scheduler_bulk_append_notes, that appends a note to many existing activities in a single call (up to 100). Previously an AI assistant had to add notes one activity at a time; now a request like "add a risk-to-watch note to every activity" is one operation instead of many. Each note is appended independently — any that would push an activity\'s notes past the 2000-character limit are skipped and reported as "too long" in the AI activity feed, while the rest apply. Note: appending is not idempotent, so re-running the same call adds the notes again.',
+        ],
+      },
+    ],
+  },
+  {
     version: "0.57.10",
     date: "2026-07-18",
     sections: [

@@ -69,6 +69,15 @@ describe("describeOutcome", () => {
     expect(text).toContain("not found ×6");
     expect(text).toContain("invalid ×1");
   });
+
+  it("labels a would_exceed_length item skip as 'too long' (bulk_append_notes)", () => {
+    const outcome: AiOpOutcome = {
+      status: "partial",
+      appliedCount: 5,
+      skippedItems: [{ index: 0, id: "a0", reason: "would_exceed_length" }],
+    };
+    expect(describeOutcome(outcome).text).toContain("too long ×1");
+  });
 });
 
 describe("summarizeSections", () => {
@@ -90,6 +99,10 @@ describe("OP_LABELS", () => {
   it("labels the Phase 2 bulk ops", () => {
     expect(OP_LABELS.bulk_update_activities).toBe("Bulk update activities");
     expect(OP_LABELS.bulk_import_schedule).toBe("Import schedule");
+  });
+
+  it("labels the Phase 4 bulk op", () => {
+    expect(OP_LABELS.bulk_append_notes).toBe("Bulk add notes");
   });
 });
 
