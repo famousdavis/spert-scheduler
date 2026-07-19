@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.57.9 — 2026-07-18
+
+### Changed — Test-runner update
+
+- **Updated the test runner (Vitest 4.1.5 → 4.1.6, with its matching coverage plugin).** Development-only tooling — not part of the deployed application. The full test suite (2,065 tests across 94 files) and the mutation-testing dry-run both pass on the new version. No user-facing change.
+
 ## 0.57.8 — 2026-07-18
 
 ### Changed — Development tooling updates (lint / test)
