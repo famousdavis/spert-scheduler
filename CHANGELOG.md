@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.57.10 — 2026-07-18
+
+### Changed — Styling engine update
+
+- **Updated the Tailwind CSS engine (4.2.4 → 4.3.0, with its matching Vite plugin).** A routine maintenance update to the current stable release of the utility-CSS engine that generates the app's styling. Verified with a full visual smoke: the app renders identically in both light and dark mode, charts and the schedule grid display correctly, and the generated stylesheet is unchanged in size. No user-facing change.
+
 ## 0.57.9 — 2026-07-18
 
 ### Changed — Test-runner update
