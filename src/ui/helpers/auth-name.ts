@@ -6,7 +6,7 @@
  * "First MI Last" order. Returns the trimmed input if no comma reversal applies.
  *
  * SUITE-SHARED: keep byte-identical with
- * /Users/william/Documents/spert-landing-page/functions/src/mailHeaders.ts
+ * /Users/william/Developer/spert-landing-page/functions/src/mailHeaders.ts
  * (Lesson 19 — single source of truth).
  *
  *   "Alice Smith"          → "Alice Smith"

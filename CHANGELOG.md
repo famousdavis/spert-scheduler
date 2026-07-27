@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.58.1 — 2026-07-26
+
+Internal repository maintenance only. No functional, data, or interface changes — the app behaves identically to v0.58.0.
+
+### Fixed
+
+- Corrected a stale absolute path in a source comment in `src/ui/helpers/auth-name.ts`. It pointed at a repository location that no longer exists; the comment marks this helper as suite-shared and required to stay byte-identical with its counterpart in the landing-page Cloud Functions, so the pointer needs to resolve.
+
+### Changed
+
+- Resynchronised the version surfaces: `package-lock.json` had been stranded at 0.57.10 while `package.json` read 0.58.0. Both now read 0.58.1.
+
+### Note
+
+Unlike the other SPERT® apps — which dropped their redundant copies in the July 26, 2026 consolidation — this repository **keeps** its `firestore.rules`. `src/infrastructure/persistence/preferences-firestore-sync.test.ts` reads that file at test time and asserts every key of the Zod `UserPreferencesSchema` appears in the `spertscheduler_settings` `hasOnly` allowlist, guarding against adding a preference and forgetting the rules allowlist — which would silently break settings persistence. Treat the file as a test fixture, not as a reference for what is deployed: the deployed rules live in the Firebase Console and are mirrored in the landing-page repository.
+
 ## 0.58.0 — 2026-07-18
 
 ### Added — Bulk add notes via Connect AI

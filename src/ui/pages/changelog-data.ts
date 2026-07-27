@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.58.1",
+    date: "2026-07-26",
+    sections: [
+      {
+        title: "Internal — repository maintenance",
+        items: [
+          "Repository housekeeping only. No functional, data, or interface changes — SPERT Scheduler behaves identically to v0.58.0. Corrects a stale file path in a source-code comment and brings the project's internal version numbers back into agreement.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.58.0",
     date: "2026-07-18",
     sections: [
