@@ -12,6 +12,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.0",
+    date: "2026-07-27",
+    sections: [
+      {
+        title: "Added — Load Sample Project",
+        items: [
+          "New to SPERT Scheduler, or want to see what a finished plan looks like before building your own? There is now a \"Load Sample Project\" button on the Projects page — in the header, and front and centre when you have no projects yet. One click creates a complete, fully worked example project you can open, explore, edit, or delete like any other.",
+          "The sample is \"Cloud ERP Solution\": a vendor-neutral cloud ERP implementation run by a systems integrator, starting just after contract signature and finishing roughly fourteen months later. It contains 40 activities across six workstreams, 68 dependencies, 4 milestones, and 8 colour-coded section headers.",
+          "It is built to teach the tool, not just to fill the screen. Dependency mode is on, so the Financials, Order Management, and CRM tracks genuinely run in parallel and re-converge at system integration testing — which means the Gantt chart, the critical path, and the schedule buffer all show real behaviour rather than a single straight line. All four distribution types appear, each matched to the character of the work: log-normal on the data-migration, integration, and testing activities where real projects develop long tails, and uniform on the two activities whose timing is controlled by outside parties.",
+          "Every activity carries a plain-language description of its scope, two deliverables, three checklist tasks, and a notes field with practical completion advice and the \"gotchas\" that catch project managers out.",
+          "The sample adapts to when you load it: the schedule starts on the next Monday and the milestone target dates move with it, so it always reads as a current, forward-looking plan. A US holiday calendar covering the schedule is included, and can be edited or removed like any other project calendar.",
+          "Loading the sample more than once is safe. Each copy is fully independent, with its own identifiers, so edits to one never affect another or anything else in your workspace.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.58.1",
     date: "2026-07-26",
     sections: [

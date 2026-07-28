@@ -17,6 +17,8 @@ import type {
   SimulationRun,
 } from "@domain/models/types";
 import { MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
+import { SAMPLE_PROJECT_NAME } from "@domain/data/sample-project-meta";
+import { buildSampleProject } from "@app/api/sample-project-service";
 import {
   createProject,
   cloneProject as cloneProjectFn,
@@ -270,6 +272,16 @@ export interface ProjectStore {
    * mode is owned by the current user, regardless of who owned the source.
    */
   cloneProject: (sourceId: string, owner: string | null) => Project | undefined;
+  /**
+   * Add the built-in "Cloud ERP Solution" sample project, returning it. Every
+   * call mints entirely fresh ids, so loading the sample repeatedly yields
+   * independent projects rather than colliding. `owner` follows the same
+   * caller-decides rule as `addProject`/`cloneProject` — Lesson 38.
+   *
+   * Async because the ~65 KB fixture is dynamically imported to keep it out of
+   * the main bundle.
+   */
+  loadSampleProject: (owner: string | null) => Promise<Project>;
   deleteProject: (id: string) => void;
   reorderProjects: (fromIndex: number, toIndex: number) => void;
   getProject: (id: string) => Project | undefined;
@@ -816,6 +828,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     set((state) => ({ projects: [...state.projects, clone] }));
     cloudSyncBus.emitCreate(clone.id);
     return clone;
+  },
+
+  loadSampleProject: async (owner) => {
+    const existingNames = get().projects.map((p) => p.name);
+    const name = existingNames.includes(SAMPLE_PROJECT_NAME)
+      ? nextCloneName(SAMPLE_PROJECT_NAME, existingNames)
+      : SAMPLE_PROJECT_NAME;
+    const project = await buildSampleProject(name);
+    project.owner = owner; // null in local mode, current uid in cloud mode (Lesson 38)
+    repo.save(project);
+    set((state) => ({ projects: [...state.projects, project] }));
+    cloudSyncBus.emitCreate(project.id);
+    return project;
   },
 
   deleteProject: (id: string) => {

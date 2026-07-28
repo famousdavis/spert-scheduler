@@ -60,6 +60,7 @@ export function ProjectsPage() {
     loadProjects,
     addProject,
     cloneProject,
+    loadSampleProject,
     deleteProject,
     reorderProjects,
     archiveProject,
@@ -75,6 +76,7 @@ export function ProjectsPage() {
       loadProjects: s.loadProjects,
       addProject: s.addProject,
       cloneProject: s.cloneProject,
+      loadSampleProject: s.loadSampleProject,
       deleteProject: s.deleteProject,
       reorderProjects: s.reorderProjects,
       archiveProject: s.archiveProject,
@@ -135,6 +137,16 @@ export function ProjectsPage() {
   const handleCreate = (name: string) => {
     const project = addProject(name, newProjectOwner);
     navigate(`/project/${project.id}`);
+  };
+
+  const handleLoadSample = async () => {
+    try {
+      const project = await loadSampleProject(newProjectOwner);
+      toast.success(`Loaded "${project.name}" — run the simulation to see the buffer`);
+      navigate(`/project/${project.id}`);
+    } catch {
+      toast.error("Couldn't load the sample project. Please try again.");
+    }
   };
 
   // Separate active and archived projects
@@ -233,6 +245,12 @@ export function ProjectsPage() {
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             {showImport ? "Hide Import" : "Import Projects"}
+          </button>
+          <button
+            onClick={handleLoadSample}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Load Sample
           </button>
           <button
             onClick={() => setDialogOpen(true)}
@@ -358,8 +376,23 @@ export function ProjectsPage() {
             <div className="text-center py-12">
               <p className="text-gray-400 dark:text-gray-500 text-lg">No projects yet.</p>
               <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-                Create a project to get started with probabilistic scheduling.
+                Create a project to get started with probabilistic scheduling — or
+                load the sample to explore a fully built schedule first.
               </p>
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setDialogOpen(true)}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                >
+                  New Project
+                </button>
+                <button
+                  onClick={handleLoadSample}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Load Sample Project
+                </button>
+              </div>
             </div>
           );
         }

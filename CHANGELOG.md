@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.59.0 — 2026-07-27
+
+### Added
+
+- **Load Sample Project.** A "Load Sample Project" action on the Projects page — in the header, and as a prominent call to action in the empty state — creates a complete worked example project in one click. It behaves like any other project: open it, edit it, clone it, export it, delete it.
+- The sample is **"Cloud ERP Solution"**, a vendor-neutral cloud ERP implementation led by a systems integrator, beginning after contract signature and running roughly fourteen months. It ships **40 activities** across six workstreams, **68 dependencies**, **4 milestones**, and **8 colour-coded section bands**.
+- The sample is designed to exercise the product, not merely populate it. **Dependency mode is enabled**, so the Financials, Order Management, and CRM tracks run concurrently and re-converge at system integration testing — giving the Gantt chart, critical path, and schedule buffer non-trivial behaviour to display. **All four distribution types** are represented and matched to the character of each activity: log-normal across data migration, integration, and test (where real programmes develop long tails), and uniform on the two externally-gated activities.
+- Every activity carries a **description**, **two deliverables**, **three checklist tasks**, and **notes** containing completion advice and common pitfalls.
+- The sample is anchored to the load date rather than frozen: the scenario starts on the next Monday and **milestone targets are derived as offsets from that start**, so it always reads as a current plan. A **US holiday calendar** spanning the schedule is attached, and is fully editable.
+- Repeat loads are safe. Each load passes the canonical fixture through the existing clone pipeline, re-minting every project, scenario, activity, checklist, deliverable, milestone, and band identifier and remapping all cross-references, so copies are completely independent.
+
+### Technical notes
+
+- The canonical fixture is a **typed `Project` in `src/domain/data/sample-project.ts`**, checked by the compiler on every build. A schema change that breaks the sample therefore fails the build instead of shipping a broken demo.
+- Holidays are supplied to the fixture as a parameter rather than computed inside it: `getUSHolidays` lives in `/core`, and `/domain` must never import upward. Assembly lives in `src/app/api/sample-project-service.ts`.
+- No schema change and no Firestore rules change: the sample uses only existing top-level `Project` fields, so it satisfies the cloud create allowlist.
+
 ## 0.58.1 — 2026-07-26
 
 Internal repository maintenance only. No functional, data, or interface changes — the app behaves identically to v0.58.0.
