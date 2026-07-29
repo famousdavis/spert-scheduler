@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.59.1 — 2026-07-29
+
+### Fixed
+
+- **Shared project members showed a raw account ID.** The sharing list rendered a 28-character Firebase Auth UID where a name or email belonged, for any member who had used another SPERT® Suite app but never signed into SPERT Scheduler. `getProjectMembers` resolved profiles against `spertscheduler_profiles` only; that document is written by `AuthProvider` on *this* app's sign-in, whereas the cross-app invitation Cloud Function resolves an invitee **by** their `spertsuite_profiles` document and then writes only `members.{uid}` — it never seeds a per-app profile.
+- The lookup now falls back to `spertsuite_profiles/{uid}` when the per-app document is absent. Both are written with the same `displayName`/`email` payload, and `firestore.rules` already permits `get` on the suite mirror for any authenticated user, so no rules change and no data backfill were required — affected members render correctly on next load.
+- Strictly a fallback: the per-app document still wins, and the mirror is not read at all when it is present.
+
+### Technical notes
+
+- Guarded by three new cases in `src/infrastructure/firebase/firestore-sharing.test.ts`; two fail with the fix reverted.
+- Suite-wide defect, not a Scheduler quirk — every SPERT app resolving members against only its own `_profiles` collection has the same latent behaviour. First found in SPERT Story Map v0.49.3.
+
 ## 0.59.0 — 2026-07-27
 
 ### Added
