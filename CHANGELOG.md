@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.59.3 — 2026-07-29
+
+Repository maintenance only. No functional, data, or interface changes — the app schedules identically to v0.59.2.
+
+### Fixed
+
+- **`public/CHANGELOG.md` was 43 releases out of date.** That file is a static copy of the root `CHANGELOG.md`, served at `/CHANGELOG.md` on the deployed site. It was last written in the v0.16.2 commit on **2026-03-11** and had not been touched since, so for nearly five months anyone fetching that URL received a March 2026 changelog — 2,414 bytes against the root file's 226,708. It is now resynchronised and byte-identical.
+- **Nothing reads that file, which is exactly why it rotted.** `ChangelogPage` renders from `src/ui/pages/changelog-data.ts`, a TypeScript array, so the in-app changelog was never affected and was correct throughout. But because no build, type check, lint run or test touched the markdown copy, there was nothing anywhere in the pipeline that could notice it falling behind. The in-app changelog page and the version shown in the app were always right; only the directly-fetched URL was stale.
+
+### Added
+
+- **A guard test that makes this drift impossible to repeat.** `src/integration/changelog-public-sync.test.ts` reads both files from disk at test time and asserts they are byte-identical, failing with the two file sizes, the newest entry heading found in each, and the one-line fix (`cp CHANGELOG.md public/CHANGELOG.md`). This follows the pattern already used by `preferences-firestore-sync.test.ts`, which likewise reads a non-source repository artefact — `firestore.rules` — from disk to hold it in agreement with the code. The new test was confirmed to fail against the drifted state before the resync, not merely to pass afterwards.
+
+### Technical notes
+
+- Four of the five SPERT® Suite repositories that ship a `public/CHANGELOG.md` — SPERT® Forecaster, SPERT® Story Map, SPERT SSV and GanttApp™ — already keep it byte-identical to root. Scheduler was the only one drifted, so resynchronising rather than deleting brings it into line with the established convention instead of creating a third behaviour. Deleting the file was considered and rejected: it would have made this the only one of the five to drop the URL, and would have started returning 404 for an address that had been live since March.
+- Only SPERT® Story Map actually depends on its public copy at runtime, where `ChangelogView` fetches `/CHANGELOG.md`. Scheduler's is load-bearing for nothing, which is a reason to guard it cheaply rather than a reason to let it drift.
+
 ## 0.59.2 — 2026-07-29
 
 Licensing only. No functional, data, or interface changes — the app schedules identically to v0.59.1.

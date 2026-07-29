@@ -12,6 +12,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.3",
+    date: "2026-07-29",
+    sections: [
+      {
+        title: "Fixed \u2014 the downloadable changelog file was out of date",
+        items: [
+          "Alongside the changelog you are reading, this app publishes a plain-text copy of its release history at spertscheduler.vercel.app/CHANGELOG.md. That copy had not been updated since March 2026 and was 43 releases behind, so anyone opening that address directly saw a version history that stopped last spring. It is now up to date.",
+          "This page was never affected and has been correct throughout \u2014 it is built from a separate source inside the app. Only the directly-downloaded file was stale.",
+          "A new automated check now compares the two on every test run and fails the build if they ever fall out of step again, so this cannot quietly recur.",
+          "Nothing in the app itself changed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.2",
     date: "2026-07-29",
     sections: [
