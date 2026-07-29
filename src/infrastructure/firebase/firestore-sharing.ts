@@ -21,6 +21,10 @@ import type { ProjectRole } from "./firestore-driver";
 
 const PROJECTS_COL = "spertscheduler_projects";
 const PROFILES_COL = "spertscheduler_profiles";
+// Cross-app profile mirror. Written by AuthProvider alongside PROFILES_COL on
+// every sign-in, so it carries the same displayName/email shape. Read only as a
+// fallback — see getProjectMembers.
+const SUITE_PROFILES_COL = "spertsuite_profiles";
 
 export interface UserProfile {
   uid: string;
@@ -88,7 +92,16 @@ export async function getProjectMembers(
     let email: string | undefined;
     let displayName: string | undefined;
     try {
-      const profileSnap = await getDoc(doc(db, PROFILES_COL, uid));
+      let profileSnap = await getDoc(doc(db, PROFILES_COL, uid));
+      if (!profileSnap.exists()) {
+        // Fall back to the suite-wide mirror. The cross-app invitation Cloud
+        // Function resolves an invitee BY their spertsuite_profiles doc and
+        // then writes only members.{uid} — it never seeds a per-app profile.
+        // So a member who has used another SPERT app but never signed into
+        // Scheduler has no PROFILES_COL doc, and the row would otherwise
+        // render a raw Auth UID.
+        profileSnap = await getDoc(doc(db, SUITE_PROFILES_COL, uid));
+      }
       if (profileSnap.exists()) {
         const profile = profileSnap.data();
         email = profile.email;
