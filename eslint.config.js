@@ -41,5 +41,22 @@ export default tseslint.config(
     rules: {
       "sonarjs/assertions-in-tests": "off",
     },
+  },
+  {
+    // `scripts/shipgate.mjs` is byte-identical across all eight SPERT® Suite repos —
+    // every repo-specific detail belongs in shipgate.config.json, never in the script.
+    // This repo is the only one whose ESLint config carries the sonarjs plugin AND
+    // reaches scripts/, so the exemption lives here rather than as a disable comment
+    // in the shared file: a plugin-specific `eslint-disable` directive is a hard
+    // "Definition for rule ... was not found" ERROR in every repo that does not
+    // install that plugin, which would break the other seven gates.
+    //
+    // The command being executed comes from this repo's own committed
+    // shipgate.config.json — not from user input, argv or the network. Anyone able to
+    // edit that file can already run arbitrary npm scripts.
+    files: ["scripts/**/*.mjs"],
+    rules: {
+      "sonarjs/os-command": "off",
+    },
   }
 );
