@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.59.4 — 2026-07-30
+
+Release-process hardening, and two guarantees that were documented but enforced nowhere. No functional, data, or interface changes — the app schedules identically to v0.59.3.
+
+**The AI op contract was not actually guarded.** `src/app/api/ai-op-contract.json` must stay byte-identical, in canonical form, to its copy in the SPERT® Suite landing-page repository: the two halves of Connect AI — this client and the MCP server — are written against the same document, and a silent divergence means the server advertises a tool shape the client rejects, or the reverse. The mechanism for that was `npm run contract:hash`, which **prints** the digest and exits zero whatever it finds. It only ever helped when a person ran it in both repositories and compared by eye; nothing failed if they drifted. The existing `ai-op-contract.test.ts` validates Zod schema shapes against the contract, which is a different property — it would stay green through any content change that remained schema-valid. The digest is now pinned in a test, verified equal across both repositories on 2026-07-30. The script stays for the two-repo comparison workflow, but it is no longer the only thing standing between the contract and a silent change.
+
+**v0.57.1 existed in the app but not as a release in this file.** Its section — the Connect AI prompt advertising the reorder tool — was sitting inside the v0.57.2 entry with no heading of its own. The content was never lost; the release simply had no entry. Restored.
+
+Alongside that, `CHANGELOG.md` is missing 33 versions the in-app changelog has always carried, scattered through the pre-0.17.0 history rather than forming a clean cutoff: the file has 0.15.2, 0.15.3, 0.16.0, 0.16.2 and 0.17.0 but not 0.15.0, 0.15.1, 0.16.1, 0.16.3 or 0.16.4. Backfilling that is separate work, so the gap is recorded and guarded in both directions instead: no new gap can open, and a backfilled version must be removed from the record, so the debt can only shrink.
+
+This release also adds the SPERT® Suite ship gate — `npm run shipgate` locally, and the same script in CI on every pull request and push to `main`. It is the first continuous integration this repository has ever had; until now a green check meant Vercel had built a preview, not that the 2,105 tests had run, because nothing ran them.
+
+### Added
+
+- **`npm run shipgate` — the release gate.** Verifies that `package.json`, both version fields in `package-lock.json`, `APP_VERSION` and the newest `CHANGELOG.md` entry agree, then runs lint, the tests and a production build. It reports every disagreement in one run rather than stopping at the first.
+- **Continuous integration** (`.github/workflows/shipgate.yml`), running the same `npm run shipgate` on every pull request and push to `main`, so the local gate and the automated one cannot drift apart. It installs with `npm ci`, which refuses to run if the lockfile and `package.json` disagree.
+- **A guard pinning the canonical hash of `ai-op-contract.json`**, with instructions in the failure message for the cross-repo change it implies — mirror the change in the landing-page copy, confirm both digests match, then update the constant, and ship the server side first.
+- **A guard that `CHANGELOG.md` and `src/ui/pages/changelog-data.ts` agree**, with the 33-version pre-0.17.0 gap recorded and ratcheted in both directions. It also asserts that no entry or section renders empty — the failure that left two SPERT Forecaster entries blank in-app for weeks.
+- **A guard that `LICENSE` matches the canonical suite licence** — one SHA-256 of the licence body, normalised for the repository URL on line 4, the only line that legitimately differs across the nine repositories.
+- **A guard that every static asset linked from source exists in `public/`** — the three guide PDFs, the activity-import CSV template, and the favicon.
+
+### Fixed
+
+- **v0.57.1 had no heading of its own.** Its section sat inside the v0.57.2 entry, so the release existed in the file but not as a release. The new changelog guard is what surfaced it.
+
+### Notes
+
+- **ESLint continues to exit non-zero, and that is correct.** The accepted baseline is 23 problems (17 errors, 6 warnings), mostly `sonarjs/cognitive-complexity` on core scheduling and simulation functions. The gate holds that **number** steady rather than gating on the exit code, so a new problem fails while the accepted baseline passes. Those functions are not to be refactored to satisfy the threshold.
+- **`tsc -b` already covers test files here** — `tsconfig.app.json` includes `src/**/*.ts`, verified by injecting a type error into a `.test.ts` and confirming the build fails. So no separate typecheck step was needed, unlike MyScrumBudget, where `next build` skipped tests entirely and hid 33 errors.
+
 ## 0.59.3 — 2026-07-29
 
 Repository maintenance only. No functional, data, or interface changes — the app schedules identically to v0.59.2.
@@ -158,6 +188,8 @@ Unlike the other SPERT® apps — which dropped their redundant copies in the Ju
 ### Dependencies
 
 - zod 4.3.6 → 4.4.3, jsdom 29.1.0 → 29.1.1 (the only outdated packages whose latest stable release is older than 60 days; all newer releases and all major-version bumps were deliberately deferred).
+
+## 0.57.1 — 2026-07-18
 
 ### Changed — Connect AI prompt now advertises the reorder tool
 

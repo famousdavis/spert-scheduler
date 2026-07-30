@@ -1,7 +1,7 @@
 {
   "name": "spert-scheduler",
   "private": true,
-  "version": "0.59.3",
+  "version": "0.59.4",
   "type": "module",
   "license": "GPL-3.0",
   "engines": {
@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "contract:hash": "node scripts/contract-hash.mjs src/app/api/ai-op-contract.json"
+    "contract:hash": "node scripts/contract-hash.mjs src/app/api/ai-op-contract.json",
+    "shipgate": "node scripts/shipgate.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

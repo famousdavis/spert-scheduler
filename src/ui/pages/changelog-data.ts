@@ -12,6 +12,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.4",
+    date: "2026-07-30",
+    sections: [
+      {
+        title: "Changed — release checks",
+        items: [
+          "Release-process work only. Nothing in the app itself changed — it schedules identically to v0.59.3.",
+          "Every proposed change is now checked automatically before it can be merged: the full test suite, the linter, a production build, and a check that the version number agrees everywhere it appears. This is the first automated checking this project has ever had — previously a green checkmark meant only that a preview had been built, not that the 2,105 tests had been run, because nothing ran them.",
+          "The shared definition that lets this app and the Connect AI service understand each other is now checked automatically. Keeping the two copies identical had always been a written rule with a helper command, but the command only displayed a fingerprint for a person to compare by eye — nothing failed if the two ever drifted apart. That fingerprint is now verified on every test run.",
+          "Added automatic checks that this changelog stays consistent with the copy kept in the repository, that the license file still matches the canonical copy shared across the suite, and that every file the app links to actually exists.",
+        ],
+      },
+      {
+        title: "Fixed — a missing release heading",
+        items: [
+          "Version 0.57.1 appeared on this page but had no heading of its own in the repository's changelog file — its notes had been absorbed into the 0.57.2 entry. The content was never lost; the release simply had no entry. It has been restored, and the new consistency check is what found it.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.3",
     date: "2026-07-29",
     sections: [

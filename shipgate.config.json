@@ -1,0 +1,34 @@
+{
+  "repo": "spert-scheduler",
+
+  "versionConstant": {
+    "file": "src/app/constants.ts",
+    "export": "APP_VERSION"
+  },
+
+  "changelog": {
+    "file": "CHANGELOG.md",
+    "headingPattern": "^## (\\d+\\.\\d+\\.\\d+)\\s*—"
+  },
+
+  "claudeMdVersionPatterns": [],
+
+  "_claudeMdNote": "Deliberately empty. Swept on 2026-07-30: CLAUDE.md contains 21 lines carrying an X.Y.Z string, and every one is historical prose in the Key Files table — '(v0.59.0)', '(v0.49.0)', 're-synced v0.57.4'. Those are correct as written and must never be flagged. There is no `Current Version` / `Live facts` style declaration line to check. If one is ever added, add its pattern here. (MyScrumBudget shipped a guard that matched only one of its two declarations and missed a stale second one — sweep the whole file for X.Y.Z before assuming, and note that `\\b\\d` will not match `v0.59.0`.) The '1719 tests across 83 test files' claim in Testing Patterns is a COUNT, not a version, so it cannot be machine-checked against package.json — update it by hand.",
+
+  "commands": [
+    {
+      "name": "lint",
+      "run": "npm run lint",
+      "expectProblems": 23,
+      "_note": "eslint exits NON-ZERO here and that is correct. The baseline is 23 problems (17 errors, 6 warnings), mostly sonarjs/cognitive-complexity on core scheduling and simulation functions — deterministic.ts at 134, flat-activity-parser.ts at 110, monte-carlo.ts at 57 — plus react-hooks/set-state-in-effect. William confirmed this as the accepted baseline. Gate on the NUMBER not moving, never on the exit code, and do NOT refactor those functions to satisfy the threshold."
+    },
+    { "name": "test", "run": "npm test" },
+    {
+      "name": "build (tsc -b && vite build)",
+      "run": "npm run build",
+      "_note": "`tsc -b` covers test files here — tsconfig.app.json includes src/**/*.ts, and injecting an error into a .test.ts was verified to fail the build. So no separate typecheck step is needed, unlike MyScrumBudget where `next build` skipped tests entirely."
+    }
+  ],
+
+  "_contractHashNote": "`npm run contract:hash` is deliberately NOT a gate step. It PRINTS the digest and exits 0 whatever it finds, so as a command it would be a guard-shaped no-op — it only ever helped when a human ran it in both repos and compared by eye. The real assertion now lives in src/integration/ai-op-contract-hash.test.ts, which pins the digest and therefore runs in the always-true tier. The script stays for the two-repo comparison workflow."
+}
