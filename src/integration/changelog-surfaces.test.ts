@@ -11,25 +11,28 @@ import { CHANGELOG } from "../ui/pages/changelog-data";
  * The changelog lives in three places:
  *
  *   - `src/ui/pages/changelog-data.ts` — what ChangelogPage renders. This is the
- *     authoritative, complete history (216 entries, back to 0.1.0).
- *   - `CHANGELOG.md` — the record in the repository (213 entries).
+ *     authoritative, complete history, back to 0.1.0.
+ *   - `CHANGELOG.md` — the record in the repository.
  *   - `public/CHANGELOG.md` — served at /CHANGELOG.md on the deployed site.
  *
  * The public copy is guarded separately, and deliberately so, in
  * `changelog-public-sync.test.ts` — that file documents the drift that prompted
  * it (43 releases behind, five months stale). This test covers the other pair,
- * which nothing has ever checked.
+ * which nothing had ever checked.
  *
- * `CHANGELOG.md` was missing 33 versions the app has always rendered, scattered
- * through the pre-0.17.0 history rather than forming a clean cutoff. Thirty of
- * them — 0.15.1 down to 0.1.0, one contiguous run reaching the oldest entry in
- * the data file — were transcribed in v0.59.5 and appended at the end of the
- * file. The three left in KNOWN_MISSING_FROM_MARKDOWN interleave rather than
- * append: the file has 0.15.2, 0.15.3, 0.16.0, 0.16.2 and 0.17.0, so 0.16.4 and
- * 0.16.3 belong under 0.17.0 and 0.16.1 between 0.16.2 and 0.16.0.
- * The same defect exists across the suite: SPERT AHP was missing one version and
- * closed it in v0.18.16, MyScrumBudget was missing 21 and reached zero in
- * v0.34.6, GanttApp is still missing 17.
+ * The first two now hold the same 217 versions in the same order, and this is
+ * the first point at which that has ever been true. `CHANGELOG.md` was missing
+ * 33 versions the app had always rendered, scattered through the pre-0.17.0
+ * history rather than forming a clean cutoff. Thirty — 0.15.1 down to 0.1.0,
+ * one contiguous run reaching the oldest entry in the data file — were appended
+ * at the end of the file in v0.59.5. The last three interleaved rather than
+ * appended, 0.16.4 and 0.16.3 beneath 0.17.0 and 0.16.1 between 0.16.2 and
+ * 0.16.0, and went in in v0.59.6. KNOWN_MISSING_FROM_MARKDOWN is deliberately
+ * kept at zero length rather than deleted; see the note on it below.
+ *
+ * Across the suite: SPERT AHP closed its single missing version in v0.18.16 and
+ * MyScrumBudget reached zero in v0.34.6, transcribing 21. GanttApp is still
+ * missing 17, recorded and ratcheted the same way.
  *
  * v0.57.1 used to be a 34th. It was not missing content — the entry's section
  * was sitting inside the v0.57.2 entry with no heading of its own, so the
@@ -42,23 +45,32 @@ import { CHANGELOG } from "../ui/pages/changelog-data";
  */
 
 /**
- * Versions present in `changelog-data.ts` but absent from `CHANGELOG.md`, as
- * measured on 2026-07-31.
+ * Versions present in `changelog-data.ts` but absent from `CHANGELOG.md`. Empty
+ * as of 2026-07-31, and it should stay that way.
  *
- * DO NOT add to this list to make a failing test pass. A new name here means a
+ * This is kept at zero length on purpose rather than deleted, and the two tests
+ * that read it are kept with it. Emptied, they assert something stronger than
+ * they did while it had names in it: the "no NEW gap" test becomes a plain
+ * every-version-is-in-both check with no exemptions, and the ratchet below it
+ * becomes a guard against anyone reintroducing an exemption. Deleting the list
+ * would mean deleting both, and the next release that forgot a changelog entry
+ * would land unnoticed — which is the exact defect that took 33 versions to
+ * accumulate here. Both directions were re-verified by mutation once the list
+ * was emptied, not assumed.
+ *
+ * DO NOT add a name here to make a failing test pass. A name here means a
  * release was written into the app and never into the repository's changelog.
- * Removing a name after backfilling is the intended direction.
+ * Write the entry instead; that is a two-minute job and this list is not.
  *
  * One trap, from closing MyScrumBudget's equivalent list: an entry whose
  * heading does not match `## X.Y.Z — YYYY-MM-DD` exactly is invisible to the
- * regex below, and while a version sits on this list that failure is SILENT —
- * the entry is in the file, uncounted, and every assertion here still passes.
- * What catches it is removing the version from this list in the same commit,
- * which turns the miss into a "never written into CHANGELOG.md" failure. Move
- * both halves together, always. (Note the heading separator is an em dash,
- * U+2014, not a hyphen.)
+ * regex below, and while a version could sit on this list that failure was
+ * SILENT — the entry in the file, uncounted, every assertion still passing.
+ * With the list empty that hole is closed, because there is nothing left to
+ * exempt a malformed entry from the "no NEW gap" check. (Note the heading
+ * separator is an em dash, U+2014, not a hyphen.)
  */
-const KNOWN_MISSING_FROM_MARKDOWN = ["0.16.4", "0.16.3", "0.16.1"];
+const KNOWN_MISSING_FROM_MARKDOWN: string[] = [];
 
 describe("CHANGELOG.md ↔ changelog-data.ts", () => {
   const markdown = fs.readFileSync(path.resolve(process.cwd(), "CHANGELOG.md"), "utf-8");
@@ -84,6 +96,11 @@ describe("CHANGELOG.md ↔ changelog-data.ts", () => {
 
   it("opens no NEW gap between the app and CHANGELOG.md", () => {
     const missing = dataVersions.filter((v) => !markdownVersions.includes(v));
+    // The list being permanently empty is the point, not an oversight: with no
+    // exemptions available this filter is an identity and the assertion below
+    // becomes an unconditional every-version-is-in-both check. See the note on
+    // the declaration for why it is kept rather than deleted.
+    // eslint-disable-next-line sonarjs/no-empty-collection
     const unexpected = missing.filter((v) => !KNOWN_MISSING_FROM_MARKDOWN.includes(v));
 
     expect(
@@ -98,6 +115,10 @@ describe("CHANGELOG.md ↔ changelog-data.ts", () => {
     // The ratchet: once a version is backfilled it must leave the list, so the
     // recorded debt stays honest and can only shrink.
     const stillMissing = new Set(dataVersions.filter((v) => !markdownVersions.includes(v)));
+    // Reading an empty list is exactly what this guard is for now: it fails the
+    // moment someone adds a name back, which is the only way the list can stop
+    // being empty.
+    // eslint-disable-next-line sonarjs/no-empty-collection
     const backfilled = KNOWN_MISSING_FROM_MARKDOWN.filter((v) => !stillMissing.has(v));
 
     expect(

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.59.6 — 2026-07-31
+
+Record-keeping only — no functional, data, or interface changes. The app schedules identically to v0.59.5.
+
+**This file and the in-app changelog now hold the same 217 versions, in the same order, which has never been true before.** v0.59.5 appended the thirty-version run from v0.15.1 down to v0.1.0; this release closes the last three — v0.16.4, v0.16.3 and v0.16.1 — which were the awkward part rather than the bulk. They interleave with entries that already existed: v0.16.4 and v0.16.3 belong beneath v0.17.0, and v0.16.1 between v0.16.2 and v0.16.0. Placement was asserted against the data file's own ordering before writing, not judged by eye. 3 sections and 12 bullets, transcribed verbatim.
+
+`KNOWN_MISSING_FROM_MARKDOWN` goes to zero. **It is kept at zero length rather than deleted, along with the two tests that read it**, because emptied they assert strictly more than they did while it held names: "opens no NEW gap" becomes an every-version-is-in-both check with no exemptions available, and the ratchet beside it becomes a guard against anyone reintroducing one. Deleting the list would mean deleting both, and the next release that forgot an entry would land unnoticed — which is precisely how 33 versions accumulated here. Both directions were re-verified by mutation after emptying, along with the `public/CHANGELOG.md` byte-identity guard.
+
+That also closes the silent-heading hole recorded in v0.59.5. A malformed heading was invisible *because* the version could sit on the exemption list; with nothing left to exempt, a mis-formatted entry now fails the no-gap check outright.
+
+MyScrumBudget reached zero in v0.34.6 and SPERT AHP in v0.18.16. GanttApp, still missing 17, is the last repository in the suite carrying this.
+
+### Changed
+
+- Backfilled v0.16.4, v0.16.3 and v0.16.1 into `CHANGELOG.md`, transcribed verbatim from the in-app changelog data, and re-synced `public/CHANGELOG.md`.
+- Emptied `KNOWN_MISSING_FROM_MARKDOWN` in `src/integration/changelog-surfaces.test.ts`, keeping the list and both ratchet tests in place, and typed it `string[]` so the empty literal does not infer `never[]`.
+- Updated the two stale claims in `CLAUDE.md` that still described a 33-version gap.
+
 ## 0.59.5 — 2026-07-31
 
 Record-keeping only — no functional, data, or interface changes. The app schedules identically to v0.59.4.
@@ -2111,6 +2129,19 @@ Top complexity offenders — `computeDependencySchedule` (140) and `parseActivit
 - Selected country persists across sessions
 - Built-in US holidays remain available as offline fallback when API is unavailable
 
+## 0.16.4 — 2026-03-16
+
+### Improvements
+
+- Updated first-run notification to clarify browsewrap agreement for all users
+
+## 0.16.3 — 2026-03-11
+
+### Infrastructure
+
+- Pinned Node.js version to 22 LTS (engines field, .nvmrc) ahead of Node 20 EOL
+- Aligned @types/node to ^22 for Node 22 LTS type definitions
+
 ## 0.16.2 — 2026-03-11
 
 ### Security
@@ -2122,6 +2153,20 @@ Top complexity offenders — `computeDependencySchedule` (140) and `parseActivit
 - ToS write-pending localStorage flag now properly cleared on sign-out and version-mismatch paths
 - Updated SECURITY.md: CSP documentation now matches actual index.html directives, added Known Limitations section
 - Local firestore.rules updated to match production rules (membership-based list rule, privilege escalation prevention)
+
+## 0.16.1 — 2026-03-11
+
+### Improvements
+
+- Decomposed GanttChart.tsx into useGanttLayout hook, GanttSvgDefs, and GanttLegend components
+- Extracted PrintGanttChart from PrintableReport.tsx into its own file
+- DRYed simulation parameter building into buildSimulationParams helper (shared by manual run and auto-run)
+- Extracted useAutoRunSimulation hook from ProjectPage.tsx
+- Updated recharts, react-router-dom, Tailwind CSS, and 7 other dependencies to latest stable versions
+- Fixed recharts 3.8.0 Tooltip formatter type compatibility
+- Resolved all 56 ESLint errors and 20 warnings across the codebase (zero remaining)
+- Fixed conditional React hooks in AuthButton, SharingSection, and StorageModeSection (rules-of-hooks compliance)
+- Added underscore-prefix convention for intentionally unused variables in ESLint config
 
 ## 0.16.0 — 2026-03-11
 
