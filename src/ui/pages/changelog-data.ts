@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.8",
+    date: "2026-07-31",
+    sections: [
+      {
+        title: "Changed — release checks now use this project's own Node version",
+        items: [
+          "Nothing in the app changed — it schedules identically to v0.59.7, and no schedule, setting or saved project is affected.",
+          "The automated checks that run before a release now read the version of Node.js this project pins, from the file kept alongside the source, rather than a version written separately into the checks themselves. The two were free to disagree with each other.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.7",
     date: "2026-07-31",
     sections: [
