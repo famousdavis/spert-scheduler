@@ -11,8 +11,8 @@ import { CHANGELOG } from "../ui/pages/changelog-data";
  * The changelog lives in three places:
  *
  *   - `src/ui/pages/changelog-data.ts` — what ChangelogPage renders. This is the
- *     authoritative, complete history (215 entries, back to 0.1.0).
- *   - `CHANGELOG.md` — the record in the repository (182 entries).
+ *     authoritative, complete history (216 entries, back to 0.1.0).
+ *   - `CHANGELOG.md` — the record in the repository (213 entries).
  *   - `public/CHANGELOG.md` — served at /CHANGELOG.md on the deployed site.
  *
  * The public copy is guarded separately, and deliberately so, in
@@ -20,13 +20,16 @@ import { CHANGELOG } from "../ui/pages/changelog-data";
  * it (43 releases behind, five months stale). This test covers the other pair,
  * which nothing has ever checked.
  *
- * `CHANGELOG.md` is missing 33 versions the app has always rendered, scattered
- * through the pre-0.17.0 history rather than forming a clean cutoff: it has
- * 0.15.2, 0.15.3, 0.16.0, 0.16.2 and 0.17.0 but not 0.15.0, 0.15.1, 0.16.1,
- * 0.16.3 or 0.16.4. That backlog predates this guard and is recorded rather
- * than fixed, so no NEW gap can open while the decision to backfill stays open.
- * The same defect exists across the suite: SPERT AHP was missing one version,
- * GanttApp 17, MyScrumBudget 21.
+ * `CHANGELOG.md` was missing 33 versions the app has always rendered, scattered
+ * through the pre-0.17.0 history rather than forming a clean cutoff. Thirty of
+ * them — 0.15.1 down to 0.1.0, one contiguous run reaching the oldest entry in
+ * the data file — were transcribed in v0.59.5 and appended at the end of the
+ * file. The three left in KNOWN_MISSING_FROM_MARKDOWN interleave rather than
+ * append: the file has 0.15.2, 0.15.3, 0.16.0, 0.16.2 and 0.17.0, so 0.16.4 and
+ * 0.16.3 belong under 0.17.0 and 0.16.1 between 0.16.2 and 0.16.0.
+ * The same defect exists across the suite: SPERT AHP was missing one version and
+ * closed it in v0.18.16, MyScrumBudget was missing 21 and reached zero in
+ * v0.34.6, GanttApp is still missing 17.
  *
  * v0.57.1 used to be a 34th. It was not missing content — the entry's section
  * was sitting inside the v0.57.2 entry with no heading of its own, so the
@@ -40,47 +43,22 @@ import { CHANGELOG } from "../ui/pages/changelog-data";
 
 /**
  * Versions present in `changelog-data.ts` but absent from `CHANGELOG.md`, as
- * measured on 2026-07-30.
+ * measured on 2026-07-31.
  *
  * DO NOT add to this list to make a failing test pass. A new name here means a
  * release was written into the app and never into the repository's changelog.
  * Removing a name after backfilling is the intended direction.
+ *
+ * One trap, from closing MyScrumBudget's equivalent list: an entry whose
+ * heading does not match `## X.Y.Z — YYYY-MM-DD` exactly is invisible to the
+ * regex below, and while a version sits on this list that failure is SILENT —
+ * the entry is in the file, uncounted, and every assertion here still passes.
+ * What catches it is removing the version from this list in the same commit,
+ * which turns the miss into a "never written into CHANGELOG.md" failure. Move
+ * both halves together, always. (Note the heading separator is an em dash,
+ * U+2014, not a hyphen.)
  */
-const KNOWN_MISSING_FROM_MARKDOWN = [
-  "0.16.4",
-  "0.16.3",
-  "0.16.1",
-  "0.15.1",
-  "0.15.0",
-  "0.14.5",
-  "0.14.4",
-  "0.14.3",
-  "0.14.2",
-  "0.14.1",
-  "0.14.0",
-  "0.13.0",
-  "0.12.3",
-  "0.12.2",
-  "0.12.1",
-  "0.12.0",
-  "0.11.2",
-  "0.11.1",
-  "0.11.0",
-  "0.10.1",
-  "0.10.0",
-  "0.9.0",
-  "0.8.0",
-  "0.7.1",
-  "0.7.0",
-  "0.6.2",
-  "0.6.1",
-  "0.6.0",
-  "0.5.0",
-  "0.4.0",
-  "0.3.0",
-  "0.2.0",
-  "0.1.0",
-];
+const KNOWN_MISSING_FROM_MARKDOWN = ["0.16.4", "0.16.3", "0.16.1"];
 
 describe("CHANGELOG.md ↔ changelog-data.ts", () => {
   const markdown = fs.readFileSync(path.resolve(process.cwd(), "CHANGELOG.md"), "utf-8");

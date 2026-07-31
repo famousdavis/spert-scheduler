@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.59.5 — 2026-07-31
+
+Record-keeping only — no functional, data, or interface changes. The app schedules identically to v0.59.4.
+
+**Thirty releases the app has always rendered were missing from this file.** v0.15.1 down to v0.1.0 — one contiguous run reaching the oldest entry in `src/ui/pages/changelog-data.ts` — have been in the in-app changelog since the day each shipped, and were never written into the repository's own record. All thirty are now transcribed: 71 sections and 252 bullets, verified character-for-character against the data file after writing rather than retyped. Nothing was paraphrased, summarised or improved on the way across; where an old entry reads awkwardly it still reads awkwardly, because rewriting it would make the two surfaces disagree in content while agreeing in version, and no guard can detect that.
+
+Because the run reaches the oldest entry in the data file, its placement is provable rather than judged: it is an append at the end of the file, with no interleaving possible. That was asserted before the write rather than assumed.
+
+The recorded gap falls from 33 versions to 3. What is left — v0.16.4, v0.16.3 and v0.16.1 — is the awkward part of this backlog rather than the bulk of it: those three interleave with entries that already exist, since the file carries 0.15.2, 0.15.3, 0.16.0, 0.16.2 and 0.17.0 but not their neighbours. v0.16.4 and v0.16.3 belong beneath v0.17.0, and v0.16.1 between v0.16.2 and v0.16.0. They are a separate, precise edit and are left to the next release.
+
+Across the suite, SPERT AHP closed its single missing version in v0.18.16 and MyScrumBudget reached zero in v0.34.6, transcribing 21. GanttApp is still missing 17.
+
+### Changed
+
+- Backfilled v0.1.0 – v0.15.1 into `CHANGELOG.md`, transcribed verbatim from the in-app changelog data, and re-synced `public/CHANGELOG.md`.
+- Lowered `KNOWN_MISSING_FROM_MARKDOWN` in `src/integration/changelog-surfaces.test.ts` from 33 entries to 3, as the ratchet requires, and recorded there that a malformed backfilled heading fails **silently** while a version remains on that list — the entry sits in the file uncounted and every assertion still passes. Removing the version from the list in the same commit is what exposes it.
+- Corrected that guard's header comment, which claimed 215 in-app and 182 markdown entries; both were off by one, having been written before the release that shipped them.
+
 ## 0.59.4 — 2026-07-30
 
 Release-process hardening, and two guarantees that were documented but enforced nowhere. No functional, data, or interface changes — the app schedules identically to v0.59.3.
@@ -2133,3 +2151,528 @@ Top complexity offenders — `computeDependencySchedule` (140) and `parseActivit
 - User preferences now sync bidirectionally with Firestore in cloud storage mode
 - Cancel pending debounced saves before project create/delete to prevent stale data overwrites
 - Preferences migration now uses merge to preserve existing cloud preferences from other devices
+
+## 0.15.1 — 2026-03-09
+
+### Improvements
+
+- Gantt chart toggle states (view mode, today line, critical path, project name) now persist across page refreshes and browser sessions via user preferences
+- Last-active scenario is remembered per project — reopening a project restores the scenario you were last working on instead of always defaulting to Baseline
+
+## 0.15.0 — 2026-03-09
+
+### Improvements
+
+- Print Gantt chart now matches interactive chart: dependency arrows with Bezier curves, critical path highlighting (red stripe + red arrows), finish line with date, today line, tick grid with labels, project name header, milestone target dates, and contextual legend
+
+## 0.14.5 — 2026-03-09
+
+### Improvements
+
+- Added optional project name header toggle to Gantt chart — when enabled, displays the project name left-justified at the top of the chart (included in copy-as-image)
+
+## 0.14.4 — 2026-03-09
+
+### Bug Fixes
+
+- Fixed Gantt chart copy-as-image still failing on SVG elements (dependency arrows, bars, text) that inherit oklch() colors; neutralization now covers all computed CSS properties on both HTML and SVG elements, plus Tailwind v4 CSS custom properties on :root
+
+## 0.14.3 — 2026-03-09
+
+### Bug Fixes
+
+- Fixed Gantt chart copy-as-image failing due to unhandled oklch() colors in the legend (Tailwind CSS v4); oklch values are now converted to RGB preserving visual fidelity
+
+## 0.14.2 — 2026-03-09
+
+### Improvements
+
+- Added Quick Reference Guide PDF download to the About page
+- Updated About page: default trial count corrected to 10,000, data privacy section now describes optional cloud storage
+
+## 0.14.1 — 2026-03-08
+
+### Bug Fixes
+
+- Fixed cloud sync replacing local projects with empty data when Firestore returns no projects (data-loss guard)
+- Fixed storage mode switching to cloud even when migration fails — mode now stays on local if migration errors or has failures
+
+## 0.14.0 — 2026-03-08
+
+### New Features
+
+- Critical path visualization: toggleable red left stripe on Gantt bars and red dependency arrows for critical-path activities (dependency mode only, on by default)
+- Today's date line: toggleable violet dashed vertical line showing today's position on the Gantt chart timeline
+- Gantt chart legend: contextual legend below the chart explains bar colors, critical path indicator, uncertainty hatching, finish line, today line, and milestones
+
+## 0.13.0 — 2026-03-08
+
+### New Features
+
+- In-progress activities now respect elapsed working days: the Actual column auto-populates with elapsed days when an activity is marked "In Progress"
+- Monte Carlo simulation floors each trial at elapsed + 1 for in-progress activities, producing tighter schedule buffers that reflect work already completed
+- Clearing and blurring the Actual field for an in-progress activity auto-recalculates elapsed days from the scheduled start date
+- Gantt chart solid/hatched bars for in-progress activities reflect the elevated duration floor
+
+### Bug Fixes
+
+- Fixed milestone schedule stale data: adding/removing milestones with startsAtMilestone constraints now correctly triggers schedule recomputation
+
+### Refactoring
+
+- Extracted resolveActivityDuration helper in deterministic.ts — DRYs identical 3-way branch (complete/inProgress/planned) from 4 functions
+- Extracted mutateScenario helper in use-project-store.ts — DRYs lock-guard + undo + persist pattern from 15 store actions
+- Decomposed SettingsPage.tsx (910 LOC) into 4 focused section components: PreferencesSection, LocalStorageSection, ExportSection, ImportSection
+- Extracted changelog data array (670+ LOC) from ChangelogPage.tsx to changelog-data.ts
+- Extracted activity row helpers (focusField, focusNextRow, focusPrevRow, computeElapsedDays) to activity-row-helpers.ts
+
+### Quality
+
+- 530 automated tests across 39 test files (up from 520/38 in v0.12.3)
+- Added 10 sensitivity analysis tests covering empty input, sorting, variance contributions, coefficient of variation, zero-variance edge case, sdOverride, and getTopSensitiveActivities
+
+## 0.12.3 — 2026-03-07
+
+### Fixes
+
+- Scenario comparison now uses dependency-aware scheduling, fixing incorrect buffer and end-date values for scenarios with dependencies enabled
+
+## 0.12.2 — 2026-03-07
+
+### New Features
+
+- Gantt chart bars are now color-coded by activity status: blue (Planned), orange (In Progress), gray (Complete)
+- Status colors apply to both interactive and print Gantt charts, including uncertainty hatching
+
+### Fixes
+
+- Activity grid inputs are now properly disabled when a scenario is locked
+- Status column widened so "In Progress" displays without truncation
+
+## 0.12.1 — 2026-03-07
+
+### Improvements
+
+- Project start date is now editable via a date picker in the Scenario Summary Card
+- Milestone panel moved above Predecessor panel so the Gantt chart is visible while editing dependencies
+- Confidence field is disabled for distributions that don't use it (Triangular, Uniform) with explanatory tooltip
+- Milestone label clarified: "Must finish before" → "Must finish before milestone"
+- Gantt chart finish date uses abbreviated month names to prevent truncation
+- Gantt chart font sizes increased for better readability (activity names, date labels, milestones)
+- Activity name truncation limit increased from 20 to 23 characters on Gantt chart
+
+### Fixes
+
+- Tab navigation no longer gets stuck when Confidence field is disabled (Triangular/Uniform)
+- Tab from Max field correctly skips disabled Confidence and reaches Distribution
+- Removed unreachable dead code in distribution recommendation engine
+
+## 0.12.0 — 2026-03-07
+
+### Cloud Storage
+
+- Optional Firebase/Firestore cloud persistence on the shared spert-suite Firebase project
+- Local-first architecture: app works identically without Firebase config; cloud is fully opt-in
+- Storage mode toggle in Settings (Local/Cloud) with one-way migration from localStorage to Firestore
+- Real-time sync across tabs and devices via Firestore onSnapshot listeners
+- Simulation results stripped for cloud saves to stay within the Firestore 1 MB document limit
+
+### Authentication
+
+- Google and Microsoft SSO via Firebase Authentication (popup with redirect fallback)
+- Sign In button in the header (hidden when Firebase is not configured)
+- User profile synced to Firestore on sign-in for email-based member lookup
+
+### Project Sharing
+
+- Share projects with other users by email (owner/editor/viewer roles)
+- Sharing panel on the project page for project owners in cloud mode
+- Firestore security rules enforce role-based access and prevent editor privilege escalation
+
+### Technical
+
+- Event bus pattern decoupling Zustand store from async Firestore writes
+- Debounced cloud saves (500ms) with beforeunload flush for pending writes
+- Cross-device preferences sync to Firestore
+- Firebase SDK chunk splitting in Vite build for optimized loading
+- 511 automated tests across 38 test files
+
+## 0.11.2 — 2026-03-07
+
+### Security
+
+- Added Content Security Policy (CSP) meta tag to restrict script, style, image, and worker sources
+- Added .max() length constraints to all Zod schema string fields (IDs: 64, names: 200, seeds: 100)
+- Added .max() size constraints to all Zod schema array fields (activities: 500, deps: 2000, milestones: 100, samples: 100k, scenarios: 20, holidays: 1000)
+- Fixed schema optionality mismatch: dependencies and milestones arrays are now required in ScenarioSchema (matching TypeScript interface and V8 migration guarantees)
+
+## 0.11.1 — 2026-03-07
+
+### Refactoring
+
+- Extracted milestone-service.ts from project-service.ts for focused milestone CRUD operations
+- Extracted dependency-service.ts from project-service.ts for focused dependency CRUD operations
+- Extracted buildMilestoneSimParams as a pure utility function in core/schedule for testability
+- project-service.ts reduced from 418 to 290 LOC; new modules re-exported for backward compatibility
+- ProjectPage.tsx reduced by 40+ LOC by removing inline milestone simulation parameter logic
+
+### Quality
+
+- 494 automated tests across 36 test files (up from 471/33 in v0.11.0)
+- Added 5 mergeCalendars tests covering all input combinations and calendar integration
+- Added 5 milestone-service tests covering add, remove, update, assign, and constraint operations
+- Added 6 dependency-service tests covering add, remove, update lag, and bulk cleanup
+- Added 7 milestone-sim-params tests including weekend/holiday snapping and calendar-aware offsets
+
+## 0.11.0 — 2026-03-07
+
+### Milestones
+
+- Added Milestones feature: fixed-date checkpoints with per-milestone schedule buffer and health indicators
+- Milestone Panel UI for creating, editing, and assigning activities to milestones (requires dependency mode)
+- Per-milestone Monte Carlo simulation: tracks finish times for each milestone's activity set independently
+- Milestone buffer calculation with slack days and health status (green/amber/red)
+- Gantt chart milestone markers: color-coded diamond markers with vertical dashed lines at target dates
+- Activity 'starts at milestone' constraint: activities can be pinned to start on a milestone's target date
+- Milestone-aware deterministic scheduling: startsAtMilestoneId constraint in dependency forward pass
+- Scenario cloning preserves and remaps milestone IDs and activity milestone references
+
+### Global Calendar
+
+- Company-wide holiday calendar that applies to all projects (e.g., US federal holidays)
+- Per-project calendars remain for project-specific non-work days (e.g., team offsite, vendor shutdown)
+- Global and per-project calendars are merged at schedule computation time
+- Calendar page redesigned with two sections: Company Holidays and Project-Specific Non-Work Days
+
+### Gantt Chart
+
+- Dependency arrows use cubic Bézier curves with shorter horizontal stubs for cleaner routing
+- Overlap case arrows route with a flatter descent and connect to arrowheads from the left
+- Milestone markers rendered as color-coded diamonds with vertical dashed lines at target dates
+
+### User Interface
+
+- Collapsible Milestones and Dependencies sections matching the Gantt chart toggle pattern
+
+### Schema
+
+- Schema v8: Added milestones array to scenarios, milestoneId and startsAtMilestoneId to activities
+- Automatic migration from v7 to v8 adds empty milestones array to existing scenarios
+
+### Quality
+
+- 471 automated tests across 33 test files
+
+## 0.10.1 — 2026-03-07
+
+### Bug Fixes
+
+- Fixed Gantt chart not resizing when dependencies change — chart now defensively scans all scheduled activity end dates
+- Fixed negative lag (lead time) having no effect — addWorkingDays ignored negative offsets, now uses subtractWorkingDays for lead time
+
+### UX Improvements
+
+- Lag input field clears on focus (placeholder "0" instead of hard-to-select value), commits on blur or Enter
+- Negative lag values fully supported in the UI for lead time scheduling
+
+## 0.10.0 — 2026-03-06
+
+### Gantt Chart
+
+- Interactive Gantt chart with dependency arrows, activity bars, and schedule buffer visualization
+- Deterministic and With Uncertainty toggle showing per-activity uncertainty ranges
+- Green dashed finish line at the buffered project end date with long-form date label
+- Dependency arrows render behind activity bars for clean visual z-ordering
+- Copy Gantt chart to clipboard as PNG image
+- Range-adaptive time axis: daily, weekly, biweekly, or monthly ticks based on project duration
+- Print-optimized Gantt chart in the printable report
+
+### Refactoring
+
+- Extracted shared Gantt constants and utilities into gantt-constants.ts and gantt-utils.ts
+- Eliminated code duplication between interactive and print Gantt charts
+- GanttChart.tsx reduced from 767 to ~625 LOC via shared module extraction
+- PrintableReport.tsx reduced from 491 to ~455 LOC by using shared utilities
+- Added GanttChart to barrel export in charts/index.ts
+
+### Bug Fixes
+
+- Fixed html2canvas crash on Tailwind CSS v4 oklch() color functions during chart copy
+- Fixed undefined variable (fromX) in Gantt lag label positioning
+- Fixed two prefer-const lint errors in deterministic.ts and UnifiedActivityRow.tsx
+
+### Security
+
+- Resolved 3 npm audit vulnerabilities (rollup path traversal, minimatch ReDoS, ajv ReDoS)
+
+### Quality
+
+- 452 automated tests across 33 test files
+- 22 new unit tests for Gantt utility functions (dateToX, generateTicks, buildOrderedActivities, etc.)
+
+## 0.9.0 — 2026-03-06
+
+### Activity Dependencies
+
+- Opt-in dependency mode per scenario — toggle in the Scenario Summary Card
+- Finish-to-Start (FS) dependencies with optional lag days (negative lag for lead time)
+- Dependency Panel with add form, inline lag editing, and one-click removal
+- Cycle prevention: the add form validates with real-time cycle detection before allowing new dependencies
+- Duplicate prevention: cannot add the same predecessor→successor relationship twice
+
+### Dependency-Aware Scheduling
+
+- Topological sort (Kahn's algorithm) determines correct execution order
+- Critical path method computes project duration accounting for parallelism
+- Activities with no predecessors start in parallel on the project start date
+- Deterministic schedule respects dependency constraints and lag days
+- Monte Carlo simulation uses critical path per trial instead of flat summation
+- Schedule buffer formula preserved: MC percentile at project target minus critical path duration
+
+### Backward Compatibility
+
+- Dependencies toggle defaults to OFF — existing projects behave identically
+- Toggling mode off preserves dependencies (not deleted), reverts to sequential schedule
+- Schema version 7 with automatic v6→v7 migration (adds dependencies array and mode flag)
+- Dependencies survive export/import and scenario cloning (IDs remapped correctly)
+- Deleting an activity automatically cleans up all its dependencies
+
+### Settings & Printing
+
+- "Enable Dependencies by Default" preference in Settings page
+- Printable report includes Dependencies section when dependency mode is on
+
+### Quality
+
+- 425 automated tests across 32 test files
+- 38 dependency graph algorithm tests including property-based tests with fast-check
+- 9 integration tests covering full dependency lifecycle and round-trip scenarios
+
+## 0.8.0 — 2026-03-06
+
+### Heuristic Estimation
+
+- Heuristic toggle auto-calculates min/max from Most Likely using configurable percentages (default 50%/200%)
+- New activity defaults reflect heuristic when enabled (e.g., min=0.5, ML=1, max=2 for 50%/200%)
+- Manual overrides persist — heuristic only recalculates when Most Likely value actually changes
+- Min/max fields remain clickable for direct override even when heuristic is enabled
+- Per-scenario heuristic toggle with global default in Settings
+- Schema version 6 with heuristic settings (min%, max%, enabled) per scenario
+
+### Keyboard Navigation
+
+- Heuristic tab order: Name → ML → Confidence → Distribution → Status → Add Activity (skips min/max)
+- Tab from min/max fields navigates logically to adjacent columns even in heuristic mode
+- Add Activity button shows blue focus state when tabbed to (no longer appears disabled)
+
+### Confidence Dropdown
+
+- Type-ahead filter: start typing to narrow the confidence level list (e.g., 'L' filters to Low)
+- Arrow key navigation: use Up/Down to highlight options, Enter to select
+- Highlighted option auto-scrolls into view in the dropdown list
+
+### Quality
+
+- 356 automated tests across 30 test files
+
+## 0.7.1 — 2026-02-04
+
+### User Interface
+
+- Removed breadcrumbs from project page to reduce whitespace
+- Replaced lock/unlock emoji with cross-platform SVG padlock icons
+
+### Charts & Visualization
+
+- Histogram excludes extreme outliers beyond P99 for a clearer distribution shape
+- Chart copy-to-clipboard replaces file download (paste directly into Word, PowerPoint, Slack, etc.)
+- Copy button shows stateful feedback: spinner while copying, green checkmark on success, red X on error
+- Histogram reference line labels auto-offset when Mean and Percentile values are close together
+- Reference line labels color-coded to match their lines (red for Mean, green for Percentile)
+
+### Bug Fixes
+
+- Fixed print/PDF export rendering a blank page
+- Print report columns now match the web form order and include the duration column
+
+## 0.7.0 — 2026-02-03
+
+### Scenario Management
+
+- Scenario lock/unlock feature to protect schedules from accidental edits
+- Lock indicator banner and disabled inputs when scenario is locked
+- Lock toggle accessible from scenario tabs (hover to reveal lock icon)
+- Lock state persisted and included in export/import
+- Schema version 5 with locked scenario support
+
+### Code Quality
+
+- Refactored lock guard pattern into reusable helper function (8 instances consolidated)
+- Added findScenario and isLocked helper utilities for cleaner store code
+- Expanded test coverage: 343 automated tests across 29 test files
+- Migration edge case tests for v4→v5 schema upgrade
+
+## 0.6.2 — 2026-02-03
+
+### Bug Fixes
+
+- Fix confidence dropdown being clipped on bottom activity rows (now renders via portal)
+
+## 0.6.1 — 2026-02-03
+
+### User Interface
+
+- Remove distracting up/down spinner arrows from number input fields (min, ml, max, actual)
+
+## 0.6.0 — 2026-02-03
+
+### Storage Optimization
+
+- User preference to control simulation data storage (saves ~90% space when disabled)
+- Storage usage display in Settings showing current localStorage consumption
+- Export option to include/exclude simulation results (checkbox, unchecked by default)
+- 328 automated tests across 29 test files
+
+## 0.5.0 — 2026-02-03
+
+### User Experience
+
+- Dark mode support with system preference detection and manual toggle
+- Toast notification system for user feedback (success, error, info)
+- Keyboard shortcuts help modal (press ? to view)
+- Print-optimized project report (browser print with dedicated layout)
+- Copy RNG seed to clipboard button
+- Reset preferences to defaults button in Settings
+
+### Activity Management
+
+- Activity row duplication with one-click copy
+- Batch operations: bulk set confidence level, distribution type, or delete selected activities
+- Inline distribution sparkline charts (hover to preview distribution shape)
+- Variance tracking: shows actual vs estimated difference when activities complete
+
+### Analysis & Visualization
+
+- Sensitivity analysis panel ranking activities by impact on project uncertainty
+- Bootstrap confidence intervals on percentiles (toggle 'Show 95% CI' in percentile table)
+- CDF comparison chart overlay when comparing 2-3 scenarios
+- Chart export as PNG (histogram and CDF charts)
+
+### Data Management
+
+- Project archival: archive/unarchive projects with filter toggle on projects page
+- Preferences included in export/import (optional, backward compatible)
+- Schema version 4 with archived project support
+
+### Technical
+
+- html2canvas integration for chart PNG export
+- 321 automated tests across 29 test files
+
+## 0.4.0 — 2026-02-03
+
+### Security Hardening
+
+- React Error Boundary for graceful error recovery
+- Calendar iteration guards prevent infinite loops with pathological data
+- Web Worker message validation (defense-in-depth)
+- Simulation payload validation before processing
+- Chart data NaN/Infinity guards
+- Explicit source map disabling in production builds
+- SECURITY.md with deployment recommendations and security headers
+
+## 0.3.0 — 2026-02-02
+
+### Dependency Upgrades
+
+- React 18.3 → 19.2 (latest stable)
+- Vite 6 → 7 with @vitejs/plugin-react 5
+- TypeScript 5.7 → 5.9
+- Zod 3 → 4 (schema validation)
+- Recharts 2 → 3 (charting library)
+- Vitest 2 → 4, fast-check 3 → 4 (testing infrastructure)
+- ESLint 9.18 → 9.39, eslint-plugin-react-hooks 5 → 7
+- Tailwind CSS 4.0 → 4.1, React Router 7.1 → 7.13
+- All remaining dependencies updated to latest stable versions
+
+### Security & Quality
+
+- Zero known vulnerabilities for JFrog scan compliance
+- All 314 automated tests passing on upgraded toolchain
+
+## 0.2.0 — 2026-02-01
+
+### User Preferences
+
+- Configurable defaults for trial count, distribution type, confidence level, activity target, and project target
+- Date format preference (MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD) applied globally across all views
+- Auto-run simulation toggle with 500ms debounce — simulation re-runs automatically when activities or settings change
+- Preferences stored separately in localStorage, independent of project data
+
+### Data Entry & Editing
+
+- Tab navigation flows between estimate fields (Min → ML → Max) across activity rows
+- Inline editing for project names and scenario names (double-click to rename)
+- Activity grid summary row showing totals for Min, ML, Max, and scheduled duration
+- Bulk select and mark-complete for multiple activities at once
+- Confidence level dropdown with RSM descriptions for each of the 10 levels
+
+### Simulation & Analysis
+
+- Confidence band visualization on histogram (shaded region between activity and project percentiles)
+- Export simulation results as CSV with metadata, summary statistics, and percentile table
+- Scenario comparison table for 2–3 scenarios with side-by-side metrics and best-value highlighting
+
+### Navigation & Polish
+
+- Breadcrumb navigation on the project page
+- Project search/filter on the projects page
+- Undo/redo support (Ctrl+Z / Ctrl+Shift+Z) with 50-entry stack for all project mutations
+- Validation error summary panel above the activity grid
+- US federal holiday presets (12 holidays) with year selector in the calendar editor
+
+### Refactoring & Quality
+
+- Centralized download helper and distribution/status label formatters for DRY code
+- Memoized schedule lookup map in the activity grid for render performance
+- Consistent date formatting across all views via the useDateFormat hook
+- 314 automated tests across 29 test files (up from 280 in v0.1.0)
+
+## 0.1.0 — 2026-01-31
+
+### Core Engine
+
+- SPERT three-point estimation with 10-level Ratio Scale Modifier (RSM) confidence mapping
+- T-Normal, LogNormal, Triangular, and Uniform distribution strategies with automatic recommendation engine
+- Deterministic schedule engine with configurable activity-level probability target (default P50)
+- Monte Carlo simulation engine (50,000 trials default) running in a Web Worker for non-blocking UI
+- Parkinson's Law modeling: simulated activity durations are clamped to at least the deterministic (scheduled) duration
+- Schedule buffer calculation: project-level Monte Carlo percentile minus deterministic total
+- Holiday-aware Monday–Friday calendar with working day arithmetic
+- Seeded PRNG (ARC4 via seedrandom) for reproducible simulation results
+
+### User Interface
+
+- Unified activity grid merging input fields with computed schedule (dates, durations, source badges)
+- Scenario summary card with Start, Finish w/o Buffer, Duration, Finish w/Buffer, and Duration w/Buffer
+- Dual probability targets: Activity Target (deterministic schedule) and Project Target (MC confidence / buffer)
+- Histogram, CDF chart, and percentile table for simulation results
+- Scenario tabs with add, clone (with option to drop completed activities), and delete
+- Activity reorder via drag-and-drop with grip handles
+- All dates displayed in MM/DD/YYYY format (stored internally as YYYY-MM-DD)
+- Blue-highlighted date values in the summary card for quick scanning
+
+### Data & Persistence
+
+- All data stored locally in browser localStorage — no server, no analytics, no telemetry
+- Schema-versioned persistence with sequential migration system (v1 → v2 → v3)
+- Zod runtime validation on every load for data integrity
+- Project and scenario CRUD with global calendar overrides
+- JSON export/import with schema migration and conflict resolution (skip, replace, import as copy)
+
+### Architecture
+
+- Strict layered architecture: Domain → Core → Infrastructure → Application → UI
+- Core scheduling math is framework-agnostic (zero React/DOM dependencies)
+- TypeScript strict mode with zero type errors
+- Production build under 42 KB gzipped (excluding charts library)
