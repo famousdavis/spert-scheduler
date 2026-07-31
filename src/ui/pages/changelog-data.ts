@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.6",
+    date: "2026-07-31",
+    sections: [
+      {
+        title: "Changed — the repository's changelog record",
+        items: [
+          "Record-keeping only. Nothing in the app changed — it schedules identically to v0.59.5.",
+          "The last three releases that were listed here in the app but missing from the changelog file kept alongside the source code — v0.16.1, v0.16.3 and v0.16.4 — have now been copied across. The two records are complete and identical for the first time, covering all 217 releases back to v0.1.0.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.5",
     date: "2026-07-31",
     sections: [
