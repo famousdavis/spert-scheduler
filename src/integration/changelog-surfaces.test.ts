@@ -20,8 +20,11 @@ import { CHANGELOG } from "../ui/pages/changelog-data";
  * it (43 releases behind, five months stale). This test covers the other pair,
  * which nothing had ever checked.
  *
- * The first two now hold the same 217 versions in the same order, and this is
- * the first point at which that has ever been true. `CHANGELOG.md` was missing
+ * The first two now hold the same versions in the same order, and this is the
+ * first point at which that has ever been true. The count is deliberately not
+ * written down here — `parses a date out of every CHANGELOG.md entry` asserts
+ * the two surfaces are the same length, so a number in this comment would only
+ * be a second thing to keep current. `CHANGELOG.md` was missing
  * 33 versions the app had always rendered, scattered through the pre-0.17.0
  * history rather than forming a clean cutoff. Thirty — 0.15.1 down to 0.1.0,
  * one contiguous run reaching the oldest entry in the data file — were appended
@@ -42,6 +45,14 @@ import { CHANGELOG } from "../ui/pages/changelog-data";
  * sections, or a section with no items. The data file is valid TypeScript
  * either way, so the build, types and lint all stay green. SPERT Forecaster
  * shipped two such entries and they were blank in-app for weeks.
+ *
+ * The third is a release date that was never filled in. v0.42.0 shipped as
+ * `2026-05-XX` on 2026-05-07 and stayed that way, in all three surfaces, for
+ * eighty-five days and eighty-two releases — visible on the changelog page the
+ * whole time. `date` is typed `string`, so the placeholder type-checks, builds,
+ * lints and renders exactly like a real date. v0.47.0 responded to that class of
+ * defect by *documenting* a pre-merge grep scoped to the `date:` field; nothing
+ * ran it, and it caught nothing. `RELEASE_DATES` below is the enforced version.
  */
 
 /**
@@ -149,6 +160,92 @@ describe("CHANGELOG.md ↔ changelog-data.ts", () => {
     expect(
       empty,
       `these sections render as a heading with nothing beneath it: ${empty.join("; ")}`
+    ).toEqual([]);
+  });
+});
+
+/**
+ * A shape check is not enough here. `2026-05-XX` fails a `\d{4}-\d{2}-\d{2}`
+ * match, but `2026-02-30` and `2026-13-01` both pass one and neither is a day
+ * that exists — and a wrong-but-well-formed date is the harder defect to notice,
+ * because nothing about it looks unfinished. So the value is round-tripped
+ * through `Date`: parse it as UTC midnight and require the result to serialise
+ * back to the same ten characters. JavaScript rolls overflow forward rather than
+ * rejecting it, so 2026-02-30 comes back as 2026-03-02 and fails the comparison.
+ * `T00:00:00Z` is not optional — a bare `new Date("2026-05-07")` is UTC but
+ * `new Date("2026-5-7")` is local, and mixing the two makes the round-trip
+ * timezone-dependent.
+ */
+const isRealCalendarDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+
+describe("changelog release dates", () => {
+  const markdown = fs.readFileSync(path.resolve(process.cwd(), "CHANGELOG.md"), "utf-8");
+
+  // `## X.Y.Z — YYYY-MM-DD`. The separator is an em dash (U+2014), matching
+  // shipgate.config.json's headingPattern. Captures the rest of the line rather
+  // than a date shape, so a malformed date is caught by the assertion below
+  // instead of silently failing to match and disappearing from the check.
+  //
+  // Two notes on the shape, both from sonarjs/slow-regex rejecting earlier
+  // versions of it. The padding is `[ \t]*` rather than `\s*` because `\s`
+  // matches a newline, which under `m` lets the pattern run past the end of the
+  // heading; a heading and its date are on one line by definition. And there is
+  // no padding after the em dash, because `[ \t]*(.*)` is ambiguous — a space
+  // could be matched by either side — which is exactly the super-linear
+  // backtracking the rule looks for. The capture is trimmed below instead.
+  const markdownDates = new Map(
+    [...markdown.matchAll(/^## (\d+\.\d+\.\d+)[ \t]*—(.*)$/gm)].map((m) => [
+      m[1] as string,
+      (m[2] ?? "").trim(),
+    ])
+  );
+
+  it("parses a date out of every CHANGELOG.md entry", () => {
+    // Guards the regex itself: if the heading format ever drifts, the three
+    // assertions below would pass vacuously over an empty or short map.
+    const headingCount = [...markdown.matchAll(/^## \d+\.\d+\.\d+/gm)].length;
+
+    expect(markdownDates.size).toBe(headingCount);
+    expect(markdownDates.size).toBe(CHANGELOG.length);
+  });
+
+  it("gives every in-app entry a real calendar date", () => {
+    const bad = CHANGELOG.filter((e) => !isRealCalendarDate(e.date)).map(
+      (e) => `v${e.version} → "${e.date}"`
+    );
+
+    expect(
+      bad,
+      `these entries carry a date that is not a real YYYY-MM-DD day, so the ` +
+        `changelog page renders it verbatim: ${bad.join("; ")}`
+    ).toEqual([]);
+  });
+
+  it("gives every CHANGELOG.md entry a real calendar date", () => {
+    const bad = [...markdownDates]
+      .filter(([, date]) => !isRealCalendarDate(date))
+      .map(([version, date]) => `v${version} → "${date}"`);
+
+    expect(
+      bad,
+      `these CHANGELOG.md headings carry a date that is not a real YYYY-MM-DD ` +
+        `day: ${bad.join("; ")}`
+    ).toEqual([]);
+  });
+
+  it("agrees on the date of every version, in both surfaces", () => {
+    const disagreements = CHANGELOG.filter(
+      (e) => markdownDates.has(e.version) && markdownDates.get(e.version) !== e.date
+    ).map((e) => `v${e.version}: app says "${e.date}", CHANGELOG.md says "${markdownDates.get(e.version)}"`);
+
+    expect(
+      disagreements,
+      `the two surfaces date the same release differently: ${disagreements.join("; ")}`
     ).toEqual([]);
   });
 });

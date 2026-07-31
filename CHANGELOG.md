@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.59.7 — 2026-07-31
+
+A wrong date on one release, and the guard that should have caught it eighty-five days ago. No functional, data, or interface changes — the app schedules identically to v0.59.6.
+
+**v0.42.0 has been dated `2026-05-XX` since the day it shipped.** The placeholder was never replaced, and it reached users: the changelog page renders `date` verbatim, so anyone opening it saw a literal `2026-05-XX` sitting between v0.41.0 and v0.42.1. It survived eighty-five days and eighty-two subsequent releases. The real date is **2026-05-07**, the commit date of `d1439b1` ("feat: v0.42.0 — bulk-sharing infrastructure (flag-off) + Lesson 38 + AuthProvider restructure", #118), which is consistent with v0.41.0 on 2026-05-04 and v0.42.1 later the same day.
+
+Nothing could have caught it. `date` is typed `string`, so a placeholder type-checks, builds, lints, renders, and passes every changelog test that existed — those check which versions are present and whether entries have content, never what the date says. v0.47.0 recognised this class of defect and responded by **documenting** a pre-merge grep scoped to the `date:` field. Nothing ran it. The placeholder it was written to catch was already in the file at the time and stayed there for another fifty-nine days.
+
+So the grep is now a test. Three assertions, over both surfaces: every date is a real calendar day, and the two surfaces agree on it. The check is a round-trip through `Date` rather than a pattern match, because `2026-02-30` and `2026-13-01` both satisfy `\d{4}-\d{2}-\d{2}` and neither exists — and a wrong-but-well-formed date is harder to spot than an obvious placeholder, since nothing about it looks unfinished. All four failure modes were verified by mutation before the guard was trusted, plus a fifth: two valid dates that disagree across surfaces.
+
+The rest of the suite was swept for the same defect. It is clean — 602 version headings across the other eight repositories, every one carrying a real date. This was the only instance.
+
+### Fixed
+
+- **v0.42.0 is dated 2026-05-07** in `CHANGELOG.md`, `public/CHANGELOG.md` and `src/ui/pages/changelog-data.ts`, replacing the `2026-05-XX` placeholder that shipped on 2026-05-07 and was visible on the in-app changelog page.
+
+### Added
+
+- **`changelog release dates` guard** in `src/integration/changelog-surfaces.test.ts` — asserts every release date in both surfaces is a real calendar day and that the two agree, with a round-trip through `Date` so impossible-but-well-formed days fail too. A fourth assertion pins the heading-parsing regex against the surfaces' shared length, so a drifted heading format cannot make the other three pass vacuously.
+
 ## 0.59.6 — 2026-07-31
 
 Record-keeping only — no functional, data, or interface changes. The app schedules identically to v0.59.5.
@@ -980,7 +1000,7 @@ Test count: 1310 → 1333 (+23 new security-fix tests).
 - **Bulk-invite result chips now show the email.** "✓ Added" and "✉ Invited" rows were rendering with the email missing because the client mistyped the Cloud Function's response — the CF returns `string[]` for `added` and `invited`, not `{email, ...}[]`. (`✗ Failed` rows were unaffected; that array type was already correct.)
 - **Sharing section width** — Members list, bulk-invite form, and Pending invitations are now constrained to `max-w-3xl` (768px) instead of spanning the full project-page width. Eliminates the "controls floating off across the screen" effect on wide monitors. Applied to both the active `BulkSharingSection` and the dormant `LegacySharingSection` (rollback path) for consistency.
 
-## 0.42.0 — 2026-05-XX
+## 0.42.0 — 2026-05-07
 
 ### Added
 
