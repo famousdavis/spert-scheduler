@@ -8,7 +8,22 @@
 
   "changelog": {
     "file": "CHANGELOG.md",
-    "headingPattern": "^## (\\d+\\.\\d+\\.\\d+)\\s*—"
+    "headingPattern": "^## (\\d+\\.\\d+\\.\\d+)\\s*—",
+
+    "_extraSurfacesNote": "The served copy here had gone FIVE MONTHS stale before it was caught, because nothing read it: no build, test or check touched public/CHANGELOG.md. That is the specific incident this check exists to prevent recurring.",
+
+    "extraSurfaces": [
+      {
+        "file": "public/CHANGELOG.md",
+        "match": "identical",
+        "note": "Served copy. Keep byte-identical — copy the root file, do not hand-edit both."
+      },
+      {
+        "file": "src/ui/pages/changelog-data.ts",
+        "match": "firstVersion",
+        "note": "In-app changelog. Uses double quotes throughout; the default pattern accepts either."
+      }
+    ]
   },
 
   "claudeMdVersionPatterns": [],
