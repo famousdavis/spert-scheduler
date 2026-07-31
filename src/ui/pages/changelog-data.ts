@@ -12,6 +12,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.7",
+    date: "2026-07-31",
+    sections: [
+      {
+        title: "Fixed — a release with no date on it",
+        items: [
+          "Nothing in the app changed — it schedules identically to v0.59.6.",
+          "Version 0.42.0 has been showing 2026-05-XX on this page since the day it was released. The date was a placeholder that never got filled in, and it was visible here the whole time — eighty-five days and eighty-two releases. It now reads 2026-05-07, the day the release was actually made.",
+          "Every other release date on this page, and in the changelog file kept alongside the source code, has been checked. This was the only one, and the same check across the eight other SPERT® Suite apps found nothing.",
+        ],
+      },
+      {
+        title: "Added — a check that dates are real",
+        items: [
+          "Release dates are now verified automatically on every test run: each one has to be a day that actually exists, and the two copies of the changelog have to agree on it. Previously nothing looked at the dates at all — a release could carry a placeholder, or a day like February 30th, and every check would still pass.",
+          "A written instruction to check for this by hand had existed since v0.47.0. Nothing ever ran it, and the placeholder it was meant to catch was already in the file when it was written. It is a test now.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.6",
     date: "2026-07-31",
     sections: [
@@ -1282,7 +1303,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "0.42.0",
-    date: "2026-05-XX",
+    date: "2026-05-07",
     sections: [
       {
         title: "Added",
