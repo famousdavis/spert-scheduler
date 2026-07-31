@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.9",
+    date: "2026-07-31",
+    sections: [
+      {
+        title: "Changed — the release checks now cover every copy of this page",
+        items: [
+          "Nothing in the app changed — it schedules identically to v0.59.8, and no schedule, setting or saved project is affected.",
+          "This project keeps its version history in three places: this page, a file alongside the source, and a served copy. Only one of them was ever checked before a release. The served copy had gone five months out of date as a result, and nothing would have caught it happening again. All three are now checked, and a release is refused if any of them falls behind.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.8",
     date: "2026-07-31",
     sections: [

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.59.9 — 2026-07-31
+
+The ship gate now checks all three copies of this changelog. Tooling only — no functional, data, or interface changes; the app schedules identically to v0.59.8.
+
+The gate could only ever be told about **one** changelog file, so the other two this project keeps were invisible to it. This is the repository where that gap did the most damage: the served copy under `public/` went **five months** stale, because no build, test or check read it. It was found by inspection, not by any automated guard, and nothing prevented it recurring.
+
+`shipgate.config.json` now declares both other surfaces — `public/CHANGELOG.md` must match this file byte for byte, and `src/ui/pages/changelog-data.ts` must carry an entry for the version being shipped.
+
+Each failure path was verified by mutation before the change was accepted, and this repository is where that verification was run: the served copy was altered, the newest in-app entry was reverted, and the served file was deleted. The gate failed in all three cases and passed again once each was restored.
+
+### Changed
+- **The ship gate now checks `public/CHANGELOG.md` and `src/ui/pages/changelog-data.ts`.** `changelog.extraSurfaces` added to `shipgate.config.json`; `scripts/shipgate.mjs` gains support for it and stays byte-identical across all nine suite repositories.
+
 ## 0.59.8 — 2026-07-31
 
 The release checks now read this project's own Node version. Tooling only — no functional, data, or interface changes; the app schedules identically to v0.59.7.
