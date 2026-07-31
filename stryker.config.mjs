@@ -25,6 +25,19 @@ export default {
   vitest: {
     configFile: "vitest.stryker.config.ts",
   },
+  // REQUIRED — do not remove. With unlimited test-runner reuse, mutant
+  // activation in the reused vitest workers goes stale on this toolchain
+  // (Stryker 9.6.1 + vitest runner + Vitest 4.1.6, Node 24): the run exits 0
+  // but nearly every mutant "survives", including mutants whose covering
+  // tests directly assert the mutated behavior. Verified 2026-07-31:
+  // monte-carlo.ts scored 10.07% with default reuse vs 84.21% with reuse 1
+  // (survivors then only equivalent mutants); buffer.ts control scored 100%
+  // either way. If scores ever look like mass survival of obviously-killable
+  // mutants, suspect runner staleness first — and delete
+  // reports/mutation/.stryker-incremental.json so a poisoned incremental
+  // cache does not replay old false "Survived" results. Known recovery for a
+  // sandbox "ENOENT ... chdir" crash at startup: rm -rf .stryker-tmp
+  maxTestRunnerReuse: 1,
   // Exclude type-only constructs that cannot be meaningfully mutated
   mutator: {
     excludedMutations: [
