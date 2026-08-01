@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.13",
+    date: "2026-08-01",
+    sections: [
+      {
+        title: "Fixed — importing projects",
+        items: [
+          "Importing two projects that share a name, and choosing to keep both, used to give both copies the same name. The suffix was worked out against the project list as it stood when the import started, so the second copy could not see the first one being created beside it and both ended up as \"Name (Copy)\". They are now \"Name (Copy)\" and \"Name (Copy 2)\". The projects were always separate and nothing was ever merged or lost — only the labels matched.",
+          "If browser storage failed during the tidy-up step of an import, the whole operation stopped with an error and you never saw the summary — even though the projects had already been imported successfully. That step now reports the problem in the import summary like any other storage failure, and finishes the rest of the tidy-up.",
+        ],
+      },
+      {
+        title: "Added — tests",
+        items: [
+          "New tests covering what happens when a project changes between the moment an import is previewed and the moment it is applied — for example a project being deleted or renamed in another tab while the import dialog is open. These protections already existed; nothing had been verifying them.",
+          "Each new test was checked by deliberately breaking the protection it covers and confirming the test noticed. Two faults in the checking tool itself were found and fixed this way — it had been reporting success while never actually running.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.12",
     date: "2026-07-31",
     sections: [
