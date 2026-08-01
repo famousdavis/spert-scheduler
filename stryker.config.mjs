@@ -10,7 +10,12 @@
 /** @type {import('@stryker-mutator/core').PartialStrykerOptions} */
 export default {
   packageManager: "npm",
-  reporters: ["html", "clear-text", "progress"],
+  // "json" writes reports/mutation/mutation.json — the machine-readable survivor
+  // list (line, mutator, status), which is how a run is compared against a recorded
+  // baseline rather than eyeballed. It is bundled in @stryker-mutator/core, no
+  // plugin install. NOTE: a CLI `--reporters` flag REPLACES this list rather than
+  // adding to it — same semantics as `--mutate`.
+  reporters: ["html", "clear-text", "progress", "json"],
   testRunner: "vitest",
   checkers: ["typescript"],
   tsconfigFile: "tsconfig.app.json",
