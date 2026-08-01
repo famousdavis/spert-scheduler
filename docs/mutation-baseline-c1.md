@@ -206,3 +206,106 @@ is the replacement Stryker substituted.
 | 565 | LogicalOperator | Survived | `activity.status === "complete" \|\| activity` | |
 | 596 | ConditionalExpression | Survived | `false` | |
 | 597 | ConditionalExpression | Survived | `false` | |
+
+---
+
+# C1a results — Week 3 (2026-08-01)
+
+**Scope:** the four largest clusters — dependency validation (18), SS/FF/FS clamps (12),
+free float (6), result assembly (6) = **42 survivors**.
+
+**Outcome: 31 killed, 11 classified. Zero left unaddressed.**
+
+```
+                        before        after
+score              161/233 69.10%   192/233 82.40%
+killed                 160            191
+timeout                  1              1
+survived                70             41
+no-coverage              2              0     <- the FS clamp branch now has coverage
+compile-error          120            120
+ignored                 27             27
+total generated        380            380     <- denominator unchanged; no code was touched
+```
+
+**C1a clusters: 42 → 11.** Result assembly cleared entirely; free float 6 → 1;
+dependency validation 18 → 3; clamps 12 → 7.
+
+The out-of-scope 18 before L249 are untouched, as intended, and the five C1b clusters
+(milestone floor 3, project-end 1, backward passes 7, conflict detection 1 = 12) are
+unchanged — C1a's tests did not incidentally cover them, so C1b's target is still 12.
+
+## How the tests were written
+
+Every asserted value was **measured against the real implementation first**, via a
+throwaway probe, then written into the test. Working-day arithmetic across negative lags
+is exactly where a confident hand calculation goes wrong, and two of the plan's own
+figures had already been wrong that way.
+
+The Stryker runs used a **guarded runner** that asserts a fresh `mutation.json` was
+actually written — not merely present — and throws otherwise. A run that fails to start
+emits no survivors, which is indistinguishable from "the tests are weak". See
+`feedback_verification_must_assert_it_ran`.
+
+**The root cause of the dependency-validation cluster is worth recording:** nothing in the
+suite had ever produced a dependency violation. The pre-existing test named
+*"FF violation detected when constraint forces finish before required"* wrapped its
+assertion in `if (schedule.dependencyConflicts && length > 0)`, so it passed whether or not
+a violation occurred. A hard `MSO`/`MFO` constraint that overrides the network is the way
+to force one; all three types now have a real, asserted conflict.
+
+## The 11 classified survivors
+
+All eleven are one family: **operators at a boundary where both sides produce the same
+observable value**, or **branches unreachable given an exhaustive type union**. None is a
+missing test.
+
+### Offset of exactly zero — `>= 0` mutated to `> 0` (4)
+
+| Line | Context |
+|---|---|
+| L301 | SS candidate start |
+| L313 | FF constrained finish |
+| L326 | FS candidate start |
+| L518 | `computeRequired` |
+
+Each selects between `addWorkingDays(base, offset)` and `subtractWorkingDays(base, -offset)`.
+At `offset === 0` the two are the same call. **Verified empirically rather than assumed:**
+`addWorkingDays(d, 0) === subtractWorkingDays(d, 0) === d` for a Monday, a Friday **and a
+Saturday** — the non-working-day case is the one where an implementation might plausibly
+advance, and it does not. Equivalent.
+
+### Clamp comparison at equality — `<` mutated to `<=` (3)
+
+L305 (SS), L319 (FF), L330 (FS): `if (candidateStart < projectStart) candidateStart = new Date(projectStart)`.
+When the two are equal the mutant performs the assignment and the original does not, but the
+assigned value **is** the value already held. Only the date is observable — it is formatted to
+ISO before anything reads it — so no test can distinguish them. Equivalent.
+
+### Running extremum at equality (2)
+
+- **L336** `if (candidateStart > latestDate)` → `>=`: assigns a date equal to the one held.
+- **L493** `if (gap < minGap)` → `<=`: assigns a number equal to the one held.
+
+Equivalent for the same reason.
+
+### Unreachable given the type union (2)
+
+- **L537** `else if (dep.type === "FF")` → `true`. `DependencyType` is exactly
+  `"FS" | "SS" | "FF"`; FS and SS are consumed by the two preceding branches, so only FF
+  reaches this one. Over every reachable input the mutant is the original. **Equivalent.**
+- **L530** `let violated = false` → `true`. Each of the three branches assigns `violated`
+  unconditionally, so the initializer is never read. **Masked, not equivalent** — a dependency
+  whose `type` fell outside the union would keep the initializer and be reported as violated.
+  The Zod schema and the TypeScript union both forbid that, so killing it would mean asserting
+  on data the type system prevents. Deliberately not chased.
+
+## Still open for C1b (Week 4)
+
+The 12 in the remaining five clusters: backward pass #1 (4), backward pass #2 (3), milestone
+floor (3), project-end loop (1), conflict detection (1).
+
+⚠️ The backward passes carry 7 of those 12 and need **no complexity work** — C4 lifts them
+verbatim. Three plan revisions read that as "no work" and dropped them from C1's scope.
+⚠️ The milestone-floor three (L345, L349×2) sit in code C4 lifts into `applyMilestoneFloor`.
+Key them there, per the map in `M1-RESULT.md`.
