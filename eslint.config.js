@@ -1,5 +1,6 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
-// Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -57,6 +58,25 @@ export default tseslint.config(
     files: ["scripts/**/*.mjs"],
     rules: {
       "sonarjs/os-command": "off",
+    },
+  },
+  {
+    // The copyright-header guard shells out to `git` (a fixed, argument-free
+    // executable, no user input) and normalises comment framing with a small
+    // anchored regex over one line of source at a time. Both are sonarjs
+    // security *hotspots*, not defects, and neither is reachable from anything
+    // an attacker controls.
+    //
+    // Scoped here rather than as in-file disable comments for the same reason
+    // as the block above: this repo is the only one of the five carrying
+    // eslint-plugin-sonarjs, and a disable directive for an uninstalled rule is
+    // a hard "Definition for rule ... was not found" ERROR in the other four.
+    // The five guard files are meant to stay near-identical, so the exemption
+    // belongs in this repo's config, not in the shared source.
+    files: ["src/integration/copyright-headers.test.ts"],
+    rules: {
+      "sonarjs/no-os-command-from-path": "off",
+      "sonarjs/slow-regex": "off",
     },
   }
 );

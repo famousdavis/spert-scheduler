@@ -1,5 +1,6 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
-// Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
 
 // -- AI batch service (public entry point) -----------------------------------
 // Dispatches drained AI ops to their handlers and applies a batch to a project.

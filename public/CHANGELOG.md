@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.59.12 — 2026-07-31
+
+Comments and tooling only — no functional, data, or interface changes. The app behaves identically to v0.59.11.
+
+### Changed
+- **All 339 two-line copyright headers were rewrapped to the suite-standard three-line form**, and `stryker.config.mjs` — which had none — gained one. This repository held 339 of the 341 two-line headers in the entire SPERT® Suite. The two forms carry **identical words** and differ only in where the line breaks, so this is consistency work, not a licensing correction; no file here was ever missing the pointer to `LICENSE`.
+- **`CLAUDE.md`'s standing instructions were the cause, and are corrected.** Its three header templates were the two-line form, so every file written to spec inherited it. That section also told authors to *"place the header above… shebang"* — which stops a file being executable. All nine copies of `scripts/shipgate.mjs` already did the correct thing, so the documentation contradicted the code it was meant to govern.
+
+### Added
+- **`src/integration/copyright-headers.test.ts`.** It strips comment framing so one comparison covers `//`, `/* */` and `<!-- -->`, and requires all three lines. It also requires the comment to close: `index.html` and `firestore.rules` are parsed by nothing in the build, the tests or the linter, so an unclosed `<!--` would swallow the whole document and a `firestore.rules` header that lost its `//` would break the next Firebase deploy. It reads untracked files as well as committed ones, and asserts both a file-count floor and the exact set of directory categories it expects, so it cannot quietly degrade into a check of nothing.
+- **A scoped ESLint override in `eslint.config.js` for that guard.** `eslint-plugin-sonarjs` flags its three `git` invocations and its framing regex — four findings that would move lint from its accepted baseline of 23 to 27. Both are security *hotspots*, not defects. The exemption is scoped in the config rather than written as disable comments in the guard, because this is the only suite repo carrying sonarjs and a disable directive for an uninstalled rule is a hard error in the other four, which share this guard's source almost verbatim.
+
+### Fixed
+- **`scripts/contract-hash.mjs` is byte-identical to its copy in the SPERT® Suite landing-page repository, and stays that way.** Its three-line version was taken **by copy** from that repo rather than rewrapped here independently — two independent rewrites would both be valid, both pass their own checks, and still differ by a stray space, with nothing automated to catch it. Verified identical by checksum after the copy.
+- **`CLAUDE.md`'s recorded test count** had drifted three releases (it read 2117/101 as of v0.59.6; the suite is at 2135/102). It is machine-unchecked by design, so it is now measured rather than computed at each release.
+
+### Why the three-line form
+`LICENSE` adds four terms under GPL v3 Section 7 — attribution preservation, UI notice preservation, trademark reservation, and marking of modified versions. Section 7 requires a source file carrying such terms to either state them or say where they are found. Both header forms say it; the three-line form is simply what the other eight repositories use, and a shared boundary that runs through individual files rather than whole repositories is only safe if every repository agrees.
+
+Every failure path was verified by mutation before the guard was trusted: a removed header, a reverted two-line header, a deleted scope category, a stale exemption and an unclosed HTML comment each fail it by name.
+
 ## 0.59.11 — 2026-07-31
 
 The coverage gaps that trustworthy mutation scores exposed are now closed. Tests only — no functional, data, or interface changes; the app schedules identically to v0.59.10.
