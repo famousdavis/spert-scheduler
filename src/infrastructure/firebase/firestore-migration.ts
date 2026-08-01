@@ -50,6 +50,11 @@ export interface MigrationResult {
  *
  * Local data is left in place as a backup.
  */
+// B5: suppressed, not refactored. One-way local→cloud migration whose four-way
+// collision ladder is documented in the JSDoc directly above — the branching IS
+// that contract. It is also effectively untestable in CI (it needs a live
+// Firestore), so a refactor here would be unverifiable by construction.
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export async function migrateLocalToCloud(
   uid: string
 ): Promise<MigrationResult> {

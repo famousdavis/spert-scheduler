@@ -210,6 +210,11 @@ export function useImportState({
       const step = importState.step;
       if (step === "preview" || step === "error") {
         lastFileTextRef.current = null;
+        // B6: correct as written. This is not derived state — it CLEARS an in-flight import
+        // flow when the storage mode changes underneath it, because the project list the
+        // preview was built against no longer applies. Deriving it would leave stale
+        // decisions applyable.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setImportState(clearImportFlow());
       }
     }

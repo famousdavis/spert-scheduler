@@ -49,6 +49,12 @@ export function HolidayLoader({ calendar, countries, onUpdate }: HolidayLoaderPr
   // Sync selectedCountry when preferences load from localStorage
   useEffect(() => {
     if (defaultHolidayCountry && defaultHolidayCountry !== selectedCountry) {
+      // B6: suppressed as DEFERRED, not endorsed — the one of the five that is genuinely
+      // fixable. Syncing the stored country into local state means the navigator.language
+      // guess renders briefly before preferences load. The fix is to derive the country
+      // from the store rather than mirror it, which is out of pre-Summit scope and queued
+      // at §9.4 of the plan.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCountry(defaultHolidayCountry);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
