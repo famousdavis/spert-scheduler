@@ -1,0 +1,1890 @@
+{
+  "FS lag 3": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-16",
+        "endDate": "2025-01-20",
+        "isActual": false,
+        "lateStart": "2025-01-16",
+        "lateFinish": "2025-01-20",
+        "lateStartNet": "2025-01-16",
+        "lateFinishNet": "2025-01-20",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 11,
+    "spanDays": 11,
+    "projectEndDate": "2025-01-20"
+  },
+  "FS lag 0": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-15",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-15",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-15",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 8,
+    "spanDays": 8,
+    "projectEndDate": "2025-01-15"
+  },
+  "FS lag -2": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 1
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-09",
+        "endDate": "2025-01-13",
+        "isActual": false,
+        "lateStart": "2025-01-09",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-09",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 6,
+    "spanDays": 6,
+    "projectEndDate": "2025-01-13"
+  },
+  "FS lag -10": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-15",
+        "lateFinish": "2025-01-21",
+        "lateStartNet": "2025-01-15",
+        "lateFinishNet": "2025-01-21",
+        "totalFloat": 7,
+        "freeFloat": 9
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 2,
+        "freeFloat": 2
+      }
+    ],
+    "totalDurationDays": 5,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10"
+  },
+  "SS lag 3": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-09",
+        "endDate": "2025-01-13",
+        "isActual": false,
+        "lateStart": "2025-01-09",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-09",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 6,
+    "spanDays": 6,
+    "projectEndDate": "2025-01-13"
+  },
+  "SS lag 0": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 2,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 2,
+        "freeFloat": 2
+      }
+    ],
+    "totalDurationDays": 5,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10"
+  },
+  "SS lag -2": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-10",
+        "lateFinish": "2025-01-16",
+        "lateStartNet": "2025-01-10",
+        "lateFinishNet": "2025-01-16",
+        "totalFloat": 4,
+        "freeFloat": 2
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 2,
+        "freeFloat": 2
+      }
+    ],
+    "totalDurationDays": 5,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10"
+  },
+  "SS lag -10": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-22",
+        "lateFinish": "2025-01-28",
+        "lateStartNet": "2025-01-22",
+        "lateFinishNet": "2025-01-28",
+        "totalFloat": 12,
+        "freeFloat": 10
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 2,
+        "freeFloat": 2
+      }
+    ],
+    "totalDurationDays": 5,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10"
+  },
+  "FF lag 3": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-15",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-15",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-15",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 8,
+    "spanDays": 8,
+    "projectEndDate": "2025-01-15"
+  },
+  "FF lag 0": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 5,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10"
+  },
+  "FF lag -2": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 2,
+        "freeFloat": 2
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 2,
+        "freeFloat": 2
+      }
+    ],
+    "totalDurationDays": 5,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10"
+  },
+  "FF lag -10": {
+    "activities": [
+      {
+        "activityId": "p",
+        "name": "P",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-20",
+        "lateFinish": "2025-01-24",
+        "lateStartNet": "2025-01-20",
+        "lateFinishNet": "2025-01-24",
+        "totalFloat": 10,
+        "freeFloat": 10
+      },
+      {
+        "activityId": "s",
+        "name": "S",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 2,
+        "freeFloat": 2
+      }
+    ],
+    "totalDurationDays": 5,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10"
+  },
+  "single activity": {
+    "activities": [
+      {
+        "activityId": "only",
+        "name": "ONLY",
+        "duration": 4,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-09",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-09",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-09",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 4,
+    "spanDays": 4,
+    "projectEndDate": "2025-01-09"
+  },
+  "chain of four": {
+    "activities": [
+      {
+        "activityId": "c1",
+        "name": "C1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "c2",
+        "name": "C2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "c3",
+        "name": "C3",
+        "duration": 1,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-13",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "c4",
+        "name": "C4",
+        "duration": 4,
+        "startDate": "2025-01-14",
+        "endDate": "2025-01-17",
+        "isActual": false,
+        "lateStart": "2025-01-14",
+        "lateFinish": "2025-01-17",
+        "lateStartNet": "2025-01-14",
+        "lateFinishNet": "2025-01-17",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 10,
+    "spanDays": 10,
+    "projectEndDate": "2025-01-17"
+  },
+  "fan-out then fan-in (diamond)": {
+    "activities": [
+      {
+        "activityId": "head",
+        "name": "HEAD",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "left",
+        "name": "LEFT",
+        "duration": 5,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "right",
+        "name": "RIGHT",
+        "duration": 2,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-09",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 3,
+        "freeFloat": 3
+      },
+      {
+        "activityId": "tail",
+        "name": "TAIL",
+        "duration": 3,
+        "startDate": "2025-01-15",
+        "endDate": "2025-01-17",
+        "isActual": false,
+        "lateStart": "2025-01-15",
+        "lateFinish": "2025-01-17",
+        "lateStartNet": "2025-01-15",
+        "lateFinishNet": "2025-01-17",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 10,
+    "spanDays": 10,
+    "projectEndDate": "2025-01-17"
+  },
+  "parallel independents (no deps)": {
+    "activities": [
+      {
+        "activityId": "i1",
+        "name": "I1",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-10",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-10",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 4,
+        "freeFloat": 4
+      },
+      {
+        "activityId": "i2",
+        "name": "I2",
+        "duration": 7,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "i3",
+        "name": "I3",
+        "duration": 1,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-06",
+        "isActual": false,
+        "lateStart": "2025-01-14",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-14",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 6,
+        "freeFloat": 6
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14"
+  },
+  "mixed dependency types in one network": {
+    "activities": [
+      {
+        "activityId": "m1",
+        "name": "M1",
+        "duration": 4,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-09",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-09",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-09",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "m2",
+        "name": "M2",
+        "duration": 3,
+        "startDate": "2025-01-07",
+        "endDate": "2025-01-09",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-15",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-15",
+        "totalFloat": 4,
+        "freeFloat": 4
+      },
+      {
+        "activityId": "m3",
+        "name": "M3",
+        "duration": 2,
+        "startDate": "2025-01-10",
+        "endDate": "2025-01-13",
+        "isActual": false,
+        "lateStart": "2025-01-10",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-10",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "m4",
+        "name": "M4",
+        "duration": 5,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-17",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-17",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-17",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 10,
+    "spanDays": 10,
+    "projectEndDate": "2025-01-17"
+  },
+  "constraint MSO hard": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-07",
+        "lateFinish": "2025-01-08",
+        "lateStartNet": "2025-01-07",
+        "lateFinishNet": "2025-01-08",
+        "totalFloat": 1,
+        "freeFloat": 1
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-09",
+        "endDate": "2025-01-13",
+        "isActual": false,
+        "lateStart": "2025-01-09",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-09",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 1,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-14",
+        "endDate": "2025-01-15",
+        "isActual": false,
+        "lateStart": "2025-01-14",
+        "lateFinish": "2025-01-15",
+        "lateStartNet": "2025-01-14",
+        "lateFinishNet": "2025-01-15",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 8,
+    "projectEndDate": "2025-01-15"
+  },
+  "constraint MSO soft": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14",
+    "constraintConflicts": [
+      {
+        "type": "constraint-violation",
+        "activityId": "b2",
+        "activityName": "B2",
+        "constraintType": "MSO",
+        "constraintDate": "2025-01-09",
+        "constraintMode": "soft",
+        "computedDate": "2025-01-08",
+        "deltaWorkingDays": 0,
+        "severity": "warning",
+        "message": "B2: Soft constraint MSO 2025-01-09 not met by current schedule (network-driven date: 2025-01-08, delta: 0 working days)."
+      }
+    ]
+  },
+  "constraint MFO hard": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-03",
+        "lateFinish": "2025-01-06",
+        "lateStartNet": "2025-01-03",
+        "lateFinishNet": "2025-01-06",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-07",
+        "endDate": "2025-01-09",
+        "isActual": false,
+        "lateStart": "2025-01-07",
+        "lateFinish": "2025-01-09",
+        "lateStartNet": "2025-01-07",
+        "lateFinishNet": "2025-01-09",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-10",
+        "endDate": "2025-01-13",
+        "isActual": false,
+        "lateStart": "2025-01-10",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-10",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 6,
+    "projectEndDate": "2025-01-13",
+    "constraintConflicts": [
+      {
+        "type": "constraint-conflict",
+        "activityId": "b2",
+        "activityName": "B2",
+        "constraintType": "MFO",
+        "constraintDate": "2025-01-09",
+        "constraintMode": "hard",
+        "computedDate": "2025-01-10",
+        "deltaWorkingDays": 1,
+        "severity": "error",
+        "message": "B2: Must Finish On 2025-01-09 conflicts with predecessor logic (network-driven EF: 2025-01-10, delta: 1 working days). Constraint date held."
+      },
+      {
+        "type": "constraint-conflict",
+        "activityId": "b2",
+        "activityName": "B2",
+        "constraintType": "MFO",
+        "constraintDate": "2025-01-09",
+        "constraintMode": "hard",
+        "computedDate": "2025-01-10",
+        "deltaWorkingDays": 1,
+        "severity": "error",
+        "message": "B2: Must Finish On 2025-01-09 conflicts with predecessor logic (network-driven EF: 2025-01-10, delta: 1 working days). Constraint date held."
+      }
+    ],
+    "dependencyConflicts": [
+      {
+        "type": "dependency-violation",
+        "fromActivityId": "b1",
+        "fromActivityName": "B1",
+        "toActivityId": "b2",
+        "toActivityName": "B2",
+        "dependencyType": "FS",
+        "lagDays": 0,
+        "severity": "warning",
+        "message": "FS constraint violated: B2 does not satisfy FS relationship with B1"
+      }
+    ]
+  },
+  "constraint MFO soft": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14",
+    "constraintConflicts": [
+      {
+        "type": "constraint-violation",
+        "activityId": "b2",
+        "activityName": "B2",
+        "constraintType": "MFO",
+        "constraintDate": "2025-01-09",
+        "constraintMode": "soft",
+        "computedDate": "2025-01-10",
+        "deltaWorkingDays": 1,
+        "severity": "warning",
+        "message": "B2: Soft constraint MFO 2025-01-09 not met by current schedule (network-driven date: 2025-01-10, delta: 1 working days)."
+      }
+    ]
+  },
+  "constraint SNET hard": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-07",
+        "lateFinish": "2025-01-08",
+        "lateStartNet": "2025-01-07",
+        "lateFinishNet": "2025-01-08",
+        "totalFloat": 1,
+        "freeFloat": 1
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-09",
+        "endDate": "2025-01-13",
+        "isActual": false,
+        "lateStart": "2025-01-09",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-09",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 1,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-14",
+        "endDate": "2025-01-15",
+        "isActual": false,
+        "lateStart": "2025-01-14",
+        "lateFinish": "2025-01-15",
+        "lateStartNet": "2025-01-14",
+        "lateFinishNet": "2025-01-15",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 8,
+    "projectEndDate": "2025-01-15"
+  },
+  "constraint SNET soft": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14",
+    "constraintConflicts": [
+      {
+        "type": "constraint-violation",
+        "activityId": "b2",
+        "activityName": "B2",
+        "constraintType": "SNET",
+        "constraintDate": "2025-01-09",
+        "constraintMode": "soft",
+        "computedDate": "2025-01-08",
+        "deltaWorkingDays": 0,
+        "severity": "warning",
+        "message": "B2: Soft constraint SNET 2025-01-09 not met by current schedule (network-driven date: 2025-01-08, delta: 0 working days)."
+      }
+    ]
+  },
+  "constraint SNLT hard": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14"
+  },
+  "constraint SNLT soft": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14"
+  },
+  "constraint FNET hard": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14"
+  },
+  "constraint FNET soft": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14"
+  },
+  "constraint FNLT hard": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-03",
+        "lateFinish": "2025-01-06",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-07",
+        "lateFinish": "2025-01-09",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14",
+    "constraintConflicts": [
+      {
+        "type": "constraint-conflict",
+        "activityId": "b2",
+        "activityName": "B2",
+        "constraintType": "FNLT",
+        "constraintDate": "2025-01-09",
+        "constraintMode": "hard",
+        "computedDate": "2025-01-10",
+        "deltaWorkingDays": 1,
+        "severity": "error",
+        "message": "B2: Finish No Later Than 2025-01-09 cannot be satisfied (network-driven LF: 2025-01-10)."
+      }
+    ]
+  },
+  "constraint FNLT soft": {
+    "activities": [
+      {
+        "activityId": "b1",
+        "name": "B1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-07",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b2",
+        "name": "B2",
+        "duration": 3,
+        "startDate": "2025-01-08",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-08",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "b3",
+        "name": "B3",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14",
+    "constraintConflicts": [
+      {
+        "type": "constraint-violation",
+        "activityId": "b2",
+        "activityName": "B2",
+        "constraintType": "FNLT",
+        "constraintDate": "2025-01-09",
+        "constraintMode": "soft",
+        "computedDate": "2025-01-10",
+        "deltaWorkingDays": 1,
+        "severity": "warning",
+        "message": "B2: Soft constraint FNLT 2025-01-09 not met by current schedule (network-driven date: 2025-01-10, delta: 1 working days)."
+      }
+    ]
+  },
+  "hard MSO on successor forces an FS violation": {
+    "activities": [
+      {
+        "activityId": "v1",
+        "name": "V1",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2024-12-30",
+        "lateFinish": "2025-01-03",
+        "lateStartNet": "2025-01-02",
+        "lateFinishNet": "2025-01-08",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "v2",
+        "name": "V2",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-09",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10",
+    "constraintConflicts": [
+      {
+        "type": "constraint-conflict",
+        "activityId": "v2",
+        "activityName": "V2",
+        "constraintType": "MSO",
+        "constraintDate": "2025-01-06",
+        "constraintMode": "hard",
+        "computedDate": "2025-01-13",
+        "deltaWorkingDays": 5,
+        "severity": "error",
+        "message": "V2: Must Start On 2025-01-06 conflicts with predecessor logic (network-driven ES: 2025-01-13, delta: 5 working days). Constraint date held; downstream activities may be affected."
+      },
+      {
+        "type": "constraint-conflict",
+        "activityId": "v2",
+        "activityName": "V2",
+        "constraintType": "MSO",
+        "constraintDate": "2025-01-06",
+        "constraintMode": "hard",
+        "computedDate": "2025-01-13",
+        "deltaWorkingDays": 5,
+        "severity": "error",
+        "message": "V2: Must Start On 2025-01-06 conflicts with predecessor logic (network-driven ES: 2025-01-13, delta: 5 working days). Constraint date held; downstream activities may be affected."
+      }
+    ],
+    "dependencyConflicts": [
+      {
+        "type": "dependency-violation",
+        "fromActivityId": "v1",
+        "fromActivityName": "V1",
+        "toActivityId": "v2",
+        "toActivityName": "V2",
+        "dependencyType": "FS",
+        "lagDays": 0,
+        "severity": "warning",
+        "message": "FS constraint violated: V2 does not satisfy FS relationship with V1"
+      }
+    ]
+  },
+  "hard MFO on successor forces an FF violation": {
+    "activities": [
+      {
+        "activityId": "v3",
+        "name": "V3",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-01",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "v4",
+        "name": "V4",
+        "duration": 3,
+        "startDate": "2025-01-03",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-03",
+        "lateFinish": "2025-01-07",
+        "lateStartNet": "2025-01-08",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 5,
+    "spanDays": 5,
+    "projectEndDate": "2025-01-10",
+    "constraintConflicts": [
+      {
+        "type": "constraint-conflict",
+        "activityId": "v4",
+        "activityName": "V4",
+        "constraintType": "MFO",
+        "constraintDate": "2025-01-07",
+        "constraintMode": "hard",
+        "computedDate": "2025-01-10",
+        "deltaWorkingDays": 3,
+        "severity": "error",
+        "message": "V4: Must Finish On 2025-01-07 conflicts with predecessor logic (network-driven EF: 2025-01-10, delta: 3 working days). Constraint date held."
+      },
+      {
+        "type": "constraint-conflict",
+        "activityId": "v4",
+        "activityName": "V4",
+        "constraintType": "MFO",
+        "constraintDate": "2025-01-07",
+        "constraintMode": "hard",
+        "computedDate": "2025-01-10",
+        "deltaWorkingDays": 3,
+        "severity": "error",
+        "message": "V4: Must Finish On 2025-01-07 conflicts with predecessor logic (network-driven EF: 2025-01-10, delta: 3 working days). Constraint date held."
+      }
+    ],
+    "dependencyConflicts": [
+      {
+        "type": "dependency-violation",
+        "fromActivityId": "v3",
+        "fromActivityName": "V3",
+        "toActivityId": "v4",
+        "toActivityName": "V4",
+        "dependencyType": "FF",
+        "lagDays": 0,
+        "severity": "warning",
+        "message": "FF constraint violated: V4 does not satisfy FF relationship with V3"
+      }
+    ]
+  },
+  "milestone floor raises the start": {
+    "activities": [
+      {
+        "activityId": "f1",
+        "name": "F1",
+        "duration": 2,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-07",
+        "isActual": false,
+        "lateStart": "2025-01-20",
+        "lateFinish": "2025-01-21",
+        "lateStartNet": "2025-01-20",
+        "lateFinishNet": "2025-01-21",
+        "totalFloat": 10,
+        "freeFloat": 10
+      },
+      {
+        "activityId": "f2",
+        "name": "F2",
+        "duration": 2,
+        "startDate": "2025-01-20",
+        "endDate": "2025-01-21",
+        "isActual": false,
+        "lateStart": "2025-01-20",
+        "lateFinish": "2025-01-21",
+        "lateStartNet": "2025-01-20",
+        "lateFinishNet": "2025-01-21",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 2,
+    "spanDays": 12,
+    "projectEndDate": "2025-01-21"
+  },
+  "milestone floor earlier than natural start is ignored": {
+    "activities": [
+      {
+        "activityId": "g1",
+        "name": "G1",
+        "duration": 5,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-10",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-10",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-10",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "g2",
+        "name": "G2",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14"
+  },
+  "milestone floor on a Saturday advances to Monday": {
+    "activities": [
+      {
+        "activityId": "h1",
+        "name": "H1",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 2,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14"
+  },
+  "milestone floor combined with a hard constraint": {
+    "activities": [
+      {
+        "activityId": "k1",
+        "name": "K1",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-14",
+        "lateFinish": "2025-01-16",
+        "lateStartNet": "2025-01-14",
+        "lateFinishNet": "2025-01-16",
+        "totalFloat": 6,
+        "freeFloat": 4
+      },
+      {
+        "activityId": "k2",
+        "name": "K2",
+        "duration": 2,
+        "startDate": "2025-01-15",
+        "endDate": "2025-01-16",
+        "isActual": false,
+        "lateStart": "2025-01-17",
+        "lateFinish": "2025-01-20",
+        "lateStartNet": "2025-01-17",
+        "lateFinishNet": "2025-01-20",
+        "totalFloat": 6,
+        "freeFloat": 2
+      },
+      {
+        "activityId": "k3",
+        "name": "K3",
+        "duration": 2,
+        "startDate": "2025-01-20",
+        "endDate": "2025-01-21",
+        "isActual": false,
+        "lateStart": "2025-01-20",
+        "lateFinish": "2025-01-21",
+        "lateStartNet": "2025-01-20",
+        "lateFinishNet": "2025-01-21",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 6,
+    "spanDays": 12,
+    "projectEndDate": "2025-01-21"
+  },
+  "percentile 0.1 over spread estimates": {
+    "activities": [
+      {
+        "activityId": "q1",
+        "name": "Q1",
+        "duration": 4,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-09",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-09",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-09",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "q2",
+        "name": "Q2",
+        "duration": 2,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 7,
+    "spanDays": 7,
+    "projectEndDate": "2025-01-14"
+  },
+  "percentile 0.5 over spread estimates": {
+    "activities": [
+      {
+        "activityId": "q1",
+        "name": "Q1",
+        "duration": 6,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-13",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "q2",
+        "name": "Q2",
+        "duration": 4,
+        "startDate": "2025-01-15",
+        "endDate": "2025-01-20",
+        "isActual": false,
+        "lateStart": "2025-01-15",
+        "lateFinish": "2025-01-20",
+        "lateStartNet": "2025-01-15",
+        "lateFinishNet": "2025-01-20",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 11,
+    "spanDays": 11,
+    "projectEndDate": "2025-01-20"
+  },
+  "percentile 0.95 over spread estimates": {
+    "activities": [
+      {
+        "activityId": "q1",
+        "name": "Q1",
+        "duration": 9,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-16",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-16",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-16",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "q2",
+        "name": "Q2",
+        "duration": 7,
+        "startDate": "2025-01-20",
+        "endDate": "2025-01-28",
+        "isActual": false,
+        "lateStart": "2025-01-20",
+        "lateFinish": "2025-01-28",
+        "lateStartNet": "2025-01-20",
+        "lateFinishNet": "2025-01-28",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 17,
+    "spanDays": 17,
+    "projectEndDate": "2025-01-28"
+  },
+  "four-day work week (Mon-Thu)": {
+    "activities": [
+      {
+        "activityId": "w1",
+        "name": "W1",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-08",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-08",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-08",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "w2",
+        "name": "W2",
+        "duration": 4,
+        "startDate": "2025-01-13",
+        "endDate": "2025-01-16",
+        "isActual": false,
+        "lateStart": "2025-01-13",
+        "lateFinish": "2025-01-16",
+        "lateStartNet": "2025-01-13",
+        "lateFinishNet": "2025-01-16",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 8,
+    "spanDays": 8,
+    "projectEndDate": "2025-01-16"
+  },
+  "holiday inside the span": {
+    "activities": [
+      {
+        "activityId": "y1",
+        "name": "Y1",
+        "duration": 3,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-09",
+        "isActual": false,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-09",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-09",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "y2",
+        "name": "Y2",
+        "duration": 3,
+        "startDate": "2025-01-10",
+        "endDate": "2025-01-14",
+        "isActual": false,
+        "lateStart": "2025-01-10",
+        "lateFinish": "2025-01-14",
+        "lateStartNet": "2025-01-10",
+        "lateFinishNet": "2025-01-14",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 6,
+    "spanDays": 6,
+    "projectEndDate": "2025-01-14"
+  },
+  "completed and in-progress activities": {
+    "activities": [
+      {
+        "activityId": "z1",
+        "name": "Z1",
+        "duration": 6,
+        "startDate": "2025-01-06",
+        "endDate": "2025-01-13",
+        "isActual": true,
+        "lateStart": "2025-01-06",
+        "lateFinish": "2025-01-13",
+        "lateStartNet": "2025-01-06",
+        "lateFinishNet": "2025-01-13",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "z2",
+        "name": "Z2",
+        "duration": 3,
+        "startDate": "2025-01-14",
+        "endDate": "2025-01-16",
+        "isActual": false,
+        "lateStart": "2025-01-14",
+        "lateFinish": "2025-01-16",
+        "lateStartNet": "2025-01-14",
+        "lateFinishNet": "2025-01-16",
+        "totalFloat": 0,
+        "freeFloat": 0
+      },
+      {
+        "activityId": "z3",
+        "name": "Z3",
+        "duration": 4,
+        "startDate": "2025-01-17",
+        "endDate": "2025-01-22",
+        "isActual": false,
+        "lateStart": "2025-01-17",
+        "lateFinish": "2025-01-22",
+        "lateStartNet": "2025-01-17",
+        "lateFinishNet": "2025-01-22",
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    ],
+    "totalDurationDays": 13,
+    "spanDays": 13,
+    "projectEndDate": "2025-01-22"
+  }
+}

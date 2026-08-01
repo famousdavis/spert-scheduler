@@ -45,6 +45,13 @@ export default defineConfig({
       "src/core/distributions/truncated.test.ts",
       "src/core/simulation/monte-carlo.test.ts",
       "src/integration/conditional-sampling.test.ts",
+      // ⚠️ DO NOT ADD `src/core/schedule/deterministic-oracle.test.ts`.
+      // The oracle pins computeDependencySchedule's output across 41 fixtures, so it
+      // kills a great many mutants — but it landed AFTER the C1 mutation baseline in
+      // docs/mutation-baseline-c1.md was recorded. Adding it here would give any later
+      // comparison more killing power than the baseline it is measured against, and
+      // those extra kills would mask exactly the C4-caused survivors the revert gate
+      // exists to catch. It runs in `npm test`, which is where it belongs.
     ],
   },
 });
