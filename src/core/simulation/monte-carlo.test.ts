@@ -872,6 +872,74 @@ describe("progress callback edge cases", () => {
     expect(calls[1]).toEqual([20000, 25000]);
   });
 
+  it("suppresses the final-trial report when trialCount equals progressInterval", () => {
+    // The final trial never reports (completion is not "progress"), so a run
+    // whose only interval multiple IS the final trial emits nothing.
+    const calls: [number, number][] = [];
+    runTrials({
+      activities: [makeActivity()],
+      trialCount: 500,
+      rngSeed: "progress-eq-seq",
+      onProgress: (completed, total) => calls.push([completed, total]),
+      progressInterval: 500,
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("reports exactly once when trialCount is twice progressInterval", () => {
+    // One report at the halfway multiple; the final-trial multiple is suppressed.
+    const calls: [number, number][] = [];
+    runTrials({
+      activities: [makeActivity()],
+      trialCount: 1000,
+      rngSeed: "progress-2x-seq",
+      onProgress: (completed, total) => calls.push([completed, total]),
+      progressInterval: 500,
+    });
+    expect(calls).toEqual([[500, 1000]]);
+  });
+
+  it("constraint path: reports at interval multiples, suppressing the final trial", () => {
+    // Hard constraint forces the position-tracking trial loop, which has its
+    // own progress call site.
+    const calls: [number, number][] = [];
+    runTrials({
+      activities: [makeActivity()],
+      trialCount: 1000,
+      rngSeed: "progress-constraint",
+      sequentialConstraints: [{ type: "SNET", offsetFromStart: 2, mode: "hard" }],
+      onProgress: (completed, total) => calls.push([completed, total]),
+      progressInterval: 500,
+    });
+    expect(calls).toEqual([[500, 1000]]);
+  });
+
+  it("dependency MC suppresses the final-trial report when trialCount equals progressInterval", () => {
+    const calls: [number, number][] = [];
+    runDependencyTrials({
+      activities: [makeActivity({ id: "a1" }), makeActivity({ id: "a2" })],
+      dependencies: [fsDep("a1", "a2")],
+      trialCount: 500,
+      rngSeed: "progress-eq-dep",
+      onProgress: (completed, total) => calls.push([completed, total]),
+      progressInterval: 500,
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("dependency MC reports exactly once when trialCount is twice progressInterval", () => {
+    const calls: [number, number][] = [];
+    runDependencyTrials({
+      activities: [makeActivity({ id: "a1" }), makeActivity({ id: "a2" })],
+      dependencies: [fsDep("a1", "a2")],
+      trialCount: 1000,
+      rngSeed: "progress-2x-dep",
+      onProgress: (completed, total) => calls.push([completed, total]),
+      progressInterval: 500,
+    });
+    expect(calls).toEqual([[500, 1000]]);
+  });
+
   it("computeSimulationStats: percentiles are monotonically non-decreasing", () => {
     // Hand-crafted sorted samples
     const samples = new Float64Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 100]);
@@ -882,6 +950,67 @@ describe("progress callback edge cases", () => {
         stats.percentiles[pValues[i - 1]!]!
       );
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeSimulationStats: min/max fields and P99 histogram trim
+// ---------------------------------------------------------------------------
+
+describe("computeSimulationStats min/max and histogram trim", () => {
+  it("minSample and maxSample are the smallest and largest sample", () => {
+    // Unsorted on purpose: computeSimulationStats sorts in place.
+    const samples = new Float64Array([7, 3, 12, 5, 9]);
+    const stats = computeSimulationStats(samples, 5, "minmax-direct");
+    expect(stats.minSample).toBe(3);
+    expect(stats.maxSample).toBe(12);
+  });
+
+  it("maxSample and minSample match the sorted sample extremes end-to-end", () => {
+    const result = runMonteCarloSimulation({
+      activities: [makeActivity()],
+      trialCount: 1000,
+      rngSeed: "minmax-e2e",
+    });
+    // result.samples is sorted ascending
+    expect(result.minSample).toBe(result.samples[0]!);
+    expect(result.maxSample).toBe(result.samples[result.samples.length - 1]!);
+    expect(result.maxSample).toBeGreaterThan(result.minSample);
+  });
+
+  it("histogram excludes samples above P99 (extreme outlier trimmed)", () => {
+    // 99 × 10 plus one extreme outlier: P99 interpolates between sorted[98]=10
+    // and sorted[99]=1000 to ~19.9, so exactly the outlier is trimmed.
+    const samples = new Float64Array(100).fill(10);
+    samples[0] = 1000; // unsorted on purpose
+    const stats = computeSimulationStats(samples, 100, "p99-trim");
+    const total = stats.histogramBins.reduce((sum, b) => sum + b.count, 0);
+    expect(total).toBe(99);
+    for (const bin of stats.histogramBins) {
+      expect(bin.binEnd).toBeLessThanOrEqual(19.9);
+    }
+    // The untrimmed fields still see the outlier.
+    expect(stats.maxSample).toBe(1000);
+  });
+
+  it("histogram keeps samples exactly at P99 (boundary ties included)", () => {
+    // Two copies of the top value make P99 land exactly on it: nothing trims.
+    const samples = new Float64Array(100).fill(10);
+    samples[0] = 50;
+    samples[1] = 50;
+    const stats = computeSimulationStats(samples, 100, "p99-tie");
+    const total = stats.histogramBins.reduce((sum, b) => sum + b.count, 0);
+    expect(total).toBe(100);
+  });
+
+  it("trim scan reaches the first sample when only it sits at or below P99", () => {
+    // n=2: P99 = 990.1 interpolates below the top sample, so the scan must
+    // walk down to index 0 and keep exactly one sample.
+    const samples = new Float64Array([1000, 10]); // unsorted on purpose
+    const stats = computeSimulationStats(samples, 2, "p99-two-sample");
+    const total = stats.histogramBins.reduce((sum, b) => sum + b.count, 0);
+    expect(total).toBe(1);
+    expect(stats.histogramBins[0]!.binStart).toBe(10);
   });
 });
 
