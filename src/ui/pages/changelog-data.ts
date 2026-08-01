@@ -13,6 +13,39 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.61.0",
+    date: "2026-08-01",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Opening a second project directly from the first could leave the page with no scenario selected. Navigating from one project straight to another keeps the same page on screen, and the scenario you had active in the first project stayed selected — it belonged to the project you had just left, matched nothing in the new one, and so nothing appeared. Returning to the dashboard first always worked, which is why this was easy to miss. The active scenario is now worked out from the project you are viewing rather than remembered and corrected afterwards, so there is no moment at which the wrong one can be held.",
+        ],
+      },
+      {
+        title: "Changed — verification",
+        items: [
+          "The scheduling core now has a mutation baseline it never had. Ten files that had never been measured — the constraint engine, the dependency graph, the buffer maths, the milestone parameters and all four probability distributions — were checked with mutation testing, which deliberately breaks the code to see whether the tests notice, rather than only checking that they pass. The core scored 90.56%, better than the single file that had previously had a dedicated multi-week effort. Unmeasured had been assumed to mean weak; it was not.",
+          "Three real gaps that measurement found are now closed. The function that picks a probability distribution for every activity had two protective branches nothing exercised, one of them the branch that copes with a project file saved by an older version of the app. The soft-violation check for Finish No Earlier Than — the one constraint with a previous arithmetic bug — had a whole branch no test reached. And the range check on the triangular distribution's percentile lookup was unverified. All three are covered, and the core now sits at 92.34%.",
+          "The tool used to measure code complexity stopped under-reporting. It silently skipped any function whose finding had been set aside, then reported that every function measured zero — something it had never actually checked. Two of the largest functions in the codebase were invisible to it. It now measures every function and marks which ones are set aside.",
+        ],
+      },
+      {
+        title: "Added — tests",
+        items: [
+          "Every testable piece of the interface layer's shared logic is now covered, up from none of fifteen. These are the parts that work out the Gantt chart's layout, the milestone buffers, the working calendar, the light/dark theme, and the storage-mode and invitation flows.",
+          "189 new tests, bringing the suite to 2,493.",
+        ],
+      },
+      {
+        title: "Why this is safe",
+        items: [
+          "Nothing here except the scenario fix changes what the app does, and that is backed by evidence rather than asserted. A 41-case output contract for the scheduling engine — written before the restructuring that touched it, comparing the complete computed schedule exactly, and built so that it cannot be regenerated to agree with a changed result — passed unaltered throughout. Every test that existed beforehand still passes without being modified.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.60.0",
     date: "2026-08-01",
     sections: [
