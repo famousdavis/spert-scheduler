@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.61.0 — 2026-08-01
+
+One visible fix, and a large body of verification work behind it.
+
+### Fixed
+- **Opening a second project directly from the first could leave the page with no scenario selected.** Navigating project → project keeps the same page mounted, and the previously-active scenario id survived that transition — it belonged to the project you had just left, matched nothing in the new one, and so nothing rendered. Going back to the dashboard first always worked, which is why it was easy to miss. The active scenario is now derived from the project being viewed rather than carried in state and corrected afterwards, so there is no moment at which a stale id can exist.
+
+### Changed
+- **The scheduling core now has a mutation baseline it never had.** Ten files that had never been measured — the constraint engine, the dependency graph, the buffer maths, the milestone parameters and all four probability distributions — were run through mutation testing, which checks whether the tests actually notice when the code is broken rather than merely that they pass. The core scored **90.56%**, better than the one file that had previously received a dedicated multi-week effort. "Unmeasured" had been assumed to mean "weak"; it did not.
+- **Three genuine gaps the measurement found are closed.** The function that chooses a probability distribution for every activity had two defensive branches nothing exercised, including the one that handles a project file from an older version of the app. The soft-violation check for *Finish No Earlier Than* — the one constraint with a previous arithmetic bug — had an entire branch no test reached. And the domain guard on the triangular distribution's percentile lookup was unverified. All three are now covered, and the core sits at **92.34%**.
+- **The complexity-measurement tool stopped under-reporting.** It quietly skipped any function whose finding had been suppressed and then printed "every function measures 0" — a claim it had never checked. Two of the largest functions in the codebase were invisible to it. It now measures every function and marks which ones are suppressed.
+
+### Added
+- **Every testable hook in the interface layer is covered**, up from none of fifteen. These are the pieces that compute the Gantt chart's layout, the milestone buffers, the working calendar, the theme, and the storage-mode and invitation flows. Two behaviours were recorded rather than changed, because they are traps for future work rather than faults today.
+- **189 new tests**, bringing the suite to 2,493.
+
+### Why this is safe
+Nothing above except the scenario fix changes what the app does, and that claim is carried by evidence rather than assertion. A 41-case output contract for the scheduling engine — written *before* the refactor that touched it, comparing the complete computed schedule byte for byte, and deliberately built so it cannot be regenerated to match a changed result — passed unaltered throughout. Every test that existed beforehand still passes without modification. Where code was restructured, the mutation measurements were compared against fixed denominators that did not move.
+
 ## 0.60.0 — 2026-08-01
 
 Internal restructuring of project import. No behaviour changed — the app works exactly as it did in v0.59.13, and every existing test passes untouched, which is the evidence for that claim rather than a hope about it.
