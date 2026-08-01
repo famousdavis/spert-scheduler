@@ -132,12 +132,23 @@ describe("useTheme", () => {
       emitSystemChange(true);
       expect(isDark()).toBe(true);
 
-      // ⚠️ RECORDED, NOT ENDORSED: `effectiveTheme` is memoised on [theme] alone, so the
-      // RETURNED value does not follow a system change — only the DOM class does. Any
-      // consumer branching on `effectiveTheme` (rather than on CSS) sees a stale value
-      // until the preference itself changes. Tailwind's `dark:` variant keys off the
-      // class, so the visible result is right today; a component reading effectiveTheme
-      // to pick, say, a chart palette would be wrong.
+      // ⚠️ RECORDED, NOT ENDORSED — and NOT a defect shipping today.
+      //
+      // `effectiveTheme` is memoised on [theme] alone, so the RETURNED value does not
+      // follow a system change; only the DOM class does, via the separate effect above.
+      //
+      // Nothing is broken right now: `useTheme()` is called in exactly one place
+      // (Layout.tsx:37) and it is a bare side-effect call — no destructuring, so
+      // effectiveTheme has ZERO consumers outside this hook and this file. Verified by
+      // grep, not assumed. Tailwind's `dark:` variant keys off the class, so what the
+      // user sees is correct.
+      //
+      // It is a trap laid for the first consumer. Whoever adds a component that branches
+      // on effectiveTheme — a chart palette, a canvas fill, anything that cannot use a
+      // CSS variant — gets a value that silently stops tracking the system theme. That
+      // is why this is routed to §3.6 as an injection candidate rather than patched here:
+      // the hook's output is not a function of its inputs, which is the actual defect
+      // class, and §3.6 is where that gets addressed deliberately.
       expect(result.current.effectiveTheme).toBe("light");
     });
 
