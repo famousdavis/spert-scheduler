@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.59.13 — 2026-08-01
+
+Two defects in project import, both found while writing tests for code that was about to be refactored. Neither could lose or corrupt a project.
+
+### Fixed
+- **Importing two projects with the same name, choosing "keep both" for each, gave both copies the identical name.** The disambiguating suffix was computed against the project list as it stood when the import began, so the second copy could not see the first one being created alongside it and both became `Name (Copy)`. They are now `Name (Copy)` and `Name (Copy 2)`. The projects themselves were always distinct and no data was ever merged or lost — only the labels collided.
+- **A browser-storage failure during import cleanup aborted the whole operation instead of being reported.** Import clears stale per-project session data before saving. That step ran unguarded and *after* the projects had already been added, so a storage error there escaped as an exception: the import had in fact happened, but the caller never received the summary and the remaining cleanup was skipped. Such failures now appear in the import summary alongside every other storage error, exactly as a failed save already did.
+
+### Added
+- **Tests for the import decision ladder**, covering the drift guards that protect against a project changing between the moment an import is previewed and the moment it is applied — both directions of the symmetric guard, targets deleted or renamed underneath a pending decision, per-path error counting, copy naming, and the AI undo-frame boundary. Every one was verified by breaking the guard it protects and confirming the test catches it.
+
 ## 0.59.12 — 2026-07-31
 
 Comments and tooling only — no functional, data, or interface changes. The app behaves identically to v0.59.11.

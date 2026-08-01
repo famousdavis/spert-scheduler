@@ -133,6 +133,27 @@ function nextCloneName(base: string, existing: string[]): string {
 }
 
 /**
+ * Run a storage side-effect, recording any failure into an ImportOutcome's error
+ * list instead of throwing. Used for the post-`set()` cleanup in importProjects,
+ * where the state transition has already committed — throwing there would abort
+ * the remaining cleanup AND deny the caller the outcome it needs to report.
+ */
+function recordStorageFailure(
+  errors: ImportOutcome["errors"],
+  projectName: string,
+  effect: () => void
+): void {
+  try {
+    effect();
+  } catch (err) {
+    errors.push({
+      projectName,
+      reason: err instanceof Error ? err.message : "Storage error",
+    });
+  }
+}
+
+/**
  * Helper to find a scenario within the project store.
  * Returns undefined if project or scenario not found.
  */
@@ -1435,6 +1456,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         }
       }
 
+      // Names already in use. Seeded from current state, then EXTENDED as each copy
+      // is minted. `state` is the pre-update snapshot and never contains toCopy, so
+      // recomputing it per iteration (as this did) handed every same-named project
+      // copied in one batch the identical "(Copy)" suffix — nextCloneName could not
+      // see the sibling it had just created. Ids stayed unique, so nothing was lost;
+      // the names were simply not disambiguated, which is the helper's whole job.
+      const takenNames = state.projects.map((p) => p.name);
+
       for (const proj of importedProjects) {
         const decision = decisionsById.get(proj.id);
 
@@ -1525,11 +1554,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
           // action === 'copy'
           // Use cloneProjectFn (pitfall #83) — handles all nested ID regeneration via
           // cloneScenario, archived reset, simulationResults drop. Pair with nextCloneName
-          // (pitfall #84) for collision-safe naming against CURRENT state.
-          const existingNames = state.projects.map((p) => p.name);
-          const copyName = nextCloneName(proj.name, existingNames);
+          // (pitfall #84) for collision-safe naming against current state AND against
+          // copies already minted in this same batch (see takenNames above).
+          const copyName = nextCloneName(proj.name, takenNames);
           const copy = cloneProjectFn(proj, copyName);
           copy.owner = proj.owner; // copy carries importer-stamped owner from the hook
+          takenNames.push(copyName);
           toCopy.push(copy);
         }
       }
@@ -1564,12 +1594,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
     // Side effects (post-set).
     // Zombie session-data defense (pitfall #24): clear stale scenario-memory for ALL paths.
-    for (const { oldId } of toReplace) {
-      repo.remove(oldId);
-      removeLastScenarioId(oldId);
+    // Guarded, because set() has ALREADY committed by the time these run: an unguarded
+    // storage failure here escaped importProjects as an exception, leaving the caller
+    // with a mutated store and no ImportOutcome at all. It belongs in outcome.errors
+    // like every other storage failure. (The save loops below keep their inline
+    // try/catch — SD-1's extraction replaces them with saveEach.)
+    for (const { oldId, replacement } of toReplace) {
+      recordStorageFailure(outcome.errors, replacement.name, () => {
+        repo.remove(oldId);
+        removeLastScenarioId(oldId);
+      });
     }
-    for (const proj of toAdd) removeLastScenarioId(proj.id);
-    for (const proj of toCopy) removeLastScenarioId(proj.id);
+    for (const proj of toAdd) {
+      recordStorageFailure(outcome.errors, proj.name, () => removeLastScenarioId(proj.id));
+    }
+    for (const proj of toCopy) {
+      recordStorageFailure(outcome.errors, proj.name, () => removeLastScenarioId(proj.id));
+    }
 
     // Save — success counters incremented on actual save, not on intent (pitfall #41).
     for (const proj of toAdd) {

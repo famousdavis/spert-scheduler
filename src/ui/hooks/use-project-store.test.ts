@@ -1190,11 +1190,11 @@ describe("useProjectStore", () => {
 
     /**
      * Fail the write whose serialized value carries `marker` — for paths whose id is
-     * minted inside set() and so cannot be targeted up front. Matching on the value
-     * rather than failing every write matters: the pre-save cleanup loop calls
-     * removeLastScenarioId, which also writes to localStorage and is NOT inside the
-     * save loop's try/catch, so a blanket failure escapes importProjects entirely
-     * instead of exercising the branch under test.
+     * minted inside set() and so cannot be targeted up front. Targeting precisely
+     * rather than failing every write keeps the save-loop branch isolated: the
+     * post-set cleanup also writes to localStorage, so a blanket failure records a
+     * SECOND error from that guard and the assertion on errors.length stops meaning
+     * what it says.
      */
     function failSaveWhereValueContains(marker: string) {
       const realSetItem = Storage.prototype.setItem.bind(localStorage);
@@ -1415,6 +1415,77 @@ describe("useProjectStore", () => {
       expect(outcome.added).toBe(1);
       expect(outcome.errors).toHaveLength(1);
       expect(outcome.errors[0]!.projectName).toBe("Bad");
+    });
+
+    // -- Same-batch copy naming, and the guarded post-set cleanup (v0.59.13) -------
+
+    /** Fail every write whose KEY contains `fragment` — used to break one subsystem. */
+    function failSaveForKeyMatching(fragment: string) {
+      const realSetItem = Storage.prototype.setItem.bind(localStorage);
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation((key: string, value: string) => {
+        if (key.includes(fragment)) throw new Error("disk on fire");
+        realSetItem(key, value);
+      });
+    }
+
+    it("two same-named projects copied in one batch get distinct names", () => {
+      const original = s().addProject("Q4 Plan", null);
+      const first = createProject("Q4 Plan");
+      const second = createProject("Q4 Plan");
+
+      const outcome = s().importProjects({
+        importedProjects: [first, second],
+        decisions: [
+          { importedProjectId: first.id, kind: "name", originalExistingId: original.id, action: "copy" },
+          { importedProjectId: second.id, kind: "name", originalExistingId: original.id, action: "copy" },
+        ],
+      });
+
+      expect(outcome.copied).toBe(2);
+      // Both copies used to resolve to "Q4 Plan (Copy)": nextCloneName read a
+      // pre-update snapshot and could not see the sibling minted a line earlier.
+      const names = s().projects.map((p) => p.name);
+      expect(names).toHaveLength(3);
+      expect(new Set(names).size).toBe(3); // the invariant: all three distinct
+      expect(names).toContain("Q4 Plan (Copy)");
+      expect(names).toContain("Q4 Plan (Copy 2)");
+    });
+
+    it("a storage failure in the post-set cleanup is recorded, not thrown", () => {
+      const incoming = createProject("Cleanup Victim");
+      // scenario-memory writes under its own key; the project save is untouched.
+      failSaveForKeyMatching("active-scenarios");
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [],
+        skipConflictDetection: true,
+      });
+
+      // set() has already committed, so the project really is in the store — which
+      // is exactly why this must not throw: the caller would be left with a mutated
+      // store and no ImportOutcome to report from.
+      expect(s().getProject(incoming.id)).toBeDefined();
+      expect(outcome.added).toBe(1); // the save itself succeeded
+      expect(outcome.errors).toHaveLength(1);
+      expect(outcome.errors[0]!.projectName).toBe("Cleanup Victim");
+    });
+
+    it("a cleanup failure on the replace path is attributed to the replacement", () => {
+      const existing = s().addProject("Replace Target", null);
+      const incoming = { ...createProject("Replace Target"), id: existing.id };
+      failSaveForKeyMatching("active-scenarios");
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: existing.id, kind: "id", originalExistingId: existing.id, action: "replace" },
+        ],
+      });
+
+      expect(outcome.replaced).toBe(1);
+      expect(outcome.errors).toHaveLength(1);
+      expect(outcome.errors[0]!.projectName).toBe("Replace Target");
     });
 
     // -- AI undo frame: the negative branch of the replaced-id check ---------------
