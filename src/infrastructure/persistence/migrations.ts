@@ -101,6 +101,13 @@ function migrateV4toV5(data: unknown): unknown {
  * v5 → v6: Add heuristic estimate settings to scenario settings.
  * Defaults to 50% for min and 200% for max.
  */
+// B5: suppressed, not refactored. This is a SHIPPED migration — it runs against
+// v5 documents already on real users' disks, and its nested guards over `unknown`
+// are the specification, not incidental shape: each one decides whether a malformed
+// or partial historical document survives. Restructuring cannot be proven
+// behaviour-identical against data we no longer have, and the failure mode is
+// silent corruption of a project the user cannot re-import.
+// eslint-disable-next-line sonarjs/cognitive-complexity
 function migrateV5toV6(data: unknown): unknown {
   const project = data as Record<string, unknown>;
   const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;

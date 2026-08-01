@@ -138,6 +138,8 @@ function LegacySharingSection({ projectId, embedded }: SharingSectionProps) {
   }, [projectId]);
 
   useEffect(() => {
+    // B6: correct as written — same external-system fetch as the Bulk variant below.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!collapsed) loadMembers();
   }, [collapsed, loadMembers]);
 
@@ -391,6 +393,11 @@ function BulkSharingSection({ projectId, embedded }: SharingSectionProps) {
 
   useEffect(() => {
     if (!collapsed) {
+      // B6: correct as written. Fetching members and pending invites from Firestore when
+      // the section expands is 'subscribe to an external system', which is the documented
+      // legitimate use of an effect — the state lands in the async callback, not
+      // synchronously in the effect body.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadMembers();
       void loadPendingInvites();
     }

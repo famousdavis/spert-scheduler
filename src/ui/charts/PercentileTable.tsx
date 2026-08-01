@@ -48,6 +48,11 @@ export function PercentileTable({
   // Compute CIs asynchronously when toggled on (deferred to unblock the checkbox)
   useEffect(() => {
     if (!showCI || !samples || samples.length === 0) {
+      // B6: correct as written. The whole effect exists to DEFER bootstrap-CI computation
+      // through setTimeout(…, 0) so the checkbox does not block; this early return is its
+      // teardown when CIs are switched off or there are no samples. Computing inline
+      // instead is the behaviour this deliberately avoids.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCIs(null);
       setComputing(false);
       return;
