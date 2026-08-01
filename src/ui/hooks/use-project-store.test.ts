@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { useProjectStore, type LoadError } from "./use-project-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import { createProject } from "@app/api/project-service";
@@ -1165,6 +1165,286 @@ describe("useProjectStore", () => {
       expect(useProjectStore.getState().cloudDataLoaded).toBe(true);
       useProjectStore.getState().setCloudDataLoaded(false);
       expect(useProjectStore.getState().cloudDataLoaded).toBe(false);
+    });
+  });
+
+  // B1 — the Layer 2 drift ladder, collision naming, and the post-set save loops.
+  // These are exactly the branches SD-1's extraction of applyImportDecisions will
+  // move, so they are pinned by test before the code is touched. Deliberately
+  // branch-by-branch rather than table-driven: each `it` names one guard.
+  describe("importProjects — drift guards, collision naming, save failures", () => {
+    const s = () => useProjectStore.getState();
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /** Make repo.save throw for exactly one project id; every other write passes through. */
+    function failSaveFor(projectId: string) {
+      const realSetItem = Storage.prototype.setItem.bind(localStorage);
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation((key: string, value: string) => {
+        if (key.endsWith(`:${projectId}`)) throw new Error("disk on fire");
+        realSetItem(key, value);
+      });
+    }
+
+    /**
+     * Fail the write whose serialized value carries `marker` — for paths whose id is
+     * minted inside set() and so cannot be targeted up front. Matching on the value
+     * rather than failing every write matters: the pre-save cleanup loop calls
+     * removeLastScenarioId, which also writes to localStorage and is NOT inside the
+     * save loop's try/catch, so a blanket failure escapes importProjects entirely
+     * instead of exercising the branch under test.
+     */
+    function failSaveWhereValueContains(marker: string) {
+      const realSetItem = Storage.prototype.setItem.bind(localStorage);
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation((key: string, value: string) => {
+        if (value.includes(marker)) throw new Error("disk on fire");
+        realSetItem(key, value);
+      });
+    }
+
+    // -- No-decision path: the ID half of the pair (the name half is covered above) --
+
+    it("no-decision path: an ID conflict appearing post-preview produces driftSkipped", () => {
+      const existing = s().addProject("Untouched", null);
+      // Same id as a live project but no decision — the collision appeared
+      // between preview opening and apply.
+      const incoming = { ...createProject("Different Name"), id: existing.id };
+
+      const outcome = s().importProjects({ importedProjects: [incoming], decisions: [] });
+
+      expect(outcome.added).toBe(0);
+      expect(outcome.driftSkipped).toHaveLength(1);
+      expect(outcome.driftSkipped[0]!.reason).toMatch(/ID conflict/i);
+      expect(s().getProject(existing.id)!.name).toBe("Untouched"); // no clobber
+    });
+
+    // -- Symmetric guard A (pitfall #85): replace-by-id whose target vanished ------
+
+    it("replace-by-id whose target was deleted, with a name collision now present, is driftSkipped", () => {
+      // A live project holds the incoming project's NAME but not its id, and the
+      // id the decision targeted is gone. Adding would duplicate the name.
+      s().addProject("Shared Name", null);
+      const incoming = createProject("Shared Name");
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: incoming.id, kind: "id", originalExistingId: incoming.id, action: "replace" },
+        ],
+      });
+
+      expect(outcome.added).toBe(0);
+      expect(outcome.replaced).toBe(0);
+      expect(outcome.driftSkipped).toHaveLength(1);
+      expect(outcome.driftSkipped[0]!.reason).toMatch(/ID target deleted/i);
+      expect(s().projects).toHaveLength(1);
+    });
+
+    it("replace-by-id whose target was deleted falls through to an add when no name collision exists", () => {
+      s().addProject("Unrelated", null);
+      const incoming = createProject("Brand New");
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: incoming.id, kind: "id", originalExistingId: incoming.id, action: "replace" },
+        ],
+      });
+
+      expect(outcome.added).toBe(1);
+      expect(outcome.driftSkipped).toHaveLength(0);
+      expect(s().getProject(incoming.id)!.name).toBe("Brand New");
+    });
+
+    // -- Symmetric guard B (pitfall #77 + #85): replace-by-name whose target moved --
+
+    it("replace-by-name whose target is gone, with an ID collision now present, is driftSkipped", () => {
+      // The incoming id now belongs to a live project, while the name the
+      // decision targeted no longer resolves. Adding would duplicate the id.
+      const collider = s().addProject("Holds The Id", null);
+      const incoming = { ...createProject("Vanished Name"), id: collider.id };
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: incoming.id, kind: "name", originalExistingId: "ghost-id", action: "replace" },
+        ],
+      });
+
+      expect(outcome.added).toBe(0);
+      expect(outcome.replaced).toBe(0);
+      expect(outcome.driftSkipped).toHaveLength(1);
+      expect(outcome.driftSkipped[0]!.reason).toMatch(/Name target gone/i);
+      expect(s().getProject(collider.id)!.name).toBe("Holds The Id"); // no clobber
+    });
+
+    it("replace-by-name whose target is gone falls through to an add when no ID collision exists", () => {
+      s().addProject("Unrelated", null);
+      const incoming = createProject("Vanished Name");
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: incoming.id, kind: "name", originalExistingId: "ghost-id", action: "replace" },
+        ],
+      });
+
+      expect(outcome.added).toBe(1);
+      expect(outcome.driftSkipped).toHaveLength(0);
+    });
+
+    it("replace-by-name whose target now resolves to a DIFFERENT project does not replace it", () => {
+      // The name still matches something — but not the project the decision
+      // recorded. Replacing would clobber a project the user never chose.
+      const bystander = s().addProject("Shared Name", null);
+      const incoming = createProject("Shared Name");
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: incoming.id, kind: "name", originalExistingId: "a-different-id", action: "replace" },
+        ],
+      });
+
+      expect(outcome.replaced).toBe(0);
+      expect(outcome.added).toBe(1);
+      expect(s().getProject(bystander.id)!.name).toBe("Shared Name");
+    });
+
+    it("skipConflictDetection bypasses the symmetric replace-path guards too", () => {
+      s().addProject("Shared Name", null);
+      const incoming = createProject("Shared Name");
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: incoming.id, kind: "id", originalExistingId: incoming.id, action: "replace" },
+        ],
+        skipConflictDetection: true,
+      });
+
+      expect(outcome.driftSkipped).toHaveLength(0);
+      expect(outcome.added).toBe(1);
+    });
+
+    // -- Copy collision naming (pitfall #84) --------------------------------------
+
+    it("copy naming steps past an existing (Copy) to (Copy 2)", () => {
+      const original = s().addProject("Q4 Plan", null);
+      s().addProject("Q4 Plan (Copy)", null);
+      const incoming = createProject("Q4 Plan");
+
+      s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: incoming.id, kind: "name", originalExistingId: original.id, action: "copy" },
+        ],
+      });
+
+      const names = s().projects.map((p) => p.name);
+      expect(names).toContain("Q4 Plan (Copy 2)");
+      expect(names.filter((n) => n === "Q4 Plan (Copy)")).toHaveLength(1);
+    });
+
+    // -- Post-set save loops: counters follow the save, not the intent (pitfall #41) --
+
+    it("add path: a failing save records an error and leaves added at 0", () => {
+      const incoming = createProject("Doomed Add");
+      failSaveFor(incoming.id);
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [],
+        skipConflictDetection: true,
+      });
+
+      expect(outcome.added).toBe(0);
+      expect(outcome.errors).toHaveLength(1);
+      expect(outcome.errors[0]!.projectName).toBe("Doomed Add");
+      expect(outcome.errors[0]!.reason).toBe("disk on fire");
+    });
+
+    it("replace path: a failing save records an error and leaves replaced at 0", () => {
+      const existing = s().addProject("Doomed Replace", null);
+      const incoming = { ...createProject("Doomed Replace"), id: existing.id };
+      failSaveFor(existing.id);
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: existing.id, kind: "id", originalExistingId: existing.id, action: "replace" },
+        ],
+      });
+
+      expect(outcome.replaced).toBe(0);
+      expect(outcome.errors).toHaveLength(1);
+      expect(outcome.errors[0]!.projectName).toBe("Doomed Replace");
+    });
+
+    it("copy path: a failing save records an error and leaves copied at 0", () => {
+      const original = s().addProject("Doomed Copy", null);
+      const incoming = createProject("Doomed Copy");
+      // The copy's id is minted inside set(), so target it by its generated name.
+      failSaveWhereValueContains("Doomed Copy (Copy)");
+
+      const outcome = s().importProjects({
+        importedProjects: [incoming],
+        decisions: [
+          { importedProjectId: incoming.id, kind: "name", originalExistingId: original.id, action: "copy" },
+        ],
+      });
+
+      expect(outcome.copied).toBe(0);
+      expect(outcome.errors).toHaveLength(1);
+      expect(outcome.errors[0]!.projectName).toBe("Doomed Copy (Copy)");
+    });
+
+    it("a failing save on one project leaves the other path's counter intact", () => {
+      const good = createProject("Good");
+      const bad = createProject("Bad");
+      failSaveFor(bad.id);
+
+      const outcome = s().importProjects({
+        importedProjects: [good, bad],
+        decisions: [],
+        skipConflictDetection: true,
+      });
+
+      expect(outcome.added).toBe(1);
+      expect(outcome.errors).toHaveLength(1);
+      expect(outcome.errors[0]!.projectName).toBe("Bad");
+    });
+
+    // -- AI undo frame: the negative branch of the replaced-id check ---------------
+
+    it("an AI undo frame pointing at a project that was NOT replaced survives the import", () => {
+      const paired = s().addProject("Paired", null);
+      const other = s().addProject("Other", null);
+      const scenarioId = paired.scenarios[0]!.id;
+      const op = (id: string): AiOp => ({
+        seq: 1,
+        op: "create_activity",
+        payload: { scenarioId, id, name: id, min: 1, mostLikely: 2, max: 3 },
+      });
+
+      s().applyAiBatch(paired.id, [op("a1")], scenarioId);
+      const afterFirstBatch = s().undoStack.length;
+
+      // Replace a DIFFERENT project. The frame is scoped to replaced ids, so it
+      // must be left alone — clearing it here would silently make the next AI
+      // batch un-undoable as a group.
+      s().importProjects({
+        importedProjects: [{ ...createProject("Other"), id: other.id }],
+        decisions: [
+          { importedProjectId: other.id, kind: "id", originalExistingId: other.id, action: "replace" },
+        ],
+      });
+
+      s().applyAiBatch(paired.id, [op("a2")], scenarioId);
+      // Frame survived → the second batch EXTENDS it and pushes nothing new.
+      expect(s().undoStack.length).toBe(afterFirstBatch);
     });
   });
 
