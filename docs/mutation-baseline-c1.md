@@ -48,11 +48,23 @@ Three preconditions, each of which has silently corrupted a run before:
 `mutator.excludedMutations: [StringLiteral, ObjectLiteral]` — those mutants are generated,
 then marked `Ignored`, so they inflate the total without entering the denominator.
 
-**120 compile-errors + 27 ignored = 39% of generated mutants never enter the denominator.** That is
-why C4's gate compares the survivor **rate**, not an absolute count: decomposing into typed helpers
-changes which mutations typecheck, and adds literals in dispatchers and helper returns. If the valid
-denominator moves more than 10%, re-run the protocol on the pre-C4 tree and adopt that as the
-comparison baseline — do not revert on a population artifact.
+**120 compile-errors + 27 ignored = 39% of generated mutants never enter the denominator.**
+
+> ⚠️ **AMENDED 2026-08-01, after C4's run — this paragraph originally said the gate compares the
+> survivor *rate* rather than an absolute count, with a re-baseline trigger at 10% denominator
+> movement. Both were wrong, and C4 proved it.** The rate is the *more* population-sensitive
+> measure, and magnitude is the wrong trigger variable.
+>
+> **The rule now:** the **absolute `Survived` count** is the primary numeric condition, because it
+> does not move with the population. Score and rate are authoritative **only while the denominator
+> holds**; once it moves they are diagnostics. Movement is acceptable when it is **accounted for** —
+> the delta reconciles across all six mutator categories — and a revert trigger when it is not.
+> Decomposition *always* shrinks the denominator (new literals in dispatchers and helper returns hit
+> `excludedMutations`), so a shrink at any magnitude is expected, not suspicious.
+>
+> C4 moved it 3.0% — under the old 10% trigger, so the hatch never fired — while `Survived` held
+> byte-identical at 34. The old rule failed a refactor that had regressed nothing, and could only
+> have been satisfied by returning tuples instead of objects, i.e. by making the code worse.
 
 ## Scope of judgement
 
@@ -100,8 +112,15 @@ three reviewers and re-verified from the artifact on 2026-08-01.
 
 **Keying for C4.** Survivors in regions C4 lifts are keyed to the future helper name. Survivors in
 the project-end loop, the total-float loop and the return ternaries **stay in the residual** and are
-keyed to `computeDependencySchedule` itself — roughly 26 of the 54 live in code C4 never extracts,
-so demanding helper-keying for all of them is impossible.
+keyed to `computeDependencySchedule` itself.
+
+> ⚠️ **CORRECTED — the residual set is 3 (L385, L596, L597), not "roughly 26".** The ~26 figure came
+> from a round-4 review measuring against v4's **four**-lift recipe, under which the backward passes
+> and dependency validation stayed inline. The shipped recipe lifts **seven** phases, extracting both.
+> C4's run confirmed it: all 34 post-refactor survivors mapped one-to-one, with the residual keeping
+> exactly the project-end one. **This is the second time this figure has been reasoned wrongly and
+> corrected by measurement** — the reason C1b re-verified two of its classifications by execution
+> rather than re-reading.
 
 ## The 54 — full enumeration
 
@@ -509,3 +528,65 @@ ignores)."*
 FAIL on conditions 2 and 3; its own stated rationale — *"do not revert on a population
 artifact"* — reads PASS. The threshold that separates those two was set at 10% and the
 move was 3%.
+
+---
+
+# C4 gate — decision, 2026-08-01
+
+**ACCEPTED and merged under the amended gate.** Not an override of a failing gate — a correction to
+two conditions that were mis-specified, made for a reason independent of this result.
+
+## What the amendment is
+
+Conditions 2 and 3 originally compared **ratios** unconditionally, with an escape hatch keyed to the
+**magnitude** of denominator movement (>10%). Magnitude is the wrong variable; whether the movement is
+**accounted for** is the right one. The amended rule, now in `PLAN_presummit-refactor.md` §3:
+
+- The **absolute `Survived` count** is the primary numeric condition — it does not move with the
+  population.
+- **Score and rate are authoritative only while the denominator holds.** Once it moves they are
+  diagnostics.
+- Denominator movement must **reconcile across all six mutator categories**. Explained movement is
+  acceptable; unexplained movement is a revert trigger.
+- **Condition 4 must pass on its own terms regardless.** It is the detector; 2 and 3 are proxies.
+
+## Why C4 passes the amended rule
+
+`Survived` **34 → 34, byte-identical.** All 34 map one-to-one onto C1's 16 in-scope classifications
+plus the 18 out-of-scope, **zero new** — against a bound of "more than three new classifications, or
+any in the dispatcher or residual." The population reconciles: **+13 ignored + 4 compile-error − 7
+killed = +10 generated**, and every one of the seven that left the valid population came out of the
+**Killed** bucket. Nothing tested became untested; a smaller set of already-passing mutants reads as a
+lower rate.
+
+The mechanism is the one the plan named **in prose, before the run**: object and string literals in
+new dispatchers and helper returns, which `excludedMutations` skips. Ignored went 27 → 40, split
+StringLiteral 20 / ObjectLiteral 20. The plan predicted the effect and mis-calibrated its trigger.
+
+Independent corroboration the gate does not have: **the 41-fixture oracle passes 44/44**, pinning the
+full `DeterministicSchedule` by byte-equality. It was written before C4 and cannot be regenerated away.
+
+## The tell that the old rule was broken
+
+The only way to satisfy old condition 2 was to **return tuples instead of objects** — to make the code
+worse. A gate satisfiable only by degrading the artifact it protects is mis-specified, not strict.
+The executor identified this and declined to contort the code, which is exactly what the
+"do not refactor merely to satisfy a threshold" principle exists for.
+
+## The cost, recorded rather than glossed
+
+**Seven previously mutation-tested sites are no longer mutation-covered.** They became object or
+string literals that `excludedMutations` skips. The code still runs and the oracle still pins its
+output, but those sites lost mutation coverage. This is a consequence of a pre-existing project config
+choice (`excludedMutations: ["StringLiteral", "ObjectLiteral"]`), not of test quality — and it is a
+genuine narrowing of surface, not a free win. Anyone revisiting `excludedMutations` should know that
+decomposition compounds its effect.
+
+## Post-C4 baseline — the reference for any future comparison
+
+```
+killed 191 · timeout 1 · survived 34 · no-coverage 0 · compile-error 124 · ignored 40
+generated 390 · valid 226 · score 192/226 = 84.96% · survivor rate 15.04%
+```
+
+**Survivor floor for future gates: 34.** Score and rate: use only against a held denominator.
