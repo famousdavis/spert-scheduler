@@ -96,7 +96,10 @@ export function PrintGanttChart({
     [ordered, bands]
   );
 
-  // Row index map for dependency arrows — slot-aware (skips band rows)
+  // Row index map for dependency arrows. Bands are excluded as KEYS but counted as
+  // POSITIONS, so the value is the activity's true render-list row — [a1, band, a2]
+  // puts a2 at 2, not 1. Required, not incidental: arrows derive Y from this index.
+  // (Was "slot-aware (skips band rows)" — the opposite of what the code does.)
   const rowIndex = useMemo(
     () => buildActivitySlotMap(renderItems),
     [renderItems]

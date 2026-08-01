@@ -353,6 +353,15 @@ describe("useGanttLayout", () => {
       const bands: ActivityBand[] = [
         { id: "b1", name: "Phase 1", insertBeforeActivityId: "a2" },
       ];
+
+      // PREMISE, asserted rather than assumed. The whole test turns on this band being
+      // ANCHORED before a2. The first draft anchored it to nothing, and every assertion
+      // below still passed — so a green result proved nothing about the case it named.
+      // `tsc` caught that one only because the misspelt field did not exist on the type;
+      // a typo into a real field with a wrong value would have sailed through tsc,
+      // vitest and lint alike. This line is the check that would catch it.
+      expect(bands[0]!.insertBeforeActivityId).toBe("a2");
+
       const r = setup({ bands }).current;
 
       // Render order is now [a1, band, a2].
