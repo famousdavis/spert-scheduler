@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.59.10 — 2026-07-31
+
+The mutation-testing harness has been reporting garbage, and now it isn't. Tooling only — no functional, data, or interface changes; the app schedules identically to v0.59.9.
+
+Stryker on this toolchain (Stryker 9.6.1, Vitest 4.1.6, Node 24) reuses each test-runner process for mutant after mutant, without limit, by default. Somewhere past a few dozen mutants on one runner, mutant activation goes stale: the tests execute against unmutated code, verdict after verdict comes back "Survived", and the run still exits 0. A focused run over `monte-carlo.ts` scored **10.07%**, with survivors like an inverted `trialCount >= progressInterval` — while the exact test asserting the progress-call count ran against it and "passed". Small runs stayed healthy, which is why a 14-mutant control file scored 100% either way and the breakage looked like a bad test suite rather than a broken tool.
+
+Capping runner reuse at one mutant per process fixes it. The same `monte-carlo.ts` scope now scores **71.81%** (100 killed, 31 survived, ~3 minutes), and the fix was verified at the level of individual mutants, not just the score: the smoking-gun inversion is now killed by its exact asserting test, and the survivors were audited — one was applied to the source by hand and the full scoped suite genuinely passes, so what survives now survives because no test asserts it, not because the mutant never ran. The remaining survivors are honest coverage gaps and equivalent mutants, which is what mutation testing is for.
+
+The incremental cache was also purged: it replays previous verdicts, a config change does not invalidate it, and every cached verdict predating the fix is untrustworthy.
+
+### Fixed
+- **`maxTestRunnerReuse: 1` in `stryker.config.mjs`.** A REQUIRED-do-not-remove comment documents the failure signature (mass survival of obviously-killable mutants, exit 0), the incremental-cache purge that must accompany any recovery, and the `rm -rf .stryker-tmp` fix for the known sandbox ENOENT startup crash.
+
 ## 0.59.9 — 2026-07-31
 
 The ship gate now checks all three copies of this changelog. Tooling only — no functional, data, or interface changes; the app schedules identically to v0.59.8.
