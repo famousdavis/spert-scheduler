@@ -10,6 +10,7 @@ import {
 } from "@core/simulation/worker-client";
 import { runMonteCarloSimulation, runDependencyTrials, computeSimulationStats, computeMilestoneStats } from "@core/simulation/monte-carlo";
 import { generateId } from "./id";
+import { toMcConstraintMap } from "@core/schedule/constraint-utils";
 
 export interface SimulationServiceCallbacks {
   onProgress?: (completedTrials: number, totalTrials: number) => void;
@@ -47,21 +48,12 @@ export function runSimulationSync(
     const activityEarliestStart = dependencyParams.activityEarliestStart
       ? new Map(Object.entries(dependencyParams.activityEarliestStart))
       : undefined;
-    // Convert constraintMap (Record → Map) with the same validation filter as the
-    // worker path (simulation.worker.ts). Omitting this silently dropped hard
-    // scheduling constraints (MSO/SNET/MFO/FNET) in the sync fallback, diverging
-    // from the worker path for the same project.
-    const VALID_CONSTRAINT_TYPES = ["MSO", "MFO", "SNET", "SNLT", "FNET", "FNLT"];
-    const VALID_CONSTRAINT_MODES = ["hard", "soft"];
-    const constraintMap = dependencyParams.constraintMap
-      ? new Map(Object.entries(dependencyParams.constraintMap).filter(
-          (entry): entry is [string, { type: string; offsetFromStart: number; mode: string }] =>
-            entry[1] != null
-            && typeof entry[1].offsetFromStart === "number"
-            && VALID_CONSTRAINT_TYPES.includes(entry[1].type)
-            && VALID_CONSTRAINT_MODES.includes(entry[1].mode)
-        ))
-      : undefined;
+    // Convert constraintMap (Record → Map) through the SAME helper the worker uses.
+    // This path once lacked the validation filter entirely and silently dropped hard
+    // scheduling constraints (MSO/SNET/MFO/FNET), diverging from the worker path for
+    // the same project. It was fixed by copying the filter here; sharing it removes
+    // the second copy that made the divergence possible in the first place.
+    const constraintMap = toMcConstraintMap(dependencyParams.constraintMap);
 
     const depResult = runDependencyTrials({
       activities,
