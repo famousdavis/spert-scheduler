@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.10",
+    date: "2026-07-31",
+    sections: [
+      {
+        title: "Fixed — the test-quality tool was reporting nonsense",
+        items: [
+          "Nothing in the app changed — it schedules identically to v0.59.9, and no schedule, setting or saved project is affected.",
+          "This project uses mutation testing: a tool plants small deliberate bugs in a copy of the scheduling code and checks that the automated tests catch them. On longer runs the tool had quietly stopped planting the bugs properly, so it reported that the tests were catching almost nothing — a false verdict on the scheduler's safety net. It is now configured to check each planted bug in a fresh process, and the results were re-verified from scratch: the tests catch what the tool previously claimed they missed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.9",
     date: "2026-07-31",
     sections: [
