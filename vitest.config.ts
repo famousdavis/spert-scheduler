@@ -24,7 +24,12 @@ export default defineConfig({
     setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
-      include: ["src/core/**", "src/domain/**", "src/infrastructure/**"],
+      // Widened from core/domain/infrastructure so the UI, app and worker layers
+      // are visible too. Files outside the old list were UNREPORTED, not 0% —
+      // `use-project-store.ts` and `simulation.worker.ts` both carry real logic
+      // and neither appeared in a coverage run. Reporting only; there are no
+      // thresholds here and `npm test` is a bare `vitest run`, so this is not a gate.
+      include: ["src/**"],
     },
   },
 });

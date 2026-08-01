@@ -11,7 +11,13 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   { ignores: [".claude/**"] },
-  { ignores: ["dist", "coverage"] },
+  // `.stryker-tmp` is Stryker's sandbox: it holds full copies of every mutated
+  // source file. Left behind by a crashed run, ESLint lints those copies too and
+  // the problem count jumps by the findings each copied file carries — verified
+  // 2026-08-01: one copy of deterministic.ts took `npm run lint` from 23 to 24.
+  // The count is the ship gate (`expectProblems` in shipgate.config.json), so an
+  // uncleaned sandbox reads as a regression that no commit caused.
+  { ignores: ["dist", "coverage", ".stryker-tmp"] },
   sonarjs.configs.recommended,
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
