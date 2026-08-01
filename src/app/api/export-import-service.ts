@@ -8,6 +8,7 @@ import { ProjectSchema } from "@domain/schemas/project.schema";
 import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
 import { applyMigrations } from "@infrastructure/persistence/migrations";
 import { APP_VERSION } from "@app/constants";
+import { cloneProject, nextCloneName } from "./project-service";
 
 // -- Normalization -----------------------------------------------------------
 
@@ -411,4 +412,168 @@ export function validateImport(
     nameConflicts,
     preferences,
   };
+}
+
+// -- Import planning (SD-1) ---------------------------------------------------
+//
+// Closes SD-1. This ladder used to live inlined inside the store's `set()` updater,
+// where it measured cognitive complexity 49 and could only be tested through the
+// Zustand store. It is a pure function of (current projects, imported projects,
+// decisions) — nothing here touches storage, the bus, or React.
+//
+// It decides only WHAT should happen. Committing the state transition, saving, and
+// cloud-sync routing stay in the store action, which is the part that genuinely
+// needs store context.
+
+/** One planned outcome for a single imported project. */
+type PlanItem =
+  | { kind: "add"; project: Project }
+  | { kind: "replace"; oldId: string; replacement: Project }
+  | { kind: "copy"; project: Project }
+  | { kind: "skip" }
+  | { kind: "drift"; projectName: string; reason: string };
+
+export interface ImportPlan {
+  toAdd: Project[];
+  toReplace: Array<{ oldId: string; replacement: Project }>;
+  toCopy: Project[];
+  /** User explicitly chose 'skip'. */
+  skipped: number;
+  /** Layer 2 auto-skips — drift between preview and apply. (pitfall #85) */
+  driftSkipped: Array<{ projectName: string; reason: string }>;
+}
+
+interface PlanContext {
+  /** CURRENT state, not preview-time state — this is the Layer 2 guard. (pitfall #39) */
+  currentById: Map<string, Project>;
+  /** normalized name → existing id */
+  currentByNorm: Map<string, string>;
+  /** Every name in use, EXTENDED as copies are minted. (v0.59.13) */
+  takenNames: string[];
+  skipConflictDetection: boolean;
+}
+
+function buildPlanContext(projects: Project[], skipConflictDetection: boolean): PlanContext {
+  const currentById = new Map(projects.map((p) => [p.id, p]));
+  const currentByNorm = new Map<string, string>();
+  for (const p of projects) {
+    const norm = normalizeProjectName(p.name);
+    if (norm !== "" && !currentByNorm.has(norm)) currentByNorm.set(norm, p.id);
+  }
+  return {
+    currentById,
+    currentByNorm,
+    takenNames: projects.map((p) => p.name),
+    skipConflictDetection,
+  };
+}
+
+/** A replacement keeps the EXISTING project's identity. (pitfalls #7, #65) */
+function withExistingIdentity(proj: Project, existing: Project): Project {
+  return {
+    ...proj,
+    id: existing.id,
+    owner: existing.owner,
+    createdAt: existing.createdAt,
+    archived: existing.archived ?? false,
+  };
+}
+
+/** No conflict at preview time — so re-check for one that appeared since. */
+function planNoDecision(proj: Project, ctx: PlanContext): PlanItem {
+  if (ctx.skipConflictDetection) return { kind: "add", project: proj };
+  if (ctx.currentById.has(proj.id)) {
+    return { kind: "drift", projectName: proj.name, reason: "ID conflict appeared after preview opened." };
+  }
+  if (ctx.currentByNorm.get(normalizeProjectName(proj.name))) {
+    return { kind: "drift", projectName: proj.name, reason: "Name conflict appeared after preview opened." };
+  }
+  return { kind: "add", project: proj };
+}
+
+/** Replace-by-id. If the target vanished, guard against a NEW name collision. (pitfall #85) */
+function planReplaceById(proj: Project, ctx: PlanContext): PlanItem {
+  const existing = ctx.currentById.get(proj.id);
+  if (existing) {
+    return { kind: "replace", oldId: existing.id, replacement: withExistingIdentity(proj, existing) };
+  }
+  const nameMatchId = ctx.currentByNorm.get(normalizeProjectName(proj.name));
+  if (nameMatchId && !ctx.skipConflictDetection) {
+    return {
+      kind: "drift",
+      projectName: proj.name,
+      reason: "ID target deleted and name collision appeared — skipped to avoid clobber.",
+    };
+  }
+  return { kind: "add", project: proj };
+}
+
+/**
+ * Replace-by-name. The name must still resolve to the SAME project the decision
+ * recorded (pitfall #77) — if it now resolves elsewhere, replacing would clobber a
+ * project the user never chose. Symmetric guard against a new id collision (#85).
+ */
+function planReplaceByName(proj: Project, decision: ConflictDecision, ctx: PlanContext): PlanItem {
+  const nameMatchId = ctx.currentByNorm.get(normalizeProjectName(proj.name));
+  if (nameMatchId && nameMatchId === decision.originalExistingId) {
+    const existing = ctx.currentById.get(nameMatchId)!;
+    return { kind: "replace", oldId: existing.id, replacement: withExistingIdentity(proj, existing) };
+  }
+  if (ctx.currentById.has(proj.id) && !ctx.skipConflictDetection) {
+    return {
+      kind: "drift",
+      projectName: proj.name,
+      reason: "Name target gone and ID collision appeared — skipped to avoid duplicate.",
+    };
+  }
+  return { kind: "add", project: proj };
+}
+
+/** cloneProject regenerates every nested id and drops simulation results. (pitfall #83) */
+function planCopy(proj: Project, ctx: PlanContext): PlanItem {
+  const copyName = nextCloneName(proj.name, ctx.takenNames);
+  const copy = cloneProject(proj, copyName);
+  copy.owner = proj.owner; // the copy carries the importer-stamped owner
+  ctx.takenNames.push(copyName);
+  return { kind: "copy", project: copy };
+}
+
+function planOne(proj: Project, decision: ConflictDecision | undefined, ctx: PlanContext): PlanItem {
+  if (!decision) return planNoDecision(proj, ctx);
+  if (decision.action === "skip") return { kind: "skip" };
+  if (decision.action === "copy") return planCopy(proj, ctx);
+  if (decision.kind === "id") return planReplaceById(proj, ctx);
+  return planReplaceByName(proj, decision, ctx);
+}
+
+function collect(plan: ImportPlan, item: PlanItem): void {
+  if (item.kind === "add") plan.toAdd.push(item.project);
+  else if (item.kind === "replace") plan.toReplace.push({ oldId: item.oldId, replacement: item.replacement });
+  else if (item.kind === "copy") plan.toCopy.push(item.project);
+  else if (item.kind === "skip") plan.skipped++;
+  else plan.driftSkipped.push({ projectName: item.projectName, reason: item.reason });
+}
+
+/**
+ * Decide what an import should do, against the CURRENT project list.
+ *
+ * Pure: no storage, no bus, no React. `projects` must be the live list at apply
+ * time, not the list the preview was built from — that difference is the entire
+ * point of the Layer 2 drift guards.
+ */
+export function planImportDecisions(args: {
+  projects: Project[];
+  importedProjects: Project[];
+  decisions: ConflictDecision[];
+  skipConflictDetection: boolean;
+}): ImportPlan {
+  const { projects, importedProjects, decisions, skipConflictDetection } = args;
+  const decisionsById = new Map(decisions.map((d) => [d.importedProjectId, d]));
+  const ctx = buildPlanContext(projects, skipConflictDetection);
+  const plan: ImportPlan = { toAdd: [], toReplace: [], toCopy: [], skipped: 0, driftSkipped: [] };
+
+  for (const proj of importedProjects) {
+    collect(plan, planOne(proj, decisionsById.get(proj.id), ctx));
+  }
+  return plan;
 }

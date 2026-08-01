@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.60.0 — 2026-08-01
+
+Internal restructuring of project import. No behaviour changed — the app works exactly as it did in v0.59.13, and every existing test passes untouched, which is the evidence for that claim rather than a hope about it.
+
+### Changed
+- **The logic that decides what an import should do now lives in the service layer as a pure function**, `planImportDecisions`, instead of being written inline inside the store's state updater. It decides only *what* should happen — add, replace, copy, skip, or skip-as-drift — while committing the change, saving, and cloud sync stay where they need store context. This closes SD-1, a known architectural deviation that had been open since v0.43.0.
+- **Two of the codebase's most complex functions dropped below the complexity threshold.** The import updater measured 49 and the store action 26, against a limit of 15; they now measure below 1 and 8. The accepted lint baseline falls from 23 to 21 accordingly — the first reduction rather than a hold.
+- **The three storage-save loops became one shared helper**, `saveEach`, removing three near-identical copies of the same try/catch and success-counting.
+- `nextCloneName` moved to the service layer beside `cloneProject`, where the import planner can reach it.
+
+### Added
+- **Fifteen unit tests for the import planner**, exercising the decision ladder directly instead of through a mounted Zustand store — which was the specific thing SD-1 said was impossible. They cover both drift guards, targets that vanish or move between preview and apply, identity preservation on replace, same-batch copy naming, and that the planner never mutates its inputs.
+
 ## 0.59.13 — 2026-08-01
 
 Two defects in project import, both found while writing tests for code that was about to be refactored. Neither could lose or corrupt a project.

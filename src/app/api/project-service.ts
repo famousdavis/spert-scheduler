@@ -218,6 +218,24 @@ export function cloneScenario(
 
 // -- Project Cloning ---------------------------------------------------------
 
+/**
+ * Collision-safe name for a clone or copy: "Base (Copy)", then "(Copy 2)"… up to 99,
+ * with a timestamp fallback that should never trigger.
+ *
+ * `existing` is every name already taken. Callers importing several projects at once
+ * must EXTEND that list as each name is minted — passing a snapshot gives every
+ * same-named item in the batch the identical suffix (fixed in v0.59.13).
+ */
+export function nextCloneName(base: string, existing: string[]): string {
+  const candidate = `${base} (Copy)`;
+  if (!existing.includes(candidate)) return candidate;
+  for (let i = 2; i <= 99; i++) {
+    const c = `${base} (Copy ${i})`;
+    if (!existing.includes(c)) return c;
+  }
+  return `${base} (Copy ${Date.now()})`;
+}
+
 export function cloneProject(source: Project, newName: string): Project {
   return {
     id: generateId(),
