@@ -55,6 +55,38 @@ describe("TriangularDistribution", () => {
     expect(sum / n).toBeCloseTo(dist.mean(), 1);
   });
 
+  // -- inverseCDF domain guard ----------------------------------------------
+  //
+  // The 2026-08-01 mutation baseline (docs/mutation-baseline-core-scope.md) found the
+  // `p < 0 || p > 1` guard entirely unexercised — five surviving mutants including the
+  // throw body itself, which was NoCoverage. inverseCDF is called with percentile
+  // inputs throughout the scheduler, so its out-of-range rejection is worth pinning.
+  //
+  // Both sides are needed: with only the p < 0 case, mutating `||` to `&&` still dies,
+  // but the pair documents the guard's actual shape and covers each disjunct.
+  describe("inverseCDF domain guard", () => {
+    const dist = new TriangularDistribution(2, 5, 10);
+
+    it("throws for p below 0", () => {
+      expect(() => dist.inverseCDF(-0.0001)).toThrow(
+        /inverseCDF: p must be in \[0, 1\], got -0.0001/
+      );
+      expect(() => dist.inverseCDF(-1)).toThrow(/p must be in \[0, 1\]/);
+    });
+
+    it("throws for p above 1", () => {
+      expect(() => dist.inverseCDF(1.0001)).toThrow(
+        /inverseCDF: p must be in \[0, 1\], got 1.0001/
+      );
+      expect(() => dist.inverseCDF(2)).toThrow(/p must be in \[0, 1\]/);
+    });
+
+    it("accepts the closed interval endpoints, so the guard is not over-broad", () => {
+      expect(() => dist.inverseCDF(0)).not.toThrow();
+      expect(() => dist.inverseCDF(1)).not.toThrow();
+    });
+  });
+
   it("throws for a > c", () => {
     expect(() => new TriangularDistribution(5, 3, 10)).toThrow();
   });

@@ -423,6 +423,110 @@ describe("constraint-utils", () => {
       );
       expect(result).not.toBeNull();
     });
+
+    // -- Soft matrix completion: MFO, FNET, FNLT ----------------------------
+    //
+    // The soft branch of detectSoftViolation had tests for MSO, SNET and SNLT
+    // only. The 2026-08-01 mutation baseline (docs/mutation-baseline-core-scope.md)
+    // showed the consequence: the ENTIRE `case "FNET"` arm was NoCoverage — five
+    // mutants no test could ever reach — and the FNLT arm was executed but
+    // under-asserted, its boundary comparison surviving mutation.
+    //
+    // FNET is the constraint with a documented bug history: the Monte Carlo
+    // off-by-one fixed across four seams in v0.54.0/v0.54.1. Untested code where
+    // it has already broken once.
+    //
+    // Each type gets three cases, and the middle one is the point: the comparison
+    // is strict, so an activity landing EXACTLY on its constraint date is not a
+    // violation. Without that case, `<` mutated to `<=` survives.
+
+    it("MFO soft: violation when efNet !== constraintDate", () => {
+      const result = detectConstraintConflict(
+        "2026-04-01", "2026-04-08", "2026-04-10", "2026-04-17",
+        "MFO", "2026-04-06", "soft",
+        "a1", "Task A",
+      );
+      expect(result).not.toBeNull();
+      expect(result!.severity).toBe("warning");
+      expect(result!.type).toBe("constraint-violation");
+    });
+
+    it("MFO soft: no violation when efNet === constraintDate", () => {
+      const result = detectConstraintConflict(
+        "2026-04-01", "2026-04-06", "2026-04-10", "2026-04-17",
+        "MFO", "2026-04-06", "soft",
+        "a1", "Task A",
+      );
+      expect(result).toBeNull();
+    });
+
+    it("FNET soft: violation when efNet < constraintDate", () => {
+      const result = detectConstraintConflict(
+        "2026-04-01", "2026-04-01", "2026-04-10", "2026-04-17",
+        "FNET", "2026-04-06", "soft",
+        "a1", "Task A",
+      );
+      expect(result).not.toBeNull();
+      expect(result!.severity).toBe("warning");
+      expect(result!.type).toBe("constraint-violation");
+      // Soft messages carry the raw code, unlike hard conflicts which use the
+      // long label ("Must Start On"). Asserting the code still pins that the FNET
+      // arm — not a neighbouring one — produced this conflict.
+      expect(result!.message).toContain("Soft constraint FNET 2026-04-06");
+      expect(result!.constraintType).toBe("FNET");
+    });
+
+    it("FNET soft: no violation when efNet === constraintDate", () => {
+      // Kills `efNet < constraintDate` mutated to `<=`. Finishing exactly on a
+      // Finish-No-Earlier-Than date satisfies it.
+      const result = detectConstraintConflict(
+        "2026-04-01", "2026-04-06", "2026-04-10", "2026-04-17",
+        "FNET", "2026-04-06", "soft",
+        "a1", "Task A",
+      );
+      expect(result).toBeNull();
+    });
+
+    it("FNET soft: no violation when efNet > constraintDate", () => {
+      const result = detectConstraintConflict(
+        "2026-04-01", "2026-04-10", "2026-04-10", "2026-04-17",
+        "FNET", "2026-04-06", "soft",
+        "a1", "Task A",
+      );
+      expect(result).toBeNull();
+    });
+
+    it("FNLT soft: violation when lfNet > constraintDate", () => {
+      const result = detectConstraintConflict(
+        "2026-04-01", "2026-04-08", "2026-04-10", "2026-04-17",
+        "FNLT", "2026-04-10", "soft",
+        "a1", "Task A",
+      );
+      expect(result).not.toBeNull();
+      expect(result!.severity).toBe("warning");
+      expect(result!.type).toBe("constraint-violation");
+      expect(result!.message).toContain("Soft constraint FNLT 2026-04-10");
+      expect(result!.constraintType).toBe("FNLT");
+    });
+
+    it("FNLT soft: no violation when lfNet === constraintDate", () => {
+      // Kills `lfNet > constraintDate` mutated to `>=`.
+      const result = detectConstraintConflict(
+        "2026-04-01", "2026-04-08", "2026-04-10", "2026-04-10",
+        "FNLT", "2026-04-10", "soft",
+        "a1", "Task A",
+      );
+      expect(result).toBeNull();
+    });
+
+    it("FNLT soft: no violation when lfNet < constraintDate", () => {
+      const result = detectConstraintConflict(
+        "2026-04-01", "2026-04-08", "2026-04-06", "2026-04-06",
+        "FNLT", "2026-04-10", "soft",
+        "a1", "Task A",
+      );
+      expect(result).toBeNull();
+    });
   });
 });
 

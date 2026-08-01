@@ -42,6 +42,10 @@ which needs two edits or every mutant reports `NoCoverage`.
 
 ## Summary — all six categories, every file
 
+> This table is the **baseline**: a point-in-time measurement, left as recorded. Three of these files
+> were remediated in the same session — see *Post-remediation* at the end for the new numbers. Compare
+> future runs against whichever of the two is the right reference for what you are doing.
+
 | File | Killed | Timeout | **Survived** | NoCov | CompileErr | Ignored | Generated | **Valid** | Score |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
 | `distributions/normal.ts` | 147 | 1 | 6 | 0 | 11 | 3 | 168 | 154 | **96.10%** |
@@ -143,14 +147,39 @@ future schema version read by an older build — per the comment above it. Nothi
 | `detectSoftViolation` | L384–385 ×5 | **NOCOV** | ⚠️ **the entire `case "FNET"` arm is never executed by any test** |
 | `detectSoftViolation` | L391 ×2 | EDGE | `lfNet > constraintDate` boundary |
 | `applyBackwardConstraint` | L218, L227 ×2 | EDGE | `constraintDate < lsNet` / `< lfNet` boundaries |
-| `applyBackwardConstraint` | L249 | **GAP** | `case "FNET":` collapse survives — FNET and its neighbour are indistinguishable on tested inputs |
+| `applyBackwardConstraint` | L249 | **EQUIVALENT** | `case "FNET":` in a `case "SNET": case "FNET": break;` group — see below |
 | `applyForwardConstraint` | L93, L102 | EDGE | `constraintDate > esNet` / `> efNet` boundaries |
-| `applyForwardConstraint` | L110 | **GAP** | `case "FNLT":` collapse survives |
+| `applyForwardConstraint` | L110 | **EQUIVALENT** | `case "FNLT":` in a `case "SNLT": case "FNLT": break;` group — see below |
 | `detectHardConflict` | L307, L319 ×2 | EDGE | `esNet < constraintDate` / `efNet < constraintDate` boundaries |
 
 ⚠️ **FNET is the standout.** It has a bug history — the MFO/FNET Monte Carlo off-by-one fixed across
 four seams in v0.54.0/v0.54.1 — and its soft-violation branch is the one arm of that switch no test
-reaches. Two further `case` collapses survive in the forward and backward passes. **Cover FNET first.**
+reaches. **Cover FNET first.**
+
+> ⚠️ **CORRECTED — L249 and L110 were first recorded as `GAP`; they are `EQUIVALENT`.** A case body
+> containing only `break`, in a switch with no `default`, is behaviourally identical to not matching
+> at all — so removing the label changes nothing and no test can kill it. The evidence was already in
+> hand when the wrong call was made: `it("FNLT hard: no forward-pass effect")` and
+> `it("FNET hard: no backward-pass effect")` both exist, both pass, and the mutants survived anyway.
+> Caught by doing the per-file analysis before touching the file.
+
+### The heuristic this yields — and its trap
+
+**A surviving mutant beside a green test that names its behaviour means one of two things: the mutant
+is equivalent, or the test is vacuous. It points at a question, not an answer.**
+
+⚠️ The first draft of this note stopped at "that combination is the signature of an equivalent
+mutant." **That is wrong, and this project already has the counterexample.** In C1a,
+`it("FF violation detected when constraint forces finish before required")` was green, named exactly
+the mutated behaviour, and **eighteen mutants sat behind it** — because its `expect` was wrapped in
+`if (dependencyConflicts?.length > 0)` and nothing in the suite had ever produced a dependency
+violation. The assertion could not fail. Read through the wrong half of the heuristic, those eighteen
+would have been filed as equivalent and never revisited.
+
+**Disambiguate by breaking the behaviour by hand and checking that the named test fails.** For the two
+`case` collapses the argument is structural — a `break`-only body in a switch with no `default` cannot
+be observed. For `triangular.ts` below it was numeric: one `node -e` comparing both branch formulas at
+the boundary. Either is fine. Skipping the step is not.
 
 Also note **72 `Ignored`** here, 30% of generated — the highest ratio in scope.
 
@@ -161,12 +190,30 @@ Concentrated in `inverseCDF` (L71–81) and `cdf` (L106–108).
 | Lines | Bucket | Note |
 |---|---|---|
 | L71 ×4 + 1 NoCov | **GAP** | the `p < 0 \|\| p > 1` domain guard is never entered — including `LogicalOperator \|\| → &&` |
-| L74, L75, L76, L81 | **GAP** | degenerate-shape branches (`a === b`, etc.) not exercised in both directions |
-| L79 | EDGE | `p < fc` vs `p <= fc` at the mode |
-| L106–108 ×3 | EDGE | `cdf` clamps at `x < a`, `x > b`, `x < c` |
+| L74, L75, L76, L81 | **EQUIVALENT** | early returns the continuous branches reproduce exactly |
+| L79 | **EQUIVALENT** | `p < fc` vs `p <= fc` — both branches yield `c` at the mode |
+| L106–108 ×3 | **EQUIVALENT** | `cdf` clamps the fallthrough reproduces exactly |
 
 ⚠️ The L71 domain guard cluster matters: `inverseCDF` is called with percentile inputs throughout the
-scheduler, and its out-of-range rejection is untested.
+scheduler, and its out-of-range rejection is untested. **It is also the only killable cluster here.**
+
+> ⚠️ **CORRECTED — L74/L75/L76/L81 were first recorded as `GAP` and L79/L106–108 as `EDGE`. All eight
+> are `EQUIVALENT`, verified numerically rather than reasoned.** The Triangular CDF is continuous and
+> its two branches meet exactly at the mode, so every boundary the guards protect is a value the
+> fallthrough already produces:
+>
+> ```
+> inverseCDF at p===fc:  lower-branch 5        upper-branch 5        literal c 5
+> cdf at x===c:          low 0.2857142857…     high 0.2857142857…    fc 0.2857142857…
+> cdf at x===a:          guard 0               fallthrough 0
+> cdf at x===b:          guard 1               fallthrough 1
+> ```
+>
+> Algebraically: at `p = fc`, `a + √(fc·(b−a)·(c−a)) = a + (c−a) = c`, and
+> `b − √((1−fc)·(b−a)·(b−c)) = b − (b−c) = c`. The degenerate and `p === 0` / `p === 1` early returns
+> reduce the same way. **Eight of thirteen survivors here are unkillable**, which is why a blanket
+> equivalence sweep would have been poor value: per-file, at the moment of touching the file, this
+> cost one `node -e`.
 
 ### `normal.ts` — 6 survivors / 154 valid · **96.10%**
 
@@ -211,6 +258,48 @@ Nothing to classify. See the denominator caveat above for `buffer.ts`.
 
 **Recommended follow-up, in value order:** `factory.ts` (4 GAPs on a 9-denominator) →
 `constraint-utils` FNET (5 NoCov on a branch with a bug history) → `triangular.ts` domain guard →
-`milestone-sim-params` guards. The EDGE population across all files needs an individual reading
-before any of it is called equivalent; that reading is not done here and is the remaining half of
-§3.1.
+`milestone-sim-params` guards.
+
+⚠️ **Do not sweep the EDGE population.** Its only value is supporting a future revert gate, and no
+such gate exists for these files — nothing is about to be refactored under a mutation comparison.
+C1 classified 54 survivors over two weeks *because* C4's gate depended on each having a counterpart
+to map onto. Classify per-file, at the moment that file is about to change. The triangular
+correction above is what that looks like: eight equivalences established in one command, because
+the file was being touched anyway.
+
+---
+
+## Post-remediation — 2026-08-01, same session
+
+The three recommended targets, done. **Every result matched a prediction registered before the run,
+to the mutant, with every denominator held** — so the scores below are comparable, not just the
+survivor counts.
+
+| File | Survived | NoCoverage | Score | Denominator |
+|---|---|---|---|---|
+| `factory.ts` | 4 → **0** | — | 5/9 → **9/9 = 100.00%** | held at 9 |
+| `constraint-utils.ts` | 12 → **10** | 5 → **0** | 117/134 → **124/134 = 92.54%** | held at 134 |
+| `triangular.ts` | 12 → **8** | 1 → **0** | 83/96 → **88/96 = 91.67%** | held at 96 |
+
+**Scope total: 662/731 = 90.56% → 675/731 = 92.34%, 62 survivors → 49.**
+
+What was written, and why each kill works:
+
+- **`constraint-utils`** — the soft matrix completed with MFO, FNET and FNLT, three cases each. The
+  middle case carries the weight: the comparison is strict, so an activity landing *exactly* on its
+  constraint date is not a violation, and without that fixture `<` mutated to `<=` survives.
+- **`factory.ts`** — both defensive branches, with fixtures that deliberately construct Activities
+  normal validation would reject, because that is precisely what the branches exist for. Also pins
+  `cause` preservation, which nothing tested.
+- **`triangular.ts`** — the `p < 0 || p > 1` domain guard, both disjuncts plus the closed-interval
+  endpoints so the guard is pinned as not over-broad.
+
+**The residual survivors are exactly the sets classified `EQUIVALENT` above** — `triangular`'s
+remaining eight are L74, L75, L76, L79, L81, L106, L107, L108, and `constraint-utils`' ten are the
+two `case` collapses plus the eight boundary EDGE mutants. Nothing unexplained is left in these three
+files.
+
+⚠️ One assertion in the new tests was wrong on first run and the tests caught it before the mutation
+run did: soft-violation messages carry the **raw code** (`Soft constraint FNLT 2026-04-10 …`), not
+the long label — only *hard* conflicts use the `"Must Start On"` style. Worth knowing before writing
+any further constraint-message assertion.
