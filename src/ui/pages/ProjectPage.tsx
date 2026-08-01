@@ -126,11 +126,16 @@ export function ProjectPage() {
 
   const simulation = useSimulation();
 
-  const [activeScenarioId, setActiveScenarioIdRaw] = useState<string | null>(null);
+  // The user's explicit tab choice, carrying the project it belongs to. Null means
+  // "no choice yet — derive one". Scoping the choice to its project is what lets the
+  // derivation below be a pure render-time computation: a selection left over from a
+  // previously-viewed project simply fails to match and falls through, so nothing has
+  // to be reset in an effect (or during render) when the route's :id changes.
+  const [selection, setSelection] = useState<{ projectId: string; scenarioId: string } | null>(null);
   // Persist active scenario to localStorage whenever it changes
   const setActiveScenarioId = useCallback(
     (scenarioId: string | null) => {
-      setActiveScenarioIdRaw(scenarioId);
+      setSelection(id && scenarioId ? { projectId: id, scenarioId } : null);
       if (id && scenarioId) setLastScenarioId(id, scenarioId);
     },
     [id],
@@ -161,15 +166,24 @@ export function ProjectPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally fires only on project existence/count change, not full object
   }, [project?.id, project?.scenarios.length, addScenario]);
 
-  useEffect(() => {
-    if (project && project.scenarios.length > 0 && !activeScenarioId) {
-      // Restore last-active scenario from localStorage, fallback to first scenario
-      const stored = getLastScenarioId(project.id);
-      const match = stored && project.scenarios.find((s) => s.id === stored);
-      setActiveScenarioIdRaw(match ? stored : project.scenarios[0]!.id);
+  // Derived, not stored. This used to be an effect that wrote the resolved id into
+  // state, which meant every first render of a project painted with no active scenario
+  // and then immediately re-rendered — the cascade react-hooks/set-state-in-effect
+  // warns about. Deriving it removes the intermediate render as well as the warning.
+  //
+  // Precedence: the user's explicit choice for THIS project, if it still exists →
+  // the last-active scenario remembered in localStorage, if it still exists → the
+  // first scenario. Checking existence at each step also means a deleted scenario
+  // heals on the next render instead of leaving a dangling id.
+  const activeScenarioId = useMemo<string | null>(() => {
+    if (!project || project.scenarios.length === 0) return null;
+    const has = (sid: string) => project.scenarios.some((s) => s.id === sid);
+    if (selection && selection.projectId === project.id && has(selection.scenarioId)) {
+      return selection.scenarioId;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on id/scenario count change only
-  }, [project?.id, project?.scenarios.length, activeScenarioId]);
+    const stored = getLastScenarioId(project.id);
+    return stored && has(stored) ? stored : project.scenarios[0]!.id;
+  }, [project, selection]);
 
   const scenario = project?.scenarios.find((s) => s.id === activeScenarioId);
 
