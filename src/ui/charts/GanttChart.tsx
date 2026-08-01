@@ -1278,7 +1278,10 @@ export function GanttChart({
         </svg>
 
         {/* Inline name editing overlay — positioned absolutely over the SVG.
-            For activities: uses rowIndex (slot map, skips band rows).
+            For activities: uses rowIndex, whose value is the activity's true
+            render-list row. Bands are excluded as KEYS but counted as POSITIONS, so
+            [a1, band, a2] puts a2 at 2, not 1. (Was "slot map, skips band rows",
+            which says the opposite of what the code does.)
             For bands: looks up the band's index directly in renderItems. */}
         {editTarget && (() => {
           let idx: number | undefined;

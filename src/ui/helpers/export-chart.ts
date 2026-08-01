@@ -3,6 +3,10 @@
 // See LICENSE file in the project root for full license text.
 
 import html2canvas from "html2canvas";
+import {
+  hasUnsupportedColorFunction,
+  formatPixelColor,
+} from "./export-chart-colors";
 
 /**
  * Neutralize modern CSS color functions in the cloned DOM tree that
@@ -30,8 +34,6 @@ import html2canvas from "html2canvas";
  *     properties on all elements (both HTML and SVG — SVG elements inherit
  *     color from parent HTML).
  */
-const UNSUPPORTED_COLOR_FN = /\b(?:oklch|oklab|color-mix)\(/;
-
 function neutralizeUnsupportedColors(doc: Document, clonedEl: HTMLElement): void {
   // Single reusable canvas to convert any modern color function → rgb/rgba
   const cvs = document.createElement("canvas");
@@ -45,10 +47,7 @@ function neutralizeUnsupportedColors(doc: Document, clonedEl: HTMLElement): void
     ctx.fillStyle = val;
     ctx.fillRect(0, 0, 1, 1);
     const d = ctx.getImageData(0, 0, 1, 1).data;
-    const r = d[0]!, g = d[1]!, b = d[2]!, a = d[3]!;
-    return a < 255
-      ? `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`
-      : `rgb(${r},${g},${b})`;
+    return formatPixelColor(d[0]!, d[1]!, d[2]!, d[3]!);
   };
 
   // Pass 1: Fix CSS custom properties (--color-*) on the cloned :root.
@@ -58,7 +57,7 @@ function neutralizeUnsupportedColors(doc: Document, clonedEl: HTMLElement): void
     const prop = rootStyles[i]!;
     if (prop.startsWith("--")) {
       const val = rootStyles.getPropertyValue(prop);
-      if (UNSUPPORTED_COLOR_FN.test(val)) {
+      if (hasUnsupportedColorFunction(val)) {
         root.style.setProperty(prop, resolve(val.trim()));
       }
     }
@@ -71,7 +70,7 @@ function neutralizeUnsupportedColors(doc: Document, clonedEl: HTMLElement): void
       const prop = s[i]!;
       if (prop.startsWith("--")) continue; // already handled on :root
       const val = s.getPropertyValue(prop);
-      if (UNSUPPORTED_COLOR_FN.test(val)) {
+      if (hasUnsupportedColorFunction(val)) {
         el.style.setProperty(prop, resolve(val));
       }
     }

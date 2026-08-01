@@ -191,7 +191,12 @@ export function useGanttLayout({
   // Bar Y offset
   const barYOffset = (rowHeight - barHeight) / 2;
 
-  // Row index map for dependency arrows — slot-aware (skips band rows)
+  // Row index map for dependency arrows. Bands are excluded as KEYS but counted as
+  // POSITIONS, so the value is the activity's true render-list row — [a1, band, a2]
+  // puts a2 at 2, not 1. That is required, not incidental: arrows derive Y from this
+  // index, and a map that skipped band rows would aim them at the wrong rows.
+  // (This comment used to read "slot-aware (skips band rows)", which says the opposite
+  // of what the code does and misled a reader. See band-utils.ts#buildActivitySlotMap.)
   const rowIndex = activitySlotMap;
 
   return {
