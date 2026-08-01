@@ -1296,6 +1296,256 @@ describe("conflict result shape", () => {
   });
 });
 
+// ===========================================================================
+// C1a — mutation coverage for computeDependencySchedule's four largest survivor
+// clusters: dependency validation (18), SS/FF/FS clamps (12), free float (6),
+// result assembly (6). Baseline and cluster census: docs/mutation-baseline-c1.md
+//
+// Every expected value below was MEASURED against the real implementation before
+// being asserted, not derived on paper — the working-day arithmetic around
+// negative lags is exactly where a plausible-looking hand calculation goes wrong.
+// ===========================================================================
+
+/** A hard MSO on the project start — the reliable way to force a constraint to
+ *  override the network and produce a genuine dependency violation. */
+const hardMsoAtStart = {
+  constraintType: "MSO" as const,
+  constraintDate: "2025-01-06",
+  constraintMode: "hard" as const,
+};
+
+describe("C1a — dependency violation detection produces real conflicts", () => {
+  // The pre-existing "FF violation detected" test wrapped its assertion in
+  // `if (schedule.dependencyConflicts && length > 0)`, so it passed whether or not
+  // a violation occurred. Nothing in the suite ever produced one. These do.
+
+  it("FS: a hard MSO pulling the successor before its required start is reported", () => {
+    const activities = [
+      fixedActivity("a", "A", 5),
+      { ...fixedActivity("b", "B", 2), ...hardMsoAtStart },
+    ];
+    const schedule = computeDependencySchedule(activities, [fsDep("a", "b")], "2025-01-06", 0.5);
+
+    expect(schedule.dependencyConflicts).toBeDefined();
+    expect(schedule.dependencyConflicts).toHaveLength(1);
+    const v = schedule.dependencyConflicts![0]!;
+    expect(v.type).toBe("dependency-violation");
+    expect(v.dependencyType).toBe("FS");
+    expect(v.fromActivityId).toBe("a");
+    expect(v.toActivityId).toBe("b");
+    expect(v.fromActivityName).toBe("A");
+    expect(v.toActivityName).toBe("B");
+    expect(v.lagDays).toBe(0);
+    expect(v.severity).toBe("warning");
+    expect(v.message).toContain("FS");
+  });
+
+  it("SS: a hard MSO pulling the successor before predecessor-start + lag is reported", () => {
+    const activities = [
+      fixedActivity("a", "A", 5),
+      { ...fixedActivity("b", "B", 2), ...hardMsoAtStart },
+    ];
+    const schedule = computeDependencySchedule(activities, [ssDep("a", "b", 3)], "2025-01-06", 0.5);
+
+    expect(schedule.dependencyConflicts).toHaveLength(1);
+    expect(schedule.dependencyConflicts![0]!.dependencyType).toBe("SS");
+    expect(schedule.dependencyConflicts![0]!.lagDays).toBe(3);
+  });
+
+  it("FF: a hard MFO finishing the successor before the predecessor is reported", () => {
+    const activities = [
+      fixedActivity("a", "A", 5),
+      {
+        ...fixedActivity("b", "B", 3),
+        constraintType: "MFO" as const,
+        constraintDate: "2025-01-07",
+        constraintMode: "hard" as const,
+      },
+    ];
+    const schedule = computeDependencySchedule(activities, [ffDep("a", "b")], "2025-01-06", 0.5);
+
+    expect(schedule.dependencyConflicts).toHaveLength(1);
+    expect(schedule.dependencyConflicts![0]!.dependencyType).toBe("FF");
+  });
+
+  it("a schedule with no constraint override reports no violations at all", () => {
+    // Guards the inverse: `violated` must start false, or every dependency in
+    // every ordinary schedule would be reported.
+    const activities = [fixedActivity("a", "A", 3), fixedActivity("b", "B", 2), fixedActivity("c", "C", 2)];
+    const deps = [fsDep("a", "b"), ssDep("a", "c", 1), ffDep("b", "c", 1)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    expect(schedule.dependencyConflicts).toBeUndefined();
+  });
+
+  it("computeRequired's negative-offset branch does not fabricate a violation", () => {
+    // FS lag -6 → offset = 1 + (-6) = -5, the subtractWorkingDays path.
+    // Required start moves EARLIER, so the constrained successor satisfies it.
+    // Measured: no conflict. Negating the offset instead would move required
+    // LATER and invent a violation here.
+    const activities = [
+      fixedActivity("a", "A", 5),
+      { ...fixedActivity("b", "B", 2), ...hardMsoAtStart },
+    ];
+    const schedule = computeDependencySchedule(activities, [fsDep("a", "b", -6)], "2025-01-06", 0.5);
+    expect(schedule.dependencyConflicts).toBeUndefined();
+  });
+
+  it("computeRequired's negative-offset branch still catches a real violation", () => {
+    // FS lag -3 → offset = -2. Required is 2 working days before A's finish,
+    // which the MSO-pinned successor still starts before. Measured: one FS conflict.
+    const activities = [
+      fixedActivity("a", "A", 5),
+      { ...fixedActivity("b", "B", 2), ...hardMsoAtStart },
+    ];
+    const schedule = computeDependencySchedule(activities, [fsDep("a", "b", -3)], "2025-01-06", 0.5);
+    expect(schedule.dependencyConflicts).toHaveLength(1);
+    expect(schedule.dependencyConflicts![0]!.dependencyType).toBe("FS");
+  });
+});
+
+describe("C1a — forward-pass clamping to the project start", () => {
+  it("SS negative lag is NOT clamped when it still lands after the project start", () => {
+    // P(5d) → A(3d) starts Mon Jan 13. A SS-1 → B, so B starts one working day
+    // before A: Fri Jan 10. Measured. Clamping unconditionally would give Jan 6,
+    // and negating the offset would give Jan 14.
+    const activities = [fixedActivity("p", "P", 5), fixedActivity("a", "A", 3), fixedActivity("b", "B", 2)];
+    const deps = [fsDep("p", "a"), ssDep("a", "b", -1)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+
+    expect(schedule.activities.find((s) => s.activityId === "a")!.startDate).toBe("2025-01-13");
+    expect(schedule.activities.find((s) => s.activityId === "b")!.startDate).toBe("2025-01-10");
+  });
+
+  it("FF negative lag is NOT clamped when it still lands after the project start", () => {
+    const activities = [fixedActivity("p", "P", 5), fixedActivity("a", "A", 3), fixedActivity("b", "B", 2)];
+    const deps = [fsDep("p", "a"), ffDep("a", "b", -1)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+
+    expect(schedule.activities.find((s) => s.activityId === "b")!.startDate).toBe("2025-01-13");
+    expect(schedule.activities.find((s) => s.activityId === "b")!.endDate).toBe("2025-01-14");
+  });
+
+  it("FS with a deeply negative lag IS clamped to the project start", () => {
+    // offset = 1 + (-10) = -9 working days before A's finish — well before the
+    // project start. This is the FS clamp branch, which had NO coverage at all.
+    const activities = [fixedActivity("a", "A", 3), fixedActivity("b", "B", 2)];
+    const schedule = computeDependencySchedule(activities, [fsDep("a", "b", -10)], "2025-01-06", 0.5);
+
+    expect(schedule.activities.find((s) => s.activityId === "b")!.startDate).toBe("2025-01-06");
+  });
+});
+
+describe("C1a — free float per dependency type", () => {
+  it("SS successor: free float subtracts the lag", () => {
+    // A(4d) starts Jan 6; B starts Jan 8 = two working days later, lag 2 → gap 0.
+    // Adding the lag instead would give 4.
+    const activities = [fixedActivity("a", "A", 4), fixedActivity("b", "B", 2)];
+    const schedule = computeDependencySchedule(activities, [ssDep("a", "b", 2)], "2025-01-06", 0.5);
+    expect(schedule.activities.find((s) => s.activityId === "a")!.freeFloat).toBe(0);
+  });
+
+  it("FF successor: free float subtracts the lag", () => {
+    const activities = [fixedActivity("a", "A", 4), fixedActivity("b", "B", 2)];
+    const schedule = computeDependencySchedule(activities, [ffDep("a", "b", 2)], "2025-01-06", 0.5);
+    expect(schedule.activities.find((s) => s.activityId === "a")!.freeFloat).toBe(0);
+  });
+
+  it("FS successor: free float subtracts both the mandatory day and the lag", () => {
+    const activities = [fixedActivity("a", "A", 4), fixedActivity("c", "C", 2)];
+    const schedule = computeDependencySchedule(activities, [fsDep("a", "c", 1)], "2025-01-06", 0.5);
+    expect(schedule.activities.find((s) => s.activityId === "a")!.freeFloat).toBe(0);
+  });
+
+  it("an SS successor uses the START-to-START gap, not the finish-to-start one", () => {
+    // A's only successor is B, which P delays to Jan 16. The two formulas diverge:
+    // SS measures A.start(Jan 6) → B.start(Jan 16) = 8; treating it as FS would
+    // measure A.finish(Jan 9) → B.start and subtract the mandatory day = 4.
+    const activities = [fixedActivity("p", "P", 8), fixedActivity("a", "A", 4), fixedActivity("b", "B", 2)];
+    const deps = [fsDep("p", "b"), ssDep("a", "b", 0)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    expect(schedule.activities.find((s) => s.activityId === "a")!.freeFloat).toBe(8);
+  });
+
+  it("free float is the MINIMUM gap across successors, not the last one", () => {
+    // A has two successors: B is tight (gap 0) and C is slack (gap 6, and listed
+    // last). Taking the last gap instead of the minimum would report 6, which
+    // would claim A can slip six days without moving B. It cannot move at all.
+    const activities = [
+      fixedActivity("a", "A", 3), fixedActivity("b", "B", 2),
+      fixedActivity("c", "C", 2), fixedActivity("d", "D", 9),
+    ];
+    const deps = [fsDep("a", "b"), fsDep("a", "c"), fsDep("d", "c")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+
+    const a = schedule.activities.find((s) => s.activityId === "a")!;
+    expect(a.freeFloat).toBe(0);
+    expect(a.totalFloat).toBe(6); // it does have total float — only the free float is zero
+  });
+
+  it("a terminal activity's free float equals its total float", () => {
+    // B has no successors, so it takes the total-float branch rather than the
+    // gap loop. Measured: both 3.
+    const activities = [fixedActivity("a", "A", 4), fixedActivity("b", "B", 2), fixedActivity("c", "C", 2)];
+    const deps = [ssDep("a", "b", 2), fsDep("a", "c", 1)];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const b = schedule.activities.find((s) => s.activityId === "b")!;
+    expect(b.freeFloat).toBe(3);
+    expect(b.freeFloat).toBe(b.totalFloat);
+  });
+});
+
+describe("C1a — result assembly", () => {
+  it("isActual requires BOTH a complete status and an actualDuration", () => {
+    // All three combinations, so neither loosening the && to || nor forcing the
+    // condition true survives.
+    const activities = [
+      { ...fixedActivity("done", "Done", 3), status: "complete" as const, actualDuration: 4 },
+      { ...fixedActivity("noact", "No Actual", 3), status: "complete" as const },
+      { ...fixedActivity("running", "Running", 3), actualDuration: 9 },
+    ];
+    const schedule = computeDependencySchedule(activities, [], "2025-01-06", 0.5);
+    const by = (id: string) => schedule.activities.find((s) => s.activityId === id)!;
+
+    expect(by("done").isActual).toBe(true);
+    expect(by("noact").isActual).toBe(false); // complete, but no actualDuration
+    expect(by("running").isActual).toBe(false); // actualDuration, but not complete
+  });
+
+  it("dependencyConflicts is an array when a violation exists and undefined otherwise", () => {
+    const clean = computeDependencySchedule(
+      [fixedActivity("a", "A", 3), fixedActivity("b", "B", 2)],
+      [fsDep("a", "b")],
+      "2025-01-06",
+      0.5
+    );
+    expect(clean.dependencyConflicts).toBeUndefined();
+
+    const violating = computeDependencySchedule(
+      [fixedActivity("a", "A", 5), { ...fixedActivity("b", "B", 2), ...hardMsoAtStart }],
+      [fsDep("a", "b")],
+      "2025-01-06",
+      0.5
+    );
+    expect(Array.isArray(violating.dependencyConflicts)).toBe(true);
+    expect(violating.dependencyConflicts!.length).toBeGreaterThan(0);
+  });
+
+  it("constraintConflicts is an array when a constraint conflicts (dependency mode)", () => {
+    const activities = [
+      fixedActivity("a", "A", 5),
+      {
+        ...fixedActivity("b", "B", 3),
+        constraintType: "MFO" as const,
+        constraintDate: "2025-01-07",
+        constraintMode: "hard" as const,
+      },
+    ];
+    const schedule = computeDependencySchedule(activities, [ffDep("a", "b")], "2025-01-06", 0.5);
+    expect(Array.isArray(schedule.constraintConflicts)).toBe(true);
+    expect(schedule.constraintConflicts!.length).toBeGreaterThan(0);
+  });
+});
+
 describe("DeterministicSchedule.spanDays (0.54.1)", () => {
   const startDate = "2025-01-06"; // Monday
 
