@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.11",
+    date: "2026-07-31",
+    sections: [
+      {
+        title: "Added — stronger tests for the simulation engine",
+        items: [
+          "Nothing in the app changed — it schedules identically to v0.59.10, and no schedule, setting or saved project is affected.",
+          "v0.59.10 repaired the tool that plants small deliberate bugs in a copy of the scheduling code to check the automated tests catch them. This release closes the gaps its first honest report found: ten new tests now pin down the largest and smallest outcomes a simulation reports, exactly when progress updates fire during long runs, and how extreme outliers are excluded from the results histogram. The tool's score for the simulation engine rose from 72% to 87%, and every bug it can still plant undetected has been individually reviewed and recorded rather than left unexamined.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.10",
     date: "2026-07-31",
     sections: [

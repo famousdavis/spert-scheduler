@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.59.11 — 2026-07-31
+
+The coverage gaps that trustworthy mutation scores exposed are now closed. Tests only — no functional, data, or interface changes; the app schedules identically to v0.59.10.
+
+v0.59.10 fixed the mutation-testing harness; this release acts on the first trustworthy run. That run left 31 survivors in `src/core/simulation/monte-carlo.ts`, and triage found three real assertion gaps among them: nothing anywhere asserted a simulation result's `maxSample` field, so an index-arithmetic mutant that returns 0 there passed every test; no test ran the progress callback with a trial count that is an exact multiple of the reporting interval, so boundary mutants that add a spurious final-trial report survived; and the loop that trims >P99 outliers from the histogram could be inverted, disabled, or made off-by-one without any test noticing.
+
+Ten new deterministic tests close all three: exact `minSample`/`maxSample` assertions, direct and end-to-end; progress-callback boundary tests for both simulation modes (a run whose trial count equals the reporting interval emits nothing, twice the interval emits exactly one report) plus first coverage of the constrained path's own progress call site; and three fixtures that pin the P99 trim from both sides — an extreme outlier is excluded, ties exactly at P99 are kept, and a two-sample edge case forces the scan all the way to the first element. The file now scores **87.25%** (124 killed, 5 timeouts, 18 survived; covered score 87.84%), up from 71.81%.
+
+One triage correction is worth recording so it is not re-chased: the survivor previously described as "the progress guard's `>=` equality edge" is not a test gap. The final trial never reports progress, so at exact equality the only interval multiple is suppressed either way — that mutant is equivalent. The killable mutants at that boundary were the adjacent `<`→`<=` ones on the suppression check itself, and the new tests kill all three of them. Each of the 18 remaining survivors was individually traced and recorded: equivalent or masked mutants, plus a small number that would need states no existing fixture produces.
+
+### Added
+- **Ten Monte Carlo mutation-gap tests** in `src/core/simulation/monte-carlo.test.ts`: `minSample`/`maxSample` exactness, progress-callback boundary behaviour across both simulation modes and the constrained path, and P99 histogram-trim semantics from both sides of the boundary.
+
 ## 0.59.10 — 2026-07-31
 
 The mutation-testing harness has been reporting garbage, and now it isn't. Tooling only — no functional, data, or interface changes; the app schedules identically to v0.59.9.
