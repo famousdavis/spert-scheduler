@@ -161,8 +161,25 @@ reaches. **Cover FNET first.**
 > at all — so removing the label changes nothing and no test can kill it. The evidence was already in
 > hand when the wrong call was made: `it("FNLT hard: no forward-pass effect")` and
 > `it("FNET hard: no backward-pass effect")` both exist, both pass, and the mutants survived anyway.
-> **That combination is the signature of an equivalent mutant, and it was read as a coverage gap.**
 > Caught by doing the per-file analysis before touching the file.
+
+### The heuristic this yields — and its trap
+
+**A surviving mutant beside a green test that names its behaviour means one of two things: the mutant
+is equivalent, or the test is vacuous. It points at a question, not an answer.**
+
+⚠️ The first draft of this note stopped at "that combination is the signature of an equivalent
+mutant." **That is wrong, and this project already has the counterexample.** In C1a,
+`it("FF violation detected when constraint forces finish before required")` was green, named exactly
+the mutated behaviour, and **eighteen mutants sat behind it** — because its `expect` was wrapped in
+`if (dependencyConflicts?.length > 0)` and nothing in the suite had ever produced a dependency
+violation. The assertion could not fail. Read through the wrong half of the heuristic, those eighteen
+would have been filed as equivalent and never revisited.
+
+**Disambiguate by breaking the behaviour by hand and checking that the named test fails.** For the two
+`case` collapses the argument is structural — a `break`-only body in a switch with no `default` cannot
+be observed. For `triangular.ts` below it was numeric: one `node -e` comparing both branch formulas at
+the boundary. Either is fine. Skipping the step is not.
 
 Also note **72 `Ignored`** here, 30% of generated — the highest ratio in scope.
 
