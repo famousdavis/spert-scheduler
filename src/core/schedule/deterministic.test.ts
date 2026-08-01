@@ -1546,6 +1546,149 @@ describe("C1a — result assembly", () => {
   });
 });
 
+// ===========================================================================
+// C1b — the five remaining survivor clusters: both backward passes (7), the
+// milestone floor (3), the project-end loop (1), conflict detection (1).
+//
+// The backward passes are the reason this block exists. Three revisions of the
+// plan read "needs no complexity work" (C4 lifts them verbatim) as "needs no
+// work" and dropped them from scope — true of complexity, false of coverage.
+// Nothing asserted the late-date fields at all before this.
+// ===========================================================================
+
+describe("C1b — milestone floor", () => {
+  it("floors on the milestone the activity names, not merely the first one", () => {
+    // Two milestones; B names the LATER one. Matching on position rather than id
+    // would floor B on Jan 8 instead of Jan 20.
+    const milestones: Milestone[] = [
+      { id: "m1", name: "Early Gate", targetDate: "2025-01-08" },
+      { id: "m2", name: "Late Gate", targetDate: "2025-01-20" },
+    ];
+    const activities = [
+      fixedActivity("a", "A", 2),
+      { ...fixedActivity("b", "B", 2), startsAtMilestoneId: "m2" },
+    ];
+    const schedule = computeDependencySchedule(activities, [], "2025-01-06", 0.5, undefined, milestones);
+
+    expect(schedule.activities.find((s) => s.activityId === "b")!.startDate).toBe("2025-01-20");
+    expect(schedule.activities.find((s) => s.activityId === "a")!.startDate).toBe("2025-01-06");
+  });
+
+  it("a milestone EARLIER than the natural start does not pull the activity back", () => {
+    // C follows P and cannot start before Jan 13. Its milestone is Jan 7. The floor
+    // raises a start; it must never lower one.
+    const milestones: Milestone[] = [{ id: "m1", name: "Old Gate", targetDate: "2025-01-07" }];
+    const activities = [
+      fixedActivity("p", "P", 5),
+      { ...fixedActivity("c", "C", 2), startsAtMilestoneId: "m1" },
+    ];
+    const schedule = computeDependencySchedule(activities, [fsDep("p", "c")], "2025-01-06", 0.5, undefined, milestones);
+
+    expect(schedule.activities.find((s) => s.activityId === "c")!.startDate).toBe("2025-01-13");
+  });
+});
+
+describe("C1b — backward passes and late dates", () => {
+  it("a non-terminal activity's late dates come from its successors, not the project end", () => {
+    // a → b → c, all critical. If every activity were treated as terminal, a's late
+    // start would be derived by counting back from the project end (Jan 13), not Jan 6.
+    const activities = [fixedActivity("a", "A", 2), fixedActivity("b", "B", 3), fixedActivity("c", "C", 2)];
+    const deps = [fsDep("a", "b"), fsDep("b", "c")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const a = schedule.activities.find((s) => s.activityId === "a")!;
+
+    expect(schedule.projectEndDate).toBe("2025-01-14");
+    expect(a.lateStart).toBe("2025-01-06");
+    expect(a.lateFinish).toBe("2025-01-07");
+    expect(a.lateStartNet).toBe("2025-01-06");
+  });
+
+  it("late start is the EARLIEST across successors, not whichever is listed last", () => {
+    // A has two successors: X is critical (late start Jan 8) and is listed first;
+    // Y has six days of float (late start Jan 16) and is listed last. Taking the
+    // last candidate would say A can start Jan 14 — eight days later than it can.
+    const activities = [
+      fixedActivity("a", "A", 2), fixedActivity("x", "X", 2),
+      fixedActivity("z", "Z", 6), fixedActivity("y", "Y", 2),
+    ];
+    const deps = [fsDep("a", "x"), fsDep("a", "y"), fsDep("x", "z")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+
+    const a = schedule.activities.find((s) => s.activityId === "a")!;
+    const y = schedule.activities.find((s) => s.activityId === "y")!;
+    expect(y.lateStart).toBe("2025-01-16"); // the slack successor really is later
+    expect(a.lateStart).toBe("2025-01-06"); // ...and A still follows the tight one
+    expect(a.lateStartNet).toBe("2025-01-06"); // both passes, not just the constrained one
+    expect(a.totalFloat).toBe(0);
+  });
+
+  it("a backward constraint moves the constrained late dates away from the network ones", () => {
+    // B carries a hard FNLT. The constrained pass adjusts for it; the network pass
+    // deliberately does not — so the two must disagree. Skipping the adjustment
+    // would collapse them onto each other.
+    const activities = [
+      fixedActivity("a", "A", 2),
+      {
+        ...fixedActivity("b", "B", 3),
+        constraintType: "FNLT" as const,
+        constraintDate: "2025-01-09",
+        constraintMode: "hard" as const,
+      },
+      fixedActivity("c", "C", 2),
+    ];
+    const deps = [fsDep("a", "b"), fsDep("b", "c")];
+    const schedule = computeDependencySchedule(activities, deps, "2025-01-06", 0.5);
+    const b = schedule.activities.find((s) => s.activityId === "b")!;
+
+    expect(b.lateStart).toBe("2025-01-07");
+    expect(b.lateFinish).toBe("2025-01-09");
+    expect(b.lateStartNet).toBe("2025-01-08");
+    expect(b.lateFinishNet).toBe("2025-01-10");
+    expect(b.lateStart).not.toBe(b.lateStartNet);
+  });
+});
+
+describe("C1b — post-pass constraint conflict detection", () => {
+  it("reports a soft SNLT the network schedule violates", () => {
+    // A(5d) pushes B to Jan 13, past its soft SNLT of Jan 7. This conflict comes
+    // from the post-pass sweep over network-driven late dates, not the forward
+    // pass — which is why the type and severity are asserted, not just the count.
+    const activities = [
+      fixedActivity("a", "A", 5),
+      {
+        ...fixedActivity("b", "B", 2),
+        constraintType: "SNLT" as const,
+        constraintDate: "2025-01-07",
+        constraintMode: "soft" as const,
+      },
+    ];
+    const schedule = computeDependencySchedule(activities, [fsDep("a", "b")], "2025-01-06", 0.5);
+
+    expect(schedule.constraintConflicts).toHaveLength(1);
+    const c = schedule.constraintConflicts![0]!;
+    expect(c.type).toBe("constraint-violation");
+    expect(c.severity).toBe("warning");
+    expect(c.activityId).toBe("b");
+  });
+
+  it("reports a soft FNLT the network schedule violates", () => {
+    const activities = [
+      fixedActivity("a", "A", 5),
+      {
+        ...fixedActivity("b", "B", 2),
+        constraintType: "FNLT" as const,
+        constraintDate: "2025-01-08",
+        constraintMode: "soft" as const,
+      },
+    ];
+    const schedule = computeDependencySchedule(activities, [fsDep("a", "b")], "2025-01-06", 0.5);
+
+    expect(schedule.constraintConflicts).toHaveLength(1);
+    expect(schedule.constraintConflicts![0]!.type).toBe("constraint-violation");
+    expect(schedule.constraintConflicts![0]!.severity).toBe("warning");
+  });
+});
+
 describe("DeterministicSchedule.spanDays (0.54.1)", () => {
   const startDate = "2025-01-06"; // Monday
 
