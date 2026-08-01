@@ -11,6 +11,7 @@
  */
 
 import type { Calendar, ConstraintType, ConstraintMode, ConstraintConflict } from "@domain/models/types";
+import { CONSTRAINT_TYPES, CONSTRAINT_MODES } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import {
   activityEndDate,
@@ -427,4 +428,48 @@ function buildConflict(
     severity,
     message,
   };
+}
+
+// -- Monte Carlo constraint-map marshalling -----------------------------------
+
+/**
+ * A constraint-map entry in its wire form: unvalidated, because it arrives either
+ * across the Worker postMessage boundary or straight from persisted project state.
+ */
+export interface McConstraintEntry {
+  type: string;
+  offsetFromStart: number;
+  mode: string;
+}
+
+/**
+ * Convert a constraint map from its wire form (Record) into the Map the Monte Carlo
+ * engine takes, dropping any entry whose type or mode is outside the domain
+ * vocabulary, or whose offset is not a number.
+ *
+ * Shared by BOTH simulation seams deliberately. The synchronous service path — the
+ * fallback that runs when the Worker fails — once lacked this filter entirely and
+ * silently dropped every hard scheduling constraint, diverging from the worker path
+ * for the same project. Two hand-maintained copies is how that happened. This is
+ * the one copy.
+ *
+ * The vocabulary comes from CONSTRAINT_TYPES / CONSTRAINT_MODES in the domain layer;
+ * the two call sites previously carried the third and fourth hand-written copies of
+ * that same list.
+ */
+export function toMcConstraintMap(
+  raw: Record<string, McConstraintEntry> | undefined
+): Map<string, McConstraintEntry> | undefined {
+  if (!raw) return undefined;
+  const validTypes: readonly string[] = CONSTRAINT_TYPES;
+  const validModes: readonly string[] = CONSTRAINT_MODES;
+  return new Map(
+    Object.entries(raw).filter(
+      (entry): entry is [string, McConstraintEntry] =>
+        entry[1] != null
+        && typeof entry[1].offsetFromStart === "number"
+        && validTypes.includes(entry[1].type)
+        && validModes.includes(entry[1].mode)
+    )
+  );
 }

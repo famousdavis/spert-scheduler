@@ -8,11 +8,13 @@ import {
   applyForwardConstraintInt,
   applyBackwardConstraint,
   detectConstraintConflict,
+  toMcConstraintMap,
 } from "./constraint-utils";
 import { formatDateShort } from "@core/calendar/calendar";
 import { applyMigrations } from "@infrastructure/persistence/migrations";
 import { ActivitySchema } from "@domain/schemas/project.schema";
 import type { ConstraintType } from "@domain/models/types";
+import { CONSTRAINT_TYPES, CONSTRAINT_MODES } from "@domain/models/types";
 
 // -- Helper: no calendar (Mon-Fri implied by default addWorkingDays) ----------
 
@@ -841,5 +843,69 @@ describe("detectConstraintConflict — boundary equality", () => {
       "a1", "Task A",
     );
     expect(result).not.toBeNull();
+  });
+});
+
+// ===========================================================================
+// toMcConstraintMap — the single Record→Map conversion shared by BOTH Monte
+// Carlo seams (the Worker and the synchronous service fallback). It exists
+// because the service path once lacked this filter entirely and silently
+// dropped every hard constraint; two hand-maintained copies is how that
+// happened.
+// ===========================================================================
+
+describe("toMcConstraintMap", () => {
+  const ok = { type: "MSO", offsetFromStart: 3, mode: "hard" };
+
+  it("returns undefined for an absent map, and a Map for a present one", () => {
+    expect(toMcConstraintMap(undefined)).toBeUndefined();
+    // An empty record is NOT the same as an absent one — it yields an empty Map.
+    expect(toMcConstraintMap({})).toEqual(new Map());
+  });
+
+  it("keeps a well-formed entry intact", () => {
+    const result = toMcConstraintMap({ a1: ok })!;
+    expect(result.size).toBe(1);
+    expect(result.get("a1")).toEqual(ok);
+  });
+
+  it("drops entries whose type is not in the vocabulary", () => {
+    const result = toMcConstraintMap({ a1: ok, bad: { ...ok, type: "NOPE" } })!;
+    expect([...result.keys()]).toEqual(["a1"]);
+  });
+
+  it("drops entries whose mode is not in the vocabulary", () => {
+    const result = toMcConstraintMap({ a1: ok, bad: { ...ok, mode: "advisory" } })!;
+    expect([...result.keys()]).toEqual(["a1"]);
+  });
+
+  it("drops entries whose offset is not a number, including a numeric string", () => {
+    const result = toMcConstraintMap({
+      a1: ok,
+      missing: { type: "MSO", mode: "hard" } as unknown as typeof ok,
+      stringy: { ...ok, offsetFromStart: "3" as unknown as number },
+    })!;
+    expect([...result.keys()]).toEqual(["a1"]);
+  });
+
+  it("drops null and undefined entries without throwing", () => {
+    const result = toMcConstraintMap({
+      a1: ok,
+      n: null as unknown as typeof ok,
+      u: undefined as unknown as typeof ok,
+    })!;
+    expect([...result.keys()]).toEqual(["a1"]);
+  });
+
+  it("accepts EXACTLY the domain's constraint vocabulary", () => {
+    // Drift guard. If a constraint type or mode is added to the domain and this
+    // filter is not updated, the Monte Carlo paths would silently discard it —
+    // which is the class of bug this helper was created to prevent.
+    for (const type of CONSTRAINT_TYPES) {
+      expect(toMcConstraintMap({ x: { ...ok, type } })!.size).toBe(1);
+    }
+    for (const mode of CONSTRAINT_MODES) {
+      expect(toMcConstraintMap({ x: { ...ok, mode } })!.size).toBe(1);
+    }
   });
 });

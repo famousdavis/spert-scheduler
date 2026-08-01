@@ -10,6 +10,7 @@ import type {
 } from "@core/simulation/worker-protocol";
 import type { SimulationRun } from "@domain/models/types";
 import { runTrials, runDependencyTrials, computeSimulationStats, computeMilestoneStats } from "@core/simulation/monte-carlo";
+import { toMcConstraintMap } from "@core/schedule/constraint-utils";
 
 const PROGRESS_INTERVAL = 10000;
 
@@ -88,17 +89,8 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
               (entry): entry is [string, number] => typeof entry[1] === "number"
             ))
           : undefined;
-        const VALID_CONSTRAINT_TYPES = ["MSO", "MFO", "SNET", "SNLT", "FNET", "FNLT"];
-        const VALID_CONSTRAINT_MODES = ["hard", "soft"];
-        const constraintMap = payload.constraintMap
-          ? new Map(Object.entries(payload.constraintMap).filter(
-              (entry): entry is [string, { type: string; offsetFromStart: number; mode: string }] =>
-                entry[1] != null
-                && typeof entry[1].offsetFromStart === "number"
-                && VALID_CONSTRAINT_TYPES.includes(entry[1].type)
-                && VALID_CONSTRAINT_MODES.includes(entry[1].mode)
-            ))
-          : undefined;
+        // Shared with the synchronous service path — see toMcConstraintMap.
+        const constraintMap = toMcConstraintMap(payload.constraintMap);
 
         const depResult = runDependencyTrials({
           activities: payload.activities,
