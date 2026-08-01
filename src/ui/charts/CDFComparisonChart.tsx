@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { CDFPoint } from "@domain/models/types";
+import { interpolateCDF } from "@ui/helpers/cdf-interpolate";
 // Note: CopyImageButton intentionally NOT imported here. The parent
 // (ScenarioComparison) provides its own copy button in the chrome header.
 // Previously this component had its own floating top-right button, which
@@ -135,37 +136,3 @@ export function CDFComparisonChart({
   );
 }
 
-/**
- * Interpolate probability from CDF points at a given value.
- * Uses linear interpolation between adjacent points.
- */
-function interpolateCDF(points: CDFPoint[], targetValue: number): number {
-  if (points.length === 0) return 0;
-
-  // Find surrounding points
-  let lower: CDFPoint | null = null;
-  let upper: CDFPoint | null = null;
-
-  for (const pt of points) {
-    if (pt.value <= targetValue) {
-      if (!lower || pt.value > lower.value) {
-        lower = pt;
-      }
-    }
-    if (pt.value >= targetValue) {
-      if (!upper || pt.value < upper.value) {
-        upper = pt;
-      }
-    }
-  }
-
-  // Edge cases
-  if (!lower && upper) return upper.probability;
-  if (!upper && lower) return lower.probability;
-  if (!lower && !upper) return 0;
-  if (lower === upper) return lower!.probability;
-
-  // Linear interpolation
-  const ratio = (targetValue - lower!.value) / (upper!.value - lower!.value);
-  return lower!.probability + ratio * (upper!.probability - lower!.probability);
-}

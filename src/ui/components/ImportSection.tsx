@@ -3,12 +3,9 @@
 // See LICENSE file in the project root for full license text.
 
 import type { Project } from "@domain/models/types";
-import type {
-  ConflictInfo,
-  ImportOutcome,
-} from "@app/api/export-import-service";
-import type { StorageMode } from "@ui/providers/StorageProvider";
+import type { ConflictInfo } from "@app/api/export-import-service";
 import { useImportState } from "@ui/hooks/use-import-state";
+import { importDoneBanner } from "@ui/helpers/import-banner";
 
 interface ImportSectionProps {
   projects: Project[];
@@ -20,34 +17,6 @@ const RADIO_LABEL: Record<"skip" | "replace" | "copy", string> = {
   copy: "Import as copy",
 };
 
-function importDoneBanner(
-  outcome: ImportOutcome,
-  total: number,
-  mode: StorageMode
-): { text: string; hasErrors: boolean; cloudSyncActive: boolean } {
-  const { added, replaced, copied, skipped, driftSkipped, errors } = outcome;
-  const hasSuccess = added + replaced + copied > 0;
-  const hasErrors = errors.length > 0;
-  const allDrift =
-    !hasSuccess && !hasErrors && skipped === 0 && driftSkipped.length > 0;
-  let text: string;
-  if (allDrift) {
-    const n = driftSkipped.length;
-    text = `All ${n} project${n !== 1 ? "s were" : " was"} skipped — your project list changed while the preview was open.`;
-  } else if (!hasSuccess && !hasErrors) {
-    text = `No projects were imported — all ${total} skipped.`;
-  } else {
-    const parts: string[] = [];
-    if (added > 0) parts.push(`${added} added`);
-    if (replaced > 0) parts.push(`${replaced} replaced`);
-    if (copied > 0) parts.push(`${copied} copied as new`);
-    if (errors.length > 0) parts.push(`${errors.length} failed (storage)`);
-    if (skipped > 0) parts.push(`${skipped} skipped`);
-    text = `${hasErrors ? "Import finished with errors" : "Import complete"}: ${parts.join(", ")}.`;
-  }
-  const cloudSyncActive = mode === "cloud" && hasSuccess;
-  return { text, hasErrors, cloudSyncActive };
-}
 
 export function ImportSection({ projects }: ImportSectionProps) {
   const {
