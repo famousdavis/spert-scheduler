@@ -15,6 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
+    "cc": "node scripts/measure-complexity.mjs",
+    "mutate": "node scripts/mutation-run.mjs",
     "contract:hash": "node scripts/contract-hash.mjs src/app/api/ai-op-contract.json",
     "shipgate": "node scripts/shipgate.mjs"
   },
