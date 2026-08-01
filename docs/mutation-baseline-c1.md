@@ -405,3 +405,107 @@ The remaining eleven rest on a structural argument — an assignment of a value 
 already held, or a branch unreachable given `DependencyType`'s exhaustive union — stated per
 mutant above and in the C1a section. That argument is sound but is *not* execution evidence,
 and is labelled as such deliberately.
+
+---
+
+# C4 gate measurement — 2026-08-01
+
+Run under the identical protocol: cleared sandbox, cleared incremental cache,
+`npx stryker run --mutate src/core/schedule/deterministic.ts`, via the guarded runner
+that asserts a freshly-written `mutation.json`.
+
+```
+                   pre-C4          post-C4
+score         199/233 85.41%   192/226 84.96%
+killed             198             191      (-7)
+timeout              1               1
+survived            34              34      (unchanged)
+no-coverage          0               0
+compile-error      120             124      (+4)
+ignored             27              40      (+13)
+total generated    380             390      (+10)
+valid              233             226      (-7, a 3.0% move)
+```
+
+## Condition-by-condition
+
+| # | Condition | Result |
+|---|---|---|
+| 1 | Same command, scope, cleared cache | **PASS** |
+| 2 | Score ≥ 85.41% | **FAIL** — 84.96%, short by 0.45pp |
+| 3 | Survivor count and rate no worse | count 34 = 34 **PASS**; rate 14.59% → 15.04% **FAIL** |
+| 4 | Every survivor maps to a classified counterpart | **PASS** — all 34, zero new |
+
+**The escape hatch did not fire.** The valid-mutant denominator moved 3.0%, below its
+10% trigger.
+
+## Condition 4 in full — every survivor accounted for
+
+18 of the 34 sit outside C4's scope, unchanged: `computeCandidateLSDate` (16),
+`resolveActivityDuration` (1), `computeDeterministicDurations` (1).
+
+The other 16 map **one-to-one** onto the 16 classified during C1. **Not one new survivor,
+and not one unclassified survivor** — so the bound of "more than three new C4-time
+classifications, or any in the dispatcher or residual" is not approached: there are zero.
+
+| Pre-C4 | Post-C4 destination | Mutation |
+|---|---|---|
+| L301 | `candidateFromSS` L277 | `>= 0` → `> 0` |
+| L305 | `candidateFromSS` L279 | `<` → `<=` |
+| L313 | `candidateFromFF` L286 | `>= 0` → `> 0` |
+| L319 | `candidateFromFF` L290 | `<` → `<=` |
+| L326 | `candidateFromFS` L296 | `>= 0` → `> 0` |
+| L330 | `candidateFromFS` L298 | `<` → `<=` |
+| L336 | `earliestStartFromPreds` L332 | `>` → `>=` |
+| L349 | `applyMilestoneFloor` L345 | `>` → `>=` |
+| L410 | `backwardPassConstrained` L452 | `<` → `<=` |
+| L436 | `backwardPassNetwork` L490 | `- 1` → `+ 1` |
+| L451 | `backwardPassNetwork` L505 | `<` → `<=` |
+| L493 | `computeFreeFloat` L557 | `<` → `<=` |
+| L518 | `validateDependencies` L612 | `>= 0` → `> 0` |
+| L530 | `validateDependencies` L624 | `false` → `true` |
+| L537 | `validateDependencies` L631 | FF branch → `true` |
+| L385 | **residual** `computeDependencySchedule` L740 | `>` → `>=` |
+
+This matches the keying map built during M1 exactly, including that the residual keeps
+survivors from the project-end loop.
+
+## Why the score fell, arithmetically
+
+Within the valid population **only `killed` changed**: `valid` fell by 7 and `killed` fell
+by the same 7. Survived, timeout and no-coverage are all identical. So the seven mutants
+that left the population were seven that were **being killed**.
+
+Removing seven kills from both sides of the ratio:
+
+```
+(199 - 7) / (233 - 7) = 192 / 226 = 84.96%
+```
+
+which reproduces the observed score **to the digit**. The entire 0.45pp drop is that
+subtraction. Nothing that was tested became untested; a smaller population of
+already-passing mutants simply makes the same success rate read lower.
+
+Where the seven went is visible in the categories: `ignored` rose by 13 and
+`compile-error` by 4, against 10 newly generated. The new ignored are concentrated in
+exactly the places the decomposition created object literals — `buildScheduleResult` (3),
+`candidateStartForPred` (2), `applyLocalConstraint` (2), `successorGap` (2) — and
+`mutator.excludedMutations` lists `ObjectLiteral`. This is the effect condition 3 names
+in its own text: *"decomposing into typed helpers changes which mutations typecheck (and
+adds string/object literals in dispatchers and helper returns, which `excludedMutations`
+ignores)."*
+
+## Behaviour evidence, independent of the score
+
+- **The 41-fixture oracle passes unchanged.** It was written before C4 and pins the full
+  `DeterministicSchedule` across every dependency type, lag sign, constraint type and
+  mode, milestone floor and calendar shape. It is the direct test of "did the output
+  move", and it says no.
+- The full suite passes unchanged: **2242 tests**, none modified for C4.
+- `computeDependencySchedule` measures **134 → 6**, with no helper above 14, matching M1's
+  prediction exactly. Lint falls 21 → 20.
+
+**This is a decision for the owner, not a judgement to make in passing.** The gate reads
+FAIL on conditions 2 and 3; its own stated rationale — *"do not revert on a population
+artifact"* — reads PASS. The threshold that separates those two was set at 10% and the
+move was 3%.

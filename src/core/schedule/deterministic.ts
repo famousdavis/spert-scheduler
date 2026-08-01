@@ -246,33 +246,144 @@ export function computeDependencyDurations(
  * @param percentile - Probability target (e.g. 0.50 for P50)
  * @param calendar - Optional calendar with holidays
  */
-export function computeDependencySchedule(
-  activities: Activity[],
-  dependencies: ActivityDependency[],
-  startDate: string,
-  percentile: number,
-  calendar?: WorkCalendar | Calendar,
-  milestones?: Milestone[]
-): DeterministicSchedule {
-  const graph = buildDependencyGraph(
-    activities.map((a) => a.id),
-    dependencies
+
+// ---------------------------------------------------------------------------
+// Dependency-aware scheduling — decomposed (C4).
+//
+// computeDependencySchedule measured cognitive complexity 134 as one function.
+// It is now seven lifted phases plus a residual that orchestrates them. Behaviour
+// is unchanged: the phases were lifted with their bodies intact wherever possible,
+// and src/core/schedule/deterministic-oracle.test.ts pins the output of 41 fixtures
+// across every dependency type, lag sign, constraint type/mode, milestone floor and
+// calendar shape. If that oracle needs regenerating, this refactor is wrong.
+//
+// The helpers live HERE, in this file, on purpose: stryker.config.mjs lists
+// deterministic.ts by exact path, not a glob, so helpers moved to a new module
+// would leave the mutation denominator and the score would rise because the code
+// stopped being measured rather than because it got safer.
+// ---------------------------------------------------------------------------
+
+type Cal = WorkCalendar | Calendar | undefined;
+type DepGraph = ReturnType<typeof buildDependencyGraph>;
+type Edge = { id: string; type: string; lagDays: number };
+
+// ---------------------------------------------------------------------------
+// LIFT 1 — forward pass, split per §3: three per-type candidate helpers behind a
+// dispatcher, plus the milestone floor and the local-constraint apply.
+// ---------------------------------------------------------------------------
+
+/** SS: read the predecessor's START date, offset = lag (no +1). */
+function candidateFromSS(predStart: Date, lagDays: number, projectStart: Date, calendar: Cal): Date {
+  if (lagDays >= 0) return addWorkingDays(predStart, lagDays, calendar);
+  const candidate = subtractWorkingDays(predStart, -lagDays, calendar);
+  return candidate < projectStart ? new Date(projectStart) : candidate;
+}
+
+/** FF: constrained EF = pred END + lag, then back-calculate ES. */
+function candidateFromFF(
+  predEnd: Date, lagDays: number, duration: number, projectStart: Date, calendar: Cal,
+): Date {
+  const constrainedEF = lagDays >= 0
+    ? addWorkingDays(predEnd, lagDays, calendar)
+    : subtractWorkingDays(predEnd, -lagDays, calendar);
+  const candidate = activityStartDate(constrainedEF, duration, calendar);
+  return candidate < projectStart ? new Date(projectStart) : candidate;
+}
+
+/** FS: the original behaviour — offset = 1 + lag. */
+function candidateFromFS(predEnd: Date, lagDays: number, projectStart: Date, calendar: Cal): Date {
+  const offset = 1 + lagDays;
+  if (offset >= 0) return addWorkingDays(predEnd, offset, calendar);
+  const candidate = subtractWorkingDays(predEnd, -offset, calendar);
+  return candidate < projectStart ? new Date(projectStart) : candidate;
+}
+
+/** Thin dispatcher, mirroring the shape of the existing computeCandidateLSDate. */
+function candidateStartForPred(
+  pred: Edge,
+  startDates: Map<string, Date>,
+  endDates: Map<string, Date>,
+  duration: number,
+  projectStart: Date,
+  calendar: Cal,
+): Date {
+  if (pred.type === "SS") {
+    return candidateFromSS(startDates.get(pred.id)!, pred.lagDays, projectStart, calendar);
+  }
+  if (pred.type === "FF") {
+    return candidateFromFF(endDates.get(pred.id)!, pred.lagDays, duration, projectStart, calendar);
+  }
+  return candidateFromFS(endDates.get(pred.id)!, pred.lagDays, projectStart, calendar);
+}
+
+/** Starts after all predecessors' constraints are satisfied (type-aware). */
+function earliestStartFromPreds(
+  preds: Edge[],
+  startDates: Map<string, Date>,
+  endDates: Map<string, Date>,
+  duration: number,
+  projectStart: Date,
+  calendar: Cal,
+): Date {
+  if (preds.length === 0) return new Date(projectStart);
+  let latestDate = new Date(0);
+  for (const pred of preds) {
+    const candidateStart = candidateStartForPred(pred, startDates, endDates, duration, projectStart, calendar);
+    if (candidateStart > latestDate) latestDate = candidateStart;
+  }
+  return latestDate;
+}
+
+/** Apply the startsAtMilestoneId floor. */
+function applyMilestoneFloor(
+  activity: Activity, activityStart: Date, milestones: Milestone[] | undefined, calendar: Cal,
+): Date {
+  if (!activity.startsAtMilestoneId || !milestones) return activityStart;
+  const milestone = milestones.find((m) => m.id === activity.startsAtMilestoneId);
+  if (!milestone) return activityStart;
+  const milestoneDate = advanceToNextWorkingDay(parseDateISO(milestone.targetDate), calendar);
+  return milestoneDate > activityStart ? milestoneDate : activityStart;
+}
+
+/** Apply this activity's own scheduling constraint (forward pass). */
+function applyLocalConstraint(
+  activity: Activity,
+  esNetISO: string,
+  efNetISO: string,
+  duration: number,
+  activityStart: Date,
+  activityEnd: Date,
+  calendar: Cal,
+  // `conflict` is nullable, not optional: applyForwardConstraint returns null when
+  // the constraint is satisfied. The caller tests truthiness, so this matches the
+  // original inline `if (result.conflict)` exactly rather than normalising to undefined.
+): { es: Date; ef: Date; conflict?: ConstraintConflict | null } {
+  if (!activity.constraintType || !activity.constraintDate || !activity.constraintMode) {
+    return { es: activityStart, ef: activityEnd };
+  }
+  const result = applyForwardConstraint(
+    esNetISO, efNetISO, duration,
+    activity.constraintType, activity.constraintDate,
+    activity.constraintMode, activity.id, activity.name, calendar,
   );
+  return { es: parseDateISO(result.es), ef: parseDateISO(result.ef), conflict: result.conflict };
+}
 
-  // Compute duration for each activity
-  const durationMap = computeDependencyDurations(activities, percentile);
-
-  // Activity lookup
-  const activityMap = new Map(activities.map((a) => [a.id, a]));
-
-  let projectStart = parseDateISO(startDate);
-  projectStart = advanceToNextWorkingDay(projectStart, calendar);
-
-  // -- Forward pass (with constraint tracking) --------------------------------
-  // For each activity, compute:
-  // - networkStart/networkEnd: ES/EF before this activity's local constraint
-  // - startDates/endDates: ES/EF after constraint (propagates to successors)
-
+function forwardPass(args: {
+  graph: DepGraph;
+  activityMap: Map<string, Activity>;
+  durationMap: Map<string, number>;
+  projectStart: Date;
+  calendar: Cal;
+  milestones?: Milestone[];
+}): {
+  startDates: Map<string, Date>;
+  endDates: Map<string, Date>;
+  networkStart: Map<string, string>;
+  networkEnd: Map<string, string>;
+  conflicts: ConstraintConflict[];
+} {
+  const { graph, activityMap, durationMap, projectStart, calendar, milestones } = args;
   const startDates = new Map<string, Date>();    // constrained ES
   const endDates = new Map<string, Date>();      // constrained EF
   const networkStart = new Map<string, string>(); // network ES (ISO)
@@ -282,78 +393,11 @@ export function computeDependencySchedule(
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
     const duration = durationMap.get(id) ?? 1;
+    const preds = (graph.predecessors.get(id) ?? []) as Edge[];
 
-    const preds = graph.predecessors.get(id) ?? [];
-    let activityStart: Date;
-
-    if (preds.length === 0) {
-      activityStart = new Date(projectStart);
-    } else {
-      // Starts after all predecessors' constraints are satisfied (type-aware)
-      let latestDate = new Date(0);
-      for (const pred of preds) {
-        let candidateStart: Date;
-
-        if (pred.type === "SS") {
-          // SS: read predecessor's START date, offset = lag (no +1)
-          const predStart = startDates.get(pred.id)!;
-          const offset = pred.lagDays;
-          if (offset >= 0) {
-            candidateStart = addWorkingDays(predStart, offset, calendar);
-          } else {
-            candidateStart = subtractWorkingDays(predStart, -offset, calendar);
-            if (candidateStart < projectStart) {
-              candidateStart = new Date(projectStart);
-            }
-          }
-        } else if (pred.type === "FF") {
-          // FF: constrained EF = pred END + lag, then back-calculate ES
-          const predEnd = endDates.get(pred.id)!;
-          let constrainedEF: Date;
-          if (pred.lagDays >= 0) {
-            constrainedEF = addWorkingDays(predEnd, pred.lagDays, calendar);
-          } else {
-            constrainedEF = subtractWorkingDays(predEnd, -pred.lagDays, calendar);
-          }
-          candidateStart = activityStartDate(constrainedEF, duration, calendar);
-          if (candidateStart < projectStart) {
-            candidateStart = new Date(projectStart);
-          }
-        } else {
-          // FS (existing behavior)
-          const predEnd = endDates.get(pred.id)!;
-          const offset = 1 + pred.lagDays;
-          if (offset >= 0) {
-            candidateStart = addWorkingDays(predEnd, offset, calendar);
-          } else {
-            candidateStart = subtractWorkingDays(predEnd, -offset, calendar);
-            if (candidateStart < projectStart) {
-              candidateStart = new Date(projectStart);
-            }
-          }
-        }
-
-        if (candidateStart > latestDate) {
-          latestDate = candidateStart;
-        }
-      }
-      activityStart = latestDate;
-    }
-
-    // Apply startsAtMilestoneId floor
-    if (activity.startsAtMilestoneId && milestones) {
-      const milestone = milestones.find((m) => m.id === activity.startsAtMilestoneId);
-      if (milestone) {
-        let milestoneDate = parseDateISO(milestone.targetDate);
-        milestoneDate = advanceToNextWorkingDay(milestoneDate, calendar);
-        if (milestoneDate > activityStart) {
-          activityStart = milestoneDate;
-        }
-      }
-    }
-
-    // Ensure start is a working day
-    activityStart = advanceToNextWorkingDay(activityStart, calendar);
+    let activityStart = earliestStartFromPreds(preds, startDates, endDates, duration, projectStart, calendar);
+    activityStart = applyMilestoneFloor(activity, activityStart, milestones, calendar);
+    activityStart = advanceToNextWorkingDay(activityStart, calendar); // ensure a working day
 
     const activityEnd = activityEndDate(activityStart, duration, calendar);
 
@@ -363,33 +407,31 @@ export function computeDependencySchedule(
     networkStart.set(id, esNetISO);
     networkEnd.set(id, efNetISO);
 
-    // Apply scheduling constraint (forward pass)
-    if (activity.constraintType && activity.constraintDate && activity.constraintMode) {
-      const result = applyForwardConstraint(
-        esNetISO, efNetISO, duration,
-        activity.constraintType, activity.constraintDate,
-        activity.constraintMode, activity.id, activity.name, calendar,
-      );
-      startDates.set(id, parseDateISO(result.es));
-      endDates.set(id, parseDateISO(result.ef));
-      if (result.conflict) conflicts.push(result.conflict);
-    } else {
-      startDates.set(id, activityStart);
-      endDates.set(id, activityEnd);
-    }
+    const local = applyLocalConstraint(
+      activity, esNetISO, efNetISO, duration, activityStart, activityEnd, calendar,
+    );
+    startDates.set(id, local.es);
+    endDates.set(id, local.ef);
+    if (local.conflict) conflicts.push(local.conflict);
   }
 
-  // Project end is the latest constrained end date
-  let projectEndDate = projectStart;
-  for (const endDate of endDates.values()) {
-    if (endDate > projectEndDate) projectEndDate = endDate;
-  }
-  const projectEndISO = formatDateISO(projectEndDate);
+  return { startDates, endDates, networkStart, networkEnd, conflicts };
+}
 
-  // -- Backward pass #1 (constraint-adjusted, for display) --------------------
+// ---------------------------------------------------------------------------
+// LIFT 2 — backward pass #1 (constraint-adjusted, for display). Verbatim.
+// ---------------------------------------------------------------------------
 
-  const lateStartCon = new Map<string, string>();  // ISO dates
-  const lateFinishCon = new Map<string, string>(); // ISO dates
+function backwardPassConstrained(args: {
+  graph: DepGraph;
+  activityMap: Map<string, Activity>;
+  durationMap: Map<string, number>;
+  projectEndDate: Date;
+  calendar: Cal;
+}): { lateStartCon: Map<string, string>; lateFinishCon: Map<string, string> } {
+  const { graph, activityMap, durationMap, projectEndDate, calendar } = args;
+  const lateStartCon = new Map<string, string>();
+  const lateFinishCon = new Map<string, string>();
 
   for (let i = graph.topologicalOrder.length - 1; i >= 0; i--) {
     const id = graph.topologicalOrder[i]!;
@@ -428,8 +470,20 @@ export function computeDependencySchedule(
     lateFinishCon.set(id, formatDateISO(lf));
   }
 
-  // -- Backward pass #2 (network-driven, no constraint adjustments) -----------
+  return { lateStartCon, lateFinishCon };
+}
 
+// ---------------------------------------------------------------------------
+// LIFT 3 — backward pass #2 (network-driven, no constraint adjustments). Verbatim.
+// ---------------------------------------------------------------------------
+
+function backwardPassNetwork(args: {
+  graph: DepGraph;
+  durationMap: Map<string, number>;
+  projectEndDate: Date;
+  calendar: Cal;
+}): { lateStartNet: Map<string, string>; lateFinishNet: Map<string, string> } {
+  const { graph, durationMap, projectEndDate, calendar } = args;
   const lateStartNet = new Map<string, string>();
   const lateFinishNet = new Map<string, string>();
 
@@ -457,46 +511,73 @@ export function computeDependencySchedule(
     lateFinishNet.set(id, formatDateISO(lf));
   }
 
-  // -- Float, critical path, conflict detection --------------------------------
+  return { lateStartNet, lateFinishNet };
+}
 
-  const totalFloatMap = new Map<string, number>();
-  for (const id of graph.topologicalOrder) {
-    const esDate = parseDateISO(networkStart.get(id)!);
-    const lsDate = parseDateISO(lateStartNet.get(id)!);
-    totalFloatMap.set(id, countWorkingDays(esDate, lsDate, calendar));
-  }
+// ---------------------------------------------------------------------------
+// LIFT 4 — free float, plus the one gap helper §3's recipe calls for.
+// ---------------------------------------------------------------------------
 
-  // -- Free float computation -------------------------------------------------
-  // Free float = min gap to any successor's early start, measured in working days.
-  // For terminal activities (no successors), free float equals total float.
+/** Gap from this activity to one successor, in working days, per dependency type. */
+function successorGap(
+  succ: Edge, predES: Date, predEF: Date, succES: Date, succEF: Date, calendar: Cal,
+): number {
+  if (succ.type === "SS") return countWorkingDays(predES, succES, calendar) - succ.lagDays;
+  if (succ.type === "FF") return countWorkingDays(predEF, succEF, calendar) - succ.lagDays;
+  return countWorkingDays(predEF, succES, calendar) - 1 - succ.lagDays; // FS
+}
+
+/**
+ * Free float = min gap to any successor's early start, in working days.
+ * For terminal activities (no successors), free float equals total float.
+ */
+function computeFreeFloat(args: {
+  graph: DepGraph;
+  totalFloatMap: Map<string, number>;
+  startDates: Map<string, Date>;
+  endDates: Map<string, Date>;
+  calendar: Cal;
+}): Map<string, number> {
+  const { graph, totalFloatMap, startDates, endDates, calendar } = args;
   const freeFloatMap = new Map<string, number>();
+
   for (const id of graph.topologicalOrder) {
-    const succs = graph.successors.get(id) ?? [];
+    const succs = (graph.successors.get(id) ?? []) as Edge[];
     if (succs.length === 0) {
       freeFloatMap.set(id, totalFloatMap.get(id) ?? 0);
-    } else {
-      let minGap = Infinity;
-      const predES = startDates.get(id)!;
-      const predEF = endDates.get(id)!;
-      for (const succ of succs) {
-        const succES = startDates.get(succ.id)!;
-        const succEF = endDates.get(succ.id)!;
-        let gap: number;
-        if (succ.type === "SS") {
-          gap = countWorkingDays(predES, succES, calendar) - succ.lagDays;
-        } else if (succ.type === "FF") {
-          gap = countWorkingDays(predEF, succEF, calendar) - succ.lagDays;
-        } else {
-          // FS
-          gap = countWorkingDays(predEF, succES, calendar) - 1 - succ.lagDays;
-        }
-        if (gap < minGap) minGap = gap;
-      }
-      freeFloatMap.set(id, Math.max(0, minGap));
+      continue;
     }
+    let minGap = Infinity;
+    const predES = startDates.get(id)!;
+    const predEF = endDates.get(id)!;
+    for (const succ of succs) {
+      const gap = successorGap(
+        succ, predES, predEF, startDates.get(succ.id)!, endDates.get(succ.id)!, calendar,
+      );
+      if (gap < minGap) minGap = gap;
+    }
+    freeFloatMap.set(id, Math.max(0, minGap));
   }
 
-  // Detect SNLT/FNLT and soft constraint conflicts using network-driven late dates
+  return freeFloatMap;
+}
+
+// ---------------------------------------------------------------------------
+// LIFT 5 — SNLT/FNLT and soft-constraint conflict detection. Verbatim.
+// ---------------------------------------------------------------------------
+
+function detectSoftConflicts(args: {
+  graph: DepGraph;
+  activityMap: Map<string, Activity>;
+  networkStart: Map<string, string>;
+  networkEnd: Map<string, string>;
+  lateStartNet: Map<string, string>;
+  lateFinishNet: Map<string, string>;
+  calendar: Cal;
+}): ConstraintConflict[] {
+  const { graph, activityMap, networkStart, networkEnd, lateStartNet, lateFinishNet, calendar } = args;
+  const found: ConstraintConflict[] = [];
+
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
     if (!activity.constraintType || !activity.constraintDate || !activity.constraintMode) continue;
@@ -507,11 +588,24 @@ export function computeDependencySchedule(
       activity.constraintType, activity.constraintDate,
       activity.constraintMode, activity.id, activity.name, calendar,
     );
-    if (conflict) conflicts.push(conflict);
+    if (conflict) found.push(conflict);
   }
 
-  // -- Post-pass dependency constraint validation -----------------------------
+  return found;
+}
 
+// ---------------------------------------------------------------------------
+// LIFT 6 — post-pass dependency constraint validation. Verbatim.
+// ---------------------------------------------------------------------------
+
+function validateDependencies(args: {
+  dependencies: ActivityDependency[];
+  startDates: Map<string, Date>;
+  endDates: Map<string, Date>;
+  activityMap: Map<string, Activity>;
+  calendar: Cal;
+}): DependencyConflict[] {
+  const { dependencies, startDates, endDates, activityMap, calendar } = args;
   const dependencyConflicts: DependencyConflict[] = [];
 
   function computeRequired(baseDate: Date, offset: number): Date {
@@ -556,7 +650,34 @@ export function computeDependencySchedule(
     }
   }
 
-  // -- Build result -----------------------------------------------------------
+  return dependencyConflicts;
+}
+
+// ---------------------------------------------------------------------------
+// LIFT 7 — result assembly. Verbatim.
+// ---------------------------------------------------------------------------
+
+function buildScheduleResult(args: {
+  graph: DepGraph;
+  activityMap: Map<string, Activity>;
+  durationMap: Map<string, number>;
+  startDates: Map<string, Date>;
+  endDates: Map<string, Date>;
+  lateStartCon: Map<string, string>;
+  lateFinishCon: Map<string, string>;
+  lateStartNet: Map<string, string>;
+  lateFinishNet: Map<string, string>;
+  totalFloatMap: Map<string, number>;
+  freeFloatMap: Map<string, number>;
+  projectStart: Date;
+  projectEndISO: string;
+  calendar: Cal;
+}): { scheduledActivities: ScheduledActivity[]; totalDurationDays: number; spanDays: number } {
+  const {
+    graph, activityMap, durationMap, startDates, endDates,
+    lateStartCon, lateFinishCon, lateStartNet, lateFinishNet,
+    totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar,
+  } = args;
 
   const scheduledActivities: ScheduledActivity[] = [];
   for (const id of graph.topologicalOrder) {
@@ -587,6 +708,70 @@ export function computeDependencySchedule(
   const spanDays = scheduledActivities.length > 0
     ? countWorkingDays(projectStart, parseDateISO(projectEndISO), calendar) + 1
     : 0;
+
+  return { scheduledActivities, totalDurationDays, spanDays };
+}
+
+export function computeDependencySchedule(
+  activities: Activity[],
+  dependencies: ActivityDependency[],
+  startDate: string,
+  percentile: number,
+  calendar?: WorkCalendar | Calendar,
+  milestones?: Milestone[]
+): DeterministicSchedule {
+  const graph = buildDependencyGraph(
+    activities.map((a) => a.id),
+    dependencies
+  );
+  const durationMap = computeDependencyDurations(activities, percentile);
+  const activityMap = new Map(activities.map((a) => [a.id, a]));
+
+  let projectStart = parseDateISO(startDate);
+  projectStart = advanceToNextWorkingDay(projectStart, calendar);
+
+  const { startDates, endDates, networkStart, networkEnd, conflicts } = forwardPass({
+    graph, activityMap, durationMap, projectStart, calendar, milestones,
+  });
+
+  // Project end is the latest constrained end date
+  let projectEndDate = projectStart;
+  for (const endDate of endDates.values()) {
+    if (endDate > projectEndDate) projectEndDate = endDate;
+  }
+  const projectEndISO = formatDateISO(projectEndDate);
+
+  const { lateStartCon, lateFinishCon } = backwardPassConstrained({
+    graph, activityMap, durationMap, projectEndDate, calendar,
+  });
+  const { lateStartNet, lateFinishNet } = backwardPassNetwork({
+    graph, durationMap, projectEndDate, calendar,
+  });
+
+  const totalFloatMap = new Map<string, number>();
+  for (const id of graph.topologicalOrder) {
+    const esDate = parseDateISO(networkStart.get(id)!);
+    const lsDate = parseDateISO(lateStartNet.get(id)!);
+    totalFloatMap.set(id, countWorkingDays(esDate, lsDate, calendar));
+  }
+
+  const freeFloatMap = computeFreeFloat({
+    graph, totalFloatMap, startDates, endDates, calendar,
+  });
+
+  conflicts.push(...detectSoftConflicts({
+    graph, activityMap, networkStart, networkEnd, lateStartNet, lateFinishNet, calendar,
+  }));
+
+  const dependencyConflicts = validateDependencies({
+    dependencies, startDates, endDates, activityMap, calendar,
+  });
+
+  const { scheduledActivities, totalDurationDays, spanDays } = buildScheduleResult({
+    graph, activityMap, durationMap, startDates, endDates,
+    lateStartCon, lateFinishCon, lateStartNet, lateFinishNet,
+    totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar,
+  });
 
   return {
     activities: scheduledActivities,
