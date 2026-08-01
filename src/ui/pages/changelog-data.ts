@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.60.0",
+    date: "2026-08-01",
+    sections: [
+      {
+        title: "Changed — internal restructuring of project import",
+        items: [
+          "Nothing you can see changed. The app behaves exactly as it did in 0.59.13, and every existing test passed without being modified — which is the evidence that nothing shifted, rather than an assurance that it didn't.",
+          "The rules that decide what an import should do — add a project, replace one, keep both, skip it, or refuse because something changed underneath you — were tangled into the code that also writes to storage and syncs to the cloud. They are now a separate, self-contained piece that can be checked on its own. This had been a known shortcut since 0.43.0.",
+          "Two of the most convoluted parts of the codebase became straightforward, and the project's own limit on complexity was tightened as a result — the first time it has been lowered rather than merely held.",
+          "Three near-identical copies of the save-and-count-failures logic became one.",
+        ],
+      },
+      {
+        title: "Added — tests",
+        items: [
+          "Fifteen new tests exercise the import rules directly, which the old structure made impossible. They cover what happens when a project is deleted or renamed between the moment you preview an import and the moment you confirm it, that replacing a project keeps its original owner and creation date, and that importing several same-named projects at once gives each a distinct name.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.59.13",
     date: "2026-08-01",
     sections: [

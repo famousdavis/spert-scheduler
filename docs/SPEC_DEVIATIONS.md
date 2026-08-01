@@ -4,15 +4,33 @@ Last reviewed: v0.44.0
 
 This document tracks deliberate departures from the SPERT Suite Robust-Import Level 4 specification (`IMPORT-SPEC-REFERENCE.md`, `IMPORT-DESIGN-GUIDE.md`, `IMPORT-AUDIT-CHECKLIST.md`, `IMPORT-PITFALLS.md`). Each deviation states the gap, its behavioral consequence, the partial mitigation in place, and the target release for full compliance.
 
-## SD-1 — `applyImportDecisions` not extracted as a pure function
+## SD-1 — `applyImportDecisions` not extracted as a pure function — **CLOSED in v0.60.0**
 
-The decision-application merge logic is inlined in the Zustand store action `importProjects` (in `src/ui/hooks/use-project-store.ts`). The spec recommends extracting it as a pure function exported from the service layer.
+**Status: resolved.** The decision-application ladder now lives in the service layer as
+`planImportDecisions()` in `src/app/api/export-import-service.ts` — a pure function of
+`(projects, importedProjects, decisions, skipConflictDetection)` returning an `ImportPlan`.
+It touches no storage, no event bus and no React, and is unit-tested directly in
+`src/app/api/export-import-plan.test.ts` without mounting the Zustand store.
 
-**Consequence:** The merge logic cannot be unit-tested in isolation — tests must drive it through the real Zustand store via `useProjectStore.getState().importProjects(...)`. This is functionally adequate but tightens the test/production coupling more than the spec prefers.
+The store action `importProjects` keeps only what genuinely needs store context: committing
+the state transition, dropping undo/redo entries for replaced ids (G12), the AI-undo-frame
+scope check, storage cleanup, saving, and cloud-sync routing.
 
-**Mitigation:** Store-level subscribe() atomicity tests (Phase 9 of the v0.43.0 plan) cover the behavioral contract. The new test cases #46–53 verify structural atomicity, drift-skip behavior, owner preservation on replace, and symmetric Layer 2 guards.
+Two things are worth recording about how it was closed, because both shaped the sequencing:
 
-**Target:** v0.45.0.
+- **The extraction and the lint decomposition were the same move.** The inlined ladder measured
+  cognitive complexity **49**; the `set()` updater that replaced it measures below 1, and
+  `importProjects` went **26 → 8**. Extracting for testability and decomposing for the
+  complexity budget were not competing goals.
+- **It was deliberately done *after* the behavioural tests, and after the two defects those
+  tests exposed.** `src/ui/hooks/use-project-store.test.ts` gained twelve tests covering the
+  drift ladder in v0.59.12→13, each verified by breaking the guard it protects; two real
+  defects surfaced and were fixed in v0.59.13 **before** this refactor, so the extraction
+  could be behaviour-preserving rather than behaviour-changing. Those tests passed unchanged
+  across the extraction, which is the evidence that it preserved behaviour.
+
+The original deviation read: *"The merge logic cannot be unit-tested in isolation — tests must
+drive it through the real Zustand store."* That is no longer true.
 
 ## SD-2 — No `conflictsEqual` / `{ ok: false }` drift-abort path
 
