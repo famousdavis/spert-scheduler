@@ -309,3 +309,99 @@ floor (3), project-end loop (1), conflict detection (1).
 verbatim. Three plan revisions read that as "no work" and dropped them from C1's scope.
 ⚠️ The milestone-floor three (L345, L349×2) sit in code C4 lifts into `applyMilestoneFloor`.
 Key them there, per the map in `M1-RESULT.md`.
+
+---
+
+# C1b results — Week 4 (2026-08-01) · C1 COMPLETE
+
+**Scope:** the five remaining clusters — backward pass #1 (4), backward pass #2 (3),
+milestone floor (3), project-end loop (1), conflict detection (1) = **12 survivors**.
+
+**Outcome: 7 killed, 5 classified.**
+
+```
+                   pre-C1        post-C1a       post-C1b
+score         161/233 69.10%  192/233 82.40%  199/233 85.41%
+killed             160             191             198
+survived            70              41              34
+no-coverage          2               0               0
+compile-error      120             120             120
+ignored             27              27              27
+total generated    380             380             380
+```
+
+## C1 final position — the exit gate
+
+**All 54 in-scope survivors are addressed: 38 killed, 16 classified with a written reason.**
+The 18 before L249 remain untouched, as scoped. `34 live − 18 out-of-scope = 16`.
+
+| Cluster | Start | End | Killed |
+|---|---|---|---|
+| Dependency validation | 18 | 3 | 15 |
+| SS/FF/FS clamps | 12 | 7 | 5 |
+| Free float | 6 | 1 | 5 |
+| Result assembly | 6 | 0 | 6 |
+| Backward pass #1 | 4 | 1 | 3 |
+| Backward pass #2 | 3 | 2 | 1 |
+| Milestone floor | 3 | 1 | 2 |
+| Project-end loop | 1 | 1 | 0 |
+| Conflict detection | 1 | 0 | 1 |
+| **Total** | **54** | **16** | **38** |
+
+**The denominator never moved (233).** No source was touched during C1, so the 16-point
+score gain is entirely test quality, not a population shift. That matters for C4's gate,
+which compares against **85.41%**, not the 69.10% this file opened with.
+
+## What C1b found
+
+Nothing had ever asserted the late-date fields — `lateStart`, `lateFinish`, `lateStartNet`,
+`lateFinishNet` — at all. Both backward passes computed them and no test read them. That is
+why seven survivors sat there, and why three plan revisions could read "needs no complexity
+work" (C4 lifts them verbatim) as "needs no work". True of complexity, false of coverage.
+
+Newly covered: late dates derived from successors rather than the project end; late start as
+the **earliest** across successors rather than whichever is listed last, in **both** passes;
+the backward constraint adjustment, asserted by requiring the constrained and network late
+dates to **disagree**; the milestone floor matching on id rather than position, and never
+pulling an activity earlier; and the post-pass soft-constraint sweep, asserted on
+`type: "constraint-violation"` / `severity: "warning"` so it cannot be satisfied by a
+forward-pass conflict.
+
+## The 5 classified in C1b
+
+| Line | Mutation | Classification |
+|---|---|---|
+| L349 | `milestoneDate > activityStart` → `>=` | equivalent |
+| L385 | `endDate > projectEndDate` → `>=` | equivalent |
+| L410 | `candidateLS < ls` → `<=` | equivalent |
+| L451 | `candidateLS < ls` → `<=` | equivalent |
+| L436 | `topologicalOrder.length - 1` → `+ 1` | **equivalent — verified by execution** |
+
+The first four are the same shape as C1a's equality family: at the boundary the mutant
+performs an assignment the original skips, and the value assigned **is** the value already
+held. Only the resulting date or number is ever read, so nothing can distinguish them.
+
+**L436 is the one that needed checking rather than reasoning.** Starting the reverse loop at
+`length + 1` runs two extra iterations over `topologicalOrder[len]` and `[len + 1]`, both
+`undefined`. Those write `lateStartNet` / `lateFinishNet` entries under an `undefined` key —
+and every reader looks those maps up by ids drawn from `topologicalOrder`, so no reader ever
+sees them. Reasoning said equivalent; reasoning is also how the "~26 residual survivors"
+figure got into the plan. So it was **measured**: the mutation was applied and the full
+`DeterministicSchedule` output diffed across four project shapes — single activity, simple
+chain, diamond, and one carrying a hard `FNLT`. **Byte-identical.** Equivalent, confirmed.
+
+## Spot-check (the >25% trigger)
+
+16 of 54 classified = **29.6%**, above the plan's ~25% trigger, so a second reading was owed
+on five. Five were verified **by execution rather than re-reading**:
+
+- the four zero-offset mutants (L301, L313, L326, L518), via
+  `addWorkingDays(d, 0) === subtractWorkingDays(d, 0) === d` measured on a Monday, a Friday
+  **and a Saturday** — the non-working-day case being the one where an implementation might
+  plausibly have advanced;
+- **L436**, via the output diff above.
+
+The remaining eleven rest on a structural argument — an assignment of a value equal to the one
+already held, or a branch unreachable given `DependencyType`'s exhaustive union — stated per
+mutant above and in the C1a section. That argument is sound but is *not* execution evidence,
+and is labelled as such deliberately.
