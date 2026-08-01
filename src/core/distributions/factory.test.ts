@@ -127,4 +127,115 @@ describe("createDistributionForActivity", () => {
     expect(dist.variance()).toBe(0);
     expect(dist.inverseCDF(0.5)).toBe(5);
   });
+
+  // -- Defensive branches ---------------------------------------------------
+  //
+  // The 2026-08-01 mutation baseline (docs/mutation-baseline-core-scope.md) scored
+  // this file 55.56% — the weakest in Stryker's scope — and all four survivors were
+  // in the two branches below. The score itself rests on only nine valid mutants and
+  // is not worth much; the survivors are, because this function picks the
+  // distribution for EVERY activity and neither guard was exercised.
+  //
+  // Both branches exist for data the type system cannot vouch for: a project from an
+  // older export, a hand-edited file, or a future schema version read by an older
+  // build. So the fixtures below deliberately construct Activities that normal
+  // validation would reject — that is the point of the branches.
+
+  describe("LogNormal PERT-mean guard", () => {
+    it("rejects a PERT mean of exactly zero", () => {
+      // The comparison is `mean <= 0`, so zero must throw. Without this case,
+      // mutating it to `mean < 0` survives.
+      const activity = makeActivity({
+        min: 0,
+        mostLikely: 0,
+        max: 0,
+        distributionType: "logNormal",
+      });
+      expect(() => createDistributionForActivity(activity)).toThrow(
+        /Cannot create LogNormal distribution for activity "Test Activity": PERT mean must be > 0, got 0/
+      );
+    });
+
+    it("rejects a negative PERT mean", () => {
+      const activity = makeActivity({
+        min: -6,
+        mostLikely: 0,
+        max: 0,
+        distributionType: "logNormal",
+      });
+      expect(() => createDistributionForActivity(activity)).toThrow(
+        /PERT mean must be > 0, got -1/
+      );
+    });
+
+    it("accepts the smallest positive PERT mean, so the guard is not over-broad", () => {
+      const activity = makeActivity({
+        min: 1,
+        mostLikely: 1,
+        max: 1,
+        distributionType: "logNormal",
+      });
+      expect(createDistributionForActivity(activity)).toBeInstanceOf(
+        LogNormalDistribution
+      );
+    });
+
+    it("preserves the original error as `cause`", () => {
+      const activity = makeActivity({
+        min: 0,
+        mostLikely: 0,
+        max: 0,
+        distributionType: "logNormal",
+      });
+      try {
+        createDistributionForActivity(activity);
+        expect.unreachable("expected the PERT-mean guard to throw");
+      } catch (err) {
+        expect((err as { cause?: unknown }).cause).toBeInstanceOf(Error);
+        expect(((err as { cause?: Error }).cause)!.message).toBe(
+          "PERT mean must be > 0, got 0"
+        );
+      }
+    });
+  });
+
+  describe("unknown distributionType label fallback", () => {
+    // Reaching the `default` arm requires a runtime value outside the compile-time
+    // union, which is exactly the malformed-data case the fallback documents.
+    const unknownType = makeActivity({
+      distributionType: "weibull" as Activity["distributionType"],
+    });
+
+    it("names the unknown type in the message rather than 'undefined'", () => {
+      // DISTRIBUTION_LABELS has no "weibull" key, so the lookup is genuinely
+      // undefined here and `?? activity.distributionType` is what supplies the name.
+      // Mutating `??` to `&&` yields "Cannot create undefined distribution", which
+      // the second assertion below rejects.
+      expect(() => createDistributionForActivity(unknownType)).toThrow(
+        /Cannot create weibull distribution for activity "Test Activity"/
+      );
+      expect(() => createDistributionForActivity(unknownType)).not.toThrow(
+        /Cannot create undefined distribution/
+      );
+    });
+
+    it("keeps the underlying reason in the message", () => {
+      expect(() => createDistributionForActivity(unknownType)).toThrow(
+        /Unknown distribution type: weibull/
+      );
+    });
+
+    it("still uses the friendly label for a known type", () => {
+      // Guards the other direction: the fallback must not shadow the label table.
+      const activity = makeActivity({
+        min: 0,
+        mostLikely: 0,
+        max: 0,
+        distributionType: "logNormal",
+      });
+      expect(() => createDistributionForActivity(activity)).toThrow(
+        /Cannot create LogNormal distribution/
+      );
+    });
+  });
 });
