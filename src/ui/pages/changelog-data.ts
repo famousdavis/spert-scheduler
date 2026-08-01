@@ -1,5 +1,6 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
-// Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
 
 export interface ChangelogEntry {
   version: string;
@@ -11,6 +12,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "0.59.12",
+    date: "2026-07-31",
+    sections: [
+      {
+        title: "Changed — copyright and licence notices",
+        items: [
+          "Nothing in the app changed. It behaves exactly as it did in 0.59.11, and no schedule, estimate or setting is affected.",
+          "The copyright and licence notice at the top of every source file was reformatted to match the rest of the SPERT® Suite. The wording is unchanged — the same sentences, wrapped across three lines instead of two. 339 files were affected, which was every two-line notice left anywhere in the suite.",
+          "This project's own written instructions were the reason it drifted: they gave the two-line form as the template, so every file written to spec inherited it. Those instructions also contained an error that would have made a script unrunnable if anyone had followed it literally. Both are corrected.",
+          "A new automated check now refuses a release if any source file is missing the notice or carries the wrong form, including files that have not yet been committed. Every way it could fail was deliberately triggered and confirmed to be caught before it was trusted.",
+        ],
+      },
+    ],
+  },
   {
     version: "0.59.11",
     date: "2026-07-31",

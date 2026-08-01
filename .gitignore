@@ -26,6 +26,14 @@ coverage/
 # Vite
 *.local
 
+# Vite drops these at the project root when it bundles a TypeScript config, and
+# leaves them behind if the process is killed. They sit beside vite.config.ts
+# with a .mjs extension, which src/integration/copyright-headers.test.ts scopes
+# as a root config file — an abandoned one turns `npm test` red for a reason the
+# failure message cannot explain.
+vite.config.*.timestamp-*
+vitest.config.*.timestamp-*
+
 # Claude Code
 CLAUDE.md
 .claude/

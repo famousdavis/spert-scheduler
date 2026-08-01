@@ -1,5 +1,6 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
-// Licensed under the GNU General Public License v3.0. See LICENSE file in the project root for full license text.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
 
 // Kept intentionally separate from TileColorPicker — expected to diverge for
 // Level 3 band row-tinting. See Activity Bands plan v0.45.0 before merging.
