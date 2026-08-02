@@ -107,9 +107,14 @@ function SortableScenarioTab({
         if (!isEditing) onSelect(scenario.id);
       }}
     >
-      {/* Drag handle */}
+      {/* Drag handle. It was the ONLY focusable element in the tab and had no accessible
+          name — a keyboard user's first tab stop here was invisible (opacity-0 until hover)
+          and unlabelled, and it did the one thing a keyboard user does not need. It now
+          names itself and becomes visible on focus. */}
       <button
-        className="opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab active:cursor-grabbing text-gray-400 dark:text-gray-500 -ml-1.5 mr-0.5"
+        type="button"
+        aria-label={`Reorder scenario ${scenario.name}`}
+        className="opacity-0 group-hover:opacity-60 hover:!opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded cursor-grab active:cursor-grabbing text-gray-400 dark:text-gray-500 -ml-1.5 mr-0.5"
         title="Drag to reorder"
         {...attributes}
         {...listeners}
@@ -149,8 +154,29 @@ function SortableScenarioTab({
           inputClassName="text-sm font-medium w-32"
         />
       ) : (
-        <span
-          className={isBaseline ? "font-semibold" : "font-medium"}
+        /* The selection affordance. This was a <span> inside a click-handling <div>: no
+           role, no aria-current, no tab stop — unreachable by keyboard and silent to a
+           screen reader, which could not report which scenario was active.
+
+           A real <button> with aria-current, kept a SIBLING of the drag/lock/clone/delete
+           controls rather than wrapping them, because nested buttons are invalid HTML.
+
+           NOT role="tab"/tablist: that pattern requires a roving tabindex over tabs with
+           no focusable descendants, and every tab here carries four or five of them. */
+        <button
+          type="button"
+          aria-current={isActive ? "true" : undefined}
+          className={
+            isBaseline
+              ? "font-semibold text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              : "font-medium text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          }
+          onClick={(e) => {
+            // The wrapping div keeps its own click handler so the whole tab stays a mouse
+            // target; stop here so a click on the button does not select twice.
+            e.stopPropagation();
+            onSelect(scenario.id);
+          }}
           onDoubleClick={(e) => {
             if (onRename && !isLocked) {
               e.stopPropagation();
@@ -160,7 +186,7 @@ function SortableScenarioTab({
           title={tabTitle}
         >
           {scenario.name}
-        </span>
+        </button>
       )}
       <div className="flex items-center gap-0.5">
         {onToggleLock && (

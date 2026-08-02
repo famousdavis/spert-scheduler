@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.62.2",
+    date: "2026-08-02",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Scenario tabs can now be reached and used with the keyboard, and screen readers announce which scenario is active. Selecting a scenario was a click handler on a plain container — there was no button to tab to, and nothing in the page told assistive technology which tab was current. The scenario name is now a real button carrying aria-current, so it takes focus in the normal tab order and is announced as the current scenario. The drag-to-reorder handle, previously the only focusable thing in a tab and both invisible and unnamed until hovered, now has a label and a visible focus ring. Mouse behaviour, drag-to-reorder and double-click-to-rename are unchanged.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.62.1",
     date: "2026-08-02",
     sections: [
