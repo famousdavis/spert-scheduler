@@ -8,7 +8,13 @@ import type {
   SimulationResult,
   SimulationError,
 } from "@core/simulation/worker-protocol";
-import type { ActivityDependency, SimulationRun } from "@domain/models/types";
+import type {
+  ActivityDependency,
+  ConstraintMode,
+  ConstraintType,
+  SimulationRun,
+} from "@domain/models/types";
+import { CONSTRAINT_MODES, CONSTRAINT_TYPES } from "@domain/models/types";
 import { runTrials, runDependencyTrials, computeSimulationStats, computeMilestoneStats } from "@core/simulation/monte-carlo";
 import { toMcConstraintMap } from "@core/schedule/constraint-utils";
 
@@ -128,21 +134,59 @@ function runDependencyBranch(
   };
 }
 
+/** One entry of the sequential-constraint array, as it arrives over `postMessage`. */
+type SeqConstraintEntry = NonNullable<StartPayload["sequentialConstraints"]>[number];
+
+/** The same entry once its type and mode are known to be in the domain vocabulary. */
+interface ValidatedSeqConstraint {
+  type: ConstraintType;
+  offsetFromStart: number;
+  mode: ConstraintMode;
+}
+
+/**
+ * Membership test that NARROWS `string` to the tuple's literal union.
+ *
+ * ⚠️ `.some`, not `.includes`, and that is the entire point. `CONSTRAINT_TYPES` is `as const`,
+ * so `CONSTRAINT_TYPES.includes(c.type)` does not compile — the parameter narrows to
+ * `ConstraintType`, and a `string` is not assignable to it. The two obvious fixes are both
+ * casts (widen the array to `readonly string[]`, or assert the value `as ConstraintType`), and
+ * a cast here would silence precisely the check that makes this guard worth having. `.some`
+ * compares `T` against `string`, which is legal, and the type predicate does the narrowing.
+ */
+function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
+  return allowed.some((entry) => entry === value);
+}
+
+/**
+ * ⚠️ THE LAST HAND-MAINTAINED COPY OF THE CONSTRAINT VOCABULARY LIVED HERE, as
+ * `VALID_SEQ_TYPES` / `VALID_SEQ_MODES`. It was diffed against `CONSTRAINT_TYPES` /
+ * `CONSTRAINT_MODES` programmatically — identical members, identical order — before being
+ * retired, so this is a cleanup and never was a defect.
+ *
+ * It was the *only* copy worth hunting: every other site in the app is a `switch` case or a
+ * union-typed predicate that TypeScript checks, and a typo in one of those is a compile error.
+ * `.includes()` on an unchecked `string[]` was the one shape free to drift silently.
+ *
+ * The narrowing is not decoration. `SequentialConstraintEntry` in the engine declares
+ * `type: string` with a *comment* reading `// ConstraintType`; this predicate is what turns
+ * that comment into something the compiler enforces, at the seam where untrusted
+ * structured-clone data enters.
+ */
+function isValidSeqConstraint(c: SeqConstraintEntry): c is ValidatedSeqConstraint {
+  return (
+    c != null &&
+    typeof c.offsetFromStart === "number" &&
+    isOneOf(CONSTRAINT_TYPES, c.type) &&
+    isOneOf(CONSTRAINT_MODES, c.mode)
+  );
+}
+
 /** Sequential simulation, with optional constraint support. */
 function runSequentialBranch(payload: StartPayload): TrialOutcome {
-  const VALID_SEQ_TYPES = ["MSO", "MFO", "SNET", "SNLT", "FNET", "FNLT"];
-  const VALID_SEQ_MODES = ["hard", "soft"];
-  const seqConstraints = payload.sequentialConstraints?.map((c) => {
-    if (
-      c != null &&
-      typeof c.offsetFromStart === "number" &&
-      VALID_SEQ_TYPES.includes(c.type) &&
-      VALID_SEQ_MODES.includes(c.mode)
-    ) {
-      return c;
-    }
-    return null;
-  });
+  const seqConstraints = payload.sequentialConstraints?.map((c) =>
+    isValidSeqConstraint(c) ? c : null,
+  );
 
   const trials = runTrials({
     activities: payload.activities,
