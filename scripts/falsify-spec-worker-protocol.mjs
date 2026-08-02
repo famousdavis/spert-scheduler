@@ -51,16 +51,24 @@ export const mutations = [
     expectFailing: /trialcount-too-low|error fixtures actually error/,
   },
   {
+    // ⚠️ W5 IS EXPECTED TO REPORT AS A SURVIVOR, and it is kept for that reason.
+    // Deleting the TYPE check has NO observable effect on posted output — an unrecognised
+    // type hits `applyHardConstraint`'s `default:` and changes nothing — so no oracle fixture
+    // can catch it. Verified against the pre-decomposition worker too, so its redness is a
+    // property of the guard's position, not of any refactor. The check that DOES cover it is
+    // the marshalling assertion in simulation.worker.test.ts, which captures at the
+    // `runTrials` seam. This entry documents the oracle's blind spot; do not "fix" it by
+    // loosening expectFailing.
     id: "W5  the constraint TYPE check is removed from the vocabulary guard",
     file: W,
-    find: `      VALID_SEQ_TYPES.includes(c.type) &&`,
+    find: `    isOneOf(CONSTRAINT_TYPES, c.type) &&`,
     replace: ``,
     expectFailing: /rejected-as-invalid|matches the pinned exchange/,
   },
   {
     id: "W6  the offsetFromStart typeof check is removed",
     file: W,
-    find: `      typeof c.offsetFromStart === "number" &&`,
+    find: `    typeof c.offsetFromStart === "number" &&`,
     replace: ``,
     expectFailing: /rejected-as-invalid|matches the pinned exchange/,
   },

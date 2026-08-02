@@ -510,10 +510,26 @@ NOT VERIFIED surfaces — the component test and the parser work are the same su
 >   *excludes* `src/workers/**`, so Stryker's checker crashes on the first mutant. Neither config
 >   edit is committed, and the file says why.
 >
-> **NEXT: Step 5** — the vocabulary dedup. Safe per Step 1. ⚠️ `CONSTRAINT_TYPES` is `as const`,
-> so `.includes(c.type)` on a readonly tuple will not type-check against a `string`. **Do not
-> cast** — that is the fixture-cast defect in a different costume. Write a guard that
-> **narrows** (`c is ConstraintType`), so the dedup ends up stronger than a like-for-like swap.
+> - **Step 5 — DONE.** `VALID_SEQ_TYPES`/`VALID_SEQ_MODES` retired for `CONSTRAINT_TYPES`/
+>   `CONSTRAINT_MODES` behind a **narrowing** predicate, **cast-free**: `.some` rather than
+>   `.includes`, because `.some` compares `T` with `string` (legal) while `.includes` on a
+>   readonly tuple narrows its parameter and forces a cast. **`Survived` held byte-identical in
+>   both scopes** (6→6, 10→10 — the same mutants). The score rose +1.01pp for an accountable
+>   reason: the two deleted arrays held exactly **8 string literals**, all `Ignored`, so the
+>   denominator moved *the other way* from §3.7's.
+>   ✅ **What the narrowing bought, measured:** of the new guard's 20 mutants, 9 are **Killed**
+>   (all five of `isOneOf`'s) and **10 cannot compile** — weakening `c != null` makes
+>   `c.offsetFromStart` unsound, so the type system now does work the tests were doing.
+>   ⚠️ **What it did NOT buy:** W5 stays red. A TypeScript **type predicate is an unchecked
+>   assertion**, so an unsound predicate body still compiles. Narrowing makes the guard harder to
+>   weaken *by accident*, not harder to delete *on purpose* — the marshalling assertion is still
+>   what covers that branch.
+>
+> **§3.5 is complete** apart from the read-only item it always deferred: sharing the three map
+> conversions with the service side, **with service-side tests written first** (the worker
+> filters, the service does not). Import validation — `ActivityDependencySchema` has no cycle
+> refinement, so project JSON import is the one unguarded write path — remains open and is the
+> larger half of this section.
 
 ⚠️ **v1's cycle finding was overstated, and the review corrected it by probe.** A **2-cycle and
 3-cycle already error correctly.** Only a **self-loop** passes through — `dependency-graph.ts:47`

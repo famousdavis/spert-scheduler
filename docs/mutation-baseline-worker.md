@@ -1,8 +1,8 @@
-# Mutation baseline — `src/workers/simulation.worker.ts` (§3.5 Step 4)
+# Mutation baseline — `src/workers/simulation.worker.ts` (§3.5 Steps 4–5)
 
 **Recorded:** 2026-08-02 · **Tree:** `test/worker-protocol-oracle`, stacked on `main` @ `bee6cc6`, v0.62.2
-**Charter item:** `docs/CHARTER_codebase-quality.md` §3.5, Step 4 — the decomposition of
-`self.onmessage` from **cc 30** to **cc 8**.
+**Charter item:** `docs/CHARTER_codebase-quality.md` §3.5 — **Step 4**, the decomposition of
+`self.onmessage` from **cc 30** to **cc 8**, and **Step 5**, the constraint-vocabulary dedup.
 
 Tracked for the same reason as `mutation-baseline-c1.md` and `mutation-baseline-core-scope.md`:
 `reports/mutation/` is gitignored, and a comparison baseline that lives only in an ignored
@@ -82,21 +82,25 @@ kept because it isolates the oracle's contribution — a measured number, not an
 | | Killed | Timeout | **Survived** | NoCov | CompileErr | Ignored | Generated | **Valid** | Score |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
 | **A — pre** | 34 | 0 | **19** | 0 | 26 | 28 | 107 | 53 | 64.15% |
-| **A — post** | 37 | 0 | **10** | 0 | 28 | 29 | 104 | 47 | 78.72% |
+| **A — post Step 4** | 37 | 0 | **10** | 0 | 28 | 29 | 104 | 47 | 78.72% |
+| **A — post Step 5** | 41 | 0 | **10** | 0 | 28 | 21 | 100 | 51 | 80.39% |
 | **B — pre** | 39 | 0 | **14** | 0 | 26 | 28 | 107 | 53 | 73.58% |
-| **B — post** | 41 | 0 | **6** | 0 | 28 | 29 | 104 | 47 | 87.23% |
+| **B — post Step 4** | 41 | 0 | **6** | 0 | 28 | 29 | 104 | 47 | 87.23% |
+| **B — post Step 5** | 45 | 0 | **6** | 0 | 28 | 21 | 100 | 51 | 88.24% |
 
 **The oracle's measured contribution:** 5 mutants pre-decomposition (19 → 14) and 4 post
 (10 → 6) that nothing else kills — the `milestoneSamples` guard, the `milestoneResults` attach,
 and the milestone map's filter arrow.
 
-⚠️ **`Valid` is identical (47) in both post-decomposition scopes**, because `CompileError` and
-`Ignored` are decided by the checker and the mutator, not by which tests run. Only the
-Killed/Survived split moves between A and B. A scope that changed the denominator would not be
-comparing like with like.
+⚠️ **`Valid` is identical across scopes A and B at every step** (53 pre, 47 post-Step-4, 51
+post-Step-5), because `CompileError` and `Ignored` are decided by the checker and the mutator,
+not by which tests run. Only the Killed/Survived split moves between A and B. A scope that
+changed the denominator would not be comparing like with like.
 
-**`Survived` fell 14 → 6. The gate is satisfied, but the drop is not eight things getting
-safer** — see the reconciliation below. It is mostly the same two gaps counted fewer times.
+**Step 4: `Survived` fell 14 → 6. The gate is satisfied, but the drop is not eight things
+getting safer** — see the reconciliation below. It is mostly the same two gaps counted fewer
+times. **Step 5: `Survived` held byte-identical in both scopes** — see the Step 5 section at the
+end.
 
 ---
 
@@ -181,3 +185,61 @@ at all, is exactly the kind of thing that would have caused it.
 because the compound expression `!payload || !Array.isArray(payload.activities)` moved
 **intact**; splitting it into separate statements would have converted compile errors into live
 mutants and quietly reduced what the type system checks.
+
+---
+
+## Step 5 — the vocabulary dedup
+
+`VALID_SEQ_TYPES` / `VALID_SEQ_MODES` retired in favour of `CONSTRAINT_TYPES` /
+`CONSTRAINT_MODES`, behind a **narrowing** predicate (`isOneOf<T extends string>`), cast-free.
+
+### `Survived` held byte-identical in BOTH scopes
+
+**6 → 6** and **10 → 10**, and in each case they are *the same mutants*, only re-numbered:
+the `trialCount > 100000` boundary, the three `isNumber` mutants, `Object.entries`, the
+`elapsedMs` arithmetic (plus, in scope A, the milestone-attach trio the oracle kills).
+
+That is the outcome a like-for-like swap should produce, and it is the reason to state the
+result as *"nothing changed"* rather than as the score's **+1.01pp**.
+
+### The other four categories moved, and the arithmetic closes exactly
+
+| | post Step 4 | post Step 5 | Δ |
+|---|--:|--:|--:|
+| Killed | 41 | 45 | **+4** |
+| **Survived** | **6** | **6** | **0** |
+| CompileError | 28 | 28 | 0 |
+| Ignored | 29 | 21 | **−8** |
+| Generated | 104 | 100 | −4 |
+| **Valid** | 47 | 51 | **+4** |
+| Score | 87.23% | 88.24% | +1.01pp |
+
+- **Ignored −8 is exact, not approximate.** The two deleted array literals held **8 string
+  literals** (`"MSO" … "FNLT"` = 6, `"hard"`/`"soft"` = 2). `mutator.excludedMutations` skips
+  `StringLiteral`, so each was an `Ignored` mutant. Deleting the arrays deletes exactly 8.
+- **Valid +4 = Killed +4.** The new `isOneOf` / `isValidSeqConstraint` code generates four net
+  new *valid* mutants and **every one of them is killed**.
+- **Generated −4 = −8 + 4.** Closes.
+
+⚠️ **The score rose, and that is a denominator effect too.** Eight ignored mutants left the
+population while four killed ones entered — the same arithmetic that made the ratio *fall* in
+§3.7, running the other way. Reported here as *"`Survived` held; the ratio moved for
+accountable reasons"*, per the reconciliation rule.
+
+### What the dedup actually bought — measured, not asserted
+
+The new guard's 20 mutants: **9 Killed, 10 CompileError, 1 Ignored.**
+
+- All five mutants of `isOneOf`'s body are **Killed** — `.some`→`.every`, the arrow →
+  `() => undefined`, `===`→`!==`, and both conditional-boundary mutants. So the helper is
+  covered, not merely present.
+- **Ten cannot compile.** Weakening `c != null` makes `c.offsetFromStart` unsound under
+  `strictNullChecks`, so TypeScript rejects the mutant before any test runs. Work the tests
+  were previously doing is now done by the type system.
+
+⚠️ **What it did NOT buy: W5 is still red.** Removing the `CONSTRAINT_TYPES` check remains
+invisible to the oracle — a TypeScript *type predicate is an unchecked assertion*, so an unsound
+predicate body still compiles. The narrowing makes the guard harder to weaken **by accident**
+(null-safety), not harder to delete **on purpose**. That distinction is why the marshalling
+assertion in `simulation.worker.test.ts` is still the thing covering this branch, and why W5 is
+kept red on purpose rather than loosened.
