@@ -31,7 +31,11 @@ import {
   addDependency,
 } from "@app/api/project-service";
 import { serializeExport, validateImport } from "@app/api/export-import-service";
-import { buildDependencyGraph, detectCycle } from "@core/schedule/dependency-graph";
+import {
+  buildDependencyGraph,
+  detectCycle,
+  isDependencyCycleError,
+} from "@core/schedule/dependency-graph";
 import { computeDependencySchedule } from "@core/schedule/deterministic";
 import { runDependencyTrials } from "@core/simulation/monte-carlo";
 import { isCalendarError } from "@core/calendar/work-calendar";
@@ -178,18 +182,24 @@ describe("import characterisation — a broken dependency graph in a project JSO
 
   // -- what the user is TOLD ------------------------------------------------
 
-  it("RECORDED, NOT SPECIFIED — and KNOWN WRONG: a cycle is given estimates advice", () => {
-    // ⚠️ HELD DELIBERATELY, AND IT IS WRONG. This asserts the real
-    // getScheduleErrorBanner (imported from the app, not reimplemented here — an
-    // earlier draft of this file recomputed the branch from isCalendarError and
-    // therefore pinned nothing at all).
+  it("FIXED in v0.63.0: a cycle gets dependency advice, not estimates advice", () => {
+    // ⚠️ THIS PIN MOVED, AND THAT IS THE POINT. Through v0.62.2 it was named
+    // "RECORDED, NOT SPECIFIED — and KNOWN WRONG" and asserted:
     //
-    // getScheduleErrorBanner branches ONLY on isCalendarError. A dependency cycle is
-    // not a calendar error, so it falls to the generic branch and the user is told to
-    // "Check the affected activity's estimates and settings." The estimates are fine.
-    // The graph is circular. The advice points at the wrong place entirely.
+    //     heading "Schedule Error"
+    //     advice  "Check the affected activity's estimates and settings."
     //
-    // This pin exists so the third branch landing next is a demonstrated change.
+    // getScheduleErrorBanner branched on isCalendarError alone, so a dependency cycle
+    // fell to the generic branch and the user was pointed at estimates that were
+    // entirely fine. The pin was held deliberately so this change would be a
+    // DEMONSTRATED transition rather than an asserted one — #246 → #247's pattern —
+    // and its falsification was re-run after the fix to prove the new assertion fails
+    // when the source is reverted.
+    //
+    // It asserts the real getScheduleErrorBanner, imported from the app. An earlier
+    // draft recomputed the branch from isCalendarError inside the test and therefore
+    // pinned nothing at all; see the charter's "a pin that imports nothing from the
+    // app is not pinning the app".
     const { project } = projectWithDeps(twoCycle);
     const s = importAndGetScenario(project);
 
@@ -199,24 +209,32 @@ describe("import characterisation — a broken dependency graph in a project JSO
     } catch (e) {
       caught = e;
     }
-    // Premise: the error really is the cycle error, and really is not a calendar error.
+    // Premise: the error really is the cycle error, really is not a calendar error,
+    // and is now the TYPED error the third branch keys on.
     expect(caught).toBeInstanceOf(Error);
     expect((caught as Error).message).toMatch(/cycle/i);
     expect(isCalendarError(caught)).toBe(false);
+    expect(isDependencyCycleError(caught)).toBe(true);
 
     // ProjectPage builds exactly this, from exactly this input.
     const banner = getScheduleErrorBanner({
       message: (caught as Error).message,
       isCalendarError: isCalendarError(caught),
+      isCycleError: isDependencyCycleError(caught),
     });
     expect(banner).not.toBeNull();
-    expect(banner!.heading).toBe("Schedule Error");
+    expect(banner!.heading).toBe("Dependency Cycle");
     expect(banner!.message).toMatch(/cycle/i);
-    expect(banner!.advice).toBe("Check the affected activity's estimates and settings.");
+    expect(banner!.advice).toMatch(/Dependencies panel/);
+    expect(banner!.advice).not.toMatch(/estimates/);
   });
 
   it("the calendar branch is unaffected — the wrong advice is specific to the other branch", () => {
-    const banner = getScheduleErrorBanner({ message: "bad work week", isCalendarError: true });
+    const banner = getScheduleErrorBanner({
+      message: "bad work week",
+      isCalendarError: true,
+      isCycleError: false,
+    });
     expect(banner!.heading).toBe("Calendar Configuration Error");
     expect(banner!.advice).toBe("Check your work week settings in Settings.");
   });

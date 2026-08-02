@@ -27,6 +27,23 @@ function buildParts(outcome: ImportOutcome): string[] {
 }
 
 /**
+ * The trailing data-quality note, or "" when there is nothing to say.
+ *
+ * Separate from `buildParts` on purpose: the itemised counts describe what the IMPORT did
+ * (added / replaced / skipped / failed), whereas a broken dependency graph is a property of
+ * the DATA that arrived — every one of these projects imported successfully. Its own function
+ * because folding it inline took `importDoneBanner` to cognitive complexity 16, one over the
+ * threshold, and raising the accepted baseline to absorb a finding this change introduced is
+ * exactly what the quality charter forbids.
+ */
+function dependencyNote(count: number): string {
+  if (count <= 0) return "";
+  const projects = count !== 1 ? "projects have" : "project has";
+  const them = count !== 1 ? "them" : "it";
+  return ` ${count} imported ${projects} dependency problems — open ${them} to see the details.`;
+}
+
+/**
  * Summarise an import for the done-banner.
  *
  * Three shapes, in precedence order:
@@ -41,7 +58,13 @@ function buildParts(outcome: ImportOutcome): string[] {
 export function importDoneBanner(
   outcome: ImportOutcome,
   total: number,
-  mode: StorageMode
+  mode: StorageMode,
+  /**
+   * Imported projects carrying a broken dependency graph. REQUIRED, not optional:
+   * an optional parameter defaulting to 0 would let a new call site silently claim a
+   * clean import. Reported, never acted on — those projects imported unmodified.
+   */
+  dependencyIssueCount: number
 ): ImportBanner {
   const { added, replaced, copied, skipped, driftSkipped, errors } = outcome;
   const hasSuccess = added + replaced + copied > 0;
@@ -59,6 +82,10 @@ export function importDoneBanner(
     const heading = hasErrors ? "Import finished with errors" : "Import complete";
     text = `${heading}: ${buildParts(outcome).join(", ")}.`;
   }
+
+  // Only when something actually landed: a count can survive from the preview while every
+  // affected project was skipped, and "1 imported project has..." would then be false.
+  if (hasSuccess) text += dependencyNote(dependencyIssueCount);
 
   return { text, hasErrors, cloudSyncActive: mode === "cloud" && hasSuccess };
 }

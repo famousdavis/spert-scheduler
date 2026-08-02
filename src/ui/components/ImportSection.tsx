@@ -230,6 +230,44 @@ export function ImportSection({ projects }: ImportSectionProps) {
               </div>
             )}
 
+            {importState.dependencyIssues.length > 0 && (
+              /* Reported, never acted on: these projects import unmodified. The preview is
+                 the one place the user can still respond — by skipping the project — which
+                 is why the warning belongs here as well as in the done banner. */
+              <div
+                className="border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 rounded-md p-4"
+                role="status"
+              >
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                  {importState.dependencyIssues.length} project
+                  {importState.dependencyIssues.length !== 1 ? "s have" : " has"} dependency
+                  problems
+                </p>
+                <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                  These projects will still be imported, exactly as they are in the file. The
+                  affected scenarios cannot compute a schedule until the problems are fixed.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {importState.dependencyIssues.map((issue) => (
+                    <li
+                      key={issue.projectId}
+                      className="text-sm text-amber-800 dark:text-amber-300"
+                    >
+                      {issue.projectName}
+                      <ul className="ml-4 mt-0.5 space-y-0.5">
+                        {issue.scenarios.map((sc) => (
+                          <li key={sc.scenarioId} className="text-xs">
+                            {sc.scenarioName}:{" "}
+                            {sc.errors.map((e) => e.message).join("; ")}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {importState.decisions.length > 0 && (
               <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 rounded-md p-4 space-y-3">
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
@@ -329,7 +367,8 @@ export function ImportSection({ projects }: ImportSectionProps) {
             const { text, hasErrors, cloudSyncActive } = importDoneBanner(
               importState.outcome,
               importState.total,
-              mode
+              mode,
+              importState.dependencyIssueCount
             );
             return (
               <div

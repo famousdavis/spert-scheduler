@@ -18,22 +18,33 @@ const GRAPH = new URL("../src/core/schedule/dependency-graph.ts", import.meta.ur
 export const testFile = "src/integration/import-cycle-characterisation.test.ts";
 export const mutations = [
   {
-    // If the advice string drifts, the KNOWN-WRONG pin must notice. This is the mutation
-    // that proves the pin is attached to the app's function and not to a copy of it.
-    id: "I1  the non-calendar advice is reworded",
+    // ⚠️ THE PIN THAT MOVED IN v0.63.0. Through v0.62.2 this mutation reworded the
+    // KNOWN-WRONG estimates advice; now it REVERTS THE FIX — deleting the cycle branch
+    // sends a cycle back to the generic branch and its estimates advice. The named test
+    // must fail, which is what makes "behaviour changed as intended" a demonstrated claim
+    // rather than an asserted one.
+    id: "I1  the cycle branch is removed — a cycle falls back to estimates advice",
     file: BANNER,
-    find: `        advice: "Check the affected activity's estimates and settings.",`,
-    replace: `        advice: "Check the dependency graph.",`,
-    expectFailing: /KNOWN WRONG/,
+    find: `  if (error.isCycleError) {`,
+    replace: `  if (false) {`,
+    expectFailing: /a cycle gets dependency advice/,
   },
   {
-    // The heading, likewise — and this one would be the first casualty of a careless
-    // third branch that changed the shape for every non-calendar error.
-    id: "I2  the non-calendar heading is reworded",
+    // The cycle branch present but pointing at the wrong place again.
+    id: "I2  the cycle advice is reworded back towards estimates",
     file: BANNER,
-    find: `        heading: "Schedule Error",`,
-    replace: `        heading: "Dependency Error",`,
-    expectFailing: /KNOWN WRONG/,
+    find: `        "Two or more activities depend on each other in a loop. Open the Dependencies panel and remove one of the links in the loop.",`,
+    replace: `        "Check the affected activity's estimates and settings.",`,
+    expectFailing: /a cycle gets dependency advice/,
+  },
+  {
+    // The typed error is what the branch keys on; an untyped throw silently restores the
+    // old behaviour without touching the banner at all.
+    id: "I2b the cycle error is thrown untyped again",
+    file: GRAPH,
+    find: `    throw new DependencyCycleError(`,
+    replace: `    throw new Error(`,
+    expectFailing: /a cycle gets dependency advice/,
   },
   {
     // The calendar branch must stay distinguishable from the generic one; if the predicate

@@ -19,18 +19,29 @@ export interface ScheduleErrorBanner {
  * the ratchet. Exporting it is what lets its behaviour be pinned by a test that asserts the
  * APP's logic rather than a reimplementation of it.
  *
- * ⚠️ RECORDED, NOT SPECIFIED — the non-calendar advice is KNOWN TO BE WRONG for one input.
- * This branches on `isCalendarError` alone, so every non-calendar failure is told to
- * "Check the affected activity's estimates and settings." A **dependency cycle** is a
- * non-calendar failure whose estimates are entirely fine — the graph is circular — so the
- * user is pointed at the wrong place. Pinned as-is by
- * `src/integration/import-cycle-characterisation.test.ts` so that changing it is a visible,
- * deliberate act rather than a silent drift. See §3.5.
+ * Three branches, in precedence order. ⚠️ The cycle branch is v0.63.0's fix: until then this
+ * branched on `isCalendarError` alone, so a dependency cycle — a non-calendar failure whose
+ * estimates are entirely fine — was told to "Check the affected activity's estimates and
+ * settings," pointing the user at the wrong place entirely. The old wording was pinned by
+ * `import-cycle-characterisation.test.ts` precisely so this change would be demonstrated
+ * rather than asserted; that pin is now updated and its falsification re-run.
+ *
+ * Cycle is checked FIRST. The two flags are independent booleans rather than a discriminated
+ * union, so an error that somehow set both would otherwise fall to the calendar branch and
+ * give work-week advice for a circular graph.
  */
 export function getScheduleErrorBanner(
   error: ScheduleError | null
 ): ScheduleErrorBanner | null {
   if (!error) return null;
+  if (error.isCycleError) {
+    return {
+      heading: "Dependency Cycle",
+      message: error.message,
+      advice:
+        "Two or more activities depend on each other in a loop. Open the Dependencies panel and remove one of the links in the loop.",
+    };
+  }
   return error.isCalendarError
     ? {
         heading: "Calendar Configuration Error",

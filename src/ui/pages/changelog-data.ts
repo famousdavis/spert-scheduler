@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.63.0",
+    date: "2026-08-02",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "An imported project file is now checked for broken activity dependencies, and you are told before it lands. Every other way of creating a dependency already refused to build a broken one \u2014 the spreadsheet importer, the Dependencies panel, the AI tools \u2014 but a project JSON file went in unchecked. A file carrying a circular chain of dependencies, a link to an activity that is not in the file, or an activity depending on itself now shows a warning in the import preview naming each affected project and scenario, and the import summary repeats the count afterwards.",
+          "Nothing about your file is changed. The projects are imported exactly as they are, and skipping one remains your choice \u2014 the warning tells you what you are about to bring in, it does not edit it or refuse it.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "A circular dependency now says so, instead of blaming your estimates. When a scenario's dependencies form a loop the schedule cannot be calculated, and the resulting message was the generic one: \"Check the affected activity's estimates and settings.\" The estimates were never the problem. The banner now reads \"Dependency Cycle\" and points at the Dependencies panel, where the loop can actually be broken.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.62.2",
     date: "2026-08-02",
     sections: [

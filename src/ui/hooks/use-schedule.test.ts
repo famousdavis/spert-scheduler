@@ -83,7 +83,12 @@ describe("useSchedule", () => {
       const { result } = setup(ACTS, onError);
 
       expect(result.current).toBeNull();
-      expect(onError).toHaveBeenCalledWith({ message: "boom", isCalendarError: false });
+      expect(onError).toHaveBeenCalledWith({
+        message: "boom",
+        isCalendarError: false,
+        // The sequential engine builds no dependency graph, so it can never raise one.
+        isCycleError: false,
+      });
     });
 
     it("flags a CalendarConfigurationError as a calendar problem", () => {
@@ -97,6 +102,7 @@ describe("useSchedule", () => {
       expect(onError).toHaveBeenCalledWith({
         message: "no working days configured",
         isCalendarError: true,
+        isCycleError: false,
       });
     });
 
@@ -110,6 +116,7 @@ describe("useSchedule", () => {
       expect(onError).toHaveBeenCalledWith({
         message: "just a string",
         isCalendarError: false,
+        isCycleError: false,
       });
     });
 

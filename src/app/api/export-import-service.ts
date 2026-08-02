@@ -8,6 +8,8 @@ import { ProjectSchema } from "@domain/schemas/project.schema";
 import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
 import { applyMigrations } from "@infrastructure/persistence/migrations";
 import { APP_VERSION } from "@app/constants";
+import { validateDependencies } from "@core/schedule/dependency-graph";
+import type { ValidationError } from "@core/schedule/dependency-graph";
 import { cloneProject, nextCloneName } from "./project-service";
 
 // -- Normalization -----------------------------------------------------------
@@ -82,6 +84,68 @@ export interface MergeDecisionsResult {
   diff: MergeDecisionsDiff;
 }
 
+/** Dependency problems found in one scenario of an imported project. */
+export interface ScenarioDependencyIssues {
+  scenarioId: string;
+  scenarioName: string;
+  errors: ValidationError[];
+}
+
+/** Every scenario of one imported project that carries dependency problems. */
+export interface ProjectDependencyIssues {
+  projectId: string;
+  projectName: string;
+  scenarios: ScenarioDependencyIssues[];
+}
+
+/**
+ * Find broken dependency graphs in projects about to be imported.
+ *
+ * ⚠️ THIS REPORTS. IT DOES NOT REJECT AND IT DOES NOT REPAIR. Decided 2026-08-02: rejecting
+ * the file is harsher than anything else in a flow that offers per-project conflict
+ * resolution, and silently repairing changes what the user's file said — the thing they would
+ * least expect from an import. The project is imported unmodified either way; the user is
+ * simply told before it happens. `import-cycle-characterisation.test.ts` pins "imports with
+ * both edges intact", and that pin must keep passing.
+ *
+ * Project JSON import is the ONE write path with no dependency guard — the CSV parser,
+ * `dependency-service`, `DependencyPanel`, `DependencyEditModal` and `ai-op-handlers` all call
+ * `detectCycle` already. This closes it without inventing a new check: `validateDependencies`
+ * has existed in `/core` all along, reporting self-loops, missing references, duplicates and
+ * cycles, and is already used by `DependencyPanel` and `ai-snapshot-service`.
+ *
+ * ⚠️ CYCLES AND MISSING REFERENCES ARE DIFFERENT DETECTIONS and one check would not have
+ * done. `populateAdjacency` skips an edge whose endpoints do not resolve, exactly as it skips
+ * a self-edge, so a dangling reference is structurally invisible to `detectCycle`.
+ * `validateDependencies` covers both — but note its own precedence: it reports a cycle ONLY
+ * when there are no structural errors, so a scenario with both shows the structural one first.
+ * That is pre-existing core behaviour, left alone.
+ *
+ * ⚠️ Scenarios are checked REGARDLESS of `dependencyMode`. A cycle in a mode-off scenario is
+ * inert today and breaks the moment someone turns the mode on; the file is what is being
+ * reported on, not the current render.
+ */
+export function findDependencyIssues(projects: Project[]): ProjectDependencyIssues[] {
+  const result: ProjectDependencyIssues[] = [];
+  for (const project of projects) {
+    const scenarios: ScenarioDependencyIssues[] = [];
+    for (const scenario of project.scenarios) {
+      if (scenario.dependencies.length === 0) continue;
+      const errors = validateDependencies(
+        scenario.activities.map((a) => a.id),
+        scenario.dependencies
+      );
+      if (errors.length > 0) {
+        scenarios.push({ scenarioId: scenario.id, scenarioName: scenario.name, errors });
+      }
+    }
+    if (scenarios.length > 0) {
+      result.push({ projectId: project.id, projectName: project.name, scenarios });
+    }
+  }
+  return result;
+}
+
 export interface ImportValidationResult {
   success: true;
   projects: Project[];
@@ -91,6 +155,11 @@ export interface ImportValidationResult {
   nameConflicts: ConflictInfo[];
   /** Preferences from the import file, if present and valid. */
   preferences?: UserPreferences;
+  /**
+   * Projects whose dependency graphs are broken. Reported, never acted on — the projects
+   * are imported unmodified. Empty array when everything is well-formed.
+   */
+  dependencyIssues: ProjectDependencyIssues[];
 }
 
 export interface ImportValidationError {
@@ -411,6 +480,7 @@ export function validateImport(
     conflicts,
     nameConflicts,
     preferences,
+    dependencyIssues: findDependencyIssues(migrated.projects),
   };
 }
 
