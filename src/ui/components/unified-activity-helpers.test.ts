@@ -9,6 +9,7 @@ import {
   constraintBadgeLabel,
   hasAnyConstraint,
   shouldShowConstraintColumn,
+  planBulkApply,
   maxTabTarget,
   buildTabFieldOrder,
   handleOffOrderTabNav,
@@ -346,5 +347,163 @@ describe("shouldShowConstraintColumn", () => {
 
   it("is false in sequential mode when undefined dependencyMode and no constraints", () => {
     expect(shouldShowConstraintColumn(undefined, [makeActivity()])).toBe(false);
+  });
+});
+
+// -- planBulkApply ------------------------------------------------------------
+
+/**
+ * Extracted from UnifiedActivityGrid's bulk-apply handler (cognitive complexity 25, in a
+ * component at 0% coverage). The routing rules below are the part worth pinning: which
+ * staged fields go out as ONE shared update and which have to be issued per activity.
+ */
+describe("planBulkApply", () => {
+  const heuristicFn = (ml: number, minPct: number, maxPct: number) => ({
+    min: (ml * minPct) / 100,
+    max: (ml * maxPct) / 100,
+  });
+
+  const act = (id: string, mostLikely = 10): Activity =>
+    ({
+      id,
+      name: id,
+      min: 5,
+      mostLikely,
+      max: 20,
+      confidenceLevel: "mediumConfidence",
+      distributionType: "normal",
+      status: "planned",
+    }) as Activity;
+
+  const ACTS = [act("a1"), act("a2")];
+  const SCHED = [
+    { activityId: "a1", duration: 4 },
+    { activityId: "a2", duration: 7 },
+  ];
+  const IDS = ["a1", "a2"];
+  const NO_HEURISTIC = { enabled: false };
+
+  const plan = (
+    staged: Parameters<typeof planBulkApply>[0],
+    heuristic: Parameters<typeof planBulkApply>[4] = NO_HEURISTIC,
+  ) => planBulkApply(staged, IDS, ACTS, SCHED, heuristic, heuristicFn);
+
+  it("plans nothing when nothing is staged", () => {
+    const p = plan({});
+    expect(p.sharedUpdates).toBeNull();
+    expect(p.perActivity).toEqual([]);
+  });
+
+  describe("shared fields", () => {
+    it("collects confidence and distribution into a single update", () => {
+      const p = plan({ confidenceLevel: "lowConfidence", distributionType: "triangular" });
+      expect(p.sharedUpdates).toEqual({
+        confidenceLevel: "lowConfidence",
+        distributionType: "triangular",
+      });
+      expect(p.perActivity).toEqual([]);
+    });
+
+    it("treats a non-complete status as shared", () => {
+      expect(plan({ status: "inProgress" }).sharedUpdates).toEqual({ status: "inProgress" });
+    });
+  });
+
+  describe('the "complete" status is routed per activity, not shared', () => {
+    it("carries each activity's own scheduled duration as its actual duration", () => {
+      // This is why it cannot be a shared update: the value differs per activity.
+      const p = plan({ status: "complete" });
+      expect(p.sharedUpdates).toBeNull();
+      expect(p.perActivity).toEqual([
+        { id: "a1", updates: { status: "complete", actualDuration: 4 } },
+        { id: "a2", updates: { status: "complete", actualDuration: 7 } },
+      ]);
+    });
+
+    it("leaves actualDuration undefined for an activity with no schedule entry", () => {
+      const p = planBulkApply(
+        { status: "complete" },
+        ["a1", "ghost"],
+        ACTS,
+        SCHED,
+        NO_HEURISTIC,
+        heuristicFn,
+      );
+      const ghost = p.perActivity.find((e) => e.id === "ghost")!;
+      expect(ghost.updates.status).toBe("complete");
+      expect(ghost.updates.actualDuration).toBeUndefined();
+    });
+
+    it("still shares confidence and distribution alongside a complete status", () => {
+      const p = plan({ status: "complete", confidenceLevel: "lowConfidence" });
+      expect(p.sharedUpdates).toEqual({ confidenceLevel: "lowConfidence" });
+      expect(p.perActivity).toHaveLength(2);
+    });
+  });
+
+  describe("heuristic recalculation", () => {
+    const ON = { enabled: true, minPercent: 50, maxPercent: 200 };
+
+    it("recalculates min and max from each activity's own mostLikely", () => {
+      const p = plan({ recalculateHeuristic: true }, ON);
+      expect(p.perActivity).toEqual([
+        { id: "a1", updates: { min: 5, max: 20 } },
+        { id: "a2", updates: { min: 5, max: 20 } },
+      ]);
+    });
+
+    it("does nothing when the heuristic is disabled, even if staged", () => {
+      expect(plan({ recalculateHeuristic: true }, { enabled: false }).perActivity).toEqual([]);
+    });
+
+    it("does nothing when not staged, even if enabled", () => {
+      expect(plan({}, ON).perActivity).toEqual([]);
+    });
+
+    it("falls back to 50/200 percentages when they are absent", () => {
+      const p = plan({ recalculateHeuristic: true }, { enabled: true });
+      expect(p.perActivity[0]!.updates).toEqual({ min: 5, max: 20 });
+    });
+
+    it("skips an activity whose mostLikely is zero", () => {
+      // Both bounds would be 0, which is not a useful estimate.
+      const p = planBulkApply(
+        { recalculateHeuristic: true },
+        IDS,
+        [act("a1", 0), act("a2", 10)],
+        SCHED,
+        ON,
+        heuristicFn,
+      );
+      expect(p.perActivity.map((e) => e.id)).toEqual(["a2"]);
+    });
+
+    it("skips an id with no matching activity", () => {
+      const p = planBulkApply(
+        { recalculateHeuristic: true },
+        ["ghost"],
+        ACTS,
+        SCHED,
+        ON,
+        heuristicFn,
+      );
+      expect(p.perActivity).toEqual([]);
+    });
+  });
+
+  it("issues TWO entries for an activity that is both completed and recalculated", () => {
+    // ⚠️ Deliberate, and the reason perActivity is a list rather than a map. The original
+    // handler made two separate onUpdate calls in this order; merging them into one
+    // update would change what a consumer observes.
+    const p = plan(
+      { status: "complete", recalculateHeuristic: true },
+      { enabled: true, minPercent: 50, maxPercent: 200 },
+    );
+    expect(p.perActivity).toEqual([
+      { id: "a1", updates: { status: "complete", actualDuration: 4 } },
+      { id: "a2", updates: { status: "complete", actualDuration: 7 } },
+      { id: "a1", updates: { min: 5, max: 20 } },
+      { id: "a2", updates: { min: 5, max: 20 } },
+    ]);
   });
 });

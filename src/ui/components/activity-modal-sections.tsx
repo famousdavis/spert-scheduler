@@ -9,6 +9,8 @@ import type {
   ActivityStatus,
   ConstraintMode,
   ConstraintType,
+  DistributionType,
+  RSMLevel,
 } from "@domain/models/types";
 import { dependencyLabel } from "@domain/helpers/format-labels";
 
@@ -228,6 +230,75 @@ export function computeDescriptionUpdate(
   const next = draft.trim() || undefined;
   if (next !== (activity.description ?? undefined)) return { description: next };
   return {};
+}
+
+/**
+ * Builds the General-section field updates: name, status, and actual duration.
+ *
+ * Two behaviours here are easy to misread and are pinned by tests:
+ *  - A name that trims to empty is IGNORED, not saved and not rejected. The modal has no
+ *    error state for it; the field simply keeps its previous value on save.
+ *  - Leaving a completed/in-progress status emits an explicit `{ actualDuration: undefined }`
+ *    to CLEAR the recorded duration — an own-property whose value is undefined, which
+ *    `Object.keys` counts. Same convention as computeDescriptionUpdate. The clear only
+ *    fires when there was something to clear.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function computeGeneralUpdates(
+  activity: Activity,
+  name: string,
+  status: ActivityStatus,
+  actualDuration: string | number,
+): Partial<Activity> {
+  const updates: Partial<Activity> = {};
+
+  const trimmed = name.trim();
+  if (trimmed && trimmed !== activity.name) updates.name = trimmed;
+  if (status !== activity.status) updates.status = status;
+
+  if (status === "complete" || status === "inProgress") {
+    if (actualDuration !== "" && actualDuration !== activity.actualDuration) {
+      // Floor to a whole day and never below 1. NaN survives both Math.floor and
+      // Math.max, so the isNaN guard below is what rejects non-numeric input.
+      const dur = Math.max(1, Math.floor(Number(actualDuration)));
+      if (!isNaN(dur)) updates.actualDuration = dur;
+    }
+  } else if (activity.actualDuration != null) {
+    updates.actualDuration = undefined;
+  }
+
+  return updates;
+}
+
+/**
+ * Builds the Estimates-section field updates.
+ *
+ * Each numeric field is skipped when its draft is the empty string — a half-typed field
+ * must not overwrite a stored estimate with NaN — and otherwise compared numerically, so
+ * retyping "5" over a stored 5 produces no update.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function computeEstimateUpdates(
+  activity: Activity,
+  min: string | number,
+  mostLikely: string | number,
+  max: string | number,
+  confidenceLevel: RSMLevel,
+  distributionType: DistributionType,
+): Partial<Activity> {
+  const updates: Partial<Activity> = {};
+
+  if (min !== "" && Number(min) !== activity.min) updates.min = Number(min);
+  if (mostLikely !== "" && Number(mostLikely) !== activity.mostLikely) {
+    updates.mostLikely = Number(mostLikely);
+  }
+  if (max !== "" && Number(max) !== activity.max) updates.max = Number(max);
+  if (confidenceLevel !== activity.confidenceLevel) updates.confidenceLevel = confidenceLevel;
+  if (distributionType !== activity.distributionType) {
+    updates.distributionType = distributionType;
+  }
+
+  return updates;
 }
 
 /** Display-only list of predecessors/successors for a single activity. */
