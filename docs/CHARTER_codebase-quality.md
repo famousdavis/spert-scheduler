@@ -426,6 +426,93 @@ in the test was the way to avoid that move. **Whenever copying into a test is th
 that is the moment to suspect this defect** — the copy is never chosen because it is better, it is
 chosen because the export is inconvenient.
 
+### ⚠️ A shared substring turns a narrow test into an apparently-broad one
+
+Recorded 2026-08-02, from §3.4. **A specific, checkable mechanism for the "sound test adjacent to a
+claim it does not support" category — this one is decidable by reading the assertion.**
+
+`flat-activity-parser.ts` validates three duration columns in three structurally identical blocks,
+each with its own column label and its own interpolated value. Two tests covered them —
+`"errors on non-integer duration"` and `"errors on negative duration"` — and both asserted:
+
+```ts
+expect(result.errors[0]!.message).toContain("non-negative integer");
+```
+
+**That substring is common to all three messages.** Both tests fed the *Optimistic (Min)* column
+only, and the Most Likely and Pessimistic (Max) blocks had **never executed** — yet the suite read
+as though duration validation was covered. The overlap is what made a one-block test look like a
+three-block test.
+
+**The mechanism generalises:** wherever N structurally similar blocks emit messages sharing a stem,
+an assertion on the stem cannot distinguish which block ran. Coverage says so; the test name does
+not.
+
+**The fix is mechanical: assert the full object, not a fragment.**
+
+```ts
+expect(result.errors).toEqual([
+  { row: 2, column: "Pessimistic (Max)",
+    message: 'Pessimistic (Max) must be a non-negative integer, got "3.5".',
+    severity: "error" },
+]);
+```
+
+A fixture that trips a *different* column's validation now fails instead of passing on the overlap.
+⚠️ **And this is where the independent-expression heuristic earns its keep** — nothing downstream
+restates which column a message names, so a crossed label is undetectable by any other means. Spec
+mutations `P1`/`P2` in `scripts/falsify-spec-parser-errors.mjs` are exactly that defect, and they
+are killed only because the assertions are whole-object.
+
+### ⚠️ Additive at nesting 0 — an exact sum PROVES the partition
+
+Recorded 2026-08-02, from §3.4. **A measurement of the measurement, and the thing that makes a
+decomposition map trustworthy rather than plausible.**
+
+Cognitive complexity is additive for sequential blocks at nesting level 0. So when a region is
+sliced into candidate lift targets and each is measured standalone with `npm run cc <file> a-b`,
+**the parts must sum to the whole measured the same way.** `parseFlatActivityTable`'s row-loop body
+measured `209-477` standalone at **cc 43**, and its six sub-blocks measured 5 + 3 + 7 + 18 + 9 + 1 =
+**exactly 43**.
+
+That exactness is evidence the slices are **complete and non-overlapping** — no logic double-counted,
+none dropped between boundaries. A sum that comes in *under* means a gap; *over* means an overlap or
+a boundary landing mid-construct. Run it before trusting any decomposition map.
+
+⚠️ **It also explains why the parts can sum to less than the enclosing function.** The same body
+measured *with* its `for` header is **cc 72**, not 43 — the 29-point difference is the nesting
+penalty the loop imposes on everything inside it. That gap is not an error; it is the number that
+decides which decomposition shape works (see §2's control-flow entry below).
+
+### ⚠️ The third category: RESTRUCTURING HOW FAILURE PROPAGATES
+
+Recorded 2026-08-02, from §3.4. **The charter's "extraction relocates, decomposition clears" has
+only two slots and this fits neither.**
+
+| | What it does | Risk profile |
+|---|---|---|
+| **Extraction** | moves a block behind a name | mechanical, reversible |
+| **Decomposition** | moves logic into units that stand alone | changes structure, not control flow |
+| ⚠️ **Flow restructuring** | changes **how failure propagates** — e.g. `continue`-in-loop → early-`return` aggregation | changes the shape of error handling itself |
+
+§3.4 is the evidence, and it is measured, not argued. `parseFlatActivityTable` is cc 110:
+
+- Lifting the **four passes** the file's own comments advertise leaves Pass 1 at **cc 72**. Fails.
+- Lifting **stage helpers called inside the row loop** leaves the orchestrator at **cc 17**. Still
+  fails — seven `if (!x) continue` guards cost **2 each** at nesting 1.
+- Moving the stage sequence into a `parseRow` helper that **early-returns**, called once from the
+  loop, gives **7 + 5**. Clears — the same seven guards cost **1 each** at nesting 0.
+
+**So the only shape that clears this finding is a flow restructure, not an extraction.** That
+matters because the risk is different in kind: extraction cannot change behaviour, and this can.
+Here it would land on an untrusted-input parser whose four body commits include a security fix
+(`96dfa1d`, v0.34.5, XLSX formula-injection guard).
+
+⚠️ **Practical consequence — the net's quality becomes decision-critical rather than nice to have.**
+For an extraction, existing tests are a courtesy. For a flow restructure they are the only thing
+standing between a refactor and a silently skipped validation stage. State the pass condition for
+that net **before** measuring it, and be willing to decline the restructure on the result.
+
 ### ⚠️ Neither the score nor the survivor count is the gate — the reconciliation is
 
 Recorded 2026-08-02, from §3.5 Step 4. **This amends *"gate on absolute `Survived`, not the
@@ -671,16 +758,47 @@ flows have to be **read**.
 a single other component. Do not record it as a finding until the handlers are read; if it repeats
 even once it is a finding, and if it repeats nowhere that is worth writing down too.
 
-### 3.4 — The CSV parser
+### 3.4 — The CSV parser · ✅ CLOSED as a coverage item (decomposition viable but DECLINED)
 
-`flat-activity-parser.ts:140`, **cc 110**, 585 lines / 461 code, 6 production references across 2
-files, reachable only from `SettingsPage`. No mutation evidence.
+`flat-activity-parser.ts:140`, **cc 110**. Every claim above was re-derived and **held** — one
+function (next highest in the file is 4), 6 production references across 2 files, reachable only
+from `SettingsPage`, and the two-config-edit trap still applies. ⚠️ **Worth recording that the
+framing survived**, after five consecutive items where it did not.
 
-⚠️ **Two config edits, not one:** `stryker.config.mjs`'s `mutate` **and**
-`vitest.stryker.config.ts`'s `include`, or every mutant reports `NoCoverage`.
+⚠️ **What the charter did NOT say, and it reframed the item:** ordinary coverage had never been
+checked. The file was at **93.61% statements / 83.45% branches behind 52 tests** — not an uncovered
+file. The uncovered slice was coherent: **it was the error paths**, six user-facing messages no test
+had ever caused the parser to emit (#273, now 99.46% / 92.08%, 100% lines and functions).
 
-⚠️ **Coupled to §3.3.** `ActivityImportSection` is the parser's only UI consumer and one of the two
-NOT VERIFIED surfaces — the component test and the parser work are the same surface.
+⚠️ **Correction to the §3.3 coupling.** This section claimed `ActivityImportSection` was *"one of
+the two NOT VERIFIED surfaces"*. It was not — that entry is **Import half / JSON import from
+Settings**, both *project JSON* (`ImportSection`, closed in #246). `ActivityImportSection` is *CSV
+activity* import, a different component, and it was never a NOT VERIFIED surface. The true coupling
+— the parser's only UI consumer — is real but weak: it argues that someone testing the component
+wants the parser understood, not that parser work needs the component. It stays a §3.3 leftover.
+
+**Decomposition: measured, viable, declined.** See `docs/mutation-baseline-parser.md`.
+
+| Shape | Residual | |
+|---|---|---|
+| the **four passes** the file's own comments advertise | Pass 1 at **cc 72** | ❌ |
+| stage helpers **called inside the row loop** | orchestrator at **cc 17** | ❌ |
+| a `parseRow` helper that **early-returns**, called once | **7 + 5** | ✅ |
+
+Full map: ~14 units, nothing above cc 11. ⚠️ **But the only shape that clears is a flow
+restructure, not an extraction** — the seven `if (!x) continue` guards cost 2 each at nesting 1 and
+1 each at nesting 0, and that difference *is* the finding. See §2's third-category entry.
+
+**The net was measured against a pass condition stated before the run, and failed all three parts:
+73.91%, with 0% on cell extraction, 50% on the Zod/duplicate path, and deletable clauses in the
+Min guard.** A flow restructure on an untrusted-input parser whose four body commits include a
+security fix (`96dfa1d`, v0.34.5, XLSX formula injection) is not a change to make behind that net.
+
+⚠️ **The mutation run used UNCOMMITTED config edits**, per `mutation-baseline-worker.md`'s
+precedent, so the whole-scope baseline stays uncontaminated. The exact recipe is in the baseline doc.
+
+**Open, cheapest first if ever reopened:** cell extraction (0/9 survivors), Pass 0 header resolution
+(47%), and three one-line tests — a negative Max, and a zero-duration row through the CSV path.
 
 ### 3.5 — The worker seam and import validation
 
