@@ -46,6 +46,25 @@ larger and still holds `ProjectPage.tsx`. What changed is the exposure — 21 �
 differ: 9 counts functions in 0%-coverage files (like-for-like with the original); **10** counts
 functions that never execute. Say which you mean.*
 
+### The canonical example — read this before "fixing" `ScenarioTabs.tsx:40`
+
+⚠️ **`SortableScenarioTab` sits at cc 15 on purpose. Do not refactor it back under.**
+
+v0.62.2 made the scenario tabs keyboard-reachable and gave them `aria-current`, so assistive
+technology can finally report which scenario is active. That change — unambiguously better for
+real users — moved the function from **cc 13 to cc 15**, and parked it **one point under the lint
+threshold**, where the metric will never mention it again.
+
+The added complexity **is** the accessibility: a `<button>` with `onClick`, `onDoubleClick` and a
+conditional `aria-current` is genuinely more branching than a `<span>`. Reducing it would be
+optimising the number rather than the code — the move this charter forbids — made worse by the
+fact that the number got worse *because the software got better*.
+
+It is not a lint finding. It needs no action. It is here because the campaign's central claim —
+**the metric ranks risk backwards** — was demonstrated by a change the campaign itself produced,
+inside the release that produced it. Full derivation:
+`docs/CENSUS_cognitive-complexity-2026-08-02b.md`.
+
 **No schedule, no deadline, no tripwires.**
 
 ---
@@ -93,6 +112,24 @@ runner in v0.62.2 (`scripts/falsify.mjs`, guarded by `src/integration/falsify-ru
 ⚠️ **Two are inside the measurement tool itself, and both failed in the safe-looking direction.**
 ⚠️ **The twelfth was found by the session probing for it, in its own throwaway probe** — which is the
 best evidence available that knowing about this failure class does not confer immunity to it.
+
+**Seven mistakes, seven detectors, none caught by reading the code.** Recorded 2026-08-02 from
+a single session (#246–#252). This table is the argument for running the whole gate, and it is
+more use to a future reader than any of the numbers beside it.
+
+| Detector | What it caught |
+|---|---|
+| **Mutation** | Two tests claiming more than they guarded — the C5 leak test survived removal of the project-scoping check; the delete test survived removal of the guard it named |
+| **A test failing outright** | A `<MemoryRouter initialEntries>` rerender that never navigated (`initialEntries` is read once at mount) |
+| **`tsc -b`** | `createActivity(name, 3, 5, 10)` against a `(name, settings)` signature — vitest and ESLint both accepted it |
+| **CI** | Two tests depending on `.env.local` existing; `isFirebaseAvailable` is false in CI |
+| **`changelog-surfaces.test.ts`** | The v0.57.1 heading trap, re-created — a `## 0.62.1` heading replaced instead of inserted above, orphaning its entry |
+| **The falsification runner** | Its own third-instance tooling defect: a non-compiling mutant read as "0 failing" |
+| **`npm run cc`** | `SortableScenarioTab` cc 13 → 15 from the v0.62.2 accessibility fix — invisible to lint |
+
+⚠️ **Not one was found by inspection.** Several were looked at directly and read as correct.
+The common factor in every catch is a committed, executable check; the common factor in every
+miss is a person being careful.
 
 **The durable store is commit bodies, not chat.** All five of the previously-missing entries were
 recoverable from `git log --format='%H%n%B'` over #240–#244, in unusual detail. Verified 2026-08-01;
@@ -146,6 +183,12 @@ recommendation; §3.0 is a hard prerequisite.**
 at the 2026-08-01 handoff: those sat "roughly in the order v1 had them, lightly adjusted," and their
 positions are **not** considered judgements about relative priority. Do not read a number below §3.3
 as a ranking.
+
+⚠️ **DESIGNATED NEXT ITEM (2026-08-02): `core/analytics/analytics.ts:268
+computeBatchPercentileCIs`.** cc 11, in `/core`, **never executed**. No harness, no mocks, no
+provider stubs — a plain unit test. It has now appeared in **two consecutive censuses as the
+cheapest open item** and been skipped both times, which is exactly how a thing stays cheapest
+and never done. **Start here, before anything in §3.4, §3.5 or §3.7–§3.9.**
 
 **Revised order, agreed by both orchestrators 2026-08-01:**
 
