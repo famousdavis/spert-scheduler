@@ -23,6 +23,9 @@
 // only export-chart uses them, its pure half is already extracted and tested, and the
 // remaining shell is genuinely browser-only. Add them when a test needs them, with a
 // proof, not before.
+//
+// scrollIntoView was added under exactly that rule at §3.6: ProjectPage renders
+// ScenarioTabs, whose active-tab effect calls it, and jsdom does not implement it at all.
 
 // -- ResizeObserver ----------------------------------------------------------
 
@@ -75,6 +78,42 @@ export function installResizeObserverStub(): void {
     lastResizeObserverInstance = createStubResizeObserver(cb);
     return lastResizeObserverInstance;
   } as unknown as typeof ResizeObserver;
+}
+
+// -- scrollIntoView ----------------------------------------------------------
+//
+// jsdom implements no scrolling, so `el.scrollIntoView(...)` is `undefined` and throws.
+// The hazard here is NOT a silent pass at install time — an absent stub fails loudly.
+// It is what a BARE `() => {}` would cost afterwards: it absorbs the call, so a component
+// that STOPS scrolling its active element into view (a real regression — the selected
+// scenario tab silently off-screen) becomes indistinguishable from one that still does.
+// Recording the calls keeps that difference observable.
+
+export interface ScrollIntoViewCall {
+  element: Element;
+  options: ScrollIntoViewOptions | boolean | undefined;
+}
+
+let scrollIntoViewCalls: ScrollIntoViewCall[] = [];
+
+/** Every scrollIntoView call since install, oldest first. */
+export function scrollIntoViewCallLog(): readonly ScrollIntoViewCall[] {
+  return scrollIntoViewCalls;
+}
+
+/** The most recent call, or null if nothing has scrolled. */
+export function lastScrollIntoView(): ScrollIntoViewCall | null {
+  return scrollIntoViewCalls.at(-1) ?? null;
+}
+
+export function installScrollIntoViewStub(): void {
+  scrollIntoViewCalls = [];
+  Element.prototype.scrollIntoView = function (
+    this: Element,
+    options?: ScrollIntoViewOptions | boolean,
+  ) {
+    scrollIntoViewCalls.push({ element: this, options });
+  };
 }
 
 // -- matchMedia --------------------------------------------------------------

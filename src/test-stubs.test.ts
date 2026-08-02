@@ -11,6 +11,9 @@ import {
   setSystemPrefersDark,
   emitSystemColorSchemeChange,
   colorSchemeListenerCount,
+  installScrollIntoViewStub,
+  scrollIntoViewCallLog,
+  lastScrollIntoView,
 } from "./test-stubs";
 
 /**
@@ -34,6 +37,7 @@ import {
 beforeEach(() => {
   installResizeObserverStub();
   installMatchMediaStub();
+  installScrollIntoViewStub();
 });
 
 describe("ResizeObserver stub", () => {
@@ -177,5 +181,47 @@ describe("matchMedia stub", () => {
 
     expect(colorSchemeListenerCount()).toBe(0);
     expect(darkQuery().matches).toBe(false);
+  });
+});
+
+describe("scrollIntoView stub", () => {
+  it("is installed on the Element prototype (jsdom implements no scrolling at all)", () => {
+    expect(typeof document.createElement("div").scrollIntoView).toBe("function");
+  });
+
+  it("reports nothing until something scrolls", () => {
+    expect(scrollIntoViewCallLog()).toEqual([]);
+    expect(lastScrollIntoView()).toBeNull();
+  });
+
+  it("RECORDS WHICH ELEMENT SCROLLED — the assertion a bare no-op cannot pass", () => {
+    // The point of the file. `Element.prototype.scrollIntoView = () => {}` satisfies the
+    // first test here and then makes "the active tab was scrolled into view" permanently
+    // unassertable — a component that stopped calling it would look identical.
+    const a = document.createElement("div");
+    const b = document.createElement("div");
+
+    a.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+    b.scrollIntoView();
+
+    expect(scrollIntoViewCallLog()).toHaveLength(2);
+    expect(scrollIntoViewCallLog()[0]!.element).toBe(a);
+    expect(scrollIntoViewCallLog()[0]!.options).toEqual({
+      inline: "nearest",
+      block: "nearest",
+      behavior: "smooth",
+    });
+    expect(lastScrollIntoView()!.element).toBe(b);
+    expect(lastScrollIntoView()!.options).toBeUndefined();
+  });
+
+  it("clears the log on re-install, so state cannot leak between files", () => {
+    document.createElement("div").scrollIntoView();
+    expect(scrollIntoViewCallLog()).toHaveLength(1);
+
+    installScrollIntoViewStub();
+
+    expect(scrollIntoViewCallLog()).toEqual([]);
+    expect(lastScrollIntoView()).toBeNull();
   });
 });
