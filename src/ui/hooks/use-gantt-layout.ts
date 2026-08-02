@@ -5,12 +5,11 @@
 import { useState, useEffect, useMemo } from "react";
 import type { RefObject } from "react";
 import type { Activity, ActivityBand, Milestone } from "@domain/models/types";
-import { formatDateISO } from "@core/calendar/calendar";
 import {
   RIGHT_MARGIN, TOP_MARGIN,
   MIN_CHART_WIDTH, MIN_TICK_SPACING_PX, TODAY_PROXIMITY_PX, PROJECT_NAME_HEIGHT,
 } from "@ui/charts/gantt-constants";
-import { dateToX, generateTicks, suppressOverlappingTicks } from "@ui/charts/gantt-utils";
+import { dateToX, generateTicks, suppressOverlappingTicks, computeTodayLine } from "@ui/charts/gantt-utils";
 import type { TickLevel } from "@ui/charts/gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import type { GanttRenderItem } from "@ui/helpers/band-utils";
@@ -143,12 +142,15 @@ export function useGanttLayout({
     );
   }, [milestones, minTimestamp, dateRange, chartAreaWidth, leftMargin]);
 
-  // Today line
-  const todayStr = formatDateISO(new Date());
-  const todayInRange = dateRange > 0 && todayStr >= projectStartDate && todayStr <= furthestDate;
-  const todayX = todayInRange
-    ? dateToX(todayStr, minTimestamp, dateRange, chartAreaWidth, leftMargin)
-    : null;
+  // Today line. `now` is passed explicitly to computeTodayLine — the same helper the print
+  // chart uses — rather than each chart reading the clock inline. See its JSDoc.
+  const { todayStr, todayInRange, todayX } = computeTodayLine(
+    new Date(),
+    projectStartDate,
+    furthestDate,
+    dateRange,
+    (d) => dateToX(d, minTimestamp, dateRange, chartAreaWidth, leftMargin),
+  );
 
   // Finish Target X — used for tick suppression so a quarter/month tick
   // landing on the same date doesn't visually merge with the target dashed line.

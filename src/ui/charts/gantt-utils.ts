@@ -353,3 +353,76 @@ export function computeWeekendShadingRects(
   return rects;
 }
 
+
+// -- Today line ---------------------------------------------------------------
+
+export interface TodayLine {
+  /** Today as an ISO date, in local time. */
+  todayStr: string;
+  /** Whether today falls within the chart's date span, inclusive of both ends. */
+  todayInRange: boolean;
+  /** X position, or null when out of range or the span has zero width. */
+  todayX: number | null;
+}
+
+/**
+ * The one piece of Gantt layout that is genuinely identical in both charts, and the only
+ * one that reads the clock.
+ *
+ * ⚠️ `now` is a PARAMETER, deliberately. Both charts previously called `new Date()` inline
+ * — `use-gantt-layout.ts` and `PrintGanttChart.tsx` each with their own copy — so the same
+ * wall-clock dependency existed twice and neither had chosen it. Owner decision
+ * (2026-08-01): keep the today-line on printed reports, and pass `now` in, so the
+ * dependency is explicit at one call site per chart instead of buried in two.
+ *
+ * Measured before the change: the same project rendered on 2026-04-15 versus 2027-01-01
+ * produced 4 dashed lines and a "Today" label versus 2 and none. That is real behaviour
+ * either way; passing `now` makes it visible rather than removing it.
+ *
+ * ⚠️ NOT a wider layout unification, and the difference matters. The two charts' assemblies
+ * are not the same computation: the interactive one sizes itself from a measured container
+ * with a 2px/day floor and a fit-to-window override, while the print one is a fixed 700px;
+ * their margins are parallel constants, not shared ones (`RIGHT_MARGIN` 40 vs `PRINT_RIGHT`
+ * 20 — the parity oracle corrected that belief); and they derive their end dates
+ * differently. Forcing those into one function would take about ten parameters and be
+ * worse code.
+ *
+ * ⚠️⚠️ PRINTGANTTCHART DOES NOT USE THIS YET, AND THE REASON IS A REAL CONSTRAINT ON §3.3.
+ * Wiring it in costs **+2 lint findings** — `react-hooks/preserve-manual-memoization`,
+ * "Compilation Skipped: Existing memoization could not be preserved". Isolated by
+ * measurement, not guessed: interactive-only extraction lints at 8, print-only at 10, the
+ * helper alone with no consumer at 8.
+ *
+ * The trigger is NOT the clock. `todayX` now arrives from an IMPORTED call and then feeds
+ * a `useMemo` (the tick-suppression chain); React Compiler cannot prove an imported
+ * function is pure, so it stops preserving that component's manual memoization and bails
+ * on the whole component — which is why an unrelated `useCallback` also flagged. Tried and
+ * rejected: destructuring vs named access, passing primitives instead of the memoized
+ * `toX`, and `now` as a prop with a `new Date()` default. All still 10, because none of
+ * them changes the imported-call-feeds-memo shape. Note the component already contains an
+ * inline `new Date()` elsewhere that never caused a bail.
+ *
+ * The remaining options are: raise the lint baseline (forbidden by the working agreement
+ * except when reverting), wrap the call in `useMemo` (a real staleness change the frozen
+ * oracle would not catch), or leave the print chart's copy inline. The last is what was
+ * chosen, and the duplication is recorded rather than hidden.
+ *
+ * **This matters beyond the today-line**: it is the same cost for any extraction out of a
+ * memoized component, which is a live constraint on decomposing `GanttChart:947`.
+ */
+export function computeTodayLine(
+  now: Date,
+  projectStartDate: string,
+  furthestDate: string,
+  dateRange: number,
+  toX: (isoDate: string) => number,
+): TodayLine {
+  const todayStr = formatDateISO(now);
+  const todayInRange =
+    dateRange > 0 && todayStr >= projectStartDate && todayStr <= furthestDate;
+  return {
+    todayStr,
+    todayInRange,
+    todayX: todayInRange ? toX(todayStr) : null,
+  };
+}
