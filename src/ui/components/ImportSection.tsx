@@ -361,10 +361,13 @@ export function ImportSection({ projects }: ImportSectionProps) {
                 )}
                 {importState.outcome.driftSkipped.length > 0 && (
                   <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                    {/* "s were" / " was" — the same construction as importDoneBanner,
+                        which pluralises the noun and inflects the verb together. */}
                     {importState.outcome.driftSkipped.length} project
-                    {importState.outcome.driftSkipped.length !== 1 ? "s" : ""}{" "}
-                    were skipped because conflicts emerged after the preview
-                    opened.
+                    {importState.outcome.driftSkipped.length !== 1
+                      ? "s were"
+                      : " was"}{" "}
+                    skipped because conflicts emerged after the preview opened.
                   </p>
                 )}
                 <button

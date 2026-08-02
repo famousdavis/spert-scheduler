@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.62.1 — 2026-08-02
+
+### Fixed
+- **The import summary read "1 project were skipped"; it now reads "1 project was skipped".** Display grammar only — nothing about which projects are skipped, or why, has changed. The line appears when exactly one project is set aside because your project list changed while the import preview was open.
+
 ## 0.62.0 — 2026-08-01
 
 ### Fixed

@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.62.1",
+    date: "2026-08-02",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          'The import summary read "1 project were skipped"; it now reads "1 project was skipped". Display grammar only — nothing about which projects are skipped, or why, has changed. The line appears when exactly one project is set aside because your project list changed while the import preview was open.',
+        ],
+      },
+    ],
+  },
+  {
     version: "0.62.0",
     date: "2026-08-01",
     sections: [
