@@ -171,33 +171,16 @@ describe("computeGeneralUpdates", () => {
       expect(computeGeneralUpdates(a, "  Same  ", "planned", "")).toEqual({});
     });
 
-    it("CURRENTLY ignores a name that trims to empty — recorded, not endorsed", () => {
-      // ⚠️ This pins the CURRENT BEHAVIOUR, not a contract. The user clears the field,
-      // clicks Save, and the app silently discards the edit — no error, no blank name,
-      // no feedback.
+    it("drops a name that trims to empty, leaving the stored name untouched", () => {
+      // This unit is CORRECT: a blank name must never reach the store, because
+      // ActivitySchema requires `name: z.string().min(1)`.
       //
-      // The evidence points one way, and it is not the third option:
-      //   • ActivitySchema.name is `z.string().min(1).max(200)` — a blank activity name
-      //     is SCHEMA-INVALID, so "accept and blank it" would store something the schema
-      //     rejects. Where blank IS legal the codebase says so explicitly: ActivityBand
-      //     names default to "" as display-only separators, and HolidaySchema carries
-      //     `z.string().max(200) // allow empty for migrated data`.
-      //   • Rejecting with an error state is not a new pattern to invent — it is the one
-      //     the GRID already uses. UnifiedActivityRow.validateAndUpdate schema-validates
-      //     every edit and sets per-field errors, and ValidationSummary surfaces failures
-      //     with a scroll-to-field affordance (it even renders "(unnamed)").
-      //
-      // So the modal is the outlier: it silently discards where the rest of the app
-      // validates and reports. Awaiting the owner's decision.
-      //
-      // Same call as C2, which deliberately left the cyclic-graph behaviour unpinned
-      // because "a test there would enshrine the behaviour rather than record the
-      // question". The difference is that this one is trivially reachable, so leaving it
-      // unpinned would let a refactor change it silently. It is pinned to hold the line
-      // while the question is open — NOT because the behaviour is correct.
-      //
-      // If this is later decided deliberately, replace this test rather than adding to
-      // it, and say which of the three behaviours was chosen.
+      // The earlier version of this test was marked "recorded, not endorsed" on the
+      // belief that the app silently discarded the user's edit. That belief was WRONG —
+      // inferred from this unit without checking the component above it, where `isValid`
+      // already disabled Save. The real defects were the missing explanation and a
+      // suppressed unsaved-changes prompt, both fixed in v0.62.0 and covered by
+      // ActivityEditModal.test.tsx. Replaced rather than extended, as that note instructed.
       const a = makeActivity({ name: "Keep Me" });
       expect(computeGeneralUpdates(a, "", "planned", "")).toEqual({});
       expect(computeGeneralUpdates(a, "   ", "planned", "")).toEqual({});
