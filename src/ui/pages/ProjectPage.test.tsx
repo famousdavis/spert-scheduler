@@ -164,32 +164,40 @@ function renderPage(project: Project, extraProjects: Project[] = []) {
 }
 
 /**
- * The label span inside a scenario tab. Identified by its `title` rather than a class, and
- * disambiguated from the same name appearing in the print report / summary card.
+ * The scenario tab's selection control — a real button, queryable by role and name.
+ *
+ * ✅ v0.62.2. Until then the tab was a <span> inside a click-handling <div>: no role, no
+ * aria-current, no tab stop. These tests had to infer the active scenario from the ACTIVITY
+ * GRID's contents because there was no accessible way to ask the tab itself. That workaround
+ * is deleted; if this query ever stops resolving, the accessibility fix has regressed.
  */
-function tabLabel(name: string): HTMLElement {
-  const hit = screen
-    .getAllByText(name)
-    .find((el) => el.getAttribute("title") === "Double-click to rename");
-  if (!hit) throw new Error(`no scenario tab labelled "${name}"`);
-  return hit;
+function tabButton(name: string): HTMLElement {
+  return screen.getByRole("button", { name });
 }
 
-/** The tab row itself — the element carrying the click handler and the per-tab buttons. */
+/** The tab row itself — the layout container holding the per-tab controls. */
 function tabRoot(name: string): HTMLElement {
-  return tabLabel(name).parentElement!;
+  return tabButton(name).parentElement!;
 }
 
 /**
- * Assert which scenario is active by what the activity grid shows. `getByDisplayValue`
- * matches form values only, so the print report's plain-text copy of the same name cannot
- * satisfy it.
+ * Assert which scenario is active by asking the tab, the way assistive technology does.
+ * `aria-current` is the affordance v0.62.2 added; before it, nothing in the accessibility
+ * tree distinguished the active tab from the rest.
  */
 function expectActiveScenario(active: string, inactive: string[] = []) {
-  expect(screen.getByDisplayValue(activityOf(active))).toBeInTheDocument();
+  expect(tabButton(active)).toHaveAttribute("aria-current", "true");
+  // `inactive` means PRESENT BUT NOT ACTIVE. A tab that is absent entirely is a different
+  // claim and gets expectNoTab — collapsing the two into "absent or not current" would be a
+  // disjunction that both states satisfy.
   for (const other of inactive) {
-    expect(screen.queryByDisplayValue(activityOf(other))).toBeNull();
+    expect(tabButton(other)).not.toHaveAttribute("aria-current");
   }
+}
+
+/** No tab by this name exists — the project does not carry that scenario. */
+function expectNoTab(name: string) {
+  expect(screen.queryByRole("button", { name })).toBeNull();
 }
 
 /** Text of the error toasts currently in the real notification store. */
@@ -276,7 +284,7 @@ describe("ProjectPage — which scenario is active", () => {
     const p = makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B]);
     renderPage(p);
 
-    fireEvent.click(tabLabel(SCENARIO_B));
+    fireEvent.click(tabButton(SCENARIO_B));
 
     expectActiveScenario(SCENARIO_B, [SCENARIO_A]);
     // Remembered for next time.
@@ -311,7 +319,7 @@ describe("ProjectPage — which scenario is active", () => {
         {routes()}
       </MemoryRouter>
     );
-    fireEvent.click(tabLabel(SCENARIO_B));
+    fireEvent.click(tabButton(SCENARIO_B));
     expectActiveScenario(SCENARIO_B, [SCENARIO_A]);
     const headingBefore = screen.getAllByRole("heading", { level: 1 })[0];
 
@@ -327,7 +335,9 @@ describe("ProjectPage — which scenario is active", () => {
     expect(headingAfter).toBe(headingBefore);
 
     expect(headingAfter).toHaveTextContent(OTHER_PROJECT_NAME);
-    expectActiveScenario(SCENARIO_C, [SCENARIO_A, SCENARIO_B]);
+    expectActiveScenario(SCENARIO_C);
+    expectNoTab(SCENARIO_A);
+    expectNoTab(SCENARIO_B);
   });
 
   /**
@@ -360,7 +370,7 @@ describe("ProjectPage — which scenario is active", () => {
         {routes()}
       </MemoryRouter>
     );
-    fireEvent.click(tabLabel(SCENARIO_B));
+    fireEvent.click(tabButton(SCENARIO_B));
     expectActiveScenario(SCENARIO_B, [SCENARIO_A]);
 
     fireEvent.click(
@@ -372,6 +382,51 @@ describe("ProjectPage — which scenario is active", () => {
     expectActiveScenario(SCENARIO_C, [SCENARIO_D]);
   });
 
+  /**
+   * The v0.62.2 defect, guarded directly.
+   *
+   * ⚠️ jsdom does not synthesise a click from Enter/Space on a focused button, so the
+   * FOCUSABILITY assertion is the half that guards the defect: the old <span> could not hold
+   * focus at all, which is precisely why the tabs were keyboard-unreachable. The click that
+   * follows is what a real browser produces once focus is there.
+   */
+  it("a keyboard user can focus a scenario tab and activate it", () => {
+    renderPage(makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B]));
+    const target = tabButton(SCENARIO_B);
+
+    target.focus();
+    expect(document.activeElement).toBe(target);
+
+    fireEvent.click(target);
+
+    expectActiveScenario(SCENARIO_B, [SCENARIO_A]);
+  });
+
+  it("the drag handle is named, so the tab's focus stop is not anonymous", () => {
+    renderPage(makeProject(PROJECT_NAME, [SCENARIO_A]));
+    expect(
+      screen.getByRole("button", { name: `Reorder scenario ${SCENARIO_A}` })
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Recovered coverage. Until v0.62.2 the shared helper inferred the active scenario from
+   * the grid because the tab was unqueryable; that inference is now done properly via
+   * aria-current, but the underlying behaviour it happened to exercise — the grid following
+   * the active scenario — is real and keeps its own named test rather than being dropped
+   * along with the workaround.
+   */
+  it("the activity grid shows the active scenario's activities, and switches with it", () => {
+    renderPage(makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B]));
+    expect(screen.getByDisplayValue(activityOf(SCENARIO_A))).toBeInTheDocument();
+    expect(screen.queryByDisplayValue(activityOf(SCENARIO_B))).toBeNull();
+
+    fireEvent.click(tabButton(SCENARIO_B));
+
+    expect(screen.getByDisplayValue(activityOf(SCENARIO_B))).toBeInTheDocument();
+    expect(screen.queryByDisplayValue(activityOf(SCENARIO_A))).toBeNull();
+  });
+
   it("a project with no scenarios is backfilled with a Baseline", () => {
     const p = { ...makeProject(), scenarios: [] };
     renderPage(p);
@@ -379,7 +434,7 @@ describe("ProjectPage — which scenario is active", () => {
     expect(
       useProjectStore.getState().getProject(p.id)!.scenarios
     ).toHaveLength(1);
-    expect(tabLabel("Baseline")).toBeInTheDocument();
+    expect(tabButton("Baseline")).toBeInTheDocument();
   });
 });
 
