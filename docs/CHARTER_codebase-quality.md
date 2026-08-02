@@ -265,6 +265,16 @@ all fourteen pre-survivors mapped: `docs/mutation-baseline-worker.md`.
 remaining work *is*. Every future item that merges duplicated code will produce this shape, so
 "absolute `Survived` fell" will keep looking like a result and keep needing the accounting.
 
+✅ **The rule met its mirror case the same afternoon it landed, from the opposite direction.**
+#263 was written because §3.7's ratio **fell** while nothing regressed. Hours later, §3.5 Step 5's
+ratio **rose** +1.01pp while nothing improved — `Survived` held byte-identical at 6 and 10, and
+the whole movement was eight `Ignored` string-literal mutants leaving the population as the two
+deleted vocabulary arrays went. Same arithmetic, opposite sign, opposite misreading available.
+
+A rule usually waits months for a real test. This one waited an afternoon, and the case that
+arrived was **not** the one it was written from — which is the strongest evidence available that
+*"the reconciliation is the gate"* was the right generalisation rather than a patch on C4.
+
 ### ⚠️ An oracle built from realistic data under-covers exactly the paths that most need one
 
 Recorded 2026-08-02, from §3.7's prerequisites. **This amends "oracle before refactor", which was
@@ -606,6 +616,41 @@ No gap in v1 covered it at all.
   warning that counts.
 - **Re-derive line numbers each step.** Every reference here is anchored at `85cc711`.
 - **Never edit `scripts/shipgate.mjs`** — byte-identical across nine repos. **60-day soak window.**
+- ⚠️ **RETARGET A STACKED CHILD PR TO `main` BEFORE MERGING ITS PARENT.** Merging the parent with
+  `--delete-branch` **closes** the child — GitHub does not retarget it — and a closed PR whose base
+  branch is gone can be neither re-based nor reopened:
+
+  ```
+  gh pr edit  <child>  --base main          # ← FIRST, while the parent is still open
+  gh pr merge <parent> --squash --delete-branch
+  git rebase main && git push --force-with-lease    # git drops the duplicate patch itself
+  ```
+
+  Observed 2026-08-02: after `gh pr merge 260 --delete-branch`, `gh pr edit 261 --base main`
+  returned *"Cannot change the base branch of a closed pull request"* and `gh pr reopen 261`
+  returned *"Could not open the pull request."* #261 had to be re-created as #262. The work was
+  never at risk — the branch and its commit were untouched — but the PR, its body and its review
+  thread were lost.
+
+  **This was in a handoff as an instruction, in the correct order but with the wrong mechanics**,
+  which is the recurring shape below.
+
+- ⚠️ **The bookkeeping is what goes wrong, not the measurements.** Three campaign errors now share
+  one axis, and it is not carelessness — it is *which claims get checked*:
+
+  | | The claim | How it failed |
+  |---|---|---|
+  | §3.7 | two PRs are independent | asserted without `git log main..HEAD`; #258 silently contained #257 |
+  | §3.5 | *"`main` clean, no open PRs"* | written **minutes after** running the check that showed two open |
+  | §3.5 | merge-then-retarget | correct order, wrong mechanics — cost a PR |
+
+  Over the same span **every measurement claim held** on re-derivation: the copyright regex, the
+  sample project's zero `constraintType`, the mutation arithmetic in both directions, the `cc`
+  figures, the oracle's byte-identity, the six constraint sites. **Things that look like
+  measurements get verified; things that look like process get waved through** — by whoever is
+  writing, in both roles, including inside documents whose subject is rigour. The fix is not
+  resolve-to-be-careful: **run the command.** `git log main..HEAD` costs one second and has now
+  been the deciding check twice.
 - **Mutation comparisons** use identical command, scope and cleared cache. Record all six status
   categories including `ignored`. ⚠️ A scoped run is **~5–13 min**, not ~5.
   ⚠️ **The gate is the RECONCILIATION, not `Survived` and not the score.** Both are diagnostics
