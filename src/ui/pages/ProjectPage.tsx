@@ -8,6 +8,7 @@ import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useProjectActions } from "@ui/hooks/use-project-actions";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule, type ScheduleError } from "@ui/hooks/use-schedule";
+import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
 import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
@@ -60,23 +61,6 @@ import type { AiOpResult } from "@app/api/ai-batch-service";
  * Module-level early-null-return helper so the branch stays out of ProjectPage's
  * render body (keeps the component's cognitive complexity down).
  */
-function getScheduleErrorBanner(
-  error: ScheduleError | null
-): { heading: string; message: string; advice: string } | null {
-  if (!error) return null;
-  return error.isCalendarError
-    ? {
-        heading: "Calendar Configuration Error",
-        message: error.message,
-        advice: "Check your work week settings in Settings.",
-      }
-    : {
-        heading: "Schedule Error",
-        message: error.message,
-        advice: "Check the affected activity's estimates and settings.",
-      };
-}
-
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -709,9 +693,10 @@ export function ProjectPage() {
       )}
 
       {/* Schedule computation error banner (was calendar-specific; now general).
-          Heading + advice come from getScheduleErrorBanner (module-level), whose
-          isCalendarError branch uses the shared, two-shape work-calendar.ts
-          predicate — not a narrower reimplementation. */}
+          Heading + advice come from getScheduleErrorBanner (now in
+          @ui/helpers/schedule-error-banner, moved out unchanged for react-refresh
+          hygiene), whose isCalendarError branch uses the shared, two-shape
+          work-calendar.ts predicate — not a narrower reimplementation. */}
       {scheduleErrorBanner && (
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-sm font-medium text-red-800 dark:text-red-300">
