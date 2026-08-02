@@ -181,8 +181,23 @@ that could have invalidated them. What the defect could ever have affected is ST
 recoverable from `git log --format='%H%n%B'` over #240–#244, in unusual detail. Verified 2026-08-01;
 that is why they could be restored here at all.
 
-**A figure is trustworthy only where something had the opportunity to contradict it.** Added
-2026-08-01, replacing a rule that was wrong within a day of being written.
+### THE OPPORTUNITY-TO-CONTRADICT RULE
+
+**Absence of a failing signal is not evidence unless something was in a position to produce
+one.** Added 2026-08-01, replacing a rule that was wrong within a day of being written.
+
+⚠️ **This is ONE rule with one name, deliberately.** It was reached twice from opposite
+directions — once by auditing which of this charter's figures could be trusted (*"nothing has
+contradicted this" is evidence only where subsequent work ran through it*), and once, on
+2026-08-02, from tooling (*a passing check proves nothing unless something adversarial ran
+against it*). Two formulations in two sections is how a rule gets applied in one place and
+forgotten in the other, so they are consolidated here. Its two faces:
+
+- **On figures** — sort by exposure, not by section. See the table below.
+- **On checks** — a green test, oracle or benchmark is worth exactly as much as the last thing
+  that tried to break it. §3.7's oracle passed 17 fixtures while inert on one of three engine
+  paths; the fixture that fixed it passed 23 tests while carrying invalid constraint codes.
+  Neither looked wrong.
 
 The discarded rule said the errors traced to `CRITIQUE_codebase-quality-charter_Opus-1.md` **§5** —
 the half that *proposed* — while §1–§4, the half that *measured*, held. Tidy, and false: **the "28
@@ -190,8 +205,7 @@ suppressions" figure came from §3.** A section called trustworthy had already p
 at the moment it was called trustworthy. ⚠️ The tell was on the face of the report either way — **the
 parenthetical didn't sum to its own headline** — visible without opening the repo, and not added up.
 
-**Sort by exposure, not by section.** "Nothing has contradicted this" is evidence only if subsequent
-work ran through it.
+**Sort by exposure, not by section** — the figures face of the rule above.
 
 | Confirmed — something could have contradicted it, and didn't | How |
 |---|---|
@@ -213,7 +227,37 @@ out of the count while covering none of it. The two definitions were one apart i
 sweep and are two and a half times apart in the second. Quote the function-level number and say
 so. ⚠️ Line numbers shift under extraction — diff censuses by file plus name, never by line.
 
-**Also standing:** oracle before refactor (committed JSON, never a regenerable snapshot) · net before
+### ⚠️ An oracle built from realistic data under-covers exactly the paths that most need one
+
+Recorded 2026-08-02, from §3.7's prerequisites. **This amends "oracle before refactor", which was
+stated as sufficient and is not.**
+
+The Monte Carlo oracle was built from the sample Cloud ERP project and presented as a 17-fixture
+behavioural contract. Perturbing each of the engine's three `sample()` call sites by 1e-7 showed
+it was **inert on one of the three**: 9 fixtures failed for the main sequential path, 8 for the
+dependency path, and **zero** for the constrained path. A decomposition of that branch would have
+passed the oracle and learned nothing.
+
+**The cause generalises further than the fix.** Realistic data exercises realistic paths. The
+branches it cannot reach are the ones that exist for *unusual* states — constrained activities,
+completed activities, model exhaustion — which are precisely the branches most likely to be
+subtly wrong. v0.54.0/v0.54.1 already found an MFO/FNET off-by-one across four such seams.
+`sample-project.ts` contains **zero** `constraintType` and **zero** `actualDuration` occurrences.
+
+⚠️ **An unfalsified oracle before a refactor is worse than no oracle**, because it converts
+*"unverified"* into *"verified"* without changing what is known. The technique is minimal: perturb
+each call site the oracle claims to cover by 1e-7 and confirm it propagates. Spec committed as
+`scripts/falsify-spec-monte-carlo-oracle.mjs`.
+
+✅ **Bounded, not systemic.** `deterministic-oracle.json` carries 11 `constraintType` entries, so
+C4's oracle is unaffected — its fixtures were hand-built rather than drawn from the sample project.
+The blind spot belongs to oracles built *from realistic fixtures*, not to oracles generally.
+
+📌 **Open, not now:** three test files use `createSampleProject` as a fixture and inherit the same
+blind spot by construction. Nobody has asked what they actually cover. ~10 minutes, after §3.7.
+
+**Also standing:** ⚠️ **oracle before refactor — AND FALSIFY THE ORACLE, against every path it
+claims to cover, before trusting it** (committed JSON, never a regenerable snapshot) · net before
 decomposition · tests first, fix what they expose as its own release, then refactor · extraction
 relocates a finding, only decomposition clears it · suppression carries a specific reason and is
 interim unless the reason is permanent.
