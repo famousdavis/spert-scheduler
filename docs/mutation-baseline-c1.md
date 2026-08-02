@@ -544,6 +544,14 @@ Conditions 2 and 3 originally compared **ratios** unconditionally, with an escap
 
 - The **absolute `Survived` count** is the primary numeric condition — it does not move with the
   population.
+  > ⚠️ **AMENDED 2026-08-02 (§3.5 Step 4) — annotated, not rewritten, because this is a record.**
+  > `Survived` does not move with the *denominator*, but it **does** move with **deduplication**:
+  > merging N copies of an unguarded line into one removes N−1 survivors and guards nothing. The
+  > worker decomposition read as an eight-survivor improvement and **seven of the eight were the
+  > same two gaps counted fewer times**. So this bullet is a heuristic, not the condition. The
+  > condition is the next one — *accounted for* — applied in **both** directions: a fall needs the
+  > same one-by-one mapping as a rise. See `docs/CHARTER_codebase-quality.md` §2 and
+  > `docs/mutation-baseline-worker.md`.
 - **Score and rate are authoritative only while the denominator holds.** Once it moves they are
   diagnostics.
 - Denominator movement must **reconcile across all six mutator categories**. Explained movement is

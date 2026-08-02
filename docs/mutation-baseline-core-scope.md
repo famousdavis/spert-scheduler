@@ -96,6 +96,10 @@ survivors are all genuine gaps, not equality edges — see below.
 **Score is authoritative only while the denominator holds.** Per `mutation-baseline-c1.md`'s
 amended rule, the **absolute `Survived` count** is the primary comparison figure for every file here.
 
+⚠️ **Amended 2026-08-02:** `Survived` is a *diagnostic*, not the gate — it falls under
+deduplication without anything improving (§3.5 Step 4: 14 → 6, of which seven were duplicate
+mutants collapsing). **The gate is whether the delta reconciles, in either direction.** Charter §2.
+
 ### The small-denominator rule — stated, with its reason
 
 *Added 2026-08-01. The two instances above were recorded from the start; the rule behind them was

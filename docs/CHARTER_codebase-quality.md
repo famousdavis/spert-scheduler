@@ -235,6 +235,36 @@ out of the count while covering none of it. The two definitions were one apart i
 sweep and are two and a half times apart in the second. Quote the function-level number and say
 so. ⚠️ Line numbers shift under extraction — diff censuses by file plus name, never by line.
 
+### ⚠️ Neither the score nor the survivor count is the gate — the reconciliation is
+
+Recorded 2026-08-02, from §3.5 Step 4. **This amends *"gate on absolute `Survived`, not the
+ratio"*, which has been stated as the rule and is really a heuristic with two known failure
+modes — in opposite directions.**
+
+| | The number that moved | What was actually true |
+|---|---|---|
+| **C4 · §3.7** | the **ratio** fell (85.41% → 84.96%, 87.25% → 86.23%) | **nothing regressed.** Decomposition shrank the denominator; `Survived` held byte-identical |
+| **§3.5 Step 4** | the **absolute `Survived` count** fell 14 → 6 | **almost nothing improved.** Merging three duplicated map conversions collapsed their mutants |
+
+The first case is why this campaign stopped gating on the ratio. The second is the same error with
+the sign flipped, and it is the more seductive one, because it arrives as good news about your own
+refactor. Of §3.5's eight fewer survivors, **seven were the same two gaps counted fewer times**;
+one was dead-code removal, and exactly **one** was a real kill — inherited, by merging, from the
+strongest call site's fixture.
+
+**The rule that survives both cases: gate on whether the delta RECONCILES — not on its size, and
+not on its sign.** The one-by-one accounting *is* the gate. `Survived` and the score are
+**diagnostics that tell you where to look**; a moved number is a prompt to produce the mapping,
+never a verdict on its own.
+
+The practical consequence is the part that gets skipped: **a survivor count that falls is exactly
+as much work to justify as one that rises.** Both directions get the table. Worked example, with
+all fourteen pre-survivors mapped: `docs/mutation-baseline-worker.md`.
+
+⚠️ **And deduplication is not a rare special case** — it is what a large share of this campaign's
+remaining work *is*. Every future item that merges duplicated code will produce this shape, so
+"absolute `Survived` fell" will keep looking like a result and keep needing the accounting.
+
 ### ⚠️ An oracle built from realistic data under-covers exactly the paths that most need one
 
 Recorded 2026-08-02, from §3.7's prerequisites. **This amends "oracle before refactor", which was
@@ -562,12 +592,19 @@ No gap in v1 covered it at all.
 - **Never edit `scripts/shipgate.mjs`** — byte-identical across nine repos. **60-day soak window.**
 - **Mutation comparisons** use identical command, scope and cleared cache. Record all six status
   categories including `ignored`. ⚠️ A scoped run is **~5–13 min**, not ~5.
+  ⚠️ **The gate is the RECONCILIATION, not `Survived` and not the score.** Both are diagnostics
+  with a known failure mode each — the ratio falls when decomposition shrinks the denominator, and
+  the absolute count falls when deduplication collapses duplicate mutants. **A fall is as much
+  work to justify as a rise.** See §2.
 
 ## 5. Settled
 
 The lint count is an output. The metric ranks risk backwards here. No sibling repo installs
 `eslint-plugin-sonarjs`. Extraction relocates; only decomposition clears. Decomposition always shrinks
-the mutation denominator. The C4 gate's amended form stands (`docs/mutation-baseline-c1.md`).
+the mutation denominator, **and deduplication always shrinks the survivor count without guarding
+anything** — so neither number is a verdict. The C4 gate's amended form stands
+(`docs/mutation-baseline-c1.md`), now read through §2's reconciliation rule: **the accounting is the
+gate.**
 
 ## 6. Tooling
 
