@@ -251,6 +251,65 @@ out of the count while covering none of it. The two definitions were one apart i
 sweep and are two and a half times apart in the second. Quote the function-level number and say
 so. ⚠️ Line numbers shift under extraction — diff censuses by file plus name, never by line.
 
+### ⚠️ Characterise before designing — the only DIRECTION practice in this charter
+
+Recorded 2026-08-02, after §3.5 and §3.7. **This is a different KIND of practice from every
+other entry here, and that is the reason it gets its own section rather than a line in a list.**
+
+> **"Oracle before refactor has never once changed what I was about to build — it only ever
+> verified that what I built was safe."**
+
+Almost every standing practice below is a **safety** practice: oracle-before-refactor,
+falsify-the-guard, gate-on-accounted-movement, absolute-Survived. They answer *"is the change I
+have decided on sound?"* Not one of them has ever said *"you are about to build the wrong
+thing."* Characterisation is the only practice whose output is that sentence.
+
+**Three cases, each checkable in the repo rather than taken on trust:**
+
+| | The charter asked | Characterisation answered |
+|---|---|---|
+| **§3.7** | *"what does extraction cost?"* | **What is being protected is 27ms / 71ms** at the default trial count, 270ms / 713ms at the schema ceiling, **off the main thread** — too small to protect, whatever extraction costs. The cost question was the wrong one. *(#258, `monte-carlo.bench.ts`)* |
+| **§3.5 import** | *"`ActivityDependencySchema` has no cycle refinement"* — which implies adding one | The failure was **already caught and reported by all six consumers**. The gap was **messaging, not validation**, and reject-at-import would have been the wrong product. *(#266)* |
+| **§3.5 detection** | a new `.refine()` was about to be written | `validateDependencies` **already existed** at `dependency-graph.ts:281`, already consumed by `DependencyPanel` and `ai-snapshot-service` — two layers down from where the new code was going. *(#268)* |
+
+Three items, three times the first framing was wrong, and in every case the correction came from
+**looking at what the code actually does before designing against it.** A safety practice would
+have verified each wrong build beautifully.
+
+⚠️ **Sequencing matters, not just the entry.** This belongs here **before §3.8 opens**, because
+§3.8 is the item most exposed to its absence: its recorded framing — *"cannot be proven
+behaviour-identical against data we no longer have"* — already reads as a design constraint, and
+someone opening it cold would start by building the synthesised corpus described there. **Whether
+that is the right first move is precisely the question a characterisation phase asks**, and that
+question has been answered "no" three times running.
+
+⚠️ **PROVENANCE, which is part of the finding.** The sentence above survives only because it was
+quoted back in an orchestration reply. **It appears in no commit body.** This charter's own rule is
+that *the durable store is commit bodies, not chat* — proven when five missing ledger entries
+turned out recoverable from #240–#244 and nothing else. The one report proposing a new **direction**
+practice is the one that nearly did not survive. That is why it is recorded in **#269's PR body as
+well as here**: a practice about durable storage that exists only in a doc nobody re-reads is half
+the failure it describes.
+
+### The render-level exclusion has a measured price now
+
+`"Explicitly not tested: visual layout, styling"` **remains a defensible scope decision** — this is
+not a reversal. What changed is that its price is now known rather than hypothetical: **one shipped
+defect, in the release whose entire purpose was making one message read correctly.** v0.63.0's
+schedule-error banner space-joined its message and advice into one `<p>`; because the message is a
+raw engine diagnostic ending without punctuation, the two ran together as a single unreadable
+sentence. **Caught in a browser, not by a test.**
+
+⚠️ **And no value-level assertion could have caught it.** `getScheduleErrorBanner` returns
+`{ heading, message, advice }` as three separate strings, and its return value was correct both
+before and after. The defect existed **only at the level where correct values are composed for
+rendering** — one level above where every instrument this campaign built asserts.
+
+The disposal is a **deliberate, minimal, single-purpose incursion**: one render-level test
+asserting three distinct elements and their text. No pixels, no class strings, no DOM snapshot.
+Anyone weighing whether to revisit the exclusion should have that number — one defect — rather
+than a hypothetical.
+
 ### ⚠️ A pin that imports nothing from the app is not pinning the app
 
 Recorded 2026-08-02, from §3.5 Phase 1. **The one rule in this charter that a grep can decide.**

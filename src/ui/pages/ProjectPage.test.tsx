@@ -608,3 +608,80 @@ describe("ProjectPage — Connect AI entry point", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });
+
+/**
+ * The schedule-error banner, asserted AT THE RENDER LEVEL.
+ *
+ * ⚠️ PREVENTS RECURRENCE; COULD NOT HAVE DETECTED THE ORIGINAL. v0.63.0 shipped this banner
+ * with the message and advice space-joined into ONE <p>; because the message is a raw engine
+ * diagnostic that ends without punctuation, the two ran together as a single unreadable
+ * sentence. It was caught in a browser, not by a test.
+ *
+ * The second sentence is the one that matters: the original rendered one <p> BY DESIGN and
+ * passed every check that existed, because `getScheduleErrorBanner` returns
+ * { heading, message, advice } as THREE SEPARATE STRINGS and its return value was correct
+ * both before and after the fix. The blindness was STRUCTURAL — no value-level assertion can
+ * reach a defect that exists only in how correct values are COMPOSED for rendering. Someone
+ * could re-join these three strings in JSX tomorrow and every value-level test in this repo
+ * would still pass.
+ *
+ * So do not "strengthen" this by asserting harder on the helper; that chases a class no
+ * value-level check can reach, and the next stop on that road is a DOM snapshot, which this
+ * campaign has ruled out twice.
+ *
+ * ⚠️ This is a DELIBERATE, MINIMAL INCURSION into territory the charter excludes ("explicitly
+ * not tested: visual layout, styling"). It asserts three distinct elements and their text —
+ * no pixels, no classes, no snapshot. The exclusion remains defensible; its measured price is
+ * one shipped defect, in the release whose entire purpose was making one message read
+ * correctly.
+ */
+describe("ProjectPage — the schedule-error banner is composed, not concatenated", () => {
+  function cyclicProject(): Project {
+    const scenario = createScenario(SCENARIO_A, "2026-04-06");
+    const a = createActivity("Alpha task", scenario.settings);
+    const c = createActivity("Bravo task", scenario.settings);
+    const p = createProject(PROJECT_NAME, "2026-04-06");
+    return {
+      ...p,
+      scenarios: [
+        {
+          ...scenario,
+          activities: [a, c],
+          // A genuine 2-cycle: buildDependencyGraph throws, which is what puts the banner
+          // on screen. Dependency mode is required — the sequential engine never builds a
+          // graph.
+          dependencies: [
+            { fromActivityId: a.id, toActivityId: c.id, type: "FS", lagDays: 0 },
+            { fromActivityId: c.id, toActivityId: a.id, type: "FS", lagDays: 0 },
+          ],
+          settings: { ...scenario.settings, dependencyMode: true },
+        },
+      ],
+    };
+  }
+
+  it("renders heading, message and advice as three separate elements", () => {
+    renderPage(cyclicProject());
+
+    // PREMISE: the banner is actually on screen. Without a genuine cycle there is no error
+    // and the assertions below would pass vacuously by finding nothing to contradict them.
+    const heading = screen.getByText("Dependency Cycle");
+    expect(heading).toBeInTheDocument();
+
+    const banner = heading.parentElement!;
+    const paragraphs = [...banner.querySelectorAll("p")];
+
+    // THE ASSERTION THE ORIGINAL DEFECT WOULD HAVE FAILED: three elements, not one.
+    expect(paragraphs).toHaveLength(3);
+    expect(paragraphs[0]).toHaveTextContent("Dependency Cycle");
+    // Message and advice each live in their own element, so neither can absorb the other.
+    expect(paragraphs[1]!.textContent).toMatch(/cycle/i);
+    expect(paragraphs[2]!.textContent).toMatch(/Dependencies panel|dependenc/i);
+    // And no single element carries both — the concatenation this exists to prevent.
+    for (const el of paragraphs) {
+      const both =
+        /cycle/i.test(el.textContent ?? "") && /Dependencies panel/i.test(el.textContent ?? "");
+      expect(both).toBe(false);
+    }
+  });
+});
