@@ -34,7 +34,7 @@
     {
       "name": "lint",
       "run": "npm run lint",
-      "expectProblems": 8,
+      "expectProblems": 6,
       "_note": "eslint exits NON-ZERO here and that is correct — gate on the NUMBER not moving, never on the exit code. `expectProblems` above is the single source of truth for the accepted baseline; it is deliberately the only place the count is written, so there is no second copy to go stale. Re-derive it from `npm run lint` immediately before each commit and set it in the same commit. The baseline is mostly sonarjs/cognitive-complexity on core scheduling and simulation functions, plus react-hooks/set-state-in-effect. William confirmed it as accepted; do NOT refactor those functions merely to satisfy the threshold. The ratchet fails in BOTH directions — if problems were resolved, lower it."
     },
     { "name": "test", "run": "npm test" },

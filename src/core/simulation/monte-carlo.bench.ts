@@ -34,6 +34,7 @@ import { createSampleProject } from "@domain/data/sample-project";
 import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
 import { runTrials, runDependencyTrials } from "@core/simulation/monte-carlo";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
+import type { Activity } from "@domain/models/types";
 
 const TRIALS = 10_000; // DEFAULT_USER_PREFERENCES.defaultTrialCount
 const REPS = 11; // odd, so the median is a real sample
@@ -183,6 +184,45 @@ describe("§3.7 Phase 1 — Monte Carlo hot loops", () => {
     });
     console.log(`runTrials            : ${fmt(both.seq)}`);
     console.log(`runDependencyTrials  : ${fmt(both.dep)}\n`);
+
+    // ---- the CONSTRAINED sequential path -------------------------------------
+    // ⚠️ THE SAMPLE PROJECT IS UNCONSTRAINED, so everything above measures the engine's
+    // FAST path only. The constrained path is a different loop with a per-activity switch,
+    // and it is the one an extraction would put a call into — measuring only the fast path
+    // would have made a hot-loop extraction look free by construction.
+    //
+    // This is the same blind spot the Monte Carlo ORACLE had (see the charter: an oracle
+    // built from realistic data under-covers exactly the paths that most need one), found
+    // the same way and fixed the same way. Realistic fixtures do not reach unusual states.
+    const constrained: Activity[] = scenario.activities.map((a, i): Activity =>
+      i % 5 === 0
+        ? { ...a, constraintType: "SNET" as const, constraintDate: "2026-06-01", constraintMode: "hard" as const }
+        : a,
+    );
+    const consP = buildSimulationParams(
+      constrained,
+      false,
+      scenario.settings.probabilityTarget,
+      scenario.dependencies,
+      scenario.milestones,
+      scenario.startDate,
+      calendar,
+      scenario.settings.parkinsonsLawEnabled ?? true,
+    );
+    const consBoth = timeAll({
+      unconstrained: () => seqRun(),
+      constrainedPath: () => {
+        runTrials({
+          activities: constrained,
+          trialCount: TRIALS,
+          rngSeed: scenario.settings.rngSeed,
+          deterministicDurations: consP.deterministicDurations,
+          sequentialConstraints: consP.sequentialConstraints,
+        });
+      },
+    });
+    console.log(`runTrials (unconstrained): ${fmt(consBoth.unconstrained)}`);
+    console.log(`runTrials (CONSTRAINED)  : ${fmt(consBoth.constrainedPath)}\n`);
 
     // ---- scaling to the schema ceiling ---------------------------------------
     // trialCount is bounded at 100_000 by project.schema.ts:159, so this is the WORST
