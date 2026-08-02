@@ -50,10 +50,36 @@ export interface MigrationResult {
  *
  * Local data is left in place as a backup.
  */
-// B5: suppressed, not refactored. One-way local→cloud migration whose four-way
-// collision ladder is documented in the JSDoc directly above — the branching IS
-// that contract. It is also effectively untestable in CI (it needs a live
-// Firestore), so a refactor here would be unverifiable by construction.
+// B5, revised §3.8 (2026-08-02). Still true: the four-way collision ladder in the
+// JSDoc directly above IS the contract, and the branching is that contract written
+// out.
+//
+// The second half was FALSE and is removed. It read "effectively untestable in CI
+// (it needs a live Firestore), so a refactor here would be unverifiable by
+// construction." firestore-migration.test.ts now covers this function at 100% of
+// lines and functions (97.61% statements) behind 15 falsified mutations
+// (scripts/falsify-spec-firestore-migration.mjs), using the same
+// vi.mock("firebase/firestore") pattern firestore-driver.test.ts and
+// firestore-sharing.test.ts have used for months. No emulator, no live Firestore.
+//
+// ⚠️ THIS SUPPRESSION STAYS INTERIM, unlike migrateV5toV6's, which §3.8 made
+// permanent in the same pass. The append-only argument that makes THAT one
+// permanent does NOT hold here, and the difference was measured rather than
+// assumed: `git log -L` over this body returns FOUR commits — 57714c3 (v0.12.0,
+// introduction), 929419e (v0.15.2), ff9fe25 (v0.33.0) and ff7c5da (v0.42.6, a
+// security fix). This code IS edited, so maintainability is a live concern here,
+// not a theoretical one.
+//
+// Decomposition is DEFERRED, not declined, on one specific open question.
+// firestore.rules gates `get` on membership, so the "exists but belongs to someone
+// else" rung may be unreachable in production — that read is DENIED, not answered —
+// and if a read of a MISSING doc is likewise denied (`resource` is null), the "no
+// doc → keep the original id" rung never fires either, and every migrated project
+// silently takes a new id. The ladder may need to CHANGE rather than be
+// reorganised, and decomposing first would entrench a shape that is possibly wrong.
+// The canonical ruleset lives in spert-landing-page and deploys via the Firebase
+// Console; that question belongs to a session working there. Revisit this
+// suppression once it is answered.
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export async function migrateLocalToCloud(
   uid: string
