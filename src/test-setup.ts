@@ -4,7 +4,11 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { installResizeObserverStub, installMatchMediaStub } from "./test-stubs";
+import {
+  installResizeObserverStub,
+  installMatchMediaStub,
+  installScrollIntoViewStub,
+} from "./test-stubs";
 
 // Browser APIs jsdom does not implement. This file runs for EVERY test file, so the stub
 // state below is per-file and needs no manual reset.
@@ -17,3 +21,4 @@ import { installResizeObserverStub, installMatchMediaStub } from "./test-stubs";
 // built on it pass vacuously.
 installResizeObserverStub();
 installMatchMediaStub();
+installScrollIntoViewStub();
