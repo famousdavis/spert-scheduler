@@ -170,6 +170,22 @@ That is not cause for alarm; it is the precise argument for converting each dete
 committed guard the moment it fires. **A guard works on code nobody remembers writing. The person
 does not.**
 
+📌 **A guard that keeps catching the same two lines is reporting on those lines too.**
+`checkNeedleUnique` has now aborted **three times**, and all three were the *same pair*:
+`populateAdjacency` and `buildAdjacencyForCycle` in `dependency-graph.ts` open with a
+byte-identical two-line prelude —
+
+```
+if (!idSet.has(dep.fromActivityId) || !idSet.has(dep.toActivityId)) continue;
+if (dep.fromActivityId === dep.toActivityId) continue;
+```
+
+— so every needle aimed at either lands ambiguously. The guard is working; the duplication is the
+thing making it work so often. Deduplicating that prelude would remove the hazard at its source.
+**Not done here** — `dependency-graph.ts` carries a recorded mutation baseline (89.83%, 17
+survivors) and this is not that item. Recorded so the third save is read as a finding about the
+code and not only as a win for the tool.
+
 **Commit the falsification spec, not just the runner.** Added 2026-08-02. `scripts/falsify.mjs`
 was committed while every spec it consumed lived in scratchpad — so for a day, no falsification
 result in this campaign was reproducible: durable tool, vanished inputs. That is the same
@@ -234,6 +250,36 @@ honest count is **5**: `ScenarioComparison.tsx` moved 0% → **1.04%**, dropping
 out of the count while covering none of it. The two definitions were one apart in the first
 sweep and are two and a half times apart in the second. Quote the function-level number and say
 so. ⚠️ Line numbers shift under extraction — diff censuses by file plus name, never by line.
+
+### ⚠️ A pin that imports nothing from the app is not pinning the app
+
+Recorded 2026-08-02, from §3.5 Phase 1. **The one rule in this charter that a grep can decide.**
+
+A characterisation test for `getScheduleErrorBanner` was drafted that computed the heading and
+advice *inside the test*, from `isCalendarError`, and asserted the result. Every assertion passed.
+It pinned **nothing** — it asserted its own arithmetic against itself, and it would have stayed
+green through precisely the change it existed to detect. The next PR's entire *"behaviour changed
+as intended"* claim was going to rest on it.
+
+**The check is mechanical:** *does the test file import the symbol it claims to pin?* If a test
+asserts about `getScheduleErrorBanner` and never imports `getScheduleErrorBanner`, it is testing a
+local copy. That is decidable by grep, by review, and plausibly by a lint rule — **no judgement
+about altitude, no reading of logic.** Prefer it to softer formulations like *"test the real
+thing"*, which require knowing what the real thing is.
+
+⚠️ **This is the ledger's OLDEST failure returning, not a new one.** Week 0: *"P1's verification
+copied a lint-clean file — read 23 either way"* — a verification run against a **copy** of the
+artifact rather than the artifact. Twenty instances later, in a different language and a different
+layer, the same shape. Recorded as a **recurrence** deliberately: the useful fact is not that a new
+mistake happened, it is that the oldest one came back after everything since was supposed to have
+taught it.
+
+**The corollary that made it tempting.** The honest fix required *moving* `getScheduleErrorBanner`
+out of `ProjectPage.tsx` (`react-refresh/only-export-components` forbids exporting a non-component
+from a component module — the same reason `auth-errors.ts` left `AuthProvider`). Reimplementing it
+in the test was the way to avoid that move. **Whenever copying into a test is the cheaper option,
+that is the moment to suspect this defect** — the copy is never chosen because it is better, it is
+chosen because the export is inconvenient.
 
 ### ⚠️ Neither the score nor the survivor count is the gate — the reconciliation is
 
