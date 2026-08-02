@@ -50,6 +50,7 @@ npm run cc src/infrastructure/persistence/migrations.ts
   15  L202  migrateV10toV11
   15  L230  migrateV11toV12
   10  L138  migrateV6toV7
+  10  L253  migrateV12toV13    <-- FIFTH row, truncated when this was written
 
 npm run cc src/infrastructure/firebase/firestore-migration.ts
   21  L58   migrateLocalToCloud  <-- over threshold  [suppressed]
@@ -61,7 +62,12 @@ minutes; it means the inherited numbers can now be cited rather than repeated.
 
 **But the measurement immediately produced something the framing does not carry:**
 
-- `migrations.ts` has **four** functions at cc ≥ 10, not one. **`migrateV10toV11` and
+⚠️ **Corrected 2026-08-02 by the executing session: the table above was truncated at four rows and
+the count below said "four". It is FIVE — `migrateV12toV13` at cc 10 was cut off.** The argument is
+unaffected; the count was not re-derived from the command's own output. Left visible rather than
+silently fixed, since this document's subject is stale numbers.
+
+- `migrations.ts` has **five** functions at cc ≥ 10, not one. **`migrateV10toV11` and
   `migrateV11toV12` both sit at exactly 15** — on the threshold, unsuppressed, invisible to lint by
   one point. §3.8 is framed as *"the two migrations"*; the file is not shaped that way.
 - `firestore-migration.ts` reports **exactly one function above 0**. The file is essentially one
@@ -71,6 +77,22 @@ minutes; it means the inherited numbers can now be cited rather than repeated.
 **Not verified — check these:** whether those two cc-15 functions are covered; whether a v5-shaped
 fixture already exists anywhere in the suite; whether the Firebase emulator the charter mentions is
 actually configured in this repo.
+
+✅ **ANSWERED 2026-08-02, and two of the three changed the plan.** Handing these over as named gaps
+rather than filling them from recollection was the right call — see `CHARTER §3.8`, rewritten on the
+result.
+
+1. **Are the two cc-15 functions covered?** The census says *"covered"* for both
+   (`CENSUS…-02b.md:99-100`). ⚠️ **That column is `hits > 0` — function ENTRY.** Branch counts:
+   `migrateV11toV12`'s write-forward was `[0, 0]` — **entered, iterated zero times, never executed
+   once** against the whole suite; `migrateV10toV11`'s preserve-existing-data branch `[2, 0]`.
+   Third instance of the campaign's proxy-metric defect, one level in from file-granularity.
+2. **Does a v5-shaped fixture exist?** **Yes — three**, at `migrations.test.ts:323/349/374`, plus
+   four sequential chains through v5. And `migrateV5toV6` has **zero** uncovered statements and
+   branches. The corpus was to be built for the best-covered target. Retired.
+3. **Is the emulator configured?** **No.** No `firebase.json`, no `.firebaserc`, no `firebase-tools`.
+   Assumed. Also unnecessary — `firestore-driver.test.ts` and `firestore-sharing.test.ts` have used
+   the `vi.mock("firebase/firestore")` pattern for months. Retired.
 
 ---
 
