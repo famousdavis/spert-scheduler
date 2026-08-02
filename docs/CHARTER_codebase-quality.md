@@ -365,6 +365,18 @@ must come FIRST**. A skipped or corrupt item placed last leaves nothing behind i
 **Both mutations that exposed this exist in the committed specs on purpose** (`F6`, `F12`, and
 `M3`/`M7` for the pairing itself), so the technique is guarded rather than merely described.
 
+⚠️ **And the sentence that generalises all of it:**
+
+> **All 15 passed first time. Over never-executed code that was the signal to distrust them, not to
+> ship.**
+
+A green suite normally means the code is fine. Over code that has **never executed**, it means
+nothing of the kind — there was no prior red run to disprove anything, so the tests and the code
+have only ever agreed with each other. **This inverts the natural reading of green in precisely the
+situation where the natural reading is wrong**, and it is why falsification is budgeted as work
+rather than diligence. In §3.8 Item B it converted two vacuous tests into real ones; without it,
+both would have shipped named for a property they did not cover.
+
 ### The render-level exclusion has a measured price now
 
 `"Explicitly not tested: visual layout, styling"` **remains a defensible scope decision** — this is
@@ -766,7 +778,7 @@ is **"Deferred"**, not v0.45.0 as v1 said).
 Measure the extraction cost. If negligible, decompose. If real, suppress **with the measurement
 attached** — which converts an inherited opinion into a fact.
 
-### 3.8 — The migrations · characterisation DONE, decomposition verdict open
+### 3.8 — The migrations · ✅ CLOSED (characterised; decomposition declined, with reasons)
 
 ⚠️ **This section is a rewrite. It was headed "The two migrations" and prescribed a build that
 characterisation retired in full — the first time in this campaign that an entire approach was
@@ -811,11 +823,37 @@ collision ladder (16 tests, 15 killed mutations). **No defect was found in eithe
 "unexecuted with no independent expression" entry in §2 for why that is the informative result and
 not a disappointing one.
 
+### ⚠️ The decomposition verdict — DECLINED, and why the two functions got different answers
+
+⚠️ **Refuting a suppression's stated reason is NOT the same as establishing that decomposition is
+warranted.** Both original reasons were proved false. That retires the *justification*; it says
+nothing about whether the refactor is a good idea, and *never refactor merely to satisfy the
+threshold* still governs.
+
+**The decisive fact is measured, not argued: shipped migrations are append-only IN PRACTICE.**
+`git log -L` over `migrateV5toV6`'s body returns **exactly one commit** — `3aceb2e` (v0.8.0), its
+introduction. Every later commit to `migrations.ts` adds a new migration or is a repo-wide sweep.
+No shipped migration in this repo has ever been edited after introduction. So the maintainability
+payoff is near zero — easier-to-change code that nobody changes — against the highest risk in the
+codebase, since altering a shipped migration alters how historical user data migrates, forever.
+
+⚠️ **`migrateV5toV6` → suppression now PERMANENT.** The charter's own rule is that a suppression
+*"is interim unless the reason is permanent"*, and append-only is a permanent reason. Its comment
+now records that decomposition was **considered and declined**, with this reasoning and its date, so
+the next reader of the word *"interim"* does not relitigate it.
+
+⚠️ **`migrateLocalToCloud` → stays INTERIM, because the same argument does not hold and the
+difference was measured rather than assumed.** `git log -L` over its body returns **four** commits:
+`57714c3` (v0.12.0, introduction), then `929419e` (v0.15.2), `ff9fe25` (v0.33.0) and `ff7c5da`
+(v0.42.6, **a security fix**). **This code IS edited**, so maintainability is live rather than
+theoretical, and "append-only, nobody changes it" would have been a *second false justification
+replacing the first* — the exact failure this pass exists to correct. Decomposition is **deferred on
+a named condition**, not declined: the reachability question below may mean the ladder needs to
+*change* rather than be reorganised, and decomposing first would entrench a possibly-wrong shape.
+
 **Open:**
 
-1. **The decomposition verdict itself** — nothing has been decomposed. Both suppressions still
-   stand, and both now have a behavioural net under them for the first time.
-2. ⚠️ **A reachability question this repo cannot answer.** `firestore.rules:246` reads
+1. ⚠️ **A reachability question this repo cannot answer — record it, do not chase it from here.** `firestore.rules:246` reads
    `allow get: if isAuth() && request.auth.uid in resource.data.members`. A **non-member** read is
    therefore *denied*, not answered — so the ladder's *"doc exists but belongs to someone else"*
    rung may be a shape the deployed rules can never hand the client, leaving the `catch` as its only
@@ -824,8 +862,13 @@ not a disappointing one.
    migrated project silently gets a new id and reports `migrated-new-id`. **Not decidable from
    here:** the canonical ruleset lives in `spert-landing-page` and deploys via the Firebase Console,
    and no emulator is configured. For the owner, recorded rather than guessed.
-3. **A product question, not a defect:** should clearing an activity's constraint clear its
+2. **A product question, not a defect:** should clearing an activity's constraint clear its
    `constraintNote`? Today the note survives and passes every check in the system — see §2.
+
+**§3.8 is CLOSED.** Characterisation done, both false justifications replaced with true ones, the
+decomposition verdict taken and recorded in the code rather than only here. Nothing was decomposed
+and nothing should be. What remains open are the two items above — one belonging to another repo,
+one belonging to the owner — and neither blocks anything.
 
 ### 3.9 — `src/infrastructure`
 

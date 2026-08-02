@@ -101,12 +101,31 @@ function migrateV4toV5(data: unknown): unknown {
  * v5 → v6: Add heuristic estimate settings to scenario settings.
  * Defaults to 50% for min and 200% for max.
  */
-// B5: suppressed, not refactored. This is a SHIPPED migration — it runs against
-// v5 documents already on real users' disks, and its nested guards over `unknown`
-// are the specification, not incidental shape: each one decides whether a malformed
-// or partial historical document survives. Restructuring cannot be proven
-// behaviour-identical against data we no longer have, and the failure mode is
-// silent corruption of a project the user cannot re-import.
+// B5, revised §3.8 (2026-08-02): suppressed PERMANENTLY — not interim — and
+// decomposition was CONSIDERED AND DECLINED on the reasoning below. Do not
+// relitigate without new evidence; do not refactor merely to clear the threshold.
+//
+// The original reason was WRONG and is removed. It read "restructuring cannot be
+// proven behaviour-identical against data we no longer have" — which argued for
+// needing an oracle, not for never touching this. That premise is now false: this
+// function has ZERO uncovered statements and ZERO uncovered branches, three
+// v5-shaped fixtures already existed in migrations.test.ts, and its two
+// never-executed neighbours are guarded by 11 falsified mutations
+// (scripts/falsify-spec-migrations.mjs).
+//
+// The real reason is PERMANENT: shipped migrations are APPEND-ONLY IN PRACTICE,
+// not merely in principle. `git log -L` over this function's body returns exactly
+// ONE commit — 3aceb2e (v0.8.0) — the one that introduced it. Every later commit
+// to this file adds a new migration or is a repo-wide sweep. No shipped migration
+// in this repo has ever been edited after introduction.
+//
+// So decomposition would make code easier to change that nobody changes, while
+// carrying the highest risk in the codebase: altering a shipped migration alters
+// how historical user data migrates, forever, for every document that has ever
+// been at that version. The nested guards over `unknown` remain the specification
+// rather than incidental shape — each decides whether a malformed or partial
+// historical document survives — and the failure mode is silent corruption of a
+// project the user cannot re-import.
 // eslint-disable-next-line sonarjs/cognitive-complexity
 function migrateV5toV6(data: unknown): unknown {
   const project = data as Record<string, unknown>;
