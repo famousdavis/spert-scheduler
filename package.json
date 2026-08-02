@@ -18,7 +18,8 @@
     "cc": "node scripts/measure-complexity.mjs",
     "mutate": "node scripts/mutation-run.mjs",
     "contract:hash": "node scripts/contract-hash.mjs src/app/api/ai-op-contract.json",
-    "shipgate": "node scripts/shipgate.mjs"
+    "shipgate": "node scripts/shipgate.mjs",
+    "bench": "vitest run --config vitest.bench.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
