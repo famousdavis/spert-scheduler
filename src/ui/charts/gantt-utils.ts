@@ -387,28 +387,31 @@ export interface TodayLine {
  * differently. Forcing those into one function would take about ten parameters and be
  * worse code.
  *
- * ⚠️⚠️ PRINTGANTTCHART DOES NOT USE THIS YET, AND THE REASON IS A REAL CONSTRAINT ON §3.3.
- * Wiring it in costs **+2 lint findings** — `react-hooks/preserve-manual-memoization`,
- * "Compilation Skipped: Existing memoization could not be preserved". Isolated by
- * measurement, not guessed: interactive-only extraction lints at 8, print-only at 10, the
- * helper alone with no consumer at 8.
+ * ⚠️ BOTH CHARTS USE THIS, AND PRINTGANTTCHART PAYS TWO SUPPRESSIONS FOR IT.
+ * Wiring it into the print chart costs two `react-hooks/preserve-manual-memoization`
+ * findings — "Compilation Skipped: Existing memoization could not be preserved". Isolated
+ * by measurement, not guessed: helper alone 8, interactive-only 8, print-only 10, both 10.
  *
- * The trigger is NOT the clock. `todayX` now arrives from an IMPORTED call and then feeds
- * a `useMemo` (the tick-suppression chain); React Compiler cannot prove an imported
- * function is pure, so it stops preserving that component's manual memoization and bails
- * on the whole component — which is why an unrelated `useCallback` also flagged. Tried and
- * rejected: destructuring vs named access, passing primitives instead of the memoized
- * `toX`, and `now` as a prop with a `new Date()` default. All still 10, because none of
- * them changes the imported-call-feeds-memo shape. Note the component already contains an
- * inline `new Date()` elsewhere that never caused a bail.
+ * The trigger is NOT the clock. `todayX` arrives from an IMPORTED call and feeds a
+ * `useMemo`; React Compiler cannot prove an imported function is pure, so it stops
+ * preserving that component's manual memoization and bails on the WHOLE component — which
+ * is why an unrelated memo also reports. Tried and rejected, each measured: destructuring
+ * vs named access, passing primitives instead of the memoized `toX`, and `now` as a prop
+ * with a `new Date()` default. The component already contains an inline `new Date()`
+ * elsewhere that never caused a bail.
  *
- * The remaining options are: raise the lint baseline (forbidden by the working agreement
- * except when reverting), wrap the call in `useMemo` (a real staleness change the frozen
- * oracle would not catch), or leave the print chart's copy inline. The last is what was
- * chosen, and the duplication is recorded rather than hidden.
+ * The two are SUPPRESSED with specific reasons rather than left as duplication, following
+ * the directive already in that file at the printDensityPx memo — same file, same rule,
+ * same print-only-context reasoning. Net lint is unchanged at 8, and the duplication that
+ * had already produced one bug in this pair (the "skips band rows" comment, wrong in both
+ * files because nothing pinned the contract but prose) is gone.
  *
- * **This matters beyond the today-line**: it is the same cost for any extraction out of a
- * memoized component, which is a live constraint on decomposing `GanttChart:947`.
+ * ⚠️⚠️ THE SUPPRESSION IS NOT TRANSFERABLE TO THE INTERACTIVE CHART. Suppressing silences
+ * the report, not the bail — the component genuinely loses compiler optimisation. For a
+ * chart rendered once per export that is plausibly free. `GanttChart` re-renders on scroll
+ * and zoom, so any extraction out of it must MEASURE the real render cost first, or keep
+ * the imported call outside every memo boundary — which probably means hoisting assembled
+ * geometry to a prop rather than computing it inside. Live input to §3.3's remaining work.
  */
 export function computeTodayLine(
   now: Date,

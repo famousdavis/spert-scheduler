@@ -23,7 +23,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine } from "./gantt-utils";
 import type { TickLevel } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 
@@ -137,10 +137,12 @@ export function PrintGanttChart({
   const finishDate = bufferedEndDate ?? projectEndDate;
   const finishX = toX(finishDate);
 
-  // Today line
-  const todayStr = formatDateISO(new Date());
-  const todayInRange = range > 0 && todayStr >= projectStartDate && todayStr <= endDate;
-  const todayX = todayInRange ? toX(todayStr) : null;
+  // Today line — the SAME helper the interactive chart uses, with `now` passed in rather
+  // than read inline. Owner decision (2026-08-01): keep the today-line on printed reports.
+  const todayLine = computeTodayLine(new Date(), projectStartDate, endDate, range, toX);
+  const todayStr = todayLine.todayStr;
+  const todayInRange = todayLine.todayInRange;
+  const todayX = todayLine.todayX;
 
   // Finish Target X — included in tick suppression so a quarter/month tick
   // landing on the same date doesn't visually merge with the target dashed line.
@@ -166,8 +168,16 @@ export function PrintGanttChart({
   }, [printRangeDays, ra.timelineDensityPx]);
 
   // Ticks with suppression
+  // React Compiler cannot prove the imported computeTodayLine is pure, so it declines to
+  // preserve this component's manual memoization and skips compiling it. The memoization is
+  // correct — deps are complete — and gantt-parity-oracle.test.tsx pins this chart's geometry
+  // byte-for-byte. The cost is losing compiler optimisation on a chart rendered once per
+  // export: the same trade already accepted at the printDensityPx directive below.
+  // ⚠️ NOT transferable to the interactive GanttChart, which re-renders on scroll and zoom —
+  // measure the real render cost there before accepting a bail.
   const allTicks = useMemo(
     () => generateTicks(projectStartDate, endDate, tickLevel),
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     [projectStartDate, endDate, tickLevel],
   );
   const ticks = useMemo(() =>
@@ -229,9 +239,12 @@ export function PrintGanttChart({
       calendar as WorkCalendar, projectStartDate, endDate,
       minTs, range, areaW, ra.printLeftMargin, 0.5,
     );
+    // Same cause as the directive above: the compiler bails on the WHOLE component, so
+    // unrelated memoized values report too. Not an independent judgement — the same one.
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
   }, [ra.weekendShading, range, calendar, projectStartDate, endDate, minTs, areaW, ra.printLeftMargin]);
 
-  // Bar label helper
+  // Bar label helper.
   const barLabelText = useCallback((sa: ScheduledActivity): string | null => {
     if (ra.barLabel === "duration") return `${sa.duration}d`;
     if (ra.barLabel === "dates") return formatDate(sa.endDate);
