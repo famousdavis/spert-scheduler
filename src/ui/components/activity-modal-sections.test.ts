@@ -171,10 +171,21 @@ describe("computeGeneralUpdates", () => {
       expect(computeGeneralUpdates(a, "  Same  ", "planned", "")).toEqual({});
     });
 
-    it("SILENTLY IGNORES a name that trims to empty — it is not saved and not rejected", () => {
-      // Worth pinning because it is a product decision hiding in a truthiness check: the
-      // modal has no error state for an emptied name, so the field simply keeps its
-      // previous value on save. Dropping the `trimmed &&` guard would blank the activity.
+    it("CURRENTLY ignores a name that trims to empty — recorded, not endorsed", () => {
+      // ⚠️ This pins the CURRENT BEHAVIOUR, not a contract. It is a product decision
+      // nobody appears to have made: the user clears the field, clicks Save, and the app
+      // silently discards the edit — no error state, no blank name, no feedback. The
+      // plausible intents are "reject with an error" or "accept and blank it"; this does
+      // a third thing.
+      //
+      // Same call as C2, which deliberately left the cyclic-graph behaviour unpinned
+      // because "a test there would enshrine the behaviour rather than record the
+      // question". The difference is that this one is trivially reachable, so leaving it
+      // unpinned would let a refactor change it silently. It is pinned to hold the line
+      // while the question is open — NOT because the behaviour is correct.
+      //
+      // If this is later decided deliberately, replace this test rather than adding to
+      // it, and say which of the three behaviours was chosen.
       const a = makeActivity({ name: "Keep Me" });
       expect(computeGeneralUpdates(a, "", "planned", "")).toEqual({});
       expect(computeGeneralUpdates(a, "   ", "planned", "")).toEqual({});
