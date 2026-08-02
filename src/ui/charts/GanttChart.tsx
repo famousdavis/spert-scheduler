@@ -618,7 +618,12 @@ export function GanttChart({
 
       {/* Chart SVG — horizontally scrollable */}
       <div ref={svgContainerRef} className={`relative border border-gray-200 dark:border-gray-700 rounded-lg${ra.fitToWindow ? "" : " overflow-x-auto"}`}>
+        {/* data-gantt-chart marks the CHART svg, distinguishing it from the toolbar icon
+            and the legend swatches. Read by gantt-parity-oracle.test.tsx, which pins this
+            chart's geometry against PrintGanttChart's — an obligation CLAUDE.md states in
+            prose and nothing else enforced. Behaviour-free. */}
         <svg
+          data-gantt-chart="interactive"
           width={chartWidth}
           height={chartHeight}
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
