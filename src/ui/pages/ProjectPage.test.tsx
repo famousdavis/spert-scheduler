@@ -48,6 +48,29 @@ vi.mock("@ui/providers/StorageProvider", () => ({
   useStorage: vi.fn(() => ({ mode: "local", storageReady: true })),
 }));
 
+/**
+ * ⚠️ `isFirebaseAvailable` is derived from VITE_FIREBASE_API_KEY, so it is TRUE on a
+ * developer machine carrying .env.local and FALSE in CI, which has no secrets. The Connect
+ * AI tests below passed locally and failed in CI for exactly that reason — an ambient
+ * dependency, not a code fault.
+ *
+ * Both branches are real shipped modes (cloud-configured and local-only), so the flag is
+ * driven explicitly here and both are covered. Every other export is spread through from
+ * the real module, because SharingSection and ConnectAiPanel import `db` and the callable
+ * factories from it.
+ */
+const firebaseEnv = vi.hoisted(() => ({ available: true }));
+vi.mock("@infrastructure/firebase/firebase", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@infrastructure/firebase/firebase")>();
+  return {
+    ...actual,
+    get isFirebaseAvailable() {
+      return firebaseEnv.available;
+    },
+  };
+});
+
 import { ProjectPage } from "./ProjectPage";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useNotificationStore } from "@ui/hooks/use-notification-store";
@@ -182,6 +205,7 @@ beforeEach(() => {
   useProjectStore.setState({ projects: [], loadError: false });
   useNotificationStore.setState({ notifications: [] });
   aiHook.sessionState = { sessionActive: false, aiConnected: false };
+  firebaseEnv.available = true;
 });
 
 afterEach(() => {
@@ -500,6 +524,22 @@ describe("ProjectPage — Connect AI entry point", () => {
     expect(
       screen.getByRole("button", { name: "AI session active" })
     ).toBeInTheDocument();
+  });
+
+  it("without Firebase configured, the control is absent entirely (local-only mode)", () => {
+    firebaseEnv.available = false;
+    renderPage(makeProject());
+
+    expect(
+      screen.queryByRole("button", { name: "Connect an AI assistant" })
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "AI session active" })
+    ).toBeNull();
+    // The page still renders — the gate removes the control, not the project.
+    expect(screen.getAllByRole("heading", { level: 1 })[0]).toHaveTextContent(
+      PROJECT_NAME
+    );
   });
 
   it("with no session, clicking Connect AI opens the consent gate rather than starting one", () => {
