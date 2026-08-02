@@ -78,6 +78,20 @@ before refactoring*, never by the metric.
    **Flagged, not fixed, and deliberately not pinned by a test** — a test would enshrine
    the behaviour rather than record the question.
 
+   > ⚠️ **CORRECTION, 2026-08-02 (§3.5 Step 3). The claim above is false as stated, and this
+   > record is left intact rather than rewritten.** All three shapes were measured against
+   > `buildDependencyGraph` directly: a **self-loop** (`a→a`) does not throw, a **2-cycle**
+   > throws, a **3-cycle** throws. So it is not "a cyclic dependency graph" — only a
+   > **self-edge** passes, because `dependency-graph.ts:47` `continue`s on `from === to` and
+   > the edge never enters `inDegree`. Real cycles throw, and the worker correctly converts
+   > that into a posted error. The charter's §3.5 already had this right; this closeout did
+   > not. Both behaviours are now pinned in `simulation.worker.test.ts` — the self-loop as
+   > **recorded-not-specified**, and the real-cycle error beside it as the contrast that
+   > gives it meaning. **The open question is narrower than recorded:** not "why do cycles
+   > post results", but *"should a self-edge be rejected, or is silently ignoring a semantic
+   > no-op correct?"* — which is a product decision, where the original wording sounded like
+   > a bug.
+
 ---
 
 ## Practices worth keeping

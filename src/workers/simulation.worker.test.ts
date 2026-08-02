@@ -19,6 +19,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { Activity, ActivityDependency } from "@domain/models/types";
 import type { SimulationRequest, WorkerOutgoingMessage } from "@core/simulation/worker-protocol";
+import { buildDependencyGraph } from "@core/schedule/dependency-graph";
 
 let posted: WorkerOutgoingMessage[] = [];
 let handler: (event: { data: unknown }) => void;
@@ -141,9 +142,23 @@ describe("simulation.worker — message seam", () => {
       expect(JSON.stringify(results()[0]!.payload.percentiles)).not.toBe(first);
     });
 
-    it("drops a sequential constraint whose type or mode is outside the vocabulary", () => {
-      // Both runs must produce the SAME result: the bogus constraint is filtered out,
-      // so it cannot influence the schedule.
+    /**
+     * ⚠️ RENAMED. This was called "drops a sequential constraint whose type or mode is
+     * outside the vocabulary" — a name describing a guard it CANNOT check.
+     *
+     * It asserts bogus-constraint ≡ no-constraint, and that equality holds for TWO
+     * independent reasons: the vocabulary filter drops the entry, AND applyHardConstraint's
+     * `default:` ignores an unrecognised type downstream. Deleting the filter leaves the
+     * equality intact, so this test passes either way — confirmed by mutation: removing the
+     * type check and removing the mode check both left the entire C2 suite green.
+     *
+     * The guard is checked instead by "hands the engine a filtered constraint array" below,
+     * which captures at the runTrials seam — the only place the difference is observable.
+     * This test still earns its place: it pins that an invalid constraint cannot influence
+     * the schedule, which is the user-facing property.
+     */
+    it("an invalid sequential constraint cannot influence the schedule", () => {
+      // Both runs must produce the SAME result.
       start({
         activities: [act("a", 3)],
         sequentialConstraints: [{ type: "NONSENSE", offsetFromStart: 2, mode: "hard" }],
@@ -153,6 +168,63 @@ describe("simulation.worker — message seam", () => {
       posted = [];
       start({ activities: [act("a", 3)] });
       expect(JSON.stringify(results()[0]!.payload.percentiles)).toBe(withBogus);
+    });
+
+    /**
+     * The vocabulary guard at simulation.worker.ts:114-115, checked at the ONE seam where
+     * its effect is visible.
+     *
+     * ⚠️ WHY OUTPUT-BASED TESTING CANNOT DO THIS. An invalid constraint that survives the
+     * filter still changes nothing downstream — an unknown TYPE hits applyHardConstraint's
+     * `default:`, and a non-"hard" MODE is never applied. So every assertion made on posted
+     * messages passes with the guard deleted, which the protocol oracle and the whole of C2
+     * both demonstrated by mutation. This is not an oracle that was too thin; it is the
+     * wrong capture point for this branch, and no number of fixtures would have fixed it.
+     *
+     * `runTrials` is spied CALLING THROUGH, not mocked. This file's header is explicit that
+     * mocking the engine would leave the marshalling asserted against a fake — observing it
+     * while it really runs keeps that intact.
+     */
+    it("hands the engine a filtered constraint array — the vocabulary guard's only observable effect", async () => {
+      const seen: unknown[] = [];
+      vi.doMock("@core/simulation/monte-carlo", async (importOriginal) => {
+        const actual = await importOriginal<typeof import("@core/simulation/monte-carlo")>();
+        return {
+          ...actual,
+          runTrials: (input: Parameters<typeof actual.runTrials>[0]) => {
+            seen.push(input.sequentialConstraints);
+            return actual.runTrials(input);
+          },
+        };
+      });
+      try {
+        await loadWorker();
+        start({
+          activities: [act("a", 3), act("b", 3), act("c", 3), act("d", 3)],
+          sequentialConstraints: [
+            { type: "NONSENSE", offsetFromStart: 2, mode: "hard" },
+            { type: "SNET", offsetFromStart: 2, mode: "NONSENSE" },
+            { type: "SNET", offsetFromStart: "two", mode: "hard" },
+            { type: "SNET", offsetFromStart: 2, mode: "hard" },
+          ],
+        } as Partial<SimulationRequest["payload"]>);
+
+        // ⚠️ PREMISE BEFORE BEHAVIOUR. A spy that never fires is a test that passes, and
+        // this one is behind a module mock, a resetModules and a dynamic import — three
+        // places it could silently not apply.
+        expect(errors()).toHaveLength(0);
+        expect(seen).toHaveLength(1);
+
+        const marshalled = seen[0] as (unknown | null)[];
+        expect(marshalled).toHaveLength(4);
+        expect(marshalled[0]).toBeNull(); // bad type
+        expect(marshalled[1]).toBeNull(); // bad mode
+        expect(marshalled[2]).toBeNull(); // non-numeric offset
+        expect(marshalled[3]).toEqual({ type: "SNET", offsetFromStart: 2, mode: "hard" });
+      } finally {
+        vi.doUnmock("@core/simulation/monte-carlo");
+        await loadWorker();
+      }
     });
   });
 
@@ -220,6 +292,62 @@ describe("simulation.worker — message seam", () => {
       posted = [];
       start({ activities: twoActivities, dependencies: [fsDep("a", "b")], dependencyMode: true });
       expect(JSON.stringify(results()[0]!.payload.percentiles)).toBe(dropped);
+    });
+
+    /**
+     * ⚠️ RECORDED, NOT SPECIFIED — held to keep §3.5's decomposition honest.
+     *
+     * `docs/CLOSEOUT_codebase-quality-v0.60.0.md` records that "a cyclic dependency graph
+     * posts a result, not an error", flagged and deliberately not pinned because "a test
+     * would enshrine the behaviour rather than record the question". That was right while
+     * nobody was touching the code. It stops being right the moment the handler containing
+     * it is decomposed: neither the certainty nor the reachability changed, EXPOSURE did,
+     * and an unpinned behaviour inside code being refactored can move without anything
+     * saying so.
+     *
+     * ⚠️ MEASURED, AND THE CLOSEOUT IS IMPRECISE. Only a SELF-LOOP passes through —
+     * `dependency-graph.ts:47` explicitly `continue`s on `from === to`, so a self-edge
+     * never enters `inDegree` and Kahn's sort completes. A genuine 2- or 3-cycle DOES
+     * throw, and the worker correctly converts that into a posted error. The charter's
+     * §3.5 correction is the accurate one.
+     *
+     * The open question is therefore narrower than recorded: should a self-edge be
+     * rejected, or is silently ignoring a semantic no-op correct? Not answered here.
+     */
+    it("PREMISE: a self-loop leaves the graph acyclic, while a real cycle does not", () => {
+      // Asserted directly against the graph builder, because the pin below is worthless if
+      // its fixture is not actually the shape it claims. A payload that failed to be
+      // self-looping — a stripped edge, an unresolved id — would post a result too, and
+      // pin nothing.
+      const ids = ["a", "b"];
+      expect(() => buildDependencyGraph(ids, [fsDep("a", "a")])).not.toThrow();
+      expect(() => buildDependencyGraph(ids, [fsDep("a", "b"), fsDep("b", "a")])).toThrow(
+        /cycle/i,
+      );
+    });
+
+    it("a self-loop dependency posts a result rather than an error", () => {
+      start({
+        activities: twoActivities,
+        dependencies: [fsDep("a", "a"), fsDep("a", "b")],
+        dependencyMode: true,
+      });
+      expect(errors()).toHaveLength(0);
+      expect(results()).toHaveLength(1);
+      expect(results()[0]!.payload.percentiles).toBeDefined();
+    });
+
+    it("a genuine dependency cycle posts an error, not a result", () => {
+      // The contrast that gives the pin above its meaning: the worker is not simply
+      // ignoring cycles wholesale.
+      start({
+        activities: twoActivities,
+        dependencies: [fsDep("a", "b"), fsDep("b", "a")],
+        dependencyMode: true,
+      });
+      expect(results()).toHaveLength(0);
+      expect(errors()).toHaveLength(1);
+      expect(errors()[0]!.payload.message).toMatch(/cycle/i);
     });
 
     it("honours a valid constraint — proving the filter is selective, not blanket", () => {

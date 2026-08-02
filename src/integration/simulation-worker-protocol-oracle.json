@@ -1,0 +1,334 @@
+{
+  "sequential/unconstrained": [
+    {
+      "type": "simulation:result",
+      "payloadKeys": [
+        "elapsedMs",
+        "engineVersion",
+        "histogramBins",
+        "id",
+        "maxSample",
+        "mean",
+        "minSample",
+        "percentiles",
+        "samples",
+        "seed",
+        "standardDeviation",
+        "timestamp",
+        "trialCount"
+      ],
+      "values": {
+        "percentileCount": 17,
+        "allPercentilesFinite": true,
+        "meanFinite": true,
+        "minMaxFinite": true,
+        "histogramBinCount": 40,
+        "trialCount": 1000,
+        "seed": "protocol-oracle-seed",
+        "engineVersion": "1.1.1",
+        "sampleArrayLength": 1000,
+        "hasMilestoneResults": false,
+        "elapsedMsIsFiniteNumber": true
+      }
+    }
+  ],
+  "sequential/constrained-hard": [
+    {
+      "type": "simulation:result",
+      "payloadKeys": [
+        "elapsedMs",
+        "engineVersion",
+        "histogramBins",
+        "id",
+        "maxSample",
+        "mean",
+        "minSample",
+        "percentiles",
+        "samples",
+        "seed",
+        "standardDeviation",
+        "timestamp",
+        "trialCount"
+      ],
+      "values": {
+        "percentileCount": 17,
+        "allPercentilesFinite": true,
+        "meanFinite": true,
+        "minMaxFinite": true,
+        "histogramBinCount": 40,
+        "trialCount": 1000,
+        "seed": "protocol-oracle-seed",
+        "engineVersion": "1.1.1",
+        "sampleArrayLength": 1000,
+        "hasMilestoneResults": false,
+        "elapsedMsIsFiniteNumber": true
+      }
+    }
+  ],
+  "sequential/constraint-entry-rejected-as-invalid": [
+    {
+      "type": "simulation:result",
+      "payloadKeys": [
+        "elapsedMs",
+        "engineVersion",
+        "histogramBins",
+        "id",
+        "maxSample",
+        "mean",
+        "minSample",
+        "percentiles",
+        "samples",
+        "seed",
+        "standardDeviation",
+        "timestamp",
+        "trialCount"
+      ],
+      "values": {
+        "percentileCount": 17,
+        "allPercentilesFinite": true,
+        "meanFinite": true,
+        "minMaxFinite": true,
+        "histogramBinCount": 40,
+        "trialCount": 1000,
+        "seed": "protocol-oracle-seed",
+        "engineVersion": "1.1.1",
+        "sampleArrayLength": 1000,
+        "hasMilestoneResults": false,
+        "elapsedMsIsFiniteNumber": true
+      }
+    }
+  ],
+  "sequential/parkinsons-floors": [
+    {
+      "type": "simulation:result",
+      "payloadKeys": [
+        "elapsedMs",
+        "engineVersion",
+        "histogramBins",
+        "id",
+        "maxSample",
+        "mean",
+        "minSample",
+        "percentiles",
+        "samples",
+        "seed",
+        "standardDeviation",
+        "timestamp",
+        "trialCount"
+      ],
+      "values": {
+        "percentileCount": 17,
+        "allPercentilesFinite": true,
+        "meanFinite": true,
+        "minMaxFinite": true,
+        "histogramBinCount": 40,
+        "trialCount": 1000,
+        "seed": "protocol-oracle-seed",
+        "engineVersion": "1.1.1",
+        "sampleArrayLength": 1000,
+        "hasMilestoneResults": false,
+        "elapsedMsIsFiniteNumber": true
+      }
+    }
+  ],
+  "sequential/progress-reported": [
+    {
+      "type": "simulation:progress",
+      "payloadKeys": [
+        "completedTrials",
+        "totalTrials"
+      ],
+      "values": {
+        "completedTrials": 10000,
+        "totalTrials": 20000
+      }
+    },
+    {
+      "type": "simulation:result",
+      "payloadKeys": [
+        "elapsedMs",
+        "engineVersion",
+        "histogramBins",
+        "id",
+        "maxSample",
+        "mean",
+        "minSample",
+        "percentiles",
+        "samples",
+        "seed",
+        "standardDeviation",
+        "timestamp",
+        "trialCount"
+      ],
+      "values": {
+        "percentileCount": 17,
+        "allPercentilesFinite": true,
+        "meanFinite": true,
+        "minMaxFinite": true,
+        "histogramBinCount": 40,
+        "trialCount": 20000,
+        "seed": "protocol-oracle-seed",
+        "engineVersion": "1.1.1",
+        "sampleArrayLength": 20000,
+        "hasMilestoneResults": false,
+        "elapsedMsIsFiniteNumber": true
+      }
+    }
+  ],
+  "dependency/plain": [
+    {
+      "type": "simulation:result",
+      "payloadKeys": [
+        "elapsedMs",
+        "engineVersion",
+        "histogramBins",
+        "id",
+        "maxSample",
+        "mean",
+        "minSample",
+        "percentiles",
+        "samples",
+        "seed",
+        "standardDeviation",
+        "timestamp",
+        "trialCount"
+      ],
+      "values": {
+        "percentileCount": 17,
+        "allPercentilesFinite": true,
+        "meanFinite": true,
+        "minMaxFinite": true,
+        "histogramBinCount": 40,
+        "trialCount": 1000,
+        "seed": "protocol-oracle-seed",
+        "engineVersion": "1.1.1",
+        "sampleArrayLength": 1000,
+        "hasMilestoneResults": false,
+        "elapsedMsIsFiniteNumber": true
+      }
+    }
+  ],
+  "dependency/with-milestones": [
+    {
+      "type": "simulation:result",
+      "payloadKeys": [
+        "elapsedMs",
+        "engineVersion",
+        "histogramBins",
+        "id",
+        "maxSample",
+        "mean",
+        "milestoneResults",
+        "minSample",
+        "percentiles",
+        "samples",
+        "seed",
+        "standardDeviation",
+        "timestamp",
+        "trialCount"
+      ],
+      "values": {
+        "percentileCount": 17,
+        "allPercentilesFinite": true,
+        "meanFinite": true,
+        "minMaxFinite": true,
+        "histogramBinCount": 40,
+        "trialCount": 1000,
+        "seed": "protocol-oracle-seed",
+        "engineVersion": "1.1.1",
+        "sampleArrayLength": 1000,
+        "hasMilestoneResults": true,
+        "elapsedMsIsFiniteNumber": true
+      }
+    }
+  ],
+  "dependency/constraints-no-milestones": [
+    {
+      "type": "simulation:result",
+      "payloadKeys": [
+        "elapsedMs",
+        "engineVersion",
+        "histogramBins",
+        "id",
+        "maxSample",
+        "mean",
+        "minSample",
+        "percentiles",
+        "samples",
+        "seed",
+        "standardDeviation",
+        "timestamp",
+        "trialCount"
+      ],
+      "values": {
+        "percentileCount": 17,
+        "allPercentilesFinite": true,
+        "meanFinite": true,
+        "minMaxFinite": true,
+        "histogramBinCount": 40,
+        "trialCount": 1000,
+        "seed": "protocol-oracle-seed",
+        "engineVersion": "1.1.1",
+        "sampleArrayLength": 1000,
+        "hasMilestoneResults": false,
+        "elapsedMsIsFiniteNumber": true
+      }
+    }
+  ],
+  "error/activities-missing": [
+    {
+      "type": "simulation:error",
+      "payloadKeys": [
+        "message"
+      ],
+      "values": {
+        "message": "Invalid simulation payload: missing or invalid activities"
+      }
+    }
+  ],
+  "error/trialcount-too-low": [
+    {
+      "type": "simulation:error",
+      "payloadKeys": [
+        "message"
+      ],
+      "values": {
+        "message": "Invalid simulation payload: trialCount must be between 1000 and 100000"
+      }
+    }
+  ],
+  "error/trialcount-too-high": [
+    {
+      "type": "simulation:error",
+      "payloadKeys": [
+        "message"
+      ],
+      "values": {
+        "message": "Invalid simulation payload: trialCount must be between 1000 and 100000"
+      }
+    }
+  ],
+  "error/seed-empty": [
+    {
+      "type": "simulation:error",
+      "payloadKeys": [
+        "message"
+      ],
+      "values": {
+        "message": "Invalid simulation payload: rngSeed must be a non-empty string"
+      }
+    }
+  ],
+  "error/engine-throws": [
+    {
+      "type": "simulation:error",
+      "payloadKeys": [
+        "message"
+      ],
+      "values": {
+        "message": "Cannot create Normal distribution for activity \"bad\": NormalDistribution: sigma must be >= 0, got -19.6"
+      }
+    }
+  ],
+  "unknown-message-type/silently-ignored": []
+}
