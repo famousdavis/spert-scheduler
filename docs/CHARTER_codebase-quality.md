@@ -6,15 +6,21 @@
 point-in-time artifact, deliberately left under the root convention; its §3.1 census figures are
 superseded by `docs/CENSUS_cognitive-complexity-2026-08-02.md`.*
 
-**State, re-derived 2026-08-02:** `main` @ `bf4d8b6` · **v0.62.1** · lint **8 (8 errors, 0
-warnings)** · **2,600 tests / 127 files**
+**State, re-derived 2026-08-02 (§3.5 Step 4 branch):** `main` @ `bee6cc6` · **v0.62.2** ·
+lint **5 (5 errors, 0 warnings)** · **2,704 tests / 131 files**
 *Carried forward, NOT re-derived today:* `deterministic.ts` mutation **84.96%** (34 survivors) —
 no source change since it was measured, but nothing has re-run it either.
 
-⚠️ **This State line has now gone stale twice.** It read `85cc711` / v0.60.0 / lint 10 / 2,280
-tests for four releases, then `01b6ffa` / v0.62.0 / 2,568 tests for three more. §4's *"every
+⚠️ **This State line has now gone stale three times.** It read `85cc711` / v0.60.0 / lint 10 /
+2,280 tests for four releases, then `01b6ffa` / v0.62.0 / 2,568 tests for three more, then
+`bf4d8b6` / v0.62.1 / lint 8 / 2,600 tests while `main` was two releases past it. §4's *"every
 reference here is anchored at `85cc711`"* is stale in the same way. **Re-derive line numbers rather
 than trusting any anchor in this file.**
+
+⚠️ **And the test count is a worked example of why.** The §3.5 Step 4 handoff, and PR #260's own
+body, both stated **2,703**. Measured on that exact tree: **2,704**. Off by one, in a figure
+written by the session that produced it, propagated into the next session's brief as a state to
+verify against — which is the only reason it was caught.
 
 > **Moved into `docs/` and tracked, 2026-08-02.** It lived at the repo root, untracked, alongside
 > the point-in-time `PROMPT_`/`ANALYSIS_`/`CRITIQUE_` working files. Three reasons it does not
@@ -77,7 +83,7 @@ Full derivation in `CLOSEOUT_codebase-quality-v0.60.0.md`. Two govern everything
 claims were wrong or overstated** — including its own headline mutation figure. If a number gates a
 decision, produce it.
 
-**Guard against checks that cannot fail.** ⚠️ **Nineteen instances now** — this table said *"seven"*
+**Guard against checks that cannot fail.** ⚠️ **Twenty instances now** — this table said *"seven"*
 and listed seven until 2026-08-01, while five more sat in commit bodies and one arrived that day.
 **None was caught by tooling; every one was caught by a person finding a result implausible.**
 
@@ -101,6 +107,7 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 | **v0.62.2** | ⚠️ **AN AMBIGUOUS MUTATION NEEDLE MUTATES THE WRONG SITE.** `String.replace(string, …)` rewrites only the FIRST occurrence. Three needles in the analytics spec matched lines shared by `bootstrapPercentileCI` and `computeBatchPercentileCIs`, so all three mutated the untested sibling and were reported as **survivors**. Found the same day instance #3 was fixed, **in the tool that fixed it**. Fixed by `checkNeedleUnique`. |
 | **§3.7** | ⚠️ **A MEASUREMENT INVERTED BY AN UNCONTROLLED ORDERING EFFECT — a category of its own.** A sequential A/B gave a **+5% workload a NEGATIVE delta**: more work, measured faster, because whichever variant runs first pays the JIT warm-up. Every other entry is a check that *cannot* fail or that fails toward a null; **this one runs, succeeds, and returns a confident, precise, WRONG-SIGNED number.** Trusted in the §3.7 decomposition A/B it would have shown that extracting code from a hot loop made it faster — absurd, but only just, and "supported by measurement". Caught by the injected-delta calibration and by **nothing else**. Fix: interleaved round-robin timing with every variant pre-warmed (`monte-carlo.bench.ts`). |
 | **§3.5** | ⚠️ **THE INSTRUMENT WAS MEASURING AT THE WRONG SEAM — a category beyond "measuring too little".** The worker's constraint-vocabulary guard (`:114–115`) has no observable effect on posted output: an unknown TYPE hits `applyHardConstraint`'s `default:` and a non-`"hard"` MODE is never applied. Deleting either check left the **entire C2 suite AND the protocol oracle green** — including three C2 tests *named* for that guard. **No number of extra fixtures would have helped**, which makes it worse than #256's inert-on-one-path oracle: the intuitive response to an incomplete oracle is *add cases*, and here that would have failed silently while looking like diligence. Fixed by capturing at the `runTrials` seam instead (a spy calling **through**, not a mock). |
+| **§3.5 Step 4** | ⚠️ **A PREMISE TEST THAT MEASURES ITS OWN FIXTURE NAMES.** The protocol oracle's `"the fixtures actually reach BOTH engines, not just one"` filters the successful fixtures by the string prefixes `dependency/` and `sequential/` and asserts the counts — a fact about the **naming convention**, not about which engine ran. Mutation **W11** routed *every* dependency payload to the sequential engine and that test **passed**; the only failure was `dependency/with-milestones`, and only because milestones vanish. So the guard that reads as "both engines are exercised" is carried entirely by one unrelated fixture. ⚠️ It was written **one artifact after** the same session renamed `simulation.worker.test.ts:144` for precisely this defect — *a name describing a guard it cannot check.* **Knowing the failure class did not confer immunity to it**, which is the second time that has been recorded here (cf. instance #12, found by the session probing for it, in its own probe). Recorded, not yet fixed; W11's spec comment carries the measured limitation so it cannot be lost. |
 
 ✅ **And one instrument behaved correctly, which is worth recording too.** The benchmark's first
 calibration attempt produced a 0.9ms delta against sd 1.5ms and reported **NOT DETECTED** —
@@ -461,11 +468,19 @@ NOT VERIFIED surfaces — the component test and the parser work are the same su
 > - **Step 3** — the self-loop behaviour pinned **recorded-not-specified**, premise proven
 >   first, both mutations killed.
 >
-> **NEXT: Step 4** — decompose `simulation.worker.ts:41` (cc 30, 97.95% covered → a
-> decomposition problem, not a coverage one). Verify the committed protocol oracle stays
-> **byte-identical**, mutation on **absolute `Survived`** with all six categories, re-derive
-> lint and lower `expectProblems` in the same commit.
-> **Then Step 5** — the vocabulary dedup. Safe per Step 1. ⚠️ `CONSTRAINT_TYPES` is `as const`,
+> - **Step 4 — DONE.** `self.onmessage` **cc 30 → 8**; four extracted functions, none above
+>   cc 3, so this is decomposition and not relocation. Lint **6 → 5**. The committed oracle
+>   passes **byte-identical** (not regenerated, not `-u`). Mutation on absolute `Survived`,
+>   both scopes, all six categories: `docs/mutation-baseline-worker.md`.
+>   ⚠️ **`Survived` FELL 14 → 6, and seven of those eight are the same two gaps counted fewer
+>   times** — merging three duplicated map conversions into one collapses their mutants without
+>   guarding anything. Every one of the 14 is reconciled in that file. **A drop needs accounting
+>   as much as a rise does.**
+>   ⚠️ **Reproducing the run needs `tsconfigFile: "tsconfig.worker.json"`** — `tsconfig.app.json`
+>   *excludes* `src/workers/**`, so Stryker's checker crashes on the first mutant. Neither config
+>   edit is committed, and the file says why.
+>
+> **NEXT: Step 5** — the vocabulary dedup. Safe per Step 1. ⚠️ `CONSTRAINT_TYPES` is `as const`,
 > so `.includes(c.type)` on a readonly tuple will not type-check against a `string`. **Do not
 > cast** — that is the fixture-cast defect in a different costume. Write a guard that
 > **narrows** (`c is ConstraintType`), so the dedup ends up stronger than a like-for-like swap.
