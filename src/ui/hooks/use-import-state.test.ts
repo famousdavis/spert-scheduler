@@ -122,12 +122,21 @@ describe("useImportState — handleFileChange", () => {
 });
 
 describe("useImportState — updateDecision (pitfall #19)", () => {
-  it("immutable round-trip via Map; updating one decision preserves the others", async () => {
-    // Pre-populate state by mocking the preview phase via the hook's own
-    // handleFileChange isn't feasible here without FileReader; instead, we
-    // exercise the immutability via direct state inspection.
+  /**
+   * ⚠️ RENAMED. This was called "immutable round-trip via Map; updating one decision
+   * preserves the others" — a name describing an assertion it never made. With
+   * `currentProjects` empty there are no conflicts, so `decisions` is empty and the only
+   * thing exercised is the `if (!existing) return prev` early exit. Green while testing
+   * something other than its name is this project's recurring defect shape, so the name
+   * now matches the assertion.
+   *
+   * The round-trip the old name described needs real decisions, which needs the preview
+   * phase, which `renderHook` cannot reach. It is covered through the DOM instead —
+   * `ImportSection.test.tsx`, "updating one decision leaves the other's action and its
+   * position untouched".
+   */
+  it("an update for an unknown id is a no-op that preserves state identity", async () => {
     const { result } = renderHook(() => useImportState({ currentProjects: [] }));
-    // No conflicts after only-add file → empty decisions; we test the no-op safe case.
     const before = result.current.importState;
     act(() => result.current.updateDecision("nonexistent", "replace"));
     expect(result.current.importState).toBe(before); // no-op preserves identity
