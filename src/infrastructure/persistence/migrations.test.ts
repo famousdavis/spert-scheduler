@@ -743,6 +743,246 @@ describe("applyMigrations", () => {
     expect(result.schemaVersion).toBe(9);
   });
 
+  // -- v10 → v11: activity constraint fields ---------------------------------
+  //
+  // CHARACTERISATION (§3.8). Added because `migrateV10toV11`'s else at :213 — an
+  // activity arriving with all three constraint fields ALREADY set — had never been
+  // taken by any test in the suite (v8 branch counts [2, 0]), and `!hasMode` had
+  // never been the deciding clause ([2, 1, 0]). That is the realistic upgrade path
+  // for anyone who used constraints before v11. These tests pin what the migration
+  // ACTUALLY does; they assert no intent beyond the observed behaviour.
+  //
+  // Reachability: every preserve-case fixture also carries an activity the migration
+  // MUST rewrite. If the loop never runs — misspelled key, wrong nesting — the rewrite
+  // assertion fails, so a preserved value can never be mistaken for an untouched one.
+
+  const activitiesOf = (result: Record<string, unknown>) => {
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    return scenarios[0]!.activities as Array<Record<string, unknown>>;
+  };
+
+  it("v10→v11: preserves a fully-specified constraint, and nulls a partial one in the same pass", () => {
+    const v10Data = {
+      schemaVersion: 10,
+      scenarios: [
+        {
+          activities: [
+            {
+              id: "full",
+              constraintType: "SNET",
+              constraintDate: "2026-03-01",
+              constraintMode: "hard",
+            },
+            { id: "partial", constraintType: "MSO", constraintDate: "2026-04-01" },
+          ],
+        },
+      ],
+    };
+
+    const result = applyMigrations(v10Data, 10, 11) as Record<string, unknown>;
+    const activities = activitiesOf(result);
+
+    // Premise: the loop ran. "partial" is missing constraintMode, so the migration
+    // is obliged to null all three. If this fails, the preserve assertion below
+    // proves nothing.
+    expect(activities[1]!).toMatchObject({
+      constraintType: null,
+      constraintDate: null,
+      constraintMode: null,
+    });
+
+    // The never-taken else: all three present → all three left exactly as found.
+    expect(activities[0]!).toMatchObject({
+      constraintType: "SNET",
+      constraintDate: "2026-03-01",
+      constraintMode: "hard",
+    });
+    expect(result.schemaVersion).toBe(11);
+  });
+
+  it("v10→v11: nulls a constraint missing only constraintMode", () => {
+    // Isolates the third clause of `!hasType || !hasDate || !hasMode`, which was
+    // never the deciding one: type and date are both present and valid.
+    const v10Data = {
+      schemaVersion: 10,
+      scenarios: [
+        {
+          activities: [
+            { id: "a", constraintType: "FNLT", constraintDate: "2026-05-01" },
+          ],
+        },
+      ],
+    };
+
+    const result = applyMigrations(v10Data, 10, 11) as Record<string, unknown>;
+    expect(activitiesOf(result)[0]!).toMatchObject({
+      constraintType: null,
+      constraintDate: null,
+      constraintMode: null,
+    });
+  });
+
+  it("v10→v11: leaves an unrelated constraintNote in place when nulling a partial constraint", () => {
+    // Observed, not designed: constraintNote is outside the three-field guard, so a
+    // note can outlive the constraint it described. This passes ProjectSchema — the
+    // superRefine at project.schema.ts:114 covers type/date/mode only — so it is
+    // recorded as behaviour, not asserted to be correct.
+    const v10Data = {
+      schemaVersion: 10,
+      scenarios: [
+        {
+          activities: [
+            { id: "a", constraintType: "MFO", constraintNote: "board commitment" },
+          ],
+        },
+      ],
+    };
+
+    const result = applyMigrations(v10Data, 10, 11) as Record<string, unknown>;
+    expect(activitiesOf(result)[0]!).toMatchObject({
+      constraintType: null,
+      constraintDate: null,
+      constraintMode: null,
+      constraintNote: "board commitment",
+    });
+  });
+
+  it("v10→v11: skips a scenario with no activities array", () => {
+    const v10Data = { schemaVersion: 10, scenarios: [{ settings: {} }] };
+    const result = applyMigrations(v10Data, 10, 11) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(11);
+    expect((result.scenarios as Array<Record<string, unknown>>)[0]).toEqual({
+      settings: {},
+    });
+  });
+
+  // -- v11 → v12: SS/FF dependency relationship types -------------------------
+  //
+  // CHARACTERISATION (§3.8). `migrateV11toV12`'s write-forward at :238 had NEVER
+  // EXECUTED — v8 branch counts [0, 0] against the entire suite. Every prior test
+  // reached the function with `dependencies` empty or absent, so the loop was
+  // entered and iterated zero times. The migration's whole purpose is writing
+  // type = "FS" onto legacy dependencies, and nothing had ever checked that it does.
+
+  const depsOf = (result: Record<string, unknown>) => {
+    const scenarios = result.scenarios as Array<Record<string, unknown>>;
+    return scenarios[0]!.dependencies as Array<Record<string, unknown>>;
+  };
+
+  it("v11→v12: writes type = FS onto dependencies missing or nulling the field", () => {
+    const v11Data = {
+      schemaVersion: 11,
+      scenarios: [
+        {
+          dependencies: [
+            { fromActivityId: "a", toActivityId: "b", lagDays: 3 },
+            { fromActivityId: "b", toActivityId: "c", type: null, lagDays: 0 },
+          ],
+        },
+      ],
+    };
+
+    const result = applyMigrations(v11Data, 11, 12) as Record<string, unknown>;
+    const deps = depsOf(result);
+
+    expect(deps).toHaveLength(2);
+    expect(deps[0]!.type).toBe("FS"); // absent → FS
+    expect(deps[1]!.type).toBe("FS"); // explicit null → FS
+    expect(result.schemaVersion).toBe(12);
+  });
+
+  it("v11→v12: preserves an existing SS type while filling a sibling that lacks one", () => {
+    const v11Data = {
+      schemaVersion: 11,
+      scenarios: [
+        {
+          dependencies: [
+            { fromActivityId: "a", toActivityId: "b", type: "SS", lagDays: 0 },
+            { fromActivityId: "b", toActivityId: "c", lagDays: 0 },
+          ],
+        },
+      ],
+    };
+
+    const result = applyMigrations(v11Data, 11, 12) as Record<string, unknown>;
+    const deps = depsOf(result);
+
+    // Premise: the loop ran over THIS array — the second dependency was rewritten.
+    expect(deps[1]!.type).toBe("FS");
+    // The else branch: an existing type is never overwritten.
+    expect(deps[0]!.type).toBe("SS");
+  });
+
+  it("v11→v12: does not correct a dependency type it does not recognise", () => {
+    // The guard is `=== undefined || === null`, so any other value survives —
+    // including one outside DEPENDENCY_TYPES. The migration fills gaps; it does
+    // not validate. Zod rejects such a document later, at ProjectSchema.
+    const v11Data = {
+      schemaVersion: 11,
+      scenarios: [
+        {
+          dependencies: [
+            { fromActivityId: "a", toActivityId: "b", type: "XX", lagDays: 0 },
+            { fromActivityId: "b", toActivityId: "c", lagDays: 0 },
+          ],
+        },
+      ],
+    };
+
+    const result = applyMigrations(v11Data, 11, 12) as Record<string, unknown>;
+    const deps = depsOf(result);
+
+    expect(deps[1]!.type).toBe("FS"); // premise: the loop ran
+    expect(deps[0]!.type).toBe("XX"); // unrecognised value left untouched
+  });
+
+  it("v11→v12: writes type but does not default the required lagDays field", () => {
+    // Asymmetry, recorded rather than judged: `type` and `lagDays` were introduced
+    // in the SAME commit (v0.9.0, dependencies themselves), and ActivityDependency
+    // requires both — lagDays is non-optional in the interface AND in
+    // ActivityDependencySchema. This migration write-forwards one and not the other.
+    // No document produced by the app can reach here missing either field, so the
+    // gap is unreachable in practice; it is pinned so that ceases to be an accident.
+    const v11Data = {
+      schemaVersion: 11,
+      scenarios: [
+        { dependencies: [{ fromActivityId: "a", toActivityId: "b" }] },
+      ],
+    };
+
+    const result = applyMigrations(v11Data, 11, 12) as Record<string, unknown>;
+    const deps = depsOf(result);
+
+    expect(deps[0]!.type).toBe("FS");
+    expect(deps[0]!).not.toHaveProperty("lagDays");
+  });
+
+  it("v11→v12: skips a scenario with no dependencies array", () => {
+    const v11Data = { schemaVersion: 11, scenarios: [{ activities: [] }] };
+    const result = applyMigrations(v11Data, 11, 12) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(12);
+    expect((result.scenarios as Array<Record<string, unknown>>)[0]).toEqual({
+      activities: [],
+    });
+  });
+
+  it("v10→v12: a non-array `activities` or `dependencies` throws, and callers catch it", () => {
+    // Both loops assume iterability once the truthiness guard passes, so a malformed
+    // historical document raises TypeError rather than being repaired or skipped.
+    // This is CONTAINED, not unhandled — every reachable caller catches it:
+    //   local-storage-repository.ts:224  → structured "migration" error
+    //   firestore-driver.ts:174          → skips the corrupted project
+    //   use-import-state.ts:367          → "The file could not be processed."
+    // Pinned so that containment stays a property of the system and not a
+    // coincidence of three independent try/catches.
+    expect(() =>
+      applyMigrations({ schemaVersion: 10, scenarios: [{ activities: {} }] }, 10, 11)
+    ).toThrow(TypeError);
+    expect(() =>
+      applyMigrations({ schemaVersion: 11, scenarios: [{ dependencies: {} }] }, 11, 12)
+    ).toThrow(TypeError);
+  });
+
   // -- v12 → v13: Parkinson's Law toggle ------------------------------------
 
   it("v12→v13: sets parkinsonsLawEnabled = true on scenarios missing the field", () => {
