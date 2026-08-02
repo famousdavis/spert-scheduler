@@ -109,6 +109,9 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 | **§3.5** | ⚠️ **THE INSTRUMENT WAS MEASURING AT THE WRONG SEAM — a category beyond "measuring too little".** The worker's constraint-vocabulary guard (`:114–115`) has no observable effect on posted output: an unknown TYPE hits `applyHardConstraint`'s `default:` and a non-`"hard"` MODE is never applied. Deleting either check left the **entire C2 suite AND the protocol oracle green** — including three C2 tests *named* for that guard. **No number of extra fixtures would have helped**, which makes it worse than #256's inert-on-one-path oracle: the intuitive response to an incomplete oracle is *add cases*, and here that would have failed silently while looking like diligence. Fixed by capturing at the `runTrials` seam instead (a spy calling **through**, not a mock). |
 | **§3.5 Step 4** | ⚠️ **A PREMISE TEST THAT MEASURES ITS OWN FIXTURE NAMES.** The protocol oracle's `"the fixtures actually reach BOTH engines, not just one"` filters the successful fixtures by the string prefixes `dependency/` and `sequential/` and asserts the counts — a fact about the **naming convention**, not about which engine ran. Mutation **W11** routed *every* dependency payload to the sequential engine and that test **passed**; the only failure was `dependency/with-milestones`, and only because milestones vanish. So the guard that reads as "both engines are exercised" is carried entirely by one unrelated fixture. ⚠️ It was written **one artifact after** the same session renamed `simulation.worker.test.ts:144` for precisely this defect — *a name describing a guard it cannot check.* **Knowing the failure class did not confer immunity to it**, which is the second time that has been recorded here (cf. instance #12, found by the session probing for it, in its own probe). Recorded, not yet fixed; W11's spec comment carries the measured limitation so it cannot be lost. |
 
+| **§3.8 Item A** | ⚠️ **A SUCCESS EXIT CODE THAT CANNOT EXPRESS "MATCHED NOTHING".** `sed -i '' 's/\bfirstDeps\b/depsOf/g'` on darwin substituted nothing and **exited 0** — BSD `sed` has no `\b`. Falsification was then re-run against a file believed to have changed and returned 11/11 green: a correct result for the wrong file. The ledger already held *"unasserted `replace` ×2"* (#242/#244), but this is the sharper form — **there WAS a check, and it was the exit code**, whose success contract does not include *did anything*. Same family as the census's `hits > 0` and `cc`'s 0-for-parse-error: a signal structurally unable to report the failure mode it is being trusted for. **Rule: for any text transformation, assert the NUMBER OF SITES CHANGED, never the exit code.** ⚠️ Platform detail, because it will recur: this repo runs on darwin, and BSD-vs-GNU `sed` differ on `\b`, `-i`, and `\+`. Prefer a script that reports its own replacement count. |
+| **§3.8 Item B** | ⚠️ **A PER-ITEM ISOLATION TEST WITH THE HANDLED ITEM LAST TESTS NO ISOLATION.** Two of fifteen mutations initially SURVIVED (`continue` → `break` in the skip and corrupt rungs) because the fixtures put the skipped/corrupt project *after* the healthy one — by then the loop was over, so aborting and continuing are indistinguishable. Both tests were *named* for isolation and covered none of it. **Isolation is a property of the LOOP: the handled item must PRECEDE a healthy one, or the assertion is vacuous.** Found by falsification, not by review — and the two tests had passed on their first run, which over never-executed code is precisely when to distrust them. |
+
 ✅ **And one instrument behaved correctly, which is worth recording too.** The benchmark's first
 calibration attempt produced a 0.9ms delta against sd 1.5ms and reported **NOT DETECTED** —
 it **refused to certify a resolution it did not have**. That is the behaviour every tool in this
@@ -290,6 +293,77 @@ turned out recoverable from #240–#244 and nothing else. The one report proposi
 practice is the one that nearly did not survive. That is why it is recorded in **#269's PR body as
 well as here**: a practice about durable storage that exists only in a doc nobody re-reads is half
 the failure it describes.
+
+### ⚠️ Unexecuted is not the risk signal — unexecuted with NO INDEPENDENT EXPRESSION is
+
+Recorded 2026-08-02, from §3.8. **This is the second DIRECTION practice, and it exists because a
+prediction made in this charter's own terms failed.**
+
+Every prior first-execution in this campaign found something — ImportSection, ProjectPage, the
+worker seam. §3.8 Item A was therefore predicted to be the highest-probability defect discovery
+yet: `migrateV11toV12`'s write-forward had **never once executed**, and it runs against real user
+documents during schema migration. **It was correct.** Ten characterisation tests, eleven killed
+mutations, no defect.
+
+**Why it was correct is the whole finding.** That code was never verified by a *test*, but it was
+verified by a **second independent implementation of the same rule agreeing with it**:
+`migrateV10toV11` nulls all three constraint fields unless all are set; `ProjectSchema`'s
+`superRefine` rejects unless all three are equally present. Different mechanisms — one makes data
+conform, the other refuses non-conforming data — expressing one invariant. That is convergence, not
+duplication, and it is a real if weaker form of verification.
+
+**The repo already does this deliberately.** `firestore-driver.ts:544` carries the comment
+*"Firestore rule enforces; redundant by design"* on a client-side owner check.
+
+| Behaviour | Independent expression | Verdict |
+|---|---|---|
+| `migrateV10toV11`'s all-or-nothing constraint nulling | `ProjectSchema.superRefine` | correct, and now tested |
+| An unrecognised dependency type surviving `migrateV11toV12` | `z.enum(DEPENDENCY_TYPES)` rejects downstream | fine — the migration fills gaps because something else validates |
+| **`constraintNote` outliving the constraint it described** | **none — the `superRefine` covers type/date/mode only** | ⚠️ **the interesting one.** A note describing a constraint that no longer exists passes every check in the system. Recorded as a **product question** — should clearing a constraint clear its note? — not chased. |
+
+⚠️ **So the search order changes.** Ranking by "never executed" ranks by *how little we looked*.
+Ranking by "never executed **and** nothing else in the system restates it" ranks by how little
+*anything* looked. Ask of any unexecuted code: **is there a schema, a rule, a sibling guard, or a
+server-side check that says the same thing a different way?** If yes, it is likelier fine than the
+coverage number suggests. If no, that is where to spend the effort.
+
+⚠️ **And record the prediction before the work, then report against it either way.** Item B's
+prediction — *"the four-way collision ladder has no independent expression anywhere"* — was
+**partly wrong**, and usefully: `firestore.rules:246` membership-gates the read, so the rules do
+independently constrain the ladder. That was written down *before* looking. A prediction checked
+only when it fails is the same defect as one checked only when it succeeds.
+
+### ⚠️ Build fixtures that CANNOT pass vacuously — structure beats assertion
+
+Recorded 2026-08-02, from §3.8. **This supersedes nothing but strengthens "assert the premise
+before the behaviour", which is a habit; this is a construction.**
+
+The premise problem: a test asserting that a migration **left a value alone** passes identically
+when the code under test never ran at all — wrong key, wrong nesting, empty array, loop entered
+zero times. The charter's existing answer is to assert the premise separately. That works and it
+can be forgotten.
+
+**The construction: every preserve-case fixture carries BOTH a value the code must rewrite AND one
+it must leave alone.**
+
+```ts
+dependencies: [
+  { fromActivityId: "a", toActivityId: "b", type: "SS", lagDays: 0 }, // must survive
+  { fromActivityId: "b", toActivityId: "c", lagDays: 0 },             // must become FS
+]
+```
+
+If the loop never reaches this array, the test fails **on the rewrite**, not on the untouched
+value. Vacuity is now structurally impossible rather than defended against. An assertion can be
+omitted; a fixture that cannot pass vacuously cannot be omitted, because it *is* the test.
+
+⚠️ **The ordering corollary, which cost two survivors before it was understood.** For any property
+of the LOOP rather than of an item — per-item isolation, continue-vs-abort — **the handled item
+must come FIRST**. A skipped or corrupt item placed last leaves nothing behind it to observe, and
+`continue` and `break` become indistinguishable. See the two §3.8 Item B rows in the table above.
+
+**Both mutations that exposed this exist in the committed specs on purpose** (`F6`, `F12`, and
+`M3`/`M7` for the pairing itself), so the technique is guarded rather than merely described.
 
 ### The render-level exclusion has a measured price now
 
@@ -692,15 +766,66 @@ is **"Deferred"**, not v0.45.0 as v1 said).
 Measure the extraction cost. If negligible, decompose. If real, suppress **with the measurement
 attached** — which converts an inherited opinion into a fact.
 
-### 3.8 — The two migrations
+### 3.8 — The migrations · characterisation DONE, decomposition verdict open
 
-⚠️ **Blocked on §3.0** — `npm run cc` currently reports nothing for both.
+⚠️ **This section is a rewrite. It was headed "The two migrations" and prescribed a build that
+characterisation retired in full — the first time in this campaign that an entire approach was
+retired rather than redirected. The superseded text is preserved in the PR that replaced it; do not
+restore its framing.**
 
-`migrations.ts:111` (cc 18) and `firestore-migration.ts:58` (cc 21) — ⚠️ **v1 cited `:104` and `:53`,
-which now point at the suppression comment blocks.** B5's directives carry sound reasoning, but *"can
-not be proven behaviour-identical against data we no longer have"* argues for **needing an oracle**,
-not for never touching it. Build it — a synthesised v5 corpus spanning the shape space, the Firebase
-emulator for `migrateLocalToCloud` — then decompose. **These suppressions are interim.**
+**It is not "the two migrations."** `npm run cc` — the measurement §3.0 was fixed to enable, and
+which nobody had pointed at these files until 2026-08-02 — reports **five** functions at cc ≥ 10 in
+`migrations.ts` and **one** in `firestore-migration.ts`, with two completely different problems:
+
+| Site | cc | Suppressed | Coverage before | After |
+|---|---|---|---|---|
+| `migrations.ts:111` `migrateV5toV6` | 18 | **yes** | **fully covered — 0 uncovered statements, 0 uncovered branches** | unchanged |
+| `migrations.ts:202` `migrateV10toV11` | 15 | no | preserve-existing-data branch never taken `[2, 0]` | `[5, 1]` |
+| `migrations.ts:230` `migrateV11toV12` | 15 | no | **write-forward NEVER EXECUTED `[0, 0]`** | `[5, 2]` |
+| `migrations.ts:138` `migrateV6toV7` | 10 | no | covered | — |
+| `migrations.ts:253` `migrateV12toV13` | 10 | no | covered | — |
+| `firestore-migration.ts:58` `migrateLocalToCloud` | 21 | **yes** | **0% on all four metrics** | 97.61% stmts, 100% lines/functions |
+
+**Both halves of the old plan were falsified, for different reasons.**
+
+- ⚠️ **The synthesised v5 corpus is retired.** It would have been built for `migrateV5toV6` — the
+  one function of the six with **zero** uncovered statements and **zero** uncovered branches. Three
+  v5-shaped fixtures already existed at `migrations.test.ts:323/349/374`, plus four sequential
+  chains passing through v5. The charter proposed synthesising data for its best-covered target.
+- ⚠️ **The Firebase emulator is retired, and never existed.** No `firebase.json`, no `.firebaserc`,
+  no `firebase-tools` — every "emulator" string in the repo was planning prose or this charter's own
+  sentence. Standing one up would mean a dev dependency inside the **60-day soak window**, and it is
+  unnecessary: `firestore-driver.test.ts` (19 tests) and `firestore-sharing.test.ts` (6 tests) have
+  tested exactly this kind of code for months by mocking `firebase/firestore` and `./firebase` and
+  importing the real module.
+
+⚠️ **The suppression on `migrateLocalToCloud` states — *"effectively untestable in CI (it needs a
+live Firestore), so a refactor here would be unverifiable by construction"*. That JUSTIFICATION is
+refuted**, by 25 tests in the two files beside it and now by 16 more against the function itself.
+**That is not the same as saying the suppression should go**; whether to retire it is a separate
+call, and it is open.
+
+**Done so far** — both tests-only and unversioned: characterisation of the two never-executed
+branches in `migrations.ts` (10 tests, 11 killed mutations), and of `migrateLocalToCloud`'s
+collision ladder (16 tests, 15 killed mutations). **No defect was found in either.** See the
+"unexecuted with no independent expression" entry in §2 for why that is the informative result and
+not a disappointing one.
+
+**Open:**
+
+1. **The decomposition verdict itself** — nothing has been decomposed. Both suppressions still
+   stand, and both now have a behavioural net under them for the first time.
+2. ⚠️ **A reachability question this repo cannot answer.** `firestore.rules:246` reads
+   `allow get: if isAuth() && request.auth.uid in resource.data.members`. A **non-member** read is
+   therefore *denied*, not answered — so the ladder's *"doc exists but belongs to someone else"*
+   rung may be a shape the deployed rules can never hand the client, leaving the `catch` as its only
+   live route. Whether a read of a **missing** doc is likewise denied (`resource` is null) decides
+   whether the *"no doc → keep the original id"* rung is reachable at all — and if it is not, every
+   migrated project silently gets a new id and reports `migrated-new-id`. **Not decidable from
+   here:** the canonical ruleset lives in `spert-landing-page` and deploys via the Firebase Console,
+   and no emulator is configured. For the owner, recorded rather than guessed.
+3. **A product question, not a defect:** should clearing an activity's constraint clear its
+   `constraintNote`? Today the note survives and passes every check in the system — see §2.
 
 ### 3.9 — `src/infrastructure`
 
