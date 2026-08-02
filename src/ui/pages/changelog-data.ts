@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.62.0",
+    date: "2026-08-01",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Clearing an activity's name in the edit modal could discard every other change without warning. The Save button correctly refused an empty name — an activity must have one — but nothing told you why, and the \"you have unsaved changes\" prompt was itself conditional on the form being saveable. So an empty name switched off the very guard that protects your work: dismissing the modal closed it straight away and threw out the status, estimates, constraint and notes you had also edited, with no prompt at all. The name field now says that a name is required, and dismissing a form that cannot be saved asks before discarding.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.61.0",
     date: "2026-08-01",
     sections: [

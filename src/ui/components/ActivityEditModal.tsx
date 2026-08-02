@@ -178,6 +178,7 @@ export function ActivityEditModal({
   const [conflictPreview, setConflictPreview] = useState<ConstraintConflict | null>(null);
   const baseId = useId();
   const fieldNameId = `${baseId}-name`;
+  const fieldNameErrorId = `${baseId}-name-error`;
   const fieldStatusId = `${baseId}-status`;
   const fieldMinId = `${baseId}-min`;
   const fieldMlId = `${baseId}-ml`;
@@ -461,7 +462,10 @@ export function ActivityEditModal({
     [deliverables]
   );
 
-  // Determine if save is valid
+  // Determine if save is valid.
+  // `nameMissing` is the same condition surfaced to the user: the Save button was already
+  // correctly disabled for an empty name, but nothing said WHY.
+  const nameMissing = name.trim().length === 0;
   const isValid =
     name.trim().length > 0 &&
     (!constraintType || (!!constraintType && !!constraintDate && !!constraintMode));
@@ -487,6 +491,16 @@ export function ActivityEditModal({
       }
       // Cancel → return to modal (do nothing)
       return;
+    }
+    // Changes exist but the form cannot be saved — previously this fell straight through
+    // to onClose(), so dismissing an activity whose name had been cleared threw away
+    // EVERY edit with no prompt at all: the unsaved-changes guard was suppressed by the
+    // very state that made saving impossible. Warn instead, and default to staying put.
+    if (hasChanges && !isValid) {
+      const shouldDiscard = window.confirm(
+        "This activity needs a name, so your changes can't be saved. Discard them?"
+      );
+      if (!shouldDiscard) return;
     }
     onClose();
   }, [hasChanges, isValid, handleSave, onClose]);
@@ -518,8 +532,19 @@ export function ActivityEditModal({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     maxLength={200}
-                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
+                    aria-invalid={nameMissing}
+                    aria-describedby={nameMissing ? fieldNameErrorId : undefined}
+                    className={
+                      nameMissing
+                        ? "w-full text-sm border border-red-400 dark:border-red-500 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-red-400 focus:outline-none"
+                        : "w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
+                    }
                   />
+                  {nameMissing && (
+                    <p id={fieldNameErrorId} className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+                      Activity name is required.
+                    </p>
+                  )}
                 </div>
                 <div className="w-32 shrink-0">
                   <label htmlFor={fieldStatusId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
