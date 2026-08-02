@@ -172,11 +172,23 @@ describe("computeGeneralUpdates", () => {
     });
 
     it("CURRENTLY ignores a name that trims to empty — recorded, not endorsed", () => {
-      // ⚠️ This pins the CURRENT BEHAVIOUR, not a contract. It is a product decision
-      // nobody appears to have made: the user clears the field, clicks Save, and the app
-      // silently discards the edit — no error state, no blank name, no feedback. The
-      // plausible intents are "reject with an error" or "accept and blank it"; this does
-      // a third thing.
+      // ⚠️ This pins the CURRENT BEHAVIOUR, not a contract. The user clears the field,
+      // clicks Save, and the app silently discards the edit — no error, no blank name,
+      // no feedback.
+      //
+      // The evidence points one way, and it is not the third option:
+      //   • ActivitySchema.name is `z.string().min(1).max(200)` — a blank activity name
+      //     is SCHEMA-INVALID, so "accept and blank it" would store something the schema
+      //     rejects. Where blank IS legal the codebase says so explicitly: ActivityBand
+      //     names default to "" as display-only separators, and HolidaySchema carries
+      //     `z.string().max(200) // allow empty for migrated data`.
+      //   • Rejecting with an error state is not a new pattern to invent — it is the one
+      //     the GRID already uses. UnifiedActivityRow.validateAndUpdate schema-validates
+      //     every edit and sets per-field errors, and ValidationSummary surfaces failures
+      //     with a scroll-to-field affordance (it even renders "(unnamed)").
+      //
+      // So the modal is the outlier: it silently discards where the rest of the app
+      // validates and reports. Awaiting the owner's decision.
       //
       // Same call as C2, which deliberately left the cyclic-graph behaviour unpinned
       // because "a test there would enshrine the behaviour rather than record the
