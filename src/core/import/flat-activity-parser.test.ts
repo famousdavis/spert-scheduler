@@ -234,6 +234,199 @@ describe("Data validation", () => {
 });
 
 // =============================================================================
+// Per-column error paths (§3.4 characterisation)
+// =============================================================================
+//
+// Six user-facing error messages that no test had ever caused the parser to emit.
+// The file sat at 93.61% statements / 83.45% branches behind 52 tests, and the
+// uncovered slice was coherent: it was the error paths.
+//
+// ⚠️ THE REASON THIS WAS WORTH DOING. Above, "errors on non-integer duration" and
+// "errors on negative duration" exercise the OPTIMISTIC (MIN) column only, and
+// assert `.toContain("non-negative integer")` — a substring all three columns share.
+// The structurally identical blocks for Most Likely and Pessimistic (Max), each
+// carrying its OWN column label and its OWN interpolated value, had never run. A
+// copy-paste slip leaving the Max block saying "Optimistic (Min)", or echoing
+// `rawMin` instead of `rawMax`, would have been invisible to every existing test,
+// to ActivitySchema, and to the type system — nothing downstream restates which
+// column a message names.
+//
+// So these assert the FULL error object, not a shared substring: a fixture that
+// trips a different column's validation fails rather than passing on the overlap.
+
+describe("per-column validation errors", () => {
+  it("reports a missing Activity ID against its own column", () => {
+    const rows = [HEADER_ROW, validRow("", "Task", "1", "2", "3", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([
+      {
+        row: 2,
+        column: "Activity ID",
+        message: "Activity ID is required.",
+        severity: "error",
+      },
+    ]);
+    expect(result.activities).toHaveLength(0);
+  });
+
+  it("reports a missing Activity Name against its own column", () => {
+    const rows = [HEADER_ROW, validRow("A1", "", "1", "2", "3", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([
+      {
+        row: 2,
+        column: "Activity Name",
+        message: "Activity Name is required.",
+        severity: "error",
+      },
+    ]);
+  });
+
+  // The two below are the actual first-of-a-group gap. Each echoes ITS OWN raw
+  // value — 2.5 and 3.5, never the Min cell — which is the assertion that would
+  // catch a copy-pasted `truncate(rawMin)` left behind in the wrong block.
+  it("reports a non-integer Most Likely against its own column, echoing its own value", () => {
+    const rows = [HEADER_ROW, validRow("A1", "Task", "1", "2.5", "3", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([
+      {
+        row: 2,
+        column: "Most Likely",
+        message: 'Most Likely must be a non-negative integer, got "2.5".',
+        severity: "error",
+      },
+    ]);
+  });
+
+  it("reports a negative Most Likely against its own column", () => {
+    const rows = [HEADER_ROW, validRow("A1", "Task", "1", "-2", "3", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors[0]).toEqual({
+      row: 2,
+      column: "Most Likely",
+      message: 'Most Likely must be a non-negative integer, got "-2".',
+      severity: "error",
+    });
+  });
+
+  it("reports a non-integer Max against its own column, echoing its own value", () => {
+    const rows = [HEADER_ROW, validRow("A1", "Task", "1", "2", "3.5", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([
+      {
+        row: 2,
+        column: "Pessimistic (Max)",
+        message: 'Pessimistic (Max) must be a non-negative integer, got "3.5".',
+        severity: "error",
+      },
+    ]);
+  });
+
+  it("reports an empty Max as the same error, with an empty echoed value", () => {
+    const rows = [HEADER_ROW, validRow("A1", "Task", "1", "2", "", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors[0]).toEqual({
+      row: 2,
+      column: "Pessimistic (Max)",
+      message: 'Pessimistic (Max) must be a non-negative integer, got "".',
+      severity: "error",
+    });
+  });
+
+  it("reports an unparseable predecessor token, distinctly from an unresolved one", () => {
+    // "errors on unknown predecessor" above covers a token that PARSES but does not
+    // resolve. This is the regex-mismatch branch, which is a different message.
+    const rows = [
+      HEADER_ROW,
+      validRow("A1", "First", "1", "2", "3", "Medium"),
+      validRow("A2", "Second", "1", "2", "3", "Medium", "normal", "planned", "!!bad!!"),
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([
+      {
+        row: 3,
+        column: "Predecessors",
+        message:
+          'Invalid predecessor token "!!bad!!". Expected format: A1 or A1+3 or A1-2.',
+        severity: "error",
+      },
+    ]);
+    // Both activities still import; only the dependency is dropped.
+    expect(result.activities).toHaveLength(2);
+    expect(result.dependencies).toHaveLength(0);
+  });
+});
+
+describe("row numbering and skip semantics (§3.4)", () => {
+  it("numbers rows against the raw sheet, counting the header and skipped rows", () => {
+    // The user sees spreadsheet row numbers, so a skipped comment or blank row must
+    // still advance the count. Header = 1, comment = 2, blank = 3, the bad row = 4.
+    const rows = [
+      HEADER_ROW,
+      ["# a comment", "", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", "", ""],
+      validRow("", "Task", "1", "2", "3", "Medium"),
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors[0]!.row).toBe(4);
+  });
+
+  it("does not let a failed row stop the rows behind it", () => {
+    // Loop-property, so the handled row goes FIRST — with it last, bailing and
+    // continuing would be indistinguishable.
+    const rows = [
+      HEADER_ROW,
+      validRow("", "Bad", "1", "2", "3", "Medium"),
+      validRow("A2", "Good", "1", "2", "3", "Medium"),
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toHaveLength(1);
+    expect(result.activities).toHaveLength(1);
+    expect(result.activities[0]!.name).toBe("Good");
+  });
+
+  it("does not register a failed row's Activity ID as a dependency target", () => {
+    // A row that fails validation never becomes resolvable, so a later predecessor
+    // naming it reports "not found" rather than silently linking to a dropped row.
+    const rows = [
+      HEADER_ROW,
+      validRow("A1", "", "1", "2", "3", "Medium"),
+      validRow("A2", "Good", "1", "2", "3", "Medium", "normal", "planned", "A1"),
+    ];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors.map((e) => e.column)).toEqual([
+      "Activity Name",
+      "Predecessors",
+    ]);
+    expect(result.errors[1]!.message).toContain('Predecessor "A1" not found');
+    expect(result.dependencies).toHaveLength(0);
+  });
+
+  it("treats a row shorter than the header as empty cells rather than crashing", () => {
+    // Exercises the `?? ""` fallbacks on cell extraction: fixtures are otherwise
+    // always full-width, so the short-row defence had never run.
+    const rows = [HEADER_ROW, ["A1", "Task", "1"]];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors[0]).toEqual({
+      row: 2,
+      column: "Most Likely",
+      message: 'Most Likely must be a non-negative integer, got "".',
+      severity: "error",
+    });
+  });
+
+  it("falls back to crypto.randomUUID when no id generator is supplied", () => {
+    // All 6 production call sites pass one, so the default parameter had never run.
+    const rows = [HEADER_ROW, validRow("A1", "Task", "1", "2", "3", "Medium")];
+    const result = parseFlatActivityTable(rows);
+    expect(result.errors).toHaveLength(0);
+    expect(result.activities[0]!.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+  });
+});
+
+// =============================================================================
 // Dependency Tests
 // =============================================================================
 
