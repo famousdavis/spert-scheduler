@@ -22,6 +22,7 @@ import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { computeTargetRAGColor } from "@core/schedule/target-rag";
 import { isCalendarError } from "@core/calendar/work-calendar";
 import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
+import { isDependencyCycleError } from "@core/schedule/dependency-graph";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
 import { buildSimulationParams, type SimulationParams } from "@ui/helpers/build-simulation-params";
 import { currentSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
@@ -308,7 +309,14 @@ export function ProjectPage() {
       return { schedule, scheduleError: null };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return { schedule: null, scheduleError: { message, isCalendarError: isCalendarError(err) } };
+      return {
+        schedule: null,
+        scheduleError: {
+          message,
+          isCalendarError: isCalendarError(err),
+          isCycleError: isDependencyCycleError(err),
+        },
+      };
     }
   }, [depMode, activities, dependencies, startDate, probTarget, workCalendar, milestones]);
 
@@ -702,8 +710,15 @@ export function ProjectPage() {
           <p className="text-sm font-medium text-red-800 dark:text-red-300">
             {scheduleErrorBanner.heading}
           </p>
+          {/* Separate paragraphs, not one space-joined line. The message is a raw engine
+              diagnostic that ends without punctuation ("…cannot compute topological order"),
+              so running the advice on after it produced a single unreadable sentence — most
+              visibly for the cycle branch, whose advice is a full instruction. */}
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-            {scheduleErrorBanner.message} {scheduleErrorBanner.advice}
+            {scheduleErrorBanner.message}
+          </p>
+          <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+            {scheduleErrorBanner.advice}
           </p>
         </div>
       )}

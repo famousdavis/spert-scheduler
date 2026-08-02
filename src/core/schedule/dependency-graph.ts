@@ -33,6 +33,29 @@ export interface ValidationError {
   message: string;
 }
 
+/**
+ * Thrown by `buildDependencyGraph` when the graph cannot be topologically ordered.
+ *
+ * Typed for the same reason as `CalendarConfigurationError`: the project page needs to tell
+ * a cycle apart from every other schedule failure so it can give advice that points at the
+ * dependency graph rather than at the activity's estimates. Matching on the message string
+ * would work today and break the first time the wording changes.
+ *
+ * The message is deliberately UNCHANGED from the plain `Error` it replaces — a subclass is
+ * still an `Error`, so `toThrow(/cycle/i)` and `instanceof Error` both keep holding.
+ */
+export class DependencyCycleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DependencyCycleError";
+  }
+}
+
+/** Is this the dependency-cycle failure, as opposed to any other schedule error? */
+export function isDependencyCycleError(err: unknown): boolean {
+  return err instanceof DependencyCycleError;
+}
+
 // -- Build Graph -------------------------------------------------------------
 
 function populateAdjacency(
@@ -107,7 +130,9 @@ export function buildDependencyGraph(
   const topologicalOrder = kahnTopoSort(activityIds, successors, inDegree);
 
   if (topologicalOrder.length !== activityIds.length) {
-    throw new Error("Dependency cycle detected — cannot compute topological order");
+    throw new DependencyCycleError(
+      "Dependency cycle detected — cannot compute topological order"
+    );
   }
 
   const roots = activityIds.filter((id) => (predecessors.get(id)?.length ?? 0) === 0);

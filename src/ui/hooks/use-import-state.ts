@@ -24,6 +24,7 @@ import {
   type ConflictAction,
   type ConflictInfo,
   type ImportOutcome,
+  type ProjectDependencyIssues,
 } from "@app/api/export-import-service";
 import type { UserPreferences, Project } from "@domain/models/types";
 
@@ -41,9 +42,21 @@ export type ImportState =
       preferences?: UserPreferences;
       cloudRefreshed?: boolean;
       cloudRefreshDiff?: MergeDecisionsDiff;
+      /** Broken dependency graphs. Reported only — these projects still import. */
+      dependencyIssues: ProjectDependencyIssues[];
     }
   | { step: "applying" }
-  | { step: "done"; outcome: ImportOutcome; total: number };
+  | {
+      step: "done";
+      outcome: ImportOutcome;
+      total: number;
+      /**
+       * How many imported projects carried dependency problems. Carried through from
+       * the preview rather than recomputed, so the done banner reports on the file the
+       * user actually confirmed.
+       */
+      dependencyIssueCount: number;
+    };
 
 // --- Transition helpers (pitfall #11) --------------------------------------
 
@@ -56,6 +69,7 @@ function showPreview(
   conflicts: ConflictInfo[],
   nameConflicts: ConflictInfo[],
   decisions: ConflictDecision[],
+  dependencyIssues: ProjectDependencyIssues[],
   preferences?: UserPreferences
 ): ImportState {
   return {
@@ -64,6 +78,7 @@ function showPreview(
     conflicts,
     nameConflicts,
     decisions,
+    dependencyIssues,
     preferences,
   };
 }
@@ -72,8 +87,12 @@ function showApplying(): ImportState {
   return { step: "applying" };
 }
 
-function showDone(outcome: ImportOutcome, total: number): ImportState {
-  return { step: "done", outcome, total };
+function showDone(
+  outcome: ImportOutcome,
+  total: number,
+  dependencyIssueCount: number
+): ImportState {
+  return { step: "done", outcome, total, dependencyIssueCount };
 }
 
 function clearImportFlow(): ImportState {
@@ -267,6 +286,7 @@ export function useImportState({
           projects: result.projects,
           conflicts: result.conflicts,
           nameConflicts: result.nameConflicts,
+          dependencyIssues: result.dependencyIssues,
           decisions: mergedDecisions,
           preferences: result.preferences,
           cloudRefreshed: true,
@@ -341,6 +361,7 @@ export function useImportState({
               result.conflicts,
               result.nameConflicts,
               decisions,
+              result.dependencyIssues,
               result.preferences
             )
           );
@@ -423,8 +444,16 @@ export function useImportState({
 
     inFlightRef.current = true;
     try {
-      const { projects, decisions, preferences } = importState;
+      const { projects, decisions, preferences, dependencyIssues } = importState;
       const total = projects.length;
+      // Counted from the preview the user actually confirmed, not recomputed after the
+      // fact — the two can differ if a decision skipped one of the affected projects.
+      const skippedIds = new Set(
+        decisions.filter((d) => d.action === "skip").map((d) => d.importedProjectId)
+      );
+      const dependencyIssueCount = dependencyIssues.filter(
+        (i) => !skippedIds.has(i.projectId)
+      ).length;
       // Stamp owner for adds/copies (pitfall #7). Replaces override this with
       // existing.owner inside the store action — the spread order makes it
       // deterministic.
@@ -451,7 +480,7 @@ export function useImportState({
         }
         if (isMountedRef.current) {
           lastFileTextRef.current = null;
-          setImportState(showDone(outcome, total));
+          setImportState(showDone(outcome, total, dependencyIssueCount));
         }
       } catch (err) {
         if (isMountedRef.current) {

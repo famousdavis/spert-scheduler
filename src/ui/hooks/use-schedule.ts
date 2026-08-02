@@ -15,6 +15,12 @@ import { computeSchedule } from "@app/api/schedule-service";
 export interface ScheduleError {
   message: string;
   isCalendarError: boolean;
+  /**
+   * A dependency cycle, which is neither a calendar problem nor an estimates problem.
+   * REQUIRED, not optional: both construction sites must decide, so a new one cannot
+   * silently default to "not a cycle" and fall back to advice that points at estimates.
+   */
+  isCycleError: boolean;
 }
 
 /**
@@ -42,7 +48,12 @@ export function useSchedule(
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      onScheduleError?.({ message, isCalendarError: isCalendarError(err) });
+      onScheduleError?.({
+        message,
+        isCalendarError: isCalendarError(err),
+        // The sequential engine never builds a dependency graph, so it cannot raise one.
+        isCycleError: false,
+      });
       return null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- onScheduleError is a setState, stable ref
