@@ -274,11 +274,21 @@ at the 2026-08-01 handoff: those sat "roughly in the order v1 had them, lightly 
 positions are **not** considered judgements about relative priority. Do not read a number below §3.3
 as a ranking.
 
+✅ **CLOSED (#254):** `analytics.ts:268 computeBatchPercentileCIs` — 12 tests, ~20 minutes,
+61.54% → 83.89%. It really was cheap; two censuses said so without checking, and it took a third
+pass to find out they were right. *(Original note, kept because the mechanism is the point:)*
 ⚠️ **DESIGNATED NEXT ITEM (2026-08-02): `core/analytics/analytics.ts:268
 computeBatchPercentileCIs`.** cc 11, in `/core`, **never executed**. No harness, no mocks, no
 provider stubs — a plain unit test. It has now appeared in **two consecutive censuses as the
 cheapest open item** and been skipped both times, which is exactly how a thing stays cheapest
 and never done. **Start here, before anything in §3.4, §3.5 or §3.7–§3.9.**
+
+⚠️ **DESIGNATED NEXT ITEM (2026-08-02, after §3.7): `src/workers/simulation.worker.ts:41`, cc 30
+— §3.5's worker decomposition.** The cheapest remaining substantial item: same subsystem as §3.7,
+it imports the two functions just decomposed, and C2's 19 message-seam tests already cover it — so
+it is a DECOMPOSITION problem, not a coverage one. Needs the full treatment all the same: an
+oracle written *and falsified* before a line moves, mutation compared on absolute `Survived` with
+all six categories. Close-out: `docs/CLOSEOUT_codebase-quality-v0.62.2.md`.
 
 **Revised order, agreed by both orchestrators 2026-08-01:**
 
