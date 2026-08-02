@@ -84,5 +84,23 @@ export default tseslint.config(
       "sonarjs/no-os-command-from-path": "off",
       "sonarjs/slow-regex": "off",
     },
+  },
+  {
+    // The falsification runner shells out to `npx vitest` (a fixed executable and a fixed
+    // argument list; the only variable is a test path from a committed spec file, never
+    // user input or the network) and parses vitest's own summary lines with two small
+    // anchored regexes, each applied to one line of output at a time. Same two sonarjs
+    // security *hotspots*, same reasoning, and scoped here for the same cross-repo reason
+    // as the two blocks above.
+    //
+    // ⚠️ Note what is NOT exempted: this file's `sonarjs/cognitive-complexity` finding was
+    // FIXED, not suppressed — `main()` measured 17 and was decomposed to sit under the
+    // threshold. The campaign's rule is that a new problem is fixed rather than baselined,
+    // and that applies to its own tooling first.
+    files: ["scripts/falsify.mjs"],
+    rules: {
+      "sonarjs/no-os-command-from-path": "off",
+      "sonarjs/slow-regex": "off",
+    },
   }
 );
