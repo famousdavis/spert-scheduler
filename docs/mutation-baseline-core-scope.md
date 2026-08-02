@@ -4,7 +4,7 @@
 **Covers:** every file in `stryker.config.mjs`'s `mutate` list except `deterministic.ts` and
 `monte-carlo.ts`, which have their own records (`docs/mutation-baseline-c1.md` and the v0.59.11
 survivor work).
-**Charter item:** `CHARTER_codebase-quality.md` §3.1.
+**Charter item:** `docs/CHARTER_codebase-quality.md` §3.1.
 
 Tracked on purpose, for the same reason as `mutation-baseline-c1.md`: `reports/mutation/` is
 gitignored, and a comparison baseline that lives only in an ignored directory is not a baseline.
