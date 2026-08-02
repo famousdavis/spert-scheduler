@@ -107,9 +107,12 @@ describe("checkRunComparable", () => {
  * in `bootstrapPercentileCI` instead of `computeBatchPercentileCIs` exactly this way, and
  * all three were reported as survivors.
  *
- * Same family as the other three, same flattering direction: a MISAPPLIED mutation is
- * indistinguishable from a WEAK TEST, and the tool reported the reading that makes the test
- * look worse. Existence was checked; uniqueness was not.
+ * ⚠️ NOT the same DIRECTION as instances 1-2, and the distinction is load-bearing. `cc`'s two
+ * failures flattered the CODE; these two make the TEST look weak. So "be suspicious when
+ * results look good" would have caught those and missed these — and the defaming direction is
+ * the more dangerous, because a result that criticises your own work does not get audited.
+ * What all four share is direction-agnostic: THE TOOL RETURNS THE VALUE IT WOULD RETURN IF
+ * THERE WERE GENUINELY NOTHING TO REPORT. Existence was checked; uniqueness was not.
  */
 describe("countOccurrences", () => {
   it("counts a unique needle once", () => {

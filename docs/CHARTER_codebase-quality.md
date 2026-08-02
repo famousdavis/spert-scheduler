@@ -77,7 +77,7 @@ Full derivation in `CLOSEOUT_codebase-quality-v0.60.0.md`. Two govern everything
 claims were wrong or overstated** — including its own headline mutation figure. If a number gates a
 decision, produce it.
 
-**Guard against checks that cannot fail.** ⚠️ **Sixteen instances now** — this table said *"seven"*
+**Guard against checks that cannot fail.** ⚠️ **Seventeen instances now** — this table said *"seven"*
 and listed seven until 2026-08-01, while five more sat in commit bodies and one arrived that day.
 **None was caught by tooling; every one was caught by a person finding a result implausible.**
 
@@ -98,16 +98,29 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 | §3.6 | a `<MemoryRouter initialEntries>` **rerender that never navigated** — `initialEntries` is read once at mount, so the transition under test never happened |
 | **v0.62.1** | ⚠️ **A GREEN LOCAL GATE IS NOT EVIDENCE ABOUT CI** when the local environment carries secrets CI does not. `isFirebaseAvailable` is derived from `VITE_FIREBASE_API_KEY`: true with `.env.local`, false in CI. Two tests passed locally and failed in CI. **New category** — every prior entry is a check that *could not* fail; this one *can* fail, *did* fail, and was believed to have passed, because it ran in an environment that silently differed. **The unstated variable was not in the check — it was in the room.** |
 | **v0.62.2** | ⚠️ **A MUTATION THAT CANNOT COMPILE PROVES NOTHING IN EITHER DIRECTION.** A JSX opening tag swapped without its closing tag stopped the file parsing; vitest ran **zero** tests and the falsification runner counted *"0 failing"* — which reads as SURVIVOR, making a strong test look weak. Dangerous rather than merely wasteful if falsification is ever used to justify **deleting** a test as redundant. |
+| **v0.62.2** | ⚠️ **AN AMBIGUOUS MUTATION NEEDLE MUTATES THE WRONG SITE.** `String.replace(string, …)` rewrites only the FIRST occurrence. Three needles in the analytics spec matched lines shared by `bootstrapPercentileCI` and `computeBatchPercentileCIs`, so all three mutated the untested sibling and were reported as **survivors**. Found the same day instance #3 was fixed, **in the tool that fixed it**. Fixed by `checkNeedleUnique`. |
 
-⚠️ **THREE ARE NOW INSIDE THE MEASUREMENT TOOLING, AND THEY SHARE ONE SIGNATURE.** `cc`'s
-region mode reported a parse error as **cc 0**; `cc`'s suppression filter reported **"no
-functions"** for suppressed ones; the falsification runner reported a non-compiling mutant as
-**"0 failing"**. In every case *a tool that could not do its job returned the value it returns
-when there is nothing to report* — **absence of a result is indistinguishable from a null
-result.** That is not three coincidences, it is a design defect the tooling keeps reproducing,
-and all three failed in the flattering direction. The fix is always the same: make the tool
-**assert it actually ran** and abort otherwise. Applied to `cc` in §3.0 and to the falsification
-runner in v0.62.2 (`scripts/falsify.mjs`, guarded by `src/integration/falsify-runner.test.ts`).
+⚠️ **THE COMMON FACTOR IS NOT "FLATTERING" — AN EARLIER DRAFT OF THIS SAID SO AND IT IS
+WRONG, in a way that matters operationally.**
+
+| # | Tool | Reports | Direction |
+|---|---|---|---|
+| 1 | `cc` region mode | parse error → **cc 0** | makes the CODE look simpler — flatters |
+| 2 | `cc` suppression filter | suppressed → **"no functions"** | makes the CODE look simpler — flatters |
+| 3 | falsify runner | non-compiling mutant → **"0 failing"** | makes the TEST look weak — does NOT flatter |
+| 4 | falsify runner | misapplied mutant → **"survivor"** | makes the TEST look weak — does NOT flatter |
+
+Two flatter, two defame. So the heuristic *"be suspicious when results look good"* would have
+caught the first two and **missed both of the others**. Worse, the defaming direction is the more
+dangerous one: **a result that criticises your own work does not get audited.** Nobody re-checks a
+tool that just told them their test was weak — they believe it and go write another test. #4 was
+caught only because three survivors was implausible against tests there was reason to trust.
+
+**The factor that actually holds across all four is direction-agnostic:** *the tool returns the
+value it would return if there were genuinely nothing to report.* **Absence of a result is
+indistinguishable from a null result.** That is the property to design against — every
+measurement tool here should be asked: *what does it return when it cannot do its job, and is
+that distinguishable from a real answer?*
 
 ⚠️ **Two are inside the measurement tool itself, and both failed in the safe-looking direction.**
 ⚠️ **The twelfth was found by the session probing for it, in its own throwaway probe** — which is the
@@ -130,6 +143,21 @@ more use to a future reader than any of the numbers beside it.
 ⚠️ **Not one was found by inspection.** Several were looked at directly and read as correct.
 The common factor in every catch is a committed, executable check; the common factor in every
 miss is a person being careful.
+
+**Commit the falsification spec, not just the runner.** Added 2026-08-02. `scripts/falsify.mjs`
+was committed while every spec it consumed lived in scratchpad — so for a day, no falsification
+result in this campaign was reproducible: durable tool, vanished inputs. That is the same
+principle `docs/mutation-baseline-core-scope.md` already states for mutation baselines ("a
+comparison baseline that lives only in an ignored directory is not a baseline"), applied to one
+kind of artifact and not the other. Specs now live in `scripts/falsify-spec-*.mjs`, beside the
+runner and inside the copyright guard's reach (its regex is `scripts/[^/]+$`, so a subdirectory
+would have been a blind spot).
+
+✅ **The retroactive audit came back clean.** All 45 needles across #246 (18), #250/#251 (17) and
+the analytics spec (9) were re-checked with `checkNeedleUnique`: **0 ambiguous**. The falsification
+claims made before the fix stand — they were not re-verified, only cleared of the specific defect
+that could have invalidated them. What the defect could ever have affected is STRENGTH claims
+("we proved these tests would catch it"), never the code or the tests themselves.
 
 **The durable store is commit bodies, not chat.** All five of the previously-missing entries were
 recoverable from `git log --format='%H%n%B'` over #240–#244, in unusual detail. Verified 2026-08-01;

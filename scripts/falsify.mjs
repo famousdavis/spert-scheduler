@@ -24,10 +24,12 @@
 // null result. It is not three coincidences — it is a design defect the tooling keeps
 // reproducing, so the fix belongs in the tool, not in the operator's memory.
 //
-// The direction matters too. Here it fails toward "the test didn't catch it", which is
-// wasteful if you respond by adding tests and actively dangerous if falsification is ever
-// used to justify DELETING a test as redundant — it would confirm a redundancy that is not
-// there.
+// ⚠️ The direction is NOT the same across the four, and the difference matters. `cc`'s two
+// failures flattered the CODE; this runner's two make the TEST look weak. "Be suspicious of
+// good news" catches the former and misses the latter — and the defaming direction is the
+// more dangerous one, because a result that criticises your own work does not get audited.
+// Wasteful if you respond by writing more tests; actively dangerous if falsification is ever
+// used to justify DELETING a test as redundant.
 //
 // THE GUARD: every mutated run must execute the SAME NUMBER OF TESTS as the baseline. A
 // run with no test summary at all, or with a different total, cannot be compared and
