@@ -34,11 +34,23 @@
 // changes the denominator), the valid-mutant denominator, the score, and every
 // surviving mutant grouped by the function that contains it.
 //
-// ⚠️ Compare runs on the ABSOLUTE `Survived` count first. Score and survivor rate are
-// ratios, so they move when the population moves — and decomposition always shrinks the
-// population, because new object/string literals in helper returns hit
-// `mutator.excludedMutations`. A ratio that fell while `Survived` held is arithmetic,
-// not a regression. See docs/mutation-baseline-c1.md.
+// ⚠️ NEITHER NUMBER THIS SCRIPT PRINTS IS A GATE. Both have a known failure mode, and they
+// point in OPPOSITE directions:
+//
+//   1. The SCORE falls when nothing regressed. Score and survivor rate are ratios, so they
+//      move when the population moves — and decomposition always shrinks the population,
+//      because new object/string literals in helper returns hit `excludedMutations`. A
+//      ratio that fell while `Survived` held is arithmetic. (C4; §3.7.)
+//   2. The ABSOLUTE `Survived` COUNT falls when nothing improved. Deduplication collapses
+//      N copies of an unguarded line into one, removing N−1 survivors and guarding nothing.
+//      §3.5 Step 4 read as an eight-survivor improvement; seven of the eight were the same
+//      two gaps counted fewer times.
+//
+// Failure mode 2 is the more dangerous, because it arrives as good news about your own
+// refactor and nobody audits that. The rule that survives both: GATE ON WHETHER THE DELTA
+// RECONCILES — map every prior survivor to its post-run fate, one by one. A FALL IS AS MUCH
+// WORK TO JUSTIFY AS A RISE. See docs/CHARTER_codebase-quality.md §2, worked example in
+// docs/mutation-baseline-worker.md, denominator arithmetic in docs/mutation-baseline-c1.md.
 
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
