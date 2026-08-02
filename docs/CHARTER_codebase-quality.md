@@ -77,7 +77,7 @@ Full derivation in `CLOSEOUT_codebase-quality-v0.60.0.md`. Two govern everything
 claims were wrong or overstated** — including its own headline mutation figure. If a number gates a
 decision, produce it.
 
-**Guard against checks that cannot fail.** ⚠️ **Eighteen instances now** — this table said *"seven"*
+**Guard against checks that cannot fail.** ⚠️ **Nineteen instances now** — this table said *"seven"*
 and listed seven until 2026-08-01, while five more sat in commit bodies and one arrived that day.
 **None was caught by tooling; every one was caught by a person finding a result implausible.**
 
@@ -100,6 +100,7 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 | **v0.62.2** | ⚠️ **A MUTATION THAT CANNOT COMPILE PROVES NOTHING IN EITHER DIRECTION.** A JSX opening tag swapped without its closing tag stopped the file parsing; vitest ran **zero** tests and the falsification runner counted *"0 failing"* — which reads as SURVIVOR, making a strong test look weak. Dangerous rather than merely wasteful if falsification is ever used to justify **deleting** a test as redundant. |
 | **v0.62.2** | ⚠️ **AN AMBIGUOUS MUTATION NEEDLE MUTATES THE WRONG SITE.** `String.replace(string, …)` rewrites only the FIRST occurrence. Three needles in the analytics spec matched lines shared by `bootstrapPercentileCI` and `computeBatchPercentileCIs`, so all three mutated the untested sibling and were reported as **survivors**. Found the same day instance #3 was fixed, **in the tool that fixed it**. Fixed by `checkNeedleUnique`. |
 | **§3.7** | ⚠️ **A MEASUREMENT INVERTED BY AN UNCONTROLLED ORDERING EFFECT — a category of its own.** A sequential A/B gave a **+5% workload a NEGATIVE delta**: more work, measured faster, because whichever variant runs first pays the JIT warm-up. Every other entry is a check that *cannot* fail or that fails toward a null; **this one runs, succeeds, and returns a confident, precise, WRONG-SIGNED number.** Trusted in the §3.7 decomposition A/B it would have shown that extracting code from a hot loop made it faster — absurd, but only just, and "supported by measurement". Caught by the injected-delta calibration and by **nothing else**. Fix: interleaved round-robin timing with every variant pre-warmed (`monte-carlo.bench.ts`). |
+| **§3.5** | ⚠️ **THE INSTRUMENT WAS MEASURING AT THE WRONG SEAM — a category beyond "measuring too little".** The worker's constraint-vocabulary guard (`:114–115`) has no observable effect on posted output: an unknown TYPE hits `applyHardConstraint`'s `default:` and a non-`"hard"` MODE is never applied. Deleting either check left the **entire C2 suite AND the protocol oracle green** — including three C2 tests *named* for that guard. **No number of extra fixtures would have helped**, which makes it worse than #256's inert-on-one-path oracle: the intuitive response to an incomplete oracle is *add cases*, and here that would have failed silently while looking like diligence. Fixed by capturing at the `runTrials` seam instead (a spy calling **through**, not a mock). |
 
 ✅ **And one instrument behaved correctly, which is worth recording too.** The benchmark's first
 calibration attempt produced a 0.9ms delta against sd 1.5ms and reported **NOT DETECTED** —
@@ -444,6 +445,30 @@ files, reachable only from `SettingsPage`. No mutation evidence.
 NOT VERIFIED surfaces — the component test and the parser work are the same surface.
 
 ### 3.5 — The worker seam and import validation
+
+> **STATUS 2026-08-02 — PREREQUISITES DONE, DECOMPOSITION NEXT.**
+> Already committed and falsified, so do not re-derive it:
+> - **Step 1** — the worker's `VALID_SEQ_TYPES`/`VALID_SEQ_MODES` were diffed against
+>   `CONSTRAINT_TYPES`/`CONSTRAINT_MODES`: **identical, same order.** The dedup is a cleanup,
+>   not a defect. ⚠️ And it is **one** copy, not "the fifth of five" — the other six sites are
+>   `switch` cases or union-typed predicates that TypeScript checks. The distinguishing
+>   property is `.includes()` on an unchecked `string[]`, which is the only shape free to drift.
+> - **Step 2** — `simulation-worker-protocol-oracle.{test.ts,json}`: 14 fixtures, 19 tests,
+>   byte-stable, 9 of 10 output mutations killed. Plus a **marshalling guard** in
+>   `simulation.worker.test.ts` covering the one branch the oracle structurally cannot reach
+>   (all four guard mutations killed). `simulation.worker.test.ts:144` renamed to what it
+>   asserts.
+> - **Step 3** — the self-loop behaviour pinned **recorded-not-specified**, premise proven
+>   first, both mutations killed.
+>
+> **NEXT: Step 4** — decompose `simulation.worker.ts:41` (cc 30, 97.95% covered → a
+> decomposition problem, not a coverage one). Verify the committed protocol oracle stays
+> **byte-identical**, mutation on **absolute `Survived`** with all six categories, re-derive
+> lint and lower `expectProblems` in the same commit.
+> **Then Step 5** — the vocabulary dedup. Safe per Step 1. ⚠️ `CONSTRAINT_TYPES` is `as const`,
+> so `.includes(c.type)` on a readonly tuple will not type-check against a `string`. **Do not
+> cast** — that is the fixture-cast defect in a different costume. Write a guard that
+> **narrows** (`c is ConstraintType`), so the dedup ends up stronger than a like-for-like swap.
 
 ⚠️ **v1's cycle finding was overstated, and the review corrected it by probe.** A **2-cycle and
 3-cycle already error correctly.** Only a **self-loop** passes through — `dependency-graph.ts:47`
