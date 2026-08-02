@@ -515,13 +515,36 @@ describe("ImportSection — the done banner", () => {
     });
     const banner = screen.getByRole("status");
     expect(banner).toHaveTextContent("Import complete: 1 added.");
-    // ⚠️ RECORDED, NOT SPECIFIED. "1 project **were** skipped" is a copy defect —
-    // ImportSection.tsx:362-369 pluralises "project/projects" but hardcodes "were".
-    // `importDoneBanner` gets the same case right ("s were" / " was"). Pinned because the
-    // string is trivially reachable and an unpinned string is an unnoticed one; the fix
-    // ships as its own release and updates this expectation to "1 project was skipped".
+    // Was pinned as "1 project **were** skipped" — recorded-not-specified — from the day
+    // this file landed (#246) until v0.62.1 fixed it. Now a guard on correct output:
+    // confirmed by reverting the source and checking THIS test fails.
     expect(banner).toHaveTextContent(
-      "1 project were skipped because conflicts emerged after the preview opened."
+      "1 project was skipped because conflicts emerged after the preview opened."
+    );
+  });
+
+  it("two drifting projects inflect both the noun and the verb", async () => {
+    const drifterA = createProject(NAME_B, "2026-04-06");
+    const drifterB = createProject(NAME_C, "2026-04-06");
+    renderSection();
+    await pickFile(
+      serializeExport([
+        createProject(NAME_A, "2026-04-06"),
+        drifterA,
+        drifterB,
+      ])
+    );
+    seedStore([drifterA, drifterB]);
+
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toBeInTheDocument();
+    });
+    // The other arm of the same ternary — untested before v0.62.1, which is how the
+    // singular arm went wrong unnoticed.
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "2 projects were skipped because conflicts emerged after the preview opened."
     );
   });
 
