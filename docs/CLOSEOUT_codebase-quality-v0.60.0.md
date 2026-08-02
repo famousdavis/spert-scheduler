@@ -4,7 +4,7 @@
 
 The October conference constraint that shaped this plan was removed near the end. The
 campaign is closed at its stated target rather than extended; a new campaign picks up
-from `CHARTER_codebase-quality.md`.
+from `docs/CHARTER_codebase-quality.md`.
 
 ---
 
