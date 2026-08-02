@@ -44,7 +44,10 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/*.test.ts", "**/*.test.tsx"],
+    // `.bench.ts` is included: the benchmark reports by measuring and printing, and its
+    // guard is the self-calibration block inside it, not an expect(). It is not part of
+    // `npm test` — see vitest.bench.config.ts.
+    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.bench.ts"],
     rules: {
       "sonarjs/assertions-in-tests": "off",
     },

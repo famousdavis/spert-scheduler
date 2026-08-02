@@ -77,7 +77,7 @@ Full derivation in `CLOSEOUT_codebase-quality-v0.60.0.md`. Two govern everything
 claims were wrong or overstated** — including its own headline mutation figure. If a number gates a
 decision, produce it.
 
-**Guard against checks that cannot fail.** ⚠️ **Seventeen instances now** — this table said *"seven"*
+**Guard against checks that cannot fail.** ⚠️ **Eighteen instances now** — this table said *"seven"*
 and listed seven until 2026-08-01, while five more sat in commit bodies and one arrived that day.
 **None was caught by tooling; every one was caught by a person finding a result implausible.**
 
@@ -99,6 +99,12 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 | **v0.62.1** | ⚠️ **A GREEN LOCAL GATE IS NOT EVIDENCE ABOUT CI** when the local environment carries secrets CI does not. `isFirebaseAvailable` is derived from `VITE_FIREBASE_API_KEY`: true with `.env.local`, false in CI. Two tests passed locally and failed in CI. **New category** — every prior entry is a check that *could not* fail; this one *can* fail, *did* fail, and was believed to have passed, because it ran in an environment that silently differed. **The unstated variable was not in the check — it was in the room.** |
 | **v0.62.2** | ⚠️ **A MUTATION THAT CANNOT COMPILE PROVES NOTHING IN EITHER DIRECTION.** A JSX opening tag swapped without its closing tag stopped the file parsing; vitest ran **zero** tests and the falsification runner counted *"0 failing"* — which reads as SURVIVOR, making a strong test look weak. Dangerous rather than merely wasteful if falsification is ever used to justify **deleting** a test as redundant. |
 | **v0.62.2** | ⚠️ **AN AMBIGUOUS MUTATION NEEDLE MUTATES THE WRONG SITE.** `String.replace(string, …)` rewrites only the FIRST occurrence. Three needles in the analytics spec matched lines shared by `bootstrapPercentileCI` and `computeBatchPercentileCIs`, so all three mutated the untested sibling and were reported as **survivors**. Found the same day instance #3 was fixed, **in the tool that fixed it**. Fixed by `checkNeedleUnique`. |
+| **§3.7** | ⚠️ **A MEASUREMENT INVERTED BY AN UNCONTROLLED ORDERING EFFECT — a category of its own.** A sequential A/B gave a **+5% workload a NEGATIVE delta**: more work, measured faster, because whichever variant runs first pays the JIT warm-up. Every other entry is a check that *cannot* fail or that fails toward a null; **this one runs, succeeds, and returns a confident, precise, WRONG-SIGNED number.** Trusted in the §3.7 decomposition A/B it would have shown that extracting code from a hot loop made it faster — absurd, but only just, and "supported by measurement". Caught by the injected-delta calibration and by **nothing else**. Fix: interleaved round-robin timing with every variant pre-warmed (`monte-carlo.bench.ts`). |
+
+✅ **And one instrument behaved correctly, which is worth recording too.** The benchmark's first
+calibration attempt produced a 0.9ms delta against sd 1.5ms and reported **NOT DETECTED** —
+it **refused to certify a resolution it did not have**. That is the behaviour every tool in this
+repo has failed to have at least once. Declining to answer is a feature.
 
 ⚠️ **THE COMMON FACTOR IS NOT "FLATTERING" — AN EARLIER DRAFT OF THIS SAID SO AND IT IS
 WRONG, in a way that matters operationally.**
@@ -140,9 +146,21 @@ more use to a future reader than any of the numbers beside it.
 | **The falsification runner** | Its own third-instance tooling defect: a non-compiling mutant read as "0 failing" |
 | **`npm run cc`** | `SortableScenarioTab` cc 13 → 15 from the v0.62.2 accessibility fix — invisible to lint |
 
-⚠️ **Not one was found by inspection.** Several were looked at directly and read as correct.
-The common factor in every catch is a committed, executable check; the common factor in every
-miss is a person being careful.
+⚠️ **Seven mechanisms and one person — and the person does not generalise.** The last row is
+"a result was implausible against tests I had reason to trust", which fired only because those
+tests were days old and the prior was still warm. Against unfamiliar or old code nothing would
+have fired.
+
+⚠️ **That forces a harder reading of the base rate.** *"Roughly one self-inflicted unfalsifiable
+check per substantial item"* is a **detection** rate, not an incidence rate. Before the tooling
+caught up, ~10 instances of this class were found and **none was caught by tooling** — every one
+by a person finding a number implausible, in code they had just written. Nobody in this campaign
+has ever caught one in unfamiliar or old code, and that is indistinguishable from there being
+none to catch. **The true rate is unknown and bounded below by the measured one.**
+
+That is not cause for alarm; it is the precise argument for converting each detector into a
+committed guard the moment it fires. **A guard works on code nobody remembers writing. The person
+does not.**
 
 **Commit the falsification spec, not just the runner.** Added 2026-08-02. `scripts/falsify.mjs`
 was committed while every spec it consumed lived in scratchpad — so for a day, no falsification
