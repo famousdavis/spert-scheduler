@@ -96,6 +96,39 @@ survivors are all genuine gaps, not equality edges — see below.
 **Score is authoritative only while the denominator holds.** Per `mutation-baseline-c1.md`'s
 amended rule, the **absolute `Survived` count** is the primary comparison figure for every file here.
 
+### The small-denominator rule — stated, with its reason
+
+*Added 2026-08-01. The two instances above were recorded from the start; the rule behind them was
+argued in conversation and never written down, so every reader had to re-derive it. That is the same
+omission class as a stale figure — worse, because nothing contradicts it.*
+
+**Below roughly 20 valid mutants, a mutation score is not evidence.** Not "weak evidence" — the
+interval is too wide to separate a well-tested file from a badly-tested one.
+
+Derivable, so it needn't be taken on faith. Using the exact (Clopper-Pearson) 95% lower bound for a
+perfect score, `0.025^(1/n)`:
+
+| Valid mutants `n` | `n/n` killed means "true kill rate is at least…" |
+|---|---|
+| 4 | **39.8%** |
+| 9 | 66.4% |
+| 20 | 83.2% |
+| 39 | 91.0% |
+
+So `buffer.ts`'s 100% on 4 is consistent with a true kill rate under 40% — indistinguishable from the
+weakest file in scope. `uniform.ts`'s 100% on 39 rules out anything below 91%. **Identical headline,
+opposite strength.** Around n≈20 a perfect score starts carrying real information, which is where the
+threshold comes from; it is a judgement about where the curve turns, not a bright line.
+
+**The corollary matters more than the rule.** A thin denominator undermines **the score**, not the
+**individual survivor findings**. A survivor is a specific mutant a specific test suite failed to
+kill — that observation is exactly as valid at n=9 as at n=900. `factory.ts`'s four survivors were
+real gaps at any denominator, and closing them (4 → 0, denominator held at 9) was right regardless of
+what its 55.56% did or didn't mean.
+
+**Practical consequence:** never rank files by score without printing the denominator beside it, and
+never dismiss a survivor because the file's score looks acceptable.
+
 ---
 
 ## `dependency-graph.ts` — a contention check that came back clean
