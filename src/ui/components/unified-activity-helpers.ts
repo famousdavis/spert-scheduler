@@ -145,3 +145,103 @@ export function handleInRowTabNav(
     focusField(activityId, targetField);
   }
 }
+
+// -- Bulk apply ---------------------------------------------------------------
+
+/**
+ * The DECISION half of the grid's bulk-apply handler, separated from the dispatch half.
+ *
+ * The handler measured cognitive complexity 25 and lived in a `useCallback` inside a
+ * component at 0% coverage. It mixes three different update shapes — shared fields
+ * applied to every selection, per-activity actual durations when marking complete, and a
+ * per-activity heuristic recalculation — and then fires callbacks for each. Extracting
+ * the plan leaves the component doing nothing but dispatch, and makes the routing rules
+ * assertable without rendering a grid.
+ *
+ * ⚠️ `perActivity` is ORDERED and may contain the same id twice: an activity that is both
+ * marked complete and heuristic-recalculated gets two entries, exactly as the original
+ * issued two `onUpdate` calls. Collapsing them into one merged update would change what
+ * a consumer observes, so the list preserves the original call sequence.
+ */
+/** The subset of BulkApplyPayload this planner reads. */
+export interface StagedBulkFields {
+  confidenceLevel?: Activity["confidenceLevel"];
+  distributionType?: Activity["distributionType"];
+  status?: Activity["status"];
+  recalculateHeuristic?: boolean;
+}
+
+export interface BulkApplyPlan {
+  /** Applied to every selected id in one go, or null when nothing shared is staged. */
+  sharedUpdates: Partial<Activity> | null;
+  /** Applied one at a time, in order. May repeat an id — see above. */
+  perActivity: { id: string; updates: Partial<Activity> }[];
+}
+
+/** Fields that can be applied identically to every selected activity. */
+function collectSharedUpdates(staged: StagedBulkFields): Partial<Activity> {
+  const shared: Partial<Activity> = {};
+  if (staged.confidenceLevel) shared.confidenceLevel = staged.confidenceLevel;
+  if (staged.distributionType) shared.distributionType = staged.distributionType;
+  // "complete" is deliberately excluded: it needs a per-activity actual duration, so it
+  // is routed through planCompleteUpdates instead.
+  if (staged.status && staged.status !== "complete") shared.status = staged.status;
+  return shared;
+}
+
+/** Marking complete carries each activity's own scheduled duration across as the actual. */
+function planCompleteUpdates(
+  ids: string[],
+  scheduledActivities: { activityId: string; duration: number }[],
+): BulkApplyPlan["perActivity"] {
+  const durations = new Map(scheduledActivities.map((sa) => [sa.activityId, sa.duration]));
+  return ids.map((id) => ({
+    id,
+    updates: { status: "complete" as const, actualDuration: durations.get(id) ?? undefined },
+  }));
+}
+
+/** Re-derives min/max from each activity's own mostLikely. */
+function planHeuristicUpdates(
+  ids: string[],
+  activities: Activity[],
+  heuristic: { minPercent?: number; maxPercent?: number },
+  computeHeuristicFn: (ml: number, minPct: number, maxPct: number) => { min: number; max: number },
+): BulkApplyPlan["perActivity"] {
+  const out: BulkApplyPlan["perActivity"] = [];
+  for (const id of ids) {
+    const activity = activities.find((a) => a.id === id);
+    // mostLikely of 0 would make both bounds 0, so it is skipped rather than recalculated.
+    if (!activity || activity.mostLikely <= 0) continue;
+    const { min, max } = computeHeuristicFn(
+      activity.mostLikely,
+      heuristic.minPercent ?? 50,
+      heuristic.maxPercent ?? 200,
+    );
+    out.push({ id, updates: { min, max } });
+  }
+  return out;
+}
+
+export function planBulkApply(
+  staged: StagedBulkFields,
+  ids: string[],
+  activities: Activity[],
+  scheduledActivities: { activityId: string; duration: number }[],
+  heuristic: { enabled?: boolean; minPercent?: number; maxPercent?: number },
+  computeHeuristicFn: (ml: number, minPct: number, maxPct: number) => { min: number; max: number },
+): BulkApplyPlan {
+  const shared = collectSharedUpdates(staged);
+
+  const perActivity: BulkApplyPlan["perActivity"] = [
+    ...(staged.status === "complete" ? planCompleteUpdates(ids, scheduledActivities) : []),
+    ...(staged.recalculateHeuristic && heuristic.enabled
+      ? planHeuristicUpdates(ids, activities, heuristic, computeHeuristicFn)
+      : []),
+  ];
+
+  return {
+    sharedUpdates: Object.keys(shared).length > 0 ? shared : null,
+    perActivity,
+  };
+}

@@ -7,6 +7,8 @@ import type { Activity } from "@domain/models/types";
 import {
   computeConstraintUpdates,
   computeDescriptionUpdate,
+  computeGeneralUpdates,
+  computeEstimateUpdates,
 } from "./activity-modal-sections";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
@@ -139,5 +141,200 @@ describe("computeDescriptionUpdate", () => {
   it("no-op when clearing an already-absent description", () => {
     const a = makeActivity();
     expect(computeDescriptionUpdate(a, "")).toEqual({});
+  });
+});
+
+
+/**
+ * The General and Estimates halves of ActivityEditModal's `buildFieldUpdates` were inline
+ * in a `useCallback` inside a component at 0% coverage, and measured cognitive complexity
+ * 20. Extracted here beside the constraint and description halves that were already
+ * split out — the same B3 pattern, and the third time it has paid: field-by-field diff
+ * logic is exactly the shape that hides `undefined`-vs-null-vs-unchanged edge cases.
+ *
+ * Lint went 10 -> 9 as a consequence. A removal, not a suppression.
+ */
+describe("computeGeneralUpdates", () => {
+  it("returns nothing when nothing changed", () => {
+    const a = makeActivity({ name: "Activity 1", status: "planned" });
+    expect(computeGeneralUpdates(a, "Activity 1", "planned", "")).toEqual({});
+  });
+
+  describe("name", () => {
+    it("saves a changed name, trimmed", () => {
+      const a = makeActivity({ name: "Old" });
+      expect(computeGeneralUpdates(a, "  New  ", "planned", "")).toEqual({ name: "New" });
+    });
+
+    it("ignores a name that only differs by surrounding whitespace", () => {
+      const a = makeActivity({ name: "Same" });
+      expect(computeGeneralUpdates(a, "  Same  ", "planned", "")).toEqual({});
+    });
+
+    it("CURRENTLY ignores a name that trims to empty — recorded, not endorsed", () => {
+      // ⚠️ This pins the CURRENT BEHAVIOUR, not a contract. The user clears the field,
+      // clicks Save, and the app silently discards the edit — no error, no blank name,
+      // no feedback.
+      //
+      // The evidence points one way, and it is not the third option:
+      //   • ActivitySchema.name is `z.string().min(1).max(200)` — a blank activity name
+      //     is SCHEMA-INVALID, so "accept and blank it" would store something the schema
+      //     rejects. Where blank IS legal the codebase says so explicitly: ActivityBand
+      //     names default to "" as display-only separators, and HolidaySchema carries
+      //     `z.string().max(200) // allow empty for migrated data`.
+      //   • Rejecting with an error state is not a new pattern to invent — it is the one
+      //     the GRID already uses. UnifiedActivityRow.validateAndUpdate schema-validates
+      //     every edit and sets per-field errors, and ValidationSummary surfaces failures
+      //     with a scroll-to-field affordance (it even renders "(unnamed)").
+      //
+      // So the modal is the outlier: it silently discards where the rest of the app
+      // validates and reports. Awaiting the owner's decision.
+      //
+      // Same call as C2, which deliberately left the cyclic-graph behaviour unpinned
+      // because "a test there would enshrine the behaviour rather than record the
+      // question". The difference is that this one is trivially reachable, so leaving it
+      // unpinned would let a refactor change it silently. It is pinned to hold the line
+      // while the question is open — NOT because the behaviour is correct.
+      //
+      // If this is later decided deliberately, replace this test rather than adding to
+      // it, and say which of the three behaviours was chosen.
+      const a = makeActivity({ name: "Keep Me" });
+      expect(computeGeneralUpdates(a, "", "planned", "")).toEqual({});
+      expect(computeGeneralUpdates(a, "   ", "planned", "")).toEqual({});
+    });
+  });
+
+  describe("status", () => {
+    it("saves a changed status", () => {
+      const a = makeActivity({ status: "planned" });
+      expect(computeGeneralUpdates(a, a.name, "inProgress", "")).toEqual({
+        status: "inProgress",
+      });
+    });
+  });
+
+  describe("actualDuration while complete or in progress", () => {
+    it("saves a changed duration", () => {
+      const a = makeActivity({ status: "complete", actualDuration: 5 });
+      expect(computeGeneralUpdates(a, a.name, "complete", 8)).toEqual({ actualDuration: 8 });
+    });
+
+    it("ignores an unchanged duration", () => {
+      const a = makeActivity({ status: "complete", actualDuration: 5 });
+      expect(computeGeneralUpdates(a, a.name, "complete", 5)).toEqual({});
+    });
+
+    it("ignores an empty draft, so a half-typed field cannot overwrite a stored value", () => {
+      const a = makeActivity({ status: "complete", actualDuration: 5 });
+      expect(computeGeneralUpdates(a, a.name, "complete", "")).toEqual({});
+    });
+
+    it("floors a fractional duration to whole days", () => {
+      const a = makeActivity({ status: "complete" });
+      expect(computeGeneralUpdates(a, a.name, "complete", 7.9)).toEqual({ actualDuration: 7 });
+    });
+
+    it("clamps zero and negatives up to one day", () => {
+      const a = makeActivity({ status: "complete" });
+      expect(computeGeneralUpdates(a, a.name, "complete", 0)).toEqual({ actualDuration: 1 });
+      expect(computeGeneralUpdates(a, a.name, "complete", -4)).toEqual({ actualDuration: 1 });
+    });
+
+    it("rejects non-numeric input rather than storing NaN", () => {
+      // NaN survives both Math.floor and Math.max — `Math.max(1, NaN)` is NaN, not 1 —
+      // so the isNaN guard after them is what actually rejects this.
+      const a = makeActivity({ status: "complete" });
+      expect(computeGeneralUpdates(a, a.name, "complete", "abc")).toEqual({});
+    });
+
+    it("applies to in-progress as well as complete", () => {
+      const a = makeActivity({ status: "inProgress" });
+      expect(computeGeneralUpdates(a, a.name, "inProgress", 3)).toEqual({ actualDuration: 3 });
+    });
+  });
+
+  describe("leaving a status that had an actual duration", () => {
+    it("emits an EXPLICIT undefined to clear it", () => {
+      const a = makeActivity({ status: "complete", actualDuration: 5 });
+      const updates = computeGeneralUpdates(a, a.name, "planned", 5);
+
+      expect(updates.status).toBe("planned");
+      expect(updates.actualDuration).toBeUndefined();
+      // The distinction that matters: an own property whose value is undefined, which
+      // Object.keys counts — not an absent key. Save and dismiss-detection both count
+      // keys, so an absent key would silently leave the stale duration in place.
+      expect(Object.prototype.hasOwnProperty.call(updates, "actualDuration")).toBe(true);
+    });
+
+    it("does not emit the clear when there was nothing to clear", () => {
+      const a = makeActivity({ status: "complete" });
+      const updates = computeGeneralUpdates(a, a.name, "planned", "");
+      expect(Object.prototype.hasOwnProperty.call(updates, "actualDuration")).toBe(false);
+    });
+  });
+});
+
+describe("computeEstimateUpdates", () => {
+  const base = makeActivity({
+    min: 1,
+    mostLikely: 2,
+    max: 3,
+    confidenceLevel: "mediumConfidence",
+    distributionType: "normal",
+  });
+
+  it("returns nothing when nothing changed", () => {
+    expect(
+      computeEstimateUpdates(base, 1, 2, 3, "mediumConfidence", "normal"),
+    ).toEqual({});
+  });
+
+  it("saves each changed estimate independently", () => {
+    expect(computeEstimateUpdates(base, 5, 2, 3, "mediumConfidence", "normal")).toEqual({ min: 5 });
+    expect(computeEstimateUpdates(base, 1, 6, 3, "mediumConfidence", "normal")).toEqual({ mostLikely: 6 });
+    expect(computeEstimateUpdates(base, 1, 2, 9, "mediumConfidence", "normal")).toEqual({ max: 9 });
+  });
+
+  it("compares numerically, so a string draft equal to the stored number is not a change", () => {
+    expect(computeEstimateUpdates(base, "1", "2", "3", "mediumConfidence", "normal")).toEqual({});
+  });
+
+  it("converts a changed string draft to a number", () => {
+    const updates = computeEstimateUpdates(base, "5", 2, 3, "mediumConfidence", "normal");
+    expect(updates.min).toBe(5);
+    expect(typeof updates.min).toBe("number");
+  });
+
+  it("skips an empty draft, so a half-typed field cannot overwrite a stored estimate", () => {
+    // Without the `!== ""` guards, Number("") is 0 and every cleared field would silently
+    // become zero.
+    expect(computeEstimateUpdates(base, "", "", "", "mediumConfidence", "normal")).toEqual({});
+  });
+
+  it("saves a changed confidence level and distribution type", () => {
+    expect(
+      computeEstimateUpdates(base, 1, 2, 3, "lowConfidence", "normal"),
+    ).toEqual({ confidenceLevel: "lowConfidence" });
+    expect(
+      computeEstimateUpdates(base, 1, 2, 3, "mediumConfidence", "triangular"),
+    ).toEqual({ distributionType: "triangular" });
+  });
+
+  it("collects several changes at once", () => {
+    expect(
+      computeEstimateUpdates(base, 4, 5, 6, "lowConfidence", "uniform"),
+    ).toEqual({
+      min: 4,
+      mostLikely: 5,
+      max: 6,
+      confidenceLevel: "lowConfidence",
+      distributionType: "uniform",
+    });
+  });
+
+  it("accepts zero as a real estimate rather than treating it as empty", () => {
+    // `!== ""` rather than a truthiness check is what makes this work, and min = 0 is a
+    // legitimate estimate the app supports (see the zero-uncertainty work in v0.53.0).
+    expect(computeEstimateUpdates(base, 0, 2, 3, "mediumConfidence", "normal")).toEqual({ min: 0 });
   });
 });

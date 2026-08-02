@@ -38,6 +38,8 @@ import {
   Section,
   computeConstraintUpdates,
   computeDescriptionUpdate,
+  computeGeneralUpdates,
+  computeEstimateUpdates,
   DependenciesDisplaySection,
   ScheduleAnalysisSection,
 } from "@ui/components/activity-modal-sections";
@@ -378,34 +380,17 @@ export function ActivityEditModal({
   // Reused by both handleSave and hasChanges to avoid duplicated diff logic.
   const buildFieldUpdates = useCallback((): Partial<Activity> => {
     if (!activity) return {};
-    const updates: Partial<Activity> = {};
 
-    // General
-    if (name.trim() && name.trim() !== activity.name) updates.name = name.trim();
-    if (status !== activity.status) updates.status = status;
-    if (status === "complete" || status === "inProgress") {
-      if (actualDuration !== "" && actualDuration !== activity.actualDuration) {
-        const dur = Math.max(1, Math.floor(Number(actualDuration)));
-        if (!isNaN(dur)) updates.actualDuration = dur;
-      }
-    } else if (activity.actualDuration != null) {
-      updates.actualDuration = undefined;
-    }
-
-    // Estimates
-    if (min !== "" && Number(min) !== activity.min) updates.min = Number(min);
-    if (mostLikely !== "" && Number(mostLikely) !== activity.mostLikely) updates.mostLikely = Number(mostLikely);
-    if (max !== "" && Number(max) !== activity.max) updates.max = Number(max);
-    if (confidenceLevel !== activity.confidenceLevel) updates.confidenceLevel = confidenceLevel;
-    if (distributionType !== activity.distributionType) updates.distributionType = distributionType;
-
-    // Constraint — only include if changed (treat undefined/null as equivalent)
-    Object.assign(updates, computeConstraintUpdates(activity, constraintType, constraintDate, constraintMode, constraintNote));
-
-    // Description — trim || undefined; explicit undefined key clears (see helper)
-    Object.assign(updates, computeDescriptionUpdate(activity, description));
-
-    return updates;
+    // Each section owns its own diff rules, including the two that emit an EXPLICIT
+    // `undefined` to clear a stored value (actualDuration, description). Object.assign
+    // preserves those own-properties, which is what save and dismiss-detection count.
+    return Object.assign(
+      {} as Partial<Activity>,
+      computeGeneralUpdates(activity, name, status, actualDuration),
+      computeEstimateUpdates(activity, min, mostLikely, max, confidenceLevel, distributionType),
+      computeConstraintUpdates(activity, constraintType, constraintDate, constraintMode, constraintNote),
+      computeDescriptionUpdate(activity, description),
+    );
   }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, description]);
 
   // -- Save: only send changed fields --

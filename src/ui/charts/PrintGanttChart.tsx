@@ -248,7 +248,14 @@ export function PrintGanttChart({
       <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
         Gantt Chart
       </h2>
-      <svg width={chartW} height={chartH} viewBox={`0 0 ${chartW} ${chartH}`}>
+      {/* data-gantt-chart marks the CHART svg for gantt-parity-oracle.test.tsx, which
+          pins this chart's geometry against the interactive one. Behaviour-free. */}
+      <svg
+        data-gantt-chart="print"
+        width={chartW}
+        height={chartH}
+        viewBox={`0 0 ${chartW} ${chartH}`}
+      >
         {/* Arrowhead marker definitions */}
         <defs>
           <marker id="print-arrowhead" markerUnits="userSpaceOnUse"

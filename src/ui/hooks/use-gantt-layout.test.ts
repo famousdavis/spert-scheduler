@@ -8,6 +8,7 @@ import { createRef } from "react";
 import type { RefObject } from "react";
 
 import { useGanttLayout } from "./use-gantt-layout";
+import { installResizeObserverStub, lastResizeObserver } from "../../test-stubs";
 import type { Activity, ActivityBand, Milestone } from "@domain/models/types";
 
 /**
@@ -29,43 +30,6 @@ const RIGHT_MARGIN = 40;
 const TOP_MARGIN = 32;
 const MIN_CHART_WIDTH = 900;
 const PROJECT_NAME_HEIGHT = 28;
-
-/**
- * jsdom has no ResizeObserver. A factory rather than a class, so the instance can be
- * captured without aliasing `this` in a constructor (`@typescript-eslint/no-this-alias`).
- */
-interface StubResizeObserver {
-  observed: Element[];
-  disconnected: boolean;
-  observe(el: Element): void;
-  unobserve(): void;
-  disconnect(): void;
-  /** Drive a resize through the observed callback. */
-  emit(width: number): void;
-}
-
-let lastObserver: StubResizeObserver | null = null;
-
-function createStubResizeObserver(cb: ResizeObserverCallback): StubResizeObserver {
-  const stub: StubResizeObserver = {
-    observed: [],
-    disconnected: false,
-    observe(el) {
-      stub.observed.push(el);
-    },
-    unobserve() {},
-    disconnect() {
-      stub.disconnected = true;
-    },
-    emit(width) {
-      cb(
-        [{ contentRect: { width } } as unknown as ResizeObserverEntry],
-        stub as unknown as ResizeObserver,
-      );
-    },
-  };
-  return stub;
-}
 
 const activity = (id: string): Activity =>
   ({
@@ -108,15 +72,13 @@ const setup = (overrides: Partial<typeof baseArgs> = {}) =>
   renderHook(() => useGanttLayout({ ...baseArgs, ...overrides })).result;
 
 beforeEach(() => {
-  lastObserver = null;
-  vi.stubGlobal("ResizeObserver", function (cb: ResizeObserverCallback) {
-    lastObserver = createStubResizeObserver(cb);
-    return lastObserver;
-  });
+  // The stub itself is installed globally by src/test-setup.ts and proved to actually
+  // fire by src/test-stubs.test.ts. Re-installing here resets the captured instance
+  // between tests in this file.
+  installResizeObserverStub();
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
@@ -180,7 +142,7 @@ describe("useGanttLayout", () => {
   describe("container measurement", () => {
     it("does nothing without a ref, leaving the fallback width in place", () => {
       expect(setup().current.chartWidth).toBe(MIN_CHART_WIDTH);
-      expect(lastObserver).toBeNull();
+      expect(lastResizeObserver()).toBeNull();
     });
 
     it("reads the initial clientWidth and observes the element", () => {
@@ -191,7 +153,7 @@ describe("useGanttLayout", () => {
 
       const r = setup({ svgContainerRef: ref }).current;
       expect(r.chartWidth).toBe(1200);
-      expect(lastObserver!.observed).toEqual([el]);
+      expect(lastResizeObserver()!.observed).toEqual([el]);
     });
 
     it("re-measures when the observer fires", () => {
@@ -201,7 +163,7 @@ describe("useGanttLayout", () => {
       (ref as { current: HTMLDivElement }).current = el;
 
       const result = setup({ svgContainerRef: ref });
-      act(() => lastObserver!.emit(1500));
+      act(() => lastResizeObserver()!.emit(1500));
       expect(result.current.chartWidth).toBe(1500);
     });
 
@@ -214,7 +176,7 @@ describe("useGanttLayout", () => {
       const { unmount } = renderHook(() =>
         useGanttLayout({ ...baseArgs, svgContainerRef: ref }),
       );
-      const observer = lastObserver!;
+      const observer = lastResizeObserver()!;
       expect(observer.disconnected).toBe(false);
       unmount();
       expect(observer.disconnected).toBe(true);

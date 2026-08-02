@@ -30,7 +30,7 @@ import { UnifiedActivityRow } from "./UnifiedActivityRow";
 import { BandHeaderRow } from "./BandHeaderRow";
 import { BulkActionToolbar } from "./BulkActionToolbar";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
-import { shouldShowConstraintColumn } from "./unified-activity-helpers";
+import { shouldShowConstraintColumn, planBulkApply } from "./unified-activity-helpers";
 import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
 import { useGridFocus, useGridSelection } from "@ui/hooks/use-grid-state";
 
@@ -146,49 +146,24 @@ export function UnifiedActivityGrid({
       if (selectedIds.size === 0) return;
       const ids = Array.from(selectedIds);
 
-      // Build partial updates from staged selections
-      const updates: Partial<Activity> = {};
-      if (staged.confidenceLevel) updates.confidenceLevel = staged.confidenceLevel;
-      if (staged.distributionType) updates.distributionType = staged.distributionType;
-      if (staged.status && staged.status !== "complete") updates.status = staged.status;
+      const plan = planBulkApply(
+        staged,
+        ids,
+        activities,
+        scheduledActivities,
+        {
+          enabled: heuristicEnabled,
+          minPercent: heuristicMinPercent,
+          maxPercent: heuristicMaxPercent,
+        },
+        computeHeuristic,
+      );
 
-      // Apply bulk field updates (non-complete status)
-      if (Object.keys(updates).length > 0) {
-        if (onBulkUpdate) {
-          onBulkUpdate(ids, updates);
-        } else {
-          for (const id of ids) onUpdate(id, updates);
-        }
+      if (plan.sharedUpdates) {
+        if (onBulkUpdate) onBulkUpdate(ids, plan.sharedUpdates);
+        else for (const id of ids) onUpdate(id, plan.sharedUpdates);
       }
-
-      // Handle "complete" status separately (needs per-activity actualDuration)
-      if (staged.status === "complete") {
-        const scheduledDurations = new Map<string, number>();
-        for (const sa of scheduledActivities) {
-          scheduledDurations.set(sa.activityId, sa.duration);
-        }
-        for (const id of ids) {
-          onUpdate(id, {
-            status: "complete",
-            actualDuration: scheduledDurations.get(id) ?? undefined,
-          });
-        }
-      }
-
-      // Heuristic recalculation pass (per-activity, needs individual mostLikely)
-      if (staged.recalculateHeuristic && heuristicEnabled) {
-        for (const id of ids) {
-          const activity = activities.find((a) => a.id === id);
-          if (activity && activity.mostLikely > 0) {
-            const { min, max } = computeHeuristic(
-              activity.mostLikely,
-              heuristicMinPercent ?? 50,
-              heuristicMaxPercent ?? 200,
-            );
-            onUpdate(id, { min, max });
-          }
-        }
-      }
+      for (const { id, updates } of plan.perActivity) onUpdate(id, updates);
 
       clearSelection();
     },
