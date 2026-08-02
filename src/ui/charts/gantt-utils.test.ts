@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { formatDateISO } from "@core/calendar/calendar";
 import {
   dateToX,
@@ -16,6 +16,7 @@ import {
   countSemiannualTicks,
   computeWeekendShadingRects,
   suppressOverlappingTicks,
+  computeTodayLine,
 } from "./gantt-utils";
 import {
   LEFT_MARGIN, ROW_HEIGHT, BAR_HEIGHT, BAR_Y_OFFSET,
@@ -802,5 +803,61 @@ describe("suppressOverlappingTicks — targetX proximity", () => {
     const targetXPos = dateToX("2026-01-02", minTimestamp, dateRange, chartAreaWidth, leftMargin);
     const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: targetXPos });
     expect(out.find((t) => t.label === "Jan")).toBeDefined();
+  });
+});
+
+// -- computeTodayLine ---------------------------------------------------------
+
+describe("computeTodayLine", () => {
+  const START = "2026-04-06";
+  const END = "2026-05-01";
+  // A stand-in for each chart's own dateToX — linear over the span, so positions are
+  // checkable without importing either chart's margin constants.
+  const toX = (iso: string) => {
+    const ms = new Date(iso + "T00:00:00").getTime() - new Date(START + "T00:00:00").getTime();
+    return ms / (1000 * 60 * 60 * 24);
+  };
+  const RANGE = 1;
+
+  it("reports today when it falls inside the span", () => {
+    const r = computeTodayLine(new Date("2026-04-15T09:00:00"), START, END, RANGE, toX);
+    expect(r.todayStr).toBe("2026-04-15");
+    expect(r.todayInRange).toBe(true);
+    expect(r.todayX).toBe(9);
+  });
+
+  it("includes both endpoints", () => {
+    expect(computeTodayLine(new Date("2026-04-06T00:00:00"), START, END, RANGE, toX).todayInRange).toBe(true);
+    expect(computeTodayLine(new Date("2026-05-01T23:59:59"), START, END, RANGE, toX).todayInRange).toBe(true);
+  });
+
+  it("excludes the days either side of the span", () => {
+    expect(computeTodayLine(new Date("2026-04-05T23:59:59"), START, END, RANGE, toX).todayInRange).toBe(false);
+    expect(computeTodayLine(new Date("2026-05-02T00:00:00"), START, END, RANGE, toX).todayInRange).toBe(false);
+  });
+
+  it("returns a null position when out of range, rather than an off-chart number", () => {
+    expect(computeTodayLine(new Date("2027-01-01T09:00:00"), START, END, RANGE, toX).todayX).toBeNull();
+  });
+
+  it("returns a null position on a zero-width span, without calling toX", () => {
+    // Guards the divide-by-zero path: a one-day project must not place a today marker.
+    const spy = vi.fn(toX);
+    const r = computeTodayLine(new Date("2026-04-06T09:00:00"), START, START, 0, spy);
+    expect(r.todayInRange).toBe(false);
+    expect(r.todayX).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("uses the `now` it is given, not the real clock", () => {
+    // The whole point of the parameter. Both charts previously read `new Date()` inline,
+    // each with its own copy.
+    const r = computeTodayLine(new Date("2026-04-20T00:00:00"), START, END, RANGE, toX);
+    expect(r.todayStr).toBe("2026-04-20");
+  });
+
+  it("formats in LOCAL time, so a late-evening render does not report tomorrow", () => {
+    const r = computeTodayLine(new Date("2026-04-15T23:30:00"), START, END, RANGE, toX);
+    expect(r.todayStr).toBe("2026-04-15");
   });
 });

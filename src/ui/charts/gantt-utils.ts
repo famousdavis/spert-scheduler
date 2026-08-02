@@ -353,3 +353,79 @@ export function computeWeekendShadingRects(
   return rects;
 }
 
+
+// -- Today line ---------------------------------------------------------------
+
+export interface TodayLine {
+  /** Today as an ISO date, in local time. */
+  todayStr: string;
+  /** Whether today falls within the chart's date span, inclusive of both ends. */
+  todayInRange: boolean;
+  /** X position, or null when out of range or the span has zero width. */
+  todayX: number | null;
+}
+
+/**
+ * The one piece of Gantt layout that is genuinely identical in both charts, and the only
+ * one that reads the clock.
+ *
+ * ⚠️ `now` is a PARAMETER, deliberately. Both charts previously called `new Date()` inline
+ * — `use-gantt-layout.ts` and `PrintGanttChart.tsx` each with their own copy — so the same
+ * wall-clock dependency existed twice and neither had chosen it. Owner decision
+ * (2026-08-01): keep the today-line on printed reports, and pass `now` in, so the
+ * dependency is explicit at one call site per chart instead of buried in two.
+ *
+ * Measured before the change: the same project rendered on 2026-04-15 versus 2027-01-01
+ * produced 4 dashed lines and a "Today" label versus 2 and none. That is real behaviour
+ * either way; passing `now` makes it visible rather than removing it.
+ *
+ * ⚠️ NOT a wider layout unification, and the difference matters. The two charts' assemblies
+ * are not the same computation: the interactive one sizes itself from a measured container
+ * with a 2px/day floor and a fit-to-window override, while the print one is a fixed 700px;
+ * their margins are parallel constants, not shared ones (`RIGHT_MARGIN` 40 vs `PRINT_RIGHT`
+ * 20 — the parity oracle corrected that belief); and they derive their end dates
+ * differently. Forcing those into one function would take about ten parameters and be
+ * worse code.
+ *
+ * ⚠️ BOTH CHARTS USE THIS, AND PRINTGANTTCHART PAYS TWO SUPPRESSIONS FOR IT.
+ * Wiring it into the print chart costs two `react-hooks/preserve-manual-memoization`
+ * findings — "Compilation Skipped: Existing memoization could not be preserved". Isolated
+ * by measurement, not guessed: helper alone 8, interactive-only 8, print-only 10, both 10.
+ *
+ * The trigger is NOT the clock. `todayX` arrives from an IMPORTED call and feeds a
+ * `useMemo`; React Compiler cannot prove an imported function is pure, so it stops
+ * preserving that component's manual memoization and bails on the WHOLE component — which
+ * is why an unrelated memo also reports. Tried and rejected, each measured: destructuring
+ * vs named access, passing primitives instead of the memoized `toX`, and `now` as a prop
+ * with a `new Date()` default. The component already contains an inline `new Date()`
+ * elsewhere that never caused a bail.
+ *
+ * The two are SUPPRESSED with specific reasons rather than left as duplication, following
+ * the directive already in that file at the printDensityPx memo — same file, same rule,
+ * same print-only-context reasoning. Net lint is unchanged at 8, and the duplication that
+ * had already produced one bug in this pair (the "skips band rows" comment, wrong in both
+ * files because nothing pinned the contract but prose) is gone.
+ *
+ * ⚠️⚠️ THE SUPPRESSION IS NOT TRANSFERABLE TO THE INTERACTIVE CHART. Suppressing silences
+ * the report, not the bail — the component genuinely loses compiler optimisation. For a
+ * chart rendered once per export that is plausibly free. `GanttChart` re-renders on scroll
+ * and zoom, so any extraction out of it must MEASURE the real render cost first, or keep
+ * the imported call outside every memo boundary — which probably means hoisting assembled
+ * geometry to a prop rather than computing it inside. Live input to §3.3's remaining work.
+ */
+export function computeTodayLine(
+  now: Date,
+  projectStartDate: string,
+  furthestDate: string,
+  dateRange: number,
+  toX: (isoDate: string) => number,
+): TodayLine {
+  const todayStr = formatDateISO(now);
+  const todayInRange =
+    dateRange > 0 && todayStr >= projectStartDate && todayStr <= furthestDate;
+  return {
+    todayStr,
+    todayInRange,
+    todayX: todayInRange ? toX(todayStr) : null,
+  };
+}
