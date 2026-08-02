@@ -65,7 +65,12 @@ stated target, because covering an orchestrator covers its children.
 branching. It is now **one point under the lint threshold** and will never appear in a lint
 report — which is this campaign's thesis arriving on a change made during the campaign itself.
 
-Not a reason to undo it. Recorded so nobody later discovers it as a surprise.
+**⚠️ Do not refactor it back under the threshold.** The added branching *is* the accessibility —
+a `<button>` with `onClick`, `onDoubleClick` and a conditional `aria-current` is genuinely more
+complex than a `<span>`. Reducing it would be optimising the number rather than the code, on a
+function whose number got worse **because the software got better**. It is not a lint finding and
+needs no action. `docs/CHARTER_codebase-quality.md` §1 carries this as the campaign's canonical
+example of the metric ranking risk backwards.
 
 ---
 
