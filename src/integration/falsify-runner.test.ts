@@ -8,6 +8,8 @@ import {
   parseTestTotal,
   parseFailedNames,
   checkRunComparable,
+  countOccurrences,
+  checkNeedleUnique,
 } from "../../scripts/falsify.mjs";
 
 /**
@@ -93,5 +95,76 @@ describe("checkRunComparable", () => {
       expect(result.ok).toBe(false);
       expect(result.reason).toBeTruthy();
     }
+  });
+});
+
+/**
+ * ⚠️ FOURTH INSTANCE, found the same day the third was fixed — in the tool that fixed it.
+ *
+ * `String.replace(string, …)` rewrites only the FIRST occurrence. A needle appearing twice
+ * silently mutates the wrong site; if that site is untested the run comes back green and
+ * reads as "the test did not catch it". Three of nine mutations in the analytics spec landed
+ * in `bootstrapPercentileCI` instead of `computeBatchPercentileCIs` exactly this way, and
+ * all three were reported as survivors.
+ *
+ * Same family as the other three, same flattering direction: a MISAPPLIED mutation is
+ * indistinguishable from a WEAK TEST, and the tool reported the reading that makes the test
+ * look worse. Existence was checked; uniqueness was not.
+ */
+describe("countOccurrences", () => {
+  it("counts a unique needle once", () => {
+    expect(countOccurrences("alpha beta", "beta")).toBe(1);
+  });
+
+  it("counts every occurrence, not just the first", () => {
+    expect(countOccurrences("x = 1;\nx = 1;\n", "x = 1;")).toBe(2);
+  });
+
+  it("does not count overlapping matches twice", () => {
+    expect(countOccurrences("aaaa", "aa")).toBe(2);
+  });
+
+  it("returns 0 for an absent needle, and for an empty one", () => {
+    expect(countOccurrences("abc", "zzz")).toBe(0);
+    expect(countOccurrences("abc", "")).toBe(0);
+  });
+});
+
+describe("checkNeedleUnique", () => {
+  const twoSiblings = [
+    "function a() {",
+    "  const sorted = Float64Array.from(samples).sort();",
+    "}",
+    "function b() {",
+    "  const sorted = Float64Array.from(samples).sort();",
+    "}",
+  ].join("\n");
+
+  it("accepts a needle that matches exactly once", () => {
+    expect(checkNeedleUnique(twoSiblings, "function b() {", "needle 1").ok).toBe(true);
+  });
+
+  it("REJECTS A DUPLICATED NEEDLE — the case that produced three false survivors", () => {
+    // The whole point. Existence alone was the old check, and this input passes it.
+    const result = checkNeedleUnique(
+      twoSiblings,
+      "  const sorted = Float64Array.from(samples).sort();",
+      "needle 1",
+    );
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/matches 2 places/);
+    expect(result.reason).toMatch(/FIRST/);
+  });
+
+  it("rejects an absent needle with a different reason than a duplicated one", () => {
+    const missing = checkNeedleUnique(twoSiblings, "function c() {", "needle 1");
+    expect(missing.ok).toBe(false);
+    expect(missing.reason).toMatch(/not found/);
+    expect(missing.reason).not.toMatch(/matches/);
+  });
+
+  it("names the needle in the reason, so a multi-edit mutation says WHICH one failed", () => {
+    const result = checkNeedleUnique(twoSiblings, "nope", "needle 2");
+    expect(result.reason).toMatch(/^needle 2 /);
   });
 });
