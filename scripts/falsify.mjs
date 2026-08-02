@@ -71,6 +71,50 @@ export function parseFailedNames(out) {
   return [...out.matchAll(/^\s*[×✗]\s+(.*?)(?:\s+\d+ms)?$/gm)].map((m) => m[1].trim());
 }
 
+/** How many times `needle` occurs in `haystack`. Plain substring count, no regex. */
+export function countOccurrences(haystack, needle) {
+  if (needle === "") return 0;
+  let count = 0;
+  let from = 0;
+  for (;;) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) return count;
+    count++;
+    from = at + needle.length;
+  }
+}
+
+/**
+ * Is a mutation's needle safe to apply?
+ *
+ * ⚠️ FOURTH INSTANCE OF THIS PROJECT'S TOOLING DEFECT, found the day the third was fixed.
+ * `String.replace(string, …)` rewrites the FIRST occurrence only. A needle that appears
+ * twice — trivially common, because sibling functions share lines like
+ * `const sortedOriginal = Float64Array.from(samples).sort();` — silently mutates the wrong
+ * function. If that other function is untested, the run comes back green and reads as
+ * "the test did not catch it": a MISAPPLIED mutation, indistinguishable from a weak test,
+ * and once again failing in the direction that makes a strong test look weak.
+ *
+ * Three of nine mutations in the analytics spec landed in `bootstrapPercentileCI` instead
+ * of `computeBatchPercentileCIs` this way, and all three read as survivors.
+ *
+ * So a needle must match EXACTLY ONCE. Ambiguity is not a weaker signal; it is no signal.
+ */
+export function checkNeedleUnique(source, needle, label) {
+  const n = countOccurrences(source, needle);
+  if (n === 1) return { ok: true };
+  if (n === 0) {
+    return { ok: false, reason: `${label} not found — the edit would have silently no-opped` };
+  }
+  return {
+    ok: false,
+    reason:
+      `${label} matches ${n} places — String.replace would rewrite only the FIRST, ` +
+      `probably in a different function. Extend the needle with surrounding context ` +
+      `until it is unique.`,
+  };
+}
+
 /**
  * Is a mutated run comparable to the baseline at all?
  *
@@ -117,9 +161,10 @@ function applyMutation(m) {
   const edits = [{ find: m.find, replace: m.replace }, ...(m.also ? [m.also] : [])];
   let after = before;
   for (const [i, e] of edits.entries()) {
-    if (!after.includes(e.find)) {
-      return { ok: false, reason: `needle ${i + 1} not found — the edit would have silently no-opped` };
-    }
+    // Existence is not enough — the needle must be UNIQUE, or the wrong site gets mutated
+    // and the run reads as a survivor. See checkNeedleUnique.
+    const unique = checkNeedleUnique(after, e.find, `needle ${i + 1}`);
+    if (!unique.ok) return unique;
     after = after.replace(e.find, e.replace);
   }
   if (after === before) return { ok: false, reason: "the edits produced no change" };

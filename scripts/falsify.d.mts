@@ -21,6 +21,23 @@ export function parseTestTotal(out: string): number | null;
 /** Test names vitest's verbose reporter marked as failed. */
 export function parseFailedNames(out: string): string[];
 
+/** How many times `needle` occurs in `haystack`. Plain substring count, no regex. */
+export function countOccurrences(haystack: string, needle: string): number;
+
+/**
+ * Is a mutation's needle safe to apply? It must match **exactly once**.
+ *
+ * `String.replace(string, …)` rewrites only the FIRST occurrence, so a needle appearing
+ * twice silently mutates the wrong site — and if that site is untested, the run reads as a
+ * surviving mutant rather than a misapplied one. Ambiguity is not a weaker signal, it is no
+ * signal.
+ */
+export function checkNeedleUnique(
+  source: string,
+  needle: string,
+  label: string,
+): RunComparability;
+
 /** Why a mutated run could not be interpreted, or `{ ok: true }` if it can be. */
 export interface RunComparability {
   ok: boolean;
