@@ -34,7 +34,7 @@ something, will anything tell me I got it wrong?*
 
 **This is not a lint-count campaign.** v1 said so and then organised itself around the ten remaining
 findings anyway. The review measured why that was wrong: **52 functions sit at cc 10–15 — invisible
-to lint — and 9 of them are in files no test executes.** The single most consequential file in the
+to lint — and 5 of them never execute.** The single most consequential file in the
 app measures cc 14 and will therefore never appear in a lint report. The count is an output.
 
 ⚠️ *This read "51 … 21 of them uncovered" until 2026-08-02, from the review at `85cc711`.
@@ -58,7 +58,7 @@ Full derivation in `CLOSEOUT_codebase-quality-v0.60.0.md`. Two govern everything
 claims were wrong or overstated** — including its own headline mutation figure. If a number gates a
 decision, produce it.
 
-**Guard against checks that cannot fail.** ⚠️ **Twelve instances now** — this table said *"seven"*
+**Guard against checks that cannot fail.** ⚠️ **Sixteen instances now** — this table said *"seven"*
 and listed seven until 2026-08-01, while five more sat in commit bodies and one arrived that day.
 **None was caught by tooling; every one was caught by a person finding a result implausible.**
 
@@ -76,6 +76,19 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 | §3.2 | `vi.resetModules()` split module identity — the guard test passed while not testing the guard |
 | #242 / #244 | an unasserted string `replace` silently didn't apply — **twice**, once producing a wrong conclusion about which chart triggered the compiler bail |
 | **§3.3 Tier C** | **`waitFor(/Import/i)` matched the static heading "Import Projects"** — passed instantly while the file was never processed. See §3.3's rider. |
+| §3.6 | a `<MemoryRouter initialEntries>` **rerender that never navigated** — `initialEntries` is read once at mount, so the transition under test never happened |
+| **v0.62.1** | ⚠️ **A GREEN LOCAL GATE IS NOT EVIDENCE ABOUT CI** when the local environment carries secrets CI does not. `isFirebaseAvailable` is derived from `VITE_FIREBASE_API_KEY`: true with `.env.local`, false in CI. Two tests passed locally and failed in CI. **New category** — every prior entry is a check that *could not* fail; this one *can* fail, *did* fail, and was believed to have passed, because it ran in an environment that silently differed. **The unstated variable was not in the check — it was in the room.** |
+| **v0.62.2** | ⚠️ **A MUTATION THAT CANNOT COMPILE PROVES NOTHING IN EITHER DIRECTION.** A JSX opening tag swapped without its closing tag stopped the file parsing; vitest ran **zero** tests and the falsification runner counted *"0 failing"* — which reads as SURVIVOR, making a strong test look weak. Dangerous rather than merely wasteful if falsification is ever used to justify **deleting** a test as redundant. |
+
+⚠️ **THREE ARE NOW INSIDE THE MEASUREMENT TOOLING, AND THEY SHARE ONE SIGNATURE.** `cc`'s
+region mode reported a parse error as **cc 0**; `cc`'s suppression filter reported **"no
+functions"** for suppressed ones; the falsification runner reported a non-compiling mutant as
+**"0 failing"**. In every case *a tool that could not do its job returned the value it returns
+when there is nothing to report* — **absence of a result is indistinguishable from a null
+result.** That is not three coincidences, it is a design defect the tooling keeps reproducing,
+and all three failed in the flattering direction. The fix is always the same: make the tool
+**assert it actually ran** and abort otherwise. Applied to `cc` in §3.0 and to the falsification
+runner in v0.62.2 (`scripts/falsify.mjs`, guarded by `src/integration/falsify-runner.test.ts`).
 
 ⚠️ **Two are inside the measurement tool itself, and both failed in the safe-looking direction.**
 ⚠️ **The twelfth was found by the session probing for it, in its own throwaway probe** — which is the
@@ -108,13 +121,14 @@ work ran through it.
 open status · the parser's line counts · **every figure in §3.4–§3.9.** No work has run through any
 of them. Treat as untested, not as durable.
 
-✅ **Was known stale, now re-derived (2026-08-02):** *"51 functions at cc 10–15, 21 uncovered"* is
-now **52 at cc 10–15, 9 in 0%-coverage files** (10 by the sharper never-executes definition) —
-`docs/CENSUS_cognitive-complexity-2026-08-02.md`. The sweep was validated against `npm run lint`
-before its output was read, and it holds. ⚠️ Two things the census records that this line cannot:
-the band's **+1 could not be attributed**, because the original kept only its top 12 rows — the new
-document keeps all 52; and **line numbers shifted** when #244 extracted the today-line, so diffing
-the two censuses by line number produces false "disappeared" results. Diff by file plus name.
+✅ **Re-derived twice on 2026-08-02** (`docs/CENSUS_cognitive-complexity-2026-08-02b.md`, which
+supersedes `…-2026-08-02.md`). *"51 at cc 10–15, 21 uncovered"* → **52 at cc 10–15, 5 that never
+execute.** Both sweeps were validated against `npm run lint` before their output was read.
+⚠️ **Retire the file-granularity number.** *"In a 0%-coverage file"* now reads **2** while the
+honest count is **5**: `ScenarioComparison.tsx` moved 0% → **1.04%**, dropping a cc-10 function
+out of the count while covering none of it. The two definitions were one apart in the first
+sweep and are two and a half times apart in the second. Quote the function-level number and say
+so. ⚠️ Line numbers shift under extraction — diff censuses by file plus name, never by line.
 
 **Also standing:** oracle before refactor (committed JSON, never a regenerable snapshot) · net before
 decomposition · tests first, fix what they expose as its own release, then refactor · extraction
@@ -318,10 +332,11 @@ other three map conversions **with service-side tests first** (worker filters, s
 `ProjectPage` orchestrates everything, sits **one point under the lint threshold** — so the metric
 will never mention it — and nothing executes it. That is the file where a change is least checkable.
 
-**And it is not alone: 52 functions sit at cc 10–15, 9 of them in files no test executes**
-(re-derived 2026-08-02 — `docs/CENSUS_cognitive-complexity-2026-08-02.md`; was "51 … 21"). The
-visible ten were never the population that mattered. `ProjectPage.tsx:80` is one of the nine, and
-all nine are `.tsx` files at 0% coverage carrying exactly one band function each.
+**And it is not alone: 52 functions sit at cc 10–15, 5 of which never execute**
+(re-derived twice on 2026-08-02 — `docs/CENSUS_cognitive-complexity-2026-08-02b.md`; was "51 … 21",
+then "52 … 9"). The visible ten were never the population that mattered. ⚠️ `ProjectPage.tsx:80` is
+no longer among them — §3.6 covered it — and v0.62.2 pushed `ScenarioTabs.tsx:40` from cc 13 to 15
+without lint noticing, which is this section's thesis happening during the campaign itself.
 
 **Done means:** `ProjectPage` covered and, if warranted, decomposed; a judgement on the sub-threshold
 band. `docs/SPEC_DEVIATIONS.md` still carries **SD-2** open and **SD-3** open (⚠️ SD-3's stated target
