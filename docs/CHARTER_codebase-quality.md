@@ -301,6 +301,45 @@ practice is the one that nearly did not survive. That is why it is recorded in *
 well as here**: a practice about durable storage that exists only in a doc nobody re-reads is half
 the failure it describes.
 
+### ⚠️ The layer was a proxy — retired 2026-08-03, the fourth this campaign has tested
+
+For most of this campaign a pattern held: **every defect found was in UI or presentation** — the
+silent edit discard, the pluralisation, the keyboard-inaccessible scenario tabs, the run-on banner —
+and **every negative was in `/core` or `/infrastructure`**: both migrations, `migrateLocalToCloud`,
+the CSV parser. Four and four. It was used, correctly, as a tiebreaker for ordering unranked items.
+
+**It broke on `ActivityProgressBars`** — UI, 27.7% branches, no oracle, the most defect-likely
+surface the layer reading could name — and clean. Seventeen tests, no defect.
+
+⚠️ **The layer was a shadow of the real mechanism, which was already recorded below and was NOT
+fitted to this data.** Independent expression was derived at §3.8, from `migrateV10toV11` converging
+with `ProjectSchema`'s `superRefine`, *before* anyone noticed a layer correlation existed. It then
+explained the correlation **and its exception**: the four defects were all in places where nothing
+else stated the same rule — a banner's visual composition, a tab's keyboard affordance, a blur
+handler's contract. The four negatives were each held by a schema or a sibling implementation,
+including `migrateV11toV12` in `/core`, and including `ActivityProgressBars`, whose values come from
+`unified-activity-helpers.ts` and its 56 tests.
+
+**A mechanism that subsumes a pattern it was not fitted to is a different epistemic object from a
+pattern fitted to eight points.** Take the mechanism; retire the shadow.
+
+⚠️ **THE LIMIT, stated so the rule is not over-read: it predicts where defects SURVIVE, not where
+they are INTRODUCED.** Code with independent expression still has defects — they get caught before
+shipping. Shipped defects are the ones that matter, so this is the useful half, but "has independent
+expression" never means "is correct."
+
+This is the **fourth proxy retired**, alongside file-level coverage (`0%` dropped a function out of
+the uncovered count while covering none of it), function-level `hits > 0` (reported a function
+covered whose loop never iterated), and line-range statement attribution (reported
+`ActivityProgressBars` at 75% while its branches sat at 27.7%). **Four proxies tested, four wrong,
+each wrong in a way that looked reasonable.** The surviving measure is a function-scoped BRANCH
+count, and it survives because it is not a proxy for anything.
+
+✅ **Confirmed once more, incidentally, in the same item.** The rider's second instance is in
+interaction wiring — `handleBlur`'s contract — where no schema, no rule and no sibling states what
+happens when a field blurs. That was the surface the heuristic ranked highest of anything remaining,
+and it was the only such surface not yet examined.
+
 ### ⚠️ Unexecuted is not the risk signal — unexecuted with NO INDEPENDENT EXPRESSION is
 
 Recorded 2026-08-02, from §3.8. **This is the second DIRECTION practice, and it exists because a
@@ -927,9 +966,34 @@ evidence of absence, because the semantic variants read `isDirty && canSave`, `h
 or an early `return` when a form fails validation. The ~16 components with dismiss/close/navigate-away
 flows have to be **read**.
 
-**Status: hypothesis, never tested.** Its author raised it from the shape of the bug without checking
-a single other component. Do not record it as a finding until the handlers are read; if it repeats
-even once it is a finding, and if it repeats nowhere that is worth writing down too.
+⚠️ **Status: CONFIRMED, 2026-08-03. Second instance found. It repeats.**
+
+| | Component | Shape |
+|---|---|---|
+| 1 | `ActivityEditModal.handleDismiss` (v0.62.0) | prompted only when `hasChanges && isValid` — empty name silently discarded every other edit |
+| 2 | **`UnifiedActivityRow.handleBlur:227`** | `if (!isNaN(parsed))` with **no `else`** — an unparseable estimate is silently swallowed |
+
+**Instance 2, pinned by `UnifiedActivityRow.blur.test.tsx`.** Clearing an estimate field and tabbing
+away — select all, delete, tab, the ordinary way a user changes a number — produces: `onUpdate` not
+called, `onValidityChange` not called, field displaying `""`, stored value unchanged, no error
+styling, title still the plain field label.
+
+⚠️ **THE CONTRAST IS WHAT MAKES THE VERDICT SAFE, and it is why this is not strictness defensibly
+applied.** A *numeric but schema-invalid* entry — max below min — **is** committed and **is**
+reported. Only the **unparseable** input vanishes. Two inputs a user would consider equally wrong get
+opposite treatment, and the one that disappears is the one with no feedback at all. That is
+inconsistency, not a design choice, and it is the rider's principle exactly: *invalid work is still
+work the user typed.*
+
+⚠️ **The mechanism matters because the fix depends on it.** The estimate inputs are UNCONTROLLED
+(`EstimateInputs.tsx:46`, `defaultValue`), so React never resets them. The field shows empty while
+the store holds the old number, and nothing on screen says which is real. A fix cannot simply
+"commit it" — empty is not a number — so the design has to state what happens instead.
+
+**Fix ships as its own release, not with the tests** (`#246 → #247`). The sweep's original point
+stands and is now evidenced rather than asserted: `grep hasChanges` finds only instance 1, and
+instance 2 contains neither `hasChanges` nor `isValid`. **A textual sweep would have missed the
+confirming case.** The remaining dismiss/close/navigate-away handlers are still unread.
 
 ### 3.4 — The CSV parser · ✅ CLOSED as a coverage item (decomposition viable but DECLINED)
 
