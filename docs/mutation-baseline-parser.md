@@ -151,9 +151,41 @@ parser whose four body commits include a security fix (`96dfa1d`, v0.34.5, XLSX 
 **The pass condition did its job.** Stated before the run, it made 73.91% a decision rather than a
 number to rationalise.
 
+---
+
+## Follow-up — the duration-guard clauses are CLOSED (#275)
+
+⚠️ **The 73.91% above is the score AS OF THE RUN, and it is now a LOWER BOUND.** Five tests were
+added afterwards that kill six of the sixty survivors. **The score was deliberately not
+re-measured**, because the verdict does not depend on it: decline stands on `cell extraction 0%`
+and the `UUID + Zod + duplicate 50%` path, neither of which was touched. Re-running would cost
+5–13 minutes and two more config edits to move a number that changes no decision. Recorded here so
+the figure is never carried forward as current — that failure has its own row in the charter's table.
+
+**Scope was the three duration guards only**, per the line *"close the clauses in the code you wrote
+tests for; document the rest."* Everything else in the survivor table above stands as documented.
+
+| Was | Now |
+|---|---|
+| MIN `rawX === ""` **Survived** | killed — `reports an empty Min against its own column` |
+| MIN `xVal < 0` **Survived** | killed — `reports a negative Min against its own column` |
+| MAX `xVal < 0` **Survived** | killed — `reports a negative Max against its own column` |
+| `minVal < 0` → `<= 0` **Survived** | killed — `accepts a zero Min alongside non-zero Most Likely and Max` |
+| `mlVal  < 0` → `<= 0` **Survived** | killed — `accepts a zero duration, which is legal` |
+| `maxVal < 0` → `<= 0` **Survived** | killed — same |
+
+**Verified against the exact survivors, not against invented mutations.**
+`scripts/falsify-spec-duration-clauses.mjs` replicates all six Stryker mutants above — same
+operands, same replacements — and each is killed by its **named** test; baseline and restore both
+69. That answers *"did the new tests close the clauses?"* directly, in seconds, rather than
+inferring it from a moved aggregate.
+
+**All three duration guards are now at full clause coverage**, which the ML block alone reached
+before.
+
 ### Cheapest work if this is ever reopened, in measured order
 
 1. **cell extraction, 0/9** — nine `?? ""` fallbacks, nothing detects any of them.
 2. **Pass 0 header resolution, 47%** — 10 survivors, mostly `Regex` mutants on the header aliases.
 3. **UUID + Zod + duplicate, 50%** and **Pass 3 cycle detection, 50%**.
-4. Three one-line additions: a negative **Max**, and a **zero-duration** row through the CSV path.
+4. ~~a negative **Max**, and a **zero-duration** row through the CSV path~~ — done in #275.
