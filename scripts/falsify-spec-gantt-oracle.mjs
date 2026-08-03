@@ -34,8 +34,28 @@ export const mutations = [
   {
     id: "G2  computeWeekendShadingRects -> []  [was UNPINNED before the audit]",
     file: GU,
-    find: `  if (dateRange === 0) return [];\n  const rects: { x: number; width: number }[] = [];`,
-    replace: `  return [];\n  const rects: { x: number; width: number }[] = [];`,
+    find: `  if (dateRange === 0) return [];\n  return collectNonWorkSpans(`,
+    replace: `  return [];\n  return collectNonWorkSpans(`,
+    expectFailing: /INTERACTIVE chart matches its committed geometry/,
+  },
+  // ⚠️ G5 AND G6 ARE THE GATE ON THE §3.3 DECOMPOSITION, not extra coverage.
+  // The oracle authorised that refactor by pinning computeWeekendShadingRects' output.
+  // After the split, logic that was inside the pinned function now lives in two units,
+  // and propagation MUST NOT BE ASSUMED — a net can authorise a refactor that then moves
+  // logic out of its reach. Each unit is mutated separately here. If either ever survives,
+  // the decomposition has escaped the net and is not safe as written.
+  {
+    id: "G5  collectNonWorkSpans -> []  [decomposition gate: calendar half]",
+    file: GU,
+    find: `  const spans: NonWorkSpan[] = [];`,
+    replace: `  return [];\n  const spans: NonWorkSpan[] = [];`,
+    expectFailing: /INTERACTIVE chart matches its committed geometry/,
+  },
+  {
+    id: "G6  spanToRect -> null  [decomposition gate: geometry half]",
+    file: GU,
+    find: `  const x1 = dateToX(formatDateISO(span.start), minTimestamp, dateRange, chartAreaWidth, leftMargin);`,
+    replace: `  return null;\n  const x1 = dateToX(formatDateISO(span.start), minTimestamp, dateRange, chartAreaWidth, leftMargin);`,
     expectFailing: /INTERACTIVE chart matches its committed geometry/,
   },
   {

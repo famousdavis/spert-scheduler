@@ -114,6 +114,8 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 
 | **§3.4** | ⚠️ **THE FIX REPRODUCED THE DEFECT IT DOCUMENTED, WITHIN THE HOUR.** #273 found that the three duration guards were tested Min-only and wrote whole-object tests for the other two — **non-integer + negative for ML, non-integer + EMPTY for Max.** Different axes, chosen without noticing. Mutation then showed Max's `< 0` clause still deletable while ML's was not. **Coverage green, `tsc` green, lint green, and both test names read as though both were covered** — nothing but clause-level mutation could see it. ⚠️ **Not inattention, which is why it belongs here:** the second case for each block was picked independently, and no instrument in this repo compares the *axes* two sibling tests exercise. Third time the ledger records knowing a failure class conferring no immunity to it (cf. #12, and §3.5 Step 4), and the first where the reproduction is *inside the correction*. This is the campaign's strongest single argument for budgeting falsification as **work rather than diligence**. |
 
+| **§3.3 audit** | ⚠️ **A CONFIGURATION PIN THAT MERELY AGREES WITH THE AMBIENT VALUE IS NOT A PIN.** No `TZ` was set anywhere, so every date-dependent test in a scheduling application was a function of the machine's clock — `dateToX` derives geometry from raw millisecond offsets, and `new Date("…T00:00:00")` parses in LOCAL time. The 25-day parity fixture escaped only by sitting entirely inside one DST regime; an 18-month fixture crossed a transition and failed CI (UTC) by 0.03px after passing locally (EDT). ⚠️ **The general rule, and it outlives timezones: a pin that only works because the ambient value already matched fails IDENTICALLY to no pin at all.** So verify a pin by running under a HOSTILE value, not a friendly one — `TZ=Asia/Tokyo`, `TZ=Australia/Sydney` (southern-hemisphere DST) and `TZ=America/New_York` all green is the evidence; `TZ=UTC` green would have been worthless. Same shape as every tool in this table that returned its null value, applied to configuration. |
+
 ✅ **And one instrument behaved correctly, which is worth recording too.** The benchmark's first
 calibration attempt produced a 0.9ms delta against sd 1.5ms and reported **NOT DETECTED** —
 it **refused to certify a resolution it did not have**. That is the behaviour every tool in this
@@ -681,6 +683,18 @@ This repo already carries that rule for a different reason — *never verify a s
 a hand-written repo list; enumerate from disk* ([[project-shipgate-hardening]]) — and it is the same
 failure in a different material. A `grep -rl` over `*oracle*` and over fixture factories costs
 seconds; the memory-derived list cost two unpinned functions that were read as covered for weeks.
+
+📌 **NAMED OPEN ITEM, from applying the enumeration rule to itself.** Enumerating every oracle from
+disk gives four: `deterministic-oracle`, `monte-carlo-oracle`, `simulation-worker-protocol-oracle`,
+`gantt-parity-oracle`. Three have committed falsification specs. **`deterministic-oracle.test.ts`
+does not.**
+
+⚠️ **Do not mistake this charter's existing argument for a completed check.** §2 records that C4's
+oracle is *"✅ Bounded, not systemic — `deterministic-oracle.json` carries 11 `constraintType`
+entries, so its fixtures were hand-built rather than drawn from the sample project."* That is sound,
+and it is an argument that this oracle escapes **one** blind spot — the realistic-data one. **An
+argument that an oracle avoids one failure mode is not a perturbation audit.** Nobody has broken each
+path it claims to cover and confirmed it notices. The gantt oracle also looked fine by inspection.
 
 ⚠️ **Two further findings from that audit, both of which only a break-test could surface:**
 - **The obvious remedy was insufficient.** Weekend shading was off for TWO independent reasons — no
