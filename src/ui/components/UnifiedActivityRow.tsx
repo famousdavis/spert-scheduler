@@ -67,8 +67,17 @@ interface UnifiedActivityRowProps {
 type FieldErrors = Partial<Record<string, string>>;
 
 
-/** Compact progress bars for tasks and/or deliverables beneath the activity name. */
-function ActivityProgressBars({
+/**
+ * Compact progress bars for tasks and/or deliverables beneath the activity name.
+ *
+ * ⚠️ EXPORTED FOR TESTABILITY (§3.3, 2026-08-03) — a VISIBILITY change, not a decomposition.
+ * cc is unchanged at 20 and not a line moved; only the `export` keyword is new. Its 47
+ * branches were otherwise reachable only through a full `ProjectPage` render, which would
+ * have meant either an unreasonable number of page renders or partial coverage that reads
+ * as complete. Same trade as moving `getScheduleErrorBanner` out of `ProjectPage.tsx`:
+ * testing a copy to avoid the change would have been the defect.
+ */
+export function ActivityProgressBars({
   activity,
   onEditActivity,
 }: {
