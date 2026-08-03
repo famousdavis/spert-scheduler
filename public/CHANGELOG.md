@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.64.0 — 2026-08-03
+
+**No behaviour change.** Nothing in the app looks or works differently from v0.63.2. This entry
+records the close of a multi-day codebase-quality campaign whose visible results were already
+shipped, one at a time, in the releases from v0.60.0 to v0.63.2.
+
+The full record — what was measured, what was decided, and what was got wrong — is in
+`docs/CLOSEOUT_codebase-quality-v0.63.2.md`. The highlights:
+
+### Changed
+
+- **Cognitive-complexity findings went from 23 to 3, and the three that remain are recorded decisions rather than debt.** Each was examined, measured, and deliberately left alone for a reason written into the code beside it — one because the tests around it are already as strong as a rewrite would make them, one because the only available restructuring could not be costed without doing it, and one because its own measurement said the change was not worth the risk.
+- **Six defects were found and fixed along the way, and none of them were found by the complexity metric.** Every one surfaced from writing tests for code that had never run, or from a person looking at a rendered page: a project page that could open with nothing selected, an edit modal that discarded your work without asking, a mis-pluralised import summary, scenario tabs unreachable by keyboard, a dependency cycle that blamed your estimates, and an estimate field that looked cleared but was not.
+- **The test suite grew by roughly seven hundred tests, to 2,827 across 138 files** — concentrated on the parts of the app that nothing had ever executed, rather than spread evenly to raise a percentage.
+- **Four measurement tools were hardened after each was caught reporting a false clean.** The complexity measurer had silently skipped suppressed functions; the mutation runner reported survivors for edits that never applied; a chart-geometry contract passed while two of the functions it claimed to cover were untested; and a coverage figure read as healthy while the code beneath it had never branched. Each is now unable to fail the same way.
+
 ## 0.63.2 — 2026-08-03
 
 Licensing only — no functional, data, or interface changes. The app behaves identically to 0.63.1.
