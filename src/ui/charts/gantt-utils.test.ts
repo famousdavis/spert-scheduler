@@ -14,6 +14,7 @@ import {
   semiannualTickLabel,
   countQuarterlyTicks,
   countSemiannualTicks,
+  computeActivityRowGeometry,
   computeWeekendShadingRects,
   suppressOverlappingTicks,
   computeTodayLine,
@@ -859,5 +860,81 @@ describe("computeTodayLine", () => {
   it("formats in LOCAL time, so a late-evening render does not report tomorrow", () => {
     const r = computeTodayLine(new Date("2026-04-15T23:30:00"), START, END, RANGE, toX);
     expect(r.todayStr).toBe("2026-04-15");
+  });
+});
+
+// -- computeActivityRowGeometry -----------------------------------------------
+//
+// ⚠️ These are also the STAGE-1 HALF of the two-stage perturbation check for §3.3's
+// GanttChart:952 split. A mutation to this function must be proven to change ITS OUTPUT
+// — observed directly, independently of any oracle — before "the oracle failed" means
+// anything. Without that, an inert mutation and an undetected one produce identical
+// output. See scripts/falsify-spec-gantt-oracle.mjs G7.
+
+describe("computeActivityRowGeometry", () => {
+  const base = {
+    idx: 2,
+    startDate: "2026-04-06",
+    endDate: "2026-04-10",
+    status: "planned",
+    topMargin: 40,
+    rowHeight: 18,
+    barYOffset: 3,
+    leftMargin: 260,
+    minTimestamp: new Date("2026-04-06T00:00:00").getTime(),
+    dateRange:
+      new Date("2026-05-01T00:00:00").getTime() - new Date("2026-04-06T00:00:00").getTime(),
+    chartAreaWidth: 600,
+    barPlanned: "#planned",
+    barComplete: "#complete",
+    barInProgress: "#inprogress",
+    viewMode: "schedule",
+    hatchedDays: undefined as number | undefined,
+    extEndDate: undefined as string | undefined,
+  };
+
+  it("places the row and bar from idx, margins and the date scale", () => {
+    const g = computeActivityRowGeometry(base);
+    expect(g.y).toBe(40 + 2 * 18);
+    expect(g.barY).toBe(g.y + 3);
+    expect(g.barX).toBe(260); // startDate === range start
+    expect(g.barEndX).toBeGreaterThan(g.barX);
+    expect(g.barWidth).toBe(g.barEndX - g.barX);
+  });
+
+  it("floors bar width at 4px so a zero-length activity stays visible", () => {
+    const g = computeActivityRowGeometry({ ...base, endDate: base.startDate });
+    expect(g.barEndX).toBe(g.barX);
+    expect(g.barWidth).toBe(4);
+  });
+
+  it("selects the bar colour by status", () => {
+    expect(computeActivityRowGeometry(base).barColor).toBe("#planned");
+    expect(computeActivityRowGeometry({ ...base, status: "complete" }).barColor).toBe("#complete");
+    expect(computeActivityRowGeometry({ ...base, status: "inProgress" }).barColor).toBe("#inprogress");
+  });
+
+  it("hatches only in uncertainty view, with positive hatched days AND an extended end", () => {
+    const on = { ...base, viewMode: "uncertainty", hatchedDays: 3, extEndDate: "2026-04-15" };
+    const g = computeActivityRowGeometry(on);
+    expect(g.showHatch).toBe(true);
+    expect(g.hatchEndX).toBeGreaterThan(g.barEndX);
+
+    // Each of the three conditions is independently necessary.
+    expect(computeActivityRowGeometry({ ...on, viewMode: "schedule" }).showHatch).toBe(false);
+    expect(computeActivityRowGeometry({ ...on, hatchedDays: 0 }).showHatch).toBe(false);
+    expect(computeActivityRowGeometry({ ...on, extEndDate: undefined }).showHatch).toBe(false);
+  });
+
+  it("collapses hatchEndX onto barEndX when not hatching", () => {
+    const g = computeActivityRowGeometry(base);
+    expect(g.showHatch).toBe(false);
+    expect(g.hatchEndX).toBe(g.barEndX);
+  });
+
+  it("uses the in-progress colour for hatch strokes, else the planned colour", () => {
+    expect(computeActivityRowGeometry(base).hatchStrokeColor).toBe("#planned");
+    expect(computeActivityRowGeometry({ ...base, status: "inProgress" }).hatchStrokeColor).toBe("#inprogress");
+    expect(computeActivityRowGeometry({ ...base, status: "complete" }).hatchStrokeColor).toBe("#planned");
   });
 });
