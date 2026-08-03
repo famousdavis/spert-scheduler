@@ -664,6 +664,37 @@ The blind spot belongs to oracles built *from realistic fixtures*, not to oracle
 📌 **Open, not now:** three test files use `createSampleProject` as a fixture and inherit the same
 blind spot by construction. Nobody has asked what they actually cover. ~10 minutes, after §3.7.
 
+⚠️ **AND THAT ENUMERATION WAS INCOMPLETE — recorded 2026-08-02.** The list above names three files
+using `createSampleProject`. It does not name **`gantt-parity-oracle.test.tsx`**, an oracle built by
+this campaign, in the same weeks, for the same purpose, carrying the same defect. Audited 2026-08-02:
+its fixture supplied **no calendar**, `buffer: null`, no target-line props, and a 25-day span — so
+`computeWeekendShadingRects` and `suppressOverlappingTicks` were both **completely unpinned**, and
+breaking either left the oracle 9/9 green.
+
+**The generalisation was written. The technique was named. The follow-up was scoped and costed. The
+enumeration was done from memory, and the artifact one directory away was not on it.**
+
+> **When a blind spot is found in one fixture, ENUMERATE EVERY FIXTURE FROM DISK — never list the
+> ones you remember.**
+
+This repo already carries that rule for a different reason — *never verify a suite invariant against
+a hand-written repo list; enumerate from disk* ([[project-shipgate-hardening]]) — and it is the same
+failure in a different material. A `grep -rl` over `*oracle*` and over fixture factories costs
+seconds; the memory-derived list cost two unpinned functions that were read as covered for weeks.
+
+⚠️ **Two further findings from that audit, both of which only a break-test could surface:**
+- **The obvious remedy was insufficient.** Weekend shading was off for TWO independent reasons — no
+  `calendar` prop *and* `weekendShading` defaulting to `false`. Adding the calendar alone would have
+  regenerated a baseline with the shading still absent and looked exactly like a fix.
+- **A property test asserted a non-property.** *"Both derive the same tick DATES"* held only because
+  the 25-day fixture was too short for suppression to fire. Suppression branches on available width,
+  which legitimately differs between the two charts, so equality was never a property of the pair —
+  the correct one is that the narrower chart's ticks are a **subsequence** of the wider's.
+- **The harness fed the two charts different inputs.** `renderPrint` hard-coded `bufferedEndDate={null}`
+  while `GanttChart` derives its own; that agreed only while `buffer` was null. With a real buffer the
+  charts got different timelines and the tick property failed — **a harness artifact that reads exactly
+  like a product divergence**, and would have been reported as one.
+
 **Also standing:** ⚠️ **oracle before refactor — AND FALSIFY THE ORACLE, against every path it
 claims to cover, before trusting it** (committed JSON, never a regenerable snapshot) · net before
 decomposition · tests first, fix what they expose as its own release, then refactor · extraction
