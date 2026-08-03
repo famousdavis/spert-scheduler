@@ -80,24 +80,30 @@ describe("UnifiedActivityRow — estimate commit on blur", () => {
     expect(onUpdate).toHaveBeenCalledWith("a1", expect.objectContaining({ min: 4 }));
   });
 
-  // ⚠️ THE RIDER'S CASE. Clearing a numeric field is an ordinary user action — select all,
-  // delete, tab away. `parseFloat("")` is NaN, so handleBlur's `if (!isNaN(parsed))` is
-  // skipped and there is no `else`.
-  it("does nothing at all when the field is cleared — no commit, no validity change", () => {
+  // ⚠️ THE RIDER'S CASE, NOW A GUARD (v0.63.1). Clearing a numeric field is an ordinary
+  // user action — select all, delete, tab away. Until v0.63.1 `handleBlur`'s
+  // `if (!isNaN(parsed))` had no `else`, so this did NOTHING: no commit, no validity
+  // change, no error, while the uncontrolled input went on showing empty. This test was
+  // the pin that recorded that; it now asserts the fix.
+  it("reports the cleared field as invalid instead of doing nothing", () => {
     const { field, onUpdate, onValidityChange } = renderRow();
     const min = field("min");
     fireEvent.focus(min);
     fireEvent.change(min, { target: { value: "" } });
     fireEvent.blur(min);
 
+    // Still not committed — empty is not storable; min/mostLikely/max are non-negative
+    // numbers in ActivitySchema, which is why the fix is to REPORT rather than commit.
     expect(onUpdate).not.toHaveBeenCalled();
-    expect(onValidityChange).not.toHaveBeenCalled();
+    // But the row now says so, which is the whole difference.
+    expect(onValidityChange).toHaveBeenCalledWith("a1", false);
   });
 
-  it("leaves the cleared field showing empty while the stored value is unchanged", () => {
-    // The composition half of the same case: the input is uncontrolled, so React does not
-    // reset it. Whether the user can TELL that nothing was committed is a property of what
-    // the field displays afterwards, not of the handler.
+  it("keeps showing what the user typed rather than restoring the old value", () => {
+    // ⚠️ DELIBERATE, and the reason Option B was rejected. The input is uncontrolled, so
+    // React does not reset it — and the fix does not reset it either. Restoring the stored
+    // number here would silently undo work the user deliberately did, which is the same
+    // defect this release fixes, pointed the other way.
     const { field } = renderRow();
     const min = field("min");
     fireEvent.focus(min);
@@ -107,18 +113,29 @@ describe("UnifiedActivityRow — estimate commit on blur", () => {
     expect(min.value).toBe("");
   });
 
-  it("marks no error on the cleared field", () => {
-    // If the row flagged the field, the user would at least see something happened.
+  it("flags the cleared field so the user can see something happened", () => {
     const { field } = renderRow();
     const min = field("min");
     fireEvent.focus(min);
     fireEvent.change(min, { target: { value: "" } });
     fireEvent.blur(min);
 
-    expect(min.className).not.toContain("border-red");
-    // title falls back to the field's own label when there is no error to show
-    // (EstimateInputs.tsx:58 — `title={f.error ?? f.title}`).
-    expect(min.getAttribute("title")).toBe("Optimistic estimate (days)");
+    // EstimateInputs.tsx renders `title={f.error ?? f.title}`, so the error REPLACING the
+    // plain label is the visible signal — asserted as the exact string, because a
+    // substring check would pass on the untouched label too.
+    expect(min.getAttribute("title")).toBe("Enter a number.");
+    expect(min.className).toContain("border-red");
+  });
+
+  it("flags only the field that was cleared, not its siblings", () => {
+    const { field } = renderRow();
+    const min = field("min");
+    fireEvent.focus(min);
+    fireEvent.change(min, { target: { value: "" } });
+    fireEvent.blur(min);
+
+    expect(field("ml").getAttribute("title")).toBe("Most likely estimate (days)");
+    expect(field("max").getAttribute("title")).toBe("Pessimistic estimate (days)");
   });
 
   it("commits an out-of-order estimate and reports it invalid, rather than discarding it", () => {

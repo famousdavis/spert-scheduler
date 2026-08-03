@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.63.1 — 2026-08-03
+
+### Fixed
+
+- Clearing an estimate field in the activity grid no longer looks like it worked when it did not. Selecting the number in Optimistic, Most Likely or Pessimistic, deleting it and tabbing away left the box empty on screen while the old number was still stored — with nothing to tell you which one was real. The field is now marked with an error and the project shows its validation summary, so an empty estimate is visible rather than silent.
+- What you typed stays on screen. The old number is not quietly put back — you cleared it on purpose, and having the app undo that without saying so would be the same problem in the other direction.
+- An estimate that is a number but out of order — a Pessimistic below the Optimistic, say — was already reported this way. Only an emptied field went unreported, so the two are now consistent.
+
 ## 0.63.0 — 2026-08-02
 
 ### Added
