@@ -112,6 +112,8 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 | **§3.8 Item A** | ⚠️ **A SUCCESS EXIT CODE THAT CANNOT EXPRESS "MATCHED NOTHING".** `sed -i '' 's/\bfirstDeps\b/depsOf/g'` on darwin substituted nothing and **exited 0** — BSD `sed` has no `\b`. Falsification was then re-run against a file believed to have changed and returned 11/11 green: a correct result for the wrong file. The ledger already held *"unasserted `replace` ×2"* (#242/#244), but this is the sharper form — **there WAS a check, and it was the exit code**, whose success contract does not include *did anything*. Same family as the census's `hits > 0` and `cc`'s 0-for-parse-error: a signal structurally unable to report the failure mode it is being trusted for. **Rule: for any text transformation, assert the NUMBER OF SITES CHANGED, never the exit code.** ⚠️ Platform detail, because it will recur: this repo runs on darwin, and BSD-vs-GNU `sed` differ on `\b`, `-i`, and `\+`. Prefer a script that reports its own replacement count. |
 | **§3.8 Item B** | ⚠️ **A PER-ITEM ISOLATION TEST WITH THE HANDLED ITEM LAST TESTS NO ISOLATION.** Two of fifteen mutations initially SURVIVED (`continue` → `break` in the skip and corrupt rungs) because the fixtures put the skipped/corrupt project *after* the healthy one — by then the loop was over, so aborting and continuing are indistinguishable. Both tests were *named* for isolation and covered none of it. **Isolation is a property of the LOOP: the handled item must PRECEDE a healthy one, or the assertion is vacuous.** Found by falsification, not by review — and the two tests had passed on their first run, which over never-executed code is precisely when to distrust them. |
 
+| **§3.4** | ⚠️ **THE FIX REPRODUCED THE DEFECT IT DOCUMENTED, WITHIN THE HOUR.** #273 found that the three duration guards were tested Min-only and wrote whole-object tests for the other two — **non-integer + negative for ML, non-integer + EMPTY for Max.** Different axes, chosen without noticing. Mutation then showed Max's `< 0` clause still deletable while ML's was not. **Coverage green, `tsc` green, lint green, and both test names read as though both were covered** — nothing but clause-level mutation could see it. ⚠️ **Not inattention, which is why it belongs here:** the second case for each block was picked independently, and no instrument in this repo compares the *axes* two sibling tests exercise. Third time the ledger records knowing a failure class conferring no immunity to it (cf. #12, and §3.5 Step 4), and the first where the reproduction is *inside the correction*. This is the campaign's strongest single argument for budgeting falsification as **work rather than diligence**. |
+
 ✅ **And one instrument behaved correctly, which is worth recording too.** The benchmark's first
 calibration attempt produced a 0.9ms delta against sd 1.5ms and reported **NOT DETECTED** —
 it **refused to certify a resolution it did not have**. That is the behaviour every tool in this
@@ -332,6 +334,86 @@ prediction — *"the four-way collision ladder has no independent expression any
 **partly wrong**, and usefully: `firestore.rules:246` membership-gates the read, so the rules do
 independently constrain the ladder. That was written down *before* looking. A prediction checked
 only when it fails is the same defect as one checked only when it succeeds.
+
+### ⚠️ DECLINE WITH EVIDENCE IS A LEGITIMATE OUTCOME — and it is now the campaign's commonest one
+
+Recorded 2026-08-02, after §3.4. **Read this before opening any remaining item.** A session that
+opens a refactor without *"informed decline"* named as a permitted result will feel obliged to
+refactor something, and that pressure is exactly what produces changes nobody needed.
+
+**The two largest remaining refactors in this codebase were both measured and both declined.**
+
+| | Finding | What the measurement said | Outcome |
+|---|---|---|---|
+| **§3.8** `migrateLocalToCloud` | cc 21, **0% covered** | append-only argument does **not** transfer (4 body commits, one a security fix); the reachability of two ladder rungs is undecidable from this repo | **interim**, deferred on a named condition |
+| **§3.4** `parseFlatActivityTable` | **cc 110**, the largest in the codebase | a decomposition exists (~14 units, none above cc 11) — but the only shape that clears is a **flow restructure**, and the net measured **73.91%** against a pre-stated floor of 85% | **declined**, closed as a coverage item |
+
+⚠️ **What makes a decline INFORMED rather than avoidance — all three are required:**
+
+1. **A pass condition stated BEFORE the measurement.** §3.4's three-part condition existed before
+   the score did, so there was nothing to argue. The executing session's own words: *"at 73.91% with
+   a strong-looking region table, I would have been genuinely tempted to argue it through."* The
+   condition is what removed that.
+2. **A measurement against it**, not an impression. cc region-mode for the shape, Stryker for the
+   net, `git log -L` for the edit history — each producing a number that could have gone the other
+   way.
+3. **The verdict recorded WHERE THE NEXT READER STANDS** — in the code, not only in a doc. Both
+   suppression comments now carry the reasoning and its date. A decision that lives only in a
+   charter nobody re-reads gets relitigated by the next person who sees the word *"interim"*.
+
+**Both declines produced more durable output than a refactor would have**: two corrected
+justifications, a mutation baseline, a decomposition map, and four §2 entries. ⚠️ **And note what
+was declined — not the work, the CHANGE.** Every item still got its characterisation, its tests and
+its measurement; what was declined was moving code that measurement said should not move.
+
+### ⚠️ Replicate the exact survivors — do not re-run the aggregate to check a fix
+
+Recorded 2026-08-02, from §3.4. **A better instrument for *"did I kill THESE?"*, and it only becomes
+obvious after hitting the problem that a moved score does not say which mutants moved.**
+
+After closing six specific clause survivors, the tempting check is a second Stryker run: 5–13
+minutes, two config edits with a permanent effect on the whole-scope baseline, and an aggregate that
+answers *"is the number higher?"* — **not** *"are those six dead?"* A score can rise while the
+mutants you targeted survive and unrelated ones die.
+
+**Instead, write a falsification spec that replicates the survivors exactly** — same operands, same
+replacements, taken from the baseline's own report:
+
+```js
+{ id: "D3  MAX's negative clause deleted  [was Survived]",
+  find:    `if (rawMax === "" || !Number.isInteger(maxVal) || maxVal < 0) {`,
+  replace: `if (rawMax === "" || !Number.isInteger(maxVal) || false) {`,
+  expectFailing: /negative Max against its own column/ }
+```
+
+Seconds instead of minutes, no config edits, and every mutant is tied to the **named** test that
+must kill it. `scripts/falsify-spec-duration-clauses.mjs` is the worked instance: six survivors,
+six kills, baseline and restore both 69.
+
+⚠️ **The aggregate is still the right instrument for a first baseline** — you cannot enumerate
+survivors you have not yet found. This replaces the *re-run*, not the run.
+
+### ⚠️ Knowingly stale AND LABELLED is not the stale-number defect
+
+Recorded 2026-08-02, from §3.4. **The charter's table punishes stale numbers, and that rule needs
+this exception stated or it produces pointless re-measurement.**
+
+`docs/mutation-baseline-parser.md` records **73.91%**. Five tests then killed six of its sixty
+survivors, so the figure is provably wrong. It was **deliberately not re-measured**, and the doc says
+so in place: the figure is marked a **lower bound**, with the reason — the decline rests on
+`cell extraction 0%` and the `UUID + Zod + duplicate 50%` path, **neither of which was touched**, so
+a re-run moves a number that changes no decision.
+
+**The distinction is the label, not the accuracy:**
+
+- ❌ **The defect** is an *unmarked* stale number — read as current by the next person, because
+  nothing on it says otherwise. Every instance in this campaign's ledger is that.
+- ✅ **A measurement decision** is a stale number carrying its own staleness, its direction, and the
+  reason re-deriving it would not change anything.
+
+⚠️ **The test to apply:** *would the re-measurement change a decision?* If yes, measure. If no, label
+it and say why. Re-deriving a number purely so it can be current is the mirror-image waste of
+carrying one forward silently — and it is more tempting, because it feels like rigour.
 
 ### ⚠️ Build fixtures that CANNOT pass vacuously — structure beats assertion
 
