@@ -209,6 +209,37 @@ describe("firestore.rules — what it does and does not enforce about members", 
     expect(projectsBlock).toContain("resource.data.members[request.auth.uid] == 'owner'");
   });
 
+  it("keys every privileged operation on members[uid], NOT on the owner field — which is what makes self-demotion IRREVERSIBLE", () => {
+    // ⚠️ THIS IS THE STAKE THE CLIENT GUARD IS PROTECTING, and it is why "the server
+    // still treats them as owner" is FALSE. Both privileged operations read `members`:
+    //
+    //   before   members[uid] = 'owner'  → an update touching `members` is ALLOWED
+    //   write    members[uid] = 'editor' → permitted; the last privileged write possible
+    //   after    every `members` change AND `delete` require members[uid] == 'owner'
+    //
+    // So the demotion succeeds and then locks the user out of their own project
+    // permanently — unrecoverable from any client, whatever the `owner` field still says.
+    //
+    // The UI compounds it by disagreeing with itself: canShareProject gates the dashboard
+    // Share icon on the OWNER FIELD (still true), while SharingSection:194 gates the
+    // controls on members[uid] === "owner" (now false). The affordance is offered on the
+    // tile and withheld in the panel.
+    // ⚠️ Scoped to the two rules that decide recoverability. An earlier draft asserted
+    // `not.toContain("resource.data.owner == request.auth.uid")` over the whole block and
+    // failed — that string is a SUBSTRING of the CREATE rule's
+    // `request.resource.data.owner == request.auth.uid`, which binds owner to the caller
+    // and is both correct and unrelated. The test caught its own over-reach.
+    const deleteRule = projectsBlock.match(/allow delete:[^;]*;/)?.[0] ?? "";
+    expect(deleteRule).not.toBe("");
+    expect(deleteRule).toContain("resource.data.members[request.auth.uid] == 'owner'");
+    expect(deleteRule).not.toContain(".owner ==");
+
+    const updateRule = projectsBlock.match(/allow update:[\s\S]*?;/)?.[0] ?? "";
+    expect(updateRule).not.toBe("");
+    // The clause that gates changing `members` reads members, not the owner field.
+    expect(updateRule).toContain("resource.data.members[request.auth.uid] == 'owner'");
+  });
+
   it("does NOT prevent an owner from demoting themselves — hence the client-only guard", () => {
     // Nothing compares the AFFECTED member key against the owner. If that ever appears,
     // this fails and the client guard should be re-examined rather than duplicated.
