@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.63.2",
+    date: "2026-08-03",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Licensing only. Nothing in the app changed — it behaves identically to 0.63.1.",
+          "The conditions attached to this project's licence now number six rather than four, and each follows the wording of the standard licence itself rather than paraphrasing it. What the licence permits is unchanged: anyone may still use, study, modify and share this software freely. The wording matters because the standard licence lets whoever receives the software delete any added condition that strays outside the short list it allows — so a condition worded too ambitiously protects nothing at all.",
+          "Two conditions are new. The author's name may not be used to endorse or promote a product built from this software without permission — the project's trademarks are protected whether the licence mentions them or not, but a personal name has no such protection. And anyone who resells this software with a warranty or support contract of their own covers any liability those promises impose on the original author.",
+          "The condition covering on-screen credit was rewritten. It used to require any modified version with a user interface to display a notice; the standard licence permits requiring that existing notices be preserved, not that new ones be created. It now requires that where a modified version already shows legal notices, the original author's name is kept among them.",
+          "Two smaller changes: a modified version may no longer misrepresent where this software came from, and the trademark condition now says plainly that naming this project to describe honestly what a fork was derived from is not itself prohibited, provided it does not suggest this project endorses the result.",
+          "This is the last of the nine SPERT® Suite repositories to receive the change; the other eight shipped it on August 2.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.63.1",
     date: "2026-08-03",
     sections: [
