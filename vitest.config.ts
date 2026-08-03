@@ -20,6 +20,14 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    // ⚠️ PINNED, and the oracle is why. Gantt geometry is derived from raw millisecond
+    // offsets (`dateToX`), so a span crossing a DST transition produces DIFFERENT pixel
+    // positions in a DST timezone than in UTC. The long-span parity fixture (18 months)
+    // passed locally in EDT and failed in CI in UTC by ~0.03px. Every date-dependent test
+    // in this suite had that latent dependency on the machine's clock; the 25-day fixture
+    // only escaped it by sitting entirely inside one DST regime.
+    env: { TZ: "UTC" },
+
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],

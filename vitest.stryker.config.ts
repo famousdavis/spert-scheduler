@@ -25,6 +25,8 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
+    // Same TZ pin as vitest.config.ts — see the note there.
+    env: { TZ: "UTC" },
     include: [
       "src/core/schedule/constraint-utils.test.ts",
       "src/core/schedule/deterministic.test.ts",
