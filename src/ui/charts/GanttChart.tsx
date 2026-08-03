@@ -32,8 +32,9 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
 } from "./gantt-constants";
 import {
-  dateToX, longDateLabel, computeWeekendShadingRects,
+  dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
 } from "./gantt-utils";
+import { GanttActivityRow } from "./GanttActivityRow";
 import { GanttSvgDefs } from "./GanttSvgDefs";
 import { GanttLegend } from "./GanttLegend";
 
@@ -954,212 +955,26 @@ export function GanttChart({
             const act = item.activity;
             const sa = scheduleMap.get(act.id);
             if (!sa) return null;
-
-            const y = topMargin + idx * ra.rowHeight;
-            const barY = y + barYOffset;
-            const barX = dateToX(
-              sa.startDate,
-              minTimestamp,
-              dateRange,
-              chartAreaWidth,
-              ra.leftMargin,
-            );
-            const barEndX = dateToX(
-              sa.endDate,
-              minTimestamp,
-              dateRange,
-              chartAreaWidth,
-              ra.leftMargin,
-            );
-            const barWidth = Math.max(4, barEndX - barX);
-
-            let barColor = ra.barPlanned;
-            if (act.status === "complete") barColor = ra.barComplete;
-            else if (act.status === "inProgress") barColor = ra.barInProgress;
-
-            const uncertainty = uncertaintyMap.get(act.id);
-            const extEndDate = activityExtendedEndDates.get(act.id);
-            const showHatch =
-              viewMode === "uncertainty" &&
-              uncertainty &&
-              uncertainty.hatchedDays > 0 &&
-              extEndDate;
-
-            let hatchEndX = barEndX;
-            if (showHatch && extEndDate) {
-              hatchEndX = dateToX(
-                extEndDate,
-                minTimestamp,
-                dateRange,
-                chartAreaWidth,
-                ra.leftMargin,
-              );
-            }
-
-            const hatchStrokeColor = act.status === "inProgress" ? ra.barInProgress : ra.barPlanned;
-
+            const geo = computeActivityRowGeometry({
+              idx, startDate: sa.startDate, endDate: sa.endDate, status: act.status,
+              topMargin, rowHeight: ra.rowHeight, barYOffset, leftMargin: ra.leftMargin,
+              minTimestamp, dateRange, chartAreaWidth,
+              barPlanned: ra.barPlanned, barComplete: ra.barComplete, barInProgress: ra.barInProgress,
+              viewMode, hatchedDays: uncertaintyMap.get(act.id)?.hatchedDays,
+              extEndDate: activityExtendedEndDates.get(act.id),
+            });
             return (
-              <g key={act.id}>
-                {/* Row background on hover area */}
-                <rect
-                  x={0}
-                  y={y}
-                  width={chartWidth}
-                  height={ra.rowHeight}
-                  fill="transparent"
-                  onMouseEnter={(e) => {
-                    const tooltipName = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
-                    let text: string;
-                    if (dependencyMode && sa.totalFloat != null) {
-                      const floatLabel = sa.totalFloat === 0 ? "Critical path" : `${sa.totalFloat}d`;
-                      const freeFloatLabel = sa.freeFloat != null && sa.freeFloat < sa.totalFloat ? `\nFree Float: ${sa.freeFloat}d` : "";
-                      text = `${tooltipName}\n${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)\nTotal Float: ${floatLabel}${freeFloatLabel}`;
-                    } else {
-                      text = `${tooltipName}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`;
-                    }
-                    scheduleTooltip(e.clientX, e.clientY, text);
-                  }}
-                  onMouseMove={(e) => moveTooltip(e.clientX, e.clientY)}
-                  onMouseLeave={hideTooltip}
-                />
-
-                {/* Activity name — clickable for inline rename when unlocked */}
-                <text
-                  x={ra.leftMargin - 8}
-                  y={y + ra.rowHeight / 2}
-                  textAnchor="end"
-                  dominantBaseline="central"
-                  fontSize={ra.nameFontSize}
-                  fill={c.text}
-                  className={!isLocked && onRenameActivity ? "cursor-pointer" : "pointer-events-none"}
-                  style={editTarget?.kind === "activity" && editTarget.id === act.id ? { display: "none" } : undefined}
-                  onClick={!isLocked && onRenameActivity ? () => {
-                    setEditTarget({ kind: "activity", id: act.id });
-                    setEditValue(act.name);
-                  } : undefined}
-                >
-                  {(() => {
-                    const dn = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
-                    return dn.length > ra.nameCharLimit ? dn.slice(0, ra.nameCharLimit - 2) + "..." : dn;
-                  })()}
-                </text>
-
-                {/* Hatched bar (uncertainty extension) — behind solid */}
-                {showHatch && (
-                  <rect
-                    x={barEndX}
-                    y={barY}
-                    width={Math.max(2, hatchEndX - barEndX)}
-                    height={ra.barHeight}
-                    rx={BAR_RADIUS}
-                    fill={`url(#hatch-${act.id})`}
-                    stroke={hatchStrokeColor}
-                    strokeWidth="1"
-                    strokeOpacity="0.4"
-                  />
-                )}
-
-                {/* Solid bar — clickable to open activity editor */}
-                <rect
-                  x={barX}
-                  y={barY}
-                  width={barWidth}
-                  height={ra.barHeight}
-                  rx={BAR_RADIUS}
-                  fill={barColor}
-                  stroke={barColor}
-                  strokeWidth="1"
-                  className={!isLocked && onEditActivity ? "cursor-pointer" : ""}
-                  onClick={!isLocked && onEditActivity ? (e) => {
-                    e.stopPropagation();
-                    onEditActivity(act.id);
-                  } : undefined}
-                />
-
-                {/* Critical path indicator — left stripe */}
-                {showCriticalPath && dependencyMode && criticalPathIds?.has(act.id) && (
-                  <rect
-                    x={barX}
-                    y={barY}
-                    width={4}
-                    height={ra.barHeight}
-                    rx={BAR_RADIUS}
-                    fill={ra.criticalPath}
-                    className="pointer-events-none"
-                  />
-                )}
-
-                {/* Terminal activity indicator — right stripe */}
-                {terminalIds?.has(act.id) && (
-                  <rect
-                    x={barX + barWidth - 4}
-                    y={barY}
-                    width={4}
-                    height={ra.barHeight}
-                    rx={BAR_RADIUS}
-                    fill={c.terminal}
-                    className="pointer-events-none"
-                  />
-                )}
-
-                {/* Bar label — only render if text fits within bar width */}
-                {(() => {
-                  const label = barLabelText(sa);
-                  if (!label) return null;
-                  const estWidth = label.length * ra.barLabelFontSize * 0.6 + 8;
-                  if (estWidth > barWidth) return null;
-                  return (
-                    <text
-                      x={ra.barLabel === "dates" ? barX + barWidth - 4 : barX + barWidth / 2}
-                      y={barY + ra.barHeight / 2}
-                      textAnchor={ra.barLabel === "dates" ? "end" : "middle"}
-                      dominantBaseline="central"
-                      fontSize={ra.barLabelFontSize}
-                      fill="#ffffff"
-                      fontWeight="600"
-                      className="pointer-events-none"
-                    >
-                      {label}
-                    </text>
-                  );
-                })()}
-
-                {/* Constraint indicator icon */}
-                {act.constraintType && (() => {
-                  const isStart = act.constraintType === "MSO" || act.constraintType === "SNET" || act.constraintType === "SNLT";
-                  const iconX = isStart ? barX - 2 : barX + barWidth - 6;
-                  const iconColor = act.constraintMode === "hard" ? "#3b82f6" : "#9ca3af";
-                  return (
-                    <g
-                      className={!isLocked && onEditActivity ? "cursor-pointer" : ""}
-                      onClick={!isLocked && onEditActivity ? (e) => { e.stopPropagation(); onEditActivity(act.id); } : undefined}
-                    >
-                      <rect
-                        x={iconX}
-                        y={barY - 3}
-                        width={8}
-                        height={8}
-                        rx={2}
-                        fill={iconColor}
-                        opacity={act.constraintMode === "soft" ? 0.5 : 0.9}
-                      />
-                      <text
-                        x={iconX + 4}
-                        y={barY + 1}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fontSize="6"
-                        fill="#ffffff"
-                        fontWeight="700"
-                        className="pointer-events-none"
-                      >
-                        C
-                      </text>
-                    </g>
-                  );
-                })()}
-
-              </g>
+              <GanttActivityRow
+                key={act.id}
+                act={act} sa={sa} geo={geo} ra={ra} c={c} chartWidth={chartWidth}
+                isLocked={isLocked} onEditActivity={onEditActivity} onRenameActivity={onRenameActivity}
+                editTarget={editTarget} setEditTarget={setEditTarget} setEditValue={setEditValue}
+                activityIndexMap={activityIndexMap} dependencyMode={dependencyMode}
+                formatDate={formatDate} scheduleTooltip={scheduleTooltip}
+                moveTooltip={moveTooltip} hideTooltip={hideTooltip}
+                showCriticalPath={showCriticalPath} criticalPathIds={criticalPathIds}
+                terminalIds={terminalIds} barLabelText={barLabelText}
+              />
             );
           })}
 

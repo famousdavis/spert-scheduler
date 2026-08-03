@@ -116,6 +116,9 @@ and listed seven until 2026-08-01, while five more sat in commit bodies and one 
 
 | **§3.3 audit** | ⚠️ **A CONFIGURATION PIN THAT MERELY AGREES WITH THE AMBIENT VALUE IS NOT A PIN.** No `TZ` was set anywhere, so every date-dependent test in a scheduling application was a function of the machine's clock — `dateToX` derives geometry from raw millisecond offsets, and `new Date("…T00:00:00")` parses in LOCAL time. The 25-day parity fixture escaped only by sitting entirely inside one DST regime; an 18-month fixture crossed a transition and failed CI (UTC) by 0.03px after passing locally (EDT). ⚠️ **The general rule, and it outlives timezones: a pin that only works because the ambient value already matched fails IDENTICALLY to no pin at all.** So verify a pin by running under a HOSTILE value, not a friendly one — `TZ=Asia/Tokyo`, `TZ=Australia/Sydney` (southern-hemisphere DST) and `TZ=America/New_York` all green is the evidence; `TZ=UTC` green would have been worthless. Same shape as every tool in this table that returned its null value, applied to configuration. |
 
+| **§3.3 :952** | ⚠️ **A PERTURBATION MUST BE PROVEN SEMANTIC, NOT SYNTACTIC — `cmp` IS NECESSARY AND NOT SUFFICIENT.** The guard added hours earlier (*abort unless the file actually changed*) passed, correctly, on `const barXShift = 0.5; void barXShift;` — an edit that changed the file and changed **nothing**. It reported the target UNPINNED. ⚠️ **An inert mutation and an undetected one are the same two words in the output**, so a single-stage check cannot distinguish them. **The fix is two-stage: first prove the perturbation changes the ARTIFACT UNDER TEST, observed directly and independently of any test; only then ask whether anything notices.** Here that is six unit tests on `computeActivityRowGeometry` failing before the oracle is consulted (`G7`). Note the cost asymmetry: a false UNPINNED would have meant *"weak net, 46% branches, 213-line callback"* → days of cover-first work on a net that was already strong. **A false negative from an inert probe costs more than a false positive.** Caught by implausibility alone, on work minutes old. |
+| **§3.3 :952** | ⚠️ **IDENTIFYING CODE BY ITS TEXT IS AMBIGUOUS — this is not a property of the falsification runner.** The needle entry above reads as being about `scripts/falsify.mjs`. It has now surfaced twice outside it: a hand-written probe anchored on `{renderItems.map((item, idx) => {` **aborted on `count == 1` because there are three `renderItems.map` sites** (`:657`, `:877`, `:952`), two sharing that signature. Without the assertion it would have measured Pass 1 (bands) while reporting a result for Pass 2 (activities). **Any technique that locates code by matching source text needs a uniqueness assertion** — `String.replace`, `sed`, a hand-written probe, a codemod. `checkNeedleUnique` is one implementation of the rule, not the rule. |
+
 ✅ **And one instrument behaved correctly, which is worth recording too.** The benchmark's first
 calibration attempt produced a 0.9ms delta against sd 1.5ms and reported **NOT DETECTED** —
 it **refused to certify a resolution it did not have**. That is the behaviour every tool in this
@@ -337,6 +340,25 @@ prediction — *"the four-way collision ladder has no independent expression any
 independently constrain the ladder. That was written down *before* looking. A prediction checked
 only when it fails is the same defect as one checked only when it succeeds.
 
+### The maintainability input now has a measured range, not two anecdotes
+
+⚠️ `git log -L` over a **function body**, never the file — the file answers a different question and
+misled once (`GanttChart.tsx` is edited constantly; its `:952` callback was last touched two months
+earlier). The spread this campaign has actually seen:
+
+| | Commits on the body | Verdict |
+|---|---|---|
+| `migrateV5toV6` | **1** | suppression made permanent |
+| `computeWeekendShadingRects` | **1** | decomposed anyway — the benefit was the SHARED contract between two charts, not this function's churn |
+| `migrateLocalToCloud` | 4 | stays interim |
+| `parseFlatActivityTable` | 4 | declined, on net quality |
+| **`GanttChart:952` callback** | **24** | decomposed — the churniest code examined |
+
+⚠️ **1 and 24 are what "stable" and "churny" actually looked like here.** Note the second row: churn
+is an input, not the verdict. `computeWeekendShadingRects` had the same edit history as the migration
+whose suppression was made permanent and went the other way, because the risk term differed by orders
+of magnitude and the benefit accrued to something other than its own maintenance.
+
 ### ⚠️ DECLINE WITH EVIDENCE IS A LEGITIMATE OUTCOME — and it is now the campaign's commonest one
 
 Recorded 2026-08-02, after §3.4. **Read this before opening any remaining item.** A session that
@@ -509,6 +531,30 @@ from a component module — the same reason `auth-errors.ts` left `AuthProvider`
 in the test was the way to avoid that move. **Whenever copying into a test is the cheaper option,
 that is the moment to suspect this defect** — the copy is never chosen because it is better, it is
 chosen because the export is inconvenient.
+
+### ⚠️ A measurement's explanation is not the measurement
+
+Recorded 2026-08-03, from §3.3. **Distinct from a stale number and from an unexposed figure: here the
+number was RIGHT for weeks while the sentence beside it was WRONG.**
+
+`gantt-utils.ts` carried a measured ladder — helper alone 8, interactive-only 8, print-only 10, both
+10, both + two suppressions 8 — and immediately below it an explanation: the React Compiler bails
+*because* a value from an imported call feeds a `useMemo`. The ladder was real. The explanation was
+an inference written next to it, and it inherited the measurement's authority because they read as
+one thing.
+
+**Measured 2026-08-03, premise asserted first** (removing a suppression produces a finding, so a zero
+is meaningful): that exact shape produces **0** findings in `GanttChart` and **2** in
+`PrintGanttChart`. The trigger is a property of the COMPONENT, not of the code shape — so the rule
+derived from the explanation was false, and the item it blocked was never blocked.
+
+⚠️ **It travelled twice**: once when the JSDoc's measured case became a rule about code shapes, again
+when that rule was relayed as settled. Each participant caught the other's step and neither caught
+their own.
+
+**The practice:** when a measurement and an explanation of it are recorded together, **only one of
+them has been tested.** Mark which. *"Measured: X; I believe this is because Y"* is honest and
+reusable; the same note without the hedge becomes a rule nobody re-derives.
 
 ### ⚠️ A shared substring turns a narrow test into an apparently-broad one
 
@@ -1187,6 +1233,11 @@ gate.**
 
 ## 6. Tooling
 
-**`npm run cc`** (`scripts/measure-complexity.mjs`) — ⚠️ **defective until §3.0 lands.**
+**`npm run cc`** (`scripts/measure-complexity.mjs`) — fixed in §3.0.
+⚠️ **Region mode CANNOT cost a JSX split, and refuses rather than guessing.** Every slice of a single
+`return (...)` JSX expression cuts the tree mid-node, so it parse-errors — correctly. §3.3's `:952`
+three-way split could not be measured in place: the measurement and the work were the same 213 lines,
+which removes the usual reason to measure first. **It is not broken; it is declining**, which is the
+behaviour every other instrument here had to be taught.
 **`npm run mutate`** (`scripts/mutation-run.mjs`) — guarded runner.
 **`docs/mutation-baseline-c1.md`** — the artifact format for §3.1 and §3.4.

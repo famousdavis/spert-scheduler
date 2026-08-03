@@ -20,6 +20,7 @@
 // checks-that-cannot-fail exhibiting exactly that defect. A perturbation that cannot fail
 // makes a weak oracle look strong.
 const GU = new URL("../src/ui/charts/gantt-utils.ts", import.meta.url).pathname;
+const ROW = new URL("../src/ui/charts/GanttActivityRow.tsx", import.meta.url).pathname;
 
 export const testFile = "src/ui/charts/gantt-parity-oracle.test.tsx";
 
@@ -64,6 +65,31 @@ export const mutations = [
     find: `  const filtered: Tick[] = [];\n  let lastX = -Infinity;`,
     replace: `  return allTicks;\n  const filtered: Tick[] = [];\n  let lastX = -Infinity;`,
     expectFailing: /long-span INTERACTIVE chart matches its committed geometry/,
+  },
+  // ⚠️ G7/G8 ARE THE GATE ON THE §3.3 GanttChart:952 SPLIT — same role G5/G6 played for
+  // computeWeekendShadingRects. Half the logic left the pinned callback; propagation is
+  // not guaranteed and must not be assumed.
+  //
+  // ⚠️ BOTH ARE PROVEN SEMANTIC, NOT MERELY SYNTACTIC. A probe during this item's entry
+  // measurement changed the file (`const barXShift = 0.5; void barXShift;`) and changed
+  // NOTHING, and reported UNPINNED — an inert mutation and an undetected one are the same
+  // two words in the output. The `cmp` guard in the runner proves a SYNTACTIC edit only.
+  // So stage 1 is a direct, independent observation that the perturbation changes the
+  // artifact: G7's target has six unit tests in gantt-utils.test.ts that fail on it, and
+  // G8 removes rendered output outright. Stage 2 is this oracle.
+  {
+    id: "G7  computeActivityRowGeometry: barX +0.5  [split gate: compute half]",
+    file: GU,
+    find: `    barX,\n    barEndX,`,
+    replace: `    barX: barX + 0.5,\n    barEndX,`,
+    expectFailing: /INTERACTIVE chart matches its committed geometry/,
+  },
+  {
+    id: "G8  GanttActivityRow renders nothing  [split gate: render half]",
+    file: ROW,
+    find: `  const { y, barY, barX, barEndX, barWidth, barColor, showHatch, hatchEndX, hatchStrokeColor } = geo;`,
+    replace: `  if (act) return null;\n  const { y, barY, barX, barEndX, barWidth, barColor, showHatch, hatchEndX, hatchStrokeColor } = geo;`,
+    expectFailing: /INTERACTIVE chart matches its committed geometry/,
   },
   {
     id: "G4  longDateLabel -> constant string",

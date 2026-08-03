@@ -406,6 +406,84 @@ export function computeWeekendShadingRects(
 }
 
 
+// -- Activity row geometry ----------------------------------------------------
+
+export interface ActivityRowGeometry {
+  /** Top of the row band. */
+  y: number;
+  /** Top of the bar within the row. */
+  barY: number;
+  barX: number;
+  barEndX: number;
+  /** Floored at 4px so a zero-duration activity is still visible. */
+  barWidth: number;
+  barColor: string;
+  showHatch: boolean;
+  /** Right edge of the uncertainty hatching; equals barEndX when not hatching. */
+  hatchEndX: number;
+  hatchStrokeColor: string;
+}
+
+/**
+ * All the arithmetic and colour selection for one Gantt activity row.
+ *
+ * ⚠️ Takes PRIMITIVES rather than a `ResolvedGanttAppearance`, deliberately. This module
+ * imports only from `@core` and stays that way; a `ra` parameter would pull a UI type into
+ * it for five field reads. It also makes the function testable without constructing an
+ * appearance object.
+ *
+ * Paired with `GanttActivityRow`, which renders these values and computes none of them.
+ */
+export function computeActivityRowGeometry(args: {
+  idx: number;
+  startDate: string;
+  endDate: string;
+  status: string;
+  topMargin: number;
+  rowHeight: number;
+  barYOffset: number;
+  leftMargin: number;
+  minTimestamp: number;
+  dateRange: number;
+  chartAreaWidth: number;
+  barPlanned: string;
+  barComplete: string;
+  barInProgress: string;
+  viewMode: string;
+  hatchedDays: number | undefined;
+  extEndDate: string | undefined;
+}): ActivityRowGeometry {
+  const toX = (d: string) =>
+    dateToX(d, args.minTimestamp, args.dateRange, args.chartAreaWidth, args.leftMargin);
+
+  const y = args.topMargin + args.idx * args.rowHeight;
+  const barX = toX(args.startDate);
+  const barEndX = toX(args.endDate);
+
+  let barColor = args.barPlanned;
+  if (args.status === "complete") barColor = args.barComplete;
+  else if (args.status === "inProgress") barColor = args.barInProgress;
+
+  const showHatch = Boolean(
+    args.viewMode === "uncertainty" &&
+      args.hatchedDays !== undefined &&
+      args.hatchedDays > 0 &&
+      args.extEndDate,
+  );
+
+  return {
+    y,
+    barY: y + args.barYOffset,
+    barX,
+    barEndX,
+    barWidth: Math.max(4, barEndX - barX),
+    barColor,
+    showHatch,
+    hatchEndX: showHatch && args.extEndDate ? toX(args.extEndDate) : barEndX,
+    hatchStrokeColor: args.status === "inProgress" ? args.barInProgress : args.barPlanned,
+  };
+}
+
 // -- Today line ---------------------------------------------------------------
 
 export interface TodayLine {
@@ -458,12 +536,32 @@ export interface TodayLine {
  * had already produced one bug in this pair (the "skips band rows" comment, wrong in both
  * files because nothing pinned the contract but prose) is gone.
  *
- * ⚠️⚠️ THE SUPPRESSION IS NOT TRANSFERABLE TO THE INTERACTIVE CHART. Suppressing silences
- * the report, not the bail — the component genuinely loses compiler optimisation. For a
- * chart rendered once per export that is plausibly free. `GanttChart` re-renders on scroll
- * and zoom, so any extraction out of it must MEASURE the real render cost first, or keep
- * the imported call outside every memo boundary — which probably means hoisting assembled
- * geometry to a prop rather than computing it inside. Live input to §3.3's remaining work.
+ * ⚠️⚠️ CORRECTED 2026-08-03 — WHAT FOLLOWED HERE WAS AN EXPLANATION, NOT A MEASUREMENT,
+ * AND IT WAS WRONG. The 8/8/10/10/8 ladder above is real. The sentence beside it —
+ * that the bail happens *because* a value from an imported call feeds a `useMemo`, and
+ * that any extraction from `GanttChart` must therefore hoist assembled geometry to a prop
+ * — was an inference about WHY, written next to a measurement and inheriting its
+ * authority. It has now been measured and it does not hold.
+ *
+ * Measured in `GanttChart`, with the premise asserted first (removing one suppression here
+ * produces a finding, so "0 findings" is meaningful):
+ *
+ *   this exact shape — imported call at component top level, result in a const,
+ *   declared in a memo's deps and used in its body ................ 0 findings
+ *   a sub-component consuming memoized parent values as props ..... 0 findings
+ *   `PrintGanttChart` with its suppressions removed ................ 3 findings
+ *   ...and with the `computeTodayLine` call removed too ............ 1 finding
+ *
+ * So `computeTodayLine` accounts for 2 of this file's 3, with `printDensityPx`
+ * pre-existing — exactly as recorded above. That part is accurate. But the SAME shape
+ * costs 0 in `GanttChart`, which means the trigger is a property of the COMPONENT, not of
+ * the code shape.
+ *
+ * ⚠️ CONSEQUENCE: this constraint cannot be reasoned about from its description. It can
+ * only be measured at the site. Do not predict a bail from this note — run
+ * `npx eslint <file>` on the contemplated change and count
+ * `react-hooks/preserve-manual-memoization` findings. §3.3's GanttChart:952 split was
+ * unblocked that way and introduced none.
  */
 export function computeTodayLine(
   now: Date,
