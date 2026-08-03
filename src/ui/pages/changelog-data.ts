@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.63.1",
+    date: "2026-08-03",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Clearing an estimate field in the activity grid no longer looks like it worked when it did not. Selecting the number in Optimistic, Most Likely or Pessimistic, deleting it and tabbing away left the box empty on screen while the old number was still stored \u2014 with nothing to tell you which one was real. The field is now marked with an error and the project shows its validation summary, so an empty estimate is visible rather than silent.",
+          "What you typed stays on screen. The old number is not quietly put back \u2014 you cleared it on purpose, and having the app undo that without saying so would be the same problem in the other direction.",
+          "An estimate that is a number but out of order \u2014 a Pessimistic below the Optimistic, say \u2014 was already reported this way. Only an emptied field went unreported, so the two are now consistent.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.63.0",
     date: "2026-08-02",
     sections: [

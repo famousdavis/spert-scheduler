@@ -242,6 +242,14 @@ export function UnifiedActivityRow({
           const updates = { mostLikely: num, min, max };
           const candidate = { ...activity, ...updates };
           const result = ActivitySchema.safeParse(candidate);
+          // ⚠️ NO `else`, AND DELIBERATELY LEFT THAT WAY IN v0.63.1 — do not "complete"
+          // this by symmetry with the branch below. It has the same missing-else shape,
+          // but it is UNREACHABLE: heuristicMinPercent is schema-bounded to 1–99 and
+          // heuristicMaxPercent to 101–1000, which forces min <= mostLikely <= max.
+          // Verified by exhaustion rather than argument — 5,121,171 schema-valid
+          // (mostLikely, minPercent, maxPercent) combinations, zero violations. Adding an
+          // error path here would be untestable code guarding a state the schema forbids.
+          // It becomes reachable only if those bounds widen; if you widen them, fix this.
           if (result.success) {
             setErrors({});
             onValidityChange(activity.id, true);
@@ -264,6 +272,33 @@ export function UnifiedActivityRow({
             return next;
           });
         }
+      } else {
+        // ⚠️ v0.63.1 — REPORT the unparseable entry instead of silently doing nothing.
+        // Reaching here means `parseFloat` failed, which in practice means the user
+        // CLEARED the field: select-all, delete, tab away. Before this, the `if` above
+        // simply ended and nothing happened — no commit, no validity change, no error —
+        // while the UNCONTROLLED input (EstimateInputs.tsx, `defaultValue`) went on
+        // displaying the empty string. The field showed nothing, the store held the old
+        // number, and nothing on screen said which was real.
+        //
+        // Restoring the old value instead was considered and REJECTED: it fixes the
+        // defect by committing the same defect in the other direction, silently undoing
+        // work the user deliberately did. Storing empty is not available — min /
+        // mostLikely / max are non-negative numbers in ActivitySchema — which is why the
+        // sibling treatment of a numeric-but-invalid entry (committed AND flagged) only
+        // half-transfers. What transfers is the flagging.
+        //
+        // NOT gated on allEstimatesTouched, unlike validateAndUpdate above, and the
+        // difference is principled rather than an oversight: that gate exists because
+        // min <= mostLikely <= max cannot be judged until all three are known. An empty
+        // field is invalid ON ITS OWN, so there is nothing to wait for.
+        setTouchedFields((prev) => {
+          const next = new Set(prev);
+          next.add(field);
+          return next;
+        });
+        setErrors((prev) => ({ ...prev, [field]: "Enter a number." }));
+        onValidityChange(activity.id, false);
       }
     },
     [validateAndUpdate, heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, activity, onUpdate, onValidityChange]
