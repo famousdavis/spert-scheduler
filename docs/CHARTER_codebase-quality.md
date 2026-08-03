@@ -888,7 +888,41 @@ the campaign and should run alongside §3.1.
 Also here: partially-covered hooks with real logic — `use-import-state.ts` 43.33%,
 `use-ai-connectivity.ts` 57.25%, `use-cloud-sync.ts` 66.66%.
 
-### 3.3 — The component layer
+### 3.3 — The component layer · ✅ CLOSED 2026-08-03
+
+⚠️ **ALL THREE REMAINING LINT FINDINGS ARE INFORMED DECLINES, each with a measured reason
+recorded at its site.** Lint finished the campaign at **3**, from 23.
+
+| Finding | cc | Verdict | The deciding measurement |
+|---|---|---|---|
+| `flat-activity-parser.ts:140` | 110 | declined (§3.4) | net failed its **pre-stated** gate — 73.91%, 0% on cell extraction |
+| `UnifiedActivityRow.tsx:126` | 22 | declined | complexity is **21 of 22 in the JSX**; logic already extracted; only a JSX split remains and region mode cannot cost it; 42.6% branches, no oracle |
+| `ActivityProgressBars` (`:80`) | 20 | declined | **100% branches (47/47)** — the thing a split would buy is already had |
+
+**23 → 3, and the 3 that remain are decisions rather than debt.** That is a better outcome than 0,
+and the opposite of what a lint-count campaign produces. ⚠️ Two of the three declines were argued
+*against* their own strongest counter-evidence and lost on it anyway: `UnifiedActivityRow` has **35
+commits** to its body — the churniest measured anywhere here — and the maintainability case was made
+and answered rather than overlooked.
+
+**Decomposed rather than declined**, both licensed by the parity oracle: `gantt-utils:314`
+(cc 18 → 8/1/1) and `GanttChart:952` (cc 20 → 6/12/~2).
+
+### ⚠️ A number that got worse because the software got better — now twice, from this campaign's own work
+
+The thesis is that the metric ranks risk backwards here. **Two functions crossed into the 10–15 band
+during this campaign, and both crossings were improvements:**
+
+| | Change | cc |
+|---|---|---|
+| `ScenarioTabs.tsx` `SortableScenarioTab` | v0.62.2 accessibility fix | 13 → **15** |
+| `UnifiedActivityRow.tsx` `handleBlur` | v0.63.1 — report a cleared estimate instead of swallowing it | → **15** |
+
+Both sit exactly on the threshold, invisible to lint, and **neither is to be refactored back under
+it.** The added branching *is* the improvement — an accessibility affordance in one, a validity
+report in the other. Recorded at both sites so a later reader does not "tidy" them.
+
+### 3.3 — the original framing
 
 **2.21% line coverage; 85 of 88 `.tsx` files at exactly 0%.** ⚠️ `.tsx` is **40.2% of executable
 surface** — a plurality, not "most of the app," as v1 claimed. ⚠️ And the RTL precedent is thinner

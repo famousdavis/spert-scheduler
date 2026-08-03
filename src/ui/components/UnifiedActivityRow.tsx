@@ -76,6 +76,24 @@ type FieldErrors = Partial<Record<string, string>>;
  * have meant either an unreasonable number of page renders or partial coverage that reads
  * as complete. Same trade as moving `getScheduleErrorBanner` out of `ProjectPage.tsx`:
  * testing a copy to avoid the change would have been the defect.
+ *
+ * ⚠️ DECOMPOSITION CONSIDERED AND DECLINED (§3.3, 2026-08-03). cc 20, over the threshold,
+ * and it stays that way deliberately — do not "finish the job" by splitting it.
+ *
+ * The reason is not risk or cost; both are near zero here. It is that THE THING A SPLIT
+ * WOULD BUY IS ALREADY HAD. This campaign's question is "when I change this, will anything
+ * tell me I got it wrong?" — and at 100% branches (47 of 47) the answer is already yes,
+ * the best non-oracle net in the campaign. Splitting would improve the LINT NUMBER, which
+ * §1 calls an output rather than a goal and §2 forbids chasing.
+ *
+ * The readability counter-argument fails on the file's own history: 4 substantive commits
+ * to this body, none since April 2026. The benefit accrues to a reader who has not shown
+ * up in four months.
+ *
+ * A seam does exist if that ever changes — guards + counts measured cc 11, leaving the JSX
+ * at ~9. ⚠️ 11 is MEASURED; 9 is BY SUBTRACTION. `npm run cc`'s region mode parse-errors on
+ * the JSX return, as it did at GanttChart:952, so the residual is inferred from additivity
+ * at nesting 0 rather than observed. Do not cite 9 as a measurement.
  */
 export function ActivityProgressBars({
   activity,
@@ -132,6 +150,34 @@ export function ActivityProgressBars({
   );
 }
 
+/**
+ * One row of the merged input + schedule grid.
+ *
+ * ⚠️ DECOMPOSITION CONSIDERED AND DECLINED (§3.3, 2026-08-03). cc 22, over the threshold,
+ * and staying there — with the maintainability case made and answered rather than
+ * overlooked, because it is the strongest such case in the campaign.
+ *
+ * THE CASE FOR ACTING: 35 commits to this body, the churniest measured anywhere in this
+ * codebase — more than GanttChart:952's 24, far more than computeWeekendShadingRects' 1.
+ * Maintainability here is live, not theoretical.
+ *
+ * IT STILL LOSES, because of what is actually available to do about it:
+ *
+ *   · THE COMPLEXITY IS 21 OF 22 IN THE JSX RETURN. Measured, not assumed.
+ *   · The logic is ALREADY EXTRACTED — `cc` reports the useCallback bodies as separate
+ *     functions (handleBlur 15, plus two at 7), so they are not part of the 22. There is
+ *     nothing left to pull out.
+ *   · So the only available refactor is a JSX SPLIT, and `npm run cc`'s region mode
+ *     parse-errors on JSX slices (they cut a single `return (...)` mid-tree). Costing it
+ *     means BUILDING it, in an 833-line file.
+ *   · Behind 42.6% branch coverage, with no oracle. GanttChart:952 and gantt-utils:314
+ *     were both licensed by byte-identical parity geometry; there is no equivalent here.
+ *
+ * An expensive, unmeasurable refactor behind an inadequate net. A mutation run was
+ * considered and DECLINED TOO: the shape has already answered, so a sharper coverage figure
+ * could not flip the verdict, and paying for a measurement that cannot change a decision is
+ * the over-engineering §3.8 named.
+ */
 export function UnifiedActivityRow({
   activity,
   scheduledActivity,
@@ -221,6 +267,11 @@ export function UnifiedActivityRow({
     [activity, onUpdate, onValidityChange]
   );
 
+  // ⚠️ cc 15 — EXACTLY ON THE LINT THRESHOLD, and not to be refactored back under it.
+  // It reached 15 when v0.63.1 added the `else` that reports a cleared estimate instead of
+  // silently swallowing it. The added branching IS the improvement: a number that got worse
+  // because the software got better. Second instance from this campaign's own work — the
+  // first was ScenarioTabs' SortableScenarioTab, 13 → 15 on an accessibility fix.
   const handleBlur = useCallback(
     (field: "min" | "mostLikely" | "max", rawValue: string) => {
       const parsed = parseFloat(rawValue);
