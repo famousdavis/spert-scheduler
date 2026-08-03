@@ -333,6 +333,87 @@ describe("per-column validation errors", () => {
     });
   });
 
+  // -- Clause-level closure (§3.4, from docs/mutation-baseline-parser.md) ------
+  //
+  // All three duration guards are `rawX === "" || !Number.isInteger(xVal) || xVal < 0`,
+  // and Stryker scores each operand separately. The baseline run found:
+  //
+  //                rawX === ""   xVal < 0
+  //   MIN (L300)   SURVIVED      SURVIVED     ← covered only by the old .toContain tests
+  //   ML  (L309)   killed        killed       ← non-integer AND negative, whole-object
+  //   MAX (L318)   killed        SURVIVED     ← non-integer and EMPTY, but not negative
+  //
+  // ⚠️ The MAX row was a gap in the tests written to fix this very asymmetry: having
+  // found that the old tests covered Min and assumed ML and Max, the fix covered
+  // non-integer + negative for ML and non-integer + empty for Max. The same
+  // first-of-a-group shape, one level up, invisible to everything except mutation.
+  // These three close every surviving clause in the three guards. Scope is
+  // deliberately the guards only — cell extraction (0/9) and the Zod/duplicate path
+  // (50%) stay documented survivors in the baseline doc.
+
+  it("reports an empty Min against its own column", () => {
+    const rows = [HEADER_ROW, validRow("A1", "Task", "", "2", "3", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([
+      {
+        row: 2,
+        column: "Optimistic (Min)",
+        message: 'Optimistic (Min) must be a non-negative integer, got "".',
+        severity: "error",
+      },
+    ]);
+  });
+
+  it("reports a negative Min against its own column", () => {
+    // The pre-existing "errors on negative duration" feeds this same row but asserts
+    // only `errors.length > 0`, which ActivitySchema would satisfy on its own — so
+    // the guard's own clause could be deleted undetected.
+    const rows = [HEADER_ROW, validRow("A1", "Task", "-1", "2", "3", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([
+      {
+        row: 2,
+        column: "Optimistic (Min)",
+        message: 'Optimistic (Min) must be a non-negative integer, got "-1".',
+        severity: "error",
+      },
+    ]);
+  });
+
+  it("reports a negative Max against its own column", () => {
+    const rows = [HEADER_ROW, validRow("A1", "Task", "1", "2", "-3", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([
+      {
+        row: 2,
+        column: "Pessimistic (Max)",
+        message: 'Pessimistic (Max) must be a non-negative integer, got "-3".',
+        severity: "error",
+      },
+    ]);
+  });
+
+  it("accepts a zero duration, which is legal", () => {
+    // ⚠️ Not a mutation artifact. min/mostLikely/max are z.number().nonnegative()
+    // and v0.53.0 added degenerate (zero-uncertainty) estimates, so 0 is a VALID
+    // input that no test had ever imported through the CSV path. That is why
+    // `xVal < 0` → `xVal <= 0` survived in all three guards: nothing distinguished
+    // "rejects negatives" from "rejects zero and negatives".
+    const rows = [HEADER_ROW, validRow("A1", "Task", "0", "0", "0", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([]);
+    expect(result.activities).toHaveLength(1);
+    expect(result.activities[0]).toMatchObject({ min: 0, mostLikely: 0, max: 0 });
+  });
+
+  it("accepts a zero Min alongside non-zero Most Likely and Max", () => {
+    // Isolates the Min guard's boundary from the all-degenerate case above.
+    const rows = [HEADER_ROW, validRow("A1", "Task", "0", "2", "3", "Medium")];
+    const result = parseFlatActivityTable(rows, makeIdGen());
+    expect(result.errors).toEqual([]);
+    expect(result.activities[0]).toMatchObject({ min: 0, mostLikely: 2, max: 3 });
+  });
+
   it("reports an unparseable predecessor token, distinctly from an unresolved one", () => {
     // "errors on unknown predecessor" above covers a token that PARSES but does not
     // resolve. This is the regex-mismatch branch, which is a different message.
