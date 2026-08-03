@@ -340,6 +340,30 @@ interaction wiring — `handleBlur`'s contract — where no schema, no rule and 
 happens when a field blurs. That was the surface the heuristic ranked highest of anything remaining,
 and it was the only such surface not yet examined.
 
+### ⚠️ THE BOUND — necessary, not sufficient. The last thing the campaign learned.
+
+Recorded 2026-08-03, from §3.9, the final item. **The heuristic below was aimed at the highest-risk
+profile it could construct and the code was correct.**
+
+`updateMemberRole`'s owner-self-demotion guard: **unexecuted**, **no independent expression**
+(`firestore.rules` gates a `members` change on the caller being owner, and the owner passes it), and
+**guarding a state nothing else prevents**. Every box ticked. A defect was pre-registered. **Fifth
+consecutive negative.**
+
+> **The condition ranks where to LOOK. The code still has to be wrong.**
+
+It predicts where a defect would **survive**, not where one is **introduced** — so "has no
+independent expression" is a search order, never a verdict, and "has independent expression" never
+means "is correct."
+
+⚠️ **This is also the item where the stakes were understated by BOTH sessions reading the same file.**
+The claim *"an owner listed as editor is not a security hole — the server still treats them as
+owner"* is false: the rules key every privileged operation on `members[uid]`, not the `owner` field,
+so self-demotion is **irreversible** — restoring the role is itself a `members` change requiring the
+role just given away. What settled it was **executing** the claim: re-keying `allow delete` to the
+owner field and watching a named test fail. See `CLOSEOUT_codebase-quality-v0.63.2.md` §10 for the
+latent UI divergence this leaves recorded.
+
 ### ⚠️ Unexecuted is not the risk signal — unexecuted with NO INDEPENDENT EXPRESSION is
 
 Recorded 2026-08-02, from §3.8. **This is the second DIRECTION practice, and it exists because a
