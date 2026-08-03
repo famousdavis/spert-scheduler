@@ -311,6 +311,84 @@ export function suppressOverlappingTicks(
  * single spans, and converts each span to an {x, width} pair in chart
  * coordinates. Spans narrower than minRectWidth (default 1px) are dropped.
  */
+/** A run of consecutive non-working days. `endIso` is EXCLUSIVE — the first working day after it. */
+export interface NonWorkSpan {
+  start: Date;
+  endIso: string;
+}
+
+/**
+ * Group consecutive non-working days in the visible range into spans.
+ *
+ * Calendar logic only — knows nothing about pixels. Paired with `spanToRect`, which is
+ * geometry only and knows nothing about calendars.
+ */
+export function collectNonWorkSpans(
+  calendar: WorkCalendar,
+  projectStartDate: string,
+  furthestDate: string,
+): NonWorkSpan[] {
+  const spans: NonWorkSpan[] = [];
+  const end = new Date(furthestDate + "T00:00:00");
+  const oneDay = 1000 * 60 * 60 * 24;
+  let d = new Date(projectStartDate + "T00:00:00");
+  let spanStart: Date | null = null;
+
+  while (d <= end) {
+    const iso = formatDateISO(d);
+    if (!calendar.isWorkDay(d)) {
+      if (!spanStart) spanStart = new Date(d);
+    } else if (spanStart) {
+      spans.push({ start: spanStart, endIso: iso });
+      spanStart = null;
+    }
+    d = new Date(d.getTime() + oneDay);
+  }
+  // A range ending on a non-working day closes at the day AFTER the last one, so the
+  // final span has the same exclusive-end meaning as every other.
+  if (spanStart) {
+    spans.push({ start: spanStart, endIso: formatDateISO(new Date(end.getTime() + oneDay)) });
+  }
+  return spans;
+}
+
+/**
+ * Convert one non-work span to an `{x, width}` pair in chart coordinates, or `null` when
+ * it would be narrower than `minRectWidth`.
+ *
+ * Geometry only — see `collectNonWorkSpans`.
+ */
+export function spanToRect(
+  span: NonWorkSpan,
+  minTimestamp: number,
+  dateRange: number,
+  chartAreaWidth: number,
+  leftMargin: number,
+  minRectWidth: number,
+): { x: number; width: number } | null {
+  const x1 = dateToX(formatDateISO(span.start), minTimestamp, dateRange, chartAreaWidth, leftMargin);
+  const x2 = dateToX(span.endIso, minTimestamp, dateRange, chartAreaWidth, leftMargin);
+  return x2 - x1 >= minRectWidth ? { x: x1, width: x2 - x1 } : null;
+}
+
+/**
+ * Compute coalesced non-work-day shading rectangles for the Gantt chart.
+ *
+ * ⚠️ DECOMPOSED §3.3 (2026-08-03), from cc 18 to 8 / 1 / 1. Two variants were MEASURED on a
+ * skeleton before a line moved, not estimated:
+ *
+ *   A  lift only the rect math, loop keeps span tracking  → residual cc 14
+ *   B  split calendar logic from geometry (this one)      → 8 / 1 / 1
+ *
+ * **A was rejected for landing at 14, not merely for being worse.** That is one point under
+ * the lint threshold — the band where a finding exists and the metric never mentions it
+ * again, which is §3.6's entire thesis. If you are wondering why the rect math was not just
+ * lifted inline: it was measured, it clears, and it clears into the blind spot.
+ *
+ * The seam is real rather than convenient. BOTH charts call this, and §3.3 exists to keep a
+ * 679-line parallel implementation aligned — so a narrower, more explicit shared contract is
+ * a benefit to the parity problem, not just to this function.
+ */
 export function computeWeekendShadingRects(
   calendar: WorkCalendar,
   projectStartDate: string,
@@ -322,35 +400,9 @@ export function computeWeekendShadingRects(
   minRectWidth = 1,
 ): { x: number; width: number }[] {
   if (dateRange === 0) return [];
-  const rects: { x: number; width: number }[] = [];
-  const start = new Date(projectStartDate + "T00:00:00");
-  const end = new Date(furthestDate + "T00:00:00");
-  const oneDay = 1000 * 60 * 60 * 24;
-  let d = new Date(start);
-  let spanStart: Date | null = null;
-
-  while (d <= end) {
-    const iso = formatDateISO(d);
-    if (!calendar.isWorkDay(d)) {
-      if (!spanStart) spanStart = new Date(d);
-    } else {
-      if (spanStart) {
-        const x1 = dateToX(formatDateISO(spanStart), minTimestamp, dateRange, chartAreaWidth, leftMargin);
-        const x2 = dateToX(iso, minTimestamp, dateRange, chartAreaWidth, leftMargin);
-        if (x2 - x1 >= minRectWidth) rects.push({ x: x1, width: x2 - x1 });
-        spanStart = null;
-      }
-    }
-    d = new Date(d.getTime() + oneDay);
-  }
-  // Close trailing span
-  if (spanStart) {
-    const x1 = dateToX(formatDateISO(spanStart), minTimestamp, dateRange, chartAreaWidth, leftMargin);
-    const endNext = new Date(end.getTime() + oneDay);
-    const x2 = dateToX(formatDateISO(endNext), minTimestamp, dateRange, chartAreaWidth, leftMargin);
-    if (x2 - x1 >= minRectWidth) rects.push({ x: x1, width: x2 - x1 });
-  }
-  return rects;
+  return collectNonWorkSpans(calendar, projectStartDate, furthestDate)
+    .map((span) => spanToRect(span, minTimestamp, dateRange, chartAreaWidth, leftMargin, minRectWidth))
+    .filter((r): r is { x: number; width: number } => r !== null);
 }
 
 
