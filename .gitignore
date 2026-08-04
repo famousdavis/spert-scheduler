@@ -46,3 +46,11 @@ reports/mutation/
 .vercel
 
 lint-baseline.json
+
+# Campaign and methodology documentation — PROPRIETARY, moved 2026-08-04.
+# The source in this repository is public (GPL v3); the knowledge of how it was built
+# is not. These records now live in the PRIVATE spert-suite-docs repository:
+#   suite/                  the practices — one copy, suite-wide
+#   apps/scheduler/         this repo's charter, close-outs, baselines, censuses
+# Ignored rather than merely removed so they cannot be re-added by habit.
+docs/
