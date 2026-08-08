@@ -56,17 +56,18 @@ export const mutations = [
     replace: `  if (false && activity.actualDuration != null) {\n    return activity.actualDuration;\n  }`,
     expectFailing: /matches the pinned output: completed and in-progress activities/,
   },
-  // ⚠️ D4 IS COMMENTED OUT BECAUSE IT FOUND SOMETHING — see "UNPINNED" at the
-  // foot of this file. Deleting `Math.max(activity.actualDuration + 1, base)`
-  // changes NOTHING: all 44 tests pass. Re-enable it once the fixture is fixed;
-  // it is the check that will prove the fix worked.
-  // {
-  //   id: "D4  in-progress floor removed",
-  //   file: DET,
-  //   find: `    return Math.max(activity.actualDuration + 1, base);`,
-  //   replace: `    return base;`,
-  //   expectFailing: /matches the pinned output: completed and in-progress activities/,
-  // },
+  // ✅ D4 IS LIVE AGAIN — 2026-08-07. It was committed commented-out because it had
+  // found something: `z3` was inProgress with actualDuration 2 against a base of 4, so
+  // Math.max(2 + 1, 4) = 4 and deleting the floor left all 44 tests green. The fixture
+  // now carries actualDuration 6, so the floor yields 7 and its removal is observable.
+  // Re-enabling this is the check that proves that fix worked — measured, not assumed.
+  {
+    id: "D4  in-progress floor removed",
+    file: DET,
+    find: `    return Math.max(activity.actualDuration + 1, base);`,
+    replace: `    return base;`,
+    expectFailing: /matches the pinned output: completed and in-progress activities/,
+  },
 
   // ---- group 1: one mutation per dependency type, plus the clamp ----------
   {
@@ -179,36 +180,42 @@ export const mutations = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚠️ UNPINNED — what this audit found, 2026-08-06
+// ⚠️ UNPINNED — what this audit found, 2026-08-06, and where it stands now
 //
 // Sixteen perturbations, one per path the oracle's fixture groups claim to cover.
 // Twelve were caught by the fixture built for them. Two were caught by DIFFERENT
 // fixtures than expected (D12, D14 — re-aimed above, with the measured reason).
-// TWO WERE NOT CAUGHT AT ALL:
+// TWO WERE NOT CAUGHT AT ALL. One of those is now closed:
 //
-//   D4  the in-progress duration floor.  `z3` is inProgress with actualDuration 2
-//       and min=mostLikely=max=4, so the floor computes Math.max(2 + 1, 4) = 4 —
-//       exactly the value the floor exists to override. The branch EXECUTES and
-//       its output is identical whether or not it is there. Deleting the floor
-//       leaves all 44 tests green.
-//       Fix: give the fixture an actualDuration that makes the floor bind
-//       (actualDuration 6 on a 4-day activity -> 7, not 4), then regenerate.
+//   D4  the in-progress duration floor.  ✅ FIXED 2026-08-07. `z3` was inProgress with
+//       actualDuration 2 and min=mostLikely=max=4, so the floor computed
+//       Math.max(2 + 1, 4) = 4 — exactly the value the floor exists to override. The
+//       branch EXECUTED and its output was identical whether or not it was there;
+//       deleting the floor left all 44 tests green. The fixture now carries
+//       actualDuration 6, so the floor yields 7, and `deterministic-oracle.json` was
+//       regenerated as an explicit reviewed act: the diff moved 7 lines, all inside
+//       `completed and in-progress activities`, with the other 40 fixtures proven
+//       byte-identical key-by-key. D4 is live above and PINNED — that re-enabling is
+//       the evidence the fix worked, which is why it shipped commented-out rather than
+//       deleted.
 //
-//   D10 the milestone weekend advance.  The fixture is NAMED "milestone floor on
-//       a Saturday advances to Monday" and the pinned start IS the Monday — but
-//       removing `advanceToNextWorkingDay` still produces 2025-01-13, because
+//   D10 the milestone weekend advance.  ⚠️ STILL OPEN. The fixture is NAMED "milestone
+//       floor on a Saturday advances to Monday" and the pinned start IS the Monday —
+//       but removing `advanceToNextWorkingDay` still produces 2025-01-13, because
 //       something downstream normalises it anyway. The fixture pins a Monday that
 //       would happen regardless; it does not pin the advance.
-//       ⚠️ Fix needs domain judgment, not a fixture edit: find where the redundant
-//       normalisation happens and decide whether this advance is load-bearing at
-//       all. It may be dead, or it may matter for a case no fixture reaches.
+//       ⚠️ NOT a fixture edit, and do not "fix" it by deleting the advance. Characterise
+//       first: find where the redundant normalisation happens, then decide between three
+//       legitimate outcomes — genuinely dead (remove, behaviour-preserving), load-bearing
+//       for a case no fixture reaches (that is an oracle coverage gap, add the fixture),
+//       or defence in depth behind a correct normalisation (record it as such at its site).
 //
-// Both are the ledger's "a test named for a property it cannot check" shape, which
-// this campaign has now recorded four times. Neither is fixed here: fixing D4 means
-// regenerating deterministic-oracle.json, which that file's own header says must be
-// an explicit reviewed act, and D10 is a question about what the scheduler SHOULD do.
+// Both are the ledger's "a test named for a property it cannot check" shape. ⚠️ The census
+// in PRACTICES.md carries FIVE instances, with D4 and D10 as the fourth and fifth; an
+// earlier count of four was superseded there. Fixing the fixture does not un-happen the
+// instance — what it changes is that this file can now prove the floor.
 //
-// ⚠️ So this file currently proves 14 of the oracle's 16 claimed paths. That is a
-// better number than it had yesterday, when it proved none — but it is not 16, and
-// the two commented-out mutations above are the record of which two.
+// ⚠️ So this file proves 15 of the oracle's 16 claimed paths. It proved none before this
+// audit existed and 14 when it landed; the one still-commented mutation above is the
+// record of which path remains unproven, and re-enabling it is how its fix gets proven.
 // ─────────────────────────────────────────────────────────────────────────────

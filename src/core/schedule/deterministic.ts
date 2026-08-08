@@ -37,6 +37,31 @@ import {
  *  - Complete with actual → returns actualDuration
  *  - In-progress with elapsed → returns max(elapsed+1, inverseCDF)
  *  - Otherwise → returns max(1, inverseCDF)
+ *
+ * WHY THE `+1`, since the line above restates the formula without stating the rule.
+ * In progress means NOT FINISHED: having observed t elapsed days, the duration is known to
+ * be strictly greater than t, so in whole working days it is at least t + 1. The rule is
+ * stated in full at the Monte Carlo seam — `truncated.ts:12` — *"we have observed X > t.
+ * The correct operator is conditioning, not clamping: sample from X | X > t."* This `+1`
+ * is that same statement in the integer-day domain the deterministic schedule works in.
+ *
+ * ⚠️ It was never cross-referenced here, and the two halves have since diverged. Both
+ * arrived together in v0.13.0 (CHANGELOG: *"floors each trial at elapsed + 1"*); v0.49.0
+ * replaced the Monte Carlo half with genuine left-truncation, so the line below is now the
+ * only IMPLEMENTATION of the elapsed+1 floor in the source (measured 2026-08-07).
+ *
+ * ⚠️ That is a claim about executable code, NOT a string count — and the distinction is the
+ * one this whole audit is about. Grepping `elapsed + 1` / `elapsed+1` / `actualDuration + 1`
+ * across `src/**` returns well over a dozen hits, and this comment adds to them. Every hit
+ * but one is a doc comment, an inline note, a test name or a changelog string; exactly one
+ * computes anything. Do not read the sentence above as a grep result, because it is not.
+ *
+ * Read `truncated.ts` before changing it; the two must keep agreeing about what "in
+ * progress" means.
+ *
+ * The floor is pinned by `deterministic-oracle.json`'s `z3` — but only since 2026-08-07,
+ * and only because that fixture's `actualDuration` makes it BIND. See the warning at
+ * `deterministic-oracle.test.ts`'s "completed and in-progress activities" before editing it.
  */
 function resolveActivityDuration(activity: Activity, percentile: number): number {
   if (activity.status === "complete" && activity.actualDuration != null) {
