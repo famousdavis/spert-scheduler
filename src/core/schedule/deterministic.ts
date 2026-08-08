@@ -359,14 +359,38 @@ function earliestStartFromPreds(
   return latestDate;
 }
 
-/** Apply the startsAtMilestoneId floor. */
+/**
+ * Apply the startsAtMilestoneId floor.
+ *
+ * ⚠️ DO NOT NORMALISE `milestoneDate` TO A WORKING DAY HERE. It looks missing and it is not.
+ * The caller advances `activityStart` on the line immediately after this returns, and
+ * `advanceToNextWorkingDay` is monotonic and idempotent, so for every input
+ * `A(max(A(M), S)) === A(max(M, S))` — a snap on this side cannot change the schedule. Proof
+ * by cases: M ≥ S collapses by idempotence; M < S with A(M) ≤ S gives A(S) both ways; and
+ * M < S < A(M) forces S to be non-working, since no working day lies in [M, A(M)), so
+ * A(S) === A(M).
+ *
+ * It was here from v0.11.0 (`ddc1cff`) until 2026-08-07 — born redundant, in the same commit
+ * as the caller's advance and twelve lines from it, so nothing ever superseded it. Its ONLY
+ * observable effect was to fail schedules that should have succeeded: it walked from the raw
+ * target day-by-day, so a milestone sitting behind a long run of non-working days tripped
+ * `advanceToNextWorkingDay`'s 10,000-iteration guard and threw `CalendarConfigurationError`
+ * for the entire project — a milestone that had already lost the comparison and could not
+ * move anything. Pinned by "a milestone that loses the comparison cannot fail the schedule"
+ * in `deterministic.test.ts`; found by mutation D10 in the oracle's falsification spec.
+ *
+ * ⚠️ NOT the same as `milestone-sim-params.ts:45`, which snaps a milestone target and is
+ * load-bearing: its result feeds `countWorkingDays` to produce an OFFSET, with nothing
+ * downstream to re-normalise it. Snapping is correct there and redundant here; the two sites
+ * are not copies of one rule.
+ */
 function applyMilestoneFloor(
-  activity: Activity, activityStart: Date, milestones: Milestone[] | undefined, calendar: Cal,
+  activity: Activity, activityStart: Date, milestones: Milestone[] | undefined,
 ): Date {
   if (!activity.startsAtMilestoneId || !milestones) return activityStart;
   const milestone = milestones.find((m) => m.id === activity.startsAtMilestoneId);
   if (!milestone) return activityStart;
-  const milestoneDate = advanceToNextWorkingDay(parseDateISO(milestone.targetDate), calendar);
+  const milestoneDate = parseDateISO(milestone.targetDate);
   return milestoneDate > activityStart ? milestoneDate : activityStart;
 }
 
@@ -421,7 +445,7 @@ function forwardPass(args: {
     const preds = (graph.predecessors.get(id) ?? []) as Edge[];
 
     let activityStart = earliestStartFromPreds(preds, startDates, endDates, duration, projectStart, calendar);
-    activityStart = applyMilestoneFloor(activity, activityStart, milestones, calendar);
+    activityStart = applyMilestoneFloor(activity, activityStart, milestones);
     activityStart = advanceToNextWorkingDay(activityStart, calendar); // ensure a working day
 
     const activityEnd = activityEndDate(activityStart, duration, calendar);

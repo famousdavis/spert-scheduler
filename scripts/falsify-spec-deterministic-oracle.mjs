@@ -107,9 +107,28 @@ export const mutations = [
     replace: `  return activityStart;`,
     expectFailing: /matches the pinned output: milestone floor raises the start/,
   },
-  // ⚠️ D10 IS COMMENTED OUT BECAUSE IT FOUND SOMETHING — see "UNPINNED" below.
-  // Removing the weekend advance changes NOTHING; the fixture named for that
-  // advance does not pin it.
+  // ⚰️ D10 IS RETIRED — 2026-08-07. It cannot be re-enabled: the line it perturbed no
+  // longer exists. Kept here, not deleted, because the reasoning is the record.
+  //
+  // D10 removed the weekend advance from the milestone floor and NOTHING failed. The
+  // first reading was "the fixture named for that advance does not pin it" — true, but
+  // the cause was deeper than a weak fixture: `computeForwardPass` advances the start on
+  // the line after `applyMilestoneFloor` returns, and `advanceToNextWorkingDay` is
+  // monotonic and idempotent, so A(max(A(M), S)) === A(max(M, S)) for EVERY input. No
+  // fixture could ever have pinned it. D10 was unpinnable by construction.
+  //
+  // Characterisation then found the advance was not merely inert. Its one observable
+  // effect was to FAIL schedules that should succeed — walking from a raw target through
+  // a long run of non-working days until the 10,000-iteration guard threw, for a
+  // milestone that had already lost the comparison. So it was removed, and what replaced
+  // it is a test named for the rule rather than the mechanism: "a milestone that loses
+  // the comparison cannot fail the schedule" in `deterministic.test.ts`, proven to fail
+  // on 2d9e0e7 and pass after.
+  //
+  // ⚠️ If a milestone-side normalisation is ever reintroduced, that test is what fails.
+  // Do not resurrect D10 to guard it — a perturbation that only an exception path can
+  // detect belongs in a unit test, not in an output oracle.
+  //
   // {
   //   id: "D10  milestone date not advanced off a weekend",
   //   file: DET,
@@ -199,23 +218,22 @@ export const mutations = [
 //       the evidence the fix worked, which is why it shipped commented-out rather than
 //       deleted.
 //
-//   D10 the milestone weekend advance.  ⚠️ STILL OPEN. The fixture is NAMED "milestone
-//       floor on a Saturday advances to Monday" and the pinned start IS the Monday —
-//       but removing `advanceToNextWorkingDay` still produces 2025-01-13, because
-//       something downstream normalises it anyway. The fixture pins a Monday that
-//       would happen regardless; it does not pin the advance.
-//       ⚠️ NOT a fixture edit, and do not "fix" it by deleting the advance. Characterise
-//       first: find where the redundant normalisation happens, then decide between three
-//       legitimate outcomes — genuinely dead (remove, behaviour-preserving), load-bearing
-//       for a case no fixture reaches (that is an oracle coverage gap, add the fixture),
-//       or defence in depth behind a correct normalisation (record it as such at its site).
+//   D10 the milestone weekend advance.  ⚰️ CLOSED 2026-08-07, by DELETING THE LINE rather
+//       than by pinning it. Characterisation found the advance was redundant from birth —
+//       the caller advances the start on the very next line, and the algebra makes the two
+//       identical for every input, so no fixture could ever have pinned it. Not a weak
+//       fixture: unpinnable by construction. Worse, its one observable effect was to fail
+//       schedules that should succeed. Retired in place above, with the reasoning.
 //
 // Both are the ledger's "a test named for a property it cannot check" shape. ⚠️ The census
 // in PRACTICES.md carries FIVE instances, with D4 and D10 as the fourth and fifth; an
-// earlier count of four was superseded there. Fixing the fixture does not un-happen the
-// instance — what it changes is that this file can now prove the floor.
+// earlier count of four was superseded there. Neither closure un-happens its instance.
 //
-// ⚠️ So this file proves 15 of the oracle's 16 claimed paths. It proved none before this
-// audit existed and 14 when it landed; the one still-commented mutation above is the
-// record of which path remains unproven, and re-enabling it is how its fix gets proven.
+// ⚠️ WHERE THIS FILE NOW STANDS. It proves 15 of 15 paths the oracle still claims. It
+// proved none before the audit existed, 14 when it landed, and 15 once D4's fixture was
+// fixed; the sixteenth path is not unproven but GONE, because the code it described was
+// removed. ⚠️ Do not read 15/15 as "complete" — it is complete against the paths these
+// sixteen mutations were written to probe, which is a claim about this file's imagination,
+// not about the oracle. A seventeenth path nobody thought to perturb is exactly what the
+// first fifteen looked like the day before they were written.
 // ─────────────────────────────────────────────────────────────────────────────
