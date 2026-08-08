@@ -246,7 +246,19 @@ function buildCases(): Case[] {
       activities: [
         a("z1", 3, { status: "complete", actualDuration: 6 }),
         a("z2", 3, { status: "complete" }),
-        a("z3", 4, { status: "inProgress", actualDuration: 2 }),
+        // ⚠️ `actualDuration` MUST keep the in-progress floor BINDING — do not lower it.
+        // `a()` sets min = mostLikely = max, so SD is 0 and `base` is exactly 4. This read
+        // `actualDuration: 2` until 2026-08-07, which made the floor compute
+        // Math.max(2 + 1, 4) = 4 — precisely the value it exists to override. The branch
+        // executed and its output was identical whether or not the floor was there;
+        // deleting `Math.max(activity.actualDuration + 1, base)` left all 44 tests green.
+        // Found by mutation D4 in scripts/falsify-spec-deterministic-oracle.mjs, which is
+        // the check that proves this fixture still works. At 6 the floor yields 7, not 4.
+        //
+        // No fourth activity pins the OTHER direction (base wins) on purpose: it is already
+        // pinned by name in deterministic.test.ts:254 "uses inverseCDF when it exceeds
+        // elapsed+1 for inProgress activity" and :335. Only the binding direction was missing.
+        a("z3", 4, { status: "inProgress", actualDuration: 6 }),
       ],
       deps: [dep("z1", "z2", "FS"), dep("z2", "z3", "FS")],
     },
