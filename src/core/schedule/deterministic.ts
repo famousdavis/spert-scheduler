@@ -47,10 +47,17 @@ import {
  *
  * ⚠️ It was never cross-referenced here, and the two halves have since diverged. Both
  * arrived together in v0.13.0 (CHANGELOG: *"floors each trial at elapsed + 1"*); v0.49.0
- * replaced the Monte Carlo half with genuine left-truncation, so this line is now the ONLY
- * `elapsed + 1` in the source (measured 2026-08-07 — the sole other hit is a changelog
- * string). Read `truncated.ts` before changing it; the two must keep agreeing about what
- * "in progress" means.
+ * replaced the Monte Carlo half with genuine left-truncation, so the line below is now the
+ * only IMPLEMENTATION of the elapsed+1 floor in the source (measured 2026-08-07).
+ *
+ * ⚠️ That is a claim about executable code, NOT a string count — and the distinction is the
+ * one this whole audit is about. Grepping `elapsed + 1` / `elapsed+1` / `actualDuration + 1`
+ * across `src/**` returns well over a dozen hits, and this comment adds to them. Every hit
+ * but one is a doc comment, an inline note, a test name or a changelog string; exactly one
+ * computes anything. Do not read the sentence above as a grep result, because it is not.
+ *
+ * Read `truncated.ts` before changing it; the two must keep agreeing about what "in
+ * progress" means.
  *
  * The floor is pinned by `deterministic-oracle.json`'s `z3` — but only since 2026-08-07,
  * and only because that fixture's `actualDuration` makes it BIND. See the warning at
