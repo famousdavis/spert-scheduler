@@ -12,7 +12,7 @@ import {
 } from "./deterministic";
 import type { Activity, ActivityDependency, Milestone } from "@domain/models/types";
 import { buildWorkCalendar, CalendarConfigurationError } from "@core/calendar/work-calendar";
-import { countWorkingDays, parseDateISO } from "@core/calendar/calendar";
+import { countWorkingDays, formatDateISO, parseDateISO } from "@core/calendar/calendar";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -1585,6 +1585,63 @@ describe("C1b — milestone floor", () => {
     const schedule = computeDependencySchedule(activities, [fsDep("p", "c")], "2025-01-06", 0.5, undefined, milestones);
 
     expect(schedule.activities.find((s) => s.activityId === "c")!.startDate).toBe("2025-01-13");
+  });
+
+  it("a milestone that loses the comparison cannot fail the schedule", () => {
+    // THE RULE: a milestone floor that does not raise the start must have no effect at all —
+    // including no ability to error. It used to have one. `applyMilestoneFloor` normalised the
+    // milestone target to a working day BEFORE comparing it, so a target sitting behind a long
+    // run of non-working days walked day-by-day through them and tripped the 10,000-iteration
+    // guard in advanceToNextWorkingDay — throwing CalendarConfigurationError and failing the
+    // WHOLE schedule, for a milestone thirty years in the past that could not move anything.
+    //
+    // The normalisation was never needed here: `computeForwardPass` advances activityStart on
+    // the very next line, and advanceToNextWorkingDay is monotonic and idempotent, so
+    // A(max(A(M), S)) === A(max(M, S)) for every input. The caller's advance had ALREADY been
+    // there for two releases when the milestone-side snap arrived — outer v0.9.0 (84c1fa6),
+    // inner v0.11.0 (ddc1cff) — so there was never a window in which the snap did anything.
+    //
+    // 30 back-to-back 366-day ranges = 10,980 consecutive non-working days. Each range is
+    // individually legal (buildHolidaySet caps a SINGLE holiday at 366 days) and the schema
+    // allows 1,000 of them, so this is a well-formed project on an ordinary Mon–Fri week —
+    // not a misconfigured calendar. The block runs 2020-01-02 → 2050-01-23 (a Sunday).
+    const holidays = Array.from({ length: 30 }, (_, i) => {
+      const start = parseDateISO("2020-01-02");
+      start.setDate(start.getDate() + i * 366);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 365);
+      return {
+        id: `blk${i}`,
+        name: `Block ${i}`,
+        startDate: formatDateISO(start),
+        endDate: formatDateISO(end),
+      };
+    });
+    const calendar = buildWorkCalendar([1, 2, 3, 4, 5], holidays, []);
+    const milestones: Milestone[] = [{ id: "m1", name: "Ancient Gate", targetDate: "2020-01-02" }];
+    const activities = [{ ...fixedActivity("a", "A", 2), startsAtMilestoneId: "m1" }];
+
+    const schedule = computeDependencySchedule(
+      activities, [], "2050-01-03", 0.5, calendar, milestones,
+    );
+
+    // The first working day after the block. The milestone loses the comparison and changes
+    // nothing — which is the point.
+    expect(schedule.activities[0]!.startDate).toBe("2050-01-24");
+  });
+
+  it("a milestone that WINS the comparison still lands on a working day", () => {
+    // The paired leave-alone. Removing the milestone-side normalisation is only safe because
+    // computeForwardPass normalises the start itself; this is the test that says so. It passes
+    // before and after that removal by design — what it guards is the OUTER advance, so it is
+    // what fails if someone later decides that one is the redundant copy.
+    const milestones: Milestone[] = [{ id: "m1", name: "Weekend Gate", targetDate: "2025-01-11" }];
+    const activities = [{ ...fixedActivity("a", "A", 2), startsAtMilestoneId: "m1" }];
+
+    const schedule = computeDependencySchedule(activities, [], "2025-01-06", 0.5, undefined, milestones);
+
+    // Jan 11 is a Saturday; the activity starts the following Monday.
+    expect(schedule.activities[0]!.startDate).toBe("2025-01-13");
   });
 });
 
