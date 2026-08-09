@@ -219,7 +219,7 @@ export const mutations = [
 //       deleted.
 //
 //   D10 the milestone weekend advance.  ⚰️ CLOSED 2026-08-07, by DELETING THE LINE rather
-//       than by pinning it. Characterisation found the advance was redundant from birth —
+//       than by pinning it. Characterisation found the advance was redundant on arrival —
 //       the caller advances the start on the very next line, and the algebra makes the two
 //       identical for every input, so no fixture could ever have pinned it. Not a weak
 //       fixture: unpinnable by construction. Worse, its one observable effect was to fail

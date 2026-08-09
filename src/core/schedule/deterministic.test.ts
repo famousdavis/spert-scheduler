@@ -1597,8 +1597,9 @@ describe("C1b — milestone floor", () => {
     //
     // The normalisation was never needed here: `computeForwardPass` advances activityStart on
     // the very next line, and advanceToNextWorkingDay is monotonic and idempotent, so
-    // A(max(A(M), S)) === A(max(M, S)) for every input. Both loops were born in the same commit
-    // (v0.11.0, ddc1cff) twelve lines apart — the inner one was redundant from birth.
+    // A(max(A(M), S)) === A(max(M, S)) for every input. The caller's advance had ALREADY been
+    // there for two releases when the milestone-side snap arrived — outer v0.9.0 (84c1fa6),
+    // inner v0.11.0 (ddc1cff) — so there was never a window in which the snap did anything.
     //
     // 30 back-to-back 366-day ranges = 10,980 consecutive non-working days. Each range is
     // individually legal (buildHolidaySet caps a SINGLE holiday at 366 days) and the schema

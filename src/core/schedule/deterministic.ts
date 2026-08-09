@@ -370,8 +370,11 @@ function earliestStartFromPreds(
  * M < S < A(M) forces S to be non-working, since no working day lies in [M, A(M)), so
  * A(S) === A(M).
  *
- * It was here from v0.11.0 (`ddc1cff`) until 2026-08-07 — born redundant, in the same commit
- * as the caller's advance and twelve lines from it, so nothing ever superseded it. Its ONLY
+ * It was here from v0.11.0 (`ddc1cff`, 2026-03-07) until 2026-08-07, and **there was never a
+ * window in which it did anything**. The caller's advance did not arrive alongside it or after
+ * it — it had already been there for two releases, since v0.9.0 (`84c1fa6`). Verified against
+ * `ddc1cff^` (`4843a1c`), which carries the outer loop and no `milestoneDate` at all. So this
+ * was not a fix that later became redundant; it was redundant on arrival. Its ONLY
  * observable effect was to fail schedules that should have succeeded: it walked from the raw
  * target day-by-day, so a milestone sitting behind a long run of non-working days tripped
  * `advanceToNextWorkingDay`'s 10,000-iteration guard and threw `CalendarConfigurationError`
