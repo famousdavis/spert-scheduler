@@ -22,7 +22,7 @@ import {
 } from "@core/calendar/calendar";
 import { computeActivityUncertaintyDays } from "@core/schedule/deterministic";
 import { dependencyLabel } from "@domain/helpers/format-labels";
-import { useDateFormat } from "@ui/hooks/use-date-format";
+import { useDateFormat, useDateFormatShort } from "@ui/hooks/use-date-format";
 import { useGanttPreferences } from "@ui/hooks/use-gantt-preferences";
 import { useGanttLayout } from "@ui/hooks/use-gantt-layout";
 import type { ResolvedGanttAppearance } from "./gantt-constants";
@@ -33,6 +33,7 @@ import {
 } from "./gantt-constants";
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
+  barLabelText as computeBarLabelText,
 } from "./gantt-utils";
 import { GanttActivityRow } from "./GanttActivityRow";
 import { GanttSvgDefs } from "./GanttSvgDefs";
@@ -288,6 +289,8 @@ export function GanttChart({
   onToggleAppearancePanel,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
+  // Bar labels use the SHORT form (no year) — see barLabelText in gantt-utils.
+  const formatDateShort = useDateFormatShort();
   const {
     viewMode, showToday, showCriticalPath, showProjectName, showArrows,
     setViewMode, setShowToday, setShowCriticalPath, setShowProjectName, setShowArrows,
@@ -587,12 +590,12 @@ export function GanttChart({
     );
   }, [ra.weekendShading, ra.leftMargin, dateRange, calendar, projectStartDate, furthestDate, minTimestamp, chartAreaWidth]);
 
-  // Bar label helper
-  const barLabelText = useCallback((sa: ScheduledActivity): string | null => {
-    if (ra.barLabel === "duration") return `${sa.duration}d`;
-    if (ra.barLabel === "dates") return formatDate(sa.endDate);
-    return null;
-  }, [ra.barLabel, formatDate]);
+  // Bar label helper — one definition, shared with PrintGanttChart.
+  const barLabelText = useCallback(
+    (sa: ScheduledActivity): string | null =>
+      computeBarLabelText(sa, ra.barLabel, formatDateShort),
+    [ra.barLabel, formatDateShort],
+  );
 
   if (activities.length === 0) {
     return (

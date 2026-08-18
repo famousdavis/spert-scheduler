@@ -23,7 +23,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine, barLabelText as computeBarLabelText } from "./gantt-utils";
 import type { TickLevel } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 
@@ -41,6 +41,8 @@ export interface PrintGanttChartProps {
   calendar?: WorkCalendar | Calendar;
   bufferedEndDate: string | null;
   formatDate: (iso: string) => string;
+  /** Short form (no year) used for in-bar labels. Injected, not hooked — keeps the parity oracle deterministic. */
+  formatDateShort: (iso: string) => string;
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;
@@ -62,6 +64,7 @@ export function PrintGanttChart({
   dependencyMode,
   bufferedEndDate,
   formatDate,
+  formatDateShort,
   calendar,
   milestones = [],
   milestoneBuffers,
@@ -244,12 +247,12 @@ export function PrintGanttChart({
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
   }, [ra.weekendShading, range, calendar, projectStartDate, endDate, minTs, areaW, ra.printLeftMargin]);
 
-  // Bar label helper.
-  const barLabelText = useCallback((sa: ScheduledActivity): string | null => {
-    if (ra.barLabel === "duration") return `${sa.duration}d`;
-    if (ra.barLabel === "dates") return formatDate(sa.endDate);
-    return null;
-  }, [ra.barLabel, formatDate]);
+  // Bar label helper — one definition, shared with GanttChart.
+  const barLabelText = useCallback(
+    (sa: ScheduledActivity): string | null =>
+      computeBarLabelText(sa, ra.barLabel, formatDateShort),
+    [ra.barLabel, formatDateShort],
+  );
 
   // Scaled font sizes
   const fs7 = Math.round(7 * fontScale);

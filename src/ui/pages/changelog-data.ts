@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.2",
+    date: "2026-08-17",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Finish dates inside Gantt bars no longer show the year. A bar that used to read “10/21/2026” now reads “Oct 21”. The year was the least useful part — you can already tell it from where the bar sits on the timeline — and it was the widest. Because a label is only drawn when it fits inside its bar, carrying the year meant short activities showed no date at all. On a forty-activity sample the number of bars showing a finish date went from 14 to 27. Bars still too narrow to fit a date show nothing, exactly as before.",
+          "The month stays a word rather than becoming a number — “Oct 21”, not “10/21”. A Gantt chart is usually read by people who did not set your date-format preference: printed, pasted into a deck, screenshotted. “5/8” means May 8 to some of them and August 5 to others, and that is true of roughly two dates in five. A spelled-out month is never ambiguous and costs about two characters. Your date-format preference still decides the order, so it reads “Oct 21” or “21 Oct”.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.1",
     date: "2026-08-17",
     sections: [

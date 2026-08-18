@@ -70,10 +70,14 @@ describe("useDateFormat", () => {
 
 describe("useDateFormatShort", () => {
   it("produces the compact form for each supported format", () => {
+    // ⚠️ YYYY/MM/DD was "04/07" until v0.64.2 — zero-padded numeric while the other two
+    // abbreviated the month, so one preference got a different visual language. Corrected
+    // when the Gantt bar labels became this hook's first production consumer. All three
+    // now abbreviate; only the ORDER differs, which is what the preference actually means.
     for (const [format, expected] of [
       ["MM/DD/YYYY", "Apr 7"],
       ["DD/MM/YYYY", "7 Apr"],
-      ["YYYY/MM/DD", "04/07"],
+      ["YYYY/MM/DD", "Apr 7"],
     ] as const) {
       setFormat(format);
       const { result } = renderHook(() => useDateFormatShort());

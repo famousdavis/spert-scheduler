@@ -17,7 +17,7 @@ import {
   formatDateISO,
   durationToFinishDateISO,
 } from "@core/calendar/calendar";
-import { useDateFormat } from "@ui/hooks/use-date-format";
+import { useDateFormat, useDateFormatShort } from "@ui/hooks/use-date-format";
 import { PrintGanttChart } from "@ui/charts/PrintGanttChart";
 import {
   PrintSummarySection,
@@ -54,6 +54,7 @@ export function PrintableReport({
   targetRAGColor,
 }: PrintableReportProps) {
   const formatDate = useDateFormat();
+  const formatDateShort = useDateFormatShort();
   const projPct = Math.round(scenario.settings.projectProbabilityTarget * 100);
   const simulationResults = scenario.simulationResults;
 
@@ -139,6 +140,7 @@ export function PrintableReport({
           calendar={calendar}
           bufferedEndDate={ganttBufferedEndDate}
           formatDate={formatDate}
+          formatDateShort={formatDateShort}
           milestones={scenario.milestones}
           milestoneBuffers={milestoneBuffers}
           criticalPathIds={criticalPathIds}
