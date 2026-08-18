@@ -301,19 +301,31 @@ export function computeEstimateUpdates(
   return updates;
 }
 
-/** Display-only list of predecessors/successors for a single activity. */
+/**
+ * Display-only list of predecessors/successors for a single activity.
+ *
+ * Neither action closes the activity modal. The dependency dialog STACKS on top of it,
+ * and that is load-bearing, not cosmetic: this component used to call the parent's
+ * `onClose()` before handing off, which unmounted ActivityEditModal and silently
+ * discarded every unsaved draft in it (name, estimates, constraint, description,
+ * checklist, deliverables, notes). The unsaved-changes guard did not fire, because it
+ * hangs off `Dialog.Root onOpenChange` — Escape and overlay clicks route through it,
+ * a direct `onClose()` does not. Keeping the parent mounted also means the new
+ * dependency appears in this list on its own (`relatedDeps` derives from a live store
+ * selector) and the section stays expanded, since nothing remounted.
+ *
+ * Do not reintroduce an `onClose` prop here.
+ */
 export function DependenciesDisplaySection({
   relatedDeps,
   activityId,
   activityNameById,
-  onClose,
   onEditDependency,
   onAddDependency,
 }: {
   relatedDeps: ActivityDependency[];
   activityId: string;
   activityNameById: (id: string) => string;
-  onClose: () => void;
   onEditDependency?: (fromId: string, toId: string) => void;
   onAddDependency?: (fromId: string) => void;
 }) {
@@ -347,10 +359,7 @@ export function DependenciesDisplaySection({
                 {onEditDependency && (
                   <button
                     type="button"
-                    onClick={() => {
-                      onClose();
-                      onEditDependency(dep.fromActivityId, dep.toActivityId);
-                    }}
+                    onClick={() => onEditDependency(dep.fromActivityId, dep.toActivityId)}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 shrink-0"
                   >
                     Edit
@@ -364,10 +373,7 @@ export function DependenciesDisplaySection({
       {onAddDependency && (
         <button
           type="button"
-          onClick={() => {
-            onClose();
-            onAddDependency(activityId);
-          }}
+          onClick={() => onAddDependency(activityId)}
           className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
         >
           + Add Dependency

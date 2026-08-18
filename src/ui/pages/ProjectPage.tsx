@@ -988,12 +988,14 @@ export function ProjectPage() {
           heuristicEnabled={scenario.settings.heuristicEnabled}
           heuristicMinPercent={scenario.settings.heuristicMinPercent}
           heuristicMaxPercent={scenario.settings.heuristicMaxPercent}
+          // No setEditingActivityId(null) in either handler: the dependency dialog stacks
+          // ON TOP of this modal rather than replacing it. Closing it here unmounted the
+          // modal and threw away its unsaved drafts without a prompt. See the note on
+          // DependenciesDisplaySection.
           onEditDependency={(fromId, toId) => {
-            setEditingActivityId(null);
             setEditingDependency({ fromActivityId: fromId, toActivityId: toId });
           }}
           onAddDependency={(fromId) => {
-            setEditingActivityId(null);
             setAddingDependencyFromId(fromId);
           }}
           activityNumberMap={activityNumberMap}

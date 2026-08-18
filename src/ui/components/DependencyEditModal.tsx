@@ -129,8 +129,13 @@ export function DependencyEditModal({
   return (
     <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md z-50">
+        {/* z-[60] keeps this above ActivityEditModal's z-50 layers when opened from it.
+            Portal mount order already produced that today, but only by accident; this
+            pins it. The overlay stays at the app-standard bg-black/40 — this dialog also
+            opens standalone from a Gantt arrow click, and when it IS stacked the extra
+            dimming correctly signals that the activity modal behind it is inert. */}
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-[60]" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md z-[60]">
           <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {isEditMode ? "Edit Dependency" : "Add Dependency"}
           </Dialog.Title>

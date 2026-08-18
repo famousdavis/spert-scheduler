@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.64.1 — 2026-08-17
+
+### Fixed
+
+- **Adding or editing a dependency from the activity editor no longer throws away the rest of your edits.** Opening an activity, changing anything in it — the name, an estimate, a constraint, the description, a task, a deliverable, a note — then expanding Dependencies and choosing “Add Dependency” or “Edit” closed the editor and discarded every one of those changes, without asking and without saying so. The unsaved-changes prompt existed, but only pressing Escape or clicking outside the window ever reached it; those two buttons went around it.
+
+### Changed
+
+- **The dependency window now opens on top of the activity editor instead of replacing it.** Add a dependency, save it, and you are still in the activity you were editing, with the Dependencies list open and the new link already showing — ready to add the next one. Before, each dependency sent you back to the project page, so adding a second one meant finding the activity again, reopening it, and expanding Dependencies a second time. Closing the dependency window — by saving, by cancelling, or with Escape — now returns you to the activity rather than to the page behind it.
+
 ## 0.64.0 — 2026-08-03
 
 **No behaviour change.** Nothing in the app looks or works differently from v0.63.2. This entry

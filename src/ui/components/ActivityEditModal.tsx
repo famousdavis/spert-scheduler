@@ -857,7 +857,6 @@ export function ActivityEditModal({
                   relatedDeps={relatedDeps}
                   activityId={activityId}
                   activityNameById={activityNameById}
-                  onClose={onClose}
                   onEditDependency={onEditDependency}
                   onAddDependency={onAddDependency}
                 />
