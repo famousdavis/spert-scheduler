@@ -13,11 +13,12 @@ import { PrintGanttChart } from "./PrintGanttChart";
 import { resolveGanttAppearance } from "./gantt-constants";
 import { DEFAULT_GANTT_APPEARANCE } from "@domain/models/types";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
-import { durationToFinishDateISO } from "@core/calendar/calendar";
+import { durationToFinishDateISO, formatDateShort } from "@core/calendar/calendar";
 import type {
   Activity,
   ActivityBand,
   ActivityDependency,
+  GanttAppearanceSettings,
   Milestone,
   ScheduledActivity,
 } from "@domain/models/types";
@@ -286,6 +287,7 @@ function renderPrint() {
       {...SHARED}
       bufferedEndDate={PRINT_BUFFERED_END}
       formatDate={(iso: string) => iso}
+      formatDateShort={(iso: string) => iso}
     />,
   );
 }
@@ -307,6 +309,7 @@ function renderLongPrint() {
       {...LONG_SHARED}
       bufferedEndDate={null}
       formatDate={(iso: string) => iso}
+      formatDateShort={(iso: string) => iso}
     />,
   );
 }
@@ -444,6 +447,88 @@ describe("gantt parity oracle — properties that must hold across both", () => 
    * unification could plausibly break while each chart still matched its own baseline —
    * for example by changing row ordering in one and not the other.
    */
+  /**
+   * In-bar date labels drop the year, in BOTH charts.
+   *
+   * ⚠️ This does not touch the frozen oracle JSON — `barLabel` defaults to "duration",
+   * so the byte-compared fixtures never render a date. These renders opt in explicitly.
+   *
+   * What it guards is the WIRING, which no unit test can reach: `barLabelText` in
+   * gantt-utils takes whatever formatter it is handed, so a chart passing `formatDate`
+   * instead of `formatDateShort` would silently put the year back and every unit test
+   * would still pass. That is a one-word mistake in two separate files.
+   *
+   * The interactive chart resolves its own formatter from the preferences store; the print
+   * chart is handed one, exactly as PrintableReport hands it one. Both paths are exercised.
+   */
+  it("both drop the year from in-bar date labels", () => {
+    const datesAppearance = { ...DEFAULT_GANTT_APPEARANCE, weekendShading: true, barLabel: "dates" as const };
+    const durationAppearance = { ...datesAppearance, barLabel: "duration" as const };
+    const shortFmt = (iso: string) => formatDateShort(iso, "MM/DD/YYYY");
+
+    const interactiveWith = (a: GanttAppearanceSettings) =>
+      render(
+        <GanttChart
+          {...SHARED}
+          resolvedAppearance={resolveGanttAppearance(a, false)}
+          appearancePanelOpen={false}
+          onToggleAppearancePanel={() => {}}
+        />,
+      ).container;
+    const printWith = (a: GanttAppearanceSettings) =>
+      render(
+        <PrintGanttChart
+          {...SHARED}
+          bufferedEndDate={PRINT_BUFFERED_END}
+          formatDate={(iso: string) => iso}
+          formatDateShort={shortFmt}
+          ganttAppearance={a}
+        />,
+      ).container;
+
+    const texts = (c: HTMLElement) =>
+      Array.from(c.querySelectorAll("text")).map((t) => t.textContent ?? "");
+
+    /**
+     * Multiset difference. Everything here is asserted as "dates mode MINUS duration mode",
+     * which isolates the BAR labels without coupling to fill or font-weight attributes.
+     *
+     * ⚠️ This indirection is not ceremony. The first draft matched short-date-shaped text
+     * across the whole chart and asserted it was non-empty — and that assertion PASSED with
+     * the bug deliberately reintroduced, because the timeline TICK labels ("Apr 6") match
+     * the same shape. It was measuring the axis and reporting on the bars. The duration-mode
+     * render is the control that cancels the axis out; ticks are identical in both.
+     */
+    const minus = (a: string[], b: string[]) => {
+      const pool = [...b];
+      return a.filter((v) => {
+        const i = pool.indexOf(v);
+        if (i === -1) return true;
+        pool.splice(i, 1);
+        return false;
+      });
+    };
+
+    const SHORT_DATE = /^[A-Z][a-z]{2} \d{1,2}$/;
+    const ANY_NUMERIC_DATE = /\d{1,4}[/-]\d{1,2}[/-]\d{1,4}/;
+
+    for (const [label, withDates, withDurations] of [
+      ["interactive", interactiveWith(datesAppearance), interactiveWith(durationAppearance)],
+      ["print", printWith(datesAppearance), printWith(durationAppearance)],
+    ] as const) {
+      const gained = minus(texts(withDates), texts(withDurations));
+
+      // Non-vacuity: bars actually gained short dates. Without this, "no year present"
+      // is trivially true whenever the bars are too narrow to label at all.
+      expect(gained.filter((t) => SHORT_DATE.test(t)), `${label}: no in-bar short dates`)
+        .not.toHaveLength(0);
+
+      // And nothing a bar gained carries a year in any numeric form.
+      expect(gained.filter((t) => ANY_NUMERIC_DATE.test(t)), `${label}: bar label kept a year`)
+        .toHaveLength(0);
+    }
+  });
+
   it("both render every activity's label, in the same order", () => {
     const labels = (c: HTMLElement) =>
       Array.from(c.querySelectorAll("text"))

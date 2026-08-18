@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
+import type { ScheduledActivity } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { formatDateISO } from "@core/calendar/calendar";
 
@@ -9,6 +10,34 @@ export const MONTH_ABBR = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
+
+/**
+ * Text drawn inside an activity bar, or null when the label mode is "none".
+ *
+ * Shared by GanttChart and PrintGanttChart, which previously held byte-identical private
+ * copies of this — exactly the drift CLAUDE.md's print-parity rule exists to prevent.
+ *
+ * The caller injects its own short-date formatter rather than this reading preferences,
+ * for the same reason `formatDate` is a prop on PrintGanttChart: the parity oracle renders
+ * both charts with an identity formatter, and a hook call in here would make its output
+ * depend on the preferences store.
+ *
+ * ⚠️ "dates" uses a SHORT date — no year. The year is inferable from where the bar sits on
+ * the timeline, and carrying it made every label exactly 10 characters, wide enough that
+ * short bars fell under the fit threshold in GanttActivityRow / PrintGanttChart and showed
+ * NOTHING. That threshold derives from `label.length` (`length * fontSize * 0.6 + pad`),
+ * so shortening the string lowers the required bar width on its own — there is no separate
+ * constant to adjust, and adding one would be a second source of truth.
+ */
+export function barLabelText(
+  sa: Pick<ScheduledActivity, "duration" | "endDate">,
+  mode: "duration" | "dates" | "none",
+  formatShort: (iso: string) => string,
+): string | null {
+  if (mode === "duration") return `${sa.duration}d`;
+  if (mode === "dates") return formatShort(sa.endDate);
+  return null;
+}
 
 /**
  * Date string → X coordinate mapping.

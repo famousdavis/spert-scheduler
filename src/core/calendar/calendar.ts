@@ -57,12 +57,25 @@ export function formatDateDisplay(
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
- * Format a "YYYY-MM-DD" ISO string for short display in constraint badges.
+ * Format a "YYYY-MM-DD" ISO string compactly: year dropped, month abbreviated.
  * Pure string transform — no Date object construction.
  *
  * - MM/DD/YYYY preference → "Apr 7"
  * - DD/MM/YYYY preference → "7 Apr"
- * - YYYY/MM/DD preference → "04/07"
+ * - YYYY/MM/DD preference → "Apr 7"
+ *
+ * ⚠️ The YYYY/MM/DD branch used to return "04/07" — zero-padded numeric, while the other
+ * two returned an abbreviated month. One preference silently got a different visual
+ * language from every other. Corrected in v0.64.2, when the Gantt bar labels became this
+ * function's first production consumer; until then it had none, so nothing depended on the
+ * old output. Dropping the year from a big-endian format leaves month-then-day, the same
+ * reading order as MM/DD/YYYY, so the two share an output.
+ *
+ * The abbreviated month is the point, not incidental. These labels are read by people who
+ * did NOT set the preference — printed charts, exported decks, screenshots — and a numeric
+ * "5/8" is ambiguous whenever both numbers are ≤ 12 (roughly two dates in five). "May 8"
+ * never is. Width is the reason the year goes; legibility is the reason the month stays a
+ * word.
  */
 export function formatDateShort(
   isoDate: string,
@@ -77,7 +90,6 @@ export function formatDateShort(
     case "DD/MM/YYYY":
       return `${d} ${month}`;
     case "YYYY/MM/DD":
-      return `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}`;
     case "MM/DD/YYYY":
     default:
       return `${month} ${d}`;

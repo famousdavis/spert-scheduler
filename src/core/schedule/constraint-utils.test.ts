@@ -674,8 +674,10 @@ describe("formatDateShort", () => {
     expect(formatDateShort("2026-04-07", "DD/MM/YYYY")).toBe("7 Apr");
   });
 
-  it("YYYY/MM/DD → '04/07'", () => {
-    expect(formatDateShort("2026-04-07", "YYYY/MM/DD")).toBe("04/07");
+  it("YYYY/MM/DD → 'Apr 7' — same as MM/DD/YYYY, not numeric", () => {
+    // Was "04/07" until v0.64.2. Dropping the year from a big-endian format leaves
+    // month-then-day, so it reads in the same order as MM/DD/YYYY and shares its output.
+    expect(formatDateShort("2026-04-07", "YYYY/MM/DD")).toBe("Apr 7");
   });
 
   it("handles single-digit months", () => {
@@ -686,8 +688,10 @@ describe("formatDateShort", () => {
     expect(formatDateShort("2026-12-25", "DD/MM/YYYY")).toBe("25 Dec");
   });
 
-  it("YYYY/MM/DD preserves zero-padding", () => {
-    expect(formatDateShort("2026-01-05", "YYYY/MM/DD")).toBe("01/05");
+  it("YYYY/MM/DD does NOT zero-pad — it abbreviates like the others", () => {
+    // The zero-padding was the tell that this branch was formatting numerically while
+    // every other branch abbreviated. Pinning its absence guards the correction.
+    expect(formatDateShort("2026-01-05", "YYYY/MM/DD")).toBe("Jan 5");
   });
 });
 

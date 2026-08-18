@@ -18,6 +18,7 @@ import {
   computeWeekendShadingRects,
   suppressOverlappingTicks,
   computeTodayLine,
+  barLabelText,
 } from "./gantt-utils";
 import {
   LEFT_MARGIN, ROW_HEIGHT, BAR_HEIGHT, BAR_Y_OFFSET,
@@ -25,6 +26,8 @@ import {
   resolveGanttAppearance, GANTT_COLOR_PRESETS,
 } from "./gantt-constants";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
+import { formatDateShort, formatDateDisplay } from "@core/calendar/calendar";
+import type { DateFormatPreference } from "@domain/models/types";
 
 // -- dateToX ------------------------------------------------------------------
 
@@ -936,5 +939,91 @@ describe("computeActivityRowGeometry", () => {
     expect(computeActivityRowGeometry(base).hatchStrokeColor).toBe("#planned");
     expect(computeActivityRowGeometry({ ...base, status: "inProgress" }).hatchStrokeColor).toBe("#inprogress");
     expect(computeActivityRowGeometry({ ...base, status: "complete" }).hatchStrokeColor).toBe("#planned");
+  });
+});
+
+// -- barLabelText -------------------------------------------------------------
+
+describe("barLabelText", () => {
+  const sa = { duration: 5, endDate: "2026-08-17" };
+
+  it("renders the duration with a d suffix", () => {
+    expect(barLabelText(sa, "duration", () => "UNUSED")).toBe("5d");
+  });
+
+  it("renders nothing at all in none mode", () => {
+    expect(barLabelText(sa, "none", () => "UNUSED")).toBeNull();
+  });
+
+  it("formats the END date — not the start — through the injected formatter", () => {
+    const seen: string[] = [];
+    const label = barLabelText(sa, "dates", (iso) => {
+      seen.push(iso);
+      return `SHORT(${iso})`;
+    });
+    expect(seen).toEqual(["2026-08-17"]);
+    expect(label).toBe("SHORT(2026-08-17)");
+  });
+
+  it("does not call the formatter in the other two modes", () => {
+    // Cheap, but it is the thing that would silently break if the mode checks were
+    // reordered — "duration" would still look right while doing needless work.
+    const fmt = vi.fn(() => "x");
+    barLabelText(sa, "duration", fmt);
+    barLabelText(sa, "none", fmt);
+    expect(fmt).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The width claim, pinned.
+ *
+ * Dropping the year is not cosmetic — it is the whole reason short bars show a date at
+ * all. The fit gate in GanttActivityRow / PrintGanttChart is
+ * `label.length * fontSize * 0.6 + pad`, derived from the string, so the guard here is on
+ * LENGTH. If someone restores the year to `formatDateShort`, every one of these fails
+ * rather than the regression being invisible until a user notices bars went blank again.
+ */
+describe("bar-label dates are short enough to fit narrow bars", () => {
+  const FORMATS: DateFormatPreference[] = ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY/MM/DD"];
+  const FONT = 10; // default barLabelFontSize at small/normal density
+  const PAD = 8; // interactive chart padding
+  const minBarWidth = (label: string) => label.length * FONT * 0.6 + PAD;
+
+  it("every full date is exactly 10 characters — the thing being fixed", () => {
+    for (const f of FORMATS) {
+      expect(formatDateDisplay("2026-08-17", f)).toHaveLength(10);
+    }
+  });
+
+  it("every short date is strictly shorter than its full form", () => {
+    for (const f of FORMATS) {
+      const short = formatDateShort("2026-08-17", f);
+      const full = formatDateDisplay("2026-08-17", f);
+      expect(short.length).toBeLessThan(full.length);
+    }
+  });
+
+  it("no short date carries a 4-digit year", () => {
+    for (const f of FORMATS) {
+      expect(formatDateShort("2026-08-17", f)).not.toMatch(/\d{4}/);
+    }
+  });
+
+  it("cuts the bar width a date needs by at least a third", () => {
+    for (const f of FORMATS) {
+      const before = minBarWidth(formatDateDisplay("2026-08-17", f));
+      const after = minBarWidth(formatDateShort("2026-08-17", f));
+      expect(before).toBe(68);
+      expect(after).toBeLessThanOrEqual(before * 0.67);
+    }
+  });
+
+  it("keeps the month a word, so a shared chart is not misread", () => {
+    // "5/8" is ambiguous to any reader who did not set the preference; "May 8" is not.
+    // Both single-digit numbers, the worst case, must still produce an abbreviation.
+    expect(formatDateShort("2026-05-08", "MM/DD/YYYY")).toBe("May 8");
+    expect(formatDateShort("2026-05-08", "DD/MM/YYYY")).toBe("8 May");
+    expect(formatDateShort("2026-05-08", "YYYY/MM/DD")).toBe("May 8");
   });
 });
