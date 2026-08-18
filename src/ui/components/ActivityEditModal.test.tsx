@@ -194,3 +194,101 @@ describe("ActivityEditModal — an emptied activity name", () => {
     });
   });
 });
+
+/**
+ * Handing off to the dependency dialog must NOT close this modal.
+ *
+ * The same defect class as the block above, found the same way — by a person using the
+ * app, not by any metric. `handleDismiss` is the unsaved-changes guard, and it hangs off
+ * `Dialog.Root onOpenChange`, so Escape and overlay clicks route through it. Both
+ * dependency handoffs called the parent's `onClose()` DIRECTLY, which walks around the
+ * guard entirely: ActivityEditModal unmounted and every draft in it — name, estimates,
+ * constraint, description, checklist, deliverables, notes — was discarded with no prompt.
+ * Reproduced against v0.64.0 in a browser before the fix.
+ *
+ * The dependency dialog now stacks on top instead. `onClose` NOT being called IS the
+ * mechanism, so that is what these assert.
+ *
+ * ⚠️ Do not "strengthen" these by asserting the draft field still holds its value after
+ * the click. RTL renders this component directly and `onClose` is a spy, so nothing
+ * unmounts in the test either way — that assertion passes vacuously against the very
+ * code it is supposed to catch. Ask the harness only what it can actually answer.
+ */
+describe("ActivityEditModal — handing off to the dependency dialog", () => {
+  const projectWithDependency = (): Project => {
+    const p = baseProject();
+    const sc = p.scenarios[0]!;
+    sc.activities.push({
+      id: "a2",
+      name: "Build",
+      min: 4,
+      mostLikely: 6,
+      max: 12,
+      confidenceLevel: "mediumConfidence",
+      distributionType: "normal",
+      status: "planned",
+    } as unknown as (typeof sc.activities)[number]);
+    sc.dependencies.push({
+      fromActivityId: "a1",
+      toActivityId: "a2",
+      type: "FS",
+      lagDays: 0,
+    } as unknown as (typeof sc.dependencies)[number]);
+    return p;
+  };
+
+  const openWithDeps = () => {
+    const onClose = vi.fn();
+    const onAddDependency = vi.fn();
+    const onEditDependency = vi.fn();
+    useProjectStore.setState({ projects: [projectWithDependency()] });
+    render(
+      <ActivityEditModal
+        activityId="a1"
+        scenarioId="s1"
+        projectId="p1"
+        onClose={onClose}
+        schedule={undefined}
+        dependencyMode
+        onAddDependency={onAddDependency}
+        onEditDependency={onEditDependency}
+      />,
+    );
+    // The section is collapsed on mount (defaultOpen={false}); its controls do not exist
+    // until it is opened, so this click is a precondition, not part of the behaviour.
+    fireEvent.click(screen.getByRole("button", { name: "Dependencies" }));
+    return { onClose, onAddDependency, onEditDependency };
+  };
+
+  it("renders the handoff controls once the section is expanded", () => {
+    // Guards the two tests below from passing because the buttons were never there.
+    openWithDeps();
+    expect(screen.getByRole("button", { name: "+ Add Dependency" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy();
+  });
+
+  it("keeps the modal open when adding a dependency, with no prompt", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { onClose, onAddDependency } = openWithDeps();
+
+    // An unsaved draft is what made the old behaviour destructive.
+    fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add Dependency" }));
+
+    expect(onAddDependency).toHaveBeenCalledWith("a1");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps the modal open when editing a dependency, with no prompt", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { onClose, onEditDependency } = openWithDeps();
+
+    fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(onEditDependency).toHaveBeenCalledWith("a1", "a2");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+});
