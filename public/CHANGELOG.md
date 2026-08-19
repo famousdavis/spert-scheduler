@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.64.3 — 2026-08-19
+
+### Security — signed-in users could list other people's cloud projects
+
+- **A signed-in user could retrieve every project stored in cloud storage, including projects never shared with them.** Opening someone else’s project directly was already refused — that check was correct and has always worked. But the separate rule governing *listing* the project collection required only that you be signed in to any SPERT® Suite app. Anyone querying that collection with their own database client, rather than through this app, would have received every project in it. The app’s own screens never did this; the app has always asked only for your projects. The protection was relying on the app asking politely, which is not a protection at all.
+
+- **Listing now enforces the same membership check that opening always did**, on the server, so it applies no matter what client is used. You receive only the projects you own or have been shared on. The same correction was applied to all seven SPERT® Suite apps that share the database, and it is covered by an automated test that runs against a local database emulator — the test fails if the rule is loosened again, and equally if it is tightened so far that the app can no longer load your own projects.
+
+- **Projects kept in Local Storage were never affected.** They are never sent to the database. If you have never signed in and enabled Cloud Storage, none of the above applied to your data at any point.
+
+### Security — deployment response headers
+
+- **The app now sends the response headers its `SECURITY.md` has recommended all along.** `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy` were documented as recommended but were never actually configured, so the live site sent none of them. `X-Frame-Options` is the one that mattered: the Content-Security-Policy is delivered as an HTML `<meta>` tag, and the directive that blocks framing is ignored when delivered that way — so nothing prevented the app from being embedded invisibly in a frame on another site.
+
+### Internal
+
+- The `firestore.rules` file in this repository is a reference-only mirror of the canonical suite-wide ruleset and is never deployed from here. It has been re-synced, which also clears a stale `anonymous_sessions` rule that had drifted from what is actually deployed.
+
 ## 0.64.2 — 2026-08-17
 
 ### Changed
