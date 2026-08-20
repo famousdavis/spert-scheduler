@@ -116,7 +116,8 @@ export function AboutPage() {
           </p>
           <p className="mt-2">
             Optionally, you can enable cloud storage in Settings by signing in
-            with Google or Microsoft. Cloud mode syncs your projects to
+            with a Google account, or with a Microsoft work or school account.
+            Cloud mode syncs your projects to
             Firestore so you can access them across devices and share with
             teammates. Clearing your browser&apos;s site data will permanently
             delete any local-only projects and settings.

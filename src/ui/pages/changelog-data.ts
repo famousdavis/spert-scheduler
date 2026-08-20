@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.4",
+    date: "2026-08-19",
+    sections: [
+      {
+        title: "Changed — Microsoft sign-in now requires a work or school account",
+        items: [
+          "Signing in with Microsoft now needs a work or school account. Personal Microsoft accounts — outlook.com, hotmail.com, live.com — are no longer accepted. This is enforced by Microsoft itself, so a personal account is refused at the sign-in screen before any password is entered. The change was made for institutions evaluating the app, who reasonably expect “sign in with Microsoft” to mean an organisational account rather than any account at all.",
+          "Nothing changes for personal use — sign in with Google instead. Google still accepts personal accounts, so anyone can still enable Cloud Storage. The sign-in window now says so, rather than letting you pick Microsoft and discover the restriction from an error message.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Corrected documentation that described Firestore rules as being deployed by pasting them into the Firebase Console. Since v0.64.3 they deploy automatically from the canonical repository, and a scheduled check reports any divergence.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.3",
     date: "2026-08-19",
     sections: [
