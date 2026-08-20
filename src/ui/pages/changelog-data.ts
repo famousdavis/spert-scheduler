@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.5",
+    date: "2026-08-20",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Internal only. Nothing in the app changed — it behaves identically to 0.64.4.",
+          "The copy of the Firestore security rules kept in this repository is back in step with the canonical file. It had fallen one release behind: the canonical rules in the SPERT® Suite landing-page repository added a field to the Gantt chart app's snapshot allowlist, and the change was not copied here.",
+          "No rule that is enforced anywhere changed. The rules that actually govern the database are deployed from the landing-page repository, not from this one, and the field involved belongs to a different app's collection. This repository keeps a copy for a single reason: a test reads it from disk and checks that every preference in the app's schema appears in the settings allowlist. The copy is a test fixture, not a record of what is deployed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.4",
     date: "2026-08-19",
     sections: [
