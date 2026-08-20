@@ -42,19 +42,22 @@ When the user signs in and switches to cloud mode, data is stored in Firestore:
 - Profiles are readable by authenticated users under a `limit(1)` constraint (share-by-email lookup without bulk enumeration)
 - Settings are private (owner-only read/write)
 
-**Canonical ruleset location:** the deployed rules are SPERT-suite-wide (all apps share one Firestore project and one Auth tenant). The canonical file lives in the Landing Page repo (`/Users/william/Documents/spert-landing-page/firestore.rules`) and is deployed by paste-replace into the Firebase Console for project `spert-suite`. This repo's local `firestore.rules` is a **reference-only verbatim mirror** of that file's body (never deployed from here); `preferences-firestore-sync.test.ts` reads it at runtime as a drift guard on the settings allowlist.
+**Canonical ruleset location:** the deployed rules are SPERT-suite-wide (all apps share one Firestore project and one Auth tenant). The canonical file lives in the Landing Page repo (`spert-landing-page/firestore.rules`). **As of 2026-08-19 it is deployed by CI on merge to `main`, not by Console paste-replace** — the repository is the source of truth and production follows it. A scheduled job compares the deployed ruleset against the file every six hours and fails on any divergence, so an out-of-band Console edit is detected rather than persisting silently. This repo's local `firestore.rules` is a **reference-only verbatim mirror** of that file's body (never deployed from here); `preferences-firestore-sync.test.ts` reads it at runtime as a drift guard on the settings allowlist.
 
 **Simulation results are stripped** before cloud saves to stay within the Firestore 1 MB document limit and reduce data exposure.
 
-## Recommended Deployment Headers
+## Deployment Headers
 
-When deploying SPERT Scheduler, configure your web server with these security headers:
+These are configured in `vercel.json` and served by the production deployment.
+(Before v0.64.3 this section described them as *recommended* while the
+deployment sent none of them; that gap is closed.)
 
 ```
 Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com; font-src 'self'; worker-src 'self' blob:; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com https://date.nager.at; object-src 'none'; base-uri 'self'; form-action 'self'
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()
 ```
 
 This matches the `Content-Security-Policy` meta tag shipped in `index.html`. Two grants warrant a note:
@@ -67,6 +70,9 @@ This matches the `Content-Security-Policy` meta tag shipped in `index.html`. Two
 - **X-Content-Type-Options**: Prevents MIME-type sniffing attacks.
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.
+- **Permissions-Policy**: Denies the app access to geolocation, microphone and camera, none of which it uses.
+
+Note the CSP is delivered as an HTML `<meta>` tag. `frame-ancestors` is ignored when delivered that way, which is why `X-Frame-Options` is the header actually preventing this app from being framed by another origin.
 
 ## Nager.Date API Hardening
 
