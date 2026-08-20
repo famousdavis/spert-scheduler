@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.64.6 — 2026-08-20
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.64.5.
+
+### Internal
+
+- **Removed an instruction that told the reader to do the one thing the monitoring now treats as an incident.** The preamble of this repository's `firestore.rules` said the canonical ruleset "is deployed by paste-replace into the Firebase Console". That stopped being true on 2026-08-19: the Landing Page repository became authoritative, CI deploys the ruleset on merge to its `main`, and a scheduled job asks production what it actually enforces every six hours and reports any divergence. Following the old instruction would have produced a failing scheduled check and a deployed ruleset that no longer matched the repository. The preamble now describes the CI path, and keeps `firebase deploy --only firestore:rules` labelled as what it has become — the manual fallback, which still deploys the repository file rather than editing the Console.
+
+- **The same incorrect sentence appeared in two other places** and is corrected in both: the comment explaining why the decomposition of `migrateLocalToCloud` is deferred, and its counterpart in that function's tests.
+
+- **The preamble no longer hardcodes an absolute filesystem path** belonging to one particular machine. It names the repository and the file instead.
+
+- **A comment that pointed into `firestore.rules` by line number now names the rule block it means.** It read `firestore.rules:246`, which had drifted roughly thirty-seven lines away from the rule it described. A line number into a file that is periodically re-synced from another repository was never going to stay correct.
+
 ## 0.64.5 — 2026-08-20
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.64.4.

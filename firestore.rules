@@ -4,12 +4,20 @@
 
 // ⚠️ REFERENCE-ONLY MIRROR — DO NOT DEPLOY FROM THIS FILE
 //
-// The canonical, deployed SPERT-suite-wide Firestore ruleset lives in the
-// Landing Page repo:
-//   /Users/william/Developer/spert-landing-page/firestore.rules
-// It is deployed by paste-replace into the Firebase Console for project
-// `spert-suite` (or `firebase deploy --only firestore:rules` from that repo).
-// Editing THIS copy changes nothing in production.
+// The canonical, deployed SPERT-suite-wide Firestore ruleset lives at
+// `firestore.rules` in the root of the Landing Page repo
+// (famousdavis/spert-landing). Merging a change to that file on `main` is what
+// reaches production: .github/workflows/deploy-firestore-rules.yml deploys it
+// from the repo. Editing THIS copy changes nothing in production.
+//
+// ⚠️ DO NOT PASTE RULES INTO THE FIREBASE CONSOLE. Since 2026-08-19 the
+// repository is authoritative and a Console edit is out-of-band drift, not a
+// deploy: firestore-rules-drift.yml asks the running project what it actually
+// enforces every six hours and reports any divergence from canonical as an
+// incident. The manual fallback, if CI is unavailable, is
+// `npx firebase deploy --only firestore:rules --project spert-suite` run from
+// the Landing Page repo — that still deploys the REPO FILE, and is not a
+// Console edit.
 //
 // The rules below are a verbatim mirror of that canonical file's body, kept
 // here so the Scheduler repo carries an accurate view of the access rules that

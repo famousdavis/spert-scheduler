@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.6",
+    date: "2026-08-20",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Internal only. Nothing in the app changed — it behaves identically to 0.64.5.",
+          "Documentation inside this repository still said the shared database security rules were deployed by pasting them into the Firebase console. That stopped being true on 19 August 2026, when they began deploying automatically from the canonical repository, with a scheduled check reporting any divergence. Anyone following the old instruction would have triggered that check rather than performing a deploy. The wording is corrected in the three places it appeared.",
+          "Two smaller corrections in the same area: a note that hardcoded a file path belonging to one particular machine now names the repository instead, and a cross-reference that pointed at a line number in a file which is periodically re-synced from elsewhere now names the section it means.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.5",
     date: "2026-08-20",
     sections: [
