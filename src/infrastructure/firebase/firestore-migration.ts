@@ -77,8 +77,8 @@ export interface MigrationResult {
 // doc → keep the original id" rung never fires either, and every migrated project
 // silently takes a new id. The ladder may need to CHANGE rather than be
 // reorganised, and decomposing first would entrench a shape that is possibly wrong.
-// The canonical ruleset lives in spert-landing-page and deploys via the Firebase
-// Console; that question belongs to a session working there. Revisit this
+// The canonical ruleset lives in the Landing Page repo and deploys from it via
+// CI; that question belongs to a session working there. Revisit this
 // suppression once it is answered.
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export async function migrateLocalToCloud(

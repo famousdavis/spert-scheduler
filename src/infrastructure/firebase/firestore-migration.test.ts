@@ -314,15 +314,16 @@ describe("migrateLocalToCloud — what the rules can actually produce", () => {
     // and "read denied" both take targetId = crypto.randomUUID() and produce an
     // identical MigrationItemResult shape. They are two routes to one rung.
     //
-    // ⚠️ OPEN QUESTION, deliberately not asserted here. firestore.rules:246 reads
+    // ⚠️ OPEN QUESTION, deliberately not asserted here. The `allow get` in the
+    // spertscheduler_projects match block of firestore.rules reads
     //   allow get: if isAuth() && request.auth.uid in resource.data.members;
     // A non-member read is therefore DENIED, not answered — so rung 2's snapshot
     // (exists() === true, members lacking uid) may be a shape the deployed rules
     // can never hand the client, making the `catch` the only live route. Whether a
     // read of a MISSING doc is likewise denied (`resource` is null) decides whether
     // rung 4 is reachable at all. Neither is decidable from this repo: the canonical
-    // ruleset lives in spert-landing-page and deploys via the Firebase Console, and
-    // no emulator is configured here. Recorded for the owner rather than guessed.
+    // ruleset lives in the Landing Page repo and deploys from it via CI, and no
+    // emulator is configured here. Recorded for the owner rather than guessed.
     const viaExists = localProject("via-exists", "Mu");
     const viaDenied = localProject("via-denied", "Nu");
     seed([viaExists, viaDenied]);
