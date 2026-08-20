@@ -24,7 +24,7 @@ All computation runs in the browser. There is no backend.
 | Testing | Vitest 4 + fast-check 4 |
 | Simulation | Web Worker |
 | Persistence | localStorage (local), Firestore (cloud) |
-| Auth | Firebase Authentication (Google + Microsoft OAuth) |
+| Auth | Firebase Authentication (Google OAuth; Microsoft OAuth restricted to work/school accounts) |
 | Cloud Sync | Firebase/Firestore (optional, on spert-suite project) |
 
 ## Layered Architecture
@@ -91,7 +91,7 @@ All computation runs in the browser. There is no backend.
 - **Country Holidays:** Load public holidays for 100+ countries from the Nager.Date API, filtered to globally observed days. Multi-country additive loading with date-based dedup and name merging. Country selection persists across sessions. Built-in US holidays available as offline fallback.
 - **Project Archival:** Archive/unarchive projects with filter toggle.
 - **Scenario Locking:** Lock/unlock scenarios to protect schedules from accidental edits.
-- **Cloud Storage:** Optional Firebase/Firestore cloud persistence with Google/Microsoft SSO, real-time sync across devices, and project sharing (owner/editor/viewer roles).
+- **Cloud Storage:** Optional Firebase/Firestore cloud persistence with Google SSO and Microsoft SSO (work/school accounts only — personal Microsoft accounts are refused at the app registration; see SECURITY.md), real-time sync across devices, and project sharing (owner/editor/viewer roles).
 - **Project Sharing:** Share projects with other users by email with role-based access control.
 
 ## Domain Model

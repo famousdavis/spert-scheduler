@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.64.4 — 2026-08-19
+
+### Changed — Microsoft sign-in now requires a work or school account
+
+- **Signing in with Microsoft now needs a work or school account.** Personal Microsoft accounts — outlook.com, hotmail.com, live.com — are no longer accepted. This is enforced by Microsoft itself, so a personal account is refused at the sign-in screen before any password is entered. The change was made for institutions evaluating the app, who reasonably expect "sign in with Microsoft" to mean an organisational account rather than any account at all.
+
+- **Nothing changes for personal use — sign in with Google instead.** Google still accepts personal accounts, so anyone can still enable Cloud Storage. The sign-in window now says so, rather than letting you pick Microsoft and discover the restriction from an error message.
+
+### Internal
+
+- Corrected documentation that described Firestore rules as being deployed by pasting them into the Firebase Console. Since v0.64.3 they deploy automatically from the canonical repository, and a scheduled check reports any divergence.
+
 ## 0.64.3 — 2026-08-19
 
 ### Security — signed-in users could list other people's cloud projects

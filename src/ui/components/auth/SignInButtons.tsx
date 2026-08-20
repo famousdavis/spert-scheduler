@@ -31,27 +31,41 @@ export function SignInButtons({
   const googleLabel = fullLabel ? "Sign in with Google" : "Google";
   const microsoftLabel = fullLabel ? "Sign in with Microsoft" : "Microsoft";
   return (
-    <div className="flex flex-wrap gap-3">
-      <button
-        type="button"
-        onClick={onGoogleClick}
-        disabled={disabled}
-        aria-label="Sign in with Google"
-        className="flex flex-1 min-w-[160px] items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <GoogleIcon />
-        {googleLabel}
-      </button>
-      <button
-        type="button"
-        onClick={onMicrosoftClick}
-        disabled={disabled}
-        aria-label="Sign in with Microsoft"
-        className="flex flex-1 min-w-[160px] items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <MicrosoftIcon />
-        {microsoftLabel}
-      </button>
-    </div>
+    <>
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={onGoogleClick}
+          disabled={disabled}
+          aria-label="Sign in with Google"
+          className="flex flex-1 min-w-[160px] items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <GoogleIcon />
+          {googleLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onMicrosoftClick}
+          disabled={disabled}
+          aria-label="Sign in with Microsoft work or school account"
+          className="flex flex-1 min-w-[160px] items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <MicrosoftIcon />
+          {microsoftLabel}
+        </button>
+      </div>
+      {/* Only in the verbose contexts (the storage modal, settings) where the
+          user is actually choosing a provider — the compact invitation banner
+          would be cluttered by it. Microsoft sign-in is restricted to work and
+          school accounts at the app registration, so a personal account is
+          refused by Microsoft before any password is entered; saying so here
+          spares the user a dead end. */}
+      {fullLabel && (
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          Microsoft sign-in requires a work or school account. For a personal
+          account, use Google.
+        </p>
+      )}
+    </>
   );
 }
