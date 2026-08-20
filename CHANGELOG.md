@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.64.5 — 2026-08-20
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.64.4.
+
+### Internal
+
+- **The copy of the Firestore security rules kept in this repository is back in step with the canonical file.** It had fallen one release behind: the canonical rules in the SPERT® Suite landing-page repository added a `todayDateOverride` field to the Gantt chart app's snapshot allowlist, and the change was not copied here. The copy is byte-identical to the canonical file from `rules_version` onward again.
+
+- **No rule that is enforced anywhere changed.** The rules that actually govern the database are deployed from the landing-page repository, not from this one, and the field involved belongs to a different app's collection. This repository keeps a copy for a single reason: `preferences-firestore-sync.test.ts` reads it from disk and checks that every preference in the app's schema appears in the `spertscheduler_settings` allowlist. The copy is a test fixture, not a record of what is deployed — and it is the only one of its kind left in the suite, the other apps' copies having been deleted in July.
+
 ## 0.64.4 — 2026-08-19
 
 ### Changed — Microsoft sign-in now requires a work or school account
