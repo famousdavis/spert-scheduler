@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.64.7 — 2026-08-21
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.64.6.
+
+### Internal
+
+- **The copy of the Firestore security rules kept in this repository is back in step with the canonical file.** It had fallen two releases behind. The canonical rules in the SPERT® Suite landing-page repository gained field allowlists for two other apps — Forecaster and AHP — in its 2.5.17 release, and re-anchored a set of cross-repository code references in 2.5.18. Neither reached this copy.
+
+- **The change is 119 lines, and only 34 of them are rules.** The other 85 are the comments around them, which matter more than that ratio suggests. Fifty-seven come from 2.5.17 and are the documentation of the new allowlists — the warnings explaining that adding a field to an app's data without also adding it to the allowlist makes every save fail silently, with no error to read. Shipping the constraint and leaving its explanation behind would have been the worse half of the change. The remaining twenty-eight come from 2.5.18 and replace references that pointed into source files by line number with ones naming the function they mean.
+
+- **No rule enforced anywhere changed, and nothing here was ever deployed.** The rules governing the database are deployed from the landing-page repository, never from this one. The copy exists because three tests read it from disk: one checks that every preference in the app's schema appears in the settings allowlist, one checks the project sharing rules, and one checks the file still carries its licence header and that the comment enclosing it is closed. All three were confirmed against the new copy. It is a test fixture, not a record of what is deployed — and the twenty-eight-line preamble saying exactly that was preserved unchanged.
+
+- **A scheduled check now watches this copy.** Added by the landing-page repository's 2.5.19 release, it compares the two files every six hours and again whenever the canonical rules change. It had been reporting this gap since the day it was added; it now reports none.
+
+- **Also carried by this release: a comment in the invitation types now names the Cloud Function field it describes.** It had cited a line range in another repository, and that range had drifted onto the neighbouring interface — the function's input type, while the comment described its result. A citation pointing confidently at the wrong thing is worse than none. That change merged separately and no release had carried it until now.
+
 ## 0.64.6 — 2026-08-20
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.64.5.
