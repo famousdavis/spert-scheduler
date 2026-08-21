@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.7",
+    date: "2026-08-21",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Internal only. Nothing in the app changed — it behaves identically to 0.64.6.",
+          "The copy of the shared database security rules kept in this repository is back in step with the canonical file. It had fallen two releases behind: the canonical rules gained field allowlists for two other apps in one release, and tidied a set of cross-repository code references in the next. Neither reached this copy.",
+          "The change is 119 lines, and only 34 of them are rules. Most of the rest is the documentation of those rules — the warnings explaining that adding a field to an app's data without also adding it to the allowlist makes every save fail silently, with no error to read. Shipping the constraint and leaving its explanation behind would have been the worse half of the change.",
+          "No rule enforced anywhere changed, and nothing here was ever deployed. The rules governing the database are deployed from the landing-page repository, never from this one. This copy exists because three tests read it from disk, and all three were confirmed against it. It is a test fixture, not a record of what is deployed. A scheduled check added last week now compares the two files every six hours; it had been reporting this gap since the day it was added, and now reports none.",
+          "Also carried by this release: a comment in the invitation types now names the Cloud Function field it describes, rather than citing a line range in another repository that had drifted onto the neighbouring interface.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.6",
     date: "2026-08-20",
     sections: [
