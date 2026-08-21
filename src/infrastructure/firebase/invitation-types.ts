@@ -46,8 +46,12 @@ export interface SendInvitationEmailInput {
 }
 
 export interface SendInvitationEmailResult {
-  // CF (functions/src/sendInvitationEmail.tsx:42-46) returns plain string arrays
-  // for added/invited; only failed carries an object shape with reason codes.
+  // CF (spert-landing-page functions/src/sendInvitationEmail.tsx:SendResponse)
+  // returns plain string arrays for added/invited; only failed carries an object
+  // shape with reason codes. Named by SYMBOL, not line: the target is in another
+  // repository on its own release cycle, so nothing here can verify a line number
+  // and it does not stay correct. The previous citation, :42-46, had drifted onto
+  // SendRequest — the CF's INPUT type — while describing its result.
   added: string[];
   invited: string[];
   failed: { email: string; reason: string }[];
