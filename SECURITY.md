@@ -41,6 +41,7 @@ When the user signs in and switches to cloud mode, data is stored in Firestore:
 - Editors cannot modify `owner` or `members` fields (privilege escalation prevention)
 - Profiles are readable by authenticated users under a `limit(1)` constraint (share-by-email lookup without bulk enumeration)
 - Settings are private (owner-only read/write)
+- **Collection `list` is membership-constrained.** As of **LIST-1 (2026-08-19)**, `allow list` requires `resource.data.members[request.auth.uid] in ['owner','editor','viewer']` — see the `match /spertscheduler_projects/` block in `spert-landing-page/firestore.rules`, marked `LIST-1`. The dashboard's `where('members.<uid>', 'in', [...])` query (`src/infrastructure/firebase/firestore-driver.ts:125`) mirrors that predicate, which is what makes the query satisfiable — it is not a workaround. An unfiltered collection read is denied. **If this file and the canonical ruleset ever disagree, the ruleset is right and this line has rotted.**
 
 **Canonical ruleset location:** the deployed rules are SPERT-suite-wide (all apps share one Firestore project and one Auth tenant). The canonical file lives in the Landing Page repo (`spert-landing-page/firestore.rules`). **As of 2026-08-19 it is deployed by CI on merge to `main`, not by Console paste-replace** — the repository is the source of truth and production follows it. A scheduled job compares the deployed ruleset against the file every six hours and fails on any divergence, so an out-of-band Console edit is detected rather than persisting silently. This repo's local `firestore.rules` is a **reference-only verbatim mirror** of that file's body (never deployed from here); `preferences-firestore-sync.test.ts` reads it at runtime as a drift guard on the settings allowlist.
 
@@ -133,7 +134,7 @@ Targeted audit of the v0.21.0 SS/FF dependency type additions, Firestore rules, 
 - **Scenario memory type safety:** `loadMap()` in `scenario-memory.ts` now filters parsed entries to include only string values, preventing type confusion from tampered localStorage.
 - **Preferences logging gated:** `preferences-repository.ts` Zod validation warnings are now logged only in development mode (`import.meta.env.DEV`), reducing information disclosure in production.
 - **Firestore enum validation documented:** `ActivityDependency.type`, `constraintType`, and `constraintMode` are validated client-side via Zod strict enums but not at the Firestore rules level. Documented as an accepted risk in Known Limitations.
-- **Firestore list rule documented:** The `spertscheduler_projects` list rule's `resource.data` limitation and the `where()` query workaround are documented in Known Limitations.
+- **Firestore list rule documented:** The `spertscheduler_projects` list rule's `resource.data` limitation and the `where()` query workaround are documented in Known Limitations. **(Superseded 2026-08-19 by LIST-1 — see Firestore Security Rules above. The `resource.data` limitation described here no longer applies; the `list` rule is now the boundary.)**
 
 ## AI Connectivity (Connect AI)
 
@@ -183,7 +184,6 @@ Targeted audit of the Connect AI feature (v0.51.0–v0.57.3) and its consent/ses
   - `Activity.constraintType` — restricted to `"MSO"`, `"MFO"`, `"SNET"`, `"SNLT"`, `"FNET"`, `"FNLT"` via `z.enum()`
   - `Activity.constraintMode` — restricted to `"hard"`, `"soft"` via `z.enum()`
 - **Email enumeration:** The sharing UI reveals whether an email is registered when attempting to share a project. This is mitigated by requiring authentication and using a uniform error message that does not distinguish between "user not found" and other failure modes.
-- **Firestore list rule:** The `spertscheduler_projects` collection `list` rule checks `request.auth.uid in resource.data.members`, but `resource.data` is not reliably available during collection-level list queries. The application works around this by using `where()` queries in `firestore-driver.ts`, which are evaluated under the document-level `get` rule instead. The `list` rule is retained as a defense-in-depth guard against direct collection enumeration.
 
 ## Reporting Vulnerabilities
 
