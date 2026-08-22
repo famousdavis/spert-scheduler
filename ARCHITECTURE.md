@@ -10,7 +10,7 @@ All computation runs in the browser. There is no backend.
 
 | Concern | Choice |
 |---------|--------|
-| Language | TypeScript 5.9 (strict mode) |
+| Language | TypeScript (strict mode) — version in `package.json` |
 | UI Framework | React 19 |
 | Build | Vite 7 |
 | State Management | Zustand 5 |
@@ -230,7 +230,7 @@ Two Zustand stores, separated by concern:
 - Each project: `localStorage["spert:project:{id}"]`
 - Project index: `localStorage["spert:project-index"]`
 - User preferences: `localStorage["spert:user-preferences"]`
-- Schema versioned (`SCHEMA_VERSION = 22`) with sequential migrations (v1→v2→…→v22)
+- Schema versioned with sequential migrations. `SCHEMA_VERSION` in `src/domain/models/types.ts` is the authority; the ladder in `infrastructure/persistence/migrations.ts` runs from v1 up to it
 - Zod validation on every load
 - Export/Import via JSON files on the Settings page
 
@@ -255,7 +255,7 @@ The `storeFullSimulationData` preference (default: `false`) controls whether the
 - **Unit:** SPERT calculations, calendar math, distributions, analytics, buffer, CSV export, format labels, Gantt utilities, dependency graph
 - **Property-based (fast-check):** Distribution bounds, percentile monotonicity, calendar invariants, dependency graph properties
 - **Integration:** Full workflow (create → simulate → schedule → clone → persist → reload), export/import round-trip, scenario cloning, store import, dependency lifecycle
-- **1148 tests** across 53 test files
+- **Suite size:** run `npx vitest run` for the current test and test-file counts. A number written here goes stale within a release and nothing checks it
 
 ## Performance Budget
 
