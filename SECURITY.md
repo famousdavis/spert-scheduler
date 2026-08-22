@@ -5,7 +5,7 @@
 SPERT Scheduler is a **client-side** application. All computation runs in the browser.
 
 - **No backend server** — scheduling math runs entirely in-browser
-- **No analytics or telemetry** — your data stays in your browser
+- **No analytics or telemetry** — no tracking of any kind. In local mode (the default) your project data never leaves the browser; cloud sync and Connect AI are opt-in and are described below.
 - **Local-first persistence** — all project data is stored in browser localStorage by default
 - **Optional cloud sync** — opt-in Firebase/Firestore persistence on the shared `spert-suite` Firebase project
 
@@ -49,7 +49,11 @@ When the user signs in and switches to cloud mode, data is stored in Firestore:
 
 ## Deployment Headers
 
-These are configured in `vercel.json` and served by the production deployment.
+The four headers below are configured in `vercel.json` and served by the production deployment.
+**`Content-Security-Policy` is not** — it ships as a `<meta>` tag in `index.html` (see the note
+below the block), which is why `X-Frame-Options` does the anti-framing work. Production also
+sends `Strict-Transport-Security: max-age=63072000`, which is Vercel platform configuration
+rather than this repo's. Measured against `https://scheduler.spertsuite.com/`, 2026-08-22.
 (Before v0.64.3 this section described them as *recommended* while the
 deployment sent none of them; that gap is closed.)
 
@@ -72,6 +76,7 @@ This matches the `Content-Security-Policy` meta tag shipped in `index.html`. Two
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.
 - **Permissions-Policy**: Denies the app access to geolocation, microphone and camera, none of which it uses.
+- **Strict-Transport-Security**: Sent by production as `max-age=63072000`. It is Vercel platform configuration, **not** set in `vercel.json`.
 
 Note the CSP is delivered as an HTML `<meta>` tag. `frame-ancestors` is ignored when delivered that way, which is why `X-Frame-Options` is the header actually preventing this app from being framed by another origin.
 
@@ -99,7 +104,7 @@ The application never executes code from imported files.
 All user inputs are validated using [Zod](https://zod.dev/) schemas:
 
 - Activity estimates: `min ≤ mostLikely ≤ max`
-- Trial count: bounded to 1,000 – 500,000
+- Trial count: bounded to 1,000 – 100,000 (`ScenarioSettingsSchema`, `src/domain/schemas/project.schema.ts`)
 - Probability targets: bounded to 0.01 – 0.99
 - Dates: validated against ISO 8601 format with calendar date verification (rejects invalid dates like Feb 30)
 
@@ -118,7 +123,7 @@ Work week and calendar inputs are validated at multiple layers:
 Targeted audit of the v0.20.0 constraint feature additions and surrounding code:
 
 - **Write-forward migration error escalation:** `firestore-driver.ts` `loadAll()` and `load()` now surface write-forward migration failures via the `onSaveError` callback instead of silently logging. This ensures the UI can display a toast when a migration write fails.
-- **Worker constraint validation:** `simulation.worker.ts` validates constraint `type` and `mode` values against known enum domains (`MSO|MFO|SNET|SNLT|FNET|FNLT` and `hard|soft`) before processing. Previously only `offsetFromStart` was type-checked.
+- **Worker constraint validation:** `simulation.worker.ts` validates constraint `type` and `mode` values against known enum domains (`MSO|MFO|SNET|SNLT|FNET|FNLT` and `hard|soft`) before processing. Previously only `offsetFromStart` was type-checked. **(Location superseded — the hand-maintained constraint vocabulary was retired from the worker in #264; the validation still runs, now via `toMcConstraintMap` in `src/core/schedule/constraint-utils.ts`.)**
 - **Import schema version bounds:** `export-import-service.ts` rejects `schemaVersion < 1` on import, preventing negative or zero versions from bypassing migration logic.
 - **Constraint date picker guard:** `ActivityEditModal.tsx` date picker's non-working-day snap loop has a 10,000 iteration guard, consistent with `calendar.ts` limits.
 - **localStorage namespace:** `scenario-memory.ts` key changed from `spert:active-scenarios` to `spert-scheduler:active-scenarios` to prevent cross-app collision on shared origins.
@@ -129,7 +134,7 @@ Targeted audit of the v0.20.0 constraint feature additions and surrounding code:
 
 Targeted audit of the v0.21.0 SS/FF dependency type additions, Firestore rules, and export/import paths:
 
-- **CSV formula injection guard:** `csvEscape()` in `schedule-export-service.ts` now prefixes cell values starting with `=`, `+`, `@`, or `-` with a single quote, preventing spreadsheet formula execution when CSV files are opened in Excel or Google Sheets.
+- **CSV formula injection guard:** `csvEscape()` in `schedule-export-service.ts` now prefixes cell values starting with `=`, `+`, `@`, or `-` with a single quote, preventing spreadsheet formula execution when CSV files are opened in Excel or Google Sheets. **(Location superseded — `csvEscape()` moved out of `schedule-export-service.ts` in #124 (v0.42.5); the guard still runs, now in `csv-export-service.ts` and `export-csv-formatter.ts`, and its character class has since widened to include tab and carriage return.)**
 - **Import file size guard:** `validateImport()` in `export-import-service.ts` enforces a 10 MB size limit at the service layer (was previously only enforced in the UI component).
 - **Scenario memory type safety:** `loadMap()` in `scenario-memory.ts` now filters parsed entries to include only string values, preventing type confusion from tampered localStorage.
 - **Preferences logging gated:** `preferences-repository.ts` Zod validation warnings are now logged only in development mode (`import.meta.env.DEV`), reducing information disclosure in production.
@@ -169,7 +174,7 @@ Targeted audit of the Connect AI feature (v0.51.0–v0.57.3) and its consent/ses
 
 ## Defensive Measures
 
-- **No first-party `eval()` or `Function()`** — no first-party dynamic code execution. One vendored dependency (ExcelJS) ships a `setImmediate` polyfill with a rarely-hit `new Function("")` branch, the sole reason `'unsafe-eval'` remains in the CSP (see Recommended Deployment Headers); removal pending a cross-browser export/chart-copy verification
+- **No first-party `eval()` or `Function()`** — no first-party dynamic code execution. One vendored dependency (ExcelJS) ships a `setImmediate` polyfill with a rarely-hit `new Function("")` branch, the sole reason `'unsafe-eval'` remains in the CSP (see Deployment Headers); removal pending a cross-browser export/chart-copy verification
 - **No `dangerouslySetInnerHTML`** — all content rendered as text
 - **No inline scripts** — all JavaScript loaded via ES modules
 - **Error boundaries** — graceful recovery from unexpected errors
