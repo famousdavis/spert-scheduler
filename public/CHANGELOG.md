@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.64.8 — 2026-08-22
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.64.7.
+
+### Internal
+
+- **The shared release-checking script no longer says there is no automated checking.** That script is deliberately the same file in all nine SPERT® Suite projects. The note at the top of it said there was no automated checking anywhere in the suite — that a green tick on a proposed change meant only that a preview copy had been built, and that nothing ran the tests. That has not been true since the script existed. Automated checking runs on every one of the nine projects, on every proposed change and on every merge, and what it runs is this very script.
+
+- **The statement did not go out of date. It was untrue on the day it was written.** The same set of edits that added the script also switched the automated checking on, so the file contradicted a change sitting beside it. That distinction decides the remedy, which is why it is recorded here: a statement that decays can be helped by writing down when it was made; a statement that was never true cannot. What went wrong was that a claim about the projects was written into an explanation without being checked against them, and an explanation is read as background rather than as an assertion somebody has to verify.
+
+- **The danger was specific.** The note told a reader that a green check means nothing. Anyone reading it would discount a real signal, or repeat work that had already been checked — a correct-looking pause resting on a false premise, which produces no error and simply spends a round trip.
+
+- **Two explanations were added while the file was open.** The first records that automated checking and a check run by hand are complementary rather than ranked: the automated one works from a clean copy, so it catches anything that quietly depends on a file existing only on the author's own machine, but it also has less of the project to look at, so certain checks step aside there and only a hand-run finds what those cover.
+
+- **The second explains how the code-style step is judged.** That step compares the number of reported issues against an agreed figure instead of reading pass or fail, and it does so for opposite reasons in different projects: here the step reports failure at the agreed figure of three, so reading pass-or-fail would be too strict; in one sibling project it reports success at its figure, because those findings are all advisories, so reading pass-or-fail would be too lenient and would let new issues through unnoticed. The note also warns that the figure counts every kind of issue rather than the one kind a project set it for, and that when it reaches zero the setting must be removed rather than set to zero — at zero the tool prints no count at all, and the step then fails asking for a number that was never printed.
+
+- **No drift check is proposed as the remedy, and that is deliberate.** The file was identical in all nine projects for the whole time the claim was false, so a check comparing the copies to each other would have passed on every run and licensed the conclusion that the file was in order. A guard that measures agreement between copies cannot detect a fault all the copies share.
+
 ## 0.64.7 — 2026-08-21
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.64.6.
