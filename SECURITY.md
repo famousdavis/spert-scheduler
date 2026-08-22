@@ -53,9 +53,16 @@ The four headers below are configured in `vercel.json` and served by the product
 **`Content-Security-Policy` is not** — it ships as a `<meta>` tag in `index.html` (see the note
 below the block), which is why `X-Frame-Options` does the anti-framing work. Production also
 sends `Strict-Transport-Security: max-age=63072000`, which is Vercel platform configuration
-rather than this repo's. Measured against `https://scheduler.spertsuite.com/`, 2026-08-22.
+rather than this repo's.
+
 (Before v0.64.3 this section described them as *recommended* while the
 deployment sent none of them; that gap is closed.)
+
+**Production origin — `https://scheduler.spertsuite.com/`.** Verify these headers there, with
+`curl -sIL`, trusting nothing below a final `200`. ⚠️ **`https://spert-scheduler.vercel.app` is a
+301 alias, not the origin, and the redirect carries none of these headers** — so a plain `curl -sI`
+against it reports all four absent, which is a false negative, not a finding. Measured 2026-08-22:
+origin `200` with all four; alias `301` with zero.
 
 ```
 Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com; font-src 'self'; worker-src 'self' blob:; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com https://date.nager.at; object-src 'none'; base-uri 'self'; form-action 'self'
