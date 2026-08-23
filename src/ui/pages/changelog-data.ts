@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.8",
+    date: "2026-08-22",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Internal only. Nothing in the app changed — it behaves identically to 0.64.7.",
+          "The shared release-checking script no longer says there is no automated checking. That script is deliberately the same file in all nine SPERT® Suite projects, and the note at the top of it said there was no automated checking anywhere in the suite — that a green tick on a proposed change meant only that a preview copy had been built, and that nothing ran the tests. That has not been true since the script existed: automated checking runs on every one of the nine projects, on every proposed change and on every merge, and what it runs is this very script.",
+          "The statement did not go out of date. It was untrue on the day it was written, because the same set of edits that added the script also switched the automated checking on. That distinction decides the remedy: a statement that decays can be helped by writing down when it was made; a statement that was never true cannot. What went wrong was that a claim about the projects was written into an explanation without being checked against them, and an explanation is read as background rather than as an assertion somebody has to verify.",
+          "Two explanations were added while the file was open: that automated checking and a check run by hand catch different things, so neither is sufficient alone; and how the code-style step is judged — it holds a count steady rather than reading pass or fail, for opposite reasons in different projects, and the count must be removed rather than set to zero when it reaches zero.",
+          "No drift check is proposed as the remedy, and that is deliberate. The file was identical in all nine projects for the whole time the claim was false, so a check comparing the copies to each other would have passed on every run. A guard that measures agreement between copies cannot detect a fault all the copies share.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.7",
     date: "2026-08-21",
     sections: [
