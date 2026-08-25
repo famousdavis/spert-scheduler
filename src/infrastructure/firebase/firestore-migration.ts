@@ -8,7 +8,7 @@
  * Local data is preserved as a backup.
  */
 
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import {
   sanitizeForFirestore,
@@ -141,7 +141,7 @@ export async function migrateLocalToCloud(
         schemaVersion: SCHEMA_VERSION,
         owner: uid,
         members: { [uid]: "owner" as ProjectRole },
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date().toISOString(),
       });
 
       if (targetId !== id) {
