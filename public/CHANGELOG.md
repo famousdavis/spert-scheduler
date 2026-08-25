@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.64.10 — 2026-08-25
+
+Documentation only. Nothing about scheduling, simulation, storage, or your data changed.
+
+### The older changelog entry that was wrong now says so
+
+Version 0.45.9 described how a placeholder value leaked into live projects, and its description of the mechanism was wrong: it said the clean-up step reduced the placeholder to an empty value, and that live projects were carrying an empty value as their last-changed time. Neither is true. The placeholder always carried a recognisable name inside it, and that is the shape that reached live data.
+
+This was worked out at the time and written down eleven days later, in version 0.47.4 — which corrected the notes in the code and the automated check, but never went back to the 0.45.9 entry itself. So the two have disagreed ever since, and anybody reading 0.45.9 on its own had no way to know it had been superseded.
+
+The 0.45.9 entry now carries a pointer to 0.47.4. **Its original wording is untouched** — it is published history somebody may have read, and a correction that quietly rewrites the record is worse than one that stands beside it. The pointer was added to all three places this changelog is published, which is the part with no automatic check behind it: the in-app copy is only verified for its newest entry, so an edit further down it passes unnoticed.
+
+### A note in the storage code was making a claim that nothing supports
+
+Version 0.64.9 rewrote two long comments to preserve the correct account of that incident. While doing so it added an explanation for why the *wrong* account might once have been true — that some earlier release of the database library behaved differently. That explanation was invented. It was never measured, and it is false.
+
+Six releases of the library spanning its whole modern line were installed and run: every one of them behaves the way the corrected account describes. The lockfile from the 0.45.9 commit was read directly, so the exact version that shipped that release is known rather than inferred, and it is one of the six. This project has never used a version outside that line.
+
+The claim has been replaced with the measurement. The note also now warns that searching the library's browser build for the property name returns nothing while running it returns the property — a search would appear to confirm the false claim.
+
+### Why this is worth a release on its own
+
+An instruction to *preserve* a correct account is not an instruction to *explain* it, and the gap between the two is where a new false claim got written — inside the very change that was correcting one. A later piece of work then read that invention, under a heading announcing it as the reliable account, and came close to citing it as evidence.
+
 ## 0.64.9 — 2026-08-24
 
 The time a project records as "last changed" is now written as plain text, matching the rest of the SPERT® Suite. Nothing about scheduling, simulation, or your data changed.
@@ -1105,6 +1129,7 @@ This explains every observation cleanly:
 
 - **`persist()` in `use-project-store.ts` now defers `cloudSyncBus.emitSave` with `queueMicrotask`**, so the bus subscriber's read happens after Zustand commits. The microtask is consumed by the existing 200 ms debounce window; no perceptible delay. Single load-bearing change.
 - **Secondary fix:** `serverTimestamp()` was being silently corrupted into `{}` by the recursive `sanitizeForFirestore` pass — `Object.entries(sentinel)` returns `[]` for the Firestore FieldValue, which made the sanitizer rebuild it as an empty map. Production saves have been writing `updatedAt: {}` instead of a real server timestamp. `doSave` and `create` now attach `updatedAt: serverTimestamp()` *after* the sanitize pass so the sentinel survives intact.
+- **Correction, recorded 2026-08-25 — see the v0.47.4 entry.** The mechanism described in the item above is wrong. `Object.entries()` on the client `serverTimestamp()` sentinel has never returned an empty array: it returns a one-entry array carrying `_methodName: 'serverTimestamp'`, so the shape that reached production was `{ _methodName: 'serverTimestamp' }` and not `{}`. That was established at the time — eleven days later, against the SDK this release shipped on — and v0.47.4 records it. v0.47.4 corrected the code comments and the regression test but never this entry, which is why the two have disagreed since. **The original text above is left exactly as written; v0.47.4 is the account to trust.**
 - **Regression tests:** the `persist → emitSave` ordering test in `use-project-store.test.ts` subscribes to the bus, fires `updateGanttAppearance` with a new custom color, and asserts the subscriber sees the post-update state. The driver test mocks `serverTimestamp()` with a sentinel-shape object and asserts the same reference arrives at `setDoc`.
 
 Credit: independent codebase review caught what three rounds of Firestore-focused debugging missed.
