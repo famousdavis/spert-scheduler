@@ -13,6 +13,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.9",
+    date: "2026-08-24",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The time a project records as \u201clast changed\u201d is now written as plain text, matching the rest of the SPERT\u00ae Suite. Nothing about scheduling, simulation, or your data changed.",
+          "Until now this app asked the database to stamp that moment itself, which produces a database-specific object rather than text. Four of the seven suite apps store it as text, and one of them reads projects this app can share with \u2014 formatting refuses rather than shrugs when handed an object, so that app\u2019s project list could fail to draw a row after somebody was added to a shared project. All three places this app writes that time now write plain text.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Two long explanatory comments in the storage code were rewritten rather than deleted. They existed only to explain why the stamp had to be attached after the data was cleaned up: the placeholder the database library returns has a visible internal property, so running it through the clean-up step turned it into a plain pair of keys instead of a real timestamp. That is a real incident from this project\u2019s history and it reached live data. The rule no longer applies at those two places, because they no longer use a placeholder \u2014 but it still applies where the app writes your profile, which deliberately still uses one. The comments now record the incident and point at where the rule is still live.",
+          "This project holds two contradictory records of that incident and one is wrong. An older changelog entry says the clean-up step produced an empty value; the storage code says it produced a pair with a recognisable name in it. The storage code is right \u2014 the suite-wide survey that found the six affected projects detected them by that very name and could not have found them otherwise. The comments now say plainly which account is correct, so a future rewrite consulting the changelog does not carefully preserve the false one.",
+          "One existing check was written against a place that no longer does the thing being checked, so it could not pass. Deleting it would have removed the only automatic guard on a rule that is still live. It was moved to the profile-writing path and confirmed there against a deliberately reintroduced version of the original fault.",
+          "The copy of the shared database rules kept in this project was brought back in step by hand, with a full comparison in both directions including comments \u2014 identical, 824 lines each. The scheduled check that watches this file ignores comment lines, so it reported agreement both before and after and cannot see any of the eleven lines this release moved. The comparison done by hand is what confirmed it.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.8",
     date: "2026-08-22",
     sections: [

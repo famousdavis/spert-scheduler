@@ -23,7 +23,6 @@ import {
   where,
   onSnapshot,
   runTransaction,
-  serverTimestamp,
 } from "firebase/firestore";
 import type { Unsubscribe, QueryDocumentSnapshot } from "firebase/firestore";
 import {
@@ -289,12 +288,31 @@ export class FirestoreDriver {
     // eslint-disable-next-line sonarjs/no-unused-vars
     const { id: _id, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
 
-    // Add `updatedAt: serverTimestamp()` AFTER sanitize — see doSave() for
-    // the rationale. The Firestore client sentinel has an enumerable
-    // `_methodName` property, so passing it through the recursive
+    // ⚠️ Q#32 INCIDENT RECORD — kept because the rule it produced is STILL LIVE
+    // in this repo, just not at this site any more.
+    //
+    // Until v0.64.9 this line read `updatedAt: serverTimestamp()`, and it had to
+    // sit AFTER the sanitize spread. The Firestore client sentinel has an
+    // ENUMERABLE `_methodName` property, so `Object.entries(sentinel)` returns
+    // `[["_methodName","serverTimestamp"]]` and the recursive
     // `sanitizeForFirestore` rebuilds it as the plain map
-    // `{ _methodName: 'serverTimestamp' }` (the exact shape that leaked into
-    // production) instead of resolving server-side to a write timestamp.
+    // `{ _methodName: 'serverTimestamp' }` — the exact shape that leaked into
+    // production `spertscheduler_projects` docs — instead of resolving
+    // server-side to a write timestamp.
+    //
+    // ⚠️ THIS REPO HOLDS TWO CONTRADICTORY ACCOUNTS OF Q#32 AND THIS IS THE
+    // CORRECT ONE. `changelog-data.ts` says `Object.entries(sentinel)` returned
+    // `[]` and that production carried `updatedAt: {}`. It did not: the suite
+    // census detected all six leaked sentinels with a detector that REQUIRES
+    // `_methodName`, and the admin tool's detector matches on the same key. The
+    // `{}` spelling is historic, from an older SDK whose FieldValue had no
+    // enumerable properties, and is not producible today. Do not "reconcile"
+    // this comment toward the changelog's version.
+    //
+    // ⚠️ The ORDERING rationale no longer applies here, because this site no
+    // longer writes a sentinel. It still applies at `writeUserProfiles` in
+    // `AuthProvider.tsx`, which keeps `{ ...payload, updatedAt: serverTimestamp() }`
+    // — and that is where the mechanical guard for this property now lives.
     const data = {
       ...sanitizeForFirestore({
         ...rest,
@@ -302,7 +320,7 @@ export class FirestoreDriver {
         owner: this.uid,
         members: { [this.uid]: "owner" as ProjectRole },
       }),
-      updatedAt: serverTimestamp(),
+      updatedAt: new Date().toISOString(),
     };
 
     await setDoc(ref, data);
@@ -361,21 +379,25 @@ export class FirestoreDriver {
       const cleaned = stripSimulationResultsForCloud(project);
       // eslint-disable-next-line sonarjs/no-unused-vars
       const { id: _docId, ...rest } = cleaned; // NOSONAR — intentional destructuring discard
-      // Sanitize the project payload, then add `updatedAt: serverTimestamp()`
-      // AFTER the sanitize pass. The Firestore client sentinel returned by
-      // `serverTimestamp()` has an enumerable `_methodName` property —
-      // `Object.entries(sentinel)` returns `[["_methodName","serverTimestamp"]]`
-      // — so passing it through the recursive `sanitizeForFirestore` rebuilds
-      // it as the plain map `{ _methodName: 'serverTimestamp' }` (the exact
-      // shape that leaked into production `spertscheduler_projects` docs)
-      // instead of resolving server-side to a write timestamp. Attaching the
-      // sentinel post-sanitize preserves it intact for the SDK to recognize.
+      // ⚠️ Q#32 INCIDENT RECORD — see createProject above for the full account,
+      // including which of this repo's two contradictory records is the true one.
+      //
+      // Until v0.64.9 this line wrote `serverTimestamp()` and had to be attached
+      // AFTER the sanitize pass, because the client sentinel's enumerable
+      // `_methodName` property survives `Object.entries` and the recursive
+      // sanitizer rebuilt it as the plain map `{ _methodName: 'serverTimestamp' }`
+      // — the shape that leaked into production `spertscheduler_projects` docs.
+      //
+      // ⚠️ The ordering rule is not obsolete, only inapplicable HERE. It is live
+      // at `writeUserProfiles` in `AuthProvider.tsx`, where the sentinel is still
+      // spread in after `sanitizeForFirestore`, and the guard that was pinned to
+      // this site has been re-pointed there rather than deleted.
       const data = {
         ...sanitizeForFirestore({
           ...rest,
           schemaVersion: SCHEMA_VERSION,
         }),
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date().toISOString(),
       };
 
       // Check document size

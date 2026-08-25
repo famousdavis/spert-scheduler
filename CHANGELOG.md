@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.64.9 — 2026-08-24
+
+The time a project records as "last changed" is now written as plain text, matching the rest of the SPERT® Suite. Nothing about scheduling, simulation, or your data changed.
+
+### Why
+Until now this app asked the database to stamp that moment itself, which produces a database-specific object rather than text. Four of the seven suite apps store it as text, and one of them reads projects this app can share with. Formatting refuses rather than shrugs when handed an object, so that app's project list could fail to draw a row after somebody was added to a shared project.
+
+All three places this app writes that time now write plain text.
+
+### The two explanatory comments were rewritten, not deleted
+Two long comments in the storage code existed only to explain why the stamp had to be attached after the data was cleaned up: the placeholder the database library returns has a visible internal property, so running it through the clean-up step turned it into a plain pair of keys instead of a real timestamp. That is a real incident from this project's history, and it reached live data.
+
+The rule is no longer relevant at those two places, because they no longer use a placeholder. It is still relevant where the app writes your profile, which deliberately still uses one. So the comments now record the incident and point at where the rule still applies, rather than describing a mechanism that is no longer there.
+
+⚠️ **This project holds two contradictory records of that incident and one of them is wrong.** An older changelog entry says the clean-up step produced an empty value; the storage code says it produced a pair with a recognisable name in it. The storage code is right — the suite-wide survey that found the six affected projects detected them by that very name, and could not have found them otherwise. The comments were rewritten to keep the correct account and say plainly which one it is, so a future rewrite consulting the changelog does not carefully preserve the false one.
+
+### A check that had to be moved rather than removed
+One existing check was written against a place that no longer does the thing being checked, so it could not pass. Deleting it would have removed the only automatic guard on a rule that is still live elsewhere in this project. It has been moved to the profile-writing path, where the placeholder is still used, and confirmed there against a deliberately reintroduced version of the original fault.
+
+### What was verified
+- The three places are checked separately, not one check per file. A single check per file passes while one of two places in that file is still wrong.
+- Exactly two existing checks were expected to fail after the change, and exactly those two did — no others.
+- The copy of the shared database rules kept in this project was brought back in step by hand, with a full comparison in both directions including comments. It is identical: 824 lines each. ⚠️ The scheduled check that watches this file ignores comment lines, so it reported agreement both before and after — it cannot see any of the eleven lines this release moved. The comparison done by hand is what confirmed it.
+
 ## 0.64.8 — 2026-08-22
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.64.7.

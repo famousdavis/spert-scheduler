@@ -215,7 +215,18 @@ describe("migrateLocalToCloud — the uploaded document", () => {
     expect(written.owner).toBe(UID);
     expect(written.members).toEqual({ [UID]: "owner" });
     expect(written.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(written.updatedAt).toEqual({ __sentinel: "serverTimestamp" });
+    // PC-2 (Brief 19), site 3 of 3: the migration write. Was
+    // `toEqual({ __sentinel: "serverTimestamp" })` until v0.64.9.
+    // ⚠️ The SHAPE, not the type: `typeof === "string"` passes for "now", and
+    // it is the ISO shape specifically that makes lexicographic order
+    // chronological.
+    expect(typeof written.updatedAt).toBe("string");
+    expect(written.updatedAt as string).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
+    expect(new Date(written.updatedAt as string).toISOString()).toBe(
+      written.updatedAt,
+    );
     // `id` is destructured out — it is the document key, not a field.
     expect(written).not.toHaveProperty("id");
     expect(written.name).toBe("Epsilon");

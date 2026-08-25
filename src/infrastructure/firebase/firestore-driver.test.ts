@@ -83,7 +83,41 @@ function makeProject(id: string): Project {
   };
 }
 
-describe("FirestoreDriver.doSave (serverTimestamp preservation)", () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// PC-2 (Brief 19) — every project write emits an ISO 8601 string.
+//
+// ⚠️ THIS BLOCK REPLACES "FirestoreDriver.doSave (serverTimestamp
+// preservation)", WHICH WAS RE-POINTED RATHER THAN DELETED. That block
+// asserted REFERENCE IDENTITY of the serverTimestamp sentinel through doSave,
+// so it would "fail loudly if the sentinel is ever run back through the
+// sanitizer". After Brief 19 doSave never calls serverTimestamp(), its
+// mockReturnValueOnce never fires, and the assertion could not pass.
+//
+// The property it guarded — post-sanitize sentinel ordering, the Q#32 lesson —
+// IS STILL LIVE, at `writeUserProfiles` in AuthProvider.tsx, where profile
+// writes deliberately keep serverTimestamp(). The guard now lives in
+// `AuthProvider.profile-write.test.tsx` and was falsified there against the
+// real regression. Deleting it instead would have removed the suite's only
+// mechanical guard on a live property — a change that deletes a working
+// control is worse than the red it avoids.
+//
+// ⚠️ SITES, NOT MODULES. This file's driver holds TWO of the three Scheduler
+// write sites and they are asserted separately: one test per module passes
+// while one of two sites is still wrong, which is Brief 19's own defect shape.
+// The third site is firestore-migration.ts, asserted in its own suite.
+// ─────────────────────────────────────────────────────────────────────────────
+const ISO_8601_MS_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+function expectIso(value: unknown) {
+  expect(typeof value).toBe("string");
+  expect(value as string).toMatch(ISO_8601_MS_UTC);
+  // Round-trips to the instant it encodes.
+  expect(new Date(value as string).toISOString()).toBe(value);
+  // And is emphatically not the sentinel this mock still returns.
+  expect(value).not.toBe("__ts__");
+}
+
+describe("project writes emit ISO 8601 updatedAt (PC-2)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     setDocSpy.mockClear();
@@ -93,34 +127,23 @@ describe("FirestoreDriver.doSave (serverTimestamp preservation)", () => {
     vi.useRealTimers();
   });
 
-  it("preserves the serverTimestamp sentinel intact (sanitizer must not eat it)", async () => {
-    // In production, the Firebase *client* `serverTimestamp()` returns a
-    // FieldValue sentinel with an ENUMERABLE `_methodName: "serverTimestamp"`
-    // property. The recursive `sanitizeForFirestore` walks
-    // `Object.entries(sentinel)` → `[["_methodName","serverTimestamp"]]` and
-    // rebuilds it as the plain map `{ _methodName: "serverTimestamp" }` — the
-    // exact shape that leaked into live `spertscheduler_projects` docs. The
-    // fix attaches the sentinel POST-sanitize so it survives by reference for
-    // the SDK to recognize.
-    //
-    // Use the real production sentinel shape (an object with an enumerable
-    // `_methodName`) so this guard fails loudly if the sentinel is ever run
-    // back through the sanitizer: sanitize clones it into a NEW map, breaking
-    // the reference-equality assertion below.
-    const sentinel = { _methodName: "serverTimestamp" };
-    const { serverTimestamp: stMock } = await import("firebase/firestore");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(stMock).mockReturnValueOnce(sentinel as any);
-
-    const driver = new FirestoreDriver("uid-st");
-    driver.save(makeProject("p-st"));
+  it("site 1 — doSave, the debounced save path", async () => {
+    const driver = new FirestoreDriver("uid-iso-save");
+    driver.save(makeProject("p-iso-save"));
     await vi.advanceTimersByTimeAsync(300);
 
     expect(setDocSpy).toHaveBeenCalledTimes(1);
     const [, payload] = setDocSpy.mock.calls[0]!;
-    // The same reference must arrive at setDoc — not a sanitized clone
-    // (which would degrade to `{ _methodName: "serverTimestamp" }`).
-    expect((payload as { updatedAt: unknown }).updatedAt).toBe(sentinel);
+    expectIso((payload as { updatedAt: unknown }).updatedAt);
+  });
+
+  it("site 2 — create", async () => {
+    const driver = new FirestoreDriver("uid-iso-create");
+    await driver.create(makeProject("p-iso-create"));
+
+    expect(setDocSpy).toHaveBeenCalledTimes(1);
+    const [, payload] = setDocSpy.mock.calls[0]!;
+    expectIso((payload as { updatedAt: unknown }).updatedAt);
   });
 });
 
