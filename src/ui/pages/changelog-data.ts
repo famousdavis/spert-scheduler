@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.10",
+    date: "2026-08-25",
+    sections: [
+      {
+        title: "Documentation only — the wrong 0.45.9 record now points at its correction, and an invented claim in the storage code is replaced by a measurement",
+        items: [
+          "Nothing about scheduling, simulation, storage or your data changed.",
+          "The v0.45.9 entry described the placeholder incident incorrectly: it said the clean-up step reduced the placeholder to an empty value and that live projects carried an empty last-changed time. Neither is true — the placeholder always carried a recognisable name inside it, and that is the shape that reached live data. This was established eleven days later in v0.47.4, which corrected the code comments and the automated check but never the v0.45.9 entry, so the two have disagreed since. v0.45.9 now carries a pointer to v0.47.4. Its original wording is deliberately untouched: it is published history somebody may have read, and a correction that quietly rewrites the record is worse than one standing beside it. The pointer was added to all three published copies of this changelog — the part with no automatic check behind it, since the in-app copy is only verified for its newest entry.",
+          "A note in firestore-driver.ts was making a claim nothing supports. v0.64.9 rewrote two long comments to preserve the correct account, and in doing so added an explanation for why the wrong account might once have been true — that an earlier release of the database library behaved differently. That explanation was invented, never measured, and is false. Six releases spanning the library's whole modern line were installed and executed; all six behave as the corrected account describes. The lockfile from the v0.45.9 commit was read directly, so the version that shipped that release is known rather than inferred, and it is one of the six. This project has never used a version outside that line. The claim is replaced by the measurement, and the note now warns that searching the library's browser build for the property name returns nothing while running it returns the property — so a search would appear to confirm the false claim.",
+          "Why this warranted its own release: an instruction to preserve a correct account is not an instruction to explain it, and the gap between the two is where a new false claim got written — inside the very change that was correcting one. Later work then read that invention, under a heading announcing it as the reliable account, and came close to citing it as evidence.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.9",
     date: "2026-08-24",
     sections: [
@@ -1379,6 +1394,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Why v0.45.6 helped partially: the deleteField() sentinels still removed the prior customs from Firestore even when the bus emit fired with a stale read, so stale colors from earlier sessions stopped resurrecting. The newly-picked color was never in any payload, ever. v0.45.7's debounce reduction and v0.45.8's mergeFields switch were both no-ops for this bug — they attacked the write semantics, but the right payload never reached the write path.",
           "Fix: persist() in use-project-store.ts now defers cloudSyncBus.emitSave with queueMicrotask. The microtask runs after the set() updater returns and commits, so the subscriber's getState() read sees the committed state. The microtask is consumed by the existing 200 ms debounce window — no perceptible delay.",
           "Secondary fix: serverTimestamp() was being silently corrupted into {} by the recursive sanitizeForFirestore pass — Object.entries(sentinel) returns [] for the Firestore FieldValue, so the sanitizer rebuilt it as an empty map. Production saves have been writing updatedAt: {} instead of a real server timestamp. doSave and create now attach updatedAt: serverTimestamp() AFTER the sanitize pass so the sentinel survives intact.",
+          "Correction, recorded 2026-08-25 — see the v0.47.4 entry. The mechanism described in the item above is wrong. Object.entries() on the client serverTimestamp() sentinel has never returned an empty array: it returns a one-entry array carrying _methodName: 'serverTimestamp', so the shape that reached production was { _methodName: 'serverTimestamp' } and not {}. That was established at the time — eleven days later, against the SDK this release shipped on — and v0.47.4 records it. v0.47.4 corrected the code comments and the regression test but never this entry, which is why the two have disagreed since. The original text above is left exactly as written; v0.47.4 is the account to trust.",
           "Regression tests: persist → emitSave ordering test in use-project-store.test.ts subscribes to the bus, fires updateGanttAppearance with a new custom color, and asserts the subscriber sees the post-update state. Driver test mocks serverTimestamp() with a sentinel-shape object and asserts the same reference arrives at setDoc.",
           "Credit: independent codebase review caught what three rounds of Firestore-focused debugging missed.",
         ],

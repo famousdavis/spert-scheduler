@@ -301,13 +301,41 @@ export class FirestoreDriver {
     // server-side to a write timestamp.
     //
     // ⚠️ THIS REPO HOLDS TWO CONTRADICTORY ACCOUNTS OF Q#32 AND THIS IS THE
-    // CORRECT ONE. `changelog-data.ts` says `Object.entries(sentinel)` returned
-    // `[]` and that production carried `updatedAt: {}`. It did not: the suite
-    // census detected all six leaked sentinels with a detector that REQUIRES
-    // `_methodName`, and the admin tool's detector matches on the same key. The
-    // `{}` spelling is historic, from an older SDK whose FieldValue had no
-    // enumerable properties, and is not producible today. Do not "reconcile"
-    // this comment toward the changelog's version.
+    // CORRECT ONE. `changelog-data.ts`'s v0.45.9 entry says
+    // `Object.entries(sentinel)` returned `[]` and that production carried
+    // `updatedAt: {}`. It did not: the suite census detected all six leaked
+    // sentinels with a detector that REQUIRES `_methodName`, and the admin
+    // tool's detector matches on the same key.
+    //
+    // ⚠️ AND THE `{}` SPELLING WAS NEVER PRODUCIBLE BY ANY SDK THIS REPO HAS
+    // RUN. Until v0.64.10 this comment attributed the spelling to some earlier,
+    // unnamed release of the client SDK whose sentinel carried no enumerable
+    // properties. No such release exists. That was an invention — a charitable
+    // explanation for the changelog's error, authored in the very release that
+    // was correcting it. (The claim is described rather than quoted here on
+    // purpose: quoting it verbatim would keep the retired wording alive in every
+    // future grep for it.)
+    //
+    // Measured 2026-08-25: six modular firebase versions (9.0.0, 10.0.0,
+    // 11.0.0, 12.10.0, 12.11.0, 12.13.0) installed and EXECUTED, all six
+    // returning
+    // `[["_methodName","serverTimestamp"]]`, browser bundle included. The
+    // lockfile at `e228e85` — the v0.45.9 commit itself — resolved exactly
+    // `firebase@12.11.0` / `@firebase/firestore@4.13.0`, and this repo's complete
+    // pin history is `^12.10.0`, `^12.11.0`, `12.12.1`, `12.13.0`. There is no
+    // earlier release for the spelling to have come from.
+    //
+    // ⚠️ IMPORT THE BUNDLE, DO NOT GREP IT, if you re-check this. `grep -c
+    // '_methodName'` on firebase's browser build `dist/index.esm.js` returns 0
+    // while EXECUTING that same file returns `_methodName` — the class lives in
+    // a chunk the entry re-exports. A textual check there confirms the false
+    // claim this comment retires.
+    //
+    // None of this is new: the v0.47.4 entry said it on 2026-06-02, against the
+    // installed SDK, and corrected the comments and the test but not the v0.45.9
+    // entry — which is why the two disagreed for three months. v0.64.10 adds a
+    // pointer to v0.47.4 from all three changelog surfaces. Do not "reconcile"
+    // this comment toward the v0.45.9 entry's version.
     //
     // ⚠️ The ORDERING rationale no longer applies here, because this site no
     // longer writes a sentinel. It still applies at `writeUserProfiles` in
