@@ -437,8 +437,14 @@ service cloud.firestore {
     // If firestoreRepo starts writing a new top-level field, add it here in
     // the SAME PR or saves will fail silently with PERMISSION_DENIED.
     // color + archived (July 2026): both are top-level scalar fields written
-    // as `field ?? null`; see the header entry for why color's null default
-    // slipped past keys().hasOnly() while a non-null value would not.
+    // as `field ?? null`. This line used to claim color's null default got
+    // through keys().hasOnly() where a non-null value would not — MEASURED
+    // FALSE (canonical repaired the same claim in landing-page 2.5.27). Three
+    // controls on the Firestore emulator against this ruleset: an
+    // exact-allowlist write ACCEPTED, an un-allowlisted non-null key DENIED,
+    // and an un-allowlisted key valued `null` DENIED TOO. An explicit null is
+    // a PRESENT KEY — keys() counts it and hasOnly() rejects it, so writing
+    // `field ?? null` buys nothing here.
     function myScrumBudgetProjectFields() {
       return [
         'name', 'startDate', 'endDate',
