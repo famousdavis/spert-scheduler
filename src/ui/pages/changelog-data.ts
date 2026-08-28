@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.11",
+    date: "2026-08-27",
+    sections: [
+      {
+        title:
+          "Documentation only — a note in this project's copy of the shared database rules was claiming something that measurement refutes",
+        items: [
+          "Nothing about scheduling, simulation, storage or your data changed. Only comment lines were edited.",
+          "This project keeps a read-only copy of the SPERT® Suite's shared database access rules. Nothing is ever published from it — the live copy lives in the Landing Page project and is deployed from there — but an automated check reads this copy so that the list of settings this app saves cannot drift away from the list the rules permit.",
+          "A three-line note in that copy explained why two fields belonging to another app in the suite had once been missing from their permitted list without anything appearing to break. It said that a field written with an empty default is not counted when the rules examine which fields a save is touching, so an empty value would be waved through where a real value would not. That is false, and it has now been measured instead of reasoned about. Run against these exact rules, three checks settle it: a save touching only permitted fields is accepted; a save that adds one unpermitted field is refused; and a save that adds one unpermitted field whose value is empty is refused as well. An empty value is still a field that is present, so writing a field with an empty default buys nothing.",
+          "The correction is written to stand on its own. The live copy carried the same false claim and was corrected in the Landing Page project's own release, but that wording ends by pointing at a background section for the three checks — and this copy has no such section, so borrowing it would have left a pointer to nothing. The note here states the measurement and its three checks in place.",
+          "The rules themselves remain byte-for-byte identical to the live copy in both directions, before and after the edit — 409 lines, zero differences either way. The warning at the top of the file, which exists to stop anyone deploying from this copy, is untouched. The scheduled check that watches this copy for drift could not have caught any of this: it strips comment lines before comparing, so it reports the same result whether the note is true or false.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.10",
     date: "2026-08-25",
     sections: [
