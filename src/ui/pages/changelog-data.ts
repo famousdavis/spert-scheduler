@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.13",
+    date: "2026-09-03",
+    sections: [
+      {
+        title:
+          "Development tooling only — a code-style exemption added yesterday was wider than it needed to be",
+        items: [
+          "Nothing about scheduling, simulation, storage or your data changed.",
+          "The previous release added a release-time check that runs git, and the code-style tool objects to running a program found through the system search path. That objection was switched off correctly \u2014 naming an absolute path to git would break on the machines this has to run on, and the safer form was already in use, with arguments passed as a list so a branch name can never be read as a second command.",
+          "It was switched off for every script in the project, nineteen files, when only the two shared release scripts needed it. This project's own habit for that particular objection is to name the file it applies to, and one script was already listed that way; the wide form quietly departed from it. Narrowed to the three files that actually need it.",
+          "The measured count of style findings is unchanged at three, so nothing was hidden by the wide form today. The point is that it could have hidden something tomorrow, in a script with nothing to do with releases. No accepted count was raised at any point \u2014 the agreed number has been three throughout.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.12",
     date: "2026-09-03",
     sections: [
