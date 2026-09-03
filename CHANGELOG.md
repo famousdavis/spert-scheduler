@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.64.13 — 2026-09-03
+
+Development tooling only. Nothing about scheduling, simulation, storage, or your data changed.
+
+### A code-style exemption added yesterday was wider than it needed to be
+
+The previous release added a release-time check that runs `git`, and the code-style tool objects to running a program found through the system search path. That objection was switched off — correctly, since naming an absolute path to `git` would break on the machines this has to run on, and the safer form was already in use: the arguments are passed as a list, so a branch name can never be read as a second command.
+
+It was switched off for **every** script in the project, which is nineteen files, when only the two shared release scripts needed it. This project's own habit for that particular objection is to name the file it applies to — one script was already listed that way — and the wide form quietly departed from it.
+
+Narrowed to the three files that actually need it. The measured count of style findings is unchanged at three, so nothing was hidden by the wide form today; the point is that it could have hidden something tomorrow, in a script that has nothing to do with releases.
+
+**No accepted count was raised at any point.** The agreed number of style findings for this project has been three throughout, and the release that introduced the check kept it at three.
+
 ## 0.64.12 — 2026-09-03
 
 Release tooling only. Nothing about scheduling, simulation, storage, or your data changed.
