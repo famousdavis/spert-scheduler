@@ -1,7 +1,7 @@
 {
   "name": "spert-scheduler",
   "private": true,
-  "version": "0.64.11",
+  "version": "0.64.12",
   "type": "module",
   "license": "GPL-3.0",
   "engines": {
@@ -19,6 +19,7 @@
     "mutate": "node scripts/mutation-run.mjs",
     "contract:hash": "node scripts/contract-hash.mjs src/app/api/ai-op-contract.json",
     "shipgate": "node scripts/shipgate.mjs",
+    "verify:sync": "node scripts/verify-sync.mjs",
     "bench": "vitest run --config vitest.bench.config.ts"
   },
   "dependencies": {
