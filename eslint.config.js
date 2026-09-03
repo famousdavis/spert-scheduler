@@ -67,6 +67,14 @@ export default tseslint.config(
     files: ["scripts/**/*.mjs"],
     rules: {
       "sonarjs/os-command": "off",
+      // `no-os-command-from-path` is a SEPARATE rule from `os-command` above, and
+      // needs its own entry. Added when shipgate.mjs gained the release-base check,
+      // which calls execFileSync("git", [...]) — git is resolved from PATH, which is
+      // exactly what this rule flags. An argument array is already the safer form:
+      // the branch name reaches git as one argv entry and cannot be re-parsed as a
+      // second command. Same reasoning and same placement as the line above — the
+      // exemption belongs in this repo's config, not as a directive in the shared file.
+      "sonarjs/no-os-command-from-path": "off",
     },
   },
   {

@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.12",
+    date: "2026-09-03",
+    sections: [
+      {
+        title:
+          "Release tooling only — a step in the release checklist was enforced by nothing",
+        items: [
+          "Nothing about scheduling, simulation, storage or your data changed.",
+          "After a release is merged, the local copy of the project is supposed to be brought back into line with the copy on the server. Merging advances the server; it does not touch the local copy. If the local one is left behind, every report still reads as though the release arrived everywhere, and the next release is built on the wrong starting point. That step existed only as a written instruction.",
+          "Two mechanisms that look like they should have covered it could not, and that is why it survived. The release gate runs before a release is merged, so the condition it would be checking does not exist yet. The automated checking cannot see it either, because it is a fact about the machine doing the release rather than about the project. The gap was invisible rather than merely unaddressed. This project was in exactly that state when the change was made: its local copy sat one release behind the server.",
+          "Two checks now cover the two moments. Before a release, the gate refuses to proceed if the local copy is behind the server, so a release is never cut on a stale base; being ahead is normal and is not reported. After a release, a new command compares three sources — the local copy, the local record of the server, and the server's own answer — and reports which one disagrees. Three rather than two, because the first two can be stale together and agree with each other while both are wrong.",
+          "The pre-release check deliberately does not require a clean working copy, and must not start to. It runs partway through a release, after the version and changelog edits and before they are committed, so uncommitted work is expected at that exact moment. Requiring cleanliness there would fail every release.",
+          "Both compare fingerprints rather than reading a command's own message. The step had once been reported as done from the tail of a command whose informative line had been trimmed away, and a message saying everything was already current cannot distinguish a real check with nothing to do from no check at all.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.11",
     date: "2026-08-27",
     sections: [
