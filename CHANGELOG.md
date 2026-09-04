@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.64.14 — 2026-09-03
+
+Development tooling only. Nothing about scheduling, simulation, storage, or your data changed.
+
+### A release check had been quietly skipping itself
+
+The release gate can check that a project's internal notes file declares the same version number as everything else. That check skips when the notes file is not present, which is correct on the automated build server, where the file is deliberately excluded from the repository and genuinely is not there.
+
+The same absence had a second, unrelated cause, and the check could not tell the two apart. When a release is prepared in a separate working copy — which is how these releases are normally prepared — the tooling that creates that copy leaves excluded files behind. The check saw a missing file, assumed the build-server reason, and skipped. It printed a skip line and the gate went green, so nothing looked wrong.
+
+The check now tells the two reasons apart. On the build server it skips as before. Otherwise it reads the notes file from the main working copy. If it still cannot be found, that is a failure rather than a skip, because a check that cannot run should say so instead of passing quietly.
+
+This project does not switch that check on — it declares an empty list of version patterns, so the check never runs here. The corrected script is taken because it is deliberately identical in every project in the suite, and a project keeping its own variant is how the release rules quietly drift apart.
+
 ## 0.64.13 — 2026-09-03
 
 Development tooling only. Nothing about scheduling, simulation, storage, or your data changed.
