@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.14",
+    date: "2026-09-03",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "A check in the release gate had been quietly skipping itself in exactly the situation releases are normally prepared in. It confirms that a project's internal notes file declares the same version number as everything else, and it skips when that file is not present — correct on the automated build server, where the file is deliberately excluded and genuinely absent.",
+          "The same absence had a second, unrelated cause: when a release is prepared in a separate working copy, the tooling that creates that copy leaves excluded files behind. The check saw a missing file, assumed the build-server reason, and skipped, printing a skip line while the gate went green.",
+          "The two reasons are now told apart. On the build server the check skips as before; otherwise it reads the notes file from the main working copy, and an absence that is neither is now a failure rather than a skip.",
+        ],
+      },
+      {
+        title: "Notes",
+        items: [
+          "Preventive here rather than a live fix — this project declares an empty list of version patterns, so that check never runs in it. The corrected script is taken to keep it byte-identical across the suite; four of the nine projects switch the check on and five, including this one, do not.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.13",
     date: "2026-09-03",
     sections: [
