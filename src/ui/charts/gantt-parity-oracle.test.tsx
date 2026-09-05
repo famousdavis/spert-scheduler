@@ -252,6 +252,26 @@ const LONG_SHARED = {
  */
 const GEOMETRY_ATTRS = ["x", "y", "width", "height", "x1", "y1", "x2", "y2", "d", "cx", "cy", "r", "points", "transform"];
 
+/**
+ * Attribute marking the invisible bar click targets (v0.64.15, WI-20).
+ *
+ * ⚠️ THE EXCLUSION BELOW IS THE ONLY REASON THE COMMITTED BASELINES DID NOT MOVE. Measured
+ * before it existed: adding the hit layer failed exactly two tests — the interactive
+ * geometry test (71 → 74 lines) and the long-span interactive test — both purely additive,
+ * +3 each, one line per activity, zero modified lines. Print was untouched.
+ *
+ * Excluding rather than regenerating is deliberate. A regenerated baseline ratifies a
+ * change instead of verifying it (see the header note); byte-identical baselines are
+ * positive evidence that this interaction fix moved no visible geometry, rather than an
+ * assertion that it did not.
+ *
+ * ⚠️ The skip matches THIS ATTRIBUTE AND NOTHING ELSE — no tag, class or shape heuristic —
+ * so it cannot quietly swallow a real element that happens to resemble a hit rect. The
+ * test below pins the excluded count to the bar count and forbids zero: an exclusion that
+ * excludes nothing hides nothing while still looking like it works.
+ */
+const HIT_LAYER_ATTR = "data-hit-layer";
+
 function serializeGeometry(container: HTMLElement): string[] {
   const svg = container.querySelector("svg[data-gantt-chart]");
   if (!svg) return ["NO SVG"];
@@ -261,6 +281,7 @@ function serializeGeometry(container: HTMLElement): string[] {
   ];
 
   for (const el of Array.from(svg.querySelectorAll("*"))) {
+    if (el.hasAttribute(HIT_LAYER_ATTR)) continue;
     const attrs = GEOMETRY_ATTRS.filter((a) => el.hasAttribute(a))
       .map((a) => `${a}=${el.getAttribute(a)}`)
       .join(" ");
@@ -270,6 +291,16 @@ function serializeGeometry(container: HTMLElement): string[] {
   return out;
 }
 
+/**
+ * ⚠️ `onEditActivity` is supplied so the bar HIT LAYER renders. It is UI state, not
+ * layout — the layer is excluded from the serialised geometry (see HIT_LAYER_ATTR) and
+ * the only other thing the prop reaches is a `cursor-pointer` class, which was never
+ * serialised. The committed baselines are unchanged by its presence, which is the point.
+ *
+ * It was NOT here originally, and the non-vacuity assertion above caught that on its
+ * first run: the exclusion was excluding nothing, and every geometry comparison still
+ * passed. That is the failure mode the assertion exists for.
+ */
 function renderInteractive() {
   return render(
     <GanttChart
@@ -277,6 +308,7 @@ function renderInteractive() {
       resolvedAppearance={APPEARANCE}
       appearancePanelOpen={false}
       onToggleAppearancePanel={() => {}}
+      onEditActivity={() => {}}
     />,
   );
 }
@@ -299,6 +331,7 @@ function renderLongInteractive() {
       resolvedAppearance={resolveGanttAppearance(undefined, false)}
       appearancePanelOpen={false}
       onToggleAppearancePanel={() => {}}
+      onEditActivity={() => {}}
     />,
   );
 }
@@ -347,6 +380,38 @@ describe("gantt parity oracle — the contract itself", () => {
   it("records the frozen render date it was captured at", () => {
     // If this drifts from FROZEN_NOW the recorded geometry describes a different day.
     expect(oracle.frozenNow).toBe(FROZEN_NOW);
+  });
+
+  it("the hit layer is excluded, and the exclusion covers exactly one rect per bar", () => {
+    // ⚠️ NON-VACUITY, both directions. A zero here would mean the marker attribute never
+    // applied — the exclusion would be excluding nothing while every geometry comparison
+    // below still passed, which is precisely the shape of a guard that has been muted.
+    // Pinning it to the bar count also stops the skip growing to cover anything else.
+    const { container } = renderInteractive();
+    const svg = container.querySelector("svg[data-gantt-chart]")!;
+
+    const hits = svg.querySelectorAll(`[${HIT_LAYER_ATTR}]`);
+    expect(hits.length, "hit layer never rendered — exclusion is vacuous").toBeGreaterThan(0);
+    expect(hits.length).toBe(ACTIVITIES.length);
+
+    // ⚠️ Stated as "the serialisation does not change when the layer is removed", NOT as
+    // "no line matches a hit rect". The first draft asserted the latter and failed: for
+    // any bar at or above MIN_BAR_HIT_WIDTH the hit rect's x/y/width/height are IDENTICAL
+    // to the bar's by construction, so a line-absence check can never pass and could
+    // never have distinguished the two. This form compares the whole array against the
+    // same DOM with the hit layer physically detached, which no coincidence can satisfy.
+    const withLayer = serializeGeometry(container);
+    for (const hit of Array.from(hits)) hit.remove();
+    expect(withLayer, "the hit layer changed the serialised geometry").toEqual(
+      serializeGeometry(container),
+    );
+  });
+
+  it("the PRINT chart renders no hit layer at all", () => {
+    // The hit layer is an interaction affordance; print has no pointer. If one ever
+    // appeared there, the print baseline would be silently excluding it too.
+    const { container } = renderPrint();
+    expect(container.querySelectorAll(`[${HIT_LAYER_ATTR}]`)).toHaveLength(0);
   });
 
   it("holds a non-trivial amount of geometry for each chart", () => {

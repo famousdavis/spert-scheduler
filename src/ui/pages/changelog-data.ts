@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.15",
+    date: "2026-09-05",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "In Dependency Mode, clicking an activity's bar on the Gantt chart often opened the Edit Dependency dialog instead of the activity — sometimes in the middle of the bar, not just near its edge. Dependency arrows carry an invisible wider band so they are easy to click, and that band sat on top of the bars; arrows travelling between distant rows pass over bars in transit, so the more dependencies a schedule has, the more of each bar was covered. On the sample project, 14 of the 15 bars visible at once had part of their surface taken this way, the worst of them 78%.",
+          "Bars now take the click wherever a bar and an arrow overlap. Arrows are unchanged everywhere else: clicking one in open space still opens the Edit Dependency dialog, including where an arrow crosses the hatched uncertainty extension.",
+          "An activity of a day or two draws a bar only a few pixels wide, which was effectively impossible to hit — a one-day bar could not be clicked anywhere along its middle. Bars narrower than 14 pixels now get an invisible click target of that width, centred on the bar; wider bars are unchanged, so the hatched uncertainty extension beside them stays unclickable as before.",
+          "Hovering directly over a bar previously showed no tooltip at all, and hovering a point where an arrow crossed a bar showed the dependency's tooltip. Hovering a bar now shows that activity's own name, dates and float, and no longer highlights an arrow underneath it.",
+        ],
+      },
+      {
+        title: "Notes",
+        items: [
+          "Nothing about scheduling, simulation, storage, or your data changed, and the chart is drawn exactly as before — this affects only what the mouse lands on. Locked scenarios are unchanged: the Gantt chart opens neither dialog in them. The printed report is unaffected.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.14",
     date: "2026-09-03",
     sections: [

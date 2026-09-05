@@ -13,6 +13,15 @@ export const ROW_HEIGHT = 32;
 export const BAR_HEIGHT = 22;
 export const BAR_Y_OFFSET = (ROW_HEIGHT - BAR_HEIGHT) / 2;
 export const BAR_RADIUS = 4;
+/**
+ * Minimum width of a bar's invisible click target, in px.
+ *
+ * Bars floor at 4px (`computeActivityRowGeometry`), and a 4px target is not reachable —
+ * measured 2026-09-05, a 1-day activity's bar was 100% unclickable at its vertical centre.
+ * The hit rect widens to this value ONLY when the bar is narrower than it; at or above it
+ * the rect matches the bar exactly, so the hatched uncertainty extension stays inert.
+ */
+export const MIN_BAR_HIT_WIDTH = 14;
 export const MIN_CHART_WIDTH = 900;
 export const ARROW_HEAD_SIZE = 10;
 export const MIN_TICK_SPACING_PX = 70;

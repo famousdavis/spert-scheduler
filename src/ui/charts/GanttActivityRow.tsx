@@ -5,7 +5,7 @@
 import type { Activity, ScheduledActivity } from "@domain/models/types";
 import { BAR_RADIUS } from "./gantt-constants";
 import type { ResolvedGanttAppearance } from "./gantt-constants";
-import type { ActivityRowGeometry } from "./gantt-utils";
+import { buildActivityTooltip, type ActivityRowGeometry } from "./gantt-utils";
 
 export interface EditTarget {
   kind: "activity" | "band";
@@ -81,18 +81,18 @@ export function GanttActivityRow({
                   width={chartWidth}
                   height={ra.rowHeight}
                   fill="transparent"
-                  onMouseEnter={(e) => {
-                    const tooltipName = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
-                    let text: string;
-                    if (dependencyMode && sa.totalFloat != null) {
-                      const floatLabel = sa.totalFloat === 0 ? "Critical path" : `${sa.totalFloat}d`;
-                      const freeFloatLabel = sa.freeFloat != null && sa.freeFloat < sa.totalFloat ? `\nFree Float: ${sa.freeFloat}d` : "";
-                      text = `${tooltipName}\n${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)\nTotal Float: ${floatLabel}${freeFloatLabel}`;
-                    } else {
-                      text = `${tooltipName}: ${formatDate(sa.startDate)} – ${formatDate(sa.endDate)} (${sa.duration}d)`;
-                    }
-                    scheduleTooltip(e.clientX, e.clientY, text);
-                  }}
+                  onMouseEnter={(e) =>
+                    scheduleTooltip(
+                      e.clientX,
+                      e.clientY,
+                      buildActivityTooltip({
+                        name: act.name, activityId: act.id, activityIndexMap,
+                        startDate: sa.startDate, endDate: sa.endDate, duration: sa.duration,
+                        totalFloat: sa.totalFloat, freeFloat: sa.freeFloat,
+                        dependencyMode, formatDate,
+                      }),
+                    )
+                  }
                   onMouseMove={(e) => moveTooltip(e.clientX, e.clientY)}
                   onMouseLeave={hideTooltip}
                 />

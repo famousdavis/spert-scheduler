@@ -27,12 +27,13 @@ import { useGanttPreferences } from "@ui/hooks/use-gantt-preferences";
 import { useGanttLayout } from "@ui/hooks/use-gantt-layout";
 import type { ResolvedGanttAppearance } from "./gantt-constants";
 import {
-  BAR_RADIUS,
+  BAR_RADIUS, MIN_BAR_HIT_WIDTH,
   ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT, RIGHT_MARGIN,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
 } from "./gantt-constants";
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
+  computeBarHitRect, buildActivityTooltip,
   barLabelText as computeBarLabelText,
 } from "./gantt-utils";
 import { GanttActivityRow } from "./GanttActivityRow";
@@ -597,6 +598,38 @@ export function GanttChart({
     [ra.barLabel, formatDateShort],
   );
 
+  /**
+   * Per-activity row geometry, computed once and consumed by BOTH the visible row pass
+   * and the bar hit-area pass that follows the dependency arrows.
+   *
+   * ⚠️ Shared rather than computed twice ON PURPOSE. The hit rect's whole job is to cover
+   * exactly the bar beneath it; two parallel computations agreeing is a weaker guarantee
+   * than one value used twice.
+   *
+   * ⚠️ NOT memoized, also on purpose. A stale dependency array here would desynchronise
+   * the hit layer from the bars it covers — a defect that renders correctly on first paint
+   * and so cannot be caught by the single-render jsdom harness. The identical work already
+   * happened inline in the row pass on every render; this moves it, it does not add it.
+   */
+  const activityRowGeoms = renderItems.map((item, idx) => {
+    if (item.kind !== "activity") return null;
+    const act = item.activity;
+    const sa = scheduleMap.get(act.id);
+    if (!sa) return null;
+    return {
+      act,
+      sa,
+      geo: computeActivityRowGeometry({
+        idx, startDate: sa.startDate, endDate: sa.endDate, status: act.status,
+        topMargin, rowHeight: ra.rowHeight, barYOffset, leftMargin: ra.leftMargin,
+        minTimestamp, dateRange, chartAreaWidth,
+        barPlanned: ra.barPlanned, barComplete: ra.barComplete, barInProgress: ra.barInProgress,
+        viewMode, hatchedDays: uncertaintyMap.get(act.id)?.hatchedDays,
+        extEndDate: activityExtendedEndDates.get(act.id),
+      }),
+    };
+  });
+
   if (activities.length === 0) {
     return (
       <p className="text-sm text-gray-400 dark:text-gray-500 italic">
@@ -950,22 +983,14 @@ export function GanttChart({
             );
           })}
 
-          {/* Pass 2 — Activity rows. Iterates the full renderItems list so `idx`
-              gives the correct slot-based Y; bands are skipped here (already
-              rendered in Pass 1 above, before the dependency arrows). */}
-          {renderItems.map((item, idx) => {
-            if (item.kind !== "activity") return null;
-            const act = item.activity;
-            const sa = scheduleMap.get(act.id);
-            if (!sa) return null;
-            const geo = computeActivityRowGeometry({
-              idx, startDate: sa.startDate, endDate: sa.endDate, status: act.status,
-              topMargin, rowHeight: ra.rowHeight, barYOffset, leftMargin: ra.leftMargin,
-              minTimestamp, dateRange, chartAreaWidth,
-              barPlanned: ra.barPlanned, barComplete: ra.barComplete, barInProgress: ra.barInProgress,
-              viewMode, hatchedDays: uncertaintyMap.get(act.id)?.hatchedDays,
-              extEndDate: activityExtendedEndDates.get(act.id),
-            });
+          {/* Pass 2 — Activity rows. Renders `activityRowGeoms`, which was built from the
+              full renderItems list so `idx` gives the correct slot-based Y; bands are
+              null there and were already rendered in Pass 1, before the dependency
+              arrows. (The iteration itself moved to `activityRowGeoms` so the bar hit
+              layer below can consume the same geometry.) */}
+          {activityRowGeoms.map((row) => {
+            if (!row) return null;
+            const { act, sa, geo } = row;
             return (
               <GanttActivityRow
                 key={act.id}
@@ -1097,6 +1122,50 @@ export function GanttChart({
               : undefined}
             />
           ))}
+
+          {/* Activity bar hit areas — the LAST children of the svg, so a bar wins the
+              click and the hover anywhere a dependency arrow crosses it. Arrows keep both
+              everywhere else, because this layer is only as wide as the bars.
+
+              ⚠️ Carries the row's tooltip because it is a SIBLING of the row background,
+              not a descendant: `onMouseEnter` there does not fire while the pointer is
+              over this rect. Same text, one builder, so the two cannot drift.
+
+              ⚠️ Excluded from gantt-parity-oracle by `data-hit-layer`, which is why the
+              committed geometry baselines stay byte-identical through this change. The
+              oracle asserts the exclusion matches one rect per bar and never zero. */}
+          {!isLocked && onEditActivity && activityRowGeoms.map((row) => {
+            if (!row) return null;
+            const { act, sa, geo } = row;
+            const hit = computeBarHitRect(geo.barX, geo.barWidth, MIN_BAR_HIT_WIDTH);
+            return (
+              <rect
+                key={`bar-hit-${act.id}`}
+                data-hit-layer="bar"
+                x={hit.x}
+                y={geo.barY}
+                width={hit.width}
+                height={ra.barHeight}
+                fill="transparent"
+                className="cursor-pointer"
+                onClick={() => onEditActivity(act.id)}
+                onMouseEnter={(e) =>
+                  scheduleTooltip(
+                    e.clientX,
+                    e.clientY,
+                    buildActivityTooltip({
+                      name: act.name, activityId: act.id, activityIndexMap,
+                      startDate: sa.startDate, endDate: sa.endDate, duration: sa.duration,
+                      totalFloat: sa.totalFloat, freeFloat: sa.freeFloat,
+                      dependencyMode, formatDate,
+                    }),
+                  )
+                }
+                onMouseMove={(e) => moveTooltip(e.clientX, e.clientY)}
+                onMouseLeave={hideTooltip}
+              />
+            );
+          })}
 
         </svg>
 
