@@ -7,16 +7,16 @@ import { APP_VERSION } from "@app/constants";
 export function AboutPage() {
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
         About SPERT<span className="text-gray-300 text-xs align-super">®</span> Scheduler
       </h1>
-      <p className="mt-1 italic text-gray-500">
+      <p className="mt-1 italic text-gray-500 dark:text-gray-400">
         Probabilistic project scheduling tool
       </p>
 
-      <div className="mt-8 space-y-8 text-sm leading-relaxed text-gray-600">
+      <div className="mt-8 space-y-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
             What is SPERT<span className="text-gray-300 text-[10px] align-super">®</span> Scheduler?
           </h2>
           <p className="mt-2">
@@ -34,7 +34,7 @@ export function AboutPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
             Quick Reference Guide
           </h2>
           <p className="mt-2">
@@ -52,7 +52,7 @@ export function AboutPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
             Connect AI Guide
           </h2>
           <p className="mt-2">
@@ -71,7 +71,7 @@ export function AboutPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">How It Works</h2>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">How It Works</h2>
           <ul className="mt-2 list-disc space-y-1 pl-6">
             <li>
               Enter three-point estimates (optimistic, most likely, pessimistic)
@@ -106,7 +106,7 @@ export function AboutPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
             Your Data &amp; Privacy
           </h2>
           <p className="mt-2">
@@ -125,7 +125,7 @@ export function AboutPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
             Author &amp; Source Code
           </h2>
           <p className="mt-2">
@@ -142,19 +142,19 @@ export function AboutPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">Version</h2>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Version</h2>
           <p className="mt-2">v{APP_VERSION}</p>
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">License</h2>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">License</h2>
           <p className="mt-2">
             SPERT Scheduler is licensed under the{" "}
             <a
               href="https://github.com/famousdavis/spert-scheduler/blob/main/LICENSE"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 dark:text-blue-400 hover:underline"
             >
               GNU General Public License v3
             </a>
@@ -170,11 +170,11 @@ export function AboutPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-blue-600">
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
             No Warranty Disclaimer
           </h2>
           <p
-            className="mt-2 uppercase text-gray-500"
+            className="mt-2 uppercase text-gray-500 dark:text-gray-400"
             style={{ fontSize: "0.7rem", lineHeight: 1.6 }}
           >
             THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY

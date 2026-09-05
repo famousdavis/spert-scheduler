@@ -43,17 +43,17 @@ export function ValidationSummary({ activities }: ValidationSummaryProps) {
   };
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1.5">
-      <p className="text-sm font-medium text-amber-800">
+    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 space-y-1.5">
+      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
         {errors.length} activit{errors.length === 1 ? "y has" : "ies have"}{" "}
         validation errors
       </p>
       <ul className="space-y-1">
         {errors.map((err) => (
-          <li key={err.activityId} className="text-sm text-amber-700">
+          <li key={err.activityId} className="text-sm text-amber-700 dark:text-amber-300">
             <button
               onClick={() => scrollToActivity(err.activityId)}
-              className="text-amber-800 font-medium hover:underline"
+              className="text-amber-800 dark:text-amber-200 font-medium hover:underline"
             >
               {err.activityName}
             </button>

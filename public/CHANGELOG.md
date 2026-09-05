@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.66.1 — 2026-09-05
+
+### Dark mode reaches the pages and dialogs it had missed
+
+In dark mode the About and Changelog pages were largely unreadable: their headings were drawn in the same near-black as the page behind them, and their body text was too faint to read comfortably. Both pages now use the same light-on-dark treatment as the rest of the app.
+
+Hovering a project or scenario name to rename it painted a pale highlight behind text that was already pale, so the name disappeared under the cursor. The highlight now darkens in dark mode instead.
+
+The New Project, Clone Scenario and Add Scenario dialogs stayed white in dark mode. They now match the rest of the app, as does the amber validation notice above the activity grid, the scenario comparison panel's frame, and the Compare button.
+
+### Dialogs now dim the whole page, including the header
+
+Opening those three dialogs dimmed the page but left the top navigation bar at full brightness, and the bar could overlap the dialog itself. All three now sit above the header, matching every other dialog in the app.
+
+### Notes
+
+Appearance only. Nothing about scheduling, simulation, storage, or your data changed. The comparison table and distribution chart stay on a white background on purpose, so that copying either as an image produces a picture you can paste into a light document. The printed report is unaffected and stays light.
+
 ## 0.66.0 — 2026-09-05
 
 ### A milestone without a name no longer stops a project from opening

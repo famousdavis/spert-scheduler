@@ -22,14 +22,14 @@ export function ChangelogPage() {
       <div className="mb-8">
         <Link
           to="/projects"
-          className="text-sm text-blue-600 hover:text-blue-700"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
         >
           &larr; Back to Projects
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900">Changelog</h1>
-      <p className="mt-2 text-sm text-gray-500">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Changelog</h1>
+      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
         Current version: {APP_VERSION}
       </p>
 
@@ -39,12 +39,12 @@ export function ChangelogPage() {
             key={entry.version}
             className={`pb-8 ${
               i < CHANGELOG.length - 1
-                ? "border-b border-gray-200"
+                ? "border-b border-gray-200 dark:border-gray-700"
                 : ""
             }`}
           >
             <div className="flex items-baseline gap-3">
-              <h2 className="text-lg font-semibold text-blue-600">
+              <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                 v{entry.version}
               </h2>
               <span className="text-sm text-gray-400">
@@ -55,10 +55,10 @@ export function ChangelogPage() {
             <div className="mt-4 space-y-4">
               {entry.sections.map((section) => (
                 <div key={section.title}>
-                  <h3 className="font-medium text-gray-900">
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">
                     {section.title}
                   </h3>
-                  <ul className="mt-1 list-disc space-y-1 pl-6 text-sm text-gray-600">
+                  <ul className="mt-1 list-disc space-y-1 pl-6 text-sm text-gray-600 dark:text-gray-300">
                     {section.items.map((item, j) => (
                       <li key={j}>{item}</li>
                     ))}

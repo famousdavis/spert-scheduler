@@ -680,8 +680,8 @@ export function ProjectPage() {
             onClick={handleToggleCompareMode}
             className={`px-3 py-1.5 text-sm rounded transition-colors shrink-0 ${
               compareMode
-                ? "bg-blue-100 text-blue-700 font-medium"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}
           >
             {compareMode ? "Exit Compare" : "Compare"}

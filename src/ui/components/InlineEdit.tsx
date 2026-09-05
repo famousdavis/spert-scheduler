@@ -112,7 +112,7 @@ export function InlineEdit({
   return (
     <span
       onClick={() => setIsEditing(true)}
-      className={`cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5 transition-colors ${className}`}
+      className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 py-0.5 transition-colors ${className}`}
       title="Click to edit"
     >
       {value || placeholder}
