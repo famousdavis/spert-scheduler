@@ -48,6 +48,23 @@ input[type="number"] {
   animation: slide-in 0.2s ease-out;
 }
 
+/* Auth chip "Sign in" accent.
+   ⚠️ This lives here rather than as a `dark:` class because the colour was an INLINE
+   STYLE, and an inline style beats every Tailwind variant — a `dark:text-*` on that span
+   emitted CSS that never applied. See the Tailwind 4 JIT guardrail in CLAUDE.md.
+   Light keeps #0070f3 exactly: it measures 4.55 against the white header, a pass with
+   only 0.05 of headroom, and the same hex is a BACKGROUND under white text on the two
+   avatars (AuthButton, StorageLoginModal) where it also measures 4.55 — so moving the
+   light value would trade one pass for another's failure.
+   Dark was 3.22 against the gray-800 header, under the 4.5 bar; blue-400 clears it. */
+.auth-signin-accent {
+  color: #0070f3;
+}
+
+.dark .auth-signin-accent {
+  color: #60a5fa;
+}
+
 /* Print styles */
 @media print {
   /* Hide non-printable UI elements */

@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.66.2",
+    date: "2026-09-05",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The small chip at the top right of every page — the one showing \"Local only\" and \"Sign in\", or your name once you are signed in — had text that was too faint to meet the accessibility standard for contrast.",
+          "It was faint in both themes, but on different words: \"Sign in\" was hard to read in dark mode, while \"Local only\" and the small padlock were hard to read in light mode, which is the one most people use. All three are now darker or lighter as the theme requires.",
+          "Nothing about the chip moved, resized or changed colour family — \"Sign in\" is still blue, the padlock is still grey — and your name, the round avatar and the cloud icon were already readable and are untouched.",
+        ],
+      },
+      {
+        title: "Notes",
+        items: [
+          "Appearance only. Nothing about scheduling, simulation, storage, your data or signing in changed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.66.1",
     date: "2026-09-05",
     sections: [
