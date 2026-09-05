@@ -29,7 +29,15 @@ import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
 import { BandHeaderRow } from "./BandHeaderRow";
 import { BulkActionToolbar } from "./BulkActionToolbar";
-import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
+import {
+  GRID_COLUMNS,
+  GRID_COLUMNS_WITH_CONSTRAINT,
+  GRID_COLUMN_LIST,
+  GRID_COLUMN_LIST_WITH_CONSTRAINT,
+  NAME_COLUMN_MIN_PX,
+  NAME_COLUMN_MIN_WITH_IDS_PX,
+  gridMinWidthPx,
+} from "./grid-columns";
 import { shouldShowConstraintColumn, planBulkApply } from "./unified-activity-helpers";
 import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
 import { useGridFocus, useGridSelection } from "@ui/hooks/use-grid-state";
@@ -94,6 +102,13 @@ export function UnifiedActivityGrid({
 }: UnifiedActivityGridProps) {
   const showConstraintColumn = shouldShowConstraintColumn(dependencyMode, activities);
   const gridCols = showConstraintColumn ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
+  // WI-8: the width every container is held to, so `1fr` cannot resolve differently in
+  // each of them. `activityNumberMap` is the only source of the `#N` label, so its
+  // presence is exactly the condition under which the name column needs the wider floor.
+  const gridMinWidth = gridMinWidthPx(
+    showConstraintColumn ? GRID_COLUMN_LIST_WITH_CONSTRAINT : GRID_COLUMN_LIST,
+    activityNumberMap ? NAME_COLUMN_MIN_WITH_IDS_PX : NAME_COLUMN_MIN_PX
+  );
   const [, setInvalidIds] = useState<Set<string>>(new Set());
   // Global drag suppression for the insert-strip overlay. Wired through
   // DndContext callbacks below. `useDndContext()` can't be used here because
@@ -264,184 +279,196 @@ export function UnifiedActivityGrid({
         />
       )}
 
-      {/* Header row */}
-      <div
-        className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
-        style={{
-          gridTemplateColumns: gridCols,
-        }}
-      >
-        <div className="flex items-center justify-center">
-          <input
-            type="checkbox"
-            name="selectAllActivities"
-            aria-label="Select all activities"
-            checked={
-              activities.length > 0 && selectedIds.size === activities.length
-            }
-            onChange={toggleSelectAll}
-            className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
-            tabIndex={-1}
-          />
-        </div>
-        <div />
-        <div className="px-1.5">Name</div>
-        <div className="text-right px-1">Dur.</div>
-        <div className="px-1">Start</div>
-        <div className="px-1">End</div>
-        {showConstraintColumn && <div className="px-1">Constraint</div>}
-        <div className="text-right px-1.5">Min</div>
-        <div className="text-right px-1.5">ML</div>
-        <div className="text-right px-1.5">Max</div>
-        <div className="px-1">Distribution</div>
-        <div className="px-1">Confidence</div>
-        <div className="px-1">Status</div>
-        <div className="px-1 text-center" title="Working days elapsed (In Progress) or total (Complete)">Actual</div>
-        {/* Separator */}
-        <div />
-        <div className="text-center">
-          <span title="Source of duration estimate">Src</span>
-        </div>
-        <div />
-      </div>
-
-      {/* Subheader labels */}
-      <div
-        className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-[9px] text-gray-400 dark:text-gray-500"
-        style={{
-          gridTemplateColumns: gridCols,
-        }}
-      >
-        <div />
-        <div />
-        <div />
-        <div className="text-right px-1 text-gray-400 dark:text-gray-500">
-          P{targetPct}
-        </div>
-        <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
-        <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
-        {showConstraintColumn && <div />}
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
-      </div>
-
-      {/* Activity rows */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={() => setIsAnyDragging(true)}
-        onDragEnd={(e) => {
-          setIsAnyDragging(false);
-          handleDragEnd(e);
-        }}
-        onDragCancel={() => setIsAnyDragging(false)}
-      >
-        <SortableContext
-          items={sortableIds}
-          strategy={verticalListSortingStrategy}
-        >
-          {renderItems.map((item, idx) => {
-            const isLastRow = idx === renderItems.length - 1;
-            if (item.kind === "activity") {
-              const activity = item.activity;
-              return (
-                <UnifiedActivityRow
-                  key={activity.id}
-                  activity={activity}
-                  activityNumber={activityNumberMap?.get(activity.id)}
-                  scheduledActivity={scheduleMap.get(activity.id)}
-                  activityProbabilityTarget={activityProbabilityTarget}
-                  autoFocusName={activity.id === focusActivityId}
-                  isSelected={selectedIds.has(activity.id)}
-                  onToggleSelect={toggleSelect}
-                  onUpdate={onUpdate}
-                  onDelete={onDelete}
-                  onValidityChange={handleValidityChange}
-                  isLocked={isScenarioLocked}
-                  heuristicEnabled={heuristicEnabled}
-                  heuristicMinPercent={heuristicMinPercent}
-                  heuristicMaxPercent={heuristicMaxPercent}
-                  calendar={calendar}
-                  showConstraintColumn={showConstraintColumn}
-                  onEditActivity={onEditActivity}
-                  hasConstraintWarning={constraintWarningIds?.has(activity.id)}
-                  onInsertAfterActivity={
-                    isScenarioLocked
-                      ? undefined
-                      : () => handleInsertAfterActivity(activity.id)
-                  }
-                  isLastRow={isLastRow}
-                  isAnyDragging={isAnyDragging}
-                />
-              );
-            }
-            return (
-              <BandHeaderRow
-                key={item.band.id}
-                band={item.band}
-                locked={!!isScenarioLocked}
-                showConstraintColumn={showConstraintColumn}
-                onUpdate={onUpdateBand}
-                onDelete={onDeleteBand}
-                autoFocus={item.band.id === focusBandId}
-                onInsertAfterBand={
-                  isScenarioLocked
-                    ? undefined
-                    : () => handleInsertAfterBand(item.band.id)
+      {/* WI-8 — one scroll container around every grid.
+          The five containers share a column template *string*, not a layout: `1fr` is
+          `minmax(auto, 1fr)` and resolves per container against that container's own
+          content, so below a certain width they floor at different values and the
+          columns drift apart. Holding them all to one enforced width removes the
+          disagreement, and scrolling replaces the clipping that used to hide Status,
+          Actual and Src with no affordance.
+          The toolbar and the Add buttons stay outside: they are not column-aligned. */}
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: gridMinWidth }}>
+          {/* Header row */}
+          <div
+            className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+            style={{
+              gridTemplateColumns: gridCols,
+            }}
+          >
+            <div className="flex items-center justify-center">
+              <input
+                type="checkbox"
+                name="selectAllActivities"
+                aria-label="Select all activities"
+                checked={
+                  activities.length > 0 && selectedIds.size === activities.length
                 }
-                isLastRow={isLastRow}
-                isAnyDragging={isAnyDragging}
+                onChange={toggleSelectAll}
+                className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
+                tabIndex={-1}
               />
-            );
-          })}
-        </SortableContext>
-      </DndContext>
-
-      {activities.length === 0 && (
-        <p className="text-gray-400 dark:text-gray-500 text-sm text-center py-8">
-          No activities yet. Add one to get started.
-        </p>
-      )}
-
-      {/* Summary row */}
-      {activities.length > 0 && (
-        <div
-          className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300"
-          style={{
-            gridTemplateColumns: gridCols,
-          }}
-        >
-          <div />
-          <div />
-          <div className="px-1.5 text-gray-500 dark:text-gray-400">
-            {summary.count} activit{summary.count === 1 ? "y" : "ies"}
+            </div>
+            <div />
+            <div className="px-1.5">Name</div>
+            <div className="text-right px-1">Dur.</div>
+            <div className="px-1">Start</div>
+            <div className="px-1">End</div>
+            {showConstraintColumn && <div className="px-1">Constraint</div>}
+            <div className="text-right px-1.5">Min</div>
+            <div className="text-right px-1.5">ML</div>
+            <div className="text-right px-1.5">Max</div>
+            <div className="px-1">Distribution</div>
+            <div className="px-1">Confidence</div>
+            <div className="px-1">Status</div>
+            <div className="px-1 text-center" title="Working days elapsed (In Progress) or total (Complete)">Actual</div>
+            {/* Separator */}
+            <div />
+            <div className="text-center">
+              <span title="Source of duration estimate">Src</span>
+            </div>
+            <div />
           </div>
-          <div className="text-right tabular-nums px-1">
-            {summary.totalScheduled > 0 ? `${summary.totalScheduled}d` : ""}
+
+          {/* Subheader labels */}
+          <div
+            className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-[9px] text-gray-400 dark:text-gray-500"
+            style={{
+              gridTemplateColumns: gridCols,
+            }}
+          >
+            <div />
+            <div />
+            <div />
+            <div className="text-right px-1 text-gray-400 dark:text-gray-500">
+              P{targetPct}
+            </div>
+            <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
+            <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
+            {showConstraintColumn && <div />}
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
           </div>
-          <div />
-          <div />
-          {showConstraintColumn && <div />}
-          <div className="text-right tabular-nums px-1">{summary.totalMin}</div>
-          <div className="text-right tabular-nums px-1">{summary.totalML}</div>
-          <div className="text-right tabular-nums px-1">{summary.totalMax}</div>
-          <div />
-          <div />
-          <div />
-          <div />
-          <div />
-          <div />
-          <div />
+
+          {/* Activity rows */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={() => setIsAnyDragging(true)}
+            onDragEnd={(e) => {
+              setIsAnyDragging(false);
+              handleDragEnd(e);
+            }}
+            onDragCancel={() => setIsAnyDragging(false)}
+          >
+            <SortableContext
+              items={sortableIds}
+              strategy={verticalListSortingStrategy}
+            >
+              {renderItems.map((item, idx) => {
+                const isLastRow = idx === renderItems.length - 1;
+                if (item.kind === "activity") {
+                  const activity = item.activity;
+                  return (
+                    <UnifiedActivityRow
+                      key={activity.id}
+                      activity={activity}
+                      activityNumber={activityNumberMap?.get(activity.id)}
+                      scheduledActivity={scheduleMap.get(activity.id)}
+                      activityProbabilityTarget={activityProbabilityTarget}
+                      autoFocusName={activity.id === focusActivityId}
+                      isSelected={selectedIds.has(activity.id)}
+                      onToggleSelect={toggleSelect}
+                      onUpdate={onUpdate}
+                      onDelete={onDelete}
+                      onValidityChange={handleValidityChange}
+                      isLocked={isScenarioLocked}
+                      heuristicEnabled={heuristicEnabled}
+                      heuristicMinPercent={heuristicMinPercent}
+                      heuristicMaxPercent={heuristicMaxPercent}
+                      calendar={calendar}
+                      showConstraintColumn={showConstraintColumn}
+                      onEditActivity={onEditActivity}
+                      hasConstraintWarning={constraintWarningIds?.has(activity.id)}
+                      onInsertAfterActivity={
+                        isScenarioLocked
+                          ? undefined
+                          : () => handleInsertAfterActivity(activity.id)
+                      }
+                      isLastRow={isLastRow}
+                      isAnyDragging={isAnyDragging}
+                    />
+                  );
+                }
+                return (
+                  <BandHeaderRow
+                    key={item.band.id}
+                    band={item.band}
+                    locked={!!isScenarioLocked}
+                    showConstraintColumn={showConstraintColumn}
+                    onUpdate={onUpdateBand}
+                    onDelete={onDeleteBand}
+                    autoFocus={item.band.id === focusBandId}
+                    onInsertAfterBand={
+                      isScenarioLocked
+                        ? undefined
+                        : () => handleInsertAfterBand(item.band.id)
+                    }
+                    isLastRow={isLastRow}
+                    isAnyDragging={isAnyDragging}
+                  />
+                );
+              })}
+            </SortableContext>
+          </DndContext>
+
+          {activities.length === 0 && (
+            <p className="text-gray-400 dark:text-gray-500 text-sm text-center py-8">
+              No activities yet. Add one to get started.
+            </p>
+          )}
+
+          {/* Summary row */}
+          {activities.length > 0 && (
+            <div
+              className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300"
+              style={{
+                gridTemplateColumns: gridCols,
+              }}
+            >
+              <div />
+              <div />
+              <div className="px-1.5 text-gray-500 dark:text-gray-400">
+                {summary.count} activit{summary.count === 1 ? "y" : "ies"}
+              </div>
+              <div className="text-right tabular-nums px-1">
+                {summary.totalScheduled > 0 ? `${summary.totalScheduled}d` : ""}
+              </div>
+              <div />
+              <div />
+              {showConstraintColumn && <div />}
+              <div className="text-right tabular-nums px-1">{summary.totalMin}</div>
+              <div className="text-right tabular-nums px-1">{summary.totalML}</div>
+              <div className="text-right tabular-nums px-1">{summary.totalMax}</div>
+              <div />
+              <div />
+              <div />
+              <div />
+              <div />
+              <div />
+              <div />
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Add buttons */}
       <div className="p-2 flex gap-2">

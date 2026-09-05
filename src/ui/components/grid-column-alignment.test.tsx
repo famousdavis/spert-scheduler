@@ -5,7 +5,15 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
 import { UnifiedActivityGrid } from "./UnifiedActivityGrid";
-import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
+import {
+  GRID_COLUMNS,
+  GRID_COLUMNS_WITH_CONSTRAINT,
+  GRID_COLUMN_LIST,
+  GRID_COLUMN_LIST_WITH_CONSTRAINT,
+  NAME_COLUMN_MIN_PX,
+  NAME_COLUMN_MIN_WITH_IDS_PX,
+  gridMinWidthPx,
+} from "./grid-columns";
 import { createScenario, createActivity } from "@app/api/project-service";
 import type { Activity } from "@domain/models/types";
 
@@ -76,7 +84,11 @@ function activityFixture(): Activity {
   return { ...createActivity("Design", settings), status: "inProgress", actualDuration: 3 };
 }
 
-function renderGrid(activities: Activity[], dependencyMode = false) {
+function renderGrid(
+  activities: Activity[],
+  dependencyMode = false,
+  activityNumberMap: Map<string, number> | null = null,
+) {
   render(
     <UnifiedActivityGrid
       activities={activities}
@@ -92,6 +104,7 @@ function renderGrid(activities: Activity[], dependencyMode = false) {
       onReorderWithBands={vi.fn()}
       onValidityChange={vi.fn()}
       dependencyMode={dependencyMode}
+      activityNumberMap={activityNumberMap}
     />,
   );
   // Every grid container carries the shared template inline.
@@ -186,5 +199,75 @@ describe("G1 — header labels sit above the cells they name", () => {
         ).not.toBeNull();
       }
     }
+  });
+});
+
+/**
+ * **G5 — the containers share ONE enforced width (WI-8).**
+ *
+ * G1 and G2 are blind to this by construction, and so is jsdom: `1fr` resolving
+ * differently per container is a *layout* fact, and jsdom has no layout (R32). WI-8's
+ * real acceptance is a browser measurement — header/row drift 144.37 px at 1024 and
+ * 853 px before the fix, 0.00 px after.
+ *
+ * What this guard can hold is the **structure that makes that possible**, and both
+ * halves matter:
+ *   · **One scroll container, with every grid inside it.** Split the header from the
+ *     rows across two scrollers and they scroll independently — the columns would line
+ *     up at rest and drift the moment anyone scrolled, which is worse than the defect
+ *     being fixed and is exactly the mistake this arrangement invites.
+ *   · **The floor follows `activityNumberMap`.** The map is the only source of the `#N`
+ *     label, and `#N` widens the name column's min-content by 32 px. If the wider floor
+ *     were not selected with it, the drift would come back — measured at 176.37 px —
+ *     only in the state where activity IDs are switched on.
+ */
+describe("G5 — one scroll container, one enforced width", () => {
+  const scroller = () =>
+    document.querySelector<HTMLElement>("[data-activity-grid] .overflow-x-auto");
+
+  it("puts every grid container inside a single scroll container", () => {
+    const containers = renderGrid([activityFixture()]);
+    const scrollers = document.querySelectorAll("[data-activity-grid] .overflow-x-auto");
+    expect(scrollers, "more than one scroller means the grids can scroll apart").toHaveLength(1);
+    expect(containers.length).toBeGreaterThan(0);
+    for (const c of containers) {
+      expect(
+        scrollers[0]!.contains(c),
+        "a grid container outside the scroller would drift as soon as anyone scrolled",
+      ).toBe(true);
+    }
+  });
+
+  it("holds the grids to the width derived from the column list", () => {
+    renderGrid([activityFixture()]);
+    expect(scroller()!.firstElementChild).toBeInstanceOf(HTMLElement);
+    expect((scroller()!.firstElementChild as HTMLElement).style.minWidth).toBe(
+      `${gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_PX)}px`,
+    );
+  });
+
+  it("widens the floor when activity IDs are shown, and only then", () => {
+    renderGrid([activityFixture()]);
+    const without = (scroller()!.firstElementChild as HTMLElement).style.minWidth;
+    cleanup();
+
+    const activity = activityFixture();
+    renderGrid([activity], false, new Map([[activity.id, 1]]));
+    const withIds = (scroller()!.firstElementChild as HTMLElement).style.minWidth;
+
+    expect(without).toBe(`${gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_PX)}px`);
+    expect(withIds).toBe(
+      `${gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_WITH_IDS_PX)}px`,
+    );
+    // Non-vacuity: the two states must actually differ, or the assertion above could
+    // pass with the map ignored entirely.
+    expect(withIds).not.toBe(without);
+  });
+
+  it("uses the dependency-mode list when the constraint column is present", () => {
+    renderGrid([activityFixture()], true);
+    expect((scroller()!.firstElementChild as HTMLElement).style.minWidth).toBe(
+      `${gridMinWidthPx(GRID_COLUMN_LIST_WITH_CONSTRAINT, NAME_COLUMN_MIN_PX)}px`,
+    );
   });
 });

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.67.1 — 2026-09-05
+
+### The activity grid scrolls sideways instead of cutting columns off
+
+When the activity grid has less room than it needs — a smaller window, a narrower screen, or the browser zoomed to 125% or 150% to make it readable across a room — it now scrolls sideways.
+
+Before, the columns on the right simply stopped: Status, Actual, Src and the row controls were cut off with no scrollbar, a two-finger swipe did not reach them, and zooming the page out did not reveal them either. They were still there — tabbing along a row would jump to one — but doing so slid the whole grid sideways with nothing to slide it back.
+
+### Column headings line up with their cells again
+
+As the grid ran short of room, the headings drifted out of step with the cells beneath them, until "Dur." sat over the activity name and "Min", "ML" and "Max" sat over the dates. The drift grew as the window narrowed: slight at 125% zoom, and about a column and a half at 150%.
+
+The heading row, the small labels beneath it, the section headers and the totals row each sized the name column on their own, and they stopped agreeing once space ran short. All of them are now held to a single width, so every heading stays over its own column at any size.
+
+### Notes
+
+At a normal laptop window nothing changes — no scrollbar appears and the grid is laid out exactly as before. No column was moved, resized, hidden or added, and nothing about scheduling, simulation, estimates or storage changed.
+
 ## 0.67.0 — 2026-09-05
 
 ### Distribution now comes before Confidence
