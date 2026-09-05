@@ -89,27 +89,31 @@ describe("constraintBadgeLabel", () => {
 });
 
 describe("maxTabTarget", () => {
+  // ⚠️ UPDATED in v0.67.0, not deleted. These pinned the pre-swap order — forward-Tab
+  // from `max` went to Confidence when it applied and Distribution when it did not — and
+  // they went red on the swap, which is the signal working. Distribution now sits before
+  // Confidence and is never disabled, so the target is unconditional and the
+  // `confidenceApplies` parameter is gone. The array swap in buildTabFieldOrder does NOT
+  // cover this function; it had to be changed on its own.
   it("returns 'ml' when shift is held", () => {
-    expect(maxTabTarget(true, true)).toBe("ml");
-    expect(maxTabTarget(true, false)).toBe("ml");
+    expect(maxTabTarget(true)).toBe("ml");
   });
 
-  it("returns 'confidence' when forward and confidence applies", () => {
-    expect(maxTabTarget(false, true)).toBe("confidence");
-  });
-
-  it("returns 'distribution' when forward and confidence does not apply", () => {
-    expect(maxTabTarget(false, false)).toBe("distribution");
+  it("returns 'distribution' when forward, whatever the distribution type", () => {
+    expect(maxTabTarget(false)).toBe("distribution");
   });
 });
 
 describe("buildTabFieldOrder", () => {
-  it("heuristic + confidence + planned: name, ml, confidence, distribution, status", () => {
+  // ⚠️ UPDATED in v0.67.0, not deleted. This pinned the pre-swap order and went red on
+  // the swap, which is the signal working: Distribution now precedes Confidence, so a
+  // user chooses the distribution first and only then a confidence level, if it applies.
+  it("heuristic + confidence + planned: name, ml, distribution, confidence, status", () => {
     expect(buildTabFieldOrder(true, true, false, false)).toEqual([
       "name",
       "ml",
-      "confidence",
       "distribution",
+      "confidence",
       "status",
     ]);
   });
@@ -183,13 +187,17 @@ describe("handleOffOrderTabNav", () => {
     expect(focusFieldMock).toHaveBeenCalledWith("a1", "name");
   });
 
-  it("max + tab forward + confidence applies focuses confidence", () => {
+  // ⚠️ UPDATED in v0.67.0. Forward-Tab from `max` used to branch: Confidence when it
+  // applied, Distribution when it did not. Distribution now comes first and is never
+  // disabled, so it is the target in BOTH cases — which is why both of these assert the
+  // same thing now, and why the sixth parameter no longer influences the result.
+  it("max + tab forward focuses distribution when confidence applies", () => {
     const e = makeKeyEvent(false);
     handleOffOrderTabNav(e, "max", "a1", true, -1, true);
-    expect(focusFieldMock).toHaveBeenCalledWith("a1", "confidence");
+    expect(focusFieldMock).toHaveBeenCalledWith("a1", "distribution");
   });
 
-  it("max + tab forward + no confidence focuses distribution", () => {
+  it("max + tab forward focuses distribution when confidence does not apply", () => {
     const e = makeKeyEvent(false);
     handleOffOrderTabNav(e, "max", "a1", true, -1, false);
     expect(focusFieldMock).toHaveBeenCalledWith("a1", "distribution");

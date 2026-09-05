@@ -293,8 +293,8 @@ export function UnifiedActivityGrid({
         <div className="text-right px-1.5">Min</div>
         <div className="text-right px-1.5">ML</div>
         <div className="text-right px-1.5">Max</div>
-        <div className="px-1">Confidence</div>
         <div className="px-1">Distribution</div>
+        <div className="px-1">Confidence</div>
         <div className="px-1">Status</div>
         <div className="px-1 text-center" title="Working days elapsed (In Progress) or total (Complete)">Actual</div>
         {/* Separator */}

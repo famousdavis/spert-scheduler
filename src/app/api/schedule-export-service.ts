@@ -22,6 +22,7 @@ import {
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+import { confidenceApplies } from "@domain/helpers/confidence-applies";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -204,8 +205,7 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
     const sa = scheduledMap.get(activity.id);
     const showActual =
       activity.status === "complete" || activity.status === "inProgress";
-    const usesConfidence =
-      activity.distributionType === "normal" || activity.distributionType === "logNormal";
+    const usesConfidence = confidenceApplies(activity.distributionType);
     const row: GridRow = {
       activityId: activity.id,
       num: i + 1,
@@ -268,8 +268,8 @@ export function buildScheduleHeaders(
     "Min",
     "Most Likely",
     "Max",
-    "Confidence",
     "Distribution",
+    "Confidence",
     "Status",
     "Actual",
     `Duration (${pctLabel})`,

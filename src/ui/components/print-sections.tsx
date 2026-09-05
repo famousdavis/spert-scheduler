@@ -21,6 +21,7 @@ import {
 } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+import { confidenceApplies } from "@domain/helpers/confidence-applies";
 
 function formatSignedBufferDays(buffer: { bufferDays: number } | null): string {
   if (!buffer) return "—";
@@ -195,8 +196,8 @@ export function PrintActivityTable({
             <th className="py-1 pr-1 text-center">Min</th>
             <th className="py-1 pr-1 text-center">ML</th>
             <th className="py-1 pr-1 text-center">Max</th>
-            <th className="py-1 pr-1">Confidence</th>
             <th className="py-1 pr-1">Distribution</th>
+            <th className="py-1 pr-1">Confidence</th>
             <th className="py-1">Status</th>
           </tr>
         </thead>
@@ -228,12 +229,12 @@ export function PrintActivityTable({
                   {activity.max}
                 </td>
                 <td className="py-0.5 pr-1">
-                  {activity.distributionType === "normal" || activity.distributionType === "logNormal"
-                    ? RSM_LABELS[activity.confidenceLevel]
-                    : "—"}
+                  {distributionLabel(activity.distributionType)}
                 </td>
                 <td className="py-0.5 pr-1">
-                  {distributionLabel(activity.distributionType)}
+                  {confidenceApplies(activity.distributionType)
+                    ? RSM_LABELS[activity.confidenceLevel]
+                    : "—"}
                 </td>
                 <td className="py-0.5">
                   {statusLabel(activity.status)}

@@ -36,6 +36,7 @@ import {
 } from "./unified-activity-helpers";
 import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+import { confidenceApplies } from "@domain/helpers/confidence-applies";
 import { EstimateInputs } from "./EstimateInputs";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";
@@ -397,12 +398,11 @@ export function UnifiedActivityRow({
   const isComplete = activity.status === "complete";
   const isInProgress = activity.status === "inProgress";
 
-  const confidenceApplies =
-    activity.distributionType === "normal" || activity.distributionType === "logNormal";
+  const confidenceIsRelevant = confidenceApplies(activity.distributionType);
 
   const tabFieldOrder = useMemo(
-    () => buildTabFieldOrder(heuristicEnabled, confidenceApplies, isComplete, isInProgress),
-    [heuristicEnabled, confidenceApplies, isComplete, isInProgress]
+    () => buildTabFieldOrder(heuristicEnabled, confidenceIsRelevant, isComplete, isInProgress),
+    [heuristicEnabled, confidenceIsRelevant, isComplete, isInProgress]
   );
 
   const handleTabNav = useCallback(
@@ -414,15 +414,15 @@ export function UnifiedActivityRow({
 
       const idx = tabFieldOrder.indexOf(currentField);
 
-      if (handleOffOrderTabNav(e, currentField, activity.id, heuristicEnabled, idx, confidenceApplies)) return;
+      if (handleOffOrderTabNav(e, currentField, activity.id, heuristicEnabled, idx, confidenceIsRelevant)) return;
 
       const lastField = tabFieldOrder[tabFieldOrder.length - 1];
       if (handleCrossRowTabNav(e, currentField, lastField, activity.id, heuristicEnabled)) return;
 
       handleInRowTabNav(e, tabFieldOrder, idx, activity.id);
     },
-    // activity.distributionType removed — now captured via confidenceApplies → tabFieldOrder
-    [activity.id, tabFieldOrder, heuristicEnabled, confidenceApplies]
+    // activity.distributionType removed — now captured via confidenceIsRelevant → tabFieldOrder
+    [activity.id, tabFieldOrder, heuristicEnabled, confidenceIsRelevant]
   );
 
   // Stabilize the commit closure so useBufferedField.handleBlur is not
@@ -651,21 +651,6 @@ export function UnifiedActivityRow({
         disabled={isLocked}
       />
 
-      {/* Confidence */}
-      <div>
-        <ConfidenceLevelSelect
-          value={activity.confidenceLevel}
-          onChange={(level) =>
-            onUpdate(activity.id, { confidenceLevel: level })
-          }
-          disabled={isLocked || (activity.distributionType !== "normal" && activity.distributionType !== "logNormal")}
-          data-row-id={activity.id}
-          data-field="confidence"
-          onKeyDown={(e) => handleTabNav(e, "confidence")}
-          tabIndex={heuristicEnabled ? 0 : -1}
-        />
-      </div>
-
       {/* Distribution */}
       <div className="flex items-center gap-0.5 group relative">
         <select
@@ -717,6 +702,21 @@ export function UnifiedActivityRow({
             />
           </div>
         </div>
+      </div>
+
+      {/* Confidence */}
+      <div>
+        <ConfidenceLevelSelect
+          value={activity.confidenceLevel}
+          onChange={(level) =>
+            onUpdate(activity.id, { confidenceLevel: level })
+          }
+          disabled={isLocked || !confidenceIsRelevant}
+          data-row-id={activity.id}
+          data-field="confidence"
+          onKeyDown={(e) => handleTabNav(e, "confidence")}
+          tabIndex={heuristicEnabled ? 0 : -1}
+        />
       </div>
 
       {/* Status */}
