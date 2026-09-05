@@ -19,6 +19,7 @@ import { resolveGanttAppearance } from "@ui/charts/gantt-constants";
 import { GanttChart } from "@ui/charts/GanttChart";
 import { GanttAppearancePanel } from "./GanttAppearancePanel";
 import { CopyImageButton } from "./CopyImageButton";
+import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 
 interface GanttSectionProps {
   activities: Activity[];
@@ -58,10 +59,10 @@ export function GanttSection(props: GanttSectionProps) {
   const [appearancePanelOpen, setAppearancePanelOpen] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
 
-  // Detect dark mode for appearance resolution
-  const isDark =
-    typeof document !== "undefined" &&
-    document.documentElement.classList.contains("dark");
+  // Dark mode, SUBSCRIBED rather than read during render — see use-dark-class.ts. This
+  // feeds resolveGanttAppearance, whose only isDark-dependent outputs are the colour
+  // preset and the weekend shading tint; every geometry field is independent of it.
+  const isDark = useIsDarkClass();
 
   const resolvedAppearance = resolveGanttAppearance(ganttAppearance, isDark);
 

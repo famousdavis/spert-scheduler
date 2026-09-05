@@ -25,6 +25,7 @@ import { dependencyLabel } from "@domain/helpers/format-labels";
 import { useDateFormat, useDateFormatShort } from "@ui/hooks/use-date-format";
 import { useGanttPreferences } from "@ui/hooks/use-gantt-preferences";
 import { useGanttLayout } from "@ui/hooks/use-gantt-layout";
+import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 import type { ResolvedGanttAppearance } from "./gantt-constants";
 import {
   BAR_RADIUS, MIN_BAR_HIT_WIDTH,
@@ -382,10 +383,10 @@ export function GanttChart({
   // Arrow hover state for dependency interactivity
   const [hoveredDep, setHoveredDep] = useState<{ from: string; to: string } | null>(null);
 
-  // Detect dark mode
-  const isDark =
-    typeof document !== "undefined" &&
-    document.documentElement.classList.contains("dark");
+  // Dark mode, SUBSCRIBED rather than read during render. The class was always correct;
+  // nothing told React to look at it again, so the palette survived a theme change until
+  // some unrelated re-render happened to refresh it. See use-dark-class.ts.
+  const isDark = useIsDarkClass();
   const c = isDark ? COLORS.dark : COLORS.light;
   const mc = isDark ? MILESTONE_COLORS.dark : MILESTONE_COLORS.light;
   const tc = isDark ? TARGET_COLORS.dark : TARGET_COLORS.light;

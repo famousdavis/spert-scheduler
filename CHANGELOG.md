@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.64.17 — 2026-09-05
+
+### The Gantt chart follows the theme immediately
+
+Switching between Light, Dark and System left the Gantt chart in the previous theme's colours — a white chart on a dark page, or the reverse. The rest of the page changed at once. The chart caught up only when something unrelated made it redraw, such as resizing the window or collapsing and reopening its panel, which is why the problem could look intermittent.
+
+The chart now changes with the page on every switch, including its background, activity names, bar colours and weekend shading. This also covers the case where the theme is set to System and the operating system switches between light and dark on its own, which had the same cause.
+
+### Notes
+
+Appearance only. Nothing about scheduling, simulation, storage, or your data changed, and no part of the chart moved — only its colours. The printed report is unaffected and stays light, because it is printed on paper.
+
 ## 0.64.16 — 2026-09-05
 
 ### Clicking an activity's name on the Gantt chart opens that activity
