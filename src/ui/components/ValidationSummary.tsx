@@ -4,6 +4,7 @@
 
 import type { Activity } from "@domain/models/types";
 import { ActivitySchema } from "@domain/schemas/project.schema";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 interface ValidationSummaryProps {
   activities: Activity[];
@@ -23,7 +24,7 @@ export function ValidationSummary({ activities }: ValidationSummaryProps) {
     if (!result.success) {
       errors.push({
         activityId: activity.id,
-        activityName: activity.name || "(unnamed)",
+        activityName: nameOrUnnamed(activity.name),
         messages: result.error.issues.map((issue) => issue.message),
       });
     }

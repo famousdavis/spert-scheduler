@@ -34,7 +34,8 @@ import {
   handleCrossRowTabNav,
   handleInRowTabNav,
 } from "./unified-activity-helpers";
-import { useBufferedField } from "@ui/hooks/use-buffered-field";
+import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { EstimateInputs } from "./EstimateInputs";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";
@@ -66,6 +67,44 @@ interface UnifiedActivityRowProps {
 
 type FieldErrors = Partial<Record<string, string>>;
 
+
+/**
+ * Reject-empty-after-trim on the activity-name commit — the rule `InlineEdit` already
+ * applies to project and scenario renames (InlineEdit.tsx:52-65), reused verbatim.
+ *
+ * Clearing an established activity's name used to persist `""` and make the whole
+ * project fail to load on the next open. `ActivitySchema` no longer refuses that, so
+ * the guard belongs here, at the write: refuse the blank, reset the buffer, and the
+ * canonical name comes back on the next focus.
+ *
+ * ⚠️ This deliberately does NOT fire on creation. `+ Add Activity` writes `name: ""`
+ * straight to the store without passing through here, which is what keeps the native
+ * `placeholder` visible on a new row — a stored default would suppress it forever.
+ *
+ * ⚠️ It SAVES THE TRIMMED VALUE, matching InlineEdit and the edit modal
+ * (activity-modal-sections.tsx:256). `"  Design  "` therefore commits as `"Design"`
+ * and no longer round-trips verbatim; that is the change that also closes the
+ * whitespace-only name, which passes the schema and reads as unnamed to a person.
+ *
+ * Module scope, not a closure inside the component: this is branching, and
+ * `UnifiedActivityRow` is an accepted cognitive-complexity decline whose number must
+ * not quietly worsen (ground rule 9).
+ */
+function commitActivityName(
+  next: string,
+  current: string,
+  controls: BufferedFieldControls,
+  save: (name: string) => void
+): void {
+  const trimmed = next.trim();
+  if (trimmed && trimmed !== current) {
+    save(trimmed);
+  } else {
+    // Blank-after-trim, or unchanged once trimmed: discard the typed value and
+    // resync the buffer to the stored name.
+    controls.reset();
+  }
+}
 
 /**
  * Compact progress bars for tasks and/or deliverables beneath the activity name.
@@ -389,8 +428,11 @@ export function UnifiedActivityRow({
   // Stabilize the commit closure so useBufferedField.handleBlur is not
   // rebuilt on every parent render (only when activity.id or onUpdate change).
   const handleNameCommit = useCallback(
-    (name: string) => onUpdate(activity.id, { name }),
-    [activity.id, onUpdate]
+    (name: string, controls: BufferedFieldControls) =>
+      commitActivityName(name, activity.name, controls, (n) =>
+        onUpdate(activity.id, { name: n })
+      ),
+    [activity.id, activity.name, onUpdate]
   );
 
   // key={activity.id} in UnifiedActivityGrid ensures remount on entity change —
@@ -443,7 +485,7 @@ export function UnifiedActivityRow({
         <input
           type="checkbox"
           name="selectActivity"
-          aria-label={`Select activity ${activity.name || "(unnamed)"}`}
+          aria-label={`Select activity ${nameOrUnnamed(activity.name)}`}
           checked={isSelected ?? false}
           onChange={() => onToggleSelect?.(activity.id)}
           className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
@@ -817,7 +859,7 @@ export function UnifiedActivityRow({
       {!isLocked && !isDragging && !isAnyDragging && !isLastRow && onInsertAfterActivity && (
         <button
           type="button"
-          aria-label={`Insert activity after ${activity.name || 'unnamed activity'}`}
+          aria-label={`Insert activity after ${nameOrUnnamed(activity.name)}`}
           tabIndex={-1}
           // `onInsertAfterActivity` is pre-bound by the grid using the
           // CURRENT activity.id (captured at render time). Rapid double-clicks

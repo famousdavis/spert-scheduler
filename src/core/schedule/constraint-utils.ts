@@ -13,6 +13,7 @@
 import type { Calendar, ConstraintType, ConstraintMode, ConstraintConflict } from "@domain/models/types";
 import { CONSTRAINT_TYPES, CONSTRAINT_MODES } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   activityEndDate,
   activityStartDate,
@@ -66,7 +67,7 @@ export function applyForwardConstraint(
         conflict = buildConflict(
           "constraint-conflict", activityId, activityName, constraintType,
           constraintDate, constraintMode, esNet, delta, "error",
-          `${activityName}: Must Start On ${constraintDate} conflicts with predecessor logic (network-driven ES: ${esNet}, delta: ${delta} working days). Constraint date held; downstream activities may be affected.`
+          `${nameOrUnnamed(activityName)}: Must Start On ${constraintDate} conflicts with predecessor logic (network-driven ES: ${esNet}, delta: ${delta} working days). Constraint date held; downstream activities may be affected.`
         );
       }
       break;
@@ -82,7 +83,7 @@ export function applyForwardConstraint(
         conflict = buildConflict(
           "constraint-conflict", activityId, activityName, constraintType,
           constraintDate, constraintMode, efNet, delta, "error",
-          `${activityName}: Must Finish On ${constraintDate} conflicts with predecessor logic (network-driven EF: ${efNet}, delta: ${delta} working days). Constraint date held.`
+          `${nameOrUnnamed(activityName)}: Must Finish On ${constraintDate} conflicts with predecessor logic (network-driven EF: ${efNet}, delta: ${delta} working days). Constraint date held.`
         );
       }
       break;
@@ -309,7 +310,7 @@ function detectHardConflict(
         return buildConflict(
           "constraint-conflict", activityId, activityName, constraintType,
           constraintDate, "hard", esNet, delta, "error",
-          `${activityName}: Must Start On ${constraintDate} conflicts with predecessor logic (network-driven ES: ${esNet}, delta: ${delta} working days). Constraint date held; downstream activities may be affected.`
+          `${nameOrUnnamed(activityName)}: Must Start On ${constraintDate} conflicts with predecessor logic (network-driven ES: ${esNet}, delta: ${delta} working days). Constraint date held; downstream activities may be affected.`
         );
       }
       return null;
@@ -321,7 +322,7 @@ function detectHardConflict(
         return buildConflict(
           "constraint-conflict", activityId, activityName, constraintType,
           constraintDate, "hard", efNet, delta, "error",
-          `${activityName}: Must Finish On ${constraintDate} conflicts with predecessor logic (network-driven EF: ${efNet}, delta: ${delta} working days). Constraint date held.`
+          `${nameOrUnnamed(activityName)}: Must Finish On ${constraintDate} conflicts with predecessor logic (network-driven EF: ${efNet}, delta: ${delta} working days). Constraint date held.`
         );
       }
       return null;
@@ -333,7 +334,7 @@ function detectHardConflict(
         return buildConflict(
           "constraint-conflict", activityId, activityName, constraintType,
           constraintDate, "hard", lsNet, delta, "error",
-          `${activityName}: Start No Later Than ${constraintDate} cannot be satisfied (network-driven LS: ${lsNet}).`
+          `${nameOrUnnamed(activityName)}: Start No Later Than ${constraintDate} cannot be satisfied (network-driven LS: ${lsNet}).`
         );
       }
       return null;
@@ -345,7 +346,7 @@ function detectHardConflict(
         return buildConflict(
           "constraint-conflict", activityId, activityName, constraintType,
           constraintDate, "hard", lfNet, delta, "error",
-          `${activityName}: Finish No Later Than ${constraintDate} cannot be satisfied (network-driven LF: ${lfNet}).`
+          `${nameOrUnnamed(activityName)}: Finish No Later Than ${constraintDate} cannot be satisfied (network-driven LF: ${lfNet}).`
         );
       }
       return null;
@@ -398,7 +399,7 @@ function detectSoftViolation(
   return buildConflict(
     "constraint-violation", activityId, activityName, constraintType,
     constraintDate, "soft", computedDate, delta, "warning",
-    `${activityName}: Soft constraint ${constraintType} ${constraintDate} not met by current schedule (network-driven date: ${computedDate}, delta: ${delta} working days).`
+    `${nameOrUnnamed(activityName)}: Soft constraint ${constraintType} ${constraintDate} not met by current schedule (network-driven date: ${computedDate}, delta: ${delta} working days).`
   );
 }
 

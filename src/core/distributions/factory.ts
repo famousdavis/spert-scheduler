@@ -9,6 +9,7 @@ import { NormalDistribution } from "./normal";
 import { LogNormalDistribution } from "./log-normal";
 import { TriangularDistribution } from "./triangular";
 import { UniformDistribution } from "./uniform";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 /**
  * Creates a Distribution instance for the given activity using its
@@ -70,7 +71,7 @@ export function createDistributionForActivity(activity: Activity): Distribution 
     // undefined distribution for activity...".
     const label = DISTRIBUTION_LABELS[activity.distributionType] ?? activity.distributionType;
     const wrapped = new Error(
-      `Cannot create ${label} distribution for activity "${activity.name}": ${message}`
+      `Cannot create ${label} distribution for activity "${nameOrUnnamed(activity.name)}": ${message}`
     );
     // Preserve the original error for debugging. The `new Error(msg, { cause })`
     // constructor overload isn't in this module's compile lib (factory.ts also

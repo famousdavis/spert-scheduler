@@ -20,6 +20,7 @@ import {
   milestoneHealthLabel,
 } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 function formatSignedBufferDays(buffer: { bufferDays: number } | null): string {
   if (!buffer) return "—";
@@ -207,7 +208,7 @@ export function PrintActivityTable({
             return (
               <tr key={activity.id} className="border-b border-gray-200">
                 <td className="py-0.5 pr-1 text-gray-500">{idx + 1}</td>
-                <td className="py-0.5 pr-1 font-medium">{activity.name}</td>
+                <td className="py-0.5 pr-1 font-medium">{nameOrUnnamed(activity.name)}</td>
                 <td className="py-0.5 pr-1 text-center tabular-nums font-medium">
                   {scheduled ? `${Math.round(scheduled.duration)}d` : "—"}
                 </td>
@@ -274,12 +275,12 @@ export function PrintDependenciesTable({ scenario }: PrintDependenciesTableProps
         </thead>
         <tbody>
           {scenario.dependencies.map((dep, idx) => {
-            const fromName =
-              scenario.activities.find((a) => a.id === dep.fromActivityId)
-                ?.name ?? "Unknown";
-            const toName =
-              scenario.activities.find((a) => a.id === dep.toActivityId)
-                ?.name ?? "Unknown";
+            const fromAct = scenario.activities.find((a) => a.id === dep.fromActivityId);
+            const toAct = scenario.activities.find((a) => a.id === dep.toActivityId);
+            // "Unknown" = no such activity; "(unnamed)" = present but nameless.
+            // Two different facts — `?? "Unknown"` could not tell them apart.
+            const fromName = fromAct ? nameOrUnnamed(fromAct.name) : "Unknown";
+            const toName = toAct ? nameOrUnnamed(toAct.name) : "Unknown";
             return (
               <tr key={idx} className="border-b border-gray-200">
                 <td className="py-0.5 pr-1 text-gray-500">{idx + 1}</td>
@@ -335,7 +336,7 @@ export function PrintConstraintsTable({
             .map(({ activity, num }, idx) => (
               <tr key={idx} className="border-b border-gray-200">
                 <td className="py-0.5 pr-1 text-gray-500">{num}</td>
-                <td className="py-0.5 pr-1 font-medium">{activity.name}</td>
+                <td className="py-0.5 pr-1 font-medium">{nameOrUnnamed(activity.name)}</td>
                 <td className="py-0.5 pr-1">
                   {activity.constraintType} — {CONSTRAINT_LABELS[activity.constraintType!]}
                 </td>
@@ -379,7 +380,7 @@ export function PrintDescriptionsTable({ scenario }: PrintDescriptionsTableProps
             .map(({ activity, num }, idx) => (
               <tr key={idx} className="border-b border-gray-200">
                 <td className="py-0.5 pr-1 text-gray-500 align-top">{num}</td>
-                <td className="py-0.5 pr-1 font-medium align-top">{activity.name}</td>
+                <td className="py-0.5 pr-1 font-medium align-top">{nameOrUnnamed(activity.name)}</td>
                 <td className="py-0.5 text-gray-600 whitespace-pre-wrap">{activity.description}</td>
               </tr>
             ))}
@@ -433,7 +434,7 @@ export function PrintItemTable({
             return [
               <tr key={`${activity.id}-header`} className="border-b border-gray-300 bg-gray-50">
                 <td colSpan={2} className="py-0.5 pr-1 font-medium">
-                  {activity.name}
+                  {nameOrUnnamed(activity.name)}
                   <span className="ml-2 text-gray-500 font-normal tabular-nums">
                     ({doneCount}/{items.length})
                   </span>

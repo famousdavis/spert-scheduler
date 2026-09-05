@@ -26,6 +26,7 @@ import {
 import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine, barLabelText as computeBarLabelText } from "./gantt-utils";
 import type { TickLevel } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 export interface PrintGanttChartProps {
   activities: Activity[];
@@ -522,7 +523,7 @@ export function PrintGanttChart({
             <g key={act.id}>
               <text x={ra.printLeftMargin - 4} y={y + ra.printRowHeight / 2} textAnchor="end"
                 dominantBaseline="central" fontSize={fs7} fill={c.text}>
-                {act.name.length > ra.printNameCharLimit ? act.name.slice(0, ra.printNameCharLimit - 2) + "\u2026" : act.name}
+                {(() => { const n = nameOrUnnamed(act.name); return n.length > ra.printNameCharLimit ? n.slice(0, ra.printNameCharLimit - 2) + "\u2026" : n; })()}
               </text>
               <rect x={x1} y={barY} width={w} height={ra.printBarHeight}
                 rx={PRINT_BAR_RADIUS} fill={barColor} />

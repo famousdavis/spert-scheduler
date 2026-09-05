@@ -99,12 +99,43 @@ describe("ActivitySchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects empty name", () => {
+  // Inverted deliberately in v0.65.0 (was "rejects empty name"). `.min(1)` here
+  // gated every project LOAD, not just writes, so a single unnamed activity made
+  // the whole project unopenable — and "+ Add Activity" persists `name: ""` by
+  // design, so the grid's placeholder can render. Non-blank names are now enforced
+  // where a name is WRITTEN (the grid commit, the CSV parser, the AI activity
+  // cores), never where one is read back.
+  it("accepts an empty name, so an unnamed activity cannot make a project unloadable", () => {
     const result = ActivitySchema.safeParse({
       ...validActivity,
       name: "",
     });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a whitespace-only name (unnamed to a person, valid to the schema)", () => {
+    const result = ActivitySchema.safeParse({
+      ...validActivity,
+      name: "   ",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // The field is relaxed, not unguarded: the 200-char ceiling still holds.
+  it("still rejects a name over 200 characters", () => {
+    const result = ActivitySchema.safeParse({
+      ...validActivity,
+      name: "x".repeat(201),
+    });
     expect(result.success).toBe(false);
+  });
+
+  it("accepts a name of exactly 200 characters", () => {
+    const result = ActivitySchema.safeParse({
+      ...validActivity,
+      name: "x".repeat(200),
+    });
+    expect(result.success).toBe(true);
   });
 });
 

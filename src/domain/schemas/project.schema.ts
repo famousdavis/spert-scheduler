@@ -83,7 +83,7 @@ export const DeliverableItemSchema = z.object({
 export const ActivitySchema = z
   .object({
     id: z.string().min(1).max(64),
-    name: z.string().min(1).max(200),
+    name: z.string().max(200),
     min: z.number().nonnegative(),
     mostLikely: z.number().nonnegative(),
     max: z.number().nonnegative(),

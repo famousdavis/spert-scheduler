@@ -5,6 +5,7 @@
 import type { ScheduledActivity } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { formatDateISO } from "@core/calendar/calendar";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 export const MONTH_ABBR = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -666,7 +667,8 @@ export function activityDisplayName(
   activityId: string,
   activityIndexMap: Map<string, number> | null,
 ): string {
-  return activityIndexMap ? `#${activityIndexMap.get(activityId)} ${name}` : name;
+  const label = nameOrUnnamed(name);
+  return activityIndexMap ? `#${activityIndexMap.get(activityId)} ${label}` : label;
 }
 
 /** Ellipsised to `limit` characters, matching what the Gantt name column can show. */

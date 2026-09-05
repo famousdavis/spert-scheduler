@@ -24,6 +24,7 @@ import {
   parseDateISO,
 } from "@core/calendar/calendar";
 import { buildDependencyGraph, computeCriticalPathDuration } from "./dependency-graph";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   applyForwardConstraint,
   applyBackwardConstraint,
@@ -697,7 +698,7 @@ function validateDependencies(args: {
         dependencyType: dep.type,
         lagDays: dep.lagDays,
         severity: "warning",
-        message: `${dep.type} constraint violated: ${toName} does not satisfy ${dep.type} relationship with ${fromName}`,
+        message: `${dep.type} constraint violated: ${nameOrUnnamed(toName)} does not satisfy ${dep.type} relationship with ${nameOrUnnamed(fromName)}`,
       });
     }
   }

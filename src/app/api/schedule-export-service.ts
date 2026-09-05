@@ -21,6 +21,7 @@ import {
 } from "@core/calendar/calendar";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -208,7 +209,7 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
     const row: GridRow = {
       activityId: activity.id,
       num: i + 1,
-      name: activity.name,
+      name: nameOrUnnamed(activity.name),
       min: activity.min,
       mostLikely: activity.mostLikely,
       max: activity.max,
