@@ -1005,3 +1005,74 @@ describe("bulk ops reject blank activity names per item", () => {
     expect(scenarioOf(imported.project, scenarioId).activities.map((a) => a.id)).toContain("i1");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Non-blank milestone names — the two BULK ops
+// ---------------------------------------------------------------------------
+
+/**
+ * The singular half is in ai-batch-service.test.ts, with the reasoning. These are
+ * the other two of the four ops routing through `createMilestoneCore`.
+ *
+ * ⚠️ Before v0.66.0 **nothing in the suite referenced `MilestoneSchema`** — two
+ * source files, zero test files — so relaxing it produced 0 failures out of 2,949
+ * and every one of these regressions would have shipped in silence.
+ * `ai-op-contract.json` declares `minLen: 1` on both of these name fields.
+ */
+describe("bulk milestone ops reject blank names per item", () => {
+  it("bulk_create_milestones skips the blank-named items and applies the rest", () => {
+    const { project, scenarioId } = baseProject();
+    const op: AiOp = {
+      seq: 1,
+      op: "bulk_create_milestones",
+      payload: {
+        milestones: [
+          { id: "m0", name: "M0", targetDate: "2025-03-01" },
+          { id: "m1", name: "", targetDate: "2025-04-01" },
+          { id: "m2", name: "   ", targetDate: "2025-05-01" },
+          { id: "m3", name: "M3", targetDate: "2025-06-01" },
+        ],
+      },
+    };
+    const res = one(project, op, scenarioId);
+    expect(partialOf(res.results[0]!.outcome).skippedItems).toEqual([
+      { index: 1, id: "m1", reason: "invalid" },
+      { index: 2, id: "m2", reason: "invalid" },
+    ]);
+    expect(scenarioOf(res.project, scenarioId).milestones.map((m) => m.id)).toEqual(["m0", "m3"]);
+  });
+
+  it("bulk_import_schedule skips a blank-named milestone in its milestones section", () => {
+    const { project, scenarioId } = baseProject();
+    const op: AiOp = {
+      seq: 1,
+      op: "bulk_import_schedule",
+      payload: {
+        milestones: [
+          { id: "m0", name: "M0", targetDate: "2025-03-01" },
+          { id: "m1", name: "  ", targetDate: "2025-04-01" },
+        ],
+      },
+    };
+    const res = one(project, op, scenarioId);
+    expect(scenarioOf(res.project, scenarioId).milestones.map((m) => m.id)).toEqual(["m0"]);
+  });
+
+  it("control: both payloads with real names apply in full", () => {
+    const { project, scenarioId } = baseProject();
+
+    const created = one(project, {
+      seq: 1,
+      op: "bulk_create_milestones",
+      payload: { milestones: [{ id: "c1", name: "C1", targetDate: "2025-03-01" }] },
+    }, scenarioId);
+    expect(created.results[0]!.outcome).toEqual({ status: "applied" });
+
+    const imported = one(project, {
+      seq: 1,
+      op: "bulk_import_schedule",
+      payload: { milestones: [{ id: "i1", name: "I1", targetDate: "2025-03-01" }] },
+    }, scenarioId);
+    expect(scenarioOf(imported.project, scenarioId).milestones.map((m) => m.id)).toContain("i1");
+  });
+});

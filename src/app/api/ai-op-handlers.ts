@@ -399,6 +399,17 @@ export function handleToggleItem(
 export function createMilestoneCore(scenario: Scenario, p: CreateMilestonePayload): CoreResult {
   if (scenario.milestones.length >= MILESTONE_CAP) return reject("cap_exceeded");
   if (scenario.milestones.some((m) => m.id === p.id)) return reject("duplicate");
+  // Non-blank name at the AI-write boundary — the milestone twin of the activity
+  // guard above, and for the same reason: MilestoneSchema also gates every project
+  // LOAD, so a `.min(1)` there made one unnamed milestone unload the whole project.
+  // Trim-aware, which is a genuine tightening rather than a restoration — `"   "`
+  // passed `.min(1)` and was applied verbatim before this.
+  // ⚠️ Nothing else enforces it: `ai-bulk-schemas.ts` bulkMilestoneItem is a bare
+  // `z.string()`, and `ai-op-contract.json` declares `minLen: 1` on both bulk
+  // milestone name fields, so removing this puts the client in violation of its
+  // own published contract. It also serves bulk_create_milestones and
+  // bulk_import_schedule, which route here.
+  if (p.name.trim() === "") return reject("invalid");
   const parsed = MilestoneSchema.safeParse({ id: p.id, name: p.name, targetDate: p.targetDate });
   if (!parsed.success) return reject("invalid");
   return accept(addMilestone(scenario, parsed.data.name, parsed.data.targetDate, parsed.data.id));
@@ -412,6 +423,11 @@ export function handleCreateMilestone(scenario: Scenario, p: CreateMilestonePayl
 export function handleUpdateMilestone(scenario: Scenario, p: UpdateMilestonePayload): OpResult {
   const milestone = scenario.milestones.find((m) => m.id === p.id);
   if (!milestone) return skip(scenario, "not_found");
+  // ⚠️ PROVIDED field only (R19). An unnamed milestone is now a legal stored
+  // state, and the safeParse below is on the MERGED object — so testing the
+  // merged name would make every unnamed milestone permanently un-editable by
+  // the AI, its target date included. Only an explicit blanking is refused.
+  if (p.name !== undefined && p.name.trim() === "") return skip(scenario, "invalid");
   const merged = {
     ...milestone,
     ...(p.name !== undefined ? { name: p.name } : {}),

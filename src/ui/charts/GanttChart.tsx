@@ -40,6 +40,7 @@ import {
 import { GanttActivityRow } from "./GanttActivityRow";
 import { GanttSvgDefs } from "./GanttSvgDefs";
 import { GanttLegend } from "./GanttLegend";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 /**
  * Hover-intent delay (ms) before a Gantt tooltip appears. The cursor must rest on a
@@ -893,7 +894,7 @@ export function GanttChart({
                   fontWeight="600"
                   className="pointer-events-none"
                 >
-                  {m.name}
+                  {nameOrUnnamed(m.name)}
                 </text>
                 {/* Target date below name */}
                 <text

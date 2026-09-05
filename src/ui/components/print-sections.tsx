@@ -494,7 +494,7 @@ export function PrintMilestonesTable({
             return (
               <tr key={ms.id} className="border-b border-gray-200">
                 <td className="py-0.5 pr-1 text-gray-500">{idx + 1}</td>
-                <td className="py-0.5 pr-1 font-medium">{ms.name}</td>
+                <td className="py-0.5 pr-1 font-medium">{nameOrUnnamed(ms.name)}</td>
                 <td className="py-0.5 pr-1 tabular-nums">{formatDate(ms.targetDate)}</td>
                 <td className="py-0.5 pr-1 text-center tabular-nums">
                   {info?.bufferDays !== null && info?.bufferDays !== undefined ? `${info.bufferDays}d` : "—"}

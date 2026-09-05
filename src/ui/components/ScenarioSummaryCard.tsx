@@ -24,6 +24,7 @@ import {
 } from "@app/api/schedule-export-service";
 import type { ScheduleExportParams } from "@app/api/schedule-export-service";
 import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   milestoneHealthDotClass,
   type MilestoneHealth,
@@ -712,7 +713,7 @@ export function ScenarioSummaryCard({
                   className={`inline-block w-2 h-2 rounded-full ${milestoneHealthDotClass(info.health)}`}
                 />
                 <span className="text-gray-700 dark:text-gray-300 font-medium min-w-[120px]">
-                  {info.milestone.name}
+                  {nameOrUnnamed(info.milestone.name)}
                   <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">
                     ({formatDate(info.milestone.targetDate)})
                   </span>

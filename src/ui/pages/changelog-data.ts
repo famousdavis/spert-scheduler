@@ -13,6 +13,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.66.0",
+    date: "2026-09-05",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Clearing a milestone's name and clicking away could make the whole project fail to load the next time you opened it — the same failure that v0.65.0 fixed for activities, on the other name field. The project card was replaced by \"1 project could not be loaded\", and in cloud storage the project simply disappeared from the dashboard with no message at all.",
+          "The gap was that adding a milestone had always required a name, while renaming one did not check. Projects affected by this now open normally. Nothing needs repairing: the milestone is still there, still unnamed, ready for you to name it.",
+          "Clearing a milestone's name and tabbing away now leaves the name as it was, which is what the \"Add milestone\" form beside it has always done. A name typed with extra spaces around it is saved without them.",
+        ],
+      },
+      {
+        title: "Improved",
+        items: [
+          "A milestone with no name used to render as blank space on the Gantt chart, in the milestone health list on the scenario summary, and in the printed report. It now reads \"(unnamed)\" in all three, matching how unnamed activities have been shown since the last release.",
+          "This is a label, not a name — nothing is stored, and the \"Milestone name\" prompt in the milestone list is untouched.",
+        ],
+      },
+      {
+        title: "Notes",
+        items: [
+          "Your data is unchanged and no conversion happens on opening. Nothing about scheduling, simulation, estimates or storage changed. Milestone names remain limited to 200 characters, and milestones still cannot be created without a name through Connect AI.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.65.0",
     date: "2026-09-05",
     sections: [
