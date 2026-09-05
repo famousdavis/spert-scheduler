@@ -3,12 +3,16 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   GRID_COLUMNS,
   GRID_COLUMNS_WITH_CONSTRAINT,
   GRID_COLUMN_LIST,
   GRID_COLUMN_LIST_WITH_CONSTRAINT,
   CONSTRAINT_COLUMN,
+  NAME_COLUMN_MIN_PX,
+  NAME_COLUMN_MIN_WITH_IDS_PX,
+  gridMinWidthPx,
 } from "./grid-columns";
 
 /**
@@ -70,5 +74,93 @@ describe("grid-columns: the named list is well formed", () => {
     for (const c of GRID_COLUMN_LIST_WITH_CONSTRAINT) {
       expect(c.width, `column "${c.name}" has no width`).toMatch(/\S/);
     }
+  });
+});
+
+/**
+ * **G4 — the enforced minimum width (WI-8).**
+ *
+ * The five containers share a template *string*, not a layout. `1fr` is
+ * `minmax(auto, 1fr)` and resolves **per container against that container's own
+ * content**, so once free space drops below a container's own min-content the track
+ * floors there — at a different value in each container — and the columns drift apart.
+ * Measured at v0.67.0, at 1024 px and below: subheader and band 0, header 45.63,
+ * summary 71.49, activity row 190. Header-to-row drift 144.37 px; worst-case spread
+ * across containers 190 px.
+ *
+ * `gridMinWidthPx` is what removes the disagreement, by holding every container to one
+ * width. These tests do **not** re-derive the layout — jsdom has no layout, and that
+ * limit is the whole reason WI-8's acceptance is a browser measurement (R32). What they
+ * guard is the arithmetic: that the number is **summed from the column list** rather
+ * than written down, so it cannot silently rot when a column is added, removed or
+ * resized. That rot is the failure this file exists to prevent.
+ */
+describe("G4 — the enforced minimum width is derived, not hard-coded", () => {
+  const sumFixed = (columns: readonly { width: string }[]) =>
+    columns
+      .filter((c) => c.width.endsWith("px"))
+      .reduce((sum, c) => sum + parseFloat(c.width), 0);
+
+  it("leaves room for every fixed track AND the name column's floor", () => {
+    for (const [label, list] of [
+      ["sequential", GRID_COLUMN_LIST],
+      ["dependency", GRID_COLUMN_LIST_WITH_CONSTRAINT],
+    ] as const) {
+      for (const floor of [NAME_COLUMN_MIN_PX, NAME_COLUMN_MIN_WITH_IDS_PX]) {
+        const min = gridMinWidthPx(list, floor);
+        // The point of the number: free space at this width is at or above the floor,
+        // so every container's `1fr` resolves to the same value instead of flooring
+        // at its own min-content.
+        expect(min - sumFixed(list), `${label} @ floor ${floor}`).toBeGreaterThanOrEqual(floor);
+      }
+    }
+  });
+
+  it("tracks the column list — a wider column widens the minimum by exactly that much", () => {
+    // ⚠️ The anti-rot assertion. A hard-coded total would pass every test above and
+    // silently under-size the grid the next time a column changed.
+    const base = gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_PX);
+    const widened = GRID_COLUMN_LIST.map((c) =>
+      c.name === "status" ? { ...c, width: "150px" } : c,
+    );
+    expect(gridMinWidthPx(widened, NAME_COLUMN_MIN_PX)).toBe(base + 40);
+  });
+
+  it("tracks the track COUNT — an added column adds its width and one gap", () => {
+    const seq = gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_PX);
+    const dep = gridMinWidthPx(GRID_COLUMN_LIST_WITH_CONSTRAINT, NAME_COLUMN_MIN_PX);
+    // The constraint column is 80px, and inserting it adds one 4px `gap-1`.
+    expect(dep - seq).toBe(parseFloat(CONSTRAINT_COLUMN.width) + 4);
+  });
+
+  it("moves with the floor it is given, one for one", () => {
+    const a = gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_PX);
+    const b = gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_WITH_IDS_PX);
+    // 28px (`w-7`) for the `#N` label plus 4px (`mr-1`) — the measured composition
+    // recorded on NAME_COLUMN_MIN_WITH_IDS_PX.
+    expect(b - a).toBe(32);
+    expect(NAME_COLUMN_MIN_WITH_IDS_PX - NAME_COLUMN_MIN_PX).toBe(32);
+  });
+
+  it("the gap and padding it assumes are still the ones the containers declare", () => {
+    // ⚠️ `gridMinWidthPx` hard-codes `gap-1` (4px) and `px-1` (8px) because they live in
+    // Tailwind classes, not in the column list. Changing a container to `gap-2` would
+    // under-size the minimum with nothing else noticing, so pin the classes at source.
+    const files = {
+      "UnifiedActivityGrid.tsx": 3, // header, subheader, summary
+      "UnifiedActivityRow.tsx": 1,
+      "BandHeaderRow.tsx": 1,
+    };
+    let total = 0;
+    for (const [file, expected] of Object.entries(files)) {
+      const src = readFileSync(new URL(file, import.meta.url), "utf8");
+      const found = src.split("grid items-center gap-1 px-1").length - 1;
+      expect(found, `${file} declares ${found} grid containers, expected ${expected}`).toBe(
+        expected,
+      );
+      total += found;
+    }
+    // All five containers, so none can drift onto a different gap unnoticed.
+    expect(total).toBe(5);
   });
 });
