@@ -5,6 +5,7 @@
 import { useState, useCallback } from "react";
 import type { ConstraintConflict, DependencyConflict } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 // -- Shared warning item component --------------------------------------------
 
@@ -64,7 +65,8 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [], activityNum
   const prefixName = useCallback(
     (id: string, name: string) => {
       const num = activityNumberMap?.get(id);
-      return num ? `#${num} ${name}` : name;
+      const label = nameOrUnnamed(name);
+      return num ? `#${num} ${label}` : label;
     },
     [activityNumberMap]
   );

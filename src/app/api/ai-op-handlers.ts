@@ -101,6 +101,16 @@ function estimateOutOfRange(v: number | undefined): boolean {
 export function createActivityCore(scenario: Scenario, p: CreateActivityPayload): CoreResult {
   if (scenario.activities.length >= ACTIVITY_CAP) return reject("cap_exceeded");
   if (scenario.activities.some((a) => a.id === p.id)) return reject("duplicate");
+  // Non-blank name at the AI-write boundary. NOT on ActivitySchema — the shared
+  // schema also gates every project load, and a `.min(1)` there bricks any stored
+  // project holding an unnamed activity (the grid's "+ Add Activity" persists
+  // `name: ""` by design, so the placeholder can render). Enforced in the activity
+  // cores instead, exactly like ESTIMATE_MAX above. Trim-aware: `"   "` is unnamed
+  // to a person, and only the CSV parser trimmed before this.
+  // ⚠️ This is the ONLY name enforcement the AI ops have; ai-bulk-schemas.ts is a
+  // bare z.string(). ai-op-contract.json declares `minLen: 1` for every activity
+  // name, so removing this makes the client violate its own published contract.
+  if (p.name.trim() === "") return reject("invalid");
   // A1: finite ceiling on estimates, before distribution recommendation so
   // garbage never feeds recommendDistribution/computePertMean.
   if (estimateOutOfRange(p.min) || estimateOutOfRange(p.mostLikely) || estimateOutOfRange(p.max)) {
@@ -213,6 +223,17 @@ export function updateActivityCore(
     estimateOutOfRange(fields.mostLikely) ||
     estimateOutOfRange(fields.max)
   ) {
+    return reject("invalid");
+  }
+
+  // Non-blank name at the AI-write boundary — see createActivityCore for why this
+  // is not on ActivitySchema.
+  // ⚠️ PROVIDED field only, and the reason is the same one the estimate guard
+  // above states: an unnamed activity is now a LEGAL stored state, so testing the
+  // merged object would make every unnamed activity permanently un-editable by
+  // the AI — no estimate, description or bulk update could ever land on it. Only
+  // an explicit blanking is refused. (R19.)
+  if (fields.name !== undefined && fields.name.trim() === "") {
     return reject("invalid");
   }
 

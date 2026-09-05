@@ -18,6 +18,7 @@ import type { Activity, ScenarioSettings, DeterministicSchedule } from "@domain/
 import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import { formatDateISO, parseDateISO, countWorkingDays, durationToFinishDateISO } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { computeTargetRAGColor } from "@core/schedule/target-rag";
 import { isCalendarError } from "@core/calendar/work-calendar";
@@ -198,7 +199,8 @@ export function ProjectPage() {
   const formatActivityName = useCallback(
     (a: Activity) => {
       const num = activityNumberMap?.get(a.id);
-      return num ? `#${num} ${a.name}` : a.name;
+      const label = nameOrUnnamed(a.name);
+      return num ? `#${num} ${label}` : label;
     },
     [activityNumberMap]
   );

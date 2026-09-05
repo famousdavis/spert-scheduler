@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Activity, ActivityDependency, DependencyType, DeterministicSchedule } from "@domain/models/types";
 import { DEPENDENCY_TYPES } from "@domain/models/types";
 import { dependencyLabel } from "@domain/helpers/format-labels";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { validateDependencies, detectCycle } from "@core/schedule/dependency-graph";
 
 type DependencySortMode = "alpha" | "schedule";
@@ -147,7 +148,7 @@ export function DependencyPanel({
     (id: string) => {
       const a = activityMap.get(id);
       if (!a) return `Unknown (${id.slice(0, 8)})`;
-      return formatActivityName ? formatActivityName(a) : a.name;
+      return formatActivityName ? formatActivityName(a) : nameOrUnnamed(a.name);
     },
     [activityMap, formatActivityName]
   );
@@ -332,7 +333,7 @@ export function DependencyPanel({
             <option value="">Predecessor…</option>
             {activities.map((a) => (
               <option key={a.id} value={a.id} disabled={a.id === toId}>
-                {formatActivityName ? formatActivityName(a) : a.name}
+                {formatActivityName ? formatActivityName(a) : nameOrUnnamed(a.name)}
               </option>
             ))}
           </select>
@@ -347,7 +348,7 @@ export function DependencyPanel({
             <option value="">Successor…</option>
             {activities.map((a) => (
               <option key={a.id} value={a.id} disabled={a.id === fromId}>
-                {formatActivityName ? formatActivityName(a) : a.name}
+                {formatActivityName ? formatActivityName(a) : nameOrUnnamed(a.name)}
               </option>
             ))}
           </select>

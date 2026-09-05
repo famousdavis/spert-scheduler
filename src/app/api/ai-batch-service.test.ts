@@ -930,3 +930,120 @@ describe("applyAiOpsToProject — routing, locking, ordering", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Non-blank activity names at the AI-write boundary
+// ---------------------------------------------------------------------------
+
+/**
+ * `ActivitySchema.name` was relaxed to `z.string().max(200)` in v0.65.0, because
+ * that schema is also the LAST gate on every project LOAD and a `.min(1)` there
+ * made one unnamed activity brick a whole project.
+ *
+ * ⚠️ That schema was the AI layer's ONLY name enforcement — the bulk envelopes in
+ * ai-bulk-schemas.ts are a bare `z.string()`. The rule now lives in
+ * `createActivityCore` and `updateActivityCore`, and `ai-op-contract.json`
+ * independently declares `minLen: 1` for every activity name, so removing the
+ * guards would put the client in violation of its own published cross-repo
+ * contract with nothing to say so.
+ *
+ * Five ops route through those two cores and exactly ONE of them was covered
+ * before this block: `rename_activity`, above, which is deliberately left
+ * untouched — it was written before this change and it still passes, which is
+ * stronger evidence that the guards restored the exact prior rule than anything
+ * asserted here.
+ */
+describe("activity names must not be blank (AI write boundary)", () => {
+  const blank = ["", "   ", "\t\n"];
+
+  describe("create_activity", () => {
+    it.each(blank)("rejects a blank name %j", (name) => {
+      const { project, scenarioId } = build({ activityCount: 0 });
+      const res = one(
+        project,
+        { seq: 1, op: "create_activity", payload: { id: "n1", name, min: 1, mostLikely: 2, max: 3 } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "skipped", reason: "invalid" });
+      expect(scenarioOf(res.project, scenarioId).activities).toHaveLength(0);
+    });
+
+    it("control: a name that is only padded still applies", () => {
+      const { project, scenarioId } = build({ activityCount: 0 });
+      const res = one(
+        project,
+        { seq: 1, op: "create_activity", payload: { id: "n1", name: "  Design  ", min: 1, mostLikely: 2, max: 3 } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    });
+  });
+
+  describe("rename_activity", () => {
+    // The `""` case is covered above by the pre-existing test. Whitespace-only
+    // was ALWAYS applied here, even before the relaxation — `"   "` passed
+    // `.min(1)` — so this is a genuine tightening, not a restoration.
+    it.each(["   ", "\t\n"])("rejects a whitespace-only name %j", (name) => {
+      const { project, scenarioId, activityIds } = build();
+      const res = one(
+        project,
+        { seq: 1, op: "rename_activity", payload: { id: activityIds[0]!, name } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "skipped", reason: "invalid" });
+      expect(activityOf(res.project, scenarioId, activityIds[0]!).name).toBe("Task 1");
+    });
+  });
+
+  describe("an activity that is ALREADY unnamed stays editable", () => {
+    // ⚠️ The regression the conditional guard exists to prevent (R19). An
+    // unnamed activity is a legal stored state now, so a guard that tested the
+    // MERGED activity rather than the provided field would make every unnamed
+    // activity permanently un-editable by the AI — no estimate, description or
+    // bulk update could ever land on it again. Only an explicit blanking is
+    // refused.
+    function withUnnamed() {
+      const { project, scenarioId } = build({ activityCount: 0 });
+      const scenario = scenarioOf(project, scenarioId);
+      const unnamed = { ...createActivity("", scenario.settings), id: "blank1" };
+      return {
+        project: withPatch(project, scenarioId, {
+          activities: [...scenario.activities, unnamed],
+        }),
+        scenarioId,
+      };
+    }
+
+    it("accepts an estimate update", () => {
+      const { project, scenarioId } = withUnnamed();
+      const res = one(
+        project,
+        { seq: 1, op: "update_activity_estimate", payload: { id: "blank1", min: 2, mostLikely: 4, max: 9 } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+      expect(activityOf(res.project, scenarioId, "blank1").mostLikely).toBe(4);
+    });
+
+    it("accepts a description", () => {
+      const { project, scenarioId } = withUnnamed();
+      const res = one(
+        project,
+        { seq: 1, op: "set_activity_description", payload: { id: "blank1", description: "Notes" } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    });
+
+    it("accepts being given a real name", () => {
+      const { project, scenarioId } = withUnnamed();
+      const res = one(
+        project,
+        { seq: 1, op: "rename_activity", payload: { id: "blank1", name: "Design" } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+      expect(activityOf(res.project, scenarioId, "blank1").name).toBe("Design");
+    });
+  });
+});

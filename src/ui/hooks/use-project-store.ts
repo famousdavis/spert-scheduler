@@ -1055,11 +1055,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       const activity = scen.activities.find((a) => a.id === activityId);
       if (!activity) return state;
 
-      // Clone the activity with a new ID and "(copy)" suffix
+      // Clone the activity with a new ID and "(copy)" suffix.
+      // ⚠️ NOT a display-helper site — this WRITES the name. An unnamed activity
+      // duplicates to an unnamed activity, so the copy keeps the grid's
+      // placeholder; suffixing would store `" (copy)"`, a real name with a
+      // leading space that no trim-keyed placeholder could ever rescue.
       const clone: Activity = {
         ...activity,
         id: generateId(),
-        name: `${activity.name} (copy)`,
+        name: activity.name.trim() ? `${activity.name} (copy)` : "",
         status: "planned",
         actualDuration: undefined,
         checklist: activity.checklist?.map((item) => ({

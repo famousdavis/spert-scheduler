@@ -13,6 +13,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.65.0",
+    date: "2026-09-05",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Adding an activity and leaving its name blank — or clearing the name of an activity that already had one — could make the whole project fail to load the next time you opened it. The project card was replaced by \"1 project could not be loaded\", and everything in it was out of reach: every other activity, every scenario, the schedule, the simulation. A single blank name in a fifty-activity project was enough.",
+          "In cloud storage it was worse and quieter. There was no message at all — the project simply disappeared from the dashboard, for everyone it was shared with, on every device.",
+          "Projects affected by this now open normally, wherever they are stored. Nothing needs to be repaired or re-created: the project opens as it was, with the unnamed activity still in place and still unnamed, ready for you to name it.",
+          "A backup you exported while the project was in this state can now be imported again — and so can an \"Export All Projects\" file, which previously became unusable in its entirety, healthy projects included, if any one project in it had an unnamed activity.",
+          "Clearing an activity's name in the grid and tabbing away now leaves the name as it was, rather than blanking it. A name typed with extra spaces around it is saved without them, which is what the activity editor already did.",
+        ],
+      },
+      {
+        title: "Improved",
+        items: [
+          "An activity with no name used to render as a blank space, which was hard to spot and, in the dependency and milestone pickers, impossible to select — the drop-down entry had no text at all. Anywhere an activity's name is displayed, one without a name now reads \"(unnamed)\": the grid, the Gantt chart and its tooltips, the printed report, the schedule spreadsheet and CSV, the dependency and milestone pickers, the sensitivity chart and the schedule warnings.",
+          "This is a label, not a name. Nothing is stored, the activity's name stays empty, and the \"Add an activity name\" prompt in the grid is untouched — so a new row still shows it.",
+        ],
+      },
+      {
+        title: "Notes",
+        items: [
+          "Your data is unchanged and no conversion happens on opening. Nothing about scheduling, simulation, estimates or storage changed. Names remain limited to 200 characters, and activities still cannot be created without a name through spreadsheet import or Connect AI.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.64.17",
     date: "2026-09-05",
     sections: [

@@ -7,6 +7,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import type { Activity, ActivityDependency, DependencyType } from "@domain/models/types";
 import { DEPENDENCY_TYPES } from "@domain/models/types";
 import { dependencyLabel } from "@domain/helpers/format-labels";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { detectCycle } from "@core/schedule/dependency-graph";
 
 interface DependencyEditModalProps {
@@ -161,7 +162,7 @@ export function DependencyEditModal({
                 <option value="">Select activity...</option>
                 {activities.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {formatActivityName ? formatActivityName(a) : a.name}
+                    {formatActivityName ? formatActivityName(a) : nameOrUnnamed(a.name)}
                   </option>
                 ))}
               </select>
@@ -182,7 +183,7 @@ export function DependencyEditModal({
                 <option value="">Select activity...</option>
                 {activities.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {formatActivityName ? formatActivityName(a) : a.name}
+                    {formatActivityName ? formatActivityName(a) : nameOrUnnamed(a.name)}
                   </option>
                 ))}
               </select>

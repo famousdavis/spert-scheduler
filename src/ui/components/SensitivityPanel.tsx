@@ -4,6 +4,7 @@
 
 import { useId, useMemo, useState } from "react";
 import type { Activity } from "@domain/models/types";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   computeSensitivityAnalysis,
   type SensitivityResult,
@@ -170,7 +171,7 @@ function SensitivityRow({
       {/* Activity name */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-          {result.activityName}
+          {nameOrUnnamed(result.activityName)}
         </p>
         <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
           <span>

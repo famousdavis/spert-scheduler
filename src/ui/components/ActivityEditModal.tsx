@@ -31,6 +31,7 @@ import { parseDateISO, isWorkingDay, formatDateISO, countWorkingDays, activityEn
 import { detectConstraintConflict } from "@core/schedule/constraint-utils";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
+import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { ChecklistSection } from "@ui/components/ChecklistSection";
 import { DeliverablesSection } from "@ui/components/DeliverablesSection";
 import {
@@ -243,7 +244,9 @@ export function ActivityEditModal({
   const activityNameById = useCallback(
     (id: string) => {
       const a = allActivities.find((act) => act.id === id);
-      const name = a?.name ?? id;
+      // No such activity → the id is the only identifier left. Present but
+      // unnamed → the placeholder, which `?? id` could not catch.
+      const name = a ? nameOrUnnamed(a.name) : id;
       const num = activityNumberMap?.get(id);
       return num ? `#${num} ${name}` : name;
     },

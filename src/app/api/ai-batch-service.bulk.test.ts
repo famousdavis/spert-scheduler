@@ -897,3 +897,111 @@ describe("bulk_append_notes", () => {
     expect(outcomeOf(project, op, scenarioId)).toEqual({ status: "skipped", reason: "invalid" });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Non-blank activity names — the three BULK ops
+// ---------------------------------------------------------------------------
+
+/**
+ * The singular half of this rule lives in ai-batch-service.test.ts, with the
+ * reasoning. These are the other three of the five ops that route through
+ * `createActivityCore` / `updateActivityCore`, none of which had any empty-name
+ * coverage before v0.65.0 — so relaxing `ActivitySchema.name` regressed all
+ * three with a fully green suite.
+ *
+ * A blank name is a PER-ITEM reject, like an over-ceiling estimate: the valid
+ * items in the same payload still apply.
+ */
+describe("bulk ops reject blank activity names per item", () => {
+  it("bulk_create_activities skips the blank-named items and applies the rest", () => {
+    const { project, scenarioId } = baseProject();
+    const op: AiOp = {
+      seq: 1,
+      op: "bulk_create_activities",
+      payload: {
+        activities: [
+          { id: "ok1", name: "Ok1", min: 1, mostLikely: 2, max: 3 },
+          { id: "empty", name: "", min: 1, mostLikely: 2, max: 3 },
+          { id: "spaces", name: "   ", min: 1, mostLikely: 2, max: 3 },
+          { id: "ok2", name: "Ok2", min: 2, mostLikely: 3, max: 4 },
+        ],
+      },
+    };
+    const res = one(project, op, scenarioId);
+    expect(res.results[0]!.outcome).toEqual({
+      status: "partial",
+      appliedCount: 2,
+      skippedItems: [
+        { index: 1, id: "empty", reason: "invalid" },
+        { index: 2, id: "spaces", reason: "invalid" },
+      ],
+    });
+    expect(scenarioOf(res.project, scenarioId).activities.map((a) => a.id)).toEqual(["ok1", "ok2"]);
+  });
+
+  it("bulk_update_activities refuses to blank a name but still applies the other updates", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["a0", "a1", "a2"] });
+    const op: AiOp = {
+      seq: 1,
+      op: "bulk_update_activities",
+      payload: {
+        updates: [
+          { id: "a0", name: "Renamed" },
+          { id: "a1", name: "" },
+          { id: "a2", name: "   " },
+        ],
+      },
+    };
+    const res = one(project, op, scenarioId);
+    expect(partialOf(res.results[0]!.outcome).skippedItems).toEqual([
+      { index: 1, id: "a1", reason: "invalid" },
+      { index: 2, id: "a2", reason: "invalid" },
+    ]);
+    const activities = scenarioOf(res.project, scenarioId).activities;
+    expect(activities.find((a) => a.id === "a0")!.name).toBe("Renamed");
+    // Untouched, not blanked.
+    expect(activities.find((a) => a.id === "a1")!.name).toBe("a1");
+    expect(activities.find((a) => a.id === "a2")!.name).toBe("a2");
+  });
+
+  it("bulk_import_schedule skips a blank-named activity in its activities section", () => {
+    const { project, scenarioId } = baseProject();
+    const op: AiOp = {
+      seq: 1,
+      op: "bulk_import_schedule",
+      payload: {
+        activities: [
+          { id: "a0", name: "A0", min: 1, mostLikely: 2, max: 3 },
+          { id: "a1", name: "  ", min: 1, mostLikely: 2, max: 3 },
+        ],
+      },
+    };
+    const res = one(project, op, scenarioId);
+    expect(scenarioOf(res.project, scenarioId).activities.map((a) => a.id)).toEqual(["a0"]);
+  });
+
+  it("control: the same three payloads with real names apply in full", () => {
+    const { project, scenarioId } = baseProject({ activityIds: ["b0"] });
+
+    const created = one(project, {
+      seq: 1,
+      op: "bulk_create_activities",
+      payload: { activities: [{ id: "c1", name: "C1", min: 1, mostLikely: 2, max: 3 }] },
+    }, scenarioId);
+    expect(created.results[0]!.outcome).toEqual({ status: "applied" });
+
+    const updated = one(project, {
+      seq: 1,
+      op: "bulk_update_activities",
+      payload: { updates: [{ id: "b0", name: "B0 renamed" }] },
+    }, scenarioId);
+    expect(updated.results[0]!.outcome).toEqual({ status: "applied" });
+
+    const imported = one(project, {
+      seq: 1,
+      op: "bulk_import_schedule",
+      payload: { activities: [{ id: "i1", name: "I1", min: 1, mostLikely: 2, max: 3 }] },
+    }, scenarioId);
+    expect(scenarioOf(imported.project, scenarioId).activities.map((a) => a.id)).toContain("i1");
+  });
+});
