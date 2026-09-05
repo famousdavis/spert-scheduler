@@ -6,6 +6,7 @@ import type { Activity, ScheduledActivity } from "@domain/models/types";
 import { BAR_RADIUS } from "./gantt-constants";
 import type { ResolvedGanttAppearance } from "./gantt-constants";
 import { buildActivityTooltip, type ActivityRowGeometry } from "./gantt-utils";
+import { GanttActivityName } from "./GanttActivityName";
 
 export interface EditTarget {
   kind: "activity" | "band";
@@ -39,14 +40,22 @@ export interface GanttActivityRowProps {
 }
 
 /**
- * One activity row of the interactive Gantt chart: eight conditional render blocks —
- * hover background, activity name, hatched bar, solid bar, critical-path stripe,
- * terminal stripe, bar label and constraint icon.
+ * One activity row of the interactive Gantt chart: seven conditional render blocks —
+ * hover background, hatched bar, solid bar, critical-path stripe, terminal stripe, bar
+ * label and constraint icon. The name label is its own component, `GanttActivityName`.
  *
  * ⚠️ DECOMPOSED §3.3 (2026-08-03) from a cc 20 anonymous JSX callback at
  * `GanttChart.tsx:952`, into computeActivityRowGeometry (cc 6) + this (cc 12) + a cc 2
  * residual in the chart. Region mode measured the split before a line moved: the compute
  * and render halves were 8 and 12, summing exactly to the original 20.
+ *
+ * ⚠️ NOW cc 4, NOT THE 12 THIS COMMENT USED TO CLAIM. The name label left for
+ * `GanttActivityName` in v0.64.16 (WI-21). That was NOT a tidy-up: giving the name a
+ * second gesture inline measured this component at 20, past the lint gate's 15, so the
+ * split was forced by a number and its result is a number. The paragraph below is kept
+ * because its reasoning still stands for what remains here — but note that the split it
+ * calls uncostable is the one that eventually happened, and it was costed, by measuring
+ * a whole component rather than a JSX region.
  *
  * ⚠️ A THREE-WAY SPLIT WAS CONSIDERED AND NOT COSTED, deliberately. Splitting this render
  * half further would plausibly land every unit under 10 — but `npm run cc`'s region mode
@@ -57,12 +66,12 @@ export interface GanttActivityRowProps {
  * one, and prop-threading is where this kind of extraction gets expensive — see the ~30
  * closed-over identifiers this component's props already represent.
  *
- * ⚠️ cc 12 IS INSIDE THE 10–15 BAND LINT NEVER REPORTS, and that was accepted rather than
- * overlooked. §3.6's finding was that the band is dangerous when complexity, low coverage
- * and invisibility compound. Here the compounding does not apply: this is flat conditional
- * rendering, and it is pinned at SUB-PIXEL granularity by `gantt-parity-oracle`, which has
- * been demonstrated to fail on this exact code (probes A and B, and the committed G7/G8).
- * Chasing it under 10 would be refactoring to satisfy a threshold, which §2 forbids.
+ * ⚠️ The §3.6 argument for tolerating the 10–15 band still applies to what is left: this
+ * is flat conditional rendering, pinned at SUB-PIXEL granularity by `gantt-parity-oracle`,
+ * which has been demonstrated to fail on this exact code (probes A and B, and the
+ * committed G7/G8). Nothing here should be refactored merely to satisfy a threshold,
+ * which §2 forbids — the extraction above happened because the number crossed the gate,
+ * not to make a passing number smaller.
  */
 export function GanttActivityRow({
   act, sa, geo, ra, c, chartWidth, isLocked, onEditActivity, onRenameActivity,
@@ -97,26 +106,14 @@ export function GanttActivityRow({
                   onMouseLeave={hideTooltip}
                 />
 
-                {/* Activity name — clickable for inline rename when unlocked */}
-                <text
-                  x={ra.leftMargin - 8}
-                  y={y + ra.rowHeight / 2}
-                  textAnchor="end"
-                  dominantBaseline="central"
-                  fontSize={ra.nameFontSize}
-                  fill={c.text}
-                  className={!isLocked && onRenameActivity ? "cursor-pointer" : "pointer-events-none"}
-                  style={editTarget?.kind === "activity" && editTarget.id === act.id ? { display: "none" } : undefined}
-                  onClick={!isLocked && onRenameActivity ? () => {
-                    setEditTarget({ kind: "activity", id: act.id });
-                    setEditValue(act.name);
-                  } : undefined}
-                >
-                  {(() => {
-                    const dn = activityIndexMap ? `#${activityIndexMap.get(act.id)} ${act.name}` : act.name;
-                    return dn.length > ra.nameCharLimit ? dn.slice(0, ra.nameCharLimit - 2) + "..." : dn;
-                  })()}
-                </text>
+                {/* Activity name — single click opens the editor, double click renames */}
+                <GanttActivityName
+                  act={act} y={y} rowHeight={ra.rowHeight} leftMargin={ra.leftMargin}
+                  fontSize={ra.nameFontSize} nameCharLimit={ra.nameCharLimit} fill={c.text}
+                  isLocked={isLocked} onEditActivity={onEditActivity} onRenameActivity={onRenameActivity}
+                  editTarget={editTarget} setEditTarget={setEditTarget} setEditValue={setEditValue}
+                  activityIndexMap={activityIndexMap}
+                />
 
                 {/* Hatched bar (uncertainty extension) — behind solid */}
                 {showHatch && (

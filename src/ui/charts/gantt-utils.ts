@@ -654,6 +654,26 @@ export function computeBarHitRect(
  * hovering a solid bar showed no tooltip at all (measured 2026-09-05) and hovering an
  * arrow that crossed one showed the DEPENDENCY tooltip instead.
  */
+/**
+ * The `#<n> Name` label form, shared by the name label and the hover tooltip.
+ *
+ * ⚠️ A PRESENT map prefixes `#<n> ` even when the lookup misses, yielding `#undefined `.
+ * That is the behaviour both call sites had before they were unified here, pinned by a
+ * test rather than quietly corrected — see the note on `buildActivityTooltip`.
+ */
+export function activityDisplayName(
+  name: string,
+  activityId: string,
+  activityIndexMap: Map<string, number> | null,
+): string {
+  return activityIndexMap ? `#${activityIndexMap.get(activityId)} ${name}` : name;
+}
+
+/** Ellipsised to `limit` characters, matching what the Gantt name column can show. */
+export function truncateLabel(label: string, limit: number): string {
+  return label.length > limit ? label.slice(0, limit - 2) + "..." : label;
+}
+
 export function buildActivityTooltip(args: {
   name: string;
   activityId: string;
@@ -672,9 +692,7 @@ export function buildActivityTooltip(args: {
   dependencyMode: boolean;
   formatDate: (iso: string) => string;
 }): string {
-  const displayName = args.activityIndexMap
-    ? `#${args.activityIndexMap.get(args.activityId)} ${args.name}`
-    : args.name;
+  const displayName = activityDisplayName(args.name, args.activityId, args.activityIndexMap);
   const dates = `${args.formatDate(args.startDate)} – ${args.formatDate(args.endDate)} (${args.duration}d)`;
 
   if (!args.dependencyMode || args.totalFloat == null) return `${displayName}: ${dates}`;

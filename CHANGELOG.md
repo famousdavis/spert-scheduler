@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.64.16 — 2026-09-05
+
+### Clicking an activity's name on the Gantt chart opens that activity
+
+Clicking an activity name in the Gantt chart's left column started renaming it in place. That is still available, on a double click. A single click now opens the activity, matching what a single click on its bar does.
+
+Because one click begins a double click, the name waits about a quarter of a second before opening the activity, so a second click can arrive and start a rename instead. Escape still cancels a rename, as before.
+
+Section header names are deliberately unchanged: a single click still renames a section, since there is nothing else for it to open.
+
+### Notes
+
+Nothing about scheduling, simulation, storage, or your data changed, and the chart is drawn exactly as before. Locked scenarios are unchanged — neither clicking nor double-clicking a name does anything in them. The printed report is unaffected.
+
 ## 0.64.15 — 2026-09-05
 
 ### Clicking a bar on the Gantt chart now opens that activity
