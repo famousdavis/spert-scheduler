@@ -138,7 +138,7 @@ export const ActivityDependencySchema = z.object({
 
 export const MilestoneSchema = z.object({
   id: z.string().min(1).max(64),
-  name: z.string().min(1).max(200),
+  name: z.string().max(200),
   targetDate: ISODateString,
 });
 

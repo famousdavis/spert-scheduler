@@ -5,7 +5,7 @@
 import { useCallback, useState } from "react";
 import type { Activity, Milestone, MilestoneBufferInfo } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { useBufferedField } from "@ui/hooks/use-buffered-field";
+import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 interface MilestonePanelProps {
@@ -25,14 +25,14 @@ interface MilestoneNameInputProps {
   milestoneId: string;
   name: string;
   disabled: boolean;
-  onCommit: (milestoneId: string, name: string) => void;
+  onCommit: (milestoneId: string, name: string, controls: BufferedFieldControls) => void;
 }
 
 // Non-exported — buffered name input for a milestone row. Hooks can't be
 // called inside .map(), so we extract a sub-component keyed on m.id.
 function MilestoneNameInput({ milestoneId, name, disabled, onCommit }: MilestoneNameInputProps) {
   const handleCommit = useCallback(
-    (next: string) => onCommit(milestoneId, next),
+    (next: string, controls: BufferedFieldControls) => onCommit(milestoneId, next, controls),
     [milestoneId, onCommit],
   );
   const { localValue, setLocalValue, handleFocus, handleBlur, revertValue } = useBufferedField(
@@ -108,9 +108,25 @@ export function MilestonePanel({
     setNewDate("");
   };
 
+  // Reject-empty-after-trim, the rule `InlineEdit` applies to project and scenario
+  // renames — and the rule the ADD form three lines below has always applied
+  // (`if (!newName.trim() || !newDate) return;`, then `onAddMilestone(newName.trim(), …)`).
+  // That asymmetry was the defect: adding was guarded, renaming was not, and a
+  // cleared name reached the store through `updateMilestone`, which validates
+  // nothing. It surfaced only later, when the project failed to load.
+  // Saves the TRIMMED value, matching the add form.
   const handleMilestoneNameCommit = useCallback(
-    (id: string, nextName: string) => onUpdateMilestone(id, { name: nextName }),
-    [onUpdateMilestone],
+    (id: string, nextName: string, controls: BufferedFieldControls) => {
+      const trimmed = nextName.trim();
+      if (trimmed && trimmed !== milestones.find((m) => m.id === id)?.name) {
+        onUpdateMilestone(id, { name: trimmed });
+      } else {
+        // Blank-after-trim, or unchanged once trimmed: discard the typed value
+        // and resync the buffer to the stored name.
+        controls.reset();
+      }
+    },
+    [onUpdateMilestone, milestones],
   );
 
   // Build a map: milestoneId → assigned activities

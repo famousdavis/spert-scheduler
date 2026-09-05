@@ -616,7 +616,7 @@ export function PrintGanttChart({
               />
               <text x={x} y={topMargin - 2 - ds - 10} textAnchor="middle"
                 fontSize={fs5} fill={healthColor} fontWeight="600">
-                {ms.name}
+                {nameOrUnnamed(ms.name)}
               </text>
               <text x={x} y={topMargin - 2 - ds - 4} textAnchor="middle"
                 fontSize={fs4} fill={healthColor}>

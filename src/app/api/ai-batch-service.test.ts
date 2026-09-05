@@ -1047,3 +1047,122 @@ describe("activity names must not be blank (AI write boundary)", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Non-blank milestone names at the AI-write boundary
+// ---------------------------------------------------------------------------
+
+/**
+ * ⚠️ THESE ARE TRIPWIRES, NOT FAIL-AT-HEAD TESTS. They PASS at 7763f7b, where
+ * `MilestoneSchema.name` is still `.min(1)` and the schema does the refusing.
+ * They fail only in the intermediate arm — schema relaxed, guards not yet added —
+ * and pass again once the guards land.
+ *
+ * That intermediate arm is the ONLY falsification baseline this change has.
+ * Before v0.66.0 **nothing in the suite referenced `MilestoneSchema` at all**
+ * (two source files, zero test files), so relaxing it produced 0 failures out of
+ * 2,949 and the AI regression would have shipped in silence. The activity case
+ * had exactly one such tripwire and it was luck; this is the same guard, written
+ * on purpose.
+ *
+ * Four ops route through two cores: `createMilestoneCore` serves
+ * `create_milestone`, `bulk_create_milestones` and `bulk_import_schedule`'s
+ * milestones section; `handleUpdateMilestone` serves `update_milestone`.
+ * `ai-op-contract.json` declares `minLen: 1` on the two bulk milestone name
+ * fields, so these guards keep the client honest to its own published contract.
+ */
+describe("milestone names must not be blank (AI write boundary)", () => {
+  const blank = ["", "   ", "\t\n"];
+
+  function withMilestone() {
+    const { project, scenarioId } = build({ activityCount: 0 });
+    return {
+      scenarioId,
+      project: withPatch(project, scenarioId, {
+        milestones: [{ id: "m1", name: "Go-Live", targetDate: "2026-12-01" }],
+      }),
+    };
+  }
+
+  const milestonesOf = (project: Project, scenarioId: string) =>
+    scenarioOf(project, scenarioId).milestones;
+
+  describe("create_milestone", () => {
+    it.each(blank)("rejects a blank name %j", (name) => {
+      const { project, scenarioId } = build({ activityCount: 0 });
+      const res = one(
+        project,
+        { seq: 1, op: "create_milestone", payload: { id: "m2", name, targetDate: "2026-12-01" } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "skipped", reason: "invalid" });
+      expect(milestonesOf(res.project, scenarioId)).toHaveLength(0);
+    });
+
+    it("control: a padded name still applies", () => {
+      const { project, scenarioId } = build({ activityCount: 0 });
+      const res = one(
+        project,
+        { seq: 1, op: "create_milestone", payload: { id: "m2", name: "  Go-Live  ", targetDate: "2026-12-01" } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    });
+  });
+
+  describe("update_milestone", () => {
+    it.each(blank)("refuses to blank an existing name with %j", (name) => {
+      const { project, scenarioId } = withMilestone();
+      const res = one(
+        project,
+        { seq: 1, op: "update_milestone", payload: { id: "m1", name } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "skipped", reason: "invalid" });
+      expect(milestonesOf(res.project, scenarioId)[0]!.name).toBe("Go-Live");
+    });
+
+    it("control: a real rename applies", () => {
+      const { project, scenarioId } = withMilestone();
+      const res = one(
+        project,
+        { seq: 1, op: "update_milestone", payload: { id: "m1", name: "Launch" } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+      expect(milestonesOf(res.project, scenarioId)[0]!.name).toBe("Launch");
+    });
+
+    it("a milestone that is ALREADY unnamed still accepts a target-date change", () => {
+      // ⚠️ The R19 shape, on the milestone path. `handleUpdateMilestone` was
+      // already the merged-object form, so a guard placed on the merged name
+      // would make every unnamed milestone permanently un-editable by the AI.
+      // Only an explicitly provided blank is refused.
+      const { project, scenarioId } = build({ activityCount: 0 });
+      const seeded = withPatch(project, scenarioId, {
+        milestones: [{ id: "m1", name: "", targetDate: "2026-12-01" }],
+      });
+      const res = one(
+        seeded,
+        { seq: 1, op: "update_milestone", payload: { id: "m1", targetDate: "2027-01-15" } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+      expect(milestonesOf(res.project, scenarioId)[0]!.targetDate).toBe("2027-01-15");
+    });
+
+    it("an already-unnamed milestone accepts being given a real name", () => {
+      const { project, scenarioId } = build({ activityCount: 0 });
+      const seeded = withPatch(project, scenarioId, {
+        milestones: [{ id: "m1", name: "", targetDate: "2026-12-01" }],
+      });
+      const res = one(
+        seeded,
+        { seq: 1, op: "update_milestone", payload: { id: "m1", name: "Go-Live" } },
+        scenarioId
+      );
+      expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+      expect(milestonesOf(res.project, scenarioId)[0]!.name).toBe("Go-Live");
+    });
+  });
+});
