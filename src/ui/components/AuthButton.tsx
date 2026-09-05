@@ -7,11 +7,24 @@ import { useStorage } from "@ui/providers/StorageProvider";
 import { getFirstName } from "@ui/helpers/format-user";
 
 function CloudIcon() {
-  // Left at #0070f3 deliberately (v0.66.2). Measured 4.55 light / 3.22 dark against the
-  // header; the bar for a glyph like this is 3:1 non-text, not 4.5, so both pass — 3.22
-  // narrowly. Not themed alongside the "Sign in" accent because it MEETS its bar and the
-  // two never render together (cloud icon = signed in; "Sign in" = signed out), so there
-  // is no inconsistency a user can see. Recorded rather than silently skipped.
+  // Left at #0070f3 deliberately (v0.66.2). Measured 4.55 light / 3.22 dark.
+  //
+  // ⚠️ The claim being made is "MEETS the applicable threshold", not "no threshold
+  // applies" — those are different declines and this one is the former. WCAG 1.4.11
+  // (3:1, non-text) genuinely governs this glyph: in the signed-in chip the right
+  // segment renders ONLY the icon, and the sole visible text is the user's name, which
+  // says nothing about storage mode. So cloud-vs-lock is the only VISUAL carrier of
+  // which mode you are in — a graphical object required to understand the content.
+  // (The mode is also in the button's aria-label, but that serves assistive tech, not
+  // the sighted user this criterion is about.)
+  //
+  // It passes at 3.22, but narrowly, on an indicator that is load-bearing — so this is
+  // a pass to re-measure if the header surface ever changes, not a comfortable one.
+  // Not themed alongside the "Sign in" accent because it meets its bar and the two
+  // never render together (cloud = signed in; "Sign in" = signed out).
+  //
+  // Contrast with the segment divider below, which is the OTHER kind of decline:
+  // decorative, so 1.4.11 does not govern it at all and its 1.47 is not a finding.
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
