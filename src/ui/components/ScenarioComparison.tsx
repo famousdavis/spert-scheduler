@@ -245,11 +245,11 @@ export function ScenarioComparisonTable({
   ];
 
   return (
-    <div className="inline-block bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="inline-block bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       {/* Comparison table — header bar (chrome, not in screenshot) above the
           captured region. Matches the GanttSection pattern: label on the left,
           copy button on the right. */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
           Scenario Comparison
         </h3>
@@ -260,7 +260,14 @@ export function ScenarioComparisonTable({
       </div>
       {/* Explicit bg-white + inline-block on the captured element: html2canvas 1.4.1
           can fail to compute bounds on a bare div inside an inline-block/overflow-hidden
-          parent, producing "Failed to copy image to clipboard" for the table button. */}
+          parent, producing "Failed to copy image to clipboard" for the table button.
+
+          ⚠️ THE bg-white IS ALSO DELIBERATE FOR THEMING, and must stay (WI-3, v0.66.1).
+          `copyChartAsPng` passes `backgroundColor: "#ffffff"` to html2canvas, which forces
+          the canvas BACKDROP white but does not touch element colours. A captured region
+          that followed the dark theme would put light text on that white backdrop —
+          unreadable, and worse than a dark PNG. Only the CHROME around this region follows
+          the theme. */}
       <div ref={tableRef} className="inline-block bg-white">
         <table className="text-sm">
           <thead>
@@ -323,7 +330,7 @@ export function ScenarioComparisonTable({
           region contains only the chart. */}
       {cdfDatasets.length >= 2 && (
         <>
-          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 border-b border-gray-100">
+          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 dark:border-gray-700 border-b border-gray-100 dark:border-gray-700">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Cumulative Distribution Comparison
             </h3>
@@ -332,6 +339,8 @@ export function ScenarioComparisonTable({
               title="Copy distribution comparison as image"
             />
           </div>
+          {/* Captured by html2canvas — stays light in both themes; see the note on
+              tableRef above. */}
           <div ref={cdfRef} className="p-4 bg-white">
             <CDFComparisonChart
               datasets={cdfDatasets}
