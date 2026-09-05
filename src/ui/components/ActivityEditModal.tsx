@@ -31,6 +31,7 @@ import { parseDateISO, isWorkingDay, formatDateISO, countWorkingDays, activityEn
 import { detectConstraintConflict } from "@core/schedule/constraint-utils";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
+import { confidenceApplies, CONFIDENCE_NA_TITLE } from "@domain/helpers/confidence-applies";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { ChecklistSection } from "@ui/components/ChecklistSection";
 import { DeliverablesSection } from "@ui/components/DeliverablesSection";
@@ -139,6 +140,9 @@ export function ActivityEditModal({
   const [max, setMax] = useState<number | "">(activity?.max ?? "");
   const [confidenceLevel, setConfidenceLevel] = useState<RSMLevel>(activity?.confidenceLevel ?? "mediumConfidence");
   const [distributionType, setDistributionType] = useState<DistributionType>(activity?.distributionType ?? "normal");
+  // Read from LOCAL state, not the saved activity: switching the distribution inside the
+  // modal must grey the Confidence control immediately, before any save.
+  const confidenceIsRelevant = confidenceApplies(distributionType);
 
   // -- Local draft state: Constraint --
   const [constraintType, setConstraintType] = useState<ConstraintType | null>(
@@ -684,7 +688,9 @@ export function ActivityEditModal({
                     name="confidenceLevel"
                     value={confidenceLevel}
                     onChange={(e) => setConfidenceLevel(e.target.value as RSMLevel)}
-                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    disabled={!confidenceIsRelevant}
+                    title={confidenceIsRelevant ? undefined : CONFIDENCE_NA_TITLE}
+                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {RSM_LEVELS.map((level) => (
                       <option key={level} value={level}>
