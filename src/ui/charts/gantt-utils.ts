@@ -608,3 +608,81 @@ export function computeTodayLine(
     todayX: todayInRange ? toX(todayStr) : null,
   };
 }
+
+// -- Bar hit area -------------------------------------------------------------
+
+/**
+ * Horizontal geometry of a bar's invisible click target.
+ *
+ * ⚠️ WHY A HIT TARGET EXISTS AT ALL. Measured on the sample project 2026-09-05, in
+ * dependency mode at 1280x720: dependency arrows render their 10px transparent hit
+ * strokes AFTER the bars, so an arrow crossing a bar took the click. 14 of 15 visible
+ * bars had stolen area, the worst 78.7% of its surface. The fix is a transparent rect
+ * painted after the arrow hit paths, so bars win wherever the two overlap.
+ *
+ * ⚠️ THE MECHANISM IS NOT THE ONE THE ARROWS' OWN START POINT SUGGESTS. Every FS arrow
+ * begins at `M barEndX,rowCentre`, which reads as if it covers the bar's trailing edge —
+ * it does not. The stroke has a butt cap, so it extends OUTWARD from that point, and a
+ * measurement of the trailing edge found the bar winning on 7 of 8 bars. What actually
+ * steals the click is arrows from OTHER rows passing over the bar in transit, which is
+ * why the damage is spread across the whole bar and scales with dependency count.
+ *
+ * ⚠️ THE WIDENING IS CONDITIONAL, and that is load-bearing. Widening every bar would make
+ * the hatched uncertainty extension clickable on bars that abut it. Only bars narrower
+ * than `minWidth` widen; at or above it the rect matches the bar exactly. For the bars
+ * that do widen the zone is centred, so it reaches ~5px into the hatch on a 4px bar —
+ * accepted, because that only happens for bars too narrow to click at all, and the hatch
+ * it reaches into belongs to the same activity.
+ */
+export function computeBarHitRect(
+  barX: number,
+  barWidth: number,
+  minWidth: number,
+): { x: number; width: number } {
+  if (barWidth >= minWidth) return { x: barX, width: barWidth };
+  return { x: barX - (minWidth - barWidth) / 2, width: minWidth };
+}
+
+// -- Activity tooltip ---------------------------------------------------------
+
+/**
+ * The hover tooltip text for one activity row.
+ *
+ * Extracted so the row background and the bar hit rect above it cannot drift: the hit
+ * rect is a SIBLING of the row background, not a descendant, so `onMouseEnter` on the
+ * background does not fire while the pointer is over the bar. Before this existed,
+ * hovering a solid bar showed no tooltip at all (measured 2026-09-05) and hovering an
+ * arrow that crossed one showed the DEPENDENCY tooltip instead.
+ */
+export function buildActivityTooltip(args: {
+  name: string;
+  activityId: string;
+  /**
+   * ⚠️ Consumed exactly as the row label does: a PRESENT map prefixes `#<n> `, even when
+   * the lookup misses and yields `#undefined `. That is faithful to the behaviour this
+   * was extracted from, not an endorsement — narrowing it to "prefix only when the lookup
+   * succeeds" would be a silent behaviour change riding along with an interaction fix.
+   */
+  activityIndexMap: Map<string, number> | null;
+  startDate: string;
+  endDate: string;
+  duration: number;
+  totalFloat: number | undefined;
+  freeFloat: number | undefined;
+  dependencyMode: boolean;
+  formatDate: (iso: string) => string;
+}): string {
+  const displayName = args.activityIndexMap
+    ? `#${args.activityIndexMap.get(args.activityId)} ${args.name}`
+    : args.name;
+  const dates = `${args.formatDate(args.startDate)} – ${args.formatDate(args.endDate)} (${args.duration}d)`;
+
+  if (!args.dependencyMode || args.totalFloat == null) return `${displayName}: ${dates}`;
+
+  const floatLabel = args.totalFloat === 0 ? "Critical path" : `${args.totalFloat}d`;
+  const freeFloatLabel =
+    args.freeFloat != null && args.freeFloat < args.totalFloat
+      ? `\nFree Float: ${args.freeFloat}d`
+      : "";
+  return `${displayName}\n${dates}\nTotal Float: ${floatLabel}${freeFloatLabel}`;
+}

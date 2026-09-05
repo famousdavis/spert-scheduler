@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.64.15 — 2026-09-05
+
+### Clicking a bar on the Gantt chart now opens that activity
+
+In Dependency Mode, clicking an activity's bar on the Gantt chart often opened the Edit Dependency dialog instead of the activity — sometimes in the middle of the bar, not just near its edge. Dependency arrows are drawn with an invisible wider band around them so they are easy to click, and that band was placed on top of the bars. Arrows travelling between distant rows pass over bars on their way across the chart, so the more dependencies a schedule has, the more of each bar was covered. On the sample project, 14 of the 15 bars visible at once had part of their surface taken this way, the worst of them 78%.
+
+Bars now take the click wherever a bar and an arrow overlap. Arrows are unchanged everywhere else: clicking one in open space still opens the Edit Dependency dialog, including where an arrow crosses the hatched uncertainty extension.
+
+### Very short bars can now be clicked at all
+
+An activity of a day or two draws a bar only a few pixels wide, which was effectively impossible to hit — a one-day bar could not be clicked anywhere along its middle. Bars narrower than 14 pixels now get an invisible click target of that width, centred on the bar. Bars wider than that are unchanged, so the hatched uncertainty extension beside them stays unclickable as before.
+
+### Hovering a bar now shows the activity's details
+
+Hovering directly over a bar previously showed nothing, and hovering a point where an arrow crossed a bar showed the dependency's tooltip. Hovering a bar now shows that activity's own name, dates and float, and no longer highlights an arrow underneath it.
+
+### Notes
+
+Nothing about scheduling, simulation, storage, or your data changed, and the chart is drawn exactly as before — this affects only what your mouse lands on. Locked scenarios are unchanged: the Gantt chart opens neither dialog in them. The printed report is unaffected.
+
 ## 0.64.14 — 2026-09-03
 
 Development tooling only. Nothing about scheduling, simulation, storage, or your data changed.

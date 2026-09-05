@@ -19,9 +19,11 @@ import {
   suppressOverlappingTicks,
   computeTodayLine,
   barLabelText,
+  computeBarHitRect,
+  buildActivityTooltip,
 } from "./gantt-utils";
 import {
-  LEFT_MARGIN, ROW_HEIGHT, BAR_HEIGHT, BAR_Y_OFFSET,
+  LEFT_MARGIN, ROW_HEIGHT, BAR_HEIGHT, BAR_Y_OFFSET, MIN_BAR_HIT_WIDTH,
   PRINT_LEFT, PRINT_ROW, PRINT_BAR_H,
   resolveGanttAppearance, GANTT_COLOR_PRESETS,
 } from "./gantt-constants";
@@ -1025,5 +1027,117 @@ describe("bar-label dates are short enough to fit narrow bars", () => {
     expect(formatDateShort("2026-05-08", "MM/DD/YYYY")).toBe("May 8");
     expect(formatDateShort("2026-05-08", "DD/MM/YYYY")).toBe("8 May");
     expect(formatDateShort("2026-05-08", "YYYY/MM/DD")).toBe("May 8");
+  });
+});
+
+describe("computeBarHitRect", () => {
+  /**
+   * ⚠️ EVERY CASE HERE IS PAIRED: a bar that must NOT widen beside one that must. A rule
+   * that widened everything, and a rule that widened nothing, would each pass a one-sided
+   * suite — and "widen everything" is the specific mistake that would make the hatched
+   * uncertainty extension clickable, which the owner ruled out.
+   */
+  it("leaves a bar at or above the minimum exactly alone", () => {
+    expect(computeBarHitRect(100, 14, 14)).toEqual({ x: 100, width: 14 });
+    expect(computeBarHitRect(100, 40, 14)).toEqual({ x: 100, width: 40 });
+    expect(computeBarHitRect(100, 180.25, 14)).toEqual({ x: 100, width: 180.25 });
+  });
+
+  it("widens a narrower bar to the minimum, centred", () => {
+    // The 4px floor from computeActivityRowGeometry — a 1-day activity.
+    expect(computeBarHitRect(100, 4, 14)).toEqual({ x: 95, width: 14 });
+    // Just under the boundary: 1px short widens by 0.5px each side.
+    expect(computeBarHitRect(100, 13, 14)).toEqual({ x: 99.5, width: 14 });
+  });
+
+  it("keeps the widened zone centred on the bar's own centre", () => {
+    // The affordance must not drift off the thing it is an affordance for.
+    for (const w of [1, 4, 8, 13]) {
+      const hit = computeBarHitRect(200, w, 14);
+      expect(hit.x + hit.width / 2).toBeCloseTo(200 + w / 2, 10);
+    }
+  });
+
+  it("never returns a target narrower than the minimum", () => {
+    for (const w of [0, 0.5, 4, 13.99, 14, 14.01, 500]) {
+      expect(computeBarHitRect(0, w, 14).width).toBeGreaterThanOrEqual(14);
+    }
+  });
+
+  it("is exercised with the real constant, not just an inline 14", () => {
+    // Guards against the production call site and this suite drifting apart.
+    expect(MIN_BAR_HIT_WIDTH).toBe(14);
+    expect(computeBarHitRect(0, 4, MIN_BAR_HIT_WIDTH).width).toBe(MIN_BAR_HIT_WIDTH);
+    expect(computeBarHitRect(0, 40, MIN_BAR_HIT_WIDTH).width).toBe(40);
+  });
+});
+
+describe("buildActivityTooltip", () => {
+  const base = {
+    name: "Build",
+    activityId: "a2",
+    activityIndexMap: null as Map<string, number> | null,
+    startDate: "2026-04-13",
+    endDate: "2026-04-24",
+    duration: 10,
+    totalFloat: undefined as number | undefined,
+    freeFloat: undefined as number | undefined,
+    dependencyMode: false,
+    formatDate: (iso: string) => iso,
+  };
+
+  it("uses the single-line form outside dependency mode", () => {
+    expect(buildActivityTooltip(base)).toBe("Build: 2026-04-13 – 2026-04-24 (10d)");
+  });
+
+  it("uses the single-line form in dependency mode when float is absent", () => {
+    // ⚠️ Both halves of the original guard: `dependencyMode && totalFloat != null`.
+    // Testing only the mode would let a rule keyed on the mode alone pass.
+    expect(buildActivityTooltip({ ...base, dependencyMode: true })).toBe(
+      "Build: 2026-04-13 – 2026-04-24 (10d)",
+    );
+  });
+
+  it("reports a zero total float as the critical path", () => {
+    expect(buildActivityTooltip({ ...base, dependencyMode: true, totalFloat: 0 })).toBe(
+      "Build\n2026-04-13 – 2026-04-24 (10d)\nTotal Float: Critical path",
+    );
+  });
+
+  it("reports a non-zero total float in days", () => {
+    expect(buildActivityTooltip({ ...base, dependencyMode: true, totalFloat: 3 })).toBe(
+      "Build\n2026-04-13 – 2026-04-24 (10d)\nTotal Float: 3d",
+    );
+  });
+
+  it("adds free float only when it is strictly less than total float", () => {
+    const withFloats = (freeFloat: number) =>
+      buildActivityTooltip({ ...base, dependencyMode: true, totalFloat: 3, freeFloat });
+    expect(withFloats(1)).toContain("\nFree Float: 1d");
+    expect(withFloats(3)).not.toContain("Free Float"); // equal — omitted
+    expect(withFloats(5)).not.toContain("Free Float"); // greater — omitted
+  });
+
+  it("prefixes the activity number when an index map is supplied", () => {
+    const map = new Map([["a2", 7]]);
+    expect(buildActivityTooltip({ ...base, activityIndexMap: map })).toBe(
+      "#7 Build: 2026-04-13 – 2026-04-24 (10d)",
+    );
+  });
+
+  it("reproduces the pre-existing `#undefined` behaviour on a lookup miss", () => {
+    // ⚠️ PINNED AS-IS, NOT ENDORSED. This is what the inline expression in
+    // GanttActivityRow did before extraction. Recording it means a future decision to
+    // fix it is a visible, deliberate edit to this expectation rather than an
+    // accidental behaviour change riding along with an unrelated refactor.
+    const map = new Map([["someone-else", 7]]);
+    expect(buildActivityTooltip({ ...base, activityIndexMap: map })).toBe(
+      "#undefined Build: 2026-04-13 – 2026-04-24 (10d)",
+    );
+  });
+
+  it("routes dates through the supplied formatter", () => {
+    const out = buildActivityTooltip({ ...base, formatDate: (iso) => `<${iso}>` });
+    expect(out).toBe("Build: <2026-04-13> – <2026-04-24> (10d)");
   });
 });
