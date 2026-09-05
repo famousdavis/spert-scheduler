@@ -651,21 +651,6 @@ export function UnifiedActivityRow({
         disabled={isLocked}
       />
 
-      {/* Confidence */}
-      <div>
-        <ConfidenceLevelSelect
-          value={activity.confidenceLevel}
-          onChange={(level) =>
-            onUpdate(activity.id, { confidenceLevel: level })
-          }
-          disabled={isLocked || !confidenceIsRelevant}
-          data-row-id={activity.id}
-          data-field="confidence"
-          onKeyDown={(e) => handleTabNav(e, "confidence")}
-          tabIndex={heuristicEnabled ? 0 : -1}
-        />
-      </div>
-
       {/* Distribution */}
       <div className="flex items-center gap-0.5 group relative">
         <select
@@ -717,6 +702,21 @@ export function UnifiedActivityRow({
             />
           </div>
         </div>
+      </div>
+
+      {/* Confidence */}
+      <div>
+        <ConfidenceLevelSelect
+          value={activity.confidenceLevel}
+          onChange={(level) =>
+            onUpdate(activity.id, { confidenceLevel: level })
+          }
+          disabled={isLocked || !confidenceIsRelevant}
+          data-row-id={activity.id}
+          data-field="confidence"
+          onKeyDown={(e) => handleTabNav(e, "confidence")}
+          tabIndex={heuristicEnabled ? 0 : -1}
+        />
       </div>
 
       {/* Status */}

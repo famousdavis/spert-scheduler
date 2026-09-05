@@ -24,19 +24,26 @@ import {
  * to make a refactor pass. A refactor that needs this file edited is not a refactor.
  */
 
-// Transcribed from grid-columns.ts at a651b9d, before the list existed.
-const LITERAL_AT_a651b9d =
-  "24px 20px 1fr 40px 90px 90px 38px 38px 38px 96px 110px 110px 40px 1px 40px 8px";
-const LITERAL_WITH_CONSTRAINT_AT_a651b9d =
-  "24px 20px 1fr 40px 90px 90px 80px 38px 38px 38px 96px 110px 110px 40px 1px 40px 8px";
+// Originally transcribed from grid-columns.ts at a651b9d, before the named list existed,
+// to prove the refactor changed nothing. ⚠️ Renamed off that commit in the swap commit:
+// a constant named after a sha it no longer holds is the stale-name trap this campaign
+// keeps meeting. It is the EXPECTED template; the history lives in this comment.
+// ⚠️ UPDATED in the swap commit, which is the ONLY legitimate reason to touch these.
+// The 96px/110px pair is transposed because Distribution now precedes Confidence; every
+// other track is unchanged, and the total width is identical (the swap is width-neutral,
+// which matters because the grid is already at its width limit).
+const EXPECTED_TEMPLATE =
+  "24px 20px 1fr 40px 90px 90px 38px 38px 38px 110px 96px 110px 40px 1px 40px 8px";
+const EXPECTED_TEMPLATE_WITH_CONSTRAINT =
+  "24px 20px 1fr 40px 90px 90px 80px 38px 38px 38px 110px 96px 110px 40px 1px 40px 8px";
 
 describe("grid-columns: generating the template changed nothing", () => {
   it("GRID_COLUMNS is byte-identical to the literal it replaced", () => {
-    expect(GRID_COLUMNS).toBe(LITERAL_AT_a651b9d);
+    expect(GRID_COLUMNS).toBe(EXPECTED_TEMPLATE);
   });
 
   it("GRID_COLUMNS_WITH_CONSTRAINT is byte-identical to the literal it replaced", () => {
-    expect(GRID_COLUMNS_WITH_CONSTRAINT).toBe(LITERAL_WITH_CONSTRAINT_AT_a651b9d);
+    expect(GRID_COLUMNS_WITH_CONSTRAINT).toBe(EXPECTED_TEMPLATE_WITH_CONSTRAINT);
   });
 });
 

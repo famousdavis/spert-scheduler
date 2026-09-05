@@ -48,8 +48,8 @@ const COLUMNS: { name: string; width: string; header?: string; field?: string }[
   { name: "min", width: "38px", header: "Min", field: "min" },
   { name: "mostLikely", width: "38px", header: "ML", field: "ml" }, // data-field is "ml", not "mostLikely"
   { name: "max", width: "38px", header: "Max", field: "max" },
-  { name: "confidence", width: "96px", header: "Confidence", field: "confidence" },
   { name: "distribution", width: "110px", header: "Distribution", field: "distribution" },
+  { name: "confidence", width: "96px", header: "Confidence", field: "confidence" },
   { name: "status", width: "110px", header: "Status", field: "status" },
   { name: "actual", width: "40px", header: "Actual", field: "actual" },
   { name: "separator", width: "1px" },
@@ -120,6 +120,9 @@ describe("G2 — the template's width order", () => {
     const byName = Object.fromEntries(COLUMNS.map((c) => [c.name, c.width]));
     expect(byName.confidence).toBe("96px");
     expect(byName.distribution).toBe("110px");
+    // Distribution now precedes Confidence; each keeps its own width.
+    expect(COLUMNS.findIndex((c) => c.name === "distribution"))
+      .toBeLessThan(COLUMNS.findIndex((c) => c.name === "confidence"));
   });
 
   it("both variants declare the same number of tracks as the column list", () => {

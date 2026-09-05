@@ -66,8 +66,8 @@ const EXPECTED: { header: string; value: string }[] = [
   { header: "Min", value: String(SENTINEL.min) },
   { header: "Most Likely", value: String(SENTINEL.mostLikely) },
   { header: "Max", value: String(SENTINEL.max) },
-  { header: "Confidence", value: CONFIDENCE_LABEL },
   { header: "Distribution", value: DISTRIBUTION_LABEL },
+  { header: "Confidence", value: CONFIDENCE_LABEL },
   { header: "Status", value: STATUS_LABEL },
 ];
 

@@ -52,9 +52,13 @@ export function shouldShowConstraintColumn(
   return !!dependencyMode || hasAnyConstraint(activities);
 }
 
-export function maxTabTarget(shiftKey: boolean, confidenceApplies: boolean): "ml" | "confidence" | "distribution" {
+export function maxTabTarget(shiftKey: boolean): "ml" | "distribution" {
   if (shiftKey) return "ml";
-  return confidenceApplies ? "confidence" : "distribution";
+  // ⚠️ Unconditional since v0.67.0. Distribution now sits before Confidence, and unlike
+  // Confidence it is never disabled — so forward-Tab from `max` always lands there,
+  // whatever the distribution type. The old `confidenceApplies` parameter chose between
+  // the two and is gone; the array swap in buildTabFieldOrder does NOT cover this.
+  return "distribution";
 }
 
 /** Builds the ordered list of tabbable fields for a row given its current mode. */
@@ -66,7 +70,7 @@ export function buildTabFieldOrder(
 ): string[] {
   if (heuristicEnabled) {
     const order = confidenceApplies
-      ? ["name", "ml", "confidence", "distribution", "status"]
+      ? ["name", "ml", "distribution", "confidence", "status"]
       : ["name", "ml", "distribution", "status"];
     if (isComplete || isInProgress) order.push("actual");
     return order;
@@ -84,14 +88,17 @@ export function handleOffOrderTabNav(
   activityId: string,
   heuristicEnabled: boolean | undefined,
   fieldOrderIdx: number,
-  confidenceApplies: boolean,
+  // Unused since v0.67.0: maxTabTarget no longer branches on it, because Distribution
+  // now precedes Confidence and is never disabled. Kept in the signature so the grid's
+  // call sites are untouched; the `_` prefix is the repo's intentionally-unused marker.
+  _confidenceApplies: boolean,
 ): boolean {
   if (!heuristicEnabled || fieldOrderIdx !== -1) return false;
   e.preventDefault();
   if (currentField === "min") {
     focusField(activityId, e.shiftKey ? "name" : "ml");
   } else if (currentField === "max") {
-    focusField(activityId, maxTabTarget(e.shiftKey, confidenceApplies));
+    focusField(activityId, maxTabTarget(e.shiftKey));
   }
   return true;
 }

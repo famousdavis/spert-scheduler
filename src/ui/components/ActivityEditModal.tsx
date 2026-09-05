@@ -680,6 +680,24 @@ export function ActivityEditModal({
                   />
                 </div>
                 <div>
+                  <label htmlFor={fieldDistributionId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Distribution
+                  </label>
+                  <select
+                    id={fieldDistributionId}
+                    name="distributionType"
+                    value={distributionType}
+                    onChange={(e) => setDistributionType(e.target.value as DistributionType)}
+                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    {DISTRIBUTION_TYPES.map((dt) => (
+                      <option key={dt} value={dt}>
+                        {distributionLabel(dt)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label htmlFor={fieldConfidenceId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Confidence
                   </label>
@@ -695,24 +713,6 @@ export function ActivityEditModal({
                     {RSM_LEVELS.map((level) => (
                       <option key={level} value={level}>
                         {RSM_LABELS[level]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor={fieldDistributionId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Distribution
-                  </label>
-                  <select
-                    id={fieldDistributionId}
-                    name="distributionType"
-                    value={distributionType}
-                    onChange={(e) => setDistributionType(e.target.value as DistributionType)}
-                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  >
-                    {DISTRIBUTION_TYPES.map((dt) => (
-                      <option key={dt} value={dt}>
-                        {distributionLabel(dt)}
                       </option>
                     ))}
                   </select>

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.67.0 — 2026-09-05
+
+### Distribution now comes before Confidence
+
+Throughout the app, the Distribution column and field now sit to the left of Confidence rather than to the right of it. You pick a distribution first, and only then a confidence level — which is the order the two are actually decided in, because the distribution determines whether confidence means anything at all.
+
+This is changed everywhere the two appear together: the activity grid, the Edit Activity dialog, the printed report, and the exported schedule (both XLSX and CSV). Tabbing through a row follows the new order too.
+
+⚠️ **If you have a spreadsheet, macro or template that reads the exported schedule by column position, those two columns have moved.** Importing activities into SPERT Scheduler is unaffected — the importer matches columns by their heading, not their position, so files in either order import identically.
+
+### Confidence is greyed out when it does not apply
+
+Confidence only affects Normal and LogNormal distributions; for Triangular and Uniform the value has no effect on the result. The activity grid has always greyed the control out for those two — the Edit Activity dialog did not, so it looked as though the setting still mattered there.
+
+The dialog now greys it out in the same way, with the same explanation on hover, and it updates the moment you change the distribution rather than waiting for you to save. Your saved confidence level is kept, not discarded — switch back to a distribution that uses it and it is as you left it.
+
+### Notes
+
+No column widths changed and nothing was added or removed, so the grid takes up exactly as much room as before. Nothing about scheduling, simulation, estimates or storage changed.
+
 ## 0.66.2 — 2026-09-05
 
 ### The sign-in chip in the header is easier to read
