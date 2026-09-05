@@ -21,7 +21,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           "Clearing a milestone's name and clicking away could make the whole project fail to load the next time you opened it — the same failure that v0.65.0 fixed for activities, on the other name field. The project card was replaced by \"1 project could not be loaded\", and in cloud storage the project simply disappeared from the dashboard with no message at all.",
           "The gap was that adding a milestone had always required a name, while renaming one did not check. Projects affected by this now open normally. Nothing needs repairing: the milestone is still there, still unnamed, ready for you to name it.",
-          "Clearing a milestone's name and tabbing away now leaves the name as it was, which is what the \"Add milestone\" form beside it has always done. A name typed with extra spaces around it is saved without them.",
+          "Clearing a milestone's name and tabbing away now leaves the name as it was, which is what the \"Add milestone\" form beside it has always done. A name of nothing but spaces is refused the same way — it used to be accepted, and then showed as blank everywhere the milestone appeared, which was hard to tell apart from a name that had simply gone missing. A name typed with extra spaces around it is saved without them.",
         ],
       },
       {

@@ -10,7 +10,7 @@ The gap was that adding a milestone had always required a name, while renaming o
 
 ### The milestone name field no longer accepts a blank
 
-Clearing a milestone's name and tabbing away now leaves the name as it was, which is what the "Add milestone" form beside it has always done. A name typed with extra spaces around it is saved without them.
+Clearing a milestone's name and tabbing away now leaves the name as it was, which is what the "Add milestone" form beside it has always done. A name of nothing but spaces is refused the same way — it used to be accepted, and then showed as blank everywhere the milestone appeared, which was hard to tell apart from a name that had simply gone missing. A name typed with extra spaces around it is saved without them.
 
 ### Unnamed milestones are shown as "(unnamed)"
 
