@@ -149,6 +149,13 @@ describe("useTheme", () => {
       // is why this is routed to §3.6 as an injection candidate rather than patched here:
       // the hook's output is not a function of its inputs, which is the actual defect
       // class, and §3.6 is where that gets addressed deliberately.
+      //
+      // 2026-09-05 — THE TRAP FIRED ONCE AND WAS AVOIDED ON PURPOSE. The Gantt chart
+      // needed a dark-mode flag, and its work item prescribed exactly the consumer this
+      // comment warns about ("a chart palette"). It did NOT take it: the chart subscribes
+      // to the `dark` CLASS instead (`use-dark-class.ts`), which this test proves is
+      // correct on the system path where effectiveTheme is not. Still zero consumers of
+      // effectiveTheme, and this assertion is still recording, not endorsing.
       expect(result.current.effectiveTheme).toBe("light");
     });
 
