@@ -7,6 +7,11 @@ import { useStorage } from "@ui/providers/StorageProvider";
 import { getFirstName } from "@ui/helpers/format-user";
 
 function CloudIcon() {
+  // Left at #0070f3 deliberately (v0.66.2). Measured 4.55 light / 3.22 dark against the
+  // header; the bar for a glyph like this is 3:1 non-text, not 4.5, so both pass — 3.22
+  // narrowly. Not themed alongside the "Sign in" accent because it MEETS its bar and the
+  // two never render together (cloud icon = signed in; "Sign in" = signed out), so there
+  // is no inconsistency a user can see. Recorded rather than silently skipped.
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
@@ -18,10 +23,17 @@ function CloudIcon() {
 }
 
 function LockIcon() {
+  // `currentColor` + themed classes, not a fixed #9CA3AF: that grey measured 2.54 against
+  // the light header, under the 3:1 bar for a glyph carrying state. The colour lives on the
+  // svg rather than an ancestor because this icon renders in two different segments —
+  // beside "Local only" when signed out, and alone on the right when signed in locally.
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="11" width="18" height="11" rx="2" stroke="#9CA3AF" strokeWidth="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+    <svg
+      width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+      className="text-gray-500 dark:text-gray-400"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -97,7 +109,7 @@ export function AuthButton({ onOpenModal }: AuthButtonProps) {
       {/* Left segment: lock icon + "Local only" */}
       <span className="flex items-center gap-1.5 py-1 pl-2.5 pr-2.5">
         <LockIcon />
-        <span style={{ fontSize: 13 }} className="text-gray-400">
+        <span style={{ fontSize: 13 }} className="text-gray-500 dark:text-gray-400">
           Local only
         </span>
       </span>
@@ -105,7 +117,10 @@ export function AuthButton({ onOpenModal }: AuthButtonProps) {
       <span className="self-stretch" style={{ width: "0.5px", backgroundColor: "#D1D5DB" }} />
       {/* Right segment: "Sign in" (visual only) */}
       <span className="flex items-center justify-center px-2.5 py-1 rounded-r-full">
-        <span style={{ fontSize: 12, fontWeight: 500, color: "#0070f3" }}>
+        {/* Colour lives in styles.css: an inline style beats any Tailwind variant, so
+            `dark:` could never have reached it. Light keeps #0070f3 unchanged (4.55, a
+            pass this change must not spend); dark lightens to clear the 4.5 bar. */}
+        <span style={{ fontSize: 12, fontWeight: 500 }} className="auth-signin-accent">
           Sign in
         </span>
       </span>
