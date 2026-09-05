@@ -22,6 +22,14 @@ export const BAR_RADIUS = 4;
  * the rect matches the bar exactly, so the hatched uncertainty extension stays inert.
  */
 export const MIN_BAR_HIT_WIDTH = 14;
+/**
+ * How long a single click on an activity name waits before opening the editor, in ms.
+ *
+ * The wait exists only so a DOUBLE click can cancel it and start an inline rename
+ * instead — the two gestures share one element, so the first cannot act until the
+ * second has had a chance to arrive. A quarter second is the owner's accepted cost.
+ */
+export const NAME_CLICK_DELAY_MS = 250;
 export const MIN_CHART_WIDTH = 900;
 export const ARROW_HEAD_SIZE = 10;
 export const MIN_TICK_SPACING_PX = 70;
