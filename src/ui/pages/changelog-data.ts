@@ -19,9 +19,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Fixed",
         items: [
-          "Cancel in the Edit Activity window discards your changes and closes. Cancel means cancel: clicking it abandons whatever you have changed in the window, with no prompt — which is what it did before the previous release, and what the control means everywhere else.",
-          "Version 0.67.3 changed Cancel to ask whether to save first. That was a mistake, and this release undoes it: the question's only two answers were to save the change or to carry on editing, so there was no longer any way to walk away from an edit you had decided against. The 0.67.3 entry stays below as history.",
-          "Pressing Escape, or clicking outside the window, still asks before discarding unsaved work. Those can happen by accident; clicking Cancel cannot.",
+          "Cancel in the Edit Activity window now asks before discarding your changes. Say yes and the window closes without saving anything; say no and you are back in the window with your work intact. With nothing changed it simply closes, as before.",
+          "The reason for asking is that Cancel and Save sit next to each other, and a slip is easy to miss: you can walk away believing you saved when in fact everything was thrown away, and nothing on screen would have told you.",
+          "Version 0.67.3 got this wrong in the opposite direction. There, Cancel offered to save your changes, and its only other answer was to carry on editing — so there was no way at all to abandon a change you had decided against. Cancel never saves; its question is only whether to discard.",
+          "Pressing Escape, or clicking outside the window, still offers to save unsaved work, exactly as it always has.",
         ],
       },
     ],
