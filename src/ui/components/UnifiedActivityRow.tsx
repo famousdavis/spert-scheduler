@@ -396,6 +396,11 @@ export function UnifiedActivityRow({
         // displaying the empty string. The field showed nothing, the store held the old
         // number, and nothing on screen said which was real.
         //
+        // ⚠️ v0.67.2: the input is CONTROLLED now, and this branch is still what keeps the
+        // empty field on screen — the cell holds an unparseable draft instead of dropping
+        // back to the store. The paragraph above narrates the pre-v0.63.1 defect and is
+        // kept for that; do not read "UNCONTROLLED" as a statement about today.
+        //
         // Restoring the old value instead was considered and REJECTED: it fixes the
         // defect by committing the same defect in the other direction, silently undoing
         // work the user deliberately did. Storing empty is not available — min /
