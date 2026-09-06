@@ -582,6 +582,144 @@ describe("ProjectPage — undo/redo keyboard shortcuts", () => {
   });
 });
 
+/**
+ * Cmd/Ctrl+Z must not hijack a text field.
+ *
+ * The page-level listener called e.preventDefault() and then undo() for every
+ * Cmd/Ctrl+Z on the document, with no target check at all. The preventDefault() is the
+ * hijack: it is what stopped the browser performing its own text undo. So correcting a
+ * typo in an activity name and pressing Cmd+Z did not restore the characters just typed
+ * — it silently reverted an unrelated project action, and the typo stayed.
+ *
+ * ⚠️ THE ASSERTION THAT MATTERS IS `notPrevented`, NOT ONLY THE STORE.
+ * "Store undo did not fire" is satisfied by a listener that swallows the key entirely,
+ * which would be a worse bug than the one being fixed: the field would get no undo at
+ * all. Only leaving the event un-prevented hands the keystroke back to the browser. The
+ * store check and the preventDefault check therefore both appear in every row, and
+ * neither is sufficient alone.
+ *
+ * ⚠️ jsdom does not implement native text undo, so "the typed characters come back"
+ * cannot be observed here at all — un-prevented dispatch is the closest fact this
+ * harness can state. It was watched in a real browser instead.
+ */
+describe("ProjectPage — undo/redo does not hijack text fields", () => {
+  const RENAMED = "Renamed Mid-Test";
+  const nameCell = (activityId: string) =>
+    document.querySelector<HTMLInputElement>(
+      `[data-row-id="${activityId}"][data-field="name"]`,
+    )!;
+  const storedName = (projectId: string) =>
+    useProjectStore.getState().getProject(projectId)!.name;
+
+  // ⚠️ Positive control for the preventDefault instrument, FIRST on purpose. Every row
+  // below asserts notPrevented === true, which is a leave-alone; if fireEvent's keydown
+  // were not cancelable, `true` would come back everywhere and all of them would pass
+  // vacuously. This row is the only one that must see `false`.
+  it("PRECONDITION: outside a text field the shortcut still undoes, and still prevents default", () => {
+    const p = makeProject();
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, RENAMED);
+
+    const notPrevented = fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
+
+    expect(notPrevented).toBe(false); // preventDefault() WAS called — instrument works
+    expect(storedName(p.id)).toBe(PROJECT_NAME); // and undo fired, as it always has
+  });
+
+  it("PRECONDITION: the grid renders an activity-name cell to aim at", () => {
+    const p = makeProject();
+    const aid = p.scenarios[0]!.activities[0]!.id;
+    renderPage(p);
+
+    // Guards every row below from passing because the query found nothing.
+    expect(nameCell(aid)).toBeTruthy();
+    expect(nameCell(aid).tagName).toBe("INPUT");
+  });
+
+  it("Ctrl+Z in an activity name cell leaves the project alone and hands the key back", () => {
+    const p = makeProject();
+    const aid = p.scenarios[0]!.activities[0]!.id;
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, RENAMED);
+
+    const notPrevented = fireEvent.keyDown(nameCell(aid), { key: "z", ctrlKey: true });
+
+    expect(storedName(p.id)).toBe(RENAMED); // the project action was NOT undone
+    expect(notPrevented).toBe(true); // the browser keeps its own text undo
+  });
+
+  it("Cmd+Z in an activity name cell behaves the same as Ctrl+Z", () => {
+    const p = makeProject();
+    const aid = p.scenarios[0]!.activities[0]!.id;
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, RENAMED);
+
+    const notPrevented = fireEvent.keyDown(nameCell(aid), { key: "z", metaKey: true });
+
+    expect(storedName(p.id)).toBe(RENAMED);
+    expect(notPrevented).toBe(true);
+  });
+
+  // ⚠️ Redo gets the same treatment as undo. Fixing one and leaving the other is the
+  // obvious half-done version of this change, so both redo spellings are pinned.
+  it("Ctrl+Shift+Z in an activity name cell does not redo", () => {
+    const p = makeProject();
+    const aid = p.scenarios[0]!.activities[0]!.id;
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, RENAMED);
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
+    expect(storedName(p.id)).toBe(PROJECT_NAME); // undone, so a redo has something to do
+
+    const notPrevented = fireEvent.keyDown(nameCell(aid), {
+      key: "z",
+      ctrlKey: true,
+      shiftKey: true,
+    });
+
+    expect(storedName(p.id)).toBe(PROJECT_NAME); // still undone — redo did NOT fire
+    expect(notPrevented).toBe(true);
+  });
+
+  it("Ctrl+Y in an activity name cell does not redo", () => {
+    const p = makeProject();
+    const aid = p.scenarios[0]!.activities[0]!.id;
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, RENAMED);
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
+    expect(storedName(p.id)).toBe(PROJECT_NAME);
+
+    const notPrevented = fireEvent.keyDown(nameCell(aid), { key: "y", ctrlKey: true });
+
+    expect(storedName(p.id)).toBe(PROJECT_NAME);
+    expect(notPrevented).toBe(true);
+  });
+
+  /**
+   * R2 — the one deliberate exception, and it INVERTS the guard above.
+   *
+   * The scenario-notes textarea keeps STORE undo by owner decision. It is a TEXTAREA, so
+   * the generic guard would exempt it, which is the opposite of what R2 requires; it opts
+   * back in with data-undo-scope="store". This test is what stops a future session
+   * deleting that attribute as redundant.
+   */
+  it("R2: Ctrl+Z in the scenario-notes textarea still reaches project undo", () => {
+    const p = makeProject();
+    renderPage(p);
+    fireEvent.click(screen.getByRole("button", { name: "Scenario notes" }));
+    const notes = document.querySelector<HTMLTextAreaElement>(
+      'textarea[name="scenarioNotes"]',
+    )!;
+    expect(notes).toBeTruthy(); // the opt-in target is really on screen
+    expect(notes.dataset.undoScope).toBe("store");
+
+    useProjectStore.getState().renameProject(p.id, RENAMED);
+    const notPrevented = fireEvent.keyDown(notes, { key: "z", ctrlKey: true });
+
+    expect(storedName(p.id)).toBe(PROJECT_NAME); // store undo DID fire, unlike every row above
+    expect(notPrevented).toBe(false); // and it still claims the key
+  });
+});
+
 // -- compare mode -------------------------------------------------------------
 
 describe("ProjectPage — compare mode", () => {

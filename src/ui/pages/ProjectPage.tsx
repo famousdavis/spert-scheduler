@@ -453,6 +453,25 @@ export function ProjectPage() {
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
+
+      // While the caret is in a text field, Cmd/Ctrl+Z belongs to the field. The
+      // preventDefault() below is the hijack: without this guard it suppressed the
+      // browser's own text undo, so a user correcting a typo in an activity name lost
+      // an unrelated project action instead of the characters they had just typed.
+      // Same shape as the '?' guard in Layout.tsx — matched deliberately, not reinvented.
+      //
+      // ⚠️ R2 — the scenario-notes textarea is the ONE deliberate exception, and it
+      // INVERTS this guard: it is a TEXTAREA, so the check below would exempt it from
+      // store undo, which is the opposite of what R2 requires. It opts back in with
+      // data-undo-scope="store". Its blur handler syncs FROM the store precisely so a
+      // mid-edit Ctrl+Z is visible; see ScenarioSummaryCard.tsx. Do not "tidy" either half.
+      const target = e.target as HTMLElement;
+      const inTextField =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
+      if (inTextField && target.dataset?.undoScope !== "store") return;
+
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();

@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.4",
+    date: "2026-09-06",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Undo no longer takes over while you are typing. Cmd+Z (Ctrl+Z on Windows) undid a project action wherever it was pressed, including with the cursor inside a text box — so correcting a typo in an activity name and pressing it did not bring back the characters you had just typed. It silently reverted an unrelated change somewhere else in the project, and the typo stayed. Redo behaved the same way.",
+          "While the cursor is in a text field, undo and redo now belong to that field and do what they do everywhere else on your computer. Outside a text field they still step back and forward through project actions, exactly as before.",
+          "The scenario notes box is a deliberate exception: undo there continues to move through project changes, which is what makes an edit in progress recoverable.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.3",
     date: "2026-09-06",
     sections: [
