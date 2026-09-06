@@ -928,21 +928,40 @@ export function ActivityEditModal({
           {/* Actions */}
           <div className="mt-5 flex justify-end gap-2">
             {/*
-              ⚠️ onClose, NOT handleDismiss — this is deliberate and it is an owner ruling:
-              "If I click Cancel on the edit modal, no changes should be saved and the edit modal
-              should close. That's it." Cancel is an EXPLICIT discard. Prompting here leaves no way
-              to abandon a valid draft at all, because the prompt's only two answers are save and
-              keep-editing.
+              ⚠️ THREE DELIBERATE DECISIONS LIVE ON THESE TWO BUTTONS. All three have already been
+              "fixed" or proposed as fixes at least once. Read before changing either.
 
-              ⚠️ THIS HAS NOW BEEN "FIXED" TO handleDismiss ONCE AND REVERTED. v0.67.3 routed it
-              through the guard for parity with Escape; the owner rejected that the same day and
-              v0.67.5 put it back. Before that it had been onClose continuously since v0.29.1.
+              1. onClose, NOT handleDismiss — owner ruling, 2026-09-06:
+                 "If I click Cancel on the edit modal, no changes should be saved and the edit
+                 modal should close. That's it."
+                 Cancel is an EXPLICIT discard. Routing it through the guard leaves no way to
+                 abandon a valid draft at all, because the prompt's only two answers are save and
+                 keep-editing. This button was onClose continuously from v0.29.1 to v0.67.2;
+                 v0.67.3 changed it to handleDismiss for "parity" with Escape and v0.67.5 reverted
+                 that the same day. Do not make it a third time.
 
-              ⚠️ And do not reinstate it on the v0.64.1 argument: that incident was NEVER about this
-              button. Its fix lives inside handleDismiss's invalid-name branch, which Escape and
-              overlay-click still reach via Dialog.Root onOpenChange, and this revert does not touch
-              it. The asymmetry is intended — clicking a control labelled Cancel is deliberate,
-              whereas Escape and a stray click outside can be accidental.
+              2. Cancel sits LEFT of Save on purpose — owner ruling, 2026-09-06, an informed
+                 DECLINE and not an oversight. The risk was measured before he ruled: a mis-hit
+                 Save writes to the store and is Cmd+Z-recoverable, while a mis-hit Cancel destroys
+                 local draft state with no recovery hook anywhere in this modal. Keyboard paths
+                 were ruled out (nothing autofocuses Cancel; both buttons are type="button", so no
+                 Enter-submit), leaving pointer adjacency as the only route. He weighed exactly
+                 that and kept the order: "I like the button order. I've never misclicked once
+                 using this app. At some point, we have to treat adults as if they're adults."
+                 Do not reorder these, and do not add a confirmation to compensate.
+
+              3. Escape and overlay-click DO prompt, via Dialog.Root onOpenChange — owner ruling,
+                 2026-09-06, and it is the original v0.29.1 design, not a later addition. The
+                 asymmetry is the point: clicking a control labelled Cancel is deliberate, whereas
+                 Escape and a stray click outside can be accidental.
+
+              ⚠️ Do not reinstate the guard here on the strength of either past incident — the
+              provenance has been got wrong once already and it is what caused v0.67.3:
+                • v0.62.0 fixed handleDismiss's invalid-name branch (an emptied name discarding
+                  every other edit). That is reached by Escape and overlay-click, and is untouched.
+                • v0.64.1 removed a direct onClose() at the DEPENDENCY HANDOFF, which was
+                  destroying the editor instead of stacking the dialog. A different call site.
+              Neither ever touched this button. Its line history runs v0.20.0 -> v0.29.1 -> v0.67.3.
             */}
             <button
               type="button"
