@@ -265,7 +265,13 @@ export function UnifiedActivityRow({
   };
 
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [, setTouchedFields] = useState<Set<string>>(() => {
+  // ⚠️ v0.67.2 — the VALUE is read now, and that is the M12 fix. Until this release the
+  // plain-estimate commit path called `validateAndUpdate` from INSIDE this setter's
+  // updater function, so React's development double-invocation ran the store write twice:
+  // every estimate edit pushed two undo frames on the dev server and the first Cmd+Z
+  // looked like it did nothing. Reading the state and calling the store outside the
+  // updater is the whole change; do not move the call back in.
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(() => {
     const allEqual =
       activity.min === activity.mostLikely &&
       activity.mostLikely === activity.max;
@@ -278,7 +284,7 @@ export function UnifiedActivityRow({
     touched.has("min") && touched.has("mostLikely") && touched.has("max");
 
   const validateAndUpdate = useCallback(
-    (field: string, value: number | string, touched: Set<string>) => {
+    (field: "min" | "mostLikely" | "max", value: number, touched: Set<string>) => {
       const updates = { [field]: value };
       const candidate = { ...activity, ...updates };
 
@@ -302,7 +308,23 @@ export function UnifiedActivityRow({
         onValidityChange(activity.id, false);
       }
 
-      onUpdate(activity.id, updates);
+      // ⚠️ v0.67.2 (R40) — a blur that leaves the number ON SCREEN unchanged writes
+      // nothing. Before this, merely looking at a cell and looking away committed the
+      // cell's own value back into the store: an undo frame, the simulation results
+      // discarded, a localStorage write and a cloud save, for a gesture that changed
+      // nothing. Tabbing through a row did it three times.
+      //
+      // ⚠️ COMPARE THE ROUNDED STORED NUMBER, NOT THE RAW ONE. The cell displays
+      // `Math.round`, and the store legitimately holds fractions (`computeHeuristic`
+      // gives `0.75` for a row added with the heuristic on). `value !== activity[field]`
+      // — the obvious guard, and the shape the heuristic branch above uses — is 1 !== 0.75
+      // for a cell that was only looked at, so it still writes the rounded number over the
+      // stored fraction. That was measured, on a straw implementation, passing every other
+      // pin in this file. The display/store mismatch it preserves is deliberate: see the
+      // R40 note in EstimateInputs.tsx.
+      if (Math.round(activity[field]) !== value) {
+        onUpdate(activity.id, updates);
+      }
     },
     [activity, onUpdate, onValidityChange]
   );
@@ -317,8 +339,12 @@ export function UnifiedActivityRow({
       const parsed = parseFloat(rawValue);
       if (!isNaN(parsed)) {
         const num = Math.round(parsed);
-        // When heuristic is enabled and ML actually changed, auto-calculate min/max
-        if (heuristicEnabled && field === "mostLikely" && num !== activity.mostLikely) {
+        // When heuristic is enabled and ML actually changed, auto-calculate min/max.
+        // ⚠️ v0.67.2 — `Math.round` on the stored value, for the reason spelled out in
+        // validateAndUpdate above: without it a stored `1` displayed over a fractional
+        // `0.75` reads as "changed" and one look at the cell recalculates all three
+        // estimates. This branch is where a single stale cell became three lost fields.
+        if (heuristicEnabled && field === "mostLikely" && num !== Math.round(activity.mostLikely)) {
           const { min: minRaw, max: maxRaw } = computeHeuristic(num, heuristicMinPercent, heuristicMaxPercent);
           const min = Math.round(minRaw);
           const max = Math.round(maxRaw);
@@ -346,22 +372,20 @@ export function UnifiedActivityRow({
             onValidityChange(activity.id, true);
           }
           onUpdate(activity.id, updates);
-          // Sync min/max input elements with new values
-          const minEl = document.querySelector<HTMLInputElement>(
-            `[data-row-id="${activity.id}"][data-field="min"]`
-          );
-          const maxEl = document.querySelector<HTMLInputElement>(
-            `[data-row-id="${activity.id}"][data-field="max"]`
-          );
-          if (minEl) minEl.value = String(min);
-          if (maxEl) maxEl.value = String(max);
+          // ⚠️ v0.67.2 — the sibling cells USED to be written here, by hand, with a
+          // document-scoped `document.querySelector`. That existed only because the
+          // inputs were uncontrolled and could not follow the store on their own. They
+          // are controlled now, so the recalculated min and max arrive the same way every
+          // other value does — through the prop — and the lookup is gone rather than
+          // documented: it would have addressed the wrong grid the moment a second one
+          // existed on the page.
         } else {
-          setTouchedFields((prev) => {
-            const next = new Set(prev);
-            next.add(field);
-            validateAndUpdate(field, num, next);
-            return next;
-          });
+          const next = new Set(touchedFields);
+          next.add(field);
+          setTouchedFields(next);
+          // OUTSIDE the updater — see the touchedFields declaration. This call reaches the
+          // store, and a side effect inside an updater runs twice in development.
+          validateAndUpdate(field, num, next);
         }
       } else {
         // ⚠️ v0.63.1 — REPORT the unparseable entry instead of silently doing nothing.
@@ -392,7 +416,7 @@ export function UnifiedActivityRow({
         onValidityChange(activity.id, false);
       }
     },
-    [validateAndUpdate, heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, activity, onUpdate, onValidityChange]
+    [validateAndUpdate, heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, activity, onUpdate, onValidityChange, touchedFields]
   );
 
   const isComplete = activity.status === "complete";
@@ -447,9 +471,9 @@ export function UnifiedActivityRow({
 
   const estimateFields = useMemo(
     () => [
-      { dataField: "min", activityKey: "min", defaultValue: activity.min, error: errors["min"], title: "Optimistic estimate (days)" },
-      { dataField: "ml", activityKey: "mostLikely", defaultValue: activity.mostLikely, error: errors["mostLikely"], title: "Most likely estimate (days)" },
-      { dataField: "max", activityKey: "max", defaultValue: activity.max, error: errors["max"], title: "Pessimistic estimate (days)" },
+      { dataField: "min", activityKey: "min", value: activity.min, error: errors["min"], title: "Optimistic estimate (days)" },
+      { dataField: "ml", activityKey: "mostLikely", value: activity.mostLikely, error: errors["mostLikely"], title: "Most likely estimate (days)" },
+      { dataField: "max", activityKey: "max", value: activity.max, error: errors["max"], title: "Pessimistic estimate (days)" },
     ],
     [activity.min, activity.mostLikely, activity.max, errors]
   );
