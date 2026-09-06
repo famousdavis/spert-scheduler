@@ -928,15 +928,25 @@ export function ActivityEditModal({
           {/* Actions */}
           <div className="mt-5 flex justify-end gap-2">
             {/*
-              ⚠️ MUST be handleDismiss, not onClose. A direct onClose() here walks around the
-              unsaved-changes guard entirely — the same call, on the same component, that threw
-              away every edit without a prompt in the v0.64.1 incident recorded above. Escape and
-              the overlay already route through handleDismiss via Dialog.Root onOpenChange; this
-              is the button most users reach for, and it must behave identically.
+              ⚠️ onClose, NOT handleDismiss — this is deliberate and it is an owner ruling:
+              "If I click Cancel on the edit modal, no changes should be saved and the edit modal
+              should close. That's it." Cancel is an EXPLICIT discard. Prompting here leaves no way
+              to abandon a valid draft at all, because the prompt's only two answers are save and
+              keep-editing.
+
+              ⚠️ THIS HAS NOW BEEN "FIXED" TO handleDismiss ONCE AND REVERTED. v0.67.3 routed it
+              through the guard for parity with Escape; the owner rejected that the same day and
+              v0.67.5 put it back. Before that it had been onClose continuously since v0.29.1.
+
+              ⚠️ And do not reinstate it on the v0.64.1 argument: that incident was NEVER about this
+              button. Its fix lives inside handleDismiss's invalid-name branch, which Escape and
+              overlay-click still reach via Dialog.Root onOpenChange, and this revert does not touch
+              it. The asymmetry is intended — clicking a control labelled Cancel is deliberate,
+              whereas Escape and a stray click outside can be accidental.
             */}
             <button
               type="button"
-              onClick={handleDismiss}
+              onClick={onClose}
               className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
             >
               Cancel

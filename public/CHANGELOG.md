@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.67.5 — 2026-09-06
+
+### Cancel in the Edit Activity window discards your changes and closes
+
+Cancel means cancel. Clicking it abandons whatever you have changed in the window and closes it, with no prompt — which is what it did before the previous release, and what the control means everywhere else.
+
+Version 0.67.3 changed Cancel to ask whether to save first. That was a mistake, and this release undoes it: the question's only two answers were to save the change or to carry on editing, so there was no longer any way to walk away from an edit you had decided against. The 0.67.3 entry below stays as history.
+
+Pressing Escape, or clicking outside the window, still asks before discarding unsaved work. Those can happen by accident; clicking Cancel cannot.
+
 ## 0.67.4 — 2026-09-06
 
 ### Undo no longer takes over while you are typing
