@@ -40,4 +40,33 @@ describe("AboutPage", () => {
       screen.getByText(/enable cloud storage by clicking Sign in in the header/i)
     ).toBeInTheDocument();
   });
+
+  /**
+   * The License section describes the LICENSE file's additional terms. Until v0.67.7 it
+   * cited "Section 7(b)" and named two of the six terms, implying that was all of them.
+   * Two halves, each falsified separately at 5137d80: the new sentence is present, and
+   * the narrow citation is gone — an assertion on the new text alone would pass with
+   * both sentences on the page.
+   */
+  it("describes all six additional license terms under Section 7", () => {
+    render(
+      <MemoryRouter>
+        <AboutPage />
+      </MemoryRouter>
+    );
+    expect(
+      screen.getByText(
+        /Per Section 7 of the GPL v3, the LICENSE file includes non-permissive additional terms covering attribution and legal-notice preservation, trademark reservation, marking of modified versions, endorsement, and indemnification\./
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("no longer cites Section 7(b) alone", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <AboutPage />
+      </MemoryRouter>
+    );
+    expect(container.textContent).not.toContain("Section 7(b)");
+  });
 });
