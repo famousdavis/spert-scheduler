@@ -376,10 +376,19 @@ export function ScenarioSummaryCard({
       {/* Scenario notes textarea (collapsible) */}
       {notesOpen && (
         <div className="mt-2">
+          {/*
+            ⚠️ R2: this textarea keeps STORE undo by owner decision, so data-undo-scope="store"
+            opts it back IN to the Cmd/Ctrl+Z handler that ProjectPage otherwise skips for text
+            fields. It is a TEXTAREA, so the generic guard there would exempt it — the opposite
+            of what R2 requires. The onBlur below syncs FROM the store precisely to make a
+            mid-edit undo visible, which is why the exemption exists at all. Removing the
+            attribute silently downgrades Ctrl+Z here to plain text undo.
+          */}
           <textarea
             id={notesId}
             name="scenarioNotes"
             aria-label="Scenario notes"
+            data-undo-scope="store"
             value={localNotes}
             onChange={(e) => {
               const v = e.target.value;
