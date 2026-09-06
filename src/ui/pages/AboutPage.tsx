@@ -2,11 +2,21 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
+import { Link } from "react-router-dom";
 import { APP_VERSION } from "@app/constants";
 
 export function AboutPage() {
   return (
     <div className="mx-auto max-w-2xl">
+      <div className="mb-8">
+        <Link
+          to="/projects"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+        >
+          &larr; Back to Projects
+        </Link>
+      </div>
+
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
         About SPERT<span className="text-gray-300 text-xs align-super">®</span> Scheduler
       </h1>
@@ -115,9 +125,9 @@ export function AboutPage() {
             telemetry, and no third-party data collection.
           </p>
           <p className="mt-2">
-            Optionally, you can enable cloud storage in Settings by signing in
-            with a Google account, or with a Microsoft work or school account.
-            Cloud mode syncs your projects to
+            Optionally, you can enable cloud storage by clicking Sign in in the
+            header (or from Settings) and signing in with a Google account, or
+            with a Microsoft work or school account. Cloud mode syncs your projects to
             Firestore so you can access them across devices and share with
             teammates. Clearing your browser&apos;s site data will permanently
             delete any local-only projects and settings.

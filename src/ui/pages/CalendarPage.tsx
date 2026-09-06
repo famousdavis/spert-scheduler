@@ -29,11 +29,15 @@ export function CalendarPage() {
 
   return (
     <div className="space-y-8">
+      {/* The page titles itself by its nav label, as Projects, Settings and About do;
+          "Company Holidays" is the first of its two sections. */}
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Calendar</h1>
+
       {/* Section 1: Company-wide holidays */}
       <section>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
           Company Holidays
-        </h1>
+        </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Holidays configured here apply to all projects. Work days are{" "}
           {workDayNames}, excluding holidays listed below.

@@ -14,6 +14,14 @@ import type { Calendar, ConstraintType, ConstraintMode, ConstraintConflict } fro
 import { CONSTRAINT_TYPES, CONSTRAINT_MODES } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+
+// "delta: 1 working days" — INFORMED DECLINE, 2026-09-06 (WI-16, ruling R54). The five
+// conflict messages below render a count and are not pluralised, on purpose: the
+// deterministic oracle (deterministic-oracle.json, byte-compared, never regenerated)
+// pins three of them verbatim, including two at "delta: 1 working days" and one at
+// "delta: 0 working days". Correcting the grammar would mean regenerating the oracle
+// to match, which ratifies a change instead of verifying one (R6). The user-facing
+// surfaces — summary card, print, edit modal, export — pluralise via `pluralize`.
 import {
   activityEndDate,
   activityStartDate,

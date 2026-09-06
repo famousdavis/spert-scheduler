@@ -143,7 +143,9 @@ export function ProjectsPage() {
   const handleLoadSample = async () => {
     try {
       const project = await loadSampleProject(newProjectOwner);
-      toast.success(`Loaded "${project.name}" — run the simulation to see the buffer`);
+      // 8 s, not the 3 s default: this one is read by a room from a projector, and it
+      // carries an instruction (audit L3). Every other toast keeps the default.
+      toast.success(`Loaded "${project.name}" — run the simulation to see the buffer`, 8000);
       navigate(`/project/${project.id}`);
     } catch {
       toast.error("Couldn't load the sample project. Please try again.");

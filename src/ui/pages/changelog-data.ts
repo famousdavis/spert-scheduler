@@ -13,6 +13,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.6",
+    date: "2026-09-06",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "\"1 working days\" is now \"1 working day\" wherever a count of days sits beside a number: the summary card's Duration and Duration w/Buffer, its Schedule Buffer and Constraint delay figures, the printed Project Summary, the Schedule Analysis in the Edit Activity window (duration, total float and free float), and the summary block at the top of the schedule export. Fractional figures such as the simulation's mean keep the plural, as they should.",
+          "The keyboard shortcuts list matches the keyboard. Ctrl+Y (Cmd+Y on a Mac) has always redone the last undone action, the same as Ctrl+Shift+Z; the list now says so. Enter and Escape are now described as confirming or cancelling a name edit, which is what they do. In the Min, ML and Max cells they do nothing — those cells commit when you leave them — and the old wording claimed otherwise.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "The Calendar page is titled \"Calendar\", matching its entry in the navigation. \"Company Holidays\" becomes the first of its two sections.",
+          "The About page has the same \"← Back to Projects\" link the Changelog page has, and its description of cloud storage now points at Sign in in the header, where it lives, as well as Settings.",
+          "The scenario tab's Clone control is a proper icon rather than a typed symbol that depended on your font — it was seven pixels wide next to fourteen-pixel neighbours — and it now has a name for screen readers.",
+          "The \"Loaded … run the simulation to see the buffer\" message after Load Sample stays on screen for eight seconds instead of three. It is often read from a projector, and it tells you what to do next.",
+          "Changelog dates keep the spelled-out month, and a DD/MM/YYYY date preference now shows them day-first (\"6 September 2026\"). The numeric date formats are deliberately not applied here: a month written out has no day/month ambiguity to remove.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.5",
     date: "2026-09-06",
     sections: [

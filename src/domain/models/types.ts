@@ -188,7 +188,7 @@ export interface ScenarioSettings {
   probabilityTarget: number; // Activity-level (deterministic schedule), 0.01 - 0.99 (default 0.50)
   projectProbabilityTarget: number; // Project-level (MC percentile lookup), 0.01 - 0.99 (default 0.95)
   heuristicEnabled: boolean; // when true, min/max auto-calculated from ML (default false)
-  heuristicMinPercent: number; // 1-99, percentage of ML for min estimate (default 50)
+  heuristicMinPercent: number; // 1-99, percentage of ML for min estimate (default 75)
   heuristicMaxPercent: number; // 101-1000, percentage of ML for max estimate (default 200)
   dependencyMode: boolean; // when true, use dependency graph instead of sequential order (default false)
   parkinsonsLawEnabled: boolean; // when true, clamp MC samples to deterministic floor (default true)

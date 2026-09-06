@@ -12,7 +12,7 @@ import type {
   DistributionType,
   RSMLevel,
 } from "@domain/models/types";
-import { dependencyLabel } from "@domain/helpers/format-labels";
+import { dependencyLabel, pluralize } from "@domain/helpers/format-labels";
 
 function actualDurTitle(status: ActivityStatus): string {
   if (status === "planned") return "Set status to In Progress or Complete to enter actual duration";
@@ -28,7 +28,7 @@ function formatDepLagSuffix(lagDays: number): string {
 function totalFloatLabel(totalFloat: number | null | undefined): string {
   if (totalFloat === 0) return "Critical path — 0 days float";
   if (totalFloat == null) return "—";
-  return `${totalFloat} days`;
+  return `${totalFloat} ${pluralize(totalFloat, "day")}`;
 }
 
 /** Schedule context row: Sched. Finish, Sched. Duration, Actual Duration, Actual Finish */
@@ -398,7 +398,7 @@ export function ScheduleAnalysisSection({
       <div className="text-gray-500 dark:text-gray-400">Scheduled Finish</div>
       <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.endDate)}</div>
       <div className="text-gray-500 dark:text-gray-400">Duration</div>
-      <div className="text-gray-900 dark:text-gray-100">{sa.duration} working days</div>
+      <div className="text-gray-900 dark:text-gray-100">{sa.duration} working {pluralize(sa.duration, "day")}</div>
       <div className="text-gray-500 dark:text-gray-400">Total Float</div>
       <div className="text-gray-900 dark:text-gray-100">
         {totalFloatLabel(sa.totalFloat)}
@@ -406,7 +406,7 @@ export function ScheduleAnalysisSection({
       {sa.freeFloat != null && (
         <>
           <div className="text-gray-500 dark:text-gray-400">Free Float</div>
-          <div className="text-gray-900 dark:text-gray-100">{sa.freeFloat} days</div>
+          <div className="text-gray-900 dark:text-gray-100">{sa.freeFloat} {pluralize(sa.freeFloat, "day")}</div>
         </>
       )}
     </div>

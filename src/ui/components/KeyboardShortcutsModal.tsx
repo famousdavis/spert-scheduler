@@ -12,11 +12,15 @@ interface KeyboardShortcutsModalProps {
 const SHORTCUTS = [
   { keys: ["Ctrl/Cmd", "Z"], description: "Undo last action" },
   { keys: ["Ctrl/Cmd", "Shift", "Z"], description: "Redo last action" },
+  { keys: ["Ctrl/Cmd", "Y"], description: "Redo last action" },
   { keys: ["?"], description: "Show keyboard shortcuts" },
   { keys: ["Tab"], description: "Move to next field in activity grid" },
   { keys: ["Shift", "Tab"], description: "Move to previous field in activity grid" },
-  { keys: ["Enter"], description: "Confirm cell edit" },
-  { keys: ["Escape"], description: "Cancel cell edit" },
+  // Name edits only (activity, scenario, project, section names). An estimate cell
+  // commits on blur/Tab and ignores Enter and Escape — measured on the sample project,
+  // 2026-09-06; making those keys work there is WI-29, not a wording change.
+  { keys: ["Enter"], description: "Confirm a name edit" },
+  { keys: ["Escape"], description: "Cancel a name edit" },
 ];
 
 function KeyCombo({ keys }: { keys: string[] }) {
