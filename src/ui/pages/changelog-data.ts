@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.3",
+    date: "2026-09-06",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Cancel in the Edit Activity window now warns before your edits are lost. Pressing Escape has always asked what to do with unsaved work; the Cancel button did not. It closed the window straight away and discarded everything in it — the name, status, estimates, constraint, dependencies, checklist, deliverables and notes — with no prompt of any kind, however much had been typed.",
+          "Cancel now behaves exactly as Escape does. With unsaved changes it offers to save them, and declining leaves the window open with your draft still in it. If the activity's name has been cleared, so the changes cannot be saved, it warns before discarding them. With nothing changed it simply closes, as before.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.2",
     date: "2026-09-05",
     sections: [

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.67.3 — 2026-09-06
+
+### Cancel in the Edit Activity window now warns before your edits are lost
+
+Pressing Escape in the Edit Activity window has always asked what to do with unsaved work. The Cancel button did not. It closed the window straight away and discarded everything in it — the name, status, estimates, constraint, dependencies, checklist, deliverables and notes — with no prompt of any kind, however much had been typed.
+
+Cancel now behaves exactly as Escape does. With unsaved changes it offers to save them, and declining leaves the window open with your draft still in it. If the activity's name has been cleared, so the changes cannot be saved, it warns before discarding them. With nothing changed it simply closes, as before.
+
 ## 0.67.2 — 2026-09-05
 
 ### Estimate cells now show what the project actually holds

@@ -927,9 +927,16 @@ export function ActivityEditModal({
 
           {/* Actions */}
           <div className="mt-5 flex justify-end gap-2">
+            {/*
+              ⚠️ MUST be handleDismiss, not onClose. A direct onClose() here walks around the
+              unsaved-changes guard entirely — the same call, on the same component, that threw
+              away every edit without a prompt in the v0.64.1 incident recorded above. Escape and
+              the overlay already route through handleDismiss via Dialog.Root onOpenChange; this
+              is the button most users reach for, and it must behave identically.
+            */}
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleDismiss}
               className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
             >
               Cancel
