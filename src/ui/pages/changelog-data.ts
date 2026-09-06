@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.7",
+    date: "2026-09-06",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The About page describes all six additional license terms. Its License section said the LICENSE file's additional terms were made \"per Section 7(b)\" of the GPL v3 and covered attribution and notice preservation — two of the six terms, cited more narrowly than the license itself does. The sentence now matches the LICENSE file: the terms rest on Section 7 and cover attribution and legal-notice preservation, trademark reservation, marking of modified versions, endorsement, and indemnification. The LICENSE file itself is unchanged.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.6",
     date: "2026-09-06",
     sections: [

@@ -172,9 +172,10 @@ export function AboutPage() {
             the terms of that license.
           </p>
           <p className="mt-2">
-            Per Section 7(b) of the GPL v3, the LICENSE file includes
-            non-permissive additional terms requiring attribution preservation
-            and UI notice preservation for derivative works. Original author:
+            Per Section 7 of the GPL v3, the LICENSE file includes
+            non-permissive additional terms covering attribution and
+            legal-notice preservation, trademark reservation, marking of
+            modified versions, endorsement, and indemnification. Original author:
             William W. Davis, MSPM, PMP. Project: SPERT® Suite.
           </p>
         </section>
