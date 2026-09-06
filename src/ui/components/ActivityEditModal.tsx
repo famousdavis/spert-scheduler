@@ -523,7 +523,13 @@ export function ActivityEditModal({
    * One wording for both the valid and the invalid case, on purpose. handleDismiss says "can't be
    * saved" for an empty name, which is useful when the question is whether to save; on THIS button
    * it would be misleading, because Cancel never saves and the discard is not a consequence of the
-   * missing name. Save is already disabled with a visible reason when the name is empty.
+   * missing name. The saveability reason is already on screen anyway — Save is disabled, and the
+   * field renders "Activity name is required." with aria-invalid/aria-describedby wired to it.
+   *
+   * ⚠️ Clearing ONLY the name and pressing Cancel produces NO prompt, and that is correct rather
+   * than a missed case: computeGeneralUpdates (activity-modal-sections.tsx) drops a name that
+   * trims to empty, so hasChanges is false and there is nothing to discard. This reads like a
+   * defect on first inspection and has been raised as one; it is not.
    */
   const handleCancel = useCallback(() => {
     if (hasChanges) {
@@ -989,8 +995,10 @@ export function ActivityEditModal({
               incident. That false provenance is what caused v0.67.3:
                 • v0.62.0 (0efb637) fixed handleDismiss's invalid-name branch — an emptied name
                   discarding every other edit. Reached by Escape and overlay-click.
-                • v0.64.1 (3d3119c) removed a direct onClose() at the DEPENDENCY HANDOFF, which
-                  was destroying the editor instead of stacking the dialog. A different call site.
+                • v0.64.1 (3d3119c) removed the onClose PROP this file was passing down to the
+                  dependency section — one line, `onClose={onClose}`. That section called it, which
+                  destroyed the editor instead of stacking the dialog. A different call site, and
+                  not a call in this button at all.
               Neither ever touched this button. Its line history runs v0.20.0 -> v0.29.1 -> v0.67.3.
             */}
             <button
