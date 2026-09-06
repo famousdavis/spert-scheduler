@@ -292,3 +292,133 @@ describe("ActivityEditModal — handing off to the dependency dialog", () => {
     expect(confirmSpy).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Dismissal parity: the Cancel button must behave exactly as Escape does.
+ *
+ * Escape and overlay-click have routed through `handleDismiss` since v0.64.1, via
+ * `Dialog.Root onOpenChange`. The Cancel button did not — it called the parent's
+ * `onClose()` directly, which is the same call, on the same component, that the v0.64.1
+ * incident was about: it walks around the unsaved-changes guard entirely. Escape was safe
+ * and the button most users reach for was not, which is the asymmetry these pin.
+ *
+ * ⚠️ WHY THESE ASSERT ABSOLUTES AND NOT "Cancel matches Escape".
+ * A parity test written as `cancelResult === escapeResult` is satisfiable by BOTH sides
+ * being wrong together, and would have passed against the defect had the defect been in
+ * `handleDismiss` instead of at the call site. Each gesture is therefore pinned against
+ * fixed expected values — the literal prompt text, the `onClose` count, the store contents
+ * — and the two gestures are run through the SAME expectations. The Escape rows are the
+ * control: they passed before this fix and must keep passing, so a failure confined to the
+ * Cancel rows localises the defect to the call site rather than to these assertions.
+ *
+ * ⚠️ DO NOT add "the draft field still holds its value" here. RTL renders this component
+ * directly and `onClose` is a spy, so nothing unmounts on dismissal either way — that
+ * assertion passes vacuously against the very code it would be meant to catch. It is the
+ * same trap already recorded in the dependency-handoff block above. Draft survival was
+ * verified in a browser instead, where the modal really does unmount.
+ */
+describe("ActivityEditModal — Escape and Cancel are indistinguishable", () => {
+  const storedStatus = () =>
+    useProjectStore.getState().projects[0]!.scenarios[0]!.activities[0]!.status;
+  const storedName = () =>
+    useProjectStore.getState().projects[0]!.scenarios[0]!.activities[0]!.name;
+
+  const dismissals = [
+    { label: "Escape", dismiss: () => fireEvent.keyDown(document, { key: "Escape" }) },
+    {
+      label: "the Cancel button",
+      dismiss: () => fireEvent.click(screen.getByRole("button", { name: "Cancel" })),
+    },
+  ];
+
+  // ⚠️ Positive control for the store read-back, and it runs FIRST on purpose.
+  // Every "the grid is unchanged" assertion below is a leave-alone, and a leave-alone is
+  // worthless unless the same instrument has been shown to register a change. If this test
+  // fails, `storedStatus()` is reading something the modal never writes to and the
+  // unchanged-assertions are all passing for the wrong reason.
+  it("PRECONDITION: the store read-back can observe a save landing", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    open();
+
+    expect(storedStatus()).toBe("planned");
+    fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(storedStatus()).toBe("inProgress");
+  });
+
+  for (const { label, dismiss } of dismissals) {
+    describe(`dismissing with ${label}`, () => {
+      it("offers to save a valid draft, and saving closes the modal", () => {
+        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+        const { onClose } = open();
+
+        fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+        dismiss();
+
+        expect(confirmSpy).toHaveBeenCalledTimes(1);
+        expect(confirmSpy.mock.calls[0]![0]).toBe("You have unsaved changes. Save them?");
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(storedStatus()).toBe("inProgress");
+      });
+
+      it("returns to the modal, and writes nothing, when the save offer is declined", () => {
+        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+        const { onClose } = open();
+
+        fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+        dismiss();
+
+        expect(confirmSpy).toHaveBeenCalledTimes(1);
+        expect(onClose).not.toHaveBeenCalled();
+        expect(storedStatus()).toBe("planned");
+      });
+
+      it("warns before discarding a draft that cannot be saved", () => {
+        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+        const { onClose } = open();
+
+        fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+        clearName(nameInput());
+        dismiss();
+
+        expect(confirmSpy).toHaveBeenCalledTimes(1);
+        expect(confirmSpy.mock.calls[0]![0]).toBe(
+          "This activity needs a name, so your changes can't be saved. Discard them?",
+        );
+        expect(onClose).toHaveBeenCalledTimes(1);
+        // Discarding closes with the grid untouched — neither the edited field nor the
+        // cleared name reaches the store.
+        expect(storedStatus()).toBe("planned");
+        expect(storedName()).toBe("Discovery");
+      });
+
+      it("stays put when the discard warning is declined", () => {
+        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+        const { onClose } = open();
+
+        fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+        clearName(nameInput());
+        dismiss();
+
+        expect(confirmSpy).toHaveBeenCalledTimes(1);
+        expect(onClose).not.toHaveBeenCalled();
+        expect(storedStatus()).toBe("planned");
+      });
+
+      // ⚠️ This row CANNOT discriminate the defect and is not claimed to. With no changes
+      // `handleDismiss` reduces to a bare `onClose()`, so routing through it and calling it
+      // directly are identical by construction. It is here because it is the common case and
+      // must not regress — not as evidence that the fix works.
+      it("closes with no prompt at all when nothing was changed", () => {
+        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+        const { onClose } = open();
+
+        dismiss();
+
+        expect(confirmSpy).not.toHaveBeenCalled();
+        expect(onClose).toHaveBeenCalledTimes(1);
+      });
+    });
+  }
+});
