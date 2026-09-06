@@ -512,6 +512,33 @@ export function ActivityEditModal({
     onClose();
   }, [hasChanges, isValid, handleSave, onClose]);
 
+  /**
+   * Cancel's own handler. Deliberately NOT a branch inside handleDismiss — the two controls ask
+   * different questions. Escape asks "save?"; Cancel asks "discard?".
+   *
+   * ⚠️ It must never save, and it cannot: handleSave is not referenced here and must not be added.
+   * v0.67.3 routed Cancel through handleDismiss, whose prompt asks "Save them?" — so OK saved and
+   * the only other answer kept editing, leaving no way to abandon a valid draft at all.
+   *
+   * One wording for both the valid and the invalid case, on purpose. handleDismiss says "can't be
+   * saved" for an empty name, which is useful when the question is whether to save; on THIS button
+   * it would be misleading, because Cancel never saves and the discard is not a consequence of the
+   * missing name. The saveability reason is already on screen anyway — Save is disabled, and the
+   * field renders "Activity name is required." with aria-invalid/aria-describedby wired to it.
+   *
+   * ⚠️ Clearing ONLY the name and pressing Cancel produces NO prompt, and that is correct rather
+   * than a missed case: computeGeneralUpdates (activity-modal-sections.tsx) drops a name that
+   * trims to empty, so hasChanges is false and there is nothing to discard. This reads like a
+   * defect on first inspection and has been raised as one; it is not.
+   */
+  const handleCancel = useCallback(() => {
+    if (hasChanges) {
+      const shouldDiscard = window.confirm("Discard your unsaved changes?");
+      if (!shouldDiscard) return;
+    }
+    onClose();
+  }, [hasChanges, onClose]);
+
   if (!activity) return null;
 
   return (
@@ -928,15 +955,55 @@ export function ActivityEditModal({
           {/* Actions */}
           <div className="mt-5 flex justify-end gap-2">
             {/*
-              ⚠️ MUST be handleDismiss, not onClose. A direct onClose() here walks around the
-              unsaved-changes guard entirely — the same call, on the same component, that threw
-              away every edit without a prompt in the v0.64.1 incident recorded above. Escape and
-              the overlay already route through handleDismiss via Dialog.Root onOpenChange; this
-              is the button most users reach for, and it must behave identically.
+              ⚠️ THREE DELIBERATE DECISIONS LIVE ON THESE TWO BUTTONS, and every one of them has
+              already been changed or proposed for change at least once. Read before touching either.
+
+              1. Cancel PROMPTS, and the prompt is DISCARD-shaped — owner ruling, 2026-09-06:
+                 "It would be better to prompt the user and ask them if they want to discard their
+                 unsaved changes. That is a safer choice. They might think they hit Save and their
+                 changes were saved when in fact they were discarded."
+                 ⚠️ The prompt must never offer to SAVE. v0.67.3 routed this button through
+                 handleDismiss, whose question is "Save them?" — OK saved, the other answer kept
+                 editing, and there was no discard path left anywhere. v0.67.5 replaced it with
+                 handleCancel, which cannot save because it does not reference handleSave.
+                 ⚠️ This button was a silent onClose() from v0.29.1 to v0.67.2, then handleDismiss
+                 in v0.67.3, then briefly onClose() again before this shipped. THREE changes. If a
+                 fourth looks obviously right, re-read this block first.
+
+              2. Cancel sits LEFT of Save on purpose — owner ruling, 2026-09-06, an informed
+                 DECLINE and not an oversight. The risk was measured before he ruled: a mis-hit
+                 Save writes to the store and is Cmd+Z-recoverable, while a mis-hit Cancel destroys
+                 local draft state with no recovery hook anywhere in this modal. Keyboard paths
+                 were ruled out (nothing autofocuses Cancel; both buttons are type="button", so no
+                 Enter-submit), leaving pointer adjacency as the only route. He weighed exactly
+                 that and kept the order: "I like the button order. I've never misclicked once
+                 using this app. At some point, we have to treat adults as if they're adults."
+                 ⚠️ The confirmation in (1) is what he chose INSTEAD of reordering. Do not reorder
+                 these buttons on the strength of the misclick argument — it has been made and
+                 answered.
+
+              3. Escape and overlay-click keep handleDismiss and its "Save them?" prompt — owner
+                 ruling, 2026-09-06, and it is the original v0.29.1 design, not a later addition.
+                 The asymmetry is intended: clicking a control labelled Cancel is deliberate,
+                 whereas Escape and a stray click outside can be accidental.
+                 ⚠️ KNOWN GAP, owned not undiscovered: Escape therefore has no discard path of its
+                 own — save or keep editing, which is the same shape that made v0.67.3 wrong here.
+                 Closing it needs a three-way (save / discard / keep editing), which a native
+                 confirm() cannot express. That is tracked separately; do not improvise it here.
+
+              ⚠️ Do not reinstate handleDismiss on this button on the strength of either past
+              incident. That false provenance is what caused v0.67.3:
+                • v0.62.0 (0efb637) fixed handleDismiss's invalid-name branch — an emptied name
+                  discarding every other edit. Reached by Escape and overlay-click.
+                • v0.64.1 (3d3119c) removed the onClose PROP this file was passing down to the
+                  dependency section — one line, `onClose={onClose}`. That section called it, which
+                  destroyed the editor instead of stacking the dialog. A different call site, and
+                  not a call in this button at all.
+              Neither ever touched this button. Its line history runs v0.20.0 -> v0.29.1 -> v0.67.3.
             */}
             <button
               type="button"
-              onClick={handleDismiss}
+              onClick={handleCancel}
               className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
             >
               Cancel

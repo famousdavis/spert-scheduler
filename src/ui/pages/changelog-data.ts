@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.5",
+    date: "2026-09-06",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Cancel in the Edit Activity window now asks before discarding your changes. Say yes and the window closes without saving anything; say no and you are back in the window with your work intact. With nothing changed it simply closes, as before.",
+          "The reason for asking is that Cancel and Save sit next to each other, and a slip is easy to miss: you can walk away believing you saved when in fact everything was thrown away, and nothing on screen would have told you.",
+          "Version 0.67.3 got this wrong in the opposite direction. There, Cancel offered to save your changes, and its only other answer was to carry on editing — so there was no way at all to abandon a change you had decided against. Cancel never saves; its question is only whether to discard.",
+          "Pressing Escape, or clicking outside the window, still offers to save unsaved work, exactly as it always has.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.4",
     date: "2026-09-06",
     sections: [

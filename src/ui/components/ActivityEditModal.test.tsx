@@ -294,123 +294,185 @@ describe("ActivityEditModal — handing off to the dependency dialog", () => {
 });
 
 /**
- * Dismissal parity: the Cancel button must behave exactly as Escape does.
+ * Cancel asks "discard?". Escape asks "save?". The asymmetry IS the requirement.
  *
- * Escape and overlay-click have routed through `handleDismiss` since v0.64.1, via
- * `Dialog.Root onOpenChange`. The Cancel button did not — it called the parent's
- * `onClose()` directly, which is the same call, on the same component, that the v0.64.1
- * incident was about: it walks around the unsaved-changes guard entirely. Escape was safe
- * and the button most users reach for was not, which is the asymmetry these pin.
+ * Owner ruling, v0.67.5: "It would be better to prompt the user and ask them if they want to
+ * discard their unsaved changes. That is a safer choice. They might think they hit Save and
+ * their changes were saved when in fact they were discarded."
  *
- * ⚠️ WHY THESE ASSERT ABSOLUTES AND NOT "Cancel matches Escape".
- * A parity test written as `cancelResult === escapeResult` is satisfiable by BOTH sides
- * being wrong together, and would have passed against the defect had the defect been in
- * `handleDismiss` instead of at the call site. Each gesture is therefore pinned against
- * fixed expected values — the literal prompt text, the `onClose` count, the store contents
- * — and the two gestures are run through the SAME expectations. The Escape rows are the
- * control: they passed before this fix and must keep passing, so a failure confined to the
- * Cancel rows localises the defect to the call site rather than to these assertions.
+ * ⚠️ THE PROMPT MUST NEVER OFFER TO SAVE, and that is the whole point of these rows. v0.67.3
+ * routed Cancel through handleDismiss, whose question is "Save them?": OK saved, and the only
+ * other answer kept editing, so no discard path existed anywhere in the modal. handleCancel
+ * cannot save — it does not reference handleSave — and the rows below pin both halves: the exact
+ * discard wording, AND that the store is untouched after the prompt is accepted.
  *
- * ⚠️ DO NOT add "the draft field still holds its value" here. RTL renders this component
- * directly and `onClose` is a spy, so nothing unmounts on dismissal either way — that
- * assertion passes vacuously against the very code it would be meant to catch. It is the
- * same trap already recorded in the dependency-handoff block above. Draft survival was
- * verified in a browser instead, where the modal really does unmount.
+ * ⚠️ This button has now been changed three times (silent onClose through v0.67.2 → handleDismiss
+ * in v0.67.3 → onClose again → handleCancel). Two of those were "obviously right" when proposed.
+ * If these rows look wrong to a later reader, re-read the call-site comment before editing them.
+ *
+ * One wording covers the valid and the invalid draft alike. handleDismiss says "can't be saved"
+ * for an empty name, which is useful when the question is whether to save; on Cancel it would be
+ * misleading, because Cancel never saves and the discard is not a consequence of the missing name.
+ *
+ * ⚠️ Draft survival on a declined prompt is not asserted here. RTL renders this component directly
+ * and `onClose` is a spy, so nothing unmounts either way and the assertion would pass vacuously
+ * against the very code it targets. It was watched in a browser instead.
  */
-describe("ActivityEditModal — Escape and Cancel are indistinguishable", () => {
+describe("ActivityEditModal — dismissing the modal", () => {
   const storedStatus = () =>
     useProjectStore.getState().projects[0]!.scenarios[0]!.activities[0]!.status;
   const storedName = () =>
     useProjectStore.getState().projects[0]!.scenarios[0]!.activities[0]!.name;
 
-  const dismissals = [
-    { label: "Escape", dismiss: () => fireEvent.keyDown(document, { key: "Escape" }) },
-    {
-      label: "the Cancel button",
-      dismiss: () => fireEvent.click(screen.getByRole("button", { name: "Cancel" })),
-    },
-  ];
+  const clickCancel = () =>
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  const pressEscape = () => fireEvent.keyDown(document, { key: "Escape" });
 
-  // ⚠️ Positive control for the store read-back, and it runs FIRST on purpose.
-  // Every "the grid is unchanged" assertion below is a leave-alone, and a leave-alone is
-  // worthless unless the same instrument has been shown to register a change. If this test
-  // fails, `storedStatus()` is reading something the modal never writes to and the
-  // unchanged-assertions are all passing for the wrong reason.
+  const DISCARD_PROMPT = "Discard your unsaved changes?";
+
+  // ⚠️ Positive control for the store read-back, FIRST on purpose. Every "the store is unchanged"
+  // assertion below is a leave-alone, and a leave-alone proves nothing unless the same instrument
+  // has been shown to register a change. If this fails, `storedStatus()` is reading something the
+  // modal never writes to and the unchanged-assertions are all passing for the wrong reason.
   it("PRECONDITION: the store read-back can observe a save landing", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     open();
 
     expect(storedStatus()).toBe("planned");
     fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
-    fireEvent.keyDown(document, { key: "Escape" });
+    pressEscape();
 
     expect(storedStatus()).toBe("inProgress");
   });
 
-  for (const { label, dismiss } of dismissals) {
-    describe(`dismissing with ${label}`, () => {
-      it("offers to save a valid draft, and saving closes the modal", () => {
-        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-        const { onClose } = open();
+  describe("the Cancel button asks before discarding, and never saves", () => {
+    it("discards a valid draft and closes when the prompt is accepted", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { onClose } = open();
 
-        fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
-        dismiss();
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      clickCancel();
 
-        expect(confirmSpy).toHaveBeenCalledTimes(1);
-        expect(confirmSpy.mock.calls[0]![0]).toBe("You have unsaved changes. Save them?");
-        expect(onClose).toHaveBeenCalledTimes(1);
-        expect(storedStatus()).toBe("inProgress");
-      });
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(confirmSpy.mock.calls[0]![0]).toBe(DISCARD_PROMPT);
+      expect(onClose).toHaveBeenCalledTimes(1);
+      // ⚠️ The assertion that pins "Cancel never saves", independent of the wording above.
+      expect(storedStatus()).toBe("planned");
+    });
 
-      it("returns to the modal, and writes nothing, when the save offer is declined", () => {
-        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-        const { onClose } = open();
+    it("returns to the modal, and writes nothing, when the prompt is declined", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { onClose } = open();
 
-        fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
-        dismiss();
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      clickCancel();
 
-        expect(confirmSpy).toHaveBeenCalledTimes(1);
-        expect(onClose).not.toHaveBeenCalled();
-        expect(storedStatus()).toBe("planned");
-      });
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(storedStatus()).toBe("planned");
+    });
 
-      it("warns before discarding a draft that cannot be saved", () => {
-        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-        const { onClose } = open();
+    it("uses the same discard wording for a draft that cannot be saved", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { onClose } = open();
 
-        fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
-        clearName(nameInput());
-        dismiss();
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      clearName(nameInput());
+      clickCancel();
 
-        expect(confirmSpy).toHaveBeenCalledTimes(1);
-        expect(confirmSpy.mock.calls[0]![0]).toBe(
-          "This activity needs a name, so your changes can't be saved. Discard them?",
-        );
-        expect(onClose).toHaveBeenCalledTimes(1);
-        // Discarding closes with the grid untouched — neither the edited field nor the
-        // cleared name reaches the store.
-        expect(storedStatus()).toBe("planned");
-        expect(storedName()).toBe("Discovery");
-      });
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      // Not handleDismiss's "This activity needs a name…" — Cancel never saves, so explaining
+      // why saving is impossible would answer a question the user did not ask.
+      expect(confirmSpy.mock.calls[0]![0]).toBe(DISCARD_PROMPT);
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(storedStatus()).toBe("planned");
+      expect(storedName()).toBe("Discovery");
+    });
 
-      it("stays put when the discard warning is declined", () => {
-        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-        const { onClose } = open();
+    it("stays put when the discard prompt is declined on an unsaveable draft", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { onClose } = open();
 
-        fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
-        clearName(nameInput());
-        dismiss();
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      clearName(nameInput());
+      clickCancel();
 
-        expect(confirmSpy).toHaveBeenCalledTimes(1);
-        expect(onClose).not.toHaveBeenCalled();
-        expect(storedStatus()).toBe("planned");
-      });
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(storedStatus()).toBe("planned");
+    });
+  });
 
-      // ⚠️ This row CANNOT discriminate the defect and is not claimed to. With no changes
-      // `handleDismiss` reduces to a bare `onClose()`, so routing through it and calling it
-      // directly are identical by construction. It is here because it is the common case and
-      // must not regress — not as evidence that the fix works.
-      it("closes with no prompt at all when nothing was changed", () => {
+  // ⚠️ These four are the CONTROL for the revert and are carried over unedited. They passed before
+  // it and must pass after: the revert is scoped to the Cancel button, and a red row here would
+  // mean it reached further than intended, not that the row is wrong.
+  describe("Escape still asks", () => {
+    it("offers to save a valid draft, and saving closes the modal", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { onClose } = open();
+
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      pressEscape();
+
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(confirmSpy.mock.calls[0]![0]).toBe("You have unsaved changes. Save them?");
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(storedStatus()).toBe("inProgress");
+    });
+
+    it("returns to the modal, and writes nothing, when the save offer is declined", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { onClose } = open();
+
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      pressEscape();
+
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(storedStatus()).toBe("planned");
+    });
+
+    it("warns before discarding a draft that cannot be saved", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { onClose } = open();
+
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      clearName(nameInput());
+      pressEscape();
+
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(confirmSpy.mock.calls[0]![0]).toBe(
+        "This activity needs a name, so your changes can't be saved. Discard them?",
+      );
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(storedStatus()).toBe("planned");
+      expect(storedName()).toBe("Discovery");
+    });
+
+    it("stays put when the discard warning is declined", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { onClose } = open();
+
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      clearName(nameInput());
+      pressEscape();
+
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(storedStatus()).toBe("planned");
+    });
+  });
+
+  // ⚠️ The only genuinely shared case — and it CANNOT discriminate the two gestures, by
+  // construction: with no changes handleDismiss reduces to a bare onClose(), so routing through it
+  // and calling it directly are identical. Here because it is the common path and must not
+  // regress, NOT as evidence that Cancel discards.
+  describe("with nothing changed, both just close", () => {
+    for (const [label, dismiss] of [
+      ["the Cancel button", clickCancel],
+      ["Escape", pressEscape],
+    ] as const) {
+      it(`${label} closes with no prompt at all`, () => {
         const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
         const { onClose } = open();
 
@@ -419,6 +481,6 @@ describe("ActivityEditModal — Escape and Cancel are indistinguishable", () => 
         expect(confirmSpy).not.toHaveBeenCalled();
         expect(onClose).toHaveBeenCalledTimes(1);
       });
-    });
-  }
+    }
+  });
 });
