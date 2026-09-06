@@ -27,6 +27,7 @@ import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   milestoneHealthDotClass,
+  pluralize,
   type MilestoneHealth,
 } from "@domain/helpers/format-labels";
 
@@ -323,7 +324,7 @@ export function ScenarioSummaryCard({
               <>
                 {schedule.totalDurationDays}{" "}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-                  working days
+                  working {pluralize(schedule.totalDurationDays, "day")}
                 </span>
               </>
             ) : (
@@ -349,7 +350,7 @@ export function ScenarioSummaryCard({
               <>
                 {Math.round(buffer.projectTargetDuration)}{" "}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-                  working days
+                  working {pluralize(Math.round(buffer.projectTargetDuration), "day")}
                 </span>
               </>
             ) : (
@@ -631,7 +632,7 @@ export function ScenarioSummaryCard({
                     }`}
                   >
                     {buffer.bufferDays > 0 ? "+" : ""}
-                    {buffer.bufferDays} days
+                    {buffer.bufferDays} {pluralize(buffer.bufferDays, "day")}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-gray-500">
                     (P{actPct} schedule → P{projPct} project confidence)
@@ -673,7 +674,7 @@ export function ScenarioSummaryCard({
               <span className="text-gray-300 dark:text-gray-600">·</span>
               Constraint delay:
               <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-300">
-                +{constraintDelayDays} days
+                +{constraintDelayDays} {pluralize(constraintDelayDays, "day")}
               </span>
             </span>
           )}

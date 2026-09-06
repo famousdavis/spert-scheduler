@@ -18,6 +18,7 @@ import {
   statusLabel,
   milestoneHealthTextClass,
   milestoneHealthLabel,
+  pluralize,
 } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -25,7 +26,7 @@ import { confidenceApplies } from "@domain/helpers/confidence-applies";
 
 function formatSignedBufferDays(buffer: { bufferDays: number } | null): string {
   if (!buffer) return "—";
-  return `${buffer.bufferDays > 0 ? "+" : ""}${buffer.bufferDays} days`;
+  return `${buffer.bufferDays > 0 ? "+" : ""}${buffer.bufferDays} ${pluralize(buffer.bufferDays, "day")}`;
 }
 
 function formatSignedLag(lagDays: number): string {
@@ -105,19 +106,19 @@ export function PrintSummarySection({
               <tr>
                 <td className="py-0.5 text-gray-600">Duration:</td>
                 <td className="py-0.5 font-medium">
-                  {schedule ? `${schedule.totalDurationDays} working days` : "—"}
+                  {schedule ? `${schedule.totalDurationDays} working ${pluralize(schedule.totalDurationDays, "day")}` : "—"}
                 </td>
               </tr>
               <tr>
                 <td className="py-0.5 text-gray-600">Duration (w/Buffer):</td>
                 <td className="py-0.5 font-medium">
-                  {buffer ? `${Math.round(buffer.projectTargetDuration)} working days` : "—"}
+                  {buffer ? `${Math.round(buffer.projectTargetDuration)} working ${pluralize(Math.round(buffer.projectTargetDuration), "day")}` : "—"}
                 </td>
               </tr>
               {showConstraintDelay && (
                 <tr>
                   <td className="py-0.5 text-gray-600">Constraint Delay:</td>
-                  <td className="py-0.5 font-medium">+{constraintDelayDays} working days</td>
+                  <td className="py-0.5 font-medium">+{constraintDelayDays} working {pluralize(constraintDelayDays, "day")}</td>
                 </tr>
               )}
             </tbody>

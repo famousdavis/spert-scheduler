@@ -522,6 +522,20 @@ describe("ProjectPage — undo/redo keyboard shortcuts", () => {
     );
   });
 
+  it("Ctrl+Y redoes what Ctrl+Z undid — the shortcut the modal documents since WI-16", () => {
+    const p = makeProject();
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, "Renamed Mid-Test");
+    fireEvent.keyDown(document, { key: "z", ctrlKey: true });
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
+
+    fireEvent.keyDown(document, { key: "y", ctrlKey: true });
+
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(
+      "Renamed Mid-Test"
+    );
+  });
+
   it("a bare z does nothing — the modifier is required", () => {
     const p = makeProject();
     renderPage(p);

@@ -8,6 +8,7 @@ import {
   distributionShortLabel,
   statusLabel,
   dependencyLabel,
+  pluralize,
 } from "./format-labels";
 
 describe("distributionLabel", () => {
@@ -71,5 +72,24 @@ describe("dependencyLabel", () => {
 
   it("formats FF correctly", () => {
     expect(dependencyLabel("FF")).toBe("Finish-to-Finish");
+  });
+});
+
+describe("pluralize", () => {
+  // WI-16: the noun beside a whole-number count. Falsified against two mutants:
+  // inverting the comparison fails all six; dropping Math.abs fails only the −1 case.
+  it("uses the singular for exactly one, by magnitude", () => {
+    expect(pluralize(1, "day")).toBe("day");
+    expect(pluralize(-1, "day")).toBe("day");
+  });
+
+  it("uses the plural for zero and for more than one", () => {
+    expect(pluralize(0, "day")).toBe("days");
+    expect(pluralize(2, "day")).toBe("days");
+  });
+
+  it("takes an irregular plural when given one", () => {
+    expect(pluralize(1, "entry", "entries")).toBe("entry");
+    expect(pluralize(3, "entry", "entries")).toBe("entries");
   });
 });

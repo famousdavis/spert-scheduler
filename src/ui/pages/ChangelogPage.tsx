@@ -4,12 +4,23 @@
 
 import { Link } from "react-router-dom";
 import { APP_VERSION } from "@app/constants";
+import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import type { DateFormatPreference } from "@domain/models/types";
 import { CHANGELOG } from "./changelog-data";
 
-function formatChangelogDate(dateStr: string): string {
+/**
+ * Release dates keep a spelled-out month — INFORMED DECLINE of "changelog dates honour
+ * the date-format preference" (audit M23; ruling R54, 2026-09-06). The preference exists
+ * to remove day/month ambiguity, and a month name has none, so "September 6, 2026" →
+ * "09/06/2026" would be a strict loss for the default reader and lateral for everyone
+ * else. What the preference does decide here is the ORDER: a DD/MM/YYYY reader gets
+ * "6 September 2026". (`document.title` in ProjectPage keeps en-US for a different
+ * reason: that string becomes the Save-as-PDF filename, and slashes are not legal there.)
+ */
+function formatChangelogDate(dateStr: string, dateFormat: DateFormatPreference): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const date = new Date(y!, m! - 1, d!);
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString(dateFormat === "DD/MM/YYYY" ? "en-GB" : "en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -17,6 +28,7 @@ function formatChangelogDate(dateStr: string): string {
 }
 
 export function ChangelogPage() {
+  const dateFormat = usePreferencesStore((s) => s.preferences.dateFormat);
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-8">
@@ -48,7 +60,7 @@ export function ChangelogPage() {
                 v{entry.version}
               </h2>
               <span className="text-sm text-gray-400">
-                {formatChangelogDate(entry.date)}
+                {formatChangelogDate(entry.date, dateFormat)}
               </span>
             </div>
 

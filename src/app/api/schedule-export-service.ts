@@ -19,7 +19,7 @@ import {
   formatDateDisplay,
   durationToFinishDateISO,
 } from "@core/calendar/calendar";
-import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
+import { distributionLabel, statusLabel, pluralize } from "@domain/helpers/format-labels";
 import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { confidenceApplies } from "@domain/helpers/confidence-applies";
@@ -70,7 +70,6 @@ export function buildSummaryData(params: ScheduleExportParams): SummaryRow[] {
 
   // Buffered finish/duration are sourced from the MC project-target percentile so
   // they agree with the Percentile Summary by construction (see buffer/span design).
-  const bufferDaysStr = buffer ? `${buffer.bufferDays}` : "N/A";
   const bufferedFinishISO = buffer
     ? durationToFinishDateISO(startDate, buffer.projectTargetDuration, calendar)
     : null;
@@ -78,23 +77,25 @@ export function buildSummaryData(params: ScheduleExportParams): SummaryRow[] {
   const bufferedDuration = buffer ? `${Math.round(buffer.projectTargetDuration)}` : "N/A";
   // work + constraint delay + buffer = duration w/buffer. Suppressed (N/A) when the
   // buffer is absent or the schedule has an error-severity constraint conflict.
+  const constraintDelayDays =
+    buffer && !hasErrorConflict ? buffer.deterministicSpan - schedule.totalDurationDays : null;
   const constraintDelay =
-    buffer && !hasErrorConflict
-      ? `${buffer.deterministicSpan - schedule.totalDurationDays} days`
-      : "N/A";
+    constraintDelayDays === null
+      ? "N/A"
+      : `${constraintDelayDays} ${pluralize(constraintDelayDays, "day")}`;
 
   return [
     { key: "Project", value: projectName },
     { key: "Scenario", value: scenarioName },
     { key: "Start Date", value: fmt(params.schedule.activities[0]?.startDate ?? "") },
     { key: "Finish (w/o Buffer)", value: fmt(schedule.projectEndDate) },
-    { key: "Duration (w/o Buffer)", value: `${schedule.totalDurationDays} working days` },
+    { key: "Duration (w/o Buffer)", value: `${schedule.totalDurationDays} working ${pluralize(schedule.totalDurationDays, "day")}` },
     { key: "Finish (w/ Buffer)", value: bufferedFinish },
-    { key: "Duration (w/ Buffer)", value: bufferedDuration === "N/A" ? "N/A" : `${bufferedDuration} working days` },
+    { key: "Duration (w/ Buffer)", value: bufferedDuration === "N/A" ? "N/A" : `${bufferedDuration} working ${pluralize(Number(bufferedDuration), "day")}` },
     { key: "Constraint Delay", value: constraintDelay },
     { key: "Activity Target", value: `P${Math.round(settings.probabilityTarget * 100)}` },
     { key: "Project Target", value: `P${Math.round(settings.projectProbabilityTarget * 100)}` },
-    { key: "Schedule Buffer", value: bufferDaysStr === "N/A" ? "N/A" : `${bufferDaysStr} days` },
+    { key: "Schedule Buffer", value: buffer ? `${buffer.bufferDays} ${pluralize(buffer.bufferDays, "day")}` : "N/A" },
     { key: "Dependency Mode", value: settings.dependencyMode ? "On" : "Off" },
     { key: "Exported", value: new Date().toISOString() },
   ];

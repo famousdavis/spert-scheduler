@@ -56,6 +56,19 @@ export function dependencyLabel(dt: DependencyType): string {
   }
 }
 
+// -- Counts --------------------------------------------------------------------
+
+/**
+ * Noun for a whole-number count: `pluralize(1, "day")` → "day", `pluralize(2, "day")` →
+ * "days", `pluralize(0, "day")` → "days". Signed counts pluralise on magnitude, so a
+ * "-1 day" schedule buffer reads correctly. Whole numbers only: a fractional quantity
+ * ("1.5 days", or "1.0 days" in the simulation statistics) keeps the plural, which is
+ * why the decimal sites do not call this.
+ */
+export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return Math.abs(count) === 1 ? singular : plural;
+}
+
 // -- Milestone health --------------------------------------------------------
 
 export type MilestoneHealth = "green" | "amber" | "red";

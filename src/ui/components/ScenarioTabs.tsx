@@ -222,8 +222,15 @@ function SortableScenarioTab({
           }}
           className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-xs"
           title="Clone scenario"
+          aria-label="Clone scenario"
         >
-          &#x2398;
+          {/* Was the Unicode glyph ⎘ (U+2398): font-dependent, 7 px wide beside 14 px SVG
+              neighbours, and — because text content outranks `title` in name computation —
+              announced as "⎘" by a screen reader. Same icon as the project tile's Clone. */}
+          <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+            <rect x="5" y="5" width="8" height="8" rx="1" />
+            <path d="M3 11V4a1 1 0 0 1 1-1h7" />
+          </svg>
         </button>
         {scenarioCount > 1 && (
           <button
