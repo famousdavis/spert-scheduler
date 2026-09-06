@@ -329,11 +329,23 @@ export function UnifiedActivityRow({
     [activity, onUpdate, onValidityChange]
   );
 
-  // ⚠️ cc 15 — EXACTLY ON THE LINT THRESHOLD, and not to be refactored back under it.
-  // It reached 15 when v0.63.1 added the `else` that reports a cleared estimate instead of
-  // silently swallowing it. The added branching IS the improvement: a number that got worse
-  // because the software got better. Second instance from this campaign's own work — the
-  // first was ScenarioTabs' SortableScenarioTab, 13 → 15 on an accessibility fix.
+  // ⚠️ THE BRANCHING BELOW IS PROTECTED. Do not simplify it back.
+  //
+  // v0.63.1 added the `else` that REPORTS a cleared estimate instead of silently swallowing
+  // it — added branching that IS the improvement, a number that got worse because the
+  // software got better. That behaviour is pinned by `UnifiedActivityRow.blur.test.tsx:102`
+  // and `:141`; those two pins, not a complexity figure, are what guard it.
+  //
+  // ⚠️ THE cc-15 FRAMING IS HISTORICAL — this comment used to open "cc 15 — EXACTLY ON THE
+  // LINT THRESHOLD" and a session grepping that number would now find a function measuring
+  // NINE. It fell in v0.67.2 (WI-2) as a consequence of two deletions the item mandated —
+  // the dead `document.querySelector` sibling-write guards, and a nested state updater
+  // removed by the M12 hoist. NOTHING WAS REFACTORED TO REDUCE IT, and the drop is invisible
+  // to the lint ratchet either way, since sonarjs reports above 15. Re-derive with
+  // `npm run cc`; do not trust a figure written in prose.
+  //
+  // The surviving example of a deliberate crossing is ScenarioTabs' SortableScenarioTab,
+  // 13 → 15 on an accessibility fix.
   const handleBlur = useCallback(
     (field: "min" | "mostLikely" | "max", rawValue: string) => {
       const parsed = parseFloat(rawValue);
