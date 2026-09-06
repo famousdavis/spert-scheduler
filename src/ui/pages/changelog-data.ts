@@ -13,6 +13,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.2",
+    date: "2026-09-05",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The Min, ML and Max cells in the activity grid follow the project. Until now they did not: once a row had been drawn, those three cells kept showing whatever number they were first given, no matter what changed the estimate afterwards. Undo, Redo, saving from the Edit Activity window, a bulk recalculation, an AI Connect edit and a change synced from another device all moved the stored number while the cell went on displaying the old one.",
+          "Clicking a cell and clicking away no longer rewrites your estimates. This is the reason the release exists, and it was worse than a wrong number on screen: because a cell held a stale value, leaving that cell wrote the stale value back into the project — with nothing typed. Clicking into Min and clicking away was enough. So was tabbing along a row to read it.",
+          "What that cost: the estimate you had just undone came back, the change was written to storage and sent to the cloud, and the saved simulation results were discarded. With heuristic estimation switched on, one such cell rewrote all three of a row's estimates at once, because Most Likely recalculates Min and Max.",
+          "Nothing on screen said it had happened. The Duration column does not move when this occurs, and the totals row underneath rounds, so it can read the same before and after.",
+          "Undo takes one press again. In the app as shipped, Undo needed a second press whenever focus had left the edited cell first — clicking the Undo button did exactly that, because pressing the button takes focus out of the cell, and that departure quietly recorded a change of its own. A blur that changes no number now records nothing at all: no undo step, no discarded simulation, no save. Tabbing through a row's three estimates is free.",
+        ],
+      },
+      {
+        title: "Notes",
+        items: [
+          "Estimates are still shown as whole numbers, and that is deliberate. Heuristic estimation can store a fraction — a new row at 75% / 200% stores a Min of 0.75 — and the grid rounds it to 1 for display. The stored 0.75 is now left alone: previously, looking at that cell replaced it with 1. The Edit Activity window still shows the exact stored value.",
+          "Typing a decimal still rounds on save, unchanged: entering 3.7 stores 4.",
+          "Cleared and out-of-order estimates behave exactly as before. A cleared cell still stays empty and is flagged rather than being silently refilled, and an out-of-order entry such as a Min above the Most Likely is still saved and flagged.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.1",
     date: "2026-09-05",
     sections: [

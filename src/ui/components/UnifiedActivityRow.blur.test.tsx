@@ -16,6 +16,14 @@
  * `else`. The estimate inputs are UNCONTROLLED (`defaultValue` in EstimateInputs.tsx:46),
  * so React never resets them — which decides whether "do nothing" is invisible to the user.
  *
+ * ⚠️ SUPERSEDED 2026-09-05 (v0.67.2, WI-2), and the paragraph above is left as written
+ * because it is the reasoning these tests were built on. The estimate inputs are CONTROLLED
+ * now: `EstimateInputs` renders an `EstimateCell` whose value follows the store unless the
+ * user has typed since focusing. Every assertion below still holds and not one was changed
+ * — the cleared cell keeps `""` because the cell deliberately keeps an unparseable draft
+ * rather than resyncing, which is the same v0.63.1 rule arrived at a different way. If you
+ * are reading this paragraph to learn how the cells work today, read EstimateInputs.tsx.
+ *
  * These tests PIN WHAT IT ACTUALLY DOES. They assert no intent beyond the observed
  * behaviour, and any verdict on the rider belongs in the report, not here.
  */

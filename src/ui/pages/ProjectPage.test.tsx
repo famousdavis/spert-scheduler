@@ -534,6 +534,40 @@ describe("ProjectPage — undo/redo keyboard shortcuts", () => {
     );
   });
 
+  it("an undone estimate stays undone when the user looks at the cell and looks away", () => {
+    // ⚠️ WI-2 END TO END, through the real page and a real Ctrl+Z. Until v0.67.2 this was
+    // the shape of the data loss: Undo put the old number back in the store, the cell went
+    // on showing the new one because it was uncontrolled, and the next blur — a click in
+    // and a click out, nothing typed — committed the cell's number straight back over the
+    // restored one. It reached localStorage and emitted a cloud save.
+    //
+    // Deliberately here rather than beside the row's own tests: the row in isolation
+    // cannot show that the page's undo keystroke and the grid's commit path meet on the
+    // same store.
+    const p = makeProject();
+    const aid = p.scenarios[0]!.activities[0]!.id;
+    renderPage(p);
+    const ml = document.querySelector<HTMLInputElement>(
+      `[data-row-id="${aid}"][data-field="ml"]`,
+    )!;
+    const stored = () =>
+      useProjectStore.getState().getProject(p.id)!.scenarios[0]!.activities[0]!.mostLikely;
+
+    fireEvent.focus(ml);
+    fireEvent.change(ml, { target: { value: "20" } });
+    fireEvent.blur(ml);
+    expect(stored()).toBe(20);
+
+    fireEvent.keyDown(document, { key: "z", ctrlKey: true });
+    expect(stored()).toBe(1);
+    expect(ml.value).toBe("1"); // the cell followed the undo — the other half of WI-2
+
+    fireEvent.focus(ml);
+    fireEvent.blur(ml);
+
+    expect(stored()).toBe(1);
+  });
+
   it("the listener is removed on unmount, so a later keystroke cannot reach undo", () => {
     const p = makeProject();
     const { unmount } = renderPage(p);
