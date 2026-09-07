@@ -660,6 +660,71 @@ describe("ActivityEditModal — dismissing the modal", () => {
     });
   });
 
+  /**
+   * Focus, pinned per OUTCOME rather than per site — the three sites are the only ones in the
+   * migration whose opener's fate depends on the answer.
+   *
+   * ⚠️ These pin the SURVIVING outcomes only, and that split is deliberate. The confirming
+   * outcomes (Save, Discard, an accepted discard) unmount the editor, so `openerRef` holds a
+   * detached node, `focus()` no-ops and focus falls to `<body>`. That is what `ActivityEditModal`
+   * has always done on every close path — it is a controlled `Dialog.Root` with no
+   * `Dialog.Trigger` — so pinning it here would pin an inherited gap as though it were this
+   * component's contract. WI-17 owns it. Measured in Chromium for all seven outcomes; see the
+   * table in `ConfirmDialog`'s doc comment.
+   *
+   * ⚠️ What made these worth writing: `ConfirmHost.test.tsx` pins the three-way's OUTCOMES but has
+   * no focus assertion of any kind, and `UnsavedChangesDialog` has no test file at all. So the
+   * opener capture, the Keep-button default focus and the restore were entirely unpinned before
+   * this release, in the component this modal now depends on.
+   */
+  describe("a surviving outcome puts the keyboard back where it was", () => {
+    const focusCancel = () => {
+      const cancel = screen.getByRole("button", { name: "Cancel" });
+      cancel.focus();
+      expect(document.activeElement).toBe(cancel); // self-check: focus was delivered
+      return cancel;
+    };
+
+    it("site 7 — Keep editing returns focus to the opener", async () => {
+      openLive();
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      const opener = focusCancel();
+
+      pressEscape();
+      const asked = await askedDialog(UNSAVED_TITLE);
+      expect(document.activeElement).toBe(within(asked).getByRole("button", { name: "Keep editing" }));
+      clickIn(asked, "Keep editing");
+
+      await waitFor(() => expect(document.activeElement).toBe(opener));
+      expect(opener.isConnected).toBe(true);
+    });
+
+    it("site 8 — declining an unsaveable discard returns focus to the opener", async () => {
+      openLive();
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      clearName(nameInput());
+      const opener = focusCancel();
+
+      pressEscape();
+      clickIn(await askedDialog(DISCARD_CHANGES_TITLE), "Keep editing");
+
+      await waitFor(() => expect(document.activeElement).toBe(opener));
+      expect(opener.isConnected).toBe(true);
+    });
+
+    it("site 9 — declining Cancel's discard returns focus to the Cancel button itself", async () => {
+      openLive();
+      fireEvent.change(statusSelect(), { target: { value: "inProgress" } });
+      const opener = focusCancel();
+
+      fireEvent.click(opener);
+      clickIn(await askedDialog(DISCARD_UNSAVED_TITLE), "Keep editing");
+
+      await waitFor(() => expect(document.activeElement).toBe(opener));
+      expect(opener.isConnected).toBe(true);
+    });
+  });
+
   // ⚠️ The only genuinely shared case — and it CANNOT discriminate the two gestures, by
   // construction: with no changes handleDismiss reduces to a bare onClose(), so routing through it
   // and calling it directly are identical. Here because it is the common path and must not
