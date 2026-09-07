@@ -73,7 +73,7 @@ describe("dialog stacking", () => {
     // ⚠️ It ratchets in BOTH directions on purpose. Legitimately deleting a dialog turns this
     // red; that is the point — lower the number in the SAME commit as the deletion, exactly
     // as `expectProblems` is handled. Never widen it back to a floor to make it quiet.
-    expect(layers.length).toBeGreaterThanOrEqual(28);
+    expect(layers.length).toBeGreaterThanOrEqual(30);
     expect(layers.some((l) => l.tag === "Dialog.Overlay")).toBe(true);
     expect(layers.some((l) => l.tag === "Dialog.Content")).toBe(true);
   });
