@@ -124,6 +124,12 @@ export function UnifiedActivityGrid({
   const { selectedIds, toggleSelect, toggleSelectAll, clearSelection } =
     useGridSelection(activities);
 
+  // The header's select-all checkbox — the focus destination for BOTH bulk paths, because it
+  // is rendered unconditionally and so outlives the toolbar that opens them. Declared up here
+  // beside the selection state it belongs to, rather than beside its first consumer, because
+  // `handleBulkApply` and `handleBulkDelete` sit on either side of it.
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
   const handleInsertAfterActivity = useCallback(
     (afterActivityId: string) => {
       if (!onInsertAfterActivity) return;
@@ -183,6 +189,22 @@ export function UnifiedActivityGrid({
       for (const { id, updates } of plan.perActivity) onUpdate(id, updates);
 
       clearSelection();
+      // WI-6c — the toolbar that hosts the Apply button unmounts with the selection, exactly
+      // as it does for a confirmed bulk delete, so the opener cannot be restored to. The
+      // header checkbox is rendered unconditionally and survives.
+      //
+      // ⚠️ THE TAIL IS HERE, NOT IN THE TOOLBAR, AND UNCONDITIONAL, FOR ONE REASON: this is
+      // the single point every apply path converges on. The heuristic question's two answers
+      // both reach it (Cancel there means "keep min/max", not "abort"), and so does an apply
+      // that asks nothing at all — which dropped focus to `<body>` just as the dialog paths
+      // do. "Focus lands somewhere sane on both branches" is therefore a property of the
+      // shape rather than of two tails someone has to remember to keep in step.
+      //
+      // `queueMicrotask` for the reason spelled out in `handleDeleteActivity` below: rAF runs
+      // no callback at all in a non-painting Chromium tab, and none for ~16 ms in jsdom.
+      queueMicrotask(() => {
+        selectAllRef.current?.focus();
+      });
     },
     [selectedIds, scheduledActivities, activities, onBulkUpdate, onUpdate,
      heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, clearSelection],
@@ -246,9 +268,6 @@ export function UnifiedActivityGrid({
   };
 
   const hasSelection = selectedIds.size > 0;
-
-  // Focus destination for a confirmed bulk delete (see `handleBulkDelete`).
-  const selectAllRef = useRef<HTMLInputElement>(null);
 
   // WI-6b — the two delete confirmations are hosted HERE, not in the row and not in the
   // toolbar, because the focus destination each one owes needs knowledge only the grid has:

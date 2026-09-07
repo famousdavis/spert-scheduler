@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { RSMLevel, DistributionType, ActivityStatus } from "@domain/models/types";
 import { RSM_LEVELS, RSM_LABELS, DISTRIBUTION_TYPES, ACTIVITY_STATUSES } from "@domain/models/types";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
+import { confirmDialog } from "@ui/hooks/use-confirm-store";
 
 export interface BulkApplyPayload {
   confidenceLevel?: RSMLevel;
@@ -39,7 +40,7 @@ export function BulkActionToolbar({
 
   const hasStaged = stagedConfidence !== "" || stagedDistribution !== "" || stagedStatus !== "";
 
-  const handleApply = () => {
+  const handleApply = async () => {
     if (!hasStaged) return;
 
     const payload: BulkApplyPayload = {};
@@ -47,15 +48,45 @@ export function BulkActionToolbar({
     if (stagedDistribution) payload.distributionType = stagedDistribution;
     if (stagedStatus) payload.status = stagedStatus;
 
-    // Prompt for heuristic recalculation when distribution is staged and heuristics are on
+    // WI-6c — ⚠️ THIS IS NOT A CONFIRMATION, AND THE COPY HAS TO SAY SO. Cancel does not
+    // abort: it means "apply the distribution, keep the existing min/max". `onApply` runs on
+    // BOTH answers, so the answer is DATA, not permission — hence `destructive: false`, a
+    // `cancelLabel` naming the other outcome rather than "Cancel", and a description whose
+    // first sentence is that the apply happens either way. The native browser prompt this
+    // replaced could say none of that: one string, and two buttons it did not get to name.
+    //
+    // ⚠️ That sentence deliberately does NOT spell the old API's name. The campaign's census
+    // greps this repo for that literal, and a prose mention here would have replaced the call
+    // row one-for-one — leaving the count flat against a migration that really happened. It
+    // did, until this comment was reworded.
+    //
+    // The variable is named for the MEANING of the boolean, not its shape — `ask()` returns
+    // `Promise<boolean>` here as everywhere, but true/false is recalculate/keep, not yes/no.
     if (stagedDistribution && heuristicEnabled) {
-      const confirmed = window.confirm(
-        `Recalculate min/max for ${selectedCount} selected activit${selectedCount === 1 ? "y" : "ies"} using current heuristic settings (${heuristicMinPercent ?? 50}% / ${heuristicMaxPercent ?? 200}%)?`
-      );
-      payload.recalculateHeuristic = confirmed;
+      // ⚠️ `?? 50` is NOT a typo for the shipped default of 75. It is WI-27's fallback, which
+      // the owner declined as affecting a population of one, and it is self-consistent for
+      // that user. Do not "correct" it to 75.
+      const shouldRecalculate = await confirmDialog.ask({
+        title: `Recalculate min/max for ${selectedCount} selected activit${selectedCount === 1 ? "y" : "ies"}?`,
+        description:
+          `The ${distributionLabel(stagedDistribution)} distribution is applied either way. ` +
+          `Recalculating also replaces each activity's min and max from its most likely value ` +
+          `using your current heuristic settings (${heuristicMinPercent ?? 50}% / ${heuristicMaxPercent ?? 200}%). ` +
+          `Keeping them leaves the existing min and max untouched.`,
+        confirmLabel: "Recalculate",
+        cancelLabel: "Keep current min/max",
+        destructive: false,
+      });
+      payload.recalculateHeuristic = shouldRecalculate;
     }
 
     onApply(payload);
+    // ⚠️ These three stay BELOW `onApply` deliberately. Moving them above the `await` would
+    // visibly empty the dropdowns behind the open dialog. Left here they are correct for a
+    // consumer whose `onApply` leaves this toolbar mounted, and moot in the shipped wiring
+    // where it does not: the grid's `handleBulkApply` ends in an unconditional
+    // `clearSelection()`, so React commits the reset and the unmount together and the staged
+    // state is discarded either way. Correct under both lifetimes — that is why they stay.
     setStagedConfidence("");
     setStagedDistribution("");
     setStagedStatus("");
