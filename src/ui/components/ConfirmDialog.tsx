@@ -57,10 +57,25 @@ interface ConfirmDialogProps {
  *    and `composeEventHandlers` skips Radix's once we `preventDefault()`, this component is the
  *    SOLE restorer — not one of two racing.
  *
- * WARNING: if the opener was destroyed by the confirmed action (five of the nine migration
- * sites destroy their own opener), `focus()` on the detached node is a no-op and focus lands on
- * `<body>`. That is a SECOND, independent cause which this fix does not close — the call site
- * names its own destination, as test P7 demonstrates.
+ * WARNING: if the opener was destroyed by the confirmed action, `focus()` on the detached node
+ * is a no-op and focus lands on `<body>`. That is a SECOND, independent cause which this fix
+ * does not close — the call site names its own destination, as test P7 demonstrates.
+ *
+ * ⚠️ EIGHT of the nine migration sites destroy their own opener — this said FIVE until v0.67.11,
+ * and the error ran in the dangerous direction: it tells a migrator that four sites need no focus
+ * destination when only ONE does not. Evidence class is stated per row and is NOT to be levelled
+ * up by relabelling:
+ *
+ *   - sites 1–4 (row ✕, bulk delete, scenario delete, corrupted project) — destroyed.
+ *     MEASURED in Chromium, WI-6b.
+ *   - site 5 (preferences reset) — SURVIVES. The only one, which is why `handleReset` is the only
+ *     migrated site with no focus tail. MEASURED in Chromium, WI-6b.
+ *   - site 6 (bulk apply) — destroyed on BOTH answers: `onApply` runs either way, and the grid's
+ *     `handleBulkApply` ends in an unconditional `clearSelection()` that unmounts the toolbar
+ *     holding the opener. REASONED at source, WI-6c. ⚠️ The property that made the five aborts
+ *     tractable — "dismissing leaves you where you were" — does not hold here at all.
+ *   - sites 7–9 (`ActivityEditModal` ×3) — destroyed; all terminate in `onClose()`, and
+ *     `ProjectPage` renders the modal under `{editingActivityId && …}`. REASONED at source, WI-6d.
  */
 export function ConfirmDialog({
   trigger,
