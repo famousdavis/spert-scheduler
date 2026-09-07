@@ -881,11 +881,10 @@ export function UnifiedActivityRow({
           </span>
         ) : (
           <button
-            onClick={() => {
-              if (window.confirm("Are you sure you want to delete this activity?")) {
-                onDelete(activity.id);
-              }
-            }}
+            // WI-6b: the confirmation moved UP to `UnifiedActivityGrid`, which owns the row
+            // order that this deletion's focus destination needs. `onDelete` is the grid's
+            // asking handler now; the row is a plain caller.
+            onClick={() => onDelete(activity.id)}
             className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 text-sm transition-colors"
             title="Delete activity"
             tabIndex={-1}

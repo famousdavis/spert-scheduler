@@ -23,8 +23,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { ConfirmHost } from "@ui/components/ConfirmHost";
+import { useConfirmStore } from "@ui/hooks/use-confirm-store";
 
 // --- mocks, declared before the component import so vi.mock hoisting catches them ---
 
@@ -127,10 +129,17 @@ function makeProject(
 
 function routes() {
   return (
-    <Routes>
-      <Route path="/project/:id" element={<ProjectPage />} />
-      <Route path="/projects" element={<div>PROJECTS DASHBOARD</div>} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/project/:id" element={<ProjectPage />} />
+        <Route path="/projects" element={<div>PROJECTS DASHBOARD</div>} />
+      </Routes>
+      {/* Production mounts this once in `Layout`, of which every route is a child
+          (`src/app/router.tsx`) — so a page that calls `confirmDialog.ask(...)` always has a
+          host to render the question. Mounted here as a sibling of the routes for the same
+          reason: without it the promise never settles and the page silently does nothing. */}
+      <ConfirmHost />
+    </>
   );
 }
 
@@ -210,6 +219,9 @@ function errorToasts(): string[] {
 
 beforeEach(() => {
   localStorage.clear();
+  // The confirm store is a module singleton: a question left pending by one test is still
+  // showing in the next one.
+  useConfirmStore.setState({ pending: null });
   useProjectStore.setState({ projects: [], loadError: false });
   useNotificationStore.setState({ notifications: [] });
   aiHook.sessionState = { sessionActive: false, aiConnected: false };
@@ -444,14 +456,20 @@ describe("ProjectPage — scenario lifecycle guards", () => {
   /**
    * ⚠️ SCOPE, MEASURED. What this guards is ScenarioTabs' `scenarioCount > 1` gate: with
    * one scenario the delete control is never rendered, so the destructive path is
-   * unreachable and `confirm` is never reached either. It does NOT guard ProjectPage's own
+   * unreachable and no question is ever asked. It does NOT guard ProjectPage's own
    * `scenarios.length <= 1` early return — removing that by mutation left this green,
    * because the DOM offers no way to invoke it. That guard is defence in depth and is
    * genuinely unreachable from the rendered page; it is recorded here rather than pinned
    * by a test that would have to fake the callback to reach it.
+   *
+   * ⚠️ THE OLD FORM OF THIS ASSERTION WENT VACUOUS IN v0.67.9 AND DID NOT GO RED. It read
+   * `vi.spyOn(window, "confirm")` … `expect(confirmSpy).not.toHaveBeenCalled()`. Once WI-6b
+   * migrated this site off `window.confirm`, nothing anywhere could call that spy, so the
+   * assertion became true by construction — a guard that passes because its subject no
+   * longer exists. It now asks the confirm STORE, which is the thing this site would
+   * actually reach.
    */
   it("the delete control is not rendered for the last remaining scenario", () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const p = makeProject(PROJECT_NAME, [SCENARIO_A]);
     renderPage(p);
 
@@ -460,10 +478,50 @@ describe("ProjectPage — scenario lifecycle guards", () => {
     expect(
       within(tabRoot(SCENARIO_A)).queryByTitle("Delete scenario")
     ).toBeNull();
-    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(useConfirmStore.getState().pending).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(useProjectStore.getState().getProject(p.id)!.scenarios).toHaveLength(
       1
     );
+  });
+
+  /**
+   * WI-6b, v0.67.9 — the scenario delete migrated off a bare `confirm(...)`.
+   *
+   * ⚠️ PARENT-HOSTED. The trigger is the tab's ✕ inside `SortableScenarioTab` (cc 15,
+   * ground-rule-9 protected and untouched); the question and the focus destination live in
+   * `ProjectPage.handleDeleteScenario`. The ✕ goes with the tab it deletes, so
+   * `ConfirmDialog`'s captured-`activeElement` restore reaches a detached node and focus
+   * would land on `<body>` — which is what these two assert against.
+   */
+  it("deleting a scenario asks first, and dismissing leaves both scenarios alone", async () => {
+    const p = makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B]);
+    renderPage(p);
+
+    fireEvent.click(within(tabRoot(SCENARIO_B)).getByTitle("Delete scenario"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Delete this scenario?")).toBeTruthy();
+    expect(useProjectStore.getState().getProject(p.id)!.scenarios).toHaveLength(2);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(useProjectStore.getState().getProject(p.id)!.scenarios).toHaveLength(2);
+  });
+
+  it("confirming deletes it and focus lands on the active tab's button, not <body>", async () => {
+    const p = makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B]);
+    renderPage(p);
+
+    fireEvent.click(within(tabRoot(SCENARIO_B)).getByTitle("Delete scenario"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // P7's settle: the call site focuses in a `queueMicrotask`, same as P7 measured.
+    await new Promise((r) => setTimeout(r, 5));
+
+    expect(useProjectStore.getState().getProject(p.id)!.scenarios).toHaveLength(1);
+    expect(document.activeElement).toBe(tabButton(SCENARIO_A));
   });
 
   it("adding past the scenario cap is refused with an explanatory toast", () => {

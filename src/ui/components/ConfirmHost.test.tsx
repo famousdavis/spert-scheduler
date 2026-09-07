@@ -5,9 +5,15 @@
 /**
  * `ConfirmHost` + the promise API end to end (WI-6a, v0.67.8).
  *
- * WARNING: nothing in the shipped app calls `confirmDialog.ask(...)` yet — WI-6a migrates no
- * call site, so `pending` is always null in production after this release. These tests drive
- * the mechanism directly so that it is pinned BEFORE WI-6b/c/d start leaning on it.
+ * These tests drive the mechanism directly, deliberately: they were written under WI-6a, when
+ * nothing in the shipped app called `confirmDialog.ask(...)` at all, so that the contract was
+ * pinned BEFORE anything leaned on it.
+ *
+ * ⚠️ THAT PREMISE EXPIRED IN v0.67.9. WI-6b migrated five call sites (the two grid deletes,
+ * the scenario delete, the corrupted-project delete, and the preferences reset), so `pending`
+ * is no longer always null in production. This paragraph used to assert that it was. The
+ * tests below are unaffected — they never depended on there being no other caller — but the
+ * sentence did, which is why it is corrected rather than deleted.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";

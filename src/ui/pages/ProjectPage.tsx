@@ -29,6 +29,7 @@ import { buildSimulationParams, type SimulationParams } from "@ui/helpers/build-
 import { currentSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 import { toast } from "@ui/hooks/use-notification-store";
 import { ScenarioTabs } from "@ui/components/ScenarioTabs";
+import { confirmDialog } from "@ui/hooks/use-confirm-store";
 import { DependencyPanel } from "@ui/components/DependencyPanel";
 import { MilestonePanel } from "@ui/components/MilestonePanel";
 import { GanttSection } from "@ui/components/GanttSection";
@@ -499,17 +500,41 @@ export function ProjectPage() {
     [id, project, duplicateScenario, setActiveScenarioId]
   );
 
+  // WI-6b — PARENT-HOSTED on purpose. The trigger lives in `SortableScenarioTab`, which is
+  // ground-rule-9 protected at cc 15; the tab stays a caller and the scenario id arrives as a
+  // parameter, not a closure. The `scenarios.length <= 1` guard stays ABOVE the ask, so the
+  // last remaining scenario still produces no prompt at all.
   const handleDeleteScenario = useCallback(
-    (scenarioId: string) => {
+    async (scenarioId: string) => {
       if (!id || !project) return;
       // Protect last remaining scenario from deletion
       if (project.scenarios.length <= 1) return;
-      if (!confirm("Delete this scenario?")) return;
+      const ok = await confirmDialog.ask({
+        title: "Delete this scenario?",
+        description:
+          "The scenario and everything in it — activities, dependencies and milestones — is removed from this project. Undo restores it.",
+        confirmLabel: "Delete",
+        destructive: true,
+      });
+      if (!ok) return;
       deleteScenario(id, scenarioId);
       if (scenarioId === activeScenarioId) {
         const updatedProject = useProjectStore.getState().getProject(id);
         setActiveScenarioId(updatedProject?.scenarios[0]?.id ?? null);
       }
+      // The deleted tab took its own ✕ with it, so `ConfirmDialog`'s captured-`activeElement`
+      // restore reaches a detached node and focus falls to <body>. Send it to the tab that is
+      // active AFTER the delete — the same one whether the deleted scenario was active (the
+      // list re-points above) or not. `aria-current="true"` is rendered in exactly one place
+      // in the app (ScenarioTabs.tsx, only when isActive) and ScenarioTabs is mounted once,
+      // so this selector is unambiguous; `ScenarioTabs` keeps its active-tab ref private, and
+      // reaching into it would mean editing the cc-15 tab.
+      // `queueMicrotask` (P7's measured mechanism) rather than rAF: the store write has
+      // already committed by the time it runs, and Chromium runs no frame callbacks in a
+      // non-painting tab — which made rAF untestable under automation.
+      queueMicrotask(() => {
+        document.querySelector<HTMLElement>('button[aria-current="true"]')?.focus();
+      });
     },
     [id, project, activeScenarioId, deleteScenario, setActiveScenarioId]
   );
