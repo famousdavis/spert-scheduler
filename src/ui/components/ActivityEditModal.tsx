@@ -515,10 +515,14 @@ export function ActivityEditModal({
       // before v0.67.12 — abandoning a valid draft meant reaching for the Cancel button — and
       // closing that gap is what this release is for.
     }
-    // Changes exist but the form cannot be saved — previously this fell straight through
+    // Changes exist but the form cannot be saved — before v0.62.0 this fell straight through
     // to onClose(), so dismissing an activity whose name had been cleared threw away
     // EVERY edit with no prompt at all: the unsaved-changes guard was suppressed by the
     // very state that made saving impossible. Warn instead, and default to staying put.
+    // ⚠️ THE DATE IS THE POINT, and it is the only edit to v0.62.0's paragraph. This warning is
+    // NOT new in v0.67.12 — only the window it appears in is. Undated, the "previously" read as
+    // though this release introduced it, and a reader specifically hunting false provenance on
+    // this file misread it that way. False provenance here is what shipped v0.67.3.
     if (hasChanges && !isValid) {
       const shouldDiscard = await confirmDialog.ask({
         title: "Discard your changes?",
