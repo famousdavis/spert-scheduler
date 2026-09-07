@@ -61,10 +61,12 @@ interface ConfirmDialogProps {
  * is a no-op and focus lands on `<body>`. That is a SECOND, independent cause which this fix
  * does not close — the call site names its own destination, as test P7 demonstrates.
  *
- * ⚠️ EIGHT of the nine migration sites destroy their own opener — this said FIVE until v0.67.11,
- * and the error ran in the dangerous direction: it tells a migrator that four sites need no focus
- * destination when only ONE does not. Evidence class is stated per row and is NOT to be levelled
- * up by relabelling:
+ * ⚠️ EIGHT of the nine migration sites destroy their own opener ON AT LEAST ONE OUTCOME — this
+ * said FIVE until v0.67.11, and the error ran in the dangerous direction: it tells a migrator that
+ * four sites need no focus destination when only ONE does not. ⚠️ Read the qualifier: three of the
+ * eight destroy it on SOME outcomes and not others (see sites 7–9), so a per-SITE reading of this
+ * count is wrong in both directions. Evidence class is stated per row and is NOT to be levelled up
+ * by relabelling:
  *
  *   - sites 1–4 (row ✕, bulk delete, scenario delete, corrupted project) — destroyed.
  *     MEASURED in Chromium, WI-6b.
@@ -76,8 +78,25 @@ interface ConfirmDialogProps {
  *     after each of Recalculate, Keep, Escape and overlay-click, and was false on all four.
  *     ⚠️ The property that made the five aborts tractable — "dismissing leaves you where you
  *     were" — does not hold here at all.
- *   - sites 7–9 (`ActivityEditModal` ×3) — destroyed; all terminate in `onClose()`, and
- *     `ProjectPage` renders the modal under `{editingActivityId && …}`. REASONED at source, WI-6d.
+ *   - sites 7–9 (`ActivityEditModal` ×3) — OUTCOME-DEPENDENT, the only ones that are, because the
+ *     opener is whatever held focus INSIDE the editor and so dies only when the editor does.
+ *     MEASURED in Chromium at 1280 and 853, WI-6d, `opener.isConnected` read after each of the
+ *     seven outcomes these three sites offer:
+ *       DESTROYED — site 7 Save, site 7 Discard, site 8 confirmed, site 9 confirmed. All four
+ *         reach `onClose()`, and `ProjectPage` renders the modal under `{editingActivityId && …}`.
+ *         Focus lands on `<body>` in all four.
+ *       SURVIVES — site 7 "Keep editing", site 8 declined, site 9 declined. The restore above does
+ *         its job: `document.activeElement === opener` after each, with the editor still open and
+ *         its draft intact.
+ *     ⚠️ This row read "destroyed; all terminate in `onClose()`" until v0.67.12, which was false of
+ *     every declining branch — and it pre-stated the conclusion its own measurement was meant to
+ *     reach. Measure per OUTCOME here, not per site.
+ *     ⚠️ The four destroyed outcomes are deliberately NOT repaired by WI-6d and no focus tail was
+ *     added at any of the three. `ActivityEditModal` is a controlled `Dialog.Root` with no
+ *     `Dialog.Trigger`, so closing it dropped focus to `<body>` before any of this work and still
+ *     does on paths that raise no confirmation at all — a pre-existing gap of the whole modal, not
+ *     of these prompts. WI-17 owns it. Adding a tail here would have repaired three of that gap's
+ *     paths and left the rest, which is a worse state to reason about than the whole gap.
  */
 export function ConfirmDialog({
   trigger,

@@ -24,6 +24,7 @@ import {
   DISTRIBUTION_TYPES,
   ACTIVITY_STATUSES,
 } from "@domain/models/types";
+import { confirmDialog } from "@ui/hooks/use-confirm-store";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
@@ -489,36 +490,72 @@ export function ActivityEditModal({
     return false;
   }, [activity, buildFieldUpdates, checklist, deliverables, notes]);
 
-  const handleDismiss = useCallback(() => {
+  /**
+   * Escape and overlay-click. Asks through the app's own dialog host rather than the browser's
+   * box (v0.67.12) — and asks TWO DIFFERENT QUESTIONS from one function, which is deliberate.
+   *
+   * ⚠️ Only the FIRST branch is a three-way. A valid draft can be saved, discarded or kept; an
+   * unsaveable one cannot be saved at all, so offering Save there would promise something the app
+   * cannot do. That is site 8's own reason and it is NOT the reason `handleCancel` below stays
+   * two-way — see the block above the buttons for that one. Anyone "unifying the modal's three
+   * prompts" is re-shipping the defect the owner reverted in v0.67.3.
+   *
+   * The three-way's labels, order and default focus are not settable from here: they live in
+   * `UnsavedChangesDialog`, and `askUnsavedChanges()` takes no arguments.
+   */
+  const handleDismiss = useCallback(async () => {
     if (hasChanges && isValid) {
-      const shouldSave = window.confirm("You have unsaved changes. Save them?");
-      if (shouldSave) {
+      const answer = await confirmDialog.askUnsavedChanges();
+      if (answer === "save") {
         handleSave();
         return;
       }
-      // Cancel → return to modal (do nothing)
-      return;
+      if (answer === "keep") return;
+      // "discard" falls through to onClose() below. That outcome did not exist on this route
+      // before v0.67.12 — abandoning a valid draft meant reaching for the Cancel button — and
+      // closing that gap is what this release is for.
     }
     // Changes exist but the form cannot be saved — previously this fell straight through
     // to onClose(), so dismissing an activity whose name had been cleared threw away
     // EVERY edit with no prompt at all: the unsaved-changes guard was suppressed by the
     // very state that made saving impossible. Warn instead, and default to staying put.
     if (hasChanges && !isValid) {
-      const shouldDiscard = window.confirm(
-        "This activity needs a name, so your changes can't be saved. Discard them?"
-      );
+      const shouldDiscard = await confirmDialog.ask({
+        title: "Discard your changes?",
+        // ⚠️ TWO CAUSES, not one. `isValid` fails on an empty name OR on a constraint missing
+        // its date or mode, and until v0.67.12 both produced the single sentence "This activity
+        // needs a name…" — which, with a perfectly good name and a half-filled constraint, was
+        // simply false. It also mattered more in that case than in the other: the empty name
+        // renders "Activity name is required." inline beneath the field, whereas an incomplete
+        // constraint renders no explanation anywhere, so this prompt is the only place the user
+        // is told. Pinned by "names the CONSTRAINT, not the name…" in the test file.
+        description: nameMissing
+          ? "This activity needs a name, so your changes can't be saved. Discarding them can't be undone."
+          : "This activity's constraint needs both a date and a mode, so your changes can't be saved. Discarding them can't be undone.",
+        confirmLabel: "Discard",
+        // Not the default "Cancel": this modal has a button of its own by that name which does
+        // something else, and two controls reading "Cancel" one on top of the other is a
+        // question about which one is being answered.
+        cancelLabel: "Keep editing",
+        destructive: true,
+      });
       if (!shouldDiscard) return;
     }
     onClose();
-  }, [hasChanges, isValid, handleSave, onClose]);
+  }, [hasChanges, isValid, nameMissing, handleSave, onClose]);
 
   /**
    * Cancel's own handler. Deliberately NOT a branch inside handleDismiss — the two controls ask
    * different questions. Escape asks "save?"; Cancel asks "discard?".
    *
-   * ⚠️ It must never save, and it cannot: handleSave is not referenced here and must not be added.
-   * v0.67.3 routed Cancel through handleDismiss, whose prompt asks "Save them?" — so OK saved and
-   * the only other answer kept editing, leaving no way to abandon a valid draft at all.
+   * ⚠️ It must never save, and it cannot — now for TWO independent reasons. handleSave is not
+   * referenced here and must not be added; and since v0.67.12 the question goes through
+   * `confirmDialog.ask`, which returns Promise<boolean>, so "save" is unrepresentable in the type
+   * this function awaits. `tsc` enforces the second in the ship gate. Do NOT route this through
+   * `askUnsavedChanges` to "match" Escape: that call's type admits "save", which is exactly the
+   * door v0.67.3 came through. v0.67.3 routed Cancel through handleDismiss, whose prompt asks
+   * "Save them?" — so OK saved and the only other answer kept editing, leaving no way to abandon
+   * a valid draft at all.
    *
    * One wording for both the valid and the invalid case, on purpose. handleDismiss says "can't be
    * saved" for an empty name, which is useful when the question is whether to save; on THIS button
@@ -531,9 +568,19 @@ export function ActivityEditModal({
    * trims to empty, so hasChanges is false and there is nothing to discard. This reads like a
    * defect on first inspection and has been raised as one; it is not.
    */
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback(async () => {
     if (hasChanges) {
-      const shouldDiscard = window.confirm("Discard your unsaved changes?");
+      const shouldDiscard = await confirmDialog.ask({
+        title: "Discard your unsaved changes?",
+        // True of BOTH the valid and the invalid draft, which the one-wording decision above
+        // requires. Nothing has been written to the store on this path, so there is no undo entry
+        // to offer either — unlike the grid's deletes, where "Undo restores it" is the accurate
+        // line. The edits exist only in this component's state and go with it.
+        description: "Your edits to this activity are lost, and this can't be undone.",
+        confirmLabel: "Discard",
+        cancelLabel: "Keep editing",
+        destructive: true,
+      });
       if (!shouldDiscard) return;
     }
     onClose();
@@ -982,14 +1029,20 @@ export function ActivityEditModal({
                  these buttons on the strength of the misclick argument — it has been made and
                  answered.
 
-              3. Escape and overlay-click keep handleDismiss and its "Save them?" prompt — owner
-                 ruling, 2026-09-06, and it is the original v0.29.1 design, not a later addition.
-                 The asymmetry is intended: clicking a control labelled Cancel is deliberate,
-                 whereas Escape and a stray click outside can be accidental.
-                 ⚠️ KNOWN GAP, owned not undiscovered: Escape therefore has no discard path of its
-                 own — save or keep editing, which is the same shape that made v0.67.3 wrong here.
-                 Closing it needs a three-way (save / discard / keep editing), which a native
-                 confirm() cannot express. That is tracked separately; do not improvise it here.
+              3. Escape and overlay-click keep handleDismiss — owner ruling, 2026-09-06, and it
+                 is the original v0.29.1 design, not a later addition. The asymmetry is intended:
+                 clicking a control labelled Cancel is deliberate, whereas Escape and a stray click
+                 outside can be accidental. ⚠️ That asymmetry is the part of this decision that has
+                 NOT changed, and it is the part worth protecting: Escape may offer to save, Cancel
+                 may not. Do not collapse them now that both ask through a dialog.
+                 ⚠️ ITS KNOWN GAP WAS CLOSED IN v0.67.12 — annotated rather than rewritten, because
+                 the reasoning is what dates the decision. It read: "KNOWN GAP, owned not
+                 undiscovered: Escape therefore has no discard path of its own — save or keep
+                 editing, which is the same shape that made v0.67.3 wrong here. Closing it needs a
+                 three-way (save / discard / keep editing), which a native confirm() cannot
+                 express. That is tracked separately; do not improvise it here." It was tracked, as
+                 WI-6d, and closed there — not improvised. handleDismiss now asks through
+                 UnsavedChangesDialog, whose three outcomes are exactly the three named above.
 
               ⚠️ Do not reinstate handleDismiss on this button on the strength of either past
               incident. That false provenance is what caused v0.67.3:

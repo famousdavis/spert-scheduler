@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.12",
+    date: "2026-09-07",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Leaving the Edit Activity window with unsaved changes can now discard them. Pressing Escape, or clicking outside the Edit Activity window, has always asked whether to save your unsaved changes \u2014 and offered only two answers: OK to save, Cancel to go back to editing. There was no way to leave by that route without either saving or staying. Abandoning a draft meant finding the Cancel button instead, which asks a different question.",
+          "That window now offers all three answers \u2014 Keep editing, Discard and Save. Discarding closes the editor and leaves the activity exactly as it was.",
+          "The Cancel button still asks its own question, and still cannot save. That asymmetry is deliberate and unchanged: Escape can be accidental, so it offers to keep your work; clicking a button labelled Cancel is not, so it does not.",
+          "All three of this window's questions now appear in windows that match the app, in both light and dark themes, with buttons that say what they do instead of OK and Cancel. The keyboard starts on Keep editing every time, so pressing Enter never discards or saves anything, and dismissing one of these windows \u2014 with Escape or by clicking outside it \u2014 also means Keep editing. These were the last three of the app's browser confirmation boxes.",
+          "The message about changes that cannot be saved now gives the right reason. An activity cannot be saved for either of two reasons: it has no name, or its scheduling constraint is missing its date or its mode. Leaving with unsaved changes said \"This activity needs a name\" in both cases. With a perfectly good name and a half-filled constraint that was simply untrue \u2014 and it was the only place you were told anything at all, because an incomplete constraint shows no message beside the fields the way a missing name does. The window now names whichever of the two is actually blocking the save.",
+          "Known limitation: choosing Save or Discard closes the Edit Activity window and leaves the keyboard focus nowhere, so the next Tab starts again from the top of the page. That is how this window has always closed, including on routes that ask nothing at all, and it is tracked as its own item rather than half-fixed here. Choosing Keep editing, or declining a discard, returns the keyboard exactly where it was.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.11",
     date: "2026-09-07",
     sections: [
