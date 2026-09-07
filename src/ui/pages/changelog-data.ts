@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.11",
+    date: "2026-09-07",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The question about recalculating estimates now says that your change is applied either way. Setting a distribution on several selected activities at once asks whether to recalculate their min and max from the current heuristic settings. That question used to arrive as the browser's own grey box, with only OK and Cancel to answer it \u2014 and Cancel has never meant \"stop\". The distribution was always applied whichever button you pressed; the box simply had no way to say so, and pressing Cancel reasonably looked like backing out of the whole thing.",
+          "It now asks in a window that matches the app, in both light and dark themes, and the two buttons name what they actually do: Recalculate and Keep current min/max. The wording opens by saying the distribution is applied either way. Nothing here is destroyed, so the button is the ordinary blue rather than the red used by the delete confirmations.",
+          "The keyboard starts on Keep current min/max, so pressing Enter applies your distribution change and leaves the existing min and max alone. This differs from the delete confirmations added in 0.67.9, where Enter dismisses and nothing happens at all: here the bulk change goes ahead on every answer, because that is what this question has always done.",
+          "Answering it \u2014 with either button, or with Escape \u2014 leaves the keyboard on the select-all checkbox above the grid rather than nowhere. Dismissing by clicking outside the window leaves the keyboard wherever you clicked, as clicking on the page does anywhere else. A bulk change that asks nothing at all, because you only set a confidence level or a status, now leaves the keyboard on that same checkbox; it used to leave it nowhere.",
+          "That leaves three browser confirmation boxes still to move, all three in the Edit Activity window.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.10",
     date: "2026-09-07",
     sections: [

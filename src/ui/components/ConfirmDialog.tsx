@@ -72,8 +72,10 @@ interface ConfirmDialogProps {
  *     migrated site with no focus tail. MEASURED in Chromium, WI-6b.
  *   - site 6 (bulk apply) — destroyed on BOTH answers: `onApply` runs either way, and the grid's
  *     `handleBulkApply` ends in an unconditional `clearSelection()` that unmounts the toolbar
- *     holding the opener. REASONED at source, WI-6c. ⚠️ The property that made the five aborts
- *     tractable — "dismissing leaves you where you were" — does not hold here at all.
+ *     holding the opener. MEASURED in Chromium, WI-6c — the opener's `isConnected` was checked
+ *     after each of Recalculate, Keep, Escape and overlay-click, and was false on all four.
+ *     ⚠️ The property that made the five aborts tractable — "dismissing leaves you where you
+ *     were" — does not hold here at all.
  *   - sites 7–9 (`ActivityEditModal` ×3) — destroyed; all terminate in `onClose()`, and
  *     `ProjectPage` renders the modal under `{editingActivityId && …}`. REASONED at source, WI-6d.
  */

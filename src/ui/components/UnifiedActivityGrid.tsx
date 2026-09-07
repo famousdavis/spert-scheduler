@@ -202,6 +202,19 @@ export function UnifiedActivityGrid({
       //
       // `queueMicrotask` for the reason spelled out in `handleDeleteActivity` below: rAF runs
       // no callback at all in a non-painting Chromium tab, and none for ~16 ms in jsdom.
+      //
+      // ⚠️ KNOWN AND DELIBERATE: this lands on the checkbox for the two buttons and for
+      // Escape, but NOT when the dialog is dismissed by clicking the overlay. Measured in
+      // Chromium, with the listener trace rather than inferred:
+      //
+      //   pointerdown:BUTTON → focusin:"Select all activities" → mousedown → focusout:BODY
+      //
+      // The tail fires and succeeds; the browser's own `mousedown` default action, from the
+      // SAME physical click that dismissed the dialog, then blurs it because the pointer
+      // landed on a non-focusable part of the page. It is not a timing bug and deferring
+      // further does not fix it — it would mean stealing focus back from where the user just
+      // pointed, which is worse than leaving it there. A mouse user who clicks the backdrop
+      // has chosen a location; the tail exists for the paths where they have not.
       queueMicrotask(() => {
         selectAllRef.current?.focus();
       });
