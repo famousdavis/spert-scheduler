@@ -1,10 +1,18 @@
 # Changelog
 
+## 0.67.10 — 2026-09-07
+
+### A sentence in the 0.67.9 notes named a button that only four of the five windows have
+
+The 0.67.9 entry said the five new confirmation windows each have "a red Delete button". Four of them do. The fifth — resetting all preferences to their defaults — has a red **Reset** button. All five are red and all five name the action they will carry out, so only the label was wrong, but it was wrong for one window in five. The 0.67.9 entry now reads "a red button naming the action".
+
+Nothing in the app itself has changed.
+
 ## 0.67.9 — 2026-09-06
 
 ### Five confirmation boxes now match the rest of the app
 
-Deleting an activity, deleting several selected activities at once, deleting a scenario, deleting a project whose stored data could not be read, and resetting all preferences to their defaults each used to raise the browser's own grey "Are you sure?" box. All five now ask in a window that matches the app, in both light and dark themes, with a red Delete button and wording that says what will actually happen — including, where it is true, that Undo will bring it back.
+Deleting an activity, deleting several selected activities at once, deleting a scenario, deleting a project whose stored data could not be read, and resetting all preferences to their defaults each used to raise the browser's own grey "Are you sure?" box. All five now ask in a window that matches the app, in both light and dark themes, with a red button naming the action and wording that says what will actually happen — including, where it is true, that Undo will bring it back.
 
 **This changes how the keyboard behaves, and the change is deliberate.** The browser's box put the keyboard on OK, so pressing Enter went ahead with the deletion. These windows put it on Cancel instead, so Enter now dismisses the question and nothing is deleted. Escape and clicking outside also dismiss. It is a safety improvement, but if you were used to confirming a deletion with Enter, that key now does the opposite.
 
