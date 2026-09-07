@@ -43,8 +43,11 @@ interface ConfirmDialogProps {
  *    the same way: never interpolate these two.
  *
  * 2. **Default focus lands on Cancel**, the non-destructive choice (`SignOutConfirmModal`
- *    precedent), via `onOpenAutoFocus` — no effect involved. This is a deliberate behaviour
- *    change: a native `confirm()` focused OK, so Enter used to confirm a destructive delete.
+ *    precedent), via `onOpenAutoFocus` — no effect involved. ⚠️ NOT a behaviour change
+ *    for this component's own consumers: Cancel is the first tabbable, so Radix's autofocus
+ *    already landed there (measured against the pre-v0.67.8 file). It BECOMES one at the nine
+ *    native `confirm()` sites as they migrate, where the browser focused OK and Enter
+ *    confirmed.
  *
  * 3. **The component restores focus itself.** A controlled, trigger-less Radix dialog returns
  *    focus NOWHERE: `DialogContentModal`'s `onCloseAutoFocus` calls `preventDefault()` — which

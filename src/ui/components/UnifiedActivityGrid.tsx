@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import {
   DndContext,
   closestCenter,
@@ -41,6 +41,8 @@ import {
 import { shouldShowConstraintColumn, planBulkApply } from "./unified-activity-helpers";
 import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
 import { useGridFocus, useGridSelection } from "@ui/hooks/use-grid-state";
+import { confirmDialog } from "@ui/hooks/use-confirm-store";
+import { focusNextRow } from "./activity-row-helpers";
 
 interface UnifiedActivityGridProps {
   activities: Activity[];
@@ -245,12 +247,60 @@ export function UnifiedActivityGrid({
 
   const hasSelection = selectedIds.size > 0;
 
-  const handleBulkDelete = useCallback(() => {
+  // Focus destination for a confirmed bulk delete (see `handleBulkDelete`).
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  // WI-6b — the two delete confirmations are hosted HERE, not in the row and not in the
+  // toolbar, because the focus destination each one owes needs knowledge only the grid has:
+  // the row's neighbours, and the header checkbox that outlives the toolbar. Neither opener
+  // survives its own confirmed action, so `ConfirmDialog`'s captured-`activeElement` restore
+  // reaches a detached node and focus would land on `<body>`; the call site names the
+  // destination instead. Same parent-hosted shape as `ProjectPage.handleDeleteScenario`.
+  const handleDeleteActivity = useCallback(
+    async (activityId: string) => {
+      // Snapshot BEFORE the delete: `focusNextRow` reads the pre-delete order to find which
+      // activity will occupy the vacated slot, and that row is still mounted afterwards.
+      const orderBeforeDelete = activities.map((a) => a.id);
+      const ok = await confirmDialog.ask({
+        title: "Delete this activity?",
+        description:
+          "The activity and any dependencies referring to it are removed from this scenario. Undo restores it.",
+        confirmLabel: "Delete",
+        destructive: true,
+      });
+      if (!ok) return;
+      onDelete(activityId);
+      // ⚠️ `queueMicrotask`, NOT `requestAnimationFrame`. This is the mechanism
+      // `ConfirmDialog.test.tsx` P7 actually measured (its `SiteManagedFocus` calls
+      // `queueMicrotask`), and a browser probe on 2026-09-06 confirmed the store update has
+      // already committed by the time it runs: the deleted row was out of the DOM and its
+      // successor mounted. rAF was tried first and is WORSE for two reasons — Chromium does
+      // not run frame callbacks in a non-painting tab (so it never fired at all under
+      // automation, which reads exactly like a focus bug), and it costs a frame for nothing.
+      // WARNING: this lands the caret in a TEXT INPUT, where ProjectPage's Ctrl+Z handler
+      // defers to the field (R2). That is why the copy above says "Undo restores it" and
+      // does NOT name the shortcut — the shortcut is the one thing untrue in this state.
+      queueMicrotask(() => {
+        focusNextRow(activityId, orderBeforeDelete);
+      });
+    },
+    [activities, onDelete],
+  );
+
+  const handleBulkDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
-    if (!window.confirm(`Delete ${count} selected activit${count === 1 ? 'y' : 'ies'}?`)) {
-      return;
-    }
+    const ok = await confirmDialog.ask({
+      title: `Delete ${count} selected activit${count === 1 ? "y" : "ies"}?`,
+      description:
+        "The selected activities and any dependencies referring to them are removed from this scenario. Undo restores them.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    // WARNING: `clearSelection()` stays BELOW this guard on purpose. Dismissing must change
+    // NOTHING, and a selection silently emptied by saying "no" is a behaviour change nobody
+    // asked for. Pinned in UnifiedActivityGrid.bulk-delete.test.tsx.
+    if (!ok) return;
     if (onBulkDelete) {
       onBulkDelete(Array.from(selectedIds));
     } else {
@@ -259,6 +309,12 @@ export function UnifiedActivityGrid({
       }
     }
     clearSelection();
+    // The toolbar that opened this unmounts with the selection, so its Delete button cannot
+    // be restored to. The header checkbox is rendered unconditionally and survives.
+    // `queueMicrotask` for the reason given in `handleDeleteActivity` above.
+    queueMicrotask(() => {
+      selectAllRef.current?.focus();
+    });
   }, [selectedIds, onBulkDelete, onDelete, clearSelection]);
 
   return (
@@ -298,6 +354,7 @@ export function UnifiedActivityGrid({
           >
             <div className="flex items-center justify-center">
               <input
+                ref={selectAllRef}
                 type="checkbox"
                 name="selectAllActivities"
                 aria-label="Select all activities"
@@ -388,7 +445,7 @@ export function UnifiedActivityGrid({
                       isSelected={selectedIds.has(activity.id)}
                       onToggleSelect={toggleSelect}
                       onUpdate={onUpdate}
-                      onDelete={onDelete}
+                      onDelete={handleDeleteActivity}
                       onValidityChange={handleValidityChange}
                       isLocked={isScenarioLocked}
                       heuristicEnabled={heuristicEnabled}

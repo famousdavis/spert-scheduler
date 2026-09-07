@@ -4,6 +4,7 @@
 
 import { useId, useState, useEffect } from "react";
 import { ToggleSwitch } from "./ToggleSwitch";
+import { confirmDialog } from "@ui/hooks/use-confirm-store";
 import {
   RSM_LEVELS,
   RSM_LABELS,
@@ -69,10 +70,20 @@ export function PreferencesSection() {
     });
   };
 
-  const handleReset = () => {
-    if (window.confirm("Reset all preferences to defaults?")) {
-      resetPreferences();
-    }
+  // WI-6b — the ONLY one of the five abort sites whose opener SURVIVES: resetting preferences
+  // does not unmount this section, so the Reset button is still there to return focus to and
+  // `ConfirmDialog`'s own captured-`activeElement` restore handles it. Deliberately NO focus
+  // tail here; adding one would duplicate the component's job and hide whether it works.
+  const handleReset = async () => {
+    const ok = await confirmDialog.ask({
+      title: "Reset all preferences to defaults?",
+      description:
+        "Every setting on this page returns to its default value. Your projects and scenarios are not affected. This cannot be undone.",
+      confirmLabel: "Reset",
+      destructive: true,
+    });
+    if (!ok) return;
+    resetPreferences();
   };
 
   return (

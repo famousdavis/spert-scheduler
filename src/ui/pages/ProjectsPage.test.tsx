@@ -5,6 +5,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act, cleanup } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { waitFor, within } from "@testing-library/react";
 
 // Same two provider mocks ProjectPage.test.tsx and ImportSection.test.tsx use.
 vi.mock("@ui/providers/AuthProvider", () => ({
@@ -17,6 +18,9 @@ vi.mock("@ui/providers/StorageProvider", () => ({
 import { ProjectsPage } from "./ProjectsPage";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useNotificationStore } from "@ui/hooks/use-notification-store";
+import { useConfirmStore } from "@ui/hooks/use-confirm-store";
+import { ConfirmHost } from "@ui/components/ConfirmHost";
+import type { LoadError } from "@infrastructure/persistence/local-storage-repository";
 
 /**
  * "Loaded … — run the simulation to see the buffer" is read by a ROOM, from a projector,
@@ -29,6 +33,8 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   useNotificationStore.setState({ notifications: [] });
+  // Module singleton: a question left pending by one test still shows in the next.
+  useConfirmStore.setState({ pending: null });
 });
 
 function renderDashboard() {
@@ -39,6 +45,9 @@ function renderDashboard() {
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/project/:id" element={<div>PROJECT PAGE STUB</div>} />
       </Routes>
+      {/* Production mounts this once in `Layout`, the parent of every route
+          (`src/app/router.tsx`). Without it `confirmDialog.ask(...)` never resolves. */}
+      <ConfirmHost />
     </MemoryRouter>
   );
 }
@@ -80,5 +89,74 @@ describe("ProjectsPage — Load Sample toast", () => {
       vi.advanceTimersByTime(5000);
     });
     expect(toasts(), "dismissed at 8 s").toHaveLength(0);
+  });
+});
+
+// -- WI-6b (v0.67.9): the corrupted-project recovery card's Delete ------------
+
+/**
+ * ⚠️ NOT an ordinary project tile. Tile delete already routed through `ConfirmDialog`
+ * before this release; this is the amber recovery card for data that failed to load, and
+ * `removeCorruptedProject` calls `repo.removeById` with no `pushUndo` — so "This cannot be
+ * undone" is TRUE here and false at the three activity/scenario sites migrated alongside it.
+ *
+ * ⚠️ `future_version` errors deliberately render no Export/Delete pair, so the fixture uses
+ * `json_parse` — the type a real unparseable project actually produces, confirmed by injecting
+ * broken JSON into localStorage in a browser. A `future_version` fixture would find no button
+ * and the test would fail for the wrong reason.
+ *
+ * ⚠️ The first draft of this fixture said `type: "corrupt"`, which is NOT in `LoadErrorType`.
+ * All three tests passed anyway — nothing in the card branches on the type except the
+ * `future_version` check — and only `tsc` in the ship gate caught it. `vitest` does not
+ * typecheck; that is the whole reason the gate runs `build` as well.
+ */
+const CORRUPT: LoadError = {
+  projectId: "vogon-7",
+  projectName: "Krikkit Ledger",
+  type: "json_parse",
+  message: "Stored data could not be parsed.",
+};
+
+function renderWithCorrupted() {
+  const view = renderDashboard();
+  act(() => {
+    useProjectStore.setState({ loadErrors: [CORRUPT], loadError: true });
+  });
+  return view;
+}
+
+describe("ProjectsPage — deleting a corrupted project", () => {
+  it("asks first, and dismissing leaves the recovery card in place", async () => {
+    renderWithCorrupted();
+    fireEvent.click(screen.getByTitle("Delete corrupted project"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText('Delete "Krikkit Ledger"?')).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    expect(useProjectStore.getState().loadErrors).toHaveLength(1);
+    expect(screen.getByTitle("Delete corrupted project")).toBeTruthy();
+  });
+
+  it("confirming removes it and focus lands on New Project, not <body>", async () => {
+    renderWithCorrupted();
+    fireEvent.click(screen.getByTitle("Delete corrupted project"));
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // P7's settle: the call site focuses in a `queueMicrotask`, same as P7 measured.
+    await new Promise((r) => setTimeout(r, 5));
+
+    expect(useProjectStore.getState().loadErrors).toHaveLength(0);
+    // ⚠️ The HEADER's New Project button — the one rendered unconditionally. The dashboard
+    // renders a SECOND button with the same accessible name inside the `projects.length
+    // === 0` empty state, which is why production focuses a ref and this asserts identity
+    // against the first match rather than a name lookup.
+    expect(document.activeElement).toBe(
+      screen.getAllByRole("button", { name: "New Project" })[0],
+    );
   });
 });

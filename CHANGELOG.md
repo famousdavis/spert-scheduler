@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.67.9 — 2026-09-06
+
+### Five confirmation boxes now match the rest of the app
+
+Deleting an activity, deleting several selected activities at once, deleting a scenario, deleting a project whose stored data could not be read, and resetting all preferences to their defaults each used to raise the browser's own grey "Are you sure?" box. All five now ask in a window that matches the app, in both light and dark themes, with a red Delete button and wording that says what will actually happen — including, where it is true, that Undo will bring it back.
+
+**This changes how the keyboard behaves, and the change is deliberate.** The browser's box put the keyboard on OK, so pressing Enter went ahead with the deletion. These windows put it on Cancel instead, so Enter now dismisses the question and nothing is deleted. Escape and clicking outside also dismiss. It is a safety improvement, but if you were used to confirming a deletion with Enter, that key now does the opposite.
+
+Answering one of these questions also leaves the keyboard somewhere sensible rather than nowhere. Delete an activity and the keyboard moves to the next activity's name; delete several and it moves to the select-all checkbox above the grid; delete a scenario and it moves to the tab that is now active; remove an unreadable project and it moves to New Project. Dismissing any of them changes nothing at all — in particular, saying no to a bulk delete keeps your selection exactly as it was.
+
+Four confirmation boxes are deliberately left alone for now: the one that offers to recalculate estimates after a bulk change, and the three in the Edit Activity window.
+
 ## 0.67.8 — 2026-09-06
 
 Groundwork, plus one rendering change. The two places that ask you to confirm something today — deleting a project from the dashboard, and revoking an invitation from the Share window — behave exactly as they did in 0.67.7.

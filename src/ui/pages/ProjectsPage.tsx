@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DndContext,
@@ -21,6 +21,7 @@ import type { Project } from "@domain/models/types";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
 import { useProjectStore, type LoadError } from "@ui/hooks/use-project-store";
+import { confirmDialog } from "@ui/hooks/use-confirm-store";
 import { NewProjectDialog } from "@ui/components/NewProjectDialog";
 import { ProjectTile } from "@ui/components/ProjectTile";
 import { ShareProjectModal } from "@ui/components/ShareProjectModal";
@@ -182,6 +183,9 @@ export function ProjectsPage() {
     });
   }, []);
 
+  // Focus destination after a confirmed corrupted-project delete (see below).
+  const newProjectRef = useRef<HTMLButtonElement>(null);
+
   const handleExportCorrupted = useCallback(
     (projectId: string) => {
       const raw = getCorruptedProjectRawData(projectId);
@@ -194,15 +198,27 @@ export function ProjectsPage() {
   );
 
   const handleDeleteCorrupted = useCallback(
-    (projectId: string, projectName?: string) => {
+    async (projectId: string, projectName?: string) => {
       const displayName = projectName || projectId;
-      if (
-        window.confirm(
-          `Are you sure you want to delete "${displayName}"? This cannot be undone.`
-        )
-      ) {
-        removeCorruptedProject(projectId);
-      }
+      const ok = await confirmDialog.ask({
+        title: `Delete "${displayName}"?`,
+        description:
+          "The unreadable project data is removed from this browser. This cannot be undone — use Export first if you want a copy to recover from.",
+        confirmLabel: "Delete",
+        destructive: true,
+      });
+      if (!ok) return;
+      removeCorruptedProject(projectId);
+      // This card's Delete button goes with the card, and the whole recovery panel goes with
+      // the last error, so `ConfirmDialog`'s captured-`activeElement` restore reaches a
+      // detached node. "New Project" is the destination because it is the one control on this
+      // page that is rendered unconditionally — the second "New Project" further down sits
+      // inside the `projects.length === 0` empty state. A ref, not a text lookup: the two
+      // buttons share an accessible name. `queueMicrotask` for the reason recorded in
+      // `UnifiedActivityGrid.handleDeleteActivity`.
+      queueMicrotask(() => {
+        newProjectRef.current?.focus();
+      });
     },
     [removeCorruptedProject]
   );
@@ -256,6 +272,7 @@ export function ProjectsPage() {
             Load Sample
           </button>
           <button
+            ref={newProjectRef}
             onClick={() => setDialogOpen(true)}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
           >
