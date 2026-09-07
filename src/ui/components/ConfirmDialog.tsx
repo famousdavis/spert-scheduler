@@ -3,43 +3,115 @@
 // See LICENSE file in the project root for full license text.
 
 import * as Dialog from "@radix-ui/react-dialog";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 interface ConfirmDialogProps {
-  /** Element rendered as `Dialog.Trigger asChild` — typically a button. */
-  trigger: ReactNode;
+  /** Trigger mode (uncontrolled): element rendered as `Dialog.Trigger asChild`. */
+  trigger?: ReactNode;
+  /** Controlled mode: the parent owns `open`. Leave undefined in trigger mode. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title: string;
   description: string;
   /** Fired in the same click that closes the dialog. Synchronous. */
   onConfirm: () => void;
+  /** Fired exactly once when the dialog closes WITHOUT confirming (Cancel, Escape, overlay). */
+  onCancel?: () => void;
   /** Defaults to "Confirm". */
   confirmLabel?: string;
+  /** Defaults to "Cancel". */
+  cancelLabel?: string;
   /** When true, the confirm button uses red destructive styling. */
   destructive?: boolean;
 }
 
 /**
- * Generic Radix-based confirmation dialog. Matches `KeepOrDiscardLocalModal`
- * style conventions. The confirm button wraps `Dialog.Close` so the dialog
- * auto-closes after `onConfirm` fires — fine for fire-and-forget actions
- * (e.g. revoke an invite). For async-error-recovery use cases that need to
- * keep the dialog open on failure, control `Dialog.Root.open` from the parent
- * instead.
+ * Generic Radix-based confirmation dialog, in two modes.
+ *
+ * **Trigger mode** (`trigger` given, `open` omitted) is the original contract, used by
+ * `ProjectTile` and `SharingSection`. **Controlled mode** (`open`/`onOpenChange`) is what
+ * `ConfirmHost` drives; the component's doc comment promised it long before it existed.
+ *
+ * Three behaviours are load-bearing, and each is pinned in `ConfirmDialog.test.tsx`:
+ *
+ * 1. **`z-[60]` on both layers.** A confirmation opened from inside a `z-50` dialog stacked at
+ *    the same level — live today in `SharingSection`'s revoke inside `ShareProjectModal`.
+ *    Follows the `DependencyEditModal` precedent. WARNING: both classNames are WHOLE STATIC
+ *    LITERALS on purpose. `dialog-stacking.test.ts` can only see a static double-quoted
+ *    `className` (it failed open on a dynamic one until v0.67.8), and Tailwind 4's JIT scanner
+ *    may emit no CSS at all for a class assembled in a template expression. Both rules point
+ *    the same way: never interpolate these two.
+ *
+ * 2. **Default focus lands on Cancel**, the non-destructive choice (`SignOutConfirmModal`
+ *    precedent), via `onOpenAutoFocus` — no effect involved. This is a deliberate behaviour
+ *    change: a native `confirm()` focused OK, so Enter used to confirm a destructive delete.
+ *
+ * 3. **The component restores focus itself.** A controlled, trigger-less Radix dialog returns
+ *    focus NOWHERE: `DialogContentModal`'s `onCloseAutoFocus` calls `preventDefault()` — which
+ *    also suppresses `FocusScope`'s own `previouslyFocusedElement` restore — and then focuses
+ *    `triggerRef`, which is null when there is no `Dialog.Trigger`. Read at source in
+ *    `@radix-ui/react-dialog` and `@radix-ui/react-focus-scope`. Because our handler runs first
+ *    and `composeEventHandlers` skips Radix's once we `preventDefault()`, this component is the
+ *    SOLE restorer — not one of two racing.
+ *
+ * WARNING: if the opener was destroyed by the confirmed action (five of the nine migration
+ * sites destroy their own opener), `focus()` on the detached node is a no-op and focus lands on
+ * `<body>`. That is a SECOND, independent cause which this fix does not close — the call site
+ * names its own destination, as test P7 demonstrates.
  */
 export function ConfirmDialog({
   trigger,
+  open,
+  onOpenChange,
   title,
   description,
   onConfirm,
+  onCancel,
   confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   destructive = false,
 }: ConfirmDialogProps) {
+  const confirmedRef = useRef(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  // WARNING: `Dialog.Close` wraps BOTH buttons and fires `onOpenChange(false)` for both, so the
+  // close event alone cannot tell a confirmation from a dismissal. The ref does. Radix composes
+  // the child's `onClick` BEFORE its own close handler (`react-dialog`:
+  // `composeEventHandlers(props.onClick, () => onOpenChange(false))`), so the flag is set in time.
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      if (!confirmedRef.current) onCancel?.();
+      confirmedRef.current = false;
+    }
+    onOpenChange?.(next);
+  };
+
   return (
-    <Dialog.Root>
-      <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
+      {trigger !== undefined && <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>}
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-[calc(100vw-1rem)] max-w-sm z-50">
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-[60]" />
+        <Dialog.Content
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-[calc(100vw-1rem)] max-w-sm z-[60]"
+          onOpenAutoFocus={(event) => {
+            // Runs BEFORE FocusScope moves focus, so this is still the opener.
+            openerRef.current = document.activeElement as HTMLElement | null;
+            event.preventDefault();
+            cancelRef.current?.focus();
+          }}
+          onCloseAutoFocus={(event) => {
+            // WARNING: trigger mode is left to Radix ON PURPOSE. Its `triggerRef` is strictly
+            // more reliable than a captured `activeElement` — clicking a <button> does not focus
+            // it on Safari, so the capture can be <body> and restoring to it would LOSE the
+            // trigger that Radix would have found. Returning without preventDefault lets
+            // `composeEventHandlers` run Radix's own restore, exactly as before this release.
+            // The override exists only for the trigger-less case, where that ref is null.
+            if (trigger !== undefined) return;
+            event.preventDefault();
+            openerRef.current?.focus();
+          }}
+        >
           <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {title}
           </Dialog.Title>
@@ -50,15 +122,19 @@ export function ConfirmDialog({
             <Dialog.Close asChild>
               <button
                 type="button"
+                ref={cancelRef}
                 className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                Cancel
+                {cancelLabel}
               </button>
             </Dialog.Close>
             <Dialog.Close asChild>
               <button
                 type="button"
-                onClick={onConfirm}
+                onClick={() => {
+                  confirmedRef.current = true;
+                  onConfirm();
+                }}
                 className={`px-4 py-2 text-sm text-white rounded-md ${
                   destructive
                     ? "bg-red-600 hover:bg-red-700"

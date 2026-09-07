@@ -10,6 +10,7 @@ import { AI_PRIVACY_URL } from "@app/ai-connectivity-constants";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useTheme } from "@ui/hooks/use-theme";
 import { ToastContainer } from "./ToastContainer";
+import { ConfirmHost } from "./ConfirmHost";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import { AuthButton } from "./AuthButton";
 import { StorageLoginModal } from "./StorageLoginModal";
@@ -188,6 +189,7 @@ export function Layout() {
         </div>
       </footer>
       <ToastContainer />
+      <ConfirmHost />
       <KeyboardShortcutsModal
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}

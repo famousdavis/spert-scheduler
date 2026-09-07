@@ -59,7 +59,21 @@ describe("dialog stacking", () => {
     // ⚠️ Without this, deleting every dialog (or breaking the regex) makes the assertion
     // below pass over an empty list. Both overlay AND content must be represented, since
     // the bug was present on both and a guard covering one would have missed half of it.
-    expect(layers.length).toBeGreaterThan(10);
+    //
+    // ⚠️ THIS WAS A FLOOR (`> 10`) AND IT FAILED OPEN (fixed v0.67.8, WI-6a). The extractor
+    // above sees only a STATIC, DOUBLE-QUOTED `className`, so a layer written as
+    // `className={`… ${cond ? "z-[60]" : "z-50"}`}` becomes INVISIBLE to it — it silently
+    // leaves the list and never reaches the z-index assertion below. Measured: giving
+    // `ConfirmDialog` a dynamic className drops the list 28 → 26, which still cleared `> 10`
+    // and stayed GREEN with two unchecked layers. A dynamic z-index is the obvious way to
+    // stack a nested dialog, so the cheapest correct-looking implementation was the one that
+    // blinded the guard. Falsified both ways before landing: the ratchet FAILS on that tree
+    // ("expected 26 to be greater than or equal to 28") and `> 10` PASSES on it.
+    //
+    // ⚠️ It ratchets in BOTH directions on purpose. Legitimately deleting a dialog turns this
+    // red; that is the point — lower the number in the SAME commit as the deletion, exactly
+    // as `expectProblems` is handled. Never widen it back to a floor to make it quiet.
+    expect(layers.length).toBeGreaterThanOrEqual(30);
     expect(layers.some((l) => l.tag === "Dialog.Overlay")).toBe(true);
     expect(layers.some((l) => l.tag === "Dialog.Content")).toBe(true);
   });

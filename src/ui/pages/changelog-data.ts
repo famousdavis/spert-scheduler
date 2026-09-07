@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.8",
+    date: "2026-09-06",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "A confirmation now declares that it sits above whatever opened it. A confirmation and the window that asked for it carried the same stacking level, so which one painted in front depended on which had opened more recently rather than on which was asking the question. Nothing is known to have been drawn in the wrong order; this makes the order explicit rather than incidental.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Confirmations can now be opened by the page itself, not only by a button of their own. Until now a confirmation window had to be attached to the button that opened it. It can now also be opened and closed by the page, which is what is needed to replace the browser's own grey \"Are you sure?\" boxes with windows that match the rest of the app. Nothing in the app uses this yet — every confirmation box you see today is unchanged.",
+          "A separate window for unsaved changes. Where a question genuinely has three answers — save, discard, or carry on editing — it now has its own window with three buttons, kept deliberately apart from the two-answer confirmation. Version 0.67.3 shipped a Cancel button that offered to save and had to be withdrawn; keeping the two shapes apart is what stops that from being one setting away. Nothing uses this yet either.",
+          "A confirmation opened by the page returns the keyboard to where it was. Confirmations attached to their own button already did this, and that path is deliberately left as it was.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.7",
     date: "2026-09-06",
     sections: [
