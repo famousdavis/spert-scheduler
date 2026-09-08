@@ -37,9 +37,9 @@ import {
 // other track is unchanged, and the total width is identical (the swap is width-neutral,
 // which matters because the grid is already at its width limit).
 const EXPECTED_TEMPLATE =
-  "24px 20px 1fr 40px 90px 90px 38px 38px 38px 110px 96px 110px 40px 1px 40px 8px";
+  "24px 20px 1fr 40px 90px 90px 38px 38px 38px 110px 96px 110px 56px 1px 40px 8px";
 const EXPECTED_TEMPLATE_WITH_CONSTRAINT =
-  "24px 20px 1fr 40px 90px 90px 80px 38px 38px 38px 110px 96px 110px 40px 1px 40px 8px";
+  "24px 20px 1fr 40px 90px 90px 88px 38px 38px 38px 110px 96px 110px 56px 1px 40px 8px";
 
 describe("grid-columns: generating the template changed nothing", () => {
   it("GRID_COLUMNS is byte-identical to the literal it replaced", () => {
@@ -129,7 +129,7 @@ describe("G4 — the enforced minimum width is derived, not hard-coded", () => {
   it("tracks the track COUNT — an added column adds its width and one gap", () => {
     const seq = gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_PX);
     const dep = gridMinWidthPx(GRID_COLUMN_LIST_WITH_CONSTRAINT, NAME_COLUMN_MIN_PX);
-    // The constraint column is 80px, and inserting it adds one 4px `gap-1`.
+    // The constraint column is 88px, and inserting it adds one 4px `gap-1`.
     expect(dep - seq).toBe(parseFloat(CONSTRAINT_COLUMN.width) + 4);
   });
 
