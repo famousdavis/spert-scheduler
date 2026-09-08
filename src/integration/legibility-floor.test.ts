@@ -145,7 +145,19 @@ const NUMERIC_FONT_SIZE = /fontSize[\s:={"]+([\d.]+)(rem|em|px)?/g;
  * non-text under WCAG 1.4.11 and could not hold 12px type in any case.
  */
 const SUB_FLOOR_EXCEPTIONS: Record<string, string> = {
-  'src/ui/charts/GanttChart.tsx:745': 'timeline tick labels, 13 of the 57 — hardcoded, but raising them is WI-11\'s collision subject',
+  // ⚠️ 13 of the 57, and the ONLY sub-floor site here with no preference and no
+  // geometry behind it — so it invites being "just fixed". It must not be.
+  // `use-gantt-layout.ts` suppresses colliding ticks with
+  // `elementProximityPx: 40` and `minSpacingPx: 40`, both HARDCODED px, neither
+  // derived from the font size; the inline comment even reads
+  // `was MIN_LABEL_PX = 40` — a constant named for label width that is
+  // font-size-blind. Raising 11 -> 12 widens every label ~9% while the overlap
+  // threshold stays put, so labels could collide where they do not today, on
+  // the campaign's centrepiece surface, introduced by the legibility item.
+  // WI-11 must raise the floor and fix that coupling TOGETHER; either alone is
+  // wrong. (This is `feedback_collision_suppression_architecture`: decouple
+  // suppression thresholds from density selection.)
+  'src/ui/charts/GanttChart.tsx:745': 'timeline tick labels — blocked by a font-size-blind 40px suppression threshold, not by preference or geometry; WI-11 must move both together',
   'src/ui/charts/GanttChart.tsx:794': 'today-marker label — hardcoded, WI-11',
   'src/ui/charts/GanttChart.tsx:804': 'today date — hardcoded, WI-11',
   'src/ui/charts/GanttChart.tsx:849': 'finish-target marker label — hardcoded, WI-11',
