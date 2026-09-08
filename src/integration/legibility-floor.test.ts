@@ -92,6 +92,74 @@ describe('legibility floor: no arbitrary pixel font sizes in on-screen UI', () =
 });
 
 /**
+ * ⚠️ THE CLASS CENSUS ABOVE HAS A STRUCTURAL BLIND SPOT, FOUND IN THE BROWSER
+ * AND NOT BY ANY GREP. Charts do not size text with Tailwind classes; they pass
+ * numbers to SVG and to Recharts props. At v0.67.13 the live DOM carried 185
+ * on-screen nodes below the 12px floor while the class census read ZERO, and
+ * 13 of them were Recharts reference-line and legend labels set as
+ * `fontSize: 10` / `fontSize: 11` object literals — invisible to a scan for
+ * `text-[Npx]`.
+ *
+ * This closes the literal half. Two cases remain that NO source scan can see,
+ * and they are recorded rather than asserted:
+ *
+ *   The interactive Gantt's activity labels come from `fontSizeMap` in
+ *   gantt-constants, whose `small` step is 11 — a value in a user PREFERENCE,
+ *   not a literal at a call site. Raising it would collapse `small` into
+ *   `normal`, and the label geometry it feeds is WI-11's subject. Left alone
+ *   deliberately.
+ *
+ *   Its bar labels resolve through `barLabelFontSize` the same way.
+ *
+ * So: 57 nodes are still below the floor on screen, all of them in the
+ * interactive Gantt, and that is a known, owned gap rather than an oversight.
+ */
+/**
+ * ⚠️ ONE repetition, not a chain of `\s*` groups. `fontSize\s*[:=]\s*\{?\s*`
+ * lets adjacent optional groups match the same characters, which is a
+ * super-linear backtracking hotspot; sonarjs/slow-regex flagged it, and at a
+ * lint baseline of 3 with zero headroom that is a gate failure. Third time in
+ * this file.
+ */
+const NUMERIC_FONT_SIZE = /fontSize[\s:={]+(\d+)/g;
+
+describe('legibility floor: no numeric font size below 12 outside print', () => {
+  const all = sourceFiles(join(root, 'src', 'ui'));
+  const screen = all.filter((f) => !isPrintSurface(relative(root, f)));
+
+  function numericSizes(files: string[]): { site: string; px: number }[] {
+    const found: { site: string; px: number }[] = [];
+    for (const file of files) {
+      const rel = relative(root, file).split(sep).join('/');
+      readFileSync(file, 'utf8')
+        .split('\n')
+        .forEach((line, i) => {
+          for (const m of line.matchAll(NUMERIC_FONT_SIZE)) {
+            found.push({ site: `${rel}:${i + 1}`, px: Number(m[1]) });
+          }
+        });
+    }
+    return found;
+  }
+
+  const sizes = numericSizes(screen);
+
+  it('matches numeric font sizes at all, proving the pattern is live', () => {
+    // Vacuity control: this assertion set is "none below 12", which an empty
+    // match list satisfies. Legal sizes of 12 and up must still be found.
+    expect(sizes.length).toBeGreaterThan(3);
+    expect(sizes.some((s) => s.px >= 12)).toBe(true);
+  });
+
+  it('finds none below the floor', () => {
+    // Pre-registered at 0. It read 7 before WI-10: three fontSize: 10 in
+    // HistogramChart, two fontSize: 11 in CDFChart, one in CDFComparisonChart's
+    // legend wrapper, and AuthButton's 11px avatar initial.
+    expect(sizes.filter((s) => s.px < 12)).toEqual([]);
+  });
+});
+
+/**
  * The other half of WI-10. `text-gray-400 dark:text-gray-500` is an inverted
  * pair: it goes DARKER in dark mode, and it fails WCAG AA in BOTH — 2.60 on
  * white, 3.03 on gray-800 (Tailwind 4 OKLCH palette, WCAG 2.x). Its mirror

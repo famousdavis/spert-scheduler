@@ -17,7 +17,7 @@ import {
 
 import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 
-import { axisTick } from "./axis-theme";
+import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
 import type { HistogramBin } from "@domain/models/types";
 
 interface HistogramChartProps {
@@ -102,7 +102,7 @@ export function HistogramChart({
               label={{
                 value: "Buffer",
                 position: "insideTop",
-                fontSize: 10,
+                fontSize: AXIS_TICK_FONT_SIZE,
                 fill: "#3b82f6",
               }}
             />
@@ -115,7 +115,7 @@ export function HistogramChart({
             label={{
               value: `Mean: ${mean.toFixed(1)}`,
               position: meanLabelPos,
-              fontSize: 10,
+              fontSize: AXIS_TICK_FONT_SIZE,
               fill: "#ef4444",
             }}
           />
@@ -126,7 +126,7 @@ export function HistogramChart({
             label={{
               value: `P${Math.round(percentileTarget * 100)}: ${percentileValue.toFixed(1)}`,
               position: pctLabelPos,
-              fontSize: 10,
+              fontSize: AXIS_TICK_FONT_SIZE,
               fill: "#10b981",
             }}
           />

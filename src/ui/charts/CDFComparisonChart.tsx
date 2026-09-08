@@ -15,7 +15,7 @@ import {
 
 import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 
-import { axisTick } from "./axis-theme";
+import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
 import type { CDFPoint } from "@domain/models/types";
 import { interpolateCDF } from "@ui/helpers/cdf-interpolate";
 // Note: CopyImageButton intentionally NOT imported here. The parent
@@ -108,7 +108,7 @@ export function CDFComparisonChart({
               }}
             />
             <Legend
-              wrapperStyle={{ fontSize: 11 }}
+              wrapperStyle={{ fontSize: AXIS_TICK_FONT_SIZE }}
               iconType="line"
             />
             {datasets.map((dataset, idx) => (

@@ -16,7 +16,7 @@ import {
 
 import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 
-import { axisTick } from "./axis-theme";
+import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
 import type { CDFPoint } from "@domain/models/types";
 
 interface CDFChartProps {
@@ -99,7 +99,7 @@ export function CDFChart({
             label={{
               value: `P${Math.round(probabilityTarget * 100)} = ${percentileValue.toFixed(1)} days`,
               position: "right",
-              fontSize: 11,
+              fontSize: AXIS_TICK_FONT_SIZE,
             }}
           />
           {targetDuration != null && targetProbability != null && (
@@ -110,7 +110,7 @@ export function CDFChart({
               label={{
                 value: targetLabel ?? `${Math.round(targetProbability)}%`,
                 position: "insideTopRight",
-                fontSize: 11,
+                fontSize: AXIS_TICK_FONT_SIZE,
                 fill: targetColor,
               }}
             />
