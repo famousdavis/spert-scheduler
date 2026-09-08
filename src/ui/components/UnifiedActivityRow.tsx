@@ -667,7 +667,7 @@ export function UnifiedActivityRow({
           <button
             type="button"
             onClick={() => onEditActivity?.(activity.id)}
-            className={`w-full text-[10px] leading-tight rounded px-1 py-0.5 truncate text-center cursor-pointer ${constraintBadgeClass(
+            className={`w-full text-xs leading-tight rounded px-1 py-0.5 truncate text-center cursor-pointer ${constraintBadgeClass(
               Boolean(activity.constraintType),
               activity.constraintMode,
               hasConstraintWarning ?? false,
@@ -723,7 +723,7 @@ export function UnifiedActivityRow({
                 distributionType: recommendation.recommended,
               })
             }
-            className="shrink-0 px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded text-[10px] hover:bg-amber-200 dark:hover:bg-amber-800/50"
+            className="shrink-0 px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 rounded text-xs hover:bg-amber-200 dark:hover:bg-amber-800/50"
             title={recommendation.rationale}
             tabIndex={-1}
           >
@@ -851,11 +851,11 @@ export function UnifiedActivityRow({
         {scheduledActivity ? (
           <div className="flex flex-col items-center gap-0.5">
             {scheduledActivity.isActual ? (
-              <span className="text-green-600 dark:text-green-400 text-[10px] font-medium bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+              <span className="text-green-800 dark:text-green-400 text-xs font-medium bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
                 Actual
               </span>
             ) : (
-              <span className="text-blue-600 dark:text-blue-400 text-[10px] bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
+              <span className="text-blue-700 dark:text-blue-400 text-xs bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
                 P{targetPct}
               </span>
             )}
@@ -941,7 +941,7 @@ function VarianceIndicator({
     // On track
     return (
       <span
-        className="text-[9px] text-gray-500 dark:text-gray-400"
+        className="text-xs text-gray-500 dark:text-gray-400"
         title={`Actual ${actual}d matches estimate ${estimated.toFixed(1)}d`}
       >
         ✓ On track
@@ -951,12 +951,12 @@ function VarianceIndicator({
 
   const isUnder = diff < 0;
   const colorClass = isUnder
-    ? "text-green-600 dark:text-green-400"
-    : "text-amber-600 dark:text-amber-400";
+    ? "text-green-700 dark:text-green-400"
+    : "text-amber-700 dark:text-amber-400";
 
   return (
     <span
-      className={`text-[9px] ${colorClass}`}
+      className={`text-xs ${colorClass}`}
       title={`Actual: ${actual}d, Estimated: ${estimated.toFixed(1)}d (${isUnder ? "" : "+"}${pctDiff.toFixed(0)}%)`}
     >
       {isUnder ? "▼" : "▲"} {Math.abs(diff).toFixed(1)}d ({isUnder ? "" : "+"}

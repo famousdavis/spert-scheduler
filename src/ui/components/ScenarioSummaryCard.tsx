@@ -414,7 +414,7 @@ export function ScenarioSummaryCard({
             placeholder="Add notes about this scenario…"
             className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-0.5">
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-right mt-0.5">
             {localNotes.length}/2000
           </p>
         </div>

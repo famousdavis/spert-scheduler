@@ -196,7 +196,7 @@ function SensitivityRow({
             }}
           />
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 text-right mt-0.5">
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-0.5">
           {sortField === "impact" && `+${result.impactScore.toFixed(1)}d`}
           {sortField === "variance" &&
             `${(result.varianceContribution * 100).toFixed(1)}%`}

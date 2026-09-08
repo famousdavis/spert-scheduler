@@ -90,7 +90,7 @@ export function PercentileTable({
       {canShowCI && (
         <div className="flex items-center justify-end mb-2 gap-2">
           {computing && (
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 animate-pulse">
+            <span className="text-xs text-gray-400 dark:text-gray-500 animate-pulse">
               Computing...
             </span>
           )}
@@ -170,7 +170,7 @@ export function PercentileTable({
           </tbody>
         </table>
         {showCI && cis && (
-          <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
             95% CI via bootstrap (500 iterations)
           </p>
         )}

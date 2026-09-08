@@ -77,7 +77,7 @@ function OverrideChip({
         <button
           onClick={onUpgrade}
           aria-label={`Convert ${formattedDate} to a forced holiday override`}
-          className="ml-0.5 px-1.5 py-0 text-[11px] font-medium no-underline bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded hover:bg-amber-200 dark:hover:bg-amber-700/50"
+          className="ml-0.5 px-1.5 py-0 text-xs font-medium no-underline bg-amber-100 dark:bg-amber-800/40 text-amber-800 dark:text-amber-300 rounded hover:bg-amber-200 dark:hover:bg-amber-700/50"
         >
           Convert to forced override
         </button>

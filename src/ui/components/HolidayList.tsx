@@ -185,7 +185,7 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
                 </span>
               )}
               {holiday.source === "api" && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-300 font-medium">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 font-medium">
                   API
                 </span>
               )}

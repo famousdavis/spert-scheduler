@@ -114,7 +114,7 @@ export function SimulationPanel({
             Monte Carlo Simulation
           </h3>
           {autoRunEnabled && (
-            <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-medium">
+            <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded font-medium">
               Auto-run
             </span>
           )}

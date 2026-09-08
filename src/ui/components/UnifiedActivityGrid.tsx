@@ -379,7 +379,7 @@ export function UnifiedActivityGrid({
         <div style={{ minWidth: gridMinWidth }}>
           {/* Header row */}
           <div
-            className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+            className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
             style={{
               gridTemplateColumns: gridCols,
             }}
@@ -421,7 +421,7 @@ export function UnifiedActivityGrid({
 
           {/* Subheader labels */}
           <div
-            className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-[9px] text-gray-400 dark:text-gray-500"
+            className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500"
             style={{
               gridTemplateColumns: gridCols,
             }}

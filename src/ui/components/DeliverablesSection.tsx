@@ -216,7 +216,7 @@ export function DeliverablesSection({ deliverables, onChange }: DeliverablesSect
       )}
 
       {deliverables.length > 0 && (
-        <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-1">
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-right mt-1">
           {doneCount}/{deliverables.length} delivered · {deliverables.length}/{MAX_DELIVERABLE_ITEMS}
         </p>
       )}

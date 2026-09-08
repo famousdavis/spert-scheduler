@@ -217,7 +217,7 @@ export function ChecklistSection({ checklist, onChange }: ChecklistSectionProps)
       )}
 
       {checklist.length > 0 && (
-        <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-1">
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-right mt-1">
           {doneCount}/{checklist.length} done · {checklist.length}/{MAX_CHECKLIST_ITEMS}
         </p>
       )}
