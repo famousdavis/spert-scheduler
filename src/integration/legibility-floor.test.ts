@@ -95,33 +95,65 @@ describe('legibility floor: no arbitrary pixel font sizes in on-screen UI', () =
  * ⚠️ THE CLASS CENSUS ABOVE HAS A STRUCTURAL BLIND SPOT, FOUND IN THE BROWSER
  * AND NOT BY ANY GREP. Charts do not size text with Tailwind classes; they pass
  * numbers to SVG and to Recharts props. At v0.67.13 the live DOM carried 185
- * on-screen nodes below the 12px floor while the class census read ZERO, and
- * 13 of them were Recharts reference-line and legend labels set as
- * `fontSize: 10` / `fontSize: 11` object literals — invisible to a scan for
- * `text-[Npx]`.
+ * on-screen nodes below the 12px floor while the class census read ZERO.
  *
- * This closes the literal half. Two cases remain that NO source scan can see,
- * and they are recorded rather than asserted:
+ * ⚠️ AND THIS GUARD ITSELF HAD THE SAME SHAPE OF HOLE, TWICE. Its first pattern
+ * matched `fontSize: 10` and `fontSize={10}` but NOT `fontSize="11"`, because a
+ * string-valued JSX attribute puts a quote where it expected a brace — and six
+ * such sites sit in GanttChart alone. A guard written against the syntax you
+ * happen to be fixing sees only that syntax.
  *
- *   The interactive Gantt's activity labels come from `fontSizeMap` in
- *   gantt-constants, whose `small` step is 11 — a value in a user PREFERENCE,
- *   not a literal at a call site. Raising it would collapse `small` into
- *   `normal`, and the label geometry it feeds is WI-11's subject. Left alone
- *   deliberately.
+ * The remaining sub-floor text is ALL in the interactive Gantt: 57 nodes,
+ * measured at the SHIPPED DEFAULT configuration. It is left to WI-11, which
+ * owns that label geometry, and it comes from THREE mechanisms — the
+ * distinction matters, because it sends the next reader to different files
+ * with different options:
  *
- *   Its bar labels resolve through `barLabelFontSize` the same way.
+ *   HARDCODED string literals with no preference and no clamp behind them —
+ *   the timeline tick labels at `GanttChart:745` are 13 of the 57. Nothing
+ *   blocks raising these except that tick labels colliding with milestone
+ *   labels IS WI-11's subject, so a bigger one makes its problem worse.
  *
- * So: 57 nodes are still below the floor on screen, all of them in the
- * interactive Gantt, and that is a known, owned gap rather than an oversight.
+ *   `barLabelFontSize` = min(barLabelFontMap[activityFontSize], barHeight - 6).
+ *   43 of the 57. ⚠️ THE CONSTRAINT IS GEOMETRY, NOT PREFERENCE: the map reads
+ *   10 for BOTH `small` and `normal`, so there is no preference collapse to
+ *   argue about, and a 12px label does not fit a bar under 18px tall.
+ *
+ *   `bufFontSize` = min(barLabelFontSize + 1, barHeight - 6), the remaining 1.
+ *
+ * ⚠️ IT IS **NOT** `fontSizeMap.small`, which an earlier draft of this comment
+ * and of v0.67.13's PR both claimed. `activityFontSize` defaults to `normal`
+ * and `fontSizeMap.normal` is 12, so activity names render AT the floor at the
+ * shipped default and are not part of the residue at all. `small: 11` is a size
+ * the USER opts into, which is WCAG 1.4.4's remedy rather than a defect. The
+ * false version was plausible, which is the durable kind of wrong.
  */
 /**
- * ⚠️ ONE repetition, not a chain of `\s*` groups. `fontSize\s*[:=]\s*\{?\s*`
- * lets adjacent optional groups match the same characters, which is a
- * super-linear backtracking hotspot; sonarjs/slow-regex flagged it, and at a
- * lint baseline of 3 with zero headroom that is a gate failure. Third time in
- * this file.
+ * ⚠️ FOUR SYNTAXES, and each one was found by the previous version missing it:
+ * `fontSize: 10`, `fontSize={10}`, `fontSize="11"` and `fontSize: "0.7rem"`.
+ * The rem form is the one that matters most — it read 11.2px on the GPL warranty
+ * disclaimer and the earlier pattern flagged it only by accident, capturing the
+ * `0` of `0.7`. A unit-blind matcher reports the wrong NUMBER while looking
+ * like it works.
  */
-const NUMERIC_FONT_SIZE = /fontSize[\s:={]+(\d+)/g;
+const NUMERIC_FONT_SIZE = /fontSize[\s:={"]+([\d.]+)(rem|em|px)?/g;
+
+/**
+ * Every sub-floor numeric size that survives, with the reason it survives.
+ * The Gantt entries are handed to WI-11 rather than fixed here; the two glyph
+ * entries are single characters inside SVG swatches of 8px and 12px, which are
+ * non-text under WCAG 1.4.11 and could not hold 12px type in any case.
+ */
+const SUB_FLOOR_EXCEPTIONS: Record<string, string> = {
+  'src/ui/charts/GanttChart.tsx:745': 'timeline tick labels, 13 of the 57 — hardcoded, but raising them is WI-11\'s collision subject',
+  'src/ui/charts/GanttChart.tsx:794': 'today-marker label — hardcoded, WI-11',
+  'src/ui/charts/GanttChart.tsx:804': 'today date — hardcoded, WI-11',
+  'src/ui/charts/GanttChart.tsx:849': 'finish-target marker label — hardcoded, WI-11',
+  'src/ui/charts/GanttChart.tsx:904': 'milestone health label — hardcoded, WI-11',
+  'src/ui/charts/GanttChart.tsx:979': 'dependency lag label — hardcoded, WI-11',
+  'src/ui/charts/GanttActivityRow.tsx:222': 'constraint glyph inside an 8px bar icon — non-text, 1.4.11',
+  'src/ui/charts/GanttLegend.tsx:163': 'the "C" inside a 12x12 legend swatch — non-text, 1.4.11',
+};
 
 describe('legibility floor: no numeric font size below 12 outside print', () => {
   const all = sourceFiles(join(root, 'src', 'ui'));
@@ -135,7 +167,9 @@ describe('legibility floor: no numeric font size below 12 outside print', () => 
         .split('\n')
         .forEach((line, i) => {
           for (const m of line.matchAll(NUMERIC_FONT_SIZE)) {
-            found.push({ site: `${rel}:${i + 1}`, px: Number(m[1]) });
+            const raw = Number(m[1]);
+            // `rem` and `em` resolve against a 16px root here; the app sets no other.
+            found.push({ site: `${rel}:${i + 1}`, px: m[2] === 'rem' || m[2] === 'em' ? raw * 16 : raw });
           }
         });
     }
@@ -151,11 +185,13 @@ describe('legibility floor: no numeric font size below 12 outside print', () => 
     expect(sizes.some((s) => s.px >= 12)).toBe(true);
   });
 
-  it('finds none below the floor', () => {
-    // Pre-registered at 0. It read 7 before WI-10: three fontSize: 10 in
-    // HistogramChart, two fontSize: 11 in CDFChart, one in CDFComparisonChart's
-    // legend wrapper, and AuthButton's 11px avatar initial.
-    expect(sizes.filter((s) => s.px < 12)).toEqual([]);
+  it('leaves only the ruled Gantt and icon-glyph exceptions below the floor', () => {
+    // It read 7 outside the Gantt before WI-10: three `fontSize: 10` in
+    // HistogramChart, two `fontSize: 11` in CDFChart, one in
+    // CDFComparisonChart's legend wrapper, and AuthButton's 11px avatar
+    // initial. Those are fixed; what remains is named, with its real cause.
+    const offenders = sizes.filter((s) => s.px < 12).map((s) => s.site);
+    expect(offenders.sort()).toEqual(Object.keys(SUB_FLOOR_EXCEPTIONS).sort());
   });
 });
 

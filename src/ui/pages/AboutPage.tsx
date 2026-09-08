@@ -186,7 +186,7 @@ export function AboutPage() {
           </h2>
           <p
             className="mt-2 uppercase text-gray-500 dark:text-gray-400"
-            style={{ fontSize: "0.7rem", lineHeight: 1.6 }}
+            style={{ fontSize: "0.75rem", lineHeight: 1.6 }}
           >
             THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
             APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE
