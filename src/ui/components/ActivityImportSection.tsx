@@ -631,7 +631,7 @@ function renderPreviewRows(result: CSVParseResult) {
               ✗
             </span>
           ) : (
-            <span className="text-amber-500" title="Warning">
+            <span className="text-amber-700" title="Warning">
               ⚠
             </span>
           )}

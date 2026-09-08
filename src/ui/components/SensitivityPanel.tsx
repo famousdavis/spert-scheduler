@@ -157,7 +157,7 @@ function SensitivityRow({
   // Color coding based on rank
   let rankColor = "text-gray-500 dark:text-gray-400";
   if (rank <= 3) rankColor = "text-red-600 dark:text-red-400";
-  else if (rank <= 5) rankColor = "text-amber-600 dark:text-amber-400";
+  else if (rank <= 5) rankColor = "text-amber-700 dark:text-amber-400";
 
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0">

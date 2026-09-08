@@ -199,7 +199,7 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
               </button>
               <button
                 onClick={() => removeHoliday(holiday.id)}
-                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
               >
                 Remove
               </button>

@@ -197,7 +197,7 @@ function SortableScenarioTab({
             }}
             className={`text-xs px-1 ${
               isLocked
-                ? "text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
+                ? "text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
                 : "text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
             }`}
             title={isLocked ? "Unlock scenario" : "Lock scenario"}

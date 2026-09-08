@@ -135,7 +135,7 @@ export function ScheduleContextRow({
             }`}
           />
           {committedFinishDate && committedFinishDate < scheduledStartDate && (
-            <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+            <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">
               Finish date cannot be before the scheduled start.
             </p>
           )}

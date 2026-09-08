@@ -305,7 +305,7 @@ export function DependencyPanel({
                   />
                   <button
                     onClick={() => onRemoveDependency(dep.fromActivityId, dep.toActivityId)}
-                    className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-0.5"
+                    className="text-red-600 hover:text-red-800 dark:hover:text-red-300 p-0.5"
                     title="Remove dependency"
                     aria-label="Remove dependency"
                   >
@@ -382,13 +382,13 @@ export function DependencyPanel({
       )}
       {/* Feedback for invalid add */}
       {fromId && toId && fromId === toId && (
-        <p className="text-xs text-red-500 dark:text-red-400">An activity cannot depend on itself</p>
+        <p className="text-xs text-red-700 dark:text-red-400">An activity cannot depend on itself</p>
       )}
       {wouldCreateCycle && (
-        <p className="text-xs text-red-500 dark:text-red-400">This dependency would create a cycle</p>
+        <p className="text-xs text-red-700 dark:text-red-400">This dependency would create a cycle</p>
       )}
       {isDuplicate && (
-        <p className="text-xs text-amber-500 dark:text-amber-400">This dependency already exists</p>
+        <p className="text-xs text-amber-700 dark:text-amber-400">This dependency already exists</p>
       )}
     </div>)}
     </section>

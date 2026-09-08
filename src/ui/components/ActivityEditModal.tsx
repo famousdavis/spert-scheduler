@@ -626,7 +626,7 @@ export function ActivityEditModal({
                     }
                   />
                   {nameMissing && (
-                    <p id={fieldNameErrorId} className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+                    <p id={fieldNameErrorId} className="text-xs text-red-700 dark:text-red-400 mt-0.5">
                       Activity name is required.
                     </p>
                   )}
@@ -845,7 +845,7 @@ export function ActivityEditModal({
                         className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       />
                       {dateAdjustedNote && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
                           {dateAdjustedNote}
                         </p>
                       )}
@@ -910,7 +910,7 @@ export function ActivityEditModal({
                     <button
                       type="button"
                       onClick={handleClearConstraint}
-                      className="text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                      className="text-xs text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
                     >
                       Clear constraint
                     </button>

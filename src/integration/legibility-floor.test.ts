@@ -147,3 +147,125 @@ describe('grey contrast: the inverted dark: pair survives only where it is ruled
     expect(sites(INVERTED_PAIR)).toEqual(Object.keys(RULED_EXCEPTIONS).sort());
   });
 });
+
+/**
+ * The coloured half (WI-10 part C). Contrast work on this repo had only ever
+ * scoped greys; the coloured surface was never measured until v0.67.13, and 37
+ * bare tokens were rendering informational text below 4.5:1 in light mode.
+ *
+ * ⚠️ THE VARIANT CHAIN IS PARSED, NOT LOOKED BEHIND ONCE (R100). A lookbehind
+ * of `(?<!dark:)` is necessary and NOT sufficient: it reads
+ * `dark:hover:text-blue-300` as a light-mode site, and 112 such tokens exist
+ * here. A misclassified token moves BETWEEN buckets, so a light + dark = total
+ * reconciliation still balances and cannot catch it. The parser is pinned by
+ * its own test below.
+ *
+ * Only BARE tokens are in scope. `hover:`, `focus:` and `disabled:` variants
+ * are transient states on icon controls, and dark-chained tokens are governed
+ * by the dark surface, where every one of them already passes (measured:
+ * red-400 5.08, amber-400 8.52, green-400 8.25, blue-400 5.56 on gray-800).
+ *
+ * The banned list is every shade that cannot reach 4.5:1 against WHITE, the
+ * lightest surface any of them renders on, derived from the OKLCH palette in
+ * the installed tailwindcss rather than from a remembered hex table (R97).
+ * Shades absent from it — red-600 at 4.77, blue-600 at 5.25 — are legal bare,
+ * though a tinted background can still sink them: WarningsPanel's body text was
+ * red-600, which passes on white at 4.77 and FAILED on its own bg-red-50 at
+ * 4.36. This guard cannot see that case; only measuring the real background can.
+ */
+const BELOW_AA_ON_WHITE = new Set([
+  'blue-50', 'blue-100', 'blue-200', 'blue-300', 'blue-400', 'blue-500',
+  'green-50', 'green-100', 'green-200', 'green-300', 'green-400', 'green-500', 'green-600',
+  'amber-50', 'amber-100', 'amber-200', 'amber-300', 'amber-400', 'amber-500', 'amber-600',
+  'red-50', 'red-100', 'red-200', 'red-300', 'red-400', 'red-500',
+  'yellow-50', 'yellow-100', 'yellow-200', 'yellow-300', 'yellow-400', 'yellow-500', 'yellow-600',
+  'orange-50', 'orange-100', 'orange-200', 'orange-300', 'orange-400', 'orange-500', 'orange-600',
+  'purple-50', 'purple-100', 'purple-200', 'purple-300', 'purple-400', 'purple-500',
+  'indigo-50', 'indigo-100', 'indigo-200', 'indigo-300', 'indigo-400',
+]);
+
+/** Non-text under WCAG 1.4.11, which asks 3:1 rather than 4.5:1. Both clear it. */
+const NON_TEXT_EXCEPTIONS: Record<string, string> = {
+  'src/ui/charts/GanttChart.tsx:202': 'checkbox accent colour, amber-600 at 3.20',
+  'src/ui/components/WarningsPanel.tsx:23': 'the warning variant glyph, amber-600 at 3.20 on white and 3.09 on its amber-50 ground',
+};
+
+/**
+ * ⚠️ THE VARIANT CHAIN IS NOT MATCHED BY THE REGEX AT ALL, and that is
+ * deliberate. Both regex forms a reader reaches for — a repeated
+ * `(?:[a-z0-9._-]+:)*` group and a lazy `[a-z0-9._:-]*?` — are super-linear
+ * backtracking hotspots that `sonarjs/slow-regex` flags, and at a lint baseline
+ * of 3 with zero headroom a fourth finding fails the gate. So the regex matches
+ * only the utility, and the prefix is recovered by walking backwards over the
+ * class-token alphabet, which is linear by construction.
+ */
+const COLOURED_TOKEN =
+  /text-(blue|green|amber|red|yellow|orange|purple|indigo)-(\d{2,3})(?![\w-])/g;
+
+const CHAIN_CHAR = /[A-Za-z0-9@[\]._:-]/;
+
+/** The Tailwind variant prefix immediately before `index`, e.g. `dark:hover:`. */
+function variantChainBefore(line: string, index: number): string[] {
+  let start = index;
+  while (start > 0 && CHAIN_CHAR.test(line[start - 1] as string)) start--;
+  return line.slice(start, index).split(':').filter(Boolean);
+}
+
+describe('coloured contrast: no bare token that cannot reach AA on white', () => {
+  const files = sourceFiles(join(root, 'src'));
+  interface Token {
+    site: string;
+    shade: string;
+  }
+  const bare: Token[] = [];
+  const variantChained: Token[] = [];
+  const darkChained: Token[] = [];
+
+  for (const file of files) {
+    const rel = relative(root, file).split(sep).join('/');
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        for (const m of line.matchAll(COLOURED_TOKEN)) {
+          const variants = variantChainBefore(line, m.index);
+          const token: Token = { site: `${rel}:${i + 1}`, shade: `${m[1]}-${m[2]}` };
+          if (variants.includes('dark')) darkChained.push(token);
+          else if (variants.length) variantChained.push(token);
+          else bare.push(token);
+        }
+      });
+  }
+
+  it('classifies a real, non-trivial population into all three buckets', () => {
+    // Vacuity control. Every assertion below is "none of X", which an empty
+    // scan satisfies. All three buckets are known non-empty.
+    expect(bare.length).toBeGreaterThan(100);
+    expect(darkChained.length).toBeGreaterThan(100);
+    expect(variantChained.length).toBeGreaterThan(10);
+  });
+
+  it('parses the whole variant chain, which a one-deep lookbehind does not (R100)', () => {
+    // Run the BROKEN instrument beside the good one and require them to
+    // disagree. `(?<!dark:)` sees only the last variant, so it counts every
+    // `dark:hover:` / `dark:focus:` / `dark:disabled:` token as light-mode and
+    // must report MORE than the parser's light-rendering buckets combined. If
+    // the parser ever regresses to a one-deep lookbehind the two agree and this
+    // fails — which is the only way to catch a regression whose own
+    // reconciliation still balances.
+    const ONE_DEEP =
+      /(?<!dark:)text-(blue|green|amber|red|yellow|orange|purple|indigo)-(\d{2,3})(?![\w-])/g;
+    let oneDeep = 0;
+    for (const file of files) {
+      for (const line of readFileSync(file, 'utf8').split('\n')) {
+        oneDeep += line.match(ONE_DEEP)?.length ?? 0;
+      }
+    }
+    expect(oneDeep).toBeGreaterThan(bare.length + variantChained.length);
+  });
+
+  it('leaves only the ruled non-text exceptions below AA', () => {
+    // It read 37 before WI-10 (v0.67.13).
+    const offenders = bare.filter((t) => BELOW_AA_ON_WHITE.has(t.shade)).map((t) => t.site);
+    expect(offenders.sort()).toEqual(Object.keys(NON_TEXT_EXCEPTIONS).sort());
+  });
+});

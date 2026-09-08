@@ -154,7 +154,7 @@ export function SimulationPanel({
       )}
 
       {!allActivitiesValid && hasActivities && (
-        <p className="text-amber-600 text-sm">
+        <p className="text-amber-700 text-sm">
           Fix validation errors in activities before running simulation.
         </p>
       )}
@@ -205,7 +205,7 @@ export function SimulationPanel({
               </p>
             </div>
             <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
-              <p className="text-xs text-green-600 dark:text-green-400">P{targetPct}</p>
+              <p className="text-xs text-green-800 dark:text-green-400">P{targetPct}</p>
               <p className="text-lg font-semibold text-green-700 dark:text-green-400 tabular-nums">
                 {simulationResults.percentiles[targetPct]?.toFixed(1) ?? "—"} days
               </p>
