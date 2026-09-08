@@ -14,6 +14,10 @@ import {
   ReferenceArea,
   ResponsiveContainer,
 } from "recharts";
+
+import { useIsDarkClass } from "@ui/hooks/use-dark-class";
+
+import { axisTick } from "./axis-theme";
 import type { HistogramBin } from "@domain/models/types";
 
 interface HistogramChartProps {
@@ -36,6 +40,7 @@ export function HistogramChart({
   deterministicSpan,
   captureRef,
 }: HistogramChartProps) {
+  const isDark = useIsDarkClass();
   // Filter out any bins with non-finite values (defensive check)
   const data = bins
     .filter(
@@ -80,10 +85,10 @@ export function HistogramChart({
           <XAxis
             dataKey="binMid"
             type="number"
-            tick={{ fontSize: 11 }}
+            tick={axisTick(isDark)}
             domain={["dataMin", "dataMax"]}
           />
-          <YAxis tick={{ fontSize: 11 }} />
+          <YAxis tick={axisTick(isDark)} />
           <Tooltip
             formatter={(value) => [value ?? 0, "Trials"]}
             labelFormatter={(label: unknown) => `~${label} days`}
