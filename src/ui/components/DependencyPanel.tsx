@@ -222,7 +222,7 @@ export function DependencyPanel({
                 className={`px-1.5 py-0.5 rounded transition-colors ${
                   sortMode === "alpha"
                     ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium"
-                    : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 }`}
                 title="Sort alphabetically"
               >
@@ -234,7 +234,7 @@ export function DependencyPanel({
                 className={`px-1.5 py-0.5 rounded transition-colors ${
                   sortMode === "schedule"
                     ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium"
-                    : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 }`}
                 title="Sort by schedule order"
               >
@@ -242,7 +242,7 @@ export function DependencyPanel({
               </button>
             </div>
           )}
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {depCountLabel(dependencies.length)}
           </span>
         </div>
@@ -275,11 +275,11 @@ export function DependencyPanel({
                 <span className="text-gray-700 dark:text-gray-300" title={getActivityName(dep.fromActivityId)}>
                   {getActivityName(dep.fromActivityId)}
                 </span>
-                <span className="text-gray-400 dark:text-gray-500 shrink-0">→</span>
+                <span className="text-gray-500 dark:text-gray-400 shrink-0">→</span>
                 <span className="text-gray-700 dark:text-gray-300" title={getActivityName(dep.toActivityId)}>
                   {getActivityName(dep.toActivityId)}
                 </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
                   ({dependencyLabel(dep.type)}{formatLagSuffix(dep.lagDays)})
                 </span>
               </div>
@@ -297,7 +297,7 @@ export function DependencyPanel({
                       <option key={t} value={t}>{dependencyLabel(t)}</option>
                     ))}
                   </select>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">Lag:</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Lag:</span>
                   <LagInput
                     value={dep.lagDays}
                     onChange={(val) => onUpdateLag(dep.fromActivityId, dep.toActivityId, val)}
@@ -305,7 +305,7 @@ export function DependencyPanel({
                   />
                   <button
                     onClick={() => onRemoveDependency(dep.fromActivityId, dep.toActivityId)}
-                    className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-0.5"
+                    className="text-red-600 hover:text-red-800 dark:hover:text-red-300 p-0.5"
                     title="Remove dependency"
                     aria-label="Remove dependency"
                   >
@@ -337,7 +337,7 @@ export function DependencyPanel({
               </option>
             ))}
           </select>
-          <span className="text-gray-400 dark:text-gray-500 text-sm shrink-0">→</span>
+          <span className="text-gray-500 dark:text-gray-400 text-sm shrink-0">→</span>
           <select
             name="newDependencyTo"
             aria-label="Successor activity"
@@ -364,7 +364,7 @@ export function DependencyPanel({
             ))}
           </select>
           <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs text-gray-400 dark:text-gray-500">Lag:</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Lag:</span>
             <LagInput
               value={lagDays}
               onChange={setLagDays}
@@ -382,13 +382,13 @@ export function DependencyPanel({
       )}
       {/* Feedback for invalid add */}
       {fromId && toId && fromId === toId && (
-        <p className="text-xs text-red-500 dark:text-red-400">An activity cannot depend on itself</p>
+        <p className="text-xs text-red-700 dark:text-red-400">An activity cannot depend on itself</p>
       )}
       {wouldCreateCycle && (
-        <p className="text-xs text-red-500 dark:text-red-400">This dependency would create a cycle</p>
+        <p className="text-xs text-red-700 dark:text-red-400">This dependency would create a cycle</p>
       )}
       {isDuplicate && (
-        <p className="text-xs text-amber-500 dark:text-amber-400">This dependency already exists</p>
+        <p className="text-xs text-amber-700 dark:text-amber-400">This dependency already exists</p>
       )}
     </div>)}
     </section>

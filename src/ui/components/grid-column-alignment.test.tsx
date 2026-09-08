@@ -59,13 +59,13 @@ const COLUMNS: { name: string; width: string; header?: string; field?: string }[
   { name: "distribution", width: "110px", header: "Distribution", field: "distribution" },
   { name: "confidence", width: "96px", header: "Confidence", field: "confidence" },
   { name: "status", width: "110px", header: "Status", field: "status" },
-  { name: "actual", width: "40px", header: "Actual", field: "actual" },
+  { name: "actual", width: "56px", header: "Actual", field: "actual" },
   { name: "separator", width: "1px" },
   { name: "src", width: "40px", header: "Src" },
   { name: "trailing", width: "8px" },
 ];
 
-const CONSTRAINT_COLUMN = { name: "constraint", width: "80px", header: "Constraint" };
+const CONSTRAINT_COLUMN = { name: "constraint", width: "88px", header: "Constraint" };
 const CONSTRAINT_INDEX = 6; // inserted after `end`
 
 function withConstraint() {

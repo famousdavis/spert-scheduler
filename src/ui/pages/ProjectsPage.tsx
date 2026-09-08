@@ -394,8 +394,8 @@ export function ProjectsPage() {
         if (projects.length === 0) {
           return (
             <div className="text-center py-12">
-              <p className="text-gray-400 dark:text-gray-500 text-lg">No projects yet.</p>
-              <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+              <p className="text-gray-500 dark:text-gray-400 text-lg">No projects yet.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                 Create a project to get started with probabilistic scheduling — or
                 load the sample to explore a fully built schedule first.
               </p>
@@ -419,8 +419,8 @@ export function ProjectsPage() {
         if (filteredProjects.length === 0) {
           return (
             <div className="text-center py-12">
-              <p className="text-gray-400 dark:text-gray-500 text-lg">No matching projects.</p>
-              <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+              <p className="text-gray-500 dark:text-gray-400 text-lg">No matching projects.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                 Try a different search term.
               </p>
             </div>

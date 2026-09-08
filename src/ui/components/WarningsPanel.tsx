@@ -13,16 +13,16 @@ const VARIANT_CLASSES = {
   error: {
     bg: "bg-red-50 dark:bg-red-900/20",
     border: "border-red-200 dark:border-red-700",
-    icon: "text-red-500 dark:text-red-400",
+    icon: "text-red-600 dark:text-red-400",
     title: "text-red-700 dark:text-red-300",
-    text: "text-red-600 dark:text-red-400",
+    text: "text-red-700 dark:text-red-400",
   },
   warning: {
     bg: "bg-amber-50 dark:bg-amber-900/20",
     border: "border-amber-200 dark:border-amber-700",
-    icon: "text-amber-500 dark:text-amber-400",
+    icon: "text-amber-600 dark:text-amber-400",
     title: "text-amber-700 dark:text-amber-300",
-    text: "text-amber-600 dark:text-amber-400",
+    text: "text-amber-700 dark:text-amber-400",
   },
 } as const;
 
@@ -84,29 +84,29 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [], activityNum
         className="w-full flex items-center justify-between px-4 py-3 text-left"
       >
         <div className="flex items-center gap-2">
-          <span className="text-amber-600 dark:text-amber-400 font-medium text-sm">
+          <span className="text-amber-700 dark:text-amber-400 font-medium text-sm">
             Scheduling Warnings
           </span>
-          <span className="text-xs text-amber-500 dark:text-amber-400">
+          <span className="text-xs text-amber-700 dark:text-amber-400">
             {errors.length > 0 && (
               <span className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-medium mr-1">
                 {errors.length} conflict{errors.length !== 1 ? "s" : ""}
               </span>
             )}
             {warnings.length > 0 && (
-              <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">
+              <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded">
                 {warnings.length} warning{warnings.length !== 1 ? "s" : ""}
               </span>
             )}
             {dependencyConflicts.length > 0 && (
-              <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">
+              <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded">
                 {dependencyConflicts.length} dep violation{dependencyConflicts.length !== 1 ? "s" : ""}
               </span>
             )}
           </span>
         </div>
         <svg
-          className={`w-4 h-4 text-amber-500 transition-transform ${collapsed ? "" : "rotate-180"}`}
+          className={`w-4 h-4 text-amber-700 transition-transform ${collapsed ? "" : "rotate-180"}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

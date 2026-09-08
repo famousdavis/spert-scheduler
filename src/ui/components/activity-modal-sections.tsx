@@ -135,7 +135,7 @@ export function ScheduleContextRow({
             }`}
           />
           {committedFinishDate && committedFinishDate < scheduledStartDate && (
-            <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+            <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">
               Finish date cannot be before the scheduled start.
             </p>
           )}
@@ -179,7 +179,7 @@ export function Section({
         </svg>
         {title}
         {subtitle && (
-          <span className="text-xs font-normal text-gray-400 dark:text-gray-500">{subtitle}</span>
+          <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{subtitle}</span>
         )}
         {indicator && (
           <span className={`w-1.5 h-1.5 rounded-full ${indicatorColor ?? "bg-blue-500"}`} />
@@ -332,7 +332,7 @@ export function DependenciesDisplaySection({
   return (
     <>
       {relatedDeps.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           No dependencies involving this activity.
         </p>
       ) : (
@@ -346,13 +346,13 @@ export function DependenciesDisplaySection({
                 className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-gray-50 dark:bg-gray-700/50 text-sm"
               >
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {isPred ? "Pred:" : "Succ:"}
                   </span>{" "}
                   <span className="text-gray-700 dark:text-gray-300 truncate">
                     {activityNameById(otherId)}
                   </span>
-                  <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                     {dependencyLabel(dep.type)}{formatDepLagSuffix(dep.lagDays)}
                   </span>
                 </div>

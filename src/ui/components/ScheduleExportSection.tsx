@@ -144,7 +144,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
       </p>
 
       {projects.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-400 dark:text-gray-500">
+        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
           No projects available.
         </p>
       ) : (
@@ -172,7 +172,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
             <label className="block text-sm text-gray-700 dark:text-gray-300">
               <span className="font-medium">Scenario</span>
               {eligibleScenarios.length === 0 ? (
-                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   No scenarios with simulation results. Run a simulation first.
                 </p>
               ) : (

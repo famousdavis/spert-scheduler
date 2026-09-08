@@ -137,7 +137,7 @@ export function ConnectAiPanel({
                   </button>
                 </div>
               )}
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {codeLoading ? "Generating code…" : "Valid 15 min · refreshes automatically"}
               </p>
             </div>

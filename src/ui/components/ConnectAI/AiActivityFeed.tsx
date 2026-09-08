@@ -34,7 +34,7 @@ interface AiActivityFeedProps {
 export function AiActivityFeed({ items }: AiActivityFeedProps) {
   if (items.length === 0) {
     return (
-      <p className="text-xs text-gray-400 dark:text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         No AI activity yet. Operations will appear here as the AI works.
       </p>
     );

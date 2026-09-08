@@ -34,7 +34,7 @@ function formatSignedBuffer(b: number | null): string | null {
 
 function highlightClass(highlight: "best" | "worst" | null | undefined): string {
   if (highlight === "best") return "text-green-700 font-semibold";
-  if (highlight === "worst") return "text-amber-600";
+  if (highlight === "worst") return "text-amber-700";
   return "text-gray-900";
 }
 
@@ -315,7 +315,7 @@ export function ScenarioComparisonTable({
           </p>
         )}
         {entries.some((e) => e.error) && (
-          <p className="px-4 py-2 text-xs text-red-500 border-t border-gray-100">
+          <p className="px-4 py-2 text-xs text-red-700 border-t border-gray-100">
             Could not compute a schedule for:{" "}
             {entries
               .filter((e) => e.error)

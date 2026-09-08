@@ -379,7 +379,7 @@ export function UnifiedActivityGrid({
         <div style={{ minWidth: gridMinWidth }}>
           {/* Header row */}
           <div
-            className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+            className="grid items-center gap-1 px-1 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
             style={{
               gridTemplateColumns: gridCols,
             }}
@@ -421,7 +421,7 @@ export function UnifiedActivityGrid({
 
           {/* Subheader labels */}
           <div
-            className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-[9px] text-gray-400 dark:text-gray-500"
+            className="grid items-center gap-1 px-1 py-0.5 bg-gray-50/50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400"
             style={{
               gridTemplateColumns: gridCols,
             }}
@@ -429,11 +429,11 @@ export function UnifiedActivityGrid({
             <div />
             <div />
             <div />
-            <div className="text-right px-1 text-gray-400 dark:text-gray-500">
+            <div className="text-right px-1 text-gray-500 dark:text-gray-400">
               P{targetPct}
             </div>
-            <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
-            <div className="px-1 text-gray-400 dark:text-gray-500">Scheduled</div>
+            <div className="px-1 text-gray-500 dark:text-gray-400">Scheduled</div>
+            <div className="px-1 text-gray-500 dark:text-gray-400">Scheduled</div>
             {showConstraintColumn && <div />}
             <div />
             <div />
@@ -520,7 +520,7 @@ export function UnifiedActivityGrid({
           </DndContext>
 
           {activities.length === 0 && (
-            <p className="text-gray-400 dark:text-gray-500 text-sm text-center py-8">
+            <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-8">
               No activities yet. Add one to get started.
             </p>
           )}
@@ -569,7 +569,7 @@ export function UnifiedActivityGrid({
             onAdd("");
           }}
           disabled={isScenarioLocked}
-          className="flex-[2] py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-600 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
+          className="flex-[2] py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-600 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
         >
           + Add Activity
         </button>
@@ -582,7 +582,7 @@ export function UnifiedActivityGrid({
           }}
           disabled={isScenarioLocked}
           aria-label="Add section header"
-          className="flex-1 py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-400 dark:text-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-700 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
+          className="flex-1 py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-700 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
         >
           + Section
         </button>

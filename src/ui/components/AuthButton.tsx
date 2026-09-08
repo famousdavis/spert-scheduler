@@ -90,7 +90,7 @@ export function AuthButton({ onOpenModal }: AuthButtonProps) {
               width: 26,
               height: 26,
               backgroundColor: "#0070f3",
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 500,
             }}
           >

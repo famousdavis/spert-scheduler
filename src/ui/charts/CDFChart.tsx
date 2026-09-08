@@ -13,6 +13,10 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
+
+import { useIsDarkClass } from "@ui/hooks/use-dark-class";
+
+import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
 import type { CDFPoint } from "@domain/models/types";
 
 interface CDFChartProps {
@@ -39,6 +43,7 @@ export function CDFChart({
   targetColor = "#f59e0b",
   captureRef,
 }: CDFChartProps) {
+  const isDark = useIsDarkClass();
   // Filter out any points with non-finite values (defensive check)
   const data = points
     .filter(
@@ -60,13 +65,13 @@ export function CDFChart({
           <XAxis
             dataKey="value"
             type="number"
-            tick={{ fontSize: 11 }}
+            tick={axisTick(isDark)}
             tickFormatter={(v) => String(Math.round(v))}
             label={{ value: "Duration (days)", position: "insideBottom", offset: -5, fontSize: 12 }}
             domain={["dataMin", "dataMax"]}
           />
           <YAxis
-            tick={{ fontSize: 11 }}
+            tick={axisTick(isDark)}
             label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
             domain={[0, 100]}
           />
@@ -94,7 +99,7 @@ export function CDFChart({
             label={{
               value: `P${Math.round(probabilityTarget * 100)} = ${percentileValue.toFixed(1)} days`,
               position: "right",
-              fontSize: 11,
+              fontSize: AXIS_TICK_FONT_SIZE,
             }}
           />
           {targetDuration != null && targetProbability != null && (
@@ -105,7 +110,7 @@ export function CDFChart({
               label={{
                 value: targetLabel ?? `${Math.round(targetProbability)}%`,
                 position: "insideTopRight",
-                fontSize: 11,
+                fontSize: AXIS_TICK_FONT_SIZE,
                 fill: targetColor,
               }}
             />

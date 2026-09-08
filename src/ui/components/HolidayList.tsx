@@ -78,7 +78,7 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
 
   if (calendar.holidays.length === 0) {
     return (
-      <p className="text-gray-400 dark:text-gray-500 text-sm">
+      <p className="text-gray-500 dark:text-gray-400 text-sm">
         No holidays configured.
       </p>
     );
@@ -185,7 +185,7 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
                 </span>
               )}
               {holiday.source === "api" && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-300 font-medium">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 font-medium">
                   API
                 </span>
               )}
@@ -199,7 +199,7 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
               </button>
               <button
                 onClick={() => removeHoliday(holiday.id)}
-                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
               >
                 Remove
               </button>

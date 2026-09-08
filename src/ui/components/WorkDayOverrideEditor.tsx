@@ -77,7 +77,7 @@ function OverrideChip({
         <button
           onClick={onUpgrade}
           aria-label={`Convert ${formattedDate} to a forced holiday override`}
-          className="ml-0.5 px-1.5 py-0 text-[11px] font-medium no-underline bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded hover:bg-amber-200 dark:hover:bg-amber-700/50"
+          className="ml-0.5 px-1.5 py-0 text-xs font-medium no-underline bg-amber-100 dark:bg-amber-800/40 text-amber-800 dark:text-amber-300 rounded hover:bg-amber-200 dark:hover:bg-amber-700/50"
         >
           Convert to forced override
         </button>
@@ -87,7 +87,7 @@ function OverrideChip({
         aria-label={`Remove ${formattedDate}`}
         className={
           status.active
-            ? "ml-0.5 text-blue-400 hover:text-blue-600 dark:hover:text-blue-200"
+            ? "ml-0.5 text-blue-600 hover:text-blue-800 dark:hover:text-blue-200"
             : "ml-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
         }
         title="Remove"
@@ -315,7 +315,7 @@ export function WorkDayOverrideEditor({
           <span>{projectHolidayWarning}</span>
           <button
             onClick={() => setProjectHolidayWarning(null)}
-            className="ml-auto shrink-0 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-800/40 rounded hover:bg-amber-200 dark:hover:bg-amber-700/50"
+            className="ml-auto shrink-0 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-800/40 rounded hover:bg-amber-200 dark:hover:bg-amber-700/50"
           >
             Got it
           </button>
@@ -324,7 +324,7 @@ export function WorkDayOverrideEditor({
 
       {/* 50+ entry warning */}
       {convertedWorkDays.length + forcedWorkDays.length > 50 && (
-        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
           You have added many work day overrides. Consider adjusting your work
           week settings instead.
         </p>

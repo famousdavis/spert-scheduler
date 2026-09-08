@@ -307,7 +307,7 @@ export function PreferencesSection() {
                 ))}
               </div>
               {workDays.length === 1 && (
-                <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
                   This creates a one-day work week.
                 </p>
               )}

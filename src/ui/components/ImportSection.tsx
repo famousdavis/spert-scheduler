@@ -220,7 +220,7 @@ export function ImportSection({ projects }: ImportSectionProps) {
                         className="text-sm text-green-700 dark:text-green-300"
                       >
                         {p.name}{" "}
-                        <span className="text-green-500 text-xs">
+                        <span className="text-green-700 text-xs">
                           ({p.scenarios.length} scenario
                           {p.scenarios.length !== 1 ? "s" : ""})
                         </span>
@@ -297,7 +297,7 @@ export function ImportSection({ projects }: ImportSectionProps) {
                         className="text-sm font-medium text-gray-900 dark:text-gray-100"
                       >
                         {sourceConflict.importedProject.name}{" "}
-                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                        <span className="text-xs text-amber-700 dark:text-amber-400">
                           (
                           {decision.kind === "id" ? "ID match" : "Name match"}:
                           "{sourceConflict.existingProject.name}")

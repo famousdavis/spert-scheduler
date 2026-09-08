@@ -114,7 +114,7 @@ export function SimulationPanel({
             Monte Carlo Simulation
           </h3>
           {autoRunEnabled && (
-            <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-medium">
+            <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded font-medium">
               Auto-run
             </span>
           )}
@@ -148,13 +148,13 @@ export function SimulationPanel({
       </div>
 
       {!hasActivities && (
-        <p className="text-gray-400 dark:text-gray-500 text-sm">
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
           Add activities to run a simulation.
         </p>
       )}
 
       {!allActivitiesValid && hasActivities && (
-        <p className="text-amber-600 text-sm">
+        <p className="text-amber-700 text-sm">
           Fix validation errors in activities before running simulation.
         </p>
       )}
@@ -193,30 +193,30 @@ export function SimulationPanel({
           {/* Summary */}
           <div className="grid grid-cols-4 gap-4">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Mean</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Mean</p>
               <p className="text-lg font-semibold tabular-nums dark:text-gray-100">
                 {simulationResults.mean.toFixed(1)} days
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Standard Deviation</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Standard Deviation</p>
               <p className="text-lg font-semibold tabular-nums dark:text-gray-100">
                 {simulationResults.standardDeviation.toFixed(1)} days
               </p>
             </div>
             <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
-              <p className="text-xs text-green-600 dark:text-green-400">P{targetPct}</p>
+              <p className="text-xs text-green-800 dark:text-green-400">P{targetPct}</p>
               <p className="text-lg font-semibold text-green-700 dark:text-green-400 tabular-nums">
                 {simulationResults.percentiles[targetPct]?.toFixed(1) ?? "—"} days
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Trials</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Trials</p>
               <p className="text-lg font-semibold tabular-nums dark:text-gray-100">
                 {simulationResults.trialCount.toLocaleString()}
               </p>
               {elapsedMs != null && (
-                <p className="text-xs text-gray-400 dark:text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   in {elapsedMs.toFixed(0)}ms
                 </p>
               )}
@@ -231,7 +231,7 @@ export function SimulationPanel({
               </div>
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Distribution Histogram{" "}
-                <span className="font-normal italic text-gray-400 dark:text-gray-500">
+                <span className="font-normal italic text-gray-500 dark:text-gray-400">
                   (outlier values &gt; P99 omitted)
                 </span>
               </h4>
@@ -294,7 +294,7 @@ export function SimulationPanel({
                   captureRef={cdfCaptureRef}
                 />
               ) : (
-                <div className="flex items-center justify-center h-[300px] text-sm text-gray-400 dark:text-gray-500">
+                <div className="flex items-center justify-center h-[300px] text-sm text-gray-500 dark:text-gray-400">
                   Re-run simulation to view CDF (sample data not stored)
                 </div>
               )}

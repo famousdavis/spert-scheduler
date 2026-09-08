@@ -148,11 +148,11 @@ export function ProjectTile({
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           {project.scenarios.length} scenario
           {project.scenarios.length !== 1 ? "s" : ""}
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
           Created {formatDate(formatDateISO(new Date(project.createdAt)))}
         </p>
       </div>

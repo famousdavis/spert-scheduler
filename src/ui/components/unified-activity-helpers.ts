@@ -42,7 +42,7 @@ export function constraintBadgeLabel(
  * Dependency mode always shows it — the column doubles as the per-row
  * "add a constraint" affordance for a feature that's central to that mode.
  * Sequential mode only shows it once at least one activity actually has a
- * constraint, so the freed 80px track flows into the (1fr) Name column the
+ * constraint, so the freed 88px track flows into the (1fr) Name column the
  * rest of the time.
  */
 export function shouldShowConstraintColumn(

@@ -634,7 +634,7 @@ export function GanttChart({
 
   if (activities.length === 0) {
     return (
-      <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+      <p className="text-sm text-gray-500 dark:text-gray-400 italic">
         Add activities to see Gantt chart.
       </p>
     );

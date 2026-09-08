@@ -27,7 +27,7 @@ export function AboutPage() {
       <div className="mt-8 space-y-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
         <section>
           <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-            What is SPERT<span className="text-gray-300 text-[10px] align-super">®</span> Scheduler?
+            What is SPERT<span className="text-gray-300 text-xs align-super">®</span> Scheduler?
           </h2>
           <p className="mt-2">
             SPERT® Scheduler is a lightweight, probabilistic project scheduling
@@ -186,7 +186,7 @@ export function AboutPage() {
           </h2>
           <p
             className="mt-2 uppercase text-gray-500 dark:text-gray-400"
-            style={{ fontSize: "0.7rem", lineHeight: 1.6 }}
+            style={{ fontSize: "0.75rem", lineHeight: 1.6 }}
           >
             THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
             APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE

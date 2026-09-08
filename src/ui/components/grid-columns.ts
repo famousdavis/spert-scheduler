@@ -45,14 +45,27 @@ export const GRID_COLUMN_LIST: readonly GridColumn[] = [
   { name: "distribution", width: "110px" },
   { name: "confidence", width: "96px" },
   { name: "status", width: "110px" },
-  { name: "actual", width: "40px" },
+  // 56px, not 40: its "ACTUAL" header measures 54px at the 12px floor (WI-10) and was
+  // overlapping the SRC header by 5px. It already overflowed at 11px — pre-existing,
+  // and widened here because the floor made it worse. Measured in a browser.
+  { name: "actual", width: "56px" },
   { name: "separator", width: "1px" },
   { name: "src", width: "40px" },
   { name: "trailing", width: "8px" },
 ];
 
-/** The constraint column, shown in dependency mode, inserted directly after `end`. */
-export const CONSTRAINT_COLUMN: GridColumn = { name: "constraint", width: "80px" };
+/**
+ * The constraint column, shown in dependency mode, inserted directly after `end`.
+ *
+ * ⚠️ **88px, not 80px, and the 8 is load-bearing.** Its header reads "CONSTRAINT"
+ * uppercase with `tracking-wide`, which measures 86px at the 12px on-screen floor
+ * (WI-10) against 80px of track — it overflowed into the MIN header, rendering as
+ * "CONSTRAINT MIN" with no gap. At the previous 11px it measured exactly 80px, so it
+ * fit with ZERO margin and nothing recorded that it was the widest label in the
+ * narrowest fixed track. Measured in a browser at 853 and 1280; jsdom has no layout
+ * and cannot re-derive it.
+ */
+export const CONSTRAINT_COLUMN: GridColumn = { name: "constraint", width: "88px" };
 
 /** Where the constraint column lands when present. */
 const CONSTRAINT_INSERT_AFTER = "end";

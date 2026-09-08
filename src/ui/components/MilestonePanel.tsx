@@ -170,7 +170,7 @@ export function MilestonePanel({
           </svg>
           Milestones
         </button>
-        <span className="text-xs text-gray-400 dark:text-gray-500">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
           {formatMilestoneCount(milestones.length)}
         </span>
       </div>
@@ -210,7 +210,7 @@ export function MilestonePanel({
               {!isLocked && (
                 <button
                   onClick={() => onRemoveMilestone(m.id)}
-                  className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-1"
+                  className="text-red-600 hover:text-red-800 dark:hover:text-red-300 p-1"
                   title="Remove milestone"
                   aria-label="Remove milestone"
                 >
@@ -227,7 +227,7 @@ export function MilestonePanel({
                 <span>Target: {formatDate(m.targetDate)}</span>
                 <span>Buffer: {buffer.bufferDays}d</span>
                 {buffer.slackDays !== null && (
-                  <span className={buffer.slackDays < 0 ? "text-red-500 dark:text-red-400 font-medium" : ""}>
+                  <span className={buffer.slackDays < 0 ? "text-red-700 dark:text-red-400 font-medium" : ""}>
                     Slack: {buffer.slackDays > 0 ? "+" : ""}{buffer.slackDays}d
                   </span>
                 )}

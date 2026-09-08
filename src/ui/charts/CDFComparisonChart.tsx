@@ -12,6 +12,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+
+import { useIsDarkClass } from "@ui/hooks/use-dark-class";
+
+import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
 import type { CDFPoint } from "@domain/models/types";
 import { interpolateCDF } from "@ui/helpers/cdf-interpolate";
 // Note: CopyImageButton intentionally NOT imported here. The parent
@@ -42,6 +46,7 @@ export function CDFComparisonChart({
   probabilityTarget = 0.95,
   formatDurationAsDate,
 }: CDFComparisonChartProps) {
+  const isDark = useIsDarkClass();
   if (datasets.length === 0) {
     return (
       <div className="text-center py-8 text-gray-400 text-sm">
@@ -83,12 +88,12 @@ export function CDFComparisonChart({
             <XAxis
               dataKey="value"
               type="number"
-              tick={{ fontSize: 11 }}
+              tick={axisTick(isDark)}
               tickFormatter={(v) => String(Math.round(v))}
               domain={["dataMin", "dataMax"]}
             />
             <YAxis
-              tick={{ fontSize: 11 }}
+              tick={axisTick(isDark)}
               label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
               domain={[0, 100]}
             />
@@ -103,7 +108,7 @@ export function CDFComparisonChart({
               }}
             />
             <Legend
-              wrapperStyle={{ fontSize: 11 }}
+              wrapperStyle={{ fontSize: AXIS_TICK_FONT_SIZE }}
               iconType="line"
             />
             {datasets.map((dataset, idx) => (
