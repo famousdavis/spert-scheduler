@@ -214,7 +214,7 @@ export function ConfidenceLevelSelect({
             {/* Options list */}
             <div className="overflow-y-auto">
               {filteredLevels.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">
+                <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                   No matches
                 </p>
               ) : (

@@ -561,7 +561,7 @@ export function UnifiedActivityRow({
       <div className="relative">
         <div className={`flex items-center${onEditActivity ? " pr-5" : ""}`}>
           {activityNumber != null && (
-            <span className="text-gray-400 dark:text-gray-500 text-xs font-mono select-none shrink-0 w-7 text-right mr-1">
+            <span className="text-gray-500 dark:text-gray-400 text-xs font-mono select-none shrink-0 w-7 text-right mr-1">
               #{activityNumber}
             </span>
           )}

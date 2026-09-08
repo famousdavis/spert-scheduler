@@ -32,7 +32,7 @@ function KeyCombo({ keys }: { keys: string[] }) {
             {key}
           </kbd>
           {i < keys.length - 1 && (
-            <span className="text-gray-400 dark:text-gray-500">+</span>
+            <span className="text-gray-500 dark:text-gray-400">+</span>
           )}
         </span>
       ))}

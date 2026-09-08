@@ -85,7 +85,7 @@ function SortableDeliverableRow({
         onChange={(e) => onTextChange(item.id, e.target.value)}
         maxLength={200}
         className={`flex-1 min-w-0 text-sm border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 rounded px-1.5 py-0.5 bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none ${
-          item.completed ? "line-through text-gray-400 dark:text-gray-500" : ""
+          item.completed ? "line-through text-gray-500 dark:text-gray-400" : ""
         }`}
       />
       <button
@@ -161,7 +161,7 @@ export function DeliverablesSection({ deliverables, onChange }: DeliverablesSect
   return (
     <>
       {deliverables.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           No deliverables added.
         </p>
       ) : (
@@ -216,7 +216,7 @@ export function DeliverablesSection({ deliverables, onChange }: DeliverablesSect
       )}
 
       {deliverables.length > 0 && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 text-right mt-1">
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-1">
           {doneCount}/{deliverables.length} delivered · {deliverables.length}/{MAX_DELIVERABLE_ITEMS}
         </p>
       )}

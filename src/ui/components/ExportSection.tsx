@@ -69,7 +69,7 @@ export function ExportSection({ projects }: ExportSectionProps) {
       </p>
 
       {projects.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-400 dark:text-gray-500">No projects to export.</p>
+        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">No projects to export.</p>
       ) : (
         <div className="mt-4 space-y-3">
           {/* Select all toggle */}
@@ -109,12 +109,12 @@ export function ExportSection({ projects }: ExportSectionProps) {
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {project.name}
                   </span>
-                  <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                     {project.scenarios.length} scenario
                     {project.scenarios.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {formatDate(project.createdAt.slice(0, 10))}
                 </span>
               </label>
@@ -132,7 +132,7 @@ export function ExportSection({ projects }: ExportSectionProps) {
               className="rounded border-gray-300 dark:border-gray-600"
             />
             <span>Include simulation results</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               (larger file)
             </span>
           </label>
@@ -148,7 +148,7 @@ export function ExportSection({ projects }: ExportSectionProps) {
               className="rounded border-gray-300 dark:border-gray-600"
             />
             <span>Include user preferences</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               (date format, defaults, theme, etc.)
             </span>
           </label>

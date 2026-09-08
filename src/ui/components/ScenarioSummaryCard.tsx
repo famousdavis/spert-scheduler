@@ -32,7 +32,7 @@ import {
 } from "@domain/helpers/format-labels";
 
 function targetFinishColorClass(ragColor: string | undefined, hasDate: boolean): string {
-  if (!hasDate) return "font-normal text-gray-400 dark:text-gray-500";
+  if (!hasDate) return "font-normal text-gray-500 dark:text-gray-400";
   if (ragColor === "green") return "font-semibold text-green-600 dark:text-green-400";
   if (ragColor === "amber") return "font-semibold text-amber-600 dark:text-amber-400";
   if (ragColor === "red") return "font-semibold text-red-600 dark:text-red-400";
@@ -362,7 +362,7 @@ export function ScenarioSummaryCard({
         <button
           type="button"
           onClick={() => setNotesOpen((o) => !o)}
-          className="self-center relative text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
+          className="self-center relative text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
           title="Scenario notes"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -414,7 +414,7 @@ export function ScenarioSummaryCard({
             placeholder="Add notes about this scenario…"
             className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <p className="text-xs text-gray-400 dark:text-gray-500 text-right mt-0.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-0.5">
             {localNotes.length}/2000
           </p>
         </div>
@@ -506,7 +506,7 @@ export function ScenarioSummaryCard({
               navigator.clipboard.writeText(settings.rngSeed);
               toast.success("Seed copied to clipboard");
             }}
-            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xs"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs"
             title="Copy full seed to clipboard"
             aria-label="Copy seed"
           >
@@ -634,20 +634,20 @@ export function ScenarioSummaryCard({
                     {buffer.bufferDays > 0 ? "+" : ""}
                     {buffer.bufferDays} {pluralize(buffer.bufferDays, "day")}
                   </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     (P{actPct} schedule → P{projPct} project confidence)
                   </span>
                 </>
               );
             } else if (hasSimulationResults) {
               bufferContent = (
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   Buffer unavailable — P{projPct} not found in simulation results
                 </span>
               );
             } else {
               bufferContent = (
-                <span className="text-xs text-gray-400 dark:text-gray-500 italic">
+                <span className="text-xs text-gray-500 dark:text-gray-400 italic">
                   {onRunSimulation ? (
                     <button
                       type="button"
@@ -724,7 +724,7 @@ export function ScenarioSummaryCard({
                 />
                 <span className="text-gray-700 dark:text-gray-300 font-medium min-w-[120px]">
                   {nameOrUnnamed(info.milestone.name)}
-                  <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">
+                  <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">
                     ({formatDate(info.milestone.targetDate)})
                   </span>
                 </span>
@@ -747,7 +747,7 @@ export function ScenarioSummaryCard({
                     </span>
                   </>
                 ) : (
-                  <span className="text-gray-400 dark:text-gray-500 italic">
+                  <span className="text-gray-500 dark:text-gray-400 italic">
                     Run simulation
                   </span>
                 )}

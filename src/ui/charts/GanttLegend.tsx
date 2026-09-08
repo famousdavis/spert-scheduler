@@ -168,7 +168,7 @@ export function GanttLegend({
 
       {/* Date prepared — pushed to far right */}
       {datePrepared && (
-        <span className="ml-auto text-gray-400 dark:text-gray-500">
+        <span className="ml-auto text-gray-500 dark:text-gray-400">
           Date prepared: {datePrepared}
         </span>
       )}

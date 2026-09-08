@@ -563,7 +563,7 @@ export function ActivityImportSection({
                     >
                       Cancel
                     </button>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto hidden sm:inline">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto hidden sm:inline">
                       {navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}+Enter
                       to import
                     </span>

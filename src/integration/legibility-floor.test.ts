@@ -90,3 +90,60 @@ describe('legibility floor: no arbitrary pixel font sizes in on-screen UI', () =
     expect(hits(screen)).toEqual([]);
   });
 });
+
+/**
+ * The other half of WI-10. `text-gray-400 dark:text-gray-500` is an inverted
+ * pair: it goes DARKER in dark mode, and it fails WCAG AA in BOTH — 2.60 on
+ * white, 3.03 on gray-800 (Tailwind 4 OKLCH palette, WCAG 2.x). Its mirror
+ * `text-gray-500 dark:text-gray-400` passes both at 4.84 / 5.64 and was already
+ * the repo's majority convention, so v0.67.13 swapped 70 sites onto it.
+ *
+ * ⚠️ THIS IS A NAMED SET, NOT A COUNT, and deliberately so. A count fails when
+ * a new inverted pair appears, but it is invariant under an exception being
+ * quietly relocated or swapped for a different site. Comparing the exact set
+ * fails in both directions and names the offender either way.
+ *
+ * The six survivors are informed exceptions, verified at source: contrast
+ * minima govern text, and none of these render informational text.
+ */
+const RULED_EXCEPTIONS: Record<string, string> = {
+  'src/ui/charts/GanttChart.tsx:193': 'disabled state, paired with cursor-not-allowed',
+  'src/ui/components/StorageLoginModal.tsx:135': 'the disabled half of a ternary',
+  'src/ui/components/UnifiedActivityRow.tsx:622': 'icon-only control, no text node',
+  'src/ui/components/ScenarioTabs.tsx:117': 'drag-handle icon',
+  'src/ui/components/DependencyPanel.tsx:331': '<select> placeholder state',
+  'src/ui/components/DependencyPanel.tsx:346': '<select> placeholder state',
+};
+
+const INVERTED_PAIR = /text-gray-400 dark:text-gray-500/g;
+const CORRECT_PAIR = /text-gray-500 dark:text-gray-400/g;
+
+describe('grey contrast: the inverted dark: pair survives only where it is ruled', () => {
+  const files = sourceFiles(join(root, 'src'));
+
+  function sites(re: RegExp): string[] {
+    const found: string[] = [];
+    for (const file of files) {
+      const rel = relative(root, file).split(sep).join('/');
+      readFileSync(file, 'utf8')
+        .split('\n')
+        .forEach((line, i) => {
+          const n = line.match(re)?.length ?? 0;
+          for (let k = 0; k < n; k++) found.push(`${rel}:${i + 1}`);
+        });
+    }
+    return found.sort();
+  }
+
+  it('still finds the correct pair in bulk, proving the matcher works', () => {
+    // Vacuity control: the two regexes differ by one transposition, so a reader
+    // or walker that silently matches nothing would pass the assertion below.
+    // This one must be NON-zero — it read 194 at v0.67.13.
+    expect(sites(CORRECT_PAIR).length).toBeGreaterThan(100);
+  });
+
+  it('leaves the inverted pair at exactly the ruled exceptions', () => {
+    // It read 76 before WI-10 (v0.67.13); 70 were swapped.
+    expect(sites(INVERTED_PAIR)).toEqual(Object.keys(RULED_EXCEPTIONS).sort());
+  });
+});

@@ -78,7 +78,7 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
 
   if (calendar.holidays.length === 0) {
     return (
-      <p className="text-gray-400 dark:text-gray-500 text-sm">
+      <p className="text-gray-500 dark:text-gray-400 text-sm">
         No holidays configured.
       </p>
     );
