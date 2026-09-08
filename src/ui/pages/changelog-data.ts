@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.13",
+    date: "2026-09-08",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Small text is bigger. The smallest text in the app was 9 pixels. On a laptop at arm's length that is legible; on a projector at the back of a room it is not. Nothing on screen is now smaller than 12 pixels \u2014 the size the rest of the interface already used for its small print. Twenty-one places moved up, and the chart labels that were sized separately moved with them.",
+          "Faint grey text is darker. A large group of secondary labels used a pair of greys that got darker in dark mode, which is backwards, and fell below the accessibility standard for readable text in both themes. Seventy places now use the pair the rest of the app already used, which passes in both. Six deliberate exceptions remain, all of them icons, disabled controls or empty-field placeholders, where the standard does not apply.",
+          "Coloured text is darker too. Status text, warnings, error messages and the small coloured badges were measured against the exact background each one sits on for the first time; thirty-seven were too faint in the light theme. Every one of them now meets the standard, and the dark theme already did.",
+          "The axis numbers on the Histogram and CDF charts were the same mid-grey in both themes, which meant they were readable in the light theme and very hard to read in the dark one. They now follow the theme.",
+          "Two column headings in the activity grid \u2014 Constraint and Actual \u2014 were overlapping the headings beside them at the larger size. Both columns are slightly wider.",
+          "Nothing about your projects, your estimates or your results has changed. This release only changes how things look.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.12",
     date: "2026-09-07",
     sections: [
