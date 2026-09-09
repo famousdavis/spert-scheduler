@@ -197,8 +197,19 @@ export function useGanttLayout({
     (d) => dateToX(d, minTimestamp, dateRange, chartAreaWidth, leftMargin),
   );
 
-  // Finish Target X — used for tick suppression so a quarter/month tick
-  // landing on the same date doesn't visually merge with the target dashed line.
+  // Finish Target X — an obstacle for tick suppression.
+  //
+  // ⚠️ THE REASON THIS COMMENT USED TO GIVE IS FALSE, and it was repeated in the
+  // changelog and in a test. It said the branch stops a tick GRIDLINE merging with the
+  // target's dashed line. Gridlines are drawn from `allTicks` and suppression never
+  // touches them, so the branch has never created that clearance and never could.
+  //
+  // ⚠️ IT IS STILL NOT DEAD, WHICH IS A DIFFERENT CLAIM. Measured on browser em boxes,
+  // the `Target` label cleared the 11px tick band by 1.0px and the 12px band by −0.05 —
+  // so v0.67.14's legibility raise would have put it INSIDE the tick lane. (A 0.72/0.22
+  // INK model reads ~3.6px and concludes the opposite; the em box is the measure jsdom
+  // and the browser agree on.) It moved into the marker lane for real clearance, and it
+  // stays an obstacle because 3.0px of margin is a margin, not a proof.
   const targetX = (showTargetOnGantt && targetFinishDate && dateRange > 0)
     ? dateToX(targetFinishDate, minTimestamp, dateRange, chartAreaWidth, leftMargin)
     : null;

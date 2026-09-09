@@ -909,6 +909,33 @@ describe("suppressOverlappingTicks", () => {
       expect(out.find((t) => t.label === "Jun '26"), "42px away, but the labels overlap by 10px").toBeUndefined();
     });
 
+    /**
+     * ⚠️ THE `Target` OBSTACLE, AND THE RATIONALE THAT USED TO BE RECORDED HERE.
+     *
+     * The block this replaced was titled "suppressOverlappingTicks — targetX proximity"
+     * and its header said the branch exists so that "the tick gridline and the dashed
+     * target line" do not visually merge. That is FALSE at source and always was:
+     * gridlines are drawn from `allTicks`, which suppression never touches. The
+     * changelog for v0.45.1 says the same thing, and so did this file — three artefacts
+     * agreeing with each other and none with the code.
+     *
+     * ⚠️ The branch is nonetheless KEPT, because "prevents nothing today" and "safe to
+     * remove" are different claims and only the first was true. Measured on browser em
+     * boxes, the `Target` label cleared the 11px tick band by 1.0px and the 12px band by
+     * −0.05 — v0.67.14's tick raise would have put it inside. It now sits in the marker
+     * lane with real clearance and remains an obstacle, so a tick cannot land under it.
+     */
+    it("suppresses a tick whose label would touch the Target label", () => {
+      const allTicks = [
+        { x: "2026-04-01", label: "Q2" },
+        { x: "2026-07-01", label: "Q3" },
+      ];
+      const target = { x: at("2026-07-02"), halfWidth: labelHalfWidth("Target", 11) };
+      const out = suppressOverlappingTicks(allTicks, { ...baseParams, obstacles: [target] });
+      expect(out.find((t) => t.label === "Q3")).toBeUndefined();
+      expect(out.find((t) => t.label === "Q2"), "a far-away tick is untouched").toBeDefined();
+    });
+
     it("keeps the same tick once the obstacle is genuinely clear of it", () => {
       // Pinning the KEPT side on the same fixture: a guard that only ever asserts
       // absence passes just as well when the mechanism suppresses everything.

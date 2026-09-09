@@ -153,8 +153,10 @@ export function PrintGanttChart({
   const todayInRange = todayLine.todayInRange;
   const todayX = todayLine.todayX;
 
-  // Finish Target X — included in tick suppression so a quarter/month tick
-  // landing on the same date doesn't visually merge with the target dashed line.
+  // Finish Target X — an obstacle for tick suppression. ⚠️ This comment used to say the
+  // branch stops a tick GRIDLINE merging with the target line; that is false (gridlines
+  // come from `allTicks`, which suppression never touches). It is kept for the LABEL
+  // clearance — see the long note in `use-gantt-layout.ts`.
   const targetX = (showTargetOnGantt && targetFinishDate && range > 0)
     ? toX(targetFinishDate)
     : null;

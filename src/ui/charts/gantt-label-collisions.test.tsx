@@ -329,7 +329,12 @@ function withClientWidth<T>(w: number, fn: () => T): T {
   }
 }
 
-function renderInteractive(width: number, fitToWindow: boolean, milestones = scenario.milestones) {
+function renderInteractive(
+  width: number,
+  fitToWindow: boolean,
+  milestones = scenario.milestones,
+  buffer: ScheduleBuffer | null = BUFFER,
+) {
   const ra = resolveGanttAppearance({ ...DEFAULT_GANTT_APPEARANCE, fitToWindow }, false);
   const ref = { current: null as HTMLDivElement | null };
   const { container } = withClientWidth(width, () =>
@@ -341,7 +346,7 @@ function renderInteractive(width: number, fitToWindow: boolean, milestones = sce
         scheduledActivities={schedule.activities}
         projectStartDate={scenario.startDate}
         projectEndDate={projectEndDate}
-        buffer={BUFFER}
+        buffer={buffer}
         dependencies={scenario.dependencies}
         dependencyMode={true}
         activityTarget={scenario.settings.probabilityTarget}
@@ -360,7 +365,7 @@ function renderInteractive(width: number, fitToWindow: boolean, milestones = sce
   return container.querySelector("svg[data-gantt-chart]") as SVGSVGElement;
 }
 
-function renderPrint(milestones = scenario.milestones) {
+function renderPrint(milestones = scenario.milestones, buffer: ScheduleBuffer | null = BUFFER) {
   const { container } = render(
     <PrintGanttChart
       activities={scenario.activities}
@@ -368,13 +373,13 @@ function renderPrint(milestones = scenario.milestones) {
       scheduledActivities={schedule.activities}
       projectStartDate={scenario.startDate}
       projectEndDate={projectEndDate}
-      buffer={BUFFER}
+      buffer={buffer}
       dependencies={scenario.dependencies}
       dependencyMode={true}
       activityTarget={scenario.settings.probabilityTarget}
       projectTarget={scenario.settings.projectProbabilityTarget}
       calendar={calendar}
-      bufferedEndDate={bufferedEndDate}
+      bufferedEndDate={buffer ? bufferedEndDate : null}
       formatDate={(iso: string) => formatDateDisplay(iso, "MM/DD/YYYY")}
       formatDateShort={(iso: string) => formatDateShort(iso, "MM/DD/YYYY")}
       milestones={milestones}
@@ -385,7 +390,15 @@ function renderPrint(milestones = scenario.milestones) {
   return container.querySelector("svg[data-gantt-chart]") as SVGSVGElement;
 }
 
-interface Condition { name: string; frozen: string; print: boolean; width: number; fit: boolean }
+interface Condition {
+  name: string;
+  frozen: string;
+  print: boolean;
+  width: number;
+  fit: boolean;
+  /** Render with no schedule buffer — the state before the first simulation run. */
+  noBuffer?: boolean;
+}
 
 /**
  * ⚠️ 1280 + fit-ON is the BEST case and 853 + fit-ON the worst — the superseded
@@ -409,12 +422,30 @@ const CONDITIONS: Condition[] = [
   // all, so print's own "Today"-over-date clearance (1.01px) went unmeasured. A
   // condition matrix that omits a state omits every defect that lives in it.
   { name: "print, today inside the span", frozen: FROZEN_INSIDE, print: true, width: 0, fit: false },
+  /**
+   * ⚠️ ADDED SECOND, and for the same reason as the one above: every condition until now
+   * passed a schedule buffer, so all seven were POST-simulation renders. A freshly
+   * loaded project has not been simulated, its finish label reads the unbuffered end
+   * date, and the chart is shorter. `Orch-4` asked whether that state was inside this
+   * matrix or outside it. It was outside, and the year check below has a real
+   * uncovered failure in it — see that describe block.
+   */
+  { name: "interactive 853 (container 769), fit ON, BEFORE the first simulation", frozen: FROZEN_BEFORE, print: false, width: 769, fit: true, noBuffer: true },
 ];
 
 function labelsFor(c: Condition) {
   vi.setSystemTime(new Date(c.frozen));
-  const svg = c.print ? renderPrint() : renderInteractive(c.width, c.fit);
+  const buffer = c.noBuffer ? null : BUFFER;
+  const svg = c.print
+    ? renderPrint(scenario.milestones, buffer)
+    : renderInteractive(c.width, c.fit, scenario.milestones, buffer);
   return headerLabels(svg);
+}
+
+/** The chart's rightmost date — the buffered finish, or the furthest milestone without one. */
+function chartEndFor(c: Condition): string {
+  const furthestMilestone = scenario.milestones.reduce((m, x) => (x.targetDate > m ? x.targetDate : m), projectEndDate);
+  return c.noBuffer ? furthestMilestone : (bufferedEndDate ?? projectEndDate);
 }
 
 // -- The guard ----------------------------------------------------------------
@@ -525,27 +556,25 @@ describe("gantt label collisions — the timeline names every year it spans", ()
    * `9b04938` and therefore could not fail after the work. `tickHasYear` is
    * `label.includes("'")`, and the first tick always carries the year, so `Oct '26`
    * satisfies it in every condition while BOTH real year boundaries are suppressed.
-   * The chart's START MARKER is not a year TRANSITION. That criterion reached this
-   * item's brief as the correction to a criterion struck for exactly the same fault.
+   * The chart's START MARKER is not a year TRANSITION.
    *
    * ⚠️ NOR "every 1 January keeps its own tick", which sounds stronger and is
-   * UNSATISFIABLE. Measured at 853 + fit-to-window: `Jan '28` sits at x 693.3 and the
-   * finish label `Feb 9, 2028` spans [691.4, 766.6] — the two overlap by 25.8px, so no
-   * arrangement of suppression can show both, and the only way to satisfy such a
-   * criterion is to drop the project's finish date. A criterion that can only be met
-   * by making the chart worse is mis-specified.
+   * UNSATISFIABLE HERE. Measured at 853 + fit-to-window: `Jan '28` sits at x 693.3 and
+   * the finish label `Feb 9, 2028` spans [691.4, 766.6] — 25.8px of overlap, so no
+   * SUPPRESSION can show both. ⚠️ That is narrower than "impossible": moving or
+   * reformatting the finish label was never tried and is open to a later item.
    *
-   * What a presenter actually needs is that the axis SAYS which year you are looking
-   * at, everywhere along it. The finish label carries a full year and sits on the tick
-   * baseline, so it counts. At `9b04938` the 853 + fit-ON chart read
-   * `Oct '26 · Dec · Feb · Jun · Sep` with a finish of `Feb 9, 2028`: 2026 and 2028
-   * named, and **2027 — the year most of the project happens in — named nowhere.**
+   * What a presenter needs is that the axis SAYS which year you are looking at. The
+   * finish label carries a full year and sits on the tick baseline, so it counts. At
+   * `9b04938` the 853 + fit-ON chart read `Oct '26 · Dec · Feb · Jun · Sep` with a
+   * finish of `Feb 9, 2028`: 2026 and 2028 named, and **2027 — the year most of the
+   * project happens in — named nowhere.**
    */
-  for (const c of CONDITIONS) {
+  for (const c of CONDITIONS.filter((x) => !x.noBuffer)) {
     it(c.name, () => {
       const { labels } = labelsFor(c);
       const axis = labels.filter((l) => l.kind === "tick" || l.kind === "finish").map((l) => l.text);
-      const wanted = yearsSpanned(scenario.startDate, bufferedEndDate ?? projectEndDate);
+      const wanted = yearsSpanned(scenario.startDate, chartEndFor(c));
       expect(wanted.length, "fixture premise: the span must cross at least one new year").toBeGreaterThan(1);
       const missing = wanted.filter(
         (year) => !axis.some((t) => t.endsWith(year) || t.endsWith(`'${year.slice(2)}`)),
@@ -553,4 +582,42 @@ describe("gantt label collisions — the timeline names every year it spans", ()
       expect(missing, `years named nowhere on the axis; it read [${axis.join(", ")}]`).toEqual([]);
     });
   }
+
+  /**
+   * ⚠️ A KNOWN, UNFIXED FAILURE OF THE CRITERION ABOVE, PINNED RATHER THAN OMITTED.
+   *
+   * `Orch-4` asked whether the pre-simulation state was inside this file's condition
+   * set or outside it, because the two could not both be true: a criterion reporting
+   * "every year named, everywhere" beside a residual saying 2028 is named nowhere. It
+   * was OUTSIDE — every other condition here passes a schedule buffer, so all of them
+   * were POST-simulation renders. It is inside now, and it fails.
+   *
+   * ⚠️ SO THE CRITERION ABOVE IS SCOPED, NOT UNIVERSAL: it holds once a simulation has
+   * run. Before the first run the finish label reads the UNBUFFERED end date
+   * (`Nov 16, 2027`), so it no longer carries 2028 — and the chart still reaches
+   * 2028-01-21 because the Go-Live milestone extends it.
+   *
+   * WHY IT IS NOT FIXED HERE. `Jan '28` lands 19px from the right edge of the chart
+   * area, and the label is 48px wide: it cannot be drawn there by any placement rule,
+   * and it overlaps the finish label besides. The 19px of 2028 that the axis leaves
+   * unlabelled carries the Go-Live milestone's own date label, `01/21/2028`, so a
+   * reader is not actually lost — but that is a MILESTONE label, not an axis one, and
+   * the criterion above deliberately does not count it.
+   *
+   * This test pins the limit in BOTH directions. If a later change makes 2028 appear,
+   * this fails and should be deleted with the criterion above widened to cover the
+   * pre-simulation case. If a later change loses 2026 or 2027 as well, it also fails.
+   */
+  it("KNOWN LIMIT — before the first simulation, 853 + fit ON leaves 2028 unnamed", () => {
+    const c = CONDITIONS.find((x) => x.noBuffer)!;
+    const { labels } = labelsFor(c);
+    const axis = labels.filter((l) => l.kind === "tick" || l.kind === "finish").map((l) => l.text);
+    const named = yearsSpanned(scenario.startDate, chartEndFor(c)).filter(
+      (year) => axis.some((t) => t.endsWith(year) || t.endsWith(`'${year.slice(2)}`)),
+    );
+    expect(named, `axis read [${axis.join(", ")}]`).toEqual(["2026", "2027"]);
+    // The reader is not lost: the year is on the Go-Live milestone's date label, which
+    // is deliberately NOT counted as an axis label above.
+    expect(labels.filter((l) => l.kind === "ms-date").map((l) => l.text)).toContain("01/21/2028");
+  });
 });
