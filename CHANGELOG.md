@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.67.14 — 2026-09-09
+
+### Milestone labels no longer sit on top of the timeline, or on each other
+
+The Gantt chart's header packs a lot into a small space: the milestone names and dates, the timeline months, the finish date, and the Today and Target markers. Several of them were sharing the same band of pixels, so they overlapped.
+
+The milestone date labels sat in the same row as the timeline months and the finish date. The finish date overlapped a milestone date by about 50 pixels in **every** width and zoom level tried — it was the most reliable collision in the chart, and it is gone. Milestone names, dates and the timeline now sit in three separate rows with clear space between them, which is how the printed version has always been laid out.
+
+When milestone names are too close together to fit side by side, they now alternate between two rows instead of printing over one another. At the zoom level a projector uses, all four milestones in the sample project were overlapping in one continuous run; they are now legible. Nothing is shortened or hidden — the names are all still there in full.
+
+The chart no longer loses track of the year. Timeline labels that carry a year — **Jan '27**, **Q1 '27** — are now placed before the plain month labels rather than after them, so a busy timeline drops a month instead of dropping a year. A chart running from September 2026 to January 2028 was showing no year change anywhere at the narrower width.
+
+Which labels get dropped is now worked out from how wide each one actually is. The old rule used one fixed distance for every label, so a long date needed more room than the rule allowed and a short month was hidden when it did not need to be. Timeline labels are also a point larger, which the previous rule could not have accommodated.
+
+The printed report is unchanged in what it shows, and now has real clearance between its header rows where before they were exactly touching.
+
 ## 0.67.13 — 2026-09-08
 
 ### Small text is bigger, faint text is darker, and chart labels follow the theme

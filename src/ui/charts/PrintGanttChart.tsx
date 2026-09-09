@@ -18,13 +18,17 @@ import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { formatDateISO } from "@core/calendar/calendar";
 import {
   PRINT_RIGHT, PRINT_TOP,
-  PRINT_BAR_RADIUS, PRINT_ARROW_SIZE, PRINT_MIN_TICK_PX, TODAY_PROXIMITY_PX,
+  PRINT_BAR_RADIUS, PRINT_ARROW_SIZE, PRINT_MIN_TICK_PX,
   PRINT_PROJECT_NAME_H, PRINT_MILESTONE_EXTRA_TOP,
+  PRINT_MILESTONE_NAME_DY, PRINT_MILESTONE_DATE_DY, PRINT_TARGET_LABEL_DY,
+  PRINT_MILESTONE_ROW_STEP, PRINT_LABEL_GAP_PX, PRINT_DIAMOND_SIZE,
+  PRINT_TODAY_LABEL_DY, PRINT_TODAY_DATE_DY,
+  TODAY_LABEL_TEXT, TARGET_LABEL_TEXT, DATE_LABEL_SPECIMEN,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine, barLabelText as computeBarLabelText } from "./gantt-utils";
-import type { TickLevel } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText } from "./gantt-utils";
+import type { TickLevel, TickObstacle } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 
@@ -118,15 +122,16 @@ export function PrintGanttChart({
     endDate = targetFinishDate;
   }
 
-  // Dynamic top margin
-  const topMargin = PRINT_TOP
-    + (projectName ? PRINT_PROJECT_NAME_H : 0)
-    + (milestones.length > 0 ? PRINT_MILESTONE_EXTRA_TOP : 0);
-
   const totalRows = renderItems.length + (showBuffer ? 1 : 0);
   const chartW = 700;
-  const chartH = topMargin + totalRows * ra.printRowHeight + 8;
   const areaW = chartW - ra.printLeftMargin - PRINT_RIGHT;
+
+  // Scaled font sizes. ⚠️ Hoisted above the tick suppression in v0.67.14 — the obstacle
+  // half-widths are derived from the sizes the header actually draws at, so they cannot
+  // be computed after the suppression that consumes them.
+  const fs7 = Math.round(7 * fontScale);
+  const fs5 = Math.round(5 * fontScale);
+  const fs4 = Math.round(4 * fontScale);
 
   const minTs = new Date(projectStartDate + "T00:00:00").getTime();
   const maxTs = new Date(endDate + "T00:00:00").getTime();
@@ -154,11 +159,38 @@ export function PrintGanttChart({
     ? toX(targetFinishDate)
     : null;
 
-  // Milestone X positions for tick suppression
+  // Milestone X positions — diamond centres, and each label block's centre.
   const milestoneXPositions = useMemo(
     () => milestones.map((m) => toX(m.targetDate)),
     [milestones, toX],
   );
+
+  // Header row per milestone. ⚠️ PRINT PARITY: same helper, same rule as the interactive
+  // chart, at print's font sizes — a stagger that happened on screen and not on paper
+  // would be exactly the divergence the parity oracle exists to catch.
+  const milestoneRows = useMemo(
+    () =>
+      assignMilestoneRows(
+        milestones.map((m, i) => ({
+          x: milestoneXPositions[i] ?? 0,
+          halfWidth: Math.max(
+            labelHalfWidth(nameOrUnnamed(m.name), fs5),
+            labelHalfWidth(DATE_LABEL_SPECIMEN, fs4),
+          ),
+        })),
+        PRINT_LABEL_GAP_PX,
+      ),
+    [milestones, milestoneXPositions, fs5, fs4],
+  );
+  const milestoneRowCount = milestoneRows.length > 0 ? Math.max(...milestoneRows) + 1 : 0;
+
+  // Dynamic top margin — grows by one row-step only when the milestone names stagger.
+  const topMargin = PRINT_TOP
+    + (projectName ? PRINT_PROJECT_NAME_H : 0)
+    + (milestones.length > 0
+      ? PRINT_MILESTONE_EXTRA_TOP + (milestoneRowCount - 1) * PRINT_MILESTONE_ROW_STEP
+      : 0);
+  const chartH = topMargin + totalRows * ra.printRowHeight + 8;
 
   // Compute tick level — direct mapping for ranges >540 days
   const printRangeDays = range / (1000 * 60 * 60 * 24);
@@ -184,22 +216,51 @@ export function PrintGanttChart({
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     [projectStartDate, endDate, tickLevel],
   );
+  /**
+   * Print's obstacle set, built from the sizes this chart actually draws at.
+   *
+   * ⚠️ `minSpacingPx` KEEPS the density preference here, and that is a deliberate
+   * decline rather than an oversight. `feedback_collision_suppression_architecture`
+   * says to decouple suppression thresholds from density selection, and the COLLISION
+   * half now is decoupled — overlap is decided by each label's own extent. What
+   * `printDensityPx` still governs is how sparse the printed timeline LOOKS, which is
+   * the thing the user chose it for; replacing it with extents alone would roughly
+   * triple the number of printed tick labels, on the one chart that was already
+   * collision-free in every measured condition.
+   */
+  const obstacles = useMemo<TickObstacle[]>(() => {
+    const out: TickObstacle[] = [
+      { x: finishX, halfWidth: labelHalfWidth(longDateLabel(finishDate), fs5) },
+    ];
+    if (todayX !== null) {
+      out.push({
+        x: todayX,
+        halfWidth: Math.max(
+          labelHalfWidth(TODAY_LABEL_TEXT, fs5),
+          labelHalfWidth(DATE_LABEL_SPECIMEN, fs4),
+        ),
+      });
+    }
+    if (targetX != null) {
+      out.push({ x: targetX, halfWidth: labelHalfWidth(TARGET_LABEL_TEXT, fs5) });
+    }
+    for (const mx of milestoneXPositions) out.push({ x: mx, halfWidth: PRINT_DIAMOND_SIZE });
+    return out;
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the imported label-width helpers are not provably pure; same trade as the allTicks memo above
+  }, [finishX, finishDate, todayX, targetX, milestoneXPositions, fs5, fs4]);
+
   const ticks = useMemo(() =>
     suppressOverlappingTicks(allTicks, {
       minTimestamp: minTs,
       dateRange: range,
       chartAreaWidth: areaW,
       leftMargin: ra.printLeftMargin,
-      finishX,
-      milestoneXPositions,
-      todayX,
-      targetX,
-      todayProximityPx: Math.round(TODAY_PROXIMITY_PX * 0.56), // was PRINT_TODAY_PROXIMITY_PX inline
-      elementProximityPx: 25,                                   // was PRINT_ELEMENT_PROXIMITY_PX inline
+      obstacles,
+      tickFontPx: fs5,
+      labelGapPx: PRINT_LABEL_GAP_PX,
       minSpacingPx: printDensityPx,
     }),
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- printDensityPx instability acceptable in print-only context
-    [allTicks, minTs, range, areaW, ra.printLeftMargin, finishX, milestoneXPositions, todayX, targetX, printDensityPx]
+    [allTicks, minTs, range, areaW, ra.printLeftMargin, obstacles, fs5, printDensityPx]
   );
 
   const hasCriticalPath = dependencyMode && criticalPathIds && criticalPathIds.size > 0;
@@ -254,11 +315,6 @@ export function PrintGanttChart({
       computeBarLabelText(sa, ra.barLabel, formatDateShort),
     [ra.barLabel, formatDateShort],
   );
-
-  // Scaled font sizes
-  const fs7 = Math.round(7 * fontScale);
-  const fs5 = Math.round(5 * fontScale);
-  const fs4 = Math.round(4 * fontScale);
 
   return (
     <section className="mb-3 print-section-keep">
@@ -384,11 +440,11 @@ export function PrintGanttChart({
           <g>
             <line x1={todayX} y1={topMargin} x2={todayX} y2={chartH - 4}
               stroke={c.todayLine} strokeWidth="0.75" strokeDasharray="3 1.5" />
-            <text x={todayX} y={topMargin - 9} textAnchor="middle"
+            <text x={todayX} y={topMargin - PRINT_TODAY_LABEL_DY} textAnchor="middle"
               fontSize={fs5} fontWeight="500" fill={c.todayText}>
-              Today
+              {TODAY_LABEL_TEXT}
             </text>
-            <text x={todayX} y={topMargin - 3} textAnchor="middle"
+            <text x={todayX} y={topMargin - PRINT_TODAY_DATE_DY} textAnchor="middle"
               fontSize={fs4} fill={c.todayText}>
               {formatDate(todayStr)}
             </text>
@@ -405,9 +461,9 @@ export function PrintGanttChart({
             <g>
               <line x1={targetX} y1={topMargin} x2={targetX} y2={chartH - 4}
                 stroke={color} strokeWidth="0.75" strokeDasharray={dash} />
-              <text x={targetX} y={topMargin - 11} textAnchor="middle"
+              <text x={targetX} y={topMargin - PRINT_TARGET_LABEL_DY} textAnchor="middle"
                 fontSize={fs5} fontWeight="500" fill={color}>
-                Target
+                {TARGET_LABEL_TEXT}
               </text>
             </g>
           );
@@ -601,11 +657,12 @@ export function PrintGanttChart({
         )}
 
         {/* Milestone markers */}
-        {milestones.map((ms) => {
+        {milestones.map((ms, msIndex) => {
           const info = milestoneBuffers?.get(ms.id);
           const x = toX(ms.targetDate);
           const healthColor = info ? mc[info.health] : mc.line;
-          const ds = 4;
+          const ds = PRINT_DIAMOND_SIZE;
+          const rowLift = (milestoneRows[msIndex] ?? 0) * PRINT_MILESTONE_ROW_STEP;
           return (
             <g key={`ms-${ms.id}`}>
               <line x1={x} y1={topMargin - 2} x2={x} y2={topMargin + totalRows * ra.printRowHeight}
@@ -614,11 +671,11 @@ export function PrintGanttChart({
                 points={`${x},${topMargin - 2 - ds} ${x + ds},${topMargin - 2} ${x},${topMargin - 2 + ds} ${x - ds},${topMargin - 2}`}
                 fill={healthColor}
               />
-              <text x={x} y={topMargin - 2 - ds - 10} textAnchor="middle"
+              <text x={x} y={topMargin - PRINT_MILESTONE_NAME_DY - rowLift} textAnchor="middle"
                 fontSize={fs5} fill={healthColor} fontWeight="600">
                 {nameOrUnnamed(ms.name)}
               </text>
-              <text x={x} y={topMargin - 2 - ds - 4} textAnchor="middle"
+              <text x={x} y={topMargin - PRINT_MILESTONE_DATE_DY} textAnchor="middle"
                 fontSize={fs4} fill={healthColor}>
                 {formatDate(ms.targetDate)}
               </text>

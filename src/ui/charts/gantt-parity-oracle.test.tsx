@@ -78,6 +78,7 @@ import type {
 
 const ORACLE_PATH = join(process.cwd(), "src/ui/charts/gantt-parity-oracle.json");
 const LONG_ORACLE_PATH = join(process.cwd(), "src/ui/charts/gantt-parity-oracle-longspan.json");
+const CROWDED_ORACLE_PATH = join(process.cwd(), "src/ui/charts/gantt-parity-oracle-crowded.json");
 
 /** Frozen render date. Inside the fixture's span, so the today-line is exercised. */
 const FROZEN_NOW = "2026-04-15T09:00:00";
@@ -243,6 +244,37 @@ const LONG_SHARED = {
   projectName: "Long Span",
 };
 
+// -- Crowded-milestone fixture ------------------------------------------------
+//
+// ⚠️ A THIRD FIXTURE, NOT A SECOND MILESTONE IN THE FIRST ONE. The 25-day fixture above
+// has exactly ONE milestone, so `ms-name × ms-name` — the dominant collision kind this
+// chart has, up to 101px — is UNREPRESENTABLE in it, and the long-span fixture has no
+// milestone at all. WI-11 added a two-row stagger for crowded milestone names, and
+// neither committed baseline could see it.
+//
+// Adding milestones to the fixture above would have been the obvious move and the wrong
+// one: the stagger changes `topMargin`, so every y in that baseline would have moved and
+// the whole file would have been rewritten — destroying a pin to add one. That is the
+// same reasoning the long-span fixture records, applied to a different axis, and it is
+// why this is a third case rather than a bigger first one.
+//
+// Deliberately minimal: the fixture above with its milestones replaced. Everything else
+// it exercises is already pinned there; the only reason this exists is milestone
+// crowding, and a small committed JSON stays REVIEWABLE.
+
+// ⚠️ THREE AND FOUR DAYS APART, NOT SEVEN, and the first draft's seven is the finding.
+// At seven days the INTERACTIVE chart staggered and PRINT DID NOT — correctly: print
+// typesets these names at 5px against 12px, so the same dates crowd one chart and not
+// the other. A fixture that only crowds the wider chart pins the stagger on one side
+// and silently pins its ABSENCE on the other.
+const CROWDED_MILESTONES: Milestone[] = [
+  { id: "cm1", name: "Requirements Baseline Approved", targetDate: "2026-04-13" },
+  { id: "cm2", name: "Integration Test Complete", targetDate: "2026-04-16" },
+  { id: "cm3", name: "Go Live", targetDate: "2026-04-20" },
+];
+
+const CROWDED_SHARED = { ...SHARED, milestones: CROWDED_MILESTONES };
+
 // -- Serialisation ------------------------------------------------------------
 
 /**
@@ -332,6 +364,29 @@ function renderLongInteractive() {
       appearancePanelOpen={false}
       onToggleAppearancePanel={() => {}}
       onEditActivity={() => {}}
+    />,
+  );
+}
+
+function renderCrowdedInteractive() {
+  return render(
+    <GanttChart
+      {...CROWDED_SHARED}
+      resolvedAppearance={APPEARANCE}
+      appearancePanelOpen={false}
+      onToggleAppearancePanel={() => {}}
+      onEditActivity={() => {}}
+    />,
+  );
+}
+
+function renderCrowdedPrint() {
+  return render(
+    <PrintGanttChart
+      {...CROWDED_SHARED}
+      bufferedEndDate={PRINT_BUFFERED_END}
+      formatDate={(iso: string) => iso}
+      formatDateShort={(iso: string) => iso}
     />,
   );
 }
@@ -462,6 +517,20 @@ describe("gantt parity oracle — long-span geometry (tick suppression)", () => 
         2,
       ) + "\n",
     );
+    writeFileSync(
+      CROWDED_ORACLE_PATH,
+      JSON.stringify(
+        {
+          frozenNow: FROZEN_NOW,
+          charts: {
+            interactive: serializeGeometry(renderCrowdedInteractive().container),
+            print: serializeGeometry(renderCrowdedPrint().container),
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    );
     vi.useRealTimers();
   }
 
@@ -490,6 +559,66 @@ describe("gantt parity oracle — long-span geometry (tick suppression)", () => 
       .map((t) => t.textContent ?? "")
       .filter((t) => /\d{4}$|^[A-Z][a-z]{2}/.test(t));
     expect(ticks.length).toBeGreaterThan(4);
+  });
+});
+
+describe("gantt parity oracle — crowded milestones (name stagger)", () => {
+  it("the committed crowded oracle exists and pins both charts", () => {
+    expect(existsSync(CROWDED_ORACLE_PATH)).toBe(true);
+    const crowded = JSON.parse(readFileSync(CROWDED_ORACLE_PATH, "utf-8")) as OracleFile;
+    expect(Object.keys(crowded.charts).sort()).toEqual(["interactive", "print"]);
+    expect(crowded.frozenNow).toBe(FROZEN_NOW);
+  });
+
+  it("the crowded INTERACTIVE chart matches its committed geometry", () => {
+    const crowded = JSON.parse(readFileSync(CROWDED_ORACLE_PATH, "utf-8")) as OracleFile;
+    expect(serializeGeometry(renderCrowdedInteractive().container)).toEqual(crowded.charts.interactive);
+  });
+
+  it("the crowded PRINT chart matches its committed geometry", () => {
+    const crowded = JSON.parse(readFileSync(CROWDED_ORACLE_PATH, "utf-8")) as OracleFile;
+    expect(serializeGeometry(renderCrowdedPrint().container)).toEqual(crowded.charts.print);
+  });
+
+  it("the milestones actually crowd — otherwise this fixture pins nothing new", () => {
+    // Premise, asserted rather than assumed, exactly as the long-span fixture does it.
+    // If these names stopped overlapping, the stagger would never fire and these
+    // baselines would pin the same single-row layout the fixture above already pins.
+    for (const render of [renderCrowdedInteractive, renderCrowdedPrint]) {
+      const nameYs = Array.from(render().container.querySelectorAll("text"))
+        .filter((t) => CROWDED_MILESTONES.some((m) => m.name === t.textContent))
+        .map((t) => Number(t.getAttribute("y")));
+      expect(nameYs, "not all three milestone names rendered").toHaveLength(3);
+      expect(new Set(nameYs).size, "every name on one row — the stagger never fired").toBeGreaterThan(1);
+    }
+  });
+
+  it("BOTH charts stagger, and neither drops a name — print parity on the new mechanism", () => {
+    // ⚠️ The whole point of this fixture: a mechanism that fires on screen and not on
+    // paper leaves each chart matching its OWN baseline while the two diverge.
+    //
+    // ⚠️ IDENTICAL ROW INDICES ARE NOT THE CONTRACT, and asserting them was this test's
+    // first draft. The two charts legitimately crowd at different densities — measured,
+    // milestones seven days apart stagger the interactive chart and not the print one,
+    // because 12px names need 192px of clearance where 5px names need 80. What must
+    // hold is that the RULE is the same and reaches both, which is what a shared
+    // `assignMilestoneRows` gives; the exact geometry is byte-pinned above.
+    const rowsOf = (container: HTMLElement) => {
+      const ys = new Map<string, number>();
+      for (const t of Array.from(container.querySelectorAll("text"))) {
+        const name = t.textContent ?? "";
+        if (CROWDED_MILESTONES.some((m) => m.name === name)) ys.set(name, Number(t.getAttribute("y")));
+      }
+      const distinct = [...new Set(ys.values())].sort((a, b) => a - b);
+      return CROWDED_MILESTONES.map((m) => distinct.indexOf(ys.get(m.name)!));
+    };
+    const interactive = rowsOf(renderCrowdedInteractive().container);
+    const print = rowsOf(renderCrowdedPrint().container);
+    for (const [what, rows] of [["interactive", interactive], ["print", print]] as const) {
+      expect(rows, `${what} dropped a milestone name`).toHaveLength(3);
+      expect(Math.max(...rows), `${what} never staggered`).toBe(1);
+      expect(Math.min(...rows), `${what} left row 0 empty`).toBe(0);
+    }
   });
 });
 

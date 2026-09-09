@@ -31,10 +31,15 @@ import {
   BAR_RADIUS, MIN_BAR_HIT_WIDTH,
   ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT, RIGHT_MARGIN,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
+  TICK_LABEL_FONT_PX, FINISH_LABEL_FONT_PX, TODAY_LABEL_FONT_PX, TODAY_DATE_FONT_PX,
+  TARGET_LABEL_FONT_PX, MILESTONE_NAME_FONT_PX, MILESTONE_DATE_FONT_PX,
+  MILESTONE_NAME_DY, MILESTONE_DATE_DY, TARGET_LABEL_DY, TODAY_LABEL_DY, TODAY_DATE_DY,
+  MILESTONE_ROW_STEP, MILESTONE_DIAMOND_SIZE,
+  TODAY_LABEL_TEXT, TARGET_LABEL_TEXT,
 } from "./gantt-constants";
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
-  computeBarHitRect, buildActivityTooltip,
+  computeBarHitRect, buildActivityTooltip, tickHasYear,
   barLabelText as computeBarLabelText,
 } from "./gantt-utils";
 import { GanttActivityRow } from "./GanttActivityRow";
@@ -500,7 +505,7 @@ export function GanttChart({
     chartWidth, chartHeight, chartAreaWidth, topMargin,
     minTimestamp, dateRange, finishX, finishDate,
     todayX, todayStr, allTicks, ticks, rowIndex, barYOffset,
-    renderItems,
+    renderItems, milestoneRows,
   } = layout;
 
   // In non-dependency mode, synthesize FS-0 dependencies between adjacent activities
@@ -738,11 +743,11 @@ export function GanttChart({
           {/* Tick labels (only where spacing permits) */}
           {ticks.map((tick, i) => {
             const x = dateToX(tick.x, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
-            const hasYear = tick.label.includes("'") || /^\d{4}$/.test(tick.label);
+            const hasYear = tickHasYear(tick.label);
             return (
               <text key={`label-${i}`}
                 x={x} y={topMargin - 8}
-                textAnchor="middle" fontSize="11" fill={c.textMuted}
+                textAnchor="middle" fontSize={TICK_LABEL_FONT_PX} fill={c.textMuted}
                 fontWeight={hasYear ? "bold" : undefined}
               >
                 {tick.label}
@@ -766,7 +771,7 @@ export function GanttChart({
                 x={finishX}
                 y={topMargin - 8}
                 textAnchor="middle"
-                fontSize="12"
+                fontSize={FINISH_LABEL_FONT_PX}
                 fontWeight="600"
                 fill={c.finishText}
               >
@@ -789,19 +794,19 @@ export function GanttChart({
               />
               <text
                 x={todayX}
-                y={topMargin - 18}
+                y={topMargin - TODAY_LABEL_DY}
                 textAnchor="middle"
-                fontSize="11"
+                fontSize={TODAY_LABEL_FONT_PX}
                 fontWeight="500"
                 fill={c.todayText}
               >
-                Today
+                {TODAY_LABEL_TEXT}
               </text>
               <text
                 x={todayX}
-                y={topMargin - 6}
+                y={topMargin - TODAY_DATE_DY}
                 textAnchor="middle"
-                fontSize="10"
+                fontSize={TODAY_DATE_FONT_PX}
                 fill={c.todayText}
               >
                 {formatDate(todayStr)}
@@ -844,27 +849,29 @@ export function GanttChart({
                 />
                 <text
                   x={targetX}
-                  y={topMargin - 22}
+                  y={topMargin - TARGET_LABEL_DY}
                   textAnchor="middle"
-                  fontSize="11"
+                  fontSize={TARGET_LABEL_FONT_PX}
                   fontWeight="500"
                   fill={color}
                 >
-                  Target
+                  {TARGET_LABEL_TEXT}
                 </text>
               </g>
             );
           })()}
 
           {/* Milestone vertical lines and diamonds */}
-          {milestones.map((m) => {
+          {milestones.map((m, msIndex) => {
             if (dateRange === 0) return null;
             const mx = dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
             const bufferInfo = milestoneBuffers?.get(m.id);
             const healthColor = bufferInfo
               ? mc[bufferInfo.health]
               : mc.line;
-            const diamondSize = 6;
+            const diamondSize = MILESTONE_DIAMOND_SIZE;
+            // Row 0 sits nearest the timeline; a crowded neighbour is lifted one step.
+            const rowLift = (milestoneRows[msIndex] ?? 0) * MILESTONE_ROW_STEP;
 
             return (
               <g key={`ms-${m.id}`}>
@@ -884,24 +891,24 @@ export function GanttChart({
                   points={`${mx},${topMargin - 2 - diamondSize} ${mx + diamondSize},${topMargin - 2} ${mx},${topMargin - 2 + diamondSize} ${mx - diamondSize},${topMargin - 2}`}
                   fill={healthColor}
                 />
-                {/* Milestone name above diamond */}
+                {/* Milestone name, in the top header lane */}
                 <text
                   x={mx}
-                  y={topMargin - 2 - diamondSize - 15}
+                  y={topMargin - MILESTONE_NAME_DY - rowLift}
                   textAnchor="middle"
-                  fontSize="12"
+                  fontSize={MILESTONE_NAME_FONT_PX}
                   fill={healthColor}
                   fontWeight="600"
                   className="pointer-events-none"
                 >
                   {nameOrUnnamed(m.name)}
                 </text>
-                {/* Target date below name */}
+                {/* Target date, in the marker lane below the name */}
                 <text
                   x={mx}
-                  y={topMargin - 2 - diamondSize - 3}
+                  y={topMargin - MILESTONE_DATE_DY}
                   textAnchor="middle"
-                  fontSize="10"
+                  fontSize={MILESTONE_DATE_FONT_PX}
                   fill={healthColor}
                   className="pointer-events-none"
                 >

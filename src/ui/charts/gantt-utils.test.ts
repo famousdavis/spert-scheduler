@@ -17,6 +17,9 @@ import {
   computeActivityRowGeometry,
   computeWeekendShadingRects,
   suppressOverlappingTicks,
+  labelHalfWidth,
+  tickHasYear,
+  assignMilestoneRows,
   computeTodayLine,
   barLabelText,
   computeBarHitRect,
@@ -24,7 +27,7 @@ import {
 } from "./gantt-utils";
 import {
   LEFT_MARGIN, ROW_HEIGHT, BAR_HEIGHT, BAR_Y_OFFSET, MIN_BAR_HIT_WIDTH,
-  PRINT_LEFT, PRINT_ROW, PRINT_BAR_H,
+  PRINT_LEFT, PRINT_ROW, PRINT_BAR_H, DATE_LABEL_SPECIMEN,
   resolveGanttAppearance, GANTT_COLOR_PRESETS,
 } from "./gantt-constants";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
@@ -723,15 +726,116 @@ describe("computeWeekendShadingRects", () => {
   });
 });
 
-// -- suppressOverlappingTicks: targetX --------------------------------------
-//
-// Regression coverage for the "Always show Finish Target on Gantt when toggle
-// is ON" fix (v0.45.1). With that change, the target line can land at the
-// rightmost edge of the timeline — exactly where the last quarter/month tick
-// naturally sits. Without targetX participating in tick suppression, the
-// tick gridline and the dashed target line visually merge.
+// -- suppressOverlappingTicks ------------------------------------------------
 
-describe("suppressOverlappingTicks — targetX proximity", () => {
+describe("labelHalfWidth", () => {
+  /**
+   * ⚠️ Anchored to browser `getBBox` widths measured in Chromium at `9b04938`. The
+   * model must bound each measured class from ABOVE: a label modelled too narrow
+   * survives a proximity test it should have failed and then overlaps on screen, which
+   * is the exact failure this whole mechanism replaced.
+   */
+  const MEASURED: [string, number, number][] = [
+    ["Jun", 11, 18.95],
+    ["May", 11, 21.64],   // the widest string per character in the header, at 0.656 em
+    ["Jan '27", 11, 40.76],
+    ["Oct '26", 11, 41.41],
+    ["01/21/2028", 10, 51.63],
+    ["Go-Live", 12, 46.14],
+    ["Configuration & Build Complete", 12, 186.11],
+    ["Nov 16, 2027", 12, 77.09],
+  ];
+
+  it.each(MEASURED)("bounds %s at %ipx from above, within 20%%", (text, fontPx, measured) => {
+    const modelled = labelHalfWidth(text, fontPx) * 2;
+    expect(modelled).toBeGreaterThanOrEqual(measured);
+    expect(modelled).toBeLessThanOrEqual(measured * 1.2);
+  });
+
+  it("uses the WIDER factor for short month abbreviations", () => {
+    // Two classes, not one. `May` runs 0.656 em/char and `01/21/2028` runs 0.516; a
+    // single factor that covers both either over-suppresses dates or lets months touch.
+    expect(labelHalfWidth("May", 12) / 3).toBeGreaterThan(labelHalfWidth("05/05/2027", 12) / 10);
+  });
+
+  it("scales linearly with font size and text length", () => {
+    expect(labelHalfWidth("Jan '27", 22)).toBeCloseTo(labelHalfWidth("Jan '27", 11) * 2, 6);
+    expect(labelHalfWidth("", 12)).toBe(0);
+  });
+});
+
+describe("DATE_LABEL_SPECIMEN", () => {
+  it("is as long as every real date label, so date obstacles are never modelled narrow", () => {
+    // The layout hook sizes the today and milestone date obstacles from this specimen
+    // rather than threading the user's formatter down. That is only sound while every
+    // supported format is the same length — a fourth, longer format would silently make
+    // every date obstacle too narrow, and nothing else in the suite would notice.
+    for (const format of ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY/MM/DD"] as const) {
+      expect(formatDateDisplay("2026-04-06", format)).toHaveLength(DATE_LABEL_SPECIMEN.length);
+    }
+  });
+});
+
+describe("tickHasYear", () => {
+  it("recognises every label form that announces a year", () => {
+    expect(tickHasYear("Jan '27")).toBe(true);
+    expect(tickHasYear("Q1 '27")).toBe(true);
+    expect(tickHasYear("H2 '26")).toBe(true);
+    expect(tickHasYear("2027")).toBe(true);
+  });
+
+  it("rejects plain period labels", () => {
+    expect(tickHasYear("Jan")).toBe(false);
+    expect(tickHasYear("Q1")).toBe(false);
+    expect(tickHasYear("Apr 6")).toBe(false);
+  });
+});
+
+describe("assignMilestoneRows", () => {
+  it("leaves everything on row 0 when nothing overlaps — no chart pays for an unused row", () => {
+    expect(assignMilestoneRows([{ x: 0, halfWidth: 10 }, { x: 100, halfWidth: 10 }], 4)).toEqual([0, 0]);
+  });
+
+  it("lifts a crowded neighbour onto row 1", () => {
+    expect(assignMilestoneRows([{ x: 0, halfWidth: 30 }, { x: 40, halfWidth: 30 }], 4)).toEqual([0, 1]);
+  });
+
+  it("alternates a chain of four, which is the sample project's worst measured case", () => {
+    // Measured at 853px: Design(443) Config(542) UAT(653) Go-Live(712), names 82.1 /
+    // 102.6 / 78.7 / 24.0 half-wide — one continuous overlapping chain of four.
+    const rows = assignMilestoneRows(
+      [
+        { x: 443, halfWidth: 82.1 },
+        { x: 542, halfWidth: 102.6 },
+        { x: 653, halfWidth: 78.7 },
+        { x: 712, halfWidth: 24.0 },
+      ],
+      4,
+    );
+    expect(rows).toEqual([0, 1, 0, 1]);
+  });
+
+  it("assigns by x order, not array order", () => {
+    // Milestones are not required to be sorted by date, and a row assignment that walks
+    // the array would leave a left-hand label measuring against a right-hand one.
+    expect(assignMilestoneRows([{ x: 40, halfWidth: 30 }, { x: 0, halfWidth: 30 }], 4)).toEqual([1, 0]);
+  });
+
+  it("never exceeds two rows, and packs the least-bad row when both are full", () => {
+    const rows = assignMilestoneRows(
+      [{ x: 0, halfWidth: 50 }, { x: 10, halfWidth: 50 }, { x: 20, halfWidth: 50 }],
+      4,
+    );
+    expect(rows).toHaveLength(3);
+    expect(Math.max(...rows)).toBeLessThanOrEqual(1);
+  });
+
+  it("returns an empty assignment for no milestones", () => {
+    expect(assignMilestoneRows([], 4)).toEqual([]);
+  });
+});
+
+describe("suppressOverlappingTicks", () => {
   // 365-day range, 1 px per day, leftMargin 0 → easy x = day-of-year arithmetic.
   const minTimestamp = new Date("2026-01-01T00:00:00").getTime();
   const maxTimestamp = new Date("2026-12-31T00:00:00").getTime();
@@ -744,71 +848,172 @@ describe("suppressOverlappingTicks — targetX proximity", () => {
     dateRange,
     chartAreaWidth,
     leftMargin,
-    finishX: -9999,           // out of range so it can't interfere
-    milestoneXPositions: [],
-    todayX: null,
-    todayProximityPx: 20,
-    elementProximityPx: 40,
+    obstacles: [] as { x: number; halfWidth: number }[],
+    tickFontPx: 12,
+    labelGapPx: 4,
     minSpacingPx: 40,
   };
+  const at = (iso: string) => dateToX(iso, minTimestamp, dateRange, chartAreaWidth, leftMargin);
 
-  it("suppresses a tick whose x falls within elementProximityPx of targetX", () => {
-    // Two ticks: 2026-04-01 (Q2, ~90 px in) and 2026-04-15 (~104 px in).
-    // Target at 2026-04-02 (~91 px) — within 40 px of both, but the first
-    // tick is `isFirst` and always kept.
-    const allTicks = [
-      { x: "2026-04-01", label: "Q2" },
-      { x: "2026-07-01", label: "Q3" },
-    ];
-    const targetXPos = dateToX("2026-07-02", minTimestamp, dateRange, chartAreaWidth, leftMargin);
-    const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: targetXPos });
-    // Q2 stays (isFirst), Q3 is suppressed by targetX proximity.
-    expect(out.find((t) => t.label === "Q2")).toBeDefined();
-    expect(out.find((t) => t.label === "Q3")).toBeUndefined();
+  describe("obstacle proximity", () => {
+    it("suppresses a tick whose label would touch an obstacle's", () => {
+      const allTicks = [
+        { x: "2026-04-01", label: "Q2" },
+        { x: "2026-07-01", label: "Q3" },
+      ];
+      // An obstacle 1px from Q3 with a 20px half-width: Q3's own half is ~6.8, so the
+      // required clearance is ~30.8px and the actual distance is 1.
+      const out = suppressOverlappingTicks(allTicks, {
+        ...baseParams,
+        obstacles: [{ x: at("2026-07-02"), halfWidth: 20 }],
+      });
+      expect(out.find((t) => t.label === "Q2")).toBeDefined();
+      expect(out.find((t) => t.label === "Q3")).toBeUndefined();
+    });
+
+    it("keeps a tick outside the obstacle's reach", () => {
+      const allTicks = [
+        { x: "2026-04-01", label: "Q2" },
+        { x: "2026-07-01", label: "Q3" },
+      ];
+      const out = suppressOverlappingTicks(allTicks, {
+        ...baseParams,
+        obstacles: [{ x: at("2026-10-15"), halfWidth: 20 }],
+      });
+      expect(out).toHaveLength(2);
+    });
+
+    it("treats an empty obstacle list as 'nothing in the way'", () => {
+      const allTicks = [
+        { x: "2026-04-01", label: "Q2" },
+        { x: "2026-07-01", label: "Q3" },
+      ];
+      expect(suppressOverlappingTicks(allTicks, baseParams)).toHaveLength(2);
+    });
+
+    /**
+     * ⚠️ THE CASE THE OLD CONSTANT COULD NOT SEE, and the reason this shape exists.
+     * A centre-to-centre threshold of 40px kept both of these; their extents overlap
+     * by ~7px. Same two ticks, same 45px gap, opposite verdicts.
+     */
+    it("suppresses at a distance the old 40px constant accepted, when the extents overlap", () => {
+      const allTicks = [
+        { x: "2026-01-01", label: "Jan '26" },
+        { x: "2026-06-01", label: "Jun '26" },
+      ];
+      // A `MM/DD/YYYY` milestone date at 10px, 42px from a `Jun '26` tick at 12px.
+      // Their half-widths are 28.5 and 23.9, so the two labels OVERLAP BY 10.4px — and
+      // 42 is not less than 40, so the constant this replaced kept the tick.
+      const wide = { x: at("2026-06-01") + 42, halfWidth: 28.5 };
+      const out = suppressOverlappingTicks(allTicks, { ...baseParams, obstacles: [wide] });
+      expect(out.find((t) => t.label === "Jun '26"), "42px away, but the labels overlap by 10px").toBeUndefined();
+    });
+
+    it("keeps the same tick once the obstacle is genuinely clear of it", () => {
+      // Pinning the KEPT side on the same fixture: a guard that only ever asserts
+      // absence passes just as well when the mechanism suppresses everything.
+      const allTicks = [
+        { x: "2026-01-01", label: "Jan '26" },
+        { x: "2026-06-01", label: "Jun '26" },
+      ];
+      const clear = { x: at("2026-06-01") + 60, halfWidth: 28.5 };
+      const out = suppressOverlappingTicks(allTicks, { ...baseParams, obstacles: [clear] });
+      expect(out.find((t) => t.label === "Jun '26")).toBeDefined();
+    });
   });
 
-  it("does not suppress ticks outside elementProximityPx of targetX", () => {
-    const allTicks = [
-      { x: "2026-04-01", label: "Q2" },
-      { x: "2026-07-01", label: "Q3" },
-    ];
-    // Target far from both ticks — at 2026-10-15 (~287 px), >40 px from
-    // either tick (Q3 is at ~181 px, distance ~106 px).
-    const targetXPos = dateToX("2026-10-15", minTimestamp, dateRange, chartAreaWidth, leftMargin);
-    const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: targetXPos });
-    expect(out.find((t) => t.label === "Q2")).toBeDefined();
-    expect(out.find((t) => t.label === "Q3")).toBeDefined();
+  describe("year-bearing labels are placed first", () => {
+    /**
+     * ⚠️ THE DEFECT THIS ORDERING FIXES IS NOT AN OVERLAP. A single left-to-right pass
+     * keeps whichever label it meets first, so at 853px the sample project's chart —
+     * Sep 2026 to Jan 2028 — dropped `Jan '27` for sitting 29px from `Dec` and showed
+     * NO YEAR TRANSITION ANYWHERE. No collision census would surface that; it is an
+     * orientation failure, and on a projector it is the presenter's problem.
+     */
+    it("keeps the year label and drops the plain month it crowds", () => {
+      const allTicks = [
+        { x: "2026-06-01", label: "Jun" },
+        { x: "2026-07-01", label: "Jul '26" },
+      ];
+      // 30px apart, under the 40px pitch: exactly one of the two can be kept.
+      const out = suppressOverlappingTicks(allTicks, { ...baseParams, minSpacingPx: 40 });
+      expect(out.map((t) => t.label)).toEqual(["Jul '26"]);
+    });
+
+    it("keeps left-to-right order in the output, not placement order", () => {
+      const out = suppressOverlappingTicks(
+        [
+          { x: "2026-01-01", label: "Jan '26" },
+          { x: "2026-05-01", label: "May" },
+          { x: "2026-09-01", label: "Sep '26" },
+        ],
+        baseParams,
+      );
+      expect(out.map((t) => t.label)).toEqual(["Jan '26", "May", "Sep '26"]);
+    });
+
+    it("does not let a year label overlap a non-tick obstacle", () => {
+      // Priority is over other TICKS. A year label is preferred, not licensed to sit
+      // on top of the finish date.
+      const out = suppressOverlappingTicks([{ x: "2026-07-01", label: "Jul '26" }], {
+        ...baseParams,
+        obstacles: [{ x: at("2026-07-02"), halfWidth: 40 }],
+      });
+      expect(out).toHaveLength(0);
+    });
   });
 
-  it("treats targetX = null as 'no target' (no suppression effect)", () => {
-    const allTicks = [
-      { x: "2026-04-01", label: "Q2" },
-      { x: "2026-07-01", label: "Q3" },
-    ];
-    const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: null });
-    expect(out.length).toBe(2);
+  describe("the first tick", () => {
+    /**
+     * ⚠️ THE FIRST-TICK EXEMPTION WAS REMOVED IN v0.67.14, and this test changed with
+     * it. It used to read "never suppresses the first tick even if it collides with
+     * targetX" — a rule that was OBSERVABLE and wrong: measured live at `9b04938`, a
+     * milestone placed on the first month boundary left its date label 100% on top of
+     * a tick (`ox 41.41`, the tick's entire width) that the mechanism was forbidden to
+     * remove, while an identical milestone on the SECOND boundary had its tick
+     * suppressed. Same treatment, opposite outcomes.
+     *
+     * ⚠️ The exemption is not merely deleted, it is made REDUNDANT — which is why
+     * removing it costs the chart nothing. `monthTickLabel`, `quarterlyTickLabel` and
+     * `semiannualTickLabel` all append the year to the first tick, and annual labels
+     * are bare years, so at every tick level dense enough to crowd, the first tick is
+     * year-bearing and is placed in pass one regardless. The two tests below assert
+     * both halves: it is protected where the year makes it so, and NOT protected
+     * where nothing does.
+     */
+    it("is protected by its YEAR, not by being first", () => {
+      const out = suppressOverlappingTicks(
+        [
+          { x: "2026-01-01", label: "Jan '26" },
+          { x: "2026-01-20", label: "Jan 20" },
+        ],
+        { ...baseParams, obstacles: [] },
+      );
+      expect(out.map((t) => t.label)).toEqual(["Jan '26"]);
+    });
+
+    it("is suppressed like any other tick when it has no year and collides", () => {
+      const out = suppressOverlappingTicks(
+        [
+          { x: "2026-01-01", label: "Jan 1" },
+          { x: "2026-04-01", label: "Apr 1" },
+        ],
+        { ...baseParams, obstacles: [{ x: at("2026-01-02"), halfWidth: 30 }] },
+      );
+      expect(out.find((t) => t.label === "Jan 1"), "first tick still exempt").toBeUndefined();
+      expect(out.find((t) => t.label === "Apr 1")).toBeDefined();
+    });
   });
 
-  it("treats omitted targetX (undefined) as 'no target'", () => {
-    const allTicks = [
-      { x: "2026-04-01", label: "Q2" },
-      { x: "2026-07-01", label: "Q3" },
-    ];
-    // targetX intentionally omitted from params
-    const out = suppressOverlappingTicks(allTicks, baseParams);
-    expect(out.length).toBe(2);
-  });
+  describe("degenerate input", () => {
+    it("returns the input untouched when there is no date range", () => {
+      const allTicks = [{ x: "2026-04-01", label: "Q2" }];
+      expect(suppressOverlappingTicks(allTicks, { ...baseParams, dateRange: 0 })).toBe(allTicks);
+    });
 
-  it("never suppresses the first tick even if it collides with targetX", () => {
-    // First tick at 2026-01-01 (x=0), target at 2026-01-02 (x=1) — collision,
-    // but isFirst guard wins.
-    const allTicks = [
-      { x: "2026-01-01", label: "Jan" },
-      { x: "2026-04-01", label: "Q2" },
-    ];
-    const targetXPos = dateToX("2026-01-02", minTimestamp, dateRange, chartAreaWidth, leftMargin);
-    const out = suppressOverlappingTicks(allTicks, { ...baseParams, targetX: targetXPos });
-    expect(out.find((t) => t.label === "Jan")).toBeDefined();
+    it("returns an empty list unchanged", () => {
+      expect(suppressOverlappingTicks([], baseParams)).toEqual([]);
+    });
   });
 });
 
