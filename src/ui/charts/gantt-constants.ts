@@ -33,23 +33,134 @@ export const NAME_CLICK_DELAY_MS = 250;
 export const MIN_CHART_WIDTH = 900;
 export const ARROW_HEAD_SIZE = 10;
 export const MIN_TICK_SPACING_PX = 70;
-/** Minimum pixel distance between a tick label and the Today line label.
- *  Applied to ALL ticks including the first (unlike other suppression checks).
- *  Today's label is prominent (two lines: name + date) and already provides
- *  year context, so nearby ticks are suppressed to avoid overlap.
+/**
+ * Breathing room between two KEPT tick labels, on top of their own widths.
  *
- *  History: Originally 60px (v0.32.0). Reduced to 44px (v0.32.3) because on
- *  compressed fit-to-window timelines (~1,500+ day projects in ~900px), 60px
- *  suppressed quarterly ticks that had adequate visual clearance, leaving
- *  visible gaps (e.g. Q2 → gap → Q4). 44px sits just above MIN_LABEL_PX (40)
- *  giving the Today label modest breathing room without eating adjacent ticks.
+ * ⚠️ THIS IS A DENSITY CHOICE, NOT A COLLISION THRESHOLD, and the two were the same
+ * number until v0.67.14. It used to be `minSpacingPx: 40` with the inline comment
+ * `was MIN_LABEL_PX = 40` — a constant named for label WIDTH doing collision duty
+ * while carrying no font size, so it could not adapt when the font changed. Overlap
+ * is now decided by `labelHalfWidth` on each label's own text; this only stops a
+ * technically-non-overlapping timeline from reading as a solid rule of dates.
  *
- *  Watchpoint: On extremely compressed charts with semiannual (sparse) ticks,
- *  even 44px could suppress a tick and leave a 6-month gap. If that surfaces,
- *  consider an adaptive threshold based on actual tick spacing rather than
- *  lowering this constant further. */
-export const TODAY_PROXIMITY_PX = 44;
+ * History: originally 60px (v0.32.0), reduced to 44px (v0.32.3), then 40 for element
+ * proximity. Kept at 40 here so v0.67.14 changes which labels collide without also
+ * changing how dense the timeline looks.
+ */
+export const TICK_LABEL_PITCH_PX = 40;
 export const PROJECT_NAME_HEIGHT = 28;
+
+// --- Header label typography ------------------------------------------------
+//
+// ⚠️ ONE SIZE PER CLASS, READ BY BOTH THE RENDERER AND THE SUPPRESSION MODEL. Before
+// v0.67.14 each of these was a bare literal in the JSX and the suppression thresholds
+// were unrelated hardcoded pixel counts, so a font change moved the labels and left
+// the overlap test where it was. `use-gantt-layout` now derives every obstacle's
+// half-width from these, which is only sound while the JSX and the model read the
+// SAME constant — do not inline one back.
+//
+// ⚠️ A size that arrives through a constant is INVISIBLE to the source-text scan in
+// `legibility-floor.test.ts`: its pattern matches a numeric literal in the JSX
+// attribute, and an identifier is not one. Every constant below is therefore pinned BY
+// VALUE in that guard. Adding another header font constant without adding it there
+// re-opens the hole this comment describes.
+//
+// ⚠️ AND THIS COMMENT ITSELF TRIPPED THAT GUARD. Its first draft spelled the old
+// literal out as an example and the scanner counted the PROSE as a sub-floor site —
+// `gantt-constants.ts:63`, a font size that does not exist. A census that matches a
+// spelling cannot tell code from a sentence about code.
+/** Timeline tick labels. Raised 11 → 12 in v0.67.14, which is what the legibility
+ *  floor's `GanttChart:745` exception was held open for: it was blocked only by the
+ *  font-blind threshold above and by the milestone date label sharing its lane, and
+ *  v0.67.14 fixes both. Clearance to the milestone date lane at 12px: 4.2px. */
+export const TICK_LABEL_FONT_PX = 12;
+/** Buffered-finish date beside the finish line. Shares the tick baseline. */
+export const FINISH_LABEL_FONT_PX = 12;
+/** "Today" over its date, two rows in their own stacked group. */
+export const TODAY_LABEL_FONT_PX = 11;
+export const TODAY_DATE_FONT_PX = 10;
+/** ⚠️ "Today" was at `topMargin − 18`, which put its em box 0.13px INSIDE its own date
+ *  label's — the fifth zero-clearance pair this campaign has turned up, and one neither
+ *  analyst reported because a browser `getBBox` rounds it to a clean 0.00. 21 buys
+ *  2.9px. The pair straddles the marker and tick lanes by design; the today line is an
+ *  obstacle, so it clears ticks out of its own way. */
+export const TODAY_LABEL_DY = 21;
+export const TODAY_DATE_DY = 6;
+/** "Target" beside the finish-target line. */
+export const TARGET_LABEL_FONT_PX = 11;
+/** Milestone name over its date — the second stacked group in the header. */
+export const MILESTONE_NAME_FONT_PX = 12;
+export const MILESTONE_DATE_FONT_PX = 10;
+
+// --- Header label lanes -----------------------------------------------------
+//
+// ⚠️ MEASURED, NOT CHOSEN. Every offset below comes from browser `getBBox` boxes
+// (ascent ≈ 0.96 em, descent ≈ 0.23 em) so that each lane clears the one below it by
+// a STATED margin. Before v0.67.14 the milestone date sat 3px above the tick baseline
+// and so lived INSIDE the tick/finish lane, overlapping it by 10.5px — which is why
+// the finish label overlapped a milestone date by ~51px in every single interactive
+// condition measured. The print chart already separated its lanes, which is why print
+// was collision-free; it did so with 0.00px of clearance, which is why the margins
+// here are stated rather than inherited.
+/**
+ * Three lanes, bottom to top, with the em-box clearance each one buys:
+ *
+ *   tick + finish   baseline `topMargin − 8`   (12px)  band [tm−19.5, tm−5.2]
+ *   marker lane     baseline `topMargin − 25`  (10/11) band [tm−35.6, tm−22.5]   3.0px clear
+ *   milestone name  baseline `topMargin − 42`  (12px)  band [tm−53.5, tm−39.2]   3.6px clear
+ *
+ * ⚠️ The MARKER lane holds the milestone date AND the "Target" label. They were 3px
+ * apart before, in two different lanes, both partly inside the tick band; sharing one
+ * lane is what makes both clearances statable. `Today` and its date deliberately do
+ * NOT move — that pair straddles the marker and tick lanes by design, and the today
+ * line is an obstacle that clears ticks out of its own way.
+ */
+export const MILESTONE_NAME_DY = 42;
+export const MILESTONE_DATE_DY = 25;
+/** "Target" shares the marker lane with the milestone date. Was `topMargin − 22`,
+ *  which cleared the 11px tick band by 1.0px and the 12px band by −0.05px — i.e. the
+ *  legibility raise would have put it INSIDE the tick lane. */
+export const TARGET_LABEL_DY = 25;
+/**
+ * Vertical space the milestone block claims above `topMargin` for its FIRST row.
+ * Unchanged at 26 since the header was introduced; the lanes above now fit inside it
+ * with 4.5px of headroom rather than overlapping each other and the ticks.
+ */
+export const MILESTONE_HEADER_PX = 26;
+/** Half-diagonal of the milestone diamond, and the only part of a milestone that still
+ *  reaches the tick band (by 2.8px) now that its date label has its own lane. */
+export const MILESTONE_DIAMOND_SIZE = 6;
+/**
+ * Vertical step between the two milestone NAME rows when names would collide.
+ *
+ * ⚠️ STAGGERING, NOT TRUNCATION. At 853 + fit-to-window the sample project's four
+ * milestone names overlap in ONE CONTINUOUS CHAIN (67.6 / 51.2 / 36.3px). Truncating
+ * would lose the names irrecoverably — the milestone group binds no pointer or focus
+ * handler and renders no `<title>`, so THERE IS NO MILESTONE TOOLTIP to recover them
+ * from. A second row costs vertical space and loses nothing.
+ *
+ * ⚠️ THE NAME MOVES; THE DATE DOES NOT. Lifting the whole name+date block would need a
+ * step of 34px — the block is 31px tall, so a smaller step drops the lifted block's
+ * DATE exactly onto the unlifted block's NAME. The first draft here used 17 and did
+ * precisely that; the collision oracle's positive control caught it, on the same run
+ * that proved the stagger was working. One row of names is 14.3px plus 3px of margin.
+ */
+export const MILESTONE_ROW_STEP = 18;
+/** Clear space demanded between two header labels, on top of their own extents. */
+export const LABEL_GAP_PX = 4;
+/** The marker-line labels, as rendered. Shared so the suppression model measures the
+ *  same strings the JSX draws — the drift this whole change exists to close. */
+export const TODAY_LABEL_TEXT = "Today";
+export const TARGET_LABEL_TEXT = "Target";
+/**
+ * A stand-in for any formatted date label, used to size the today and milestone date
+ * labels without threading the user's formatter into the layout hook.
+ *
+ * ⚠️ Sound only while every `dateFormat` option is exactly ten characters —
+ * `MM/DD/YYYY`, `DD/MM/YYYY` and `YYYY/MM/DD` all are, and `gantt-utils.test.ts`
+ * asserts it so a fourth format cannot quietly make every date obstacle too narrow.
+ */
+export const DATE_LABEL_SPECIMEN = "00/00/0000";
 
 // --- Print Gantt layout constants ---
 export const PRINT_LEFT = 170;
@@ -62,6 +173,35 @@ export const PRINT_ARROW_SIZE = 6;
 export const PRINT_MIN_TICK_PX = 40;
 export const PRINT_PROJECT_NAME_H = 16;
 export const PRINT_MILESTONE_EXTRA_TOP = 14;
+/**
+ * Print header lanes, above `topMargin`. Same three-lane shape as the interactive
+ * chart, and `Target` shares the marker lane with the milestone date here too.
+ *
+ * ⚠️ PRINT WAS THE CLEAN CHART IN EVERY CONDITION MEASURED — with EXACTLY 0.00px
+ * between its milestone-date lane and its tick lane. It was collision-free with no
+ * margin whatsoever, which is a coincidence rather than a design, and it is why the
+ * interactive fix could not simply be copied from here. These offsets buy at least
+ * 2.0px of clearance at EVERY font scale, checked at the largest (`fs5` = 6, `fs4` =
+ * 5, reached when the activity font size is 14); at the shipped default the margins
+ * are 4.3px and 3.1px.
+ */
+export const PRINT_MILESTONE_NAME_DY = 23;
+export const PRINT_MILESTONE_DATE_DY = 14;
+export const PRINT_TARGET_LABEL_DY = 14;
+/** ⚠️ "Today" was at `topMargin − 9`, leaving 1.01px above its own date label at the
+ *  default scale and OVERLAPPING it by 0.18px at the largest. Print's today line was
+ *  invisible to every measurement in this round because the sample loads with a start
+ *  in the future, so no condition rendered one until the collision oracle grew a
+ *  today-in-span print case. 12 buys 4.0px, and 2.8px at the largest scale. */
+export const PRINT_TODAY_LABEL_DY = 12;
+export const PRINT_TODAY_DATE_DY = 3;
+/** Half-diagonal of the print milestone diamond — the only part of a print milestone
+ *  that reaches the tick band. */
+export const PRINT_DIAMOND_SIZE = 4;
+/** Print equivalent of MILESTONE_ROW_STEP — one milestone-name row at print scale. */
+export const PRINT_MILESTONE_ROW_STEP = 10;
+/** Print equivalent of LABEL_GAP_PX, at print's 4–6px type. */
+export const PRINT_LABEL_GAP_PX = 2;
 /** Padding (px) subtracted from the print name column width to get the usable text
  *  budget: reserves the right-anchor offset plus a little left-edge breathing room so
  *  a label neither touches the bars nor clips at the SVG's left edge. */

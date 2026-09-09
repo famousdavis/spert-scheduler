@@ -7,6 +7,12 @@ import { join, relative, sep } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
+import {
+  TICK_LABEL_FONT_PX, FINISH_LABEL_FONT_PX, MILESTONE_NAME_FONT_PX,
+  TODAY_LABEL_FONT_PX, TODAY_DATE_FONT_PX, TARGET_LABEL_FONT_PX,
+  MILESTONE_DATE_FONT_PX,
+} from '@ui/charts/gantt-constants';
+
 /**
  * WI-10, the legibility floor. On-screen text has a floor of 12px (`text-xs`,
  * Tailwind's own smallest step); an arbitrary `text-[Npx]` utility is how text
@@ -145,27 +151,82 @@ const NUMERIC_FONT_SIZE = /fontSize[\s:={"]+([\d.]+)(rem|em|px)?/g;
  * non-text under WCAG 1.4.11 and could not hold 12px type in any case.
  */
 const SUB_FLOOR_EXCEPTIONS: Record<string, string> = {
-  // ⚠️ 13 of the 57, and the ONLY sub-floor site here with no preference and no
-  // geometry behind it — so it invites being "just fixed". It must not be.
-  // `use-gantt-layout.ts` suppresses colliding ticks with
-  // `elementProximityPx: 40` and `minSpacingPx: 40`, both HARDCODED px, neither
-  // derived from the font size; the inline comment even reads
-  // `was MIN_LABEL_PX = 40` — a constant named for label width that is
-  // font-size-blind. Raising 11 -> 12 widens every label ~9% while the overlap
-  // threshold stays put, so labels could collide where they do not today, on
-  // the campaign's centrepiece surface, introduced by the legibility item.
-  // WI-11 must raise the floor and fix that coupling TOGETHER; either alone is
-  // wrong. (This is `feedback_collision_suppression_architecture`: decouple
-  // suppression thresholds from density selection.)
-  'src/ui/charts/GanttChart.tsx:745': 'timeline tick labels — blocked by a font-size-blind 40px suppression threshold, not by preference or geometry; WI-11 must move both together',
-  'src/ui/charts/GanttChart.tsx:794': 'today-marker label — hardcoded, WI-11',
-  'src/ui/charts/GanttChart.tsx:804': 'today date — hardcoded, WI-11',
-  'src/ui/charts/GanttChart.tsx:849': 'finish-target marker label — hardcoded, WI-11',
-  'src/ui/charts/GanttChart.tsx:904': 'milestone health label — hardcoded, WI-11',
-  'src/ui/charts/GanttChart.tsx:979': 'dependency lag label — hardcoded, WI-11',
+  // ⚠️ THE SIX GANTT HEADER ENTRIES THAT USED TO SIT HERE ARE GONE, AND FIVE OF THEM
+  // ARE NOT FIXED — they moved behind constants in `gantt-constants.ts` and this
+  // scanner cannot see an identifier. That is R101's hole reopening, so the sizes are
+  // pinned by VALUE in GANTT_HEADER_FONT_PX below rather than left to vanish.
+  // The tick labels — 13 of the 57, and the entry this file held open for WI-11 —
+  // ARE fixed: v0.67.14 made the suppression threshold derive from each label's own
+  // text and font, and moved the milestone date out of the tick lane, which is what
+  // was blocking the raise. They are 12px now.
+  'src/ui/charts/GanttChart.tsx:986': 'dependency lag label — hardcoded, 9px inside an arrow gap',
   'src/ui/charts/GanttActivityRow.tsx:222': 'constraint glyph inside an 8px bar icon — non-text, 1.4.11',
   'src/ui/charts/GanttLegend.tsx:163': 'the "C" inside a 12x12 legend swatch — non-text, 1.4.11',
 };
+
+/**
+ * Every Gantt header font size, pinned BY VALUE because the scanner above cannot see it.
+ *
+ * ⚠️ THIS IS NOT BELT-AND-BRACES; IT IS THE ONLY THING WATCHING THESE. Before v0.67.14
+ * each of these was a literal in the JSX and appeared in the offender list above. They
+ * now arrive through `gantt-constants.ts` so that the renderer and the tick-suppression
+ * model read one number instead of two that could drift — which is the fix — but the
+ * side effect is that FOUR SUB-FLOOR SIZES SILENTLY LEFT THE OFFENDER LIST WITHOUT
+ * BEING RAISED. A guard that stops seeing a defect looks exactly like a guard that
+ * watched it get fixed. Anything below 12 is listed with the reason it is still there.
+ *
+ * ⚠️ The header is a THREE-LANE stack with ~3px between lanes, so raising any of these
+ * is a layout change, not a typography change: `gantt-label-collisions.test.tsx`
+ * asserts the clearances, and it is the file to run before changing a number here.
+ */
+const GANTT_HEADER_FONT_PX: Record<string, { px: number; why: string }> = {
+  TICK_LABEL_FONT_PX: { px: 12, why: 'raised 11 -> 12 in v0.67.14 — at the floor' },
+  FINISH_LABEL_FONT_PX: { px: 12, why: 'at the floor' },
+  MILESTONE_NAME_FONT_PX: { px: 12, why: 'at the floor' },
+  TODAY_LABEL_FONT_PX: {
+    px: 11,
+    why: 'SUB-FLOOR. "Today" and its date are one stacked group inside a 3px lane gap; at 12 the pair needs ~3px more height than the header has, so raising it moves topMargin and every committed y in both parity oracles. Deferred, not blocked by anything but scope.',
+  },
+  TODAY_DATE_FONT_PX: { px: 10, why: 'SUB-FLOOR. Same stacked group as TODAY_LABEL_FONT_PX.' },
+  TARGET_LABEL_FONT_PX: {
+    px: 11,
+    why: 'SUB-FLOOR. Shares the marker lane with the milestone date; at 12 its band reaches the tick band.',
+  },
+  MILESTONE_DATE_FONT_PX: {
+    px: 10,
+    why: 'SUB-FLOOR. A MM/DD/YYYY label at 12 is 68px wide against 57 — measured, the four sample milestones then collide with each other at 853px in a way two rows cannot resolve.',
+  },
+};
+
+describe('legibility floor: Gantt header sizes that arrive through a constant', () => {
+  it('pins every header font constant by value', () => {
+    const actual: Record<string, number> = {
+      TICK_LABEL_FONT_PX,
+      FINISH_LABEL_FONT_PX,
+      MILESTONE_NAME_FONT_PX,
+      TODAY_LABEL_FONT_PX,
+      TODAY_DATE_FONT_PX,
+      TARGET_LABEL_FONT_PX,
+      MILESTONE_DATE_FONT_PX,
+    };
+    // Two-way: a name added to the constants without a reason here fails, and so does a
+    // name removed from here while the constant still exists.
+    expect(Object.keys(actual).sort()).toEqual(Object.keys(GANTT_HEADER_FONT_PX).sort());
+    for (const [name, { px }] of Object.entries(GANTT_HEADER_FONT_PX)) {
+      expect(actual[name], `${name} moved — re-check the header lanes`).toBe(px);
+    }
+  });
+
+  it('names a real, non-empty reason for every sub-floor constant', () => {
+    // Vacuity control. If every constant reached 12 this loop would run zero times and
+    // pass, so the count of sub-floor entries is asserted too — lower it deliberately.
+    const sub = Object.entries(GANTT_HEADER_FONT_PX).filter(([, v]) => v.px < 12);
+    expect(sub).toHaveLength(4);
+    for (const [name, { why }] of sub) {
+      expect(why.startsWith('SUB-FLOOR.'), `${name} is below the floor with no stated reason`).toBe(true);
+    }
+  });
+});
 
 describe('legibility floor: no numeric font size below 12 outside print', () => {
   const all = sourceFiles(join(root, 'src', 'ui'));
@@ -223,7 +284,7 @@ describe('legibility floor: no numeric font size below 12 outside print', () => 
  * minima govern text, and none of these render informational text.
  */
 const RULED_EXCEPTIONS: Record<string, string> = {
-  'src/ui/charts/GanttChart.tsx:193': 'disabled state, paired with cursor-not-allowed',
+  'src/ui/charts/GanttChart.tsx:198': 'disabled state, paired with cursor-not-allowed',
   'src/ui/components/StorageLoginModal.tsx:135': 'the disabled half of a ternary',
   'src/ui/components/UnifiedActivityRow.tsx:622': 'icon-only control, no text node',
   'src/ui/components/ScenarioTabs.tsx:117': 'drag-handle icon',
@@ -302,7 +363,7 @@ const BELOW_AA_ON_WHITE = new Set([
 
 /** Non-text under WCAG 1.4.11, which asks 3:1 rather than 4.5:1. Both clear it. */
 const NON_TEXT_EXCEPTIONS: Record<string, string> = {
-  'src/ui/charts/GanttChart.tsx:202': 'checkbox accent colour, amber-600 at 3.20',
+  'src/ui/charts/GanttChart.tsx:207': 'checkbox accent colour, amber-600 at 3.20',
   'src/ui/components/WarningsPanel.tsx:23': 'the warning variant glyph, amber-600 at 3.20 on white and 3.09 on its amber-50 ground',
 };
 

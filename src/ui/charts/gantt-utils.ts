@@ -287,52 +287,161 @@ export function generateTicks(
   return TICK_GENERATORS[level](start, end);
 }
 
+/**
+ * Half the rendered width of a label, modelled from its text and font size.
+ *
+ * ⚠️ THERE IS NO SINGLE CHARACTER-ADVANCE FACTOR, and a model capped at 0.6 em
+ * underestimates the widest tick label by ~9%. Measured in Chromium at `9b04938`:
+ * three-letter month abbreviations run 0.574–0.656 em/char (`May` is the widest
+ * string per character in the whole header), while everything longer — anything
+ * containing a digit, space, slash or apostrophe — runs 0.516–0.564. Bold makes no
+ * difference worth modelling: every measured 600-weight string (`Jan '27` 0.529,
+ * `Configuration & Build Complete` 0.517, `Nov 16, 2027` 0.535) sits inside the
+ * mixed-class factor already.
+ *
+ * Both factors bound their measured class from ABOVE, by 0.6–15%. That direction is
+ * deliberate: a label modelled slightly too wide is suppressed slightly too eagerly,
+ * which is a cosmetic cost. Modelled too narrow, it overlaps on screen.
+ *
+ * ⚠️ NOT `canvas.measureText`, though that needs no dependency and would be exact.
+ * jsdom returns null from `getContext`, so every test — including the parity oracle
+ * and the collision oracle — would pin the FALLBACK path and never the production
+ * one. That is a testability argument, not a performance one.
+ */
+export function labelHalfWidth(text: string, fontPx: number): number {
+  const advance = /^[A-Za-z]{1,4}$/.test(text) ? 0.66 : 0.57;
+  return (text.length * fontPx * advance) / 2;
+}
+
+/** True when a tick label announces a year — "Jan '27", "Q1 '27", "2027". */
+export function tickHasYear(label: string): boolean {
+  return label.includes("'") || /^\d{4}$/.test(label);
+}
+
+/** Something a tick label must not collide with, carrying its own half-width. */
+export interface TickObstacle {
+  x: number;
+  halfWidth: number;
+}
+
+/** How many rows the milestone header may use before it starts overlapping again. */
+export const MILESTONE_LABEL_ROWS = 2;
+
+/**
+ * Assigns each milestone's label block to a header row so neighbouring names do not
+ * overlap. Returns one row index per milestone, in the input's order; row 0 is the
+ * row nearest the timeline, so a chart whose milestones do not crowd gets all zeros
+ * and pays no extra header height.
+ *
+ * ⚠️ NOTHING POSITIONED A MILESTONE LABEL BEFORE v0.67.14. `milestoneXPositions`
+ * appeared in exactly ten non-test places and all ten were plumbing into the TICK
+ * suppression; a grep for `stagger|labelOffset|offsetIndex|collide|dodge` across the
+ * chart sources returned zero. The milestone-versus-milestone half of this defect was
+ * UNBUILT rather than mis-tuned, which is why no threshold could have fixed it.
+ *
+ * ⚠️ CAPPED AT TWO ROWS, and the cap is a real limit rather than an oversight: each
+ * row costs header height on every chart that needs it. Two rows clear the sample
+ * project's worst measured case — four names overlapping in one continuous chain at
+ * 853px — with room to spare. Enough milestones packed tightly enough will still
+ * touch; they then sit exactly where they sit today, so this never makes a chart
+ * worse than the one it replaced.
+ *
+ * `halfWidth` should be the wider of the milestone's name and its date, since the two
+ * share a centre — `Go-Live` is narrower than `01/21/2028` at their respective sizes.
+ */
+export function assignMilestoneRows(
+  labels: { x: number; halfWidth: number }[],
+  gapPx: number,
+): number[] {
+  const rows = new Array<number>(labels.length).fill(0);
+  const rowRight = new Array<number>(MILESTONE_LABEL_ROWS).fill(-Infinity);
+  const byX = labels.map((_, i) => i).sort((a, b) => labels[a]!.x - labels[b]!.x);
+  for (const i of byX) {
+    const { x, halfWidth } = labels[i]!;
+    let row = 0;
+    while (row < MILESTONE_LABEL_ROWS && rowRight[row]! + gapPx > x - halfWidth) row++;
+    // Every row is occupied this far right: take the one that frees up soonest, which
+    // keeps the least-bad overlap rather than always piling onto row 0.
+    if (row === MILESTONE_LABEL_ROWS) row = rowRight.indexOf(Math.min(...rowRight));
+    rows[i] = row;
+    rowRight[row] = Math.max(rowRight[row]!, x + halfWidth);
+  }
+  return rows;
+}
+
 export interface TickSuppressionParams {
   minTimestamp: number;
   dateRange: number;
   chartAreaWidth: number;
   leftMargin: number;
-  finishX: number;
-  milestoneXPositions: number[];
-  todayX: number | null;
-  targetX?: number | null;
-  todayProximityPx: number;
-  elementProximityPx: number;
+  /**
+   * Everything in or near the tick lane that is NOT a tick — the finish label, the
+   * today pair, the target label, each milestone diamond — each with the half-width
+   * of whatever it actually draws. Before v0.67.14 this was three separate fields
+   * tested against one hardcoded 40px, which encoded NEITHER label's width: a
+   * `MM/DD/YYYY` date needs ~50px against a three-letter month, and the finish label
+   * ~65px. Both overlapped in the shipped chart.
+   */
+  obstacles: TickObstacle[];
+  tickFontPx: number;
+  labelGapPx: number;
+  /** Density floor between kept labels — presentation, not collision. See TICK_LABEL_PITCH_PX. */
   minSpacingPx: number;
 }
 
-/** Returns true if the tick at position x should be suppressed given the current context. */
-function shouldSuppressTick(x: number, isFirst: boolean, lastX: number, p: TickSuppressionParams): boolean {
-  if (p.todayX !== null && Math.abs(x - p.todayX) < p.todayProximityPx) return true;
-  if (isFirst) return false;
-  if (Math.abs(x - p.finishX) < p.elementProximityPx) return true;
-  if (p.targetX != null && Math.abs(x - p.targetX) < p.elementProximityPx) return true;
-  if (p.milestoneXPositions.some((mx) => Math.abs(x - mx) < p.elementProximityPx)) return true;
-  if (x - lastX < p.minSpacingPx) return true;
-  return false;
-}
-
 /**
- * Filters tick array to suppress labels that would crowd milestone markers,
- * the finish line, today's line, or each other.
- * Callers pass raw layout primitives rather than a toX callback to preserve
- * per-param memoization stability.
+ * Chooses which tick labels to draw. The gridlines are always drawn from the full
+ * set, so this only ever removes LABELS.
+ *
+ * ⚠️ TWO PASSES, YEAR-BEARING LABELS FIRST, and that ordering is the fix for a defect
+ * no collision census could have found. A single left-to-right greedy pass keeps
+ * whichever label it reaches first, so at 853px the sample project's chart —
+ * spanning Sep 2026 to Jan 2028 — dropped `Jan '27` for being 29px from `Dec` and
+ * `Jan '28` for being near a milestone, and displayed NO YEAR TRANSITION ANYWHERE.
+ * Placing the year labels first lets them displace a plain month instead of the other
+ * way round. They are still tested against non-tick obstacles: a year label is
+ * preferred over another tick, not licensed to overlap the finish date.
+ *
+ * ⚠️ THE FIRST TICK IS NO LONGER EXEMPT. It used to return early from every check but
+ * the today line, which was observable: a milestone placed on the first month
+ * boundary left its date label sitting on a tick that the mechanism was forbidden to
+ * remove — measured at 100% overlap. The exemption is not merely deleted, it is made
+ * REDUNDANT: `monthTickLabel`, `quarterlyTickLabel` and `semiannualTickLabel` all
+ * append the year to the first tick, and annual labels are bare years, so at every
+ * tick level dense enough to crowd, the first tick is year-bearing and is placed in
+ * pass one anyway. It loses the exemption only at daily/weekly/biweekly levels, where
+ * the spans are too short to crowd.
  */
 export function suppressOverlappingTicks(
   allTicks: Tick[],
   p: TickSuppressionParams,
 ): Tick[] {
   if (allTicks.length === 0 || p.dateRange === 0) return allTicks;
-  const filtered: Tick[] = [];
-  let lastX = -Infinity;
-  for (let i = 0; i < allTicks.length; i++) {
-    const tick = allTicks[i]!;
+  const placed: { index: number; x: number; half: number }[] = [];
+
+  const place = (index: number): void => {
+    const tick = allTicks[index]!;
     const x = dateToX(tick.x, p.minTimestamp, p.dateRange, p.chartAreaWidth, p.leftMargin);
-    if (shouldSuppressTick(x, i === 0, lastX, p)) continue;
-    filtered.push(tick);
-    lastX = x;
-  }
-  return filtered;
+    const half = labelHalfWidth(tick.label, p.tickFontPx);
+    // ⚠️ A YEAR LABEL YIELDS TO AN OVERLAP, NOT TO WHITE SPACE. `labelGapPx` is
+    // breathing room, and spending the year on it is a bad trade: measured with the
+    // today line inside the span, `Oct '26` sat 2.5px clear of the today date label and
+    // was evicted purely by the 4px gap, leaving 2026 named NOWHERE on the axis. The
+    // extent model over-estimates every width by 0.6–15%, so a zero gap here is still
+    // one to three real pixels of clearance.
+    const gap = tickHasYear(tick.label) ? 0 : p.labelGapPx;
+    if (p.obstacles.some((o) => Math.abs(x - o.x) < half + o.halfWidth + gap)) return;
+    const clashes = placed.some(
+      (q) => Math.abs(x - q.x) < Math.max(half + q.half + gap, p.minSpacingPx),
+    );
+    if (clashes) return;
+    placed.push({ index, x, half });
+  };
+
+  for (let i = 0; i < allTicks.length; i++) if (tickHasYear(allTicks[i]!.label)) place(i);
+  for (let i = 0; i < allTicks.length; i++) if (!tickHasYear(allTicks[i]!.label)) place(i);
+
+  return placed.sort((a, b) => a.index - b.index).map((q) => allTicks[q.index]!);
 }
 
 /**
