@@ -32,14 +32,21 @@ import {
 // to prove the refactor changed nothing. ⚠️ Renamed off that commit in the swap commit:
 // a constant named after a sha it no longer holds is the stale-name trap this campaign
 // keeps meeting. It is the EXPECTED template; the history lives in this comment.
-// ⚠️ UPDATED in the swap commit, which is the ONLY legitimate reason to touch these.
-// The 96px/110px pair is transposed because Distribution now precedes Confidence; every
-// other track is unchanged, and the total width is identical (the swap is width-neutral,
-// which matters because the grid is already at its width limit).
+// ⚠️ UPDATED TWICE, and both times in the commit that genuinely moved a width.
+// (1) The swap commit transposed the 96px/110px pair because Distribution now precedes
+//     Confidence; every other track was unchanged and the total was identical.
+// (2) The reallocation commit: confidence 96→75, status 110→103, distribution UNCHANGED.
+//     The fixed total falls 887→859 and every one of those 28px goes to `name`, which is
+//     the only `1fr` track (255→283) — so the grid does NOT get wider, which was the
+//     binding constraint. `grid-columns.ts` carries the measured floors behind each
+//     number, distribution's 110 included: it could give up 9px on clipping grounds and
+//     does not, because that 9px is the gap the recommendation dot sits in.
+// ⚠️ The confidence 96→75 is only valid ALONGSIDE the grid-local short labels and the
+//     "Conf." header; the widths and the copy are one change, not two.
 const EXPECTED_TEMPLATE =
-  "24px 20px 1fr 40px 90px 90px 38px 38px 38px 110px 96px 110px 56px 1px 40px 8px";
+  "24px 20px 1fr 40px 90px 90px 38px 38px 38px 110px 75px 103px 56px 1px 40px 8px";
 const EXPECTED_TEMPLATE_WITH_CONSTRAINT =
-  "24px 20px 1fr 40px 90px 90px 88px 38px 38px 38px 110px 96px 110px 56px 1px 40px 8px";
+  "24px 20px 1fr 40px 90px 90px 88px 38px 38px 38px 110px 75px 103px 56px 1px 40px 8px";
 
 describe("grid-columns: generating the template changed nothing", () => {
   it("GRID_COLUMNS is byte-identical to the literal it replaced", () => {
@@ -119,11 +126,27 @@ describe("G4 — the enforced minimum width is derived, not hard-coded", () => {
   it("tracks the column list — a wider column widens the minimum by exactly that much", () => {
     // ⚠️ The anti-rot assertion. A hard-coded total would pass every test above and
     // silently under-size the grid the next time a column changed.
+    //
+    // ⚠️ The EXPECTED DELTA is derived from the list too, and that is not fussiness:
+    // it read `base + 40` while `status` was 110px, so it was a second hard-coded copy
+    // of a width — in a file whose entire subject is not hard-coding widths — and it
+    // failed the moment `status` moved to 103px. The two template literals above are
+    // *meant* to be transcribed; this was not.
+    const WIDENED_TO = 150;
+    const statusWidth = parseFloat(
+      GRID_COLUMN_LIST.find((c) => c.name === "status")!.width,
+    );
+    // Non-vacuity: if `status` ever reached 150px this would assert `+0`, which passes
+    // against a hard-coded total as happily as against a summed one.
+    expect(WIDENED_TO).toBeGreaterThan(statusWidth);
+
     const base = gridMinWidthPx(GRID_COLUMN_LIST, NAME_COLUMN_MIN_PX);
     const widened = GRID_COLUMN_LIST.map((c) =>
-      c.name === "status" ? { ...c, width: "150px" } : c,
+      c.name === "status" ? { ...c, width: `${WIDENED_TO}px` } : c,
     );
-    expect(gridMinWidthPx(widened, NAME_COLUMN_MIN_PX)).toBe(base + 40);
+    expect(gridMinWidthPx(widened, NAME_COLUMN_MIN_PX)).toBe(
+      base + (WIDENED_TO - statusWidth),
+    );
   });
 
   it("tracks the track COUNT — an added column adds its width and one gap", () => {

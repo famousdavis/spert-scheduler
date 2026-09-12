@@ -20,11 +20,7 @@ import { ActivitySchema } from "@domain/schemas/project.schema";
 import { recommendDistribution } from "@core/recommendation/recommendation";
 import { computeHeuristic } from "@core/estimation/heuristic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import {
-  distributionLabel,
-  distributionShortLabel,
-  statusLabel,
-} from "@domain/helpers/format-labels";
+import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { computeElapsedDays, focusField } from "./activity-row-helpers";
 import {
   constraintBadgeClass,
@@ -41,6 +37,7 @@ import { EstimateInputs } from "./EstimateInputs";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
+import { gridDistributionLabel } from "./grid-labels";
 
 interface UnifiedActivityRowProps {
   activity: Activity;
@@ -105,6 +102,45 @@ function commitActivityName(
     // resync the buffer to the stored name.
     controls.reset();
   }
+}
+
+/**
+ * Puts the activity's full name on the input's `title` — but only when it is actually
+ * cut off.
+ *
+ * The name column is the one place in this grid where clipping is unavoidable rather
+ * than a budgeting mistake: showing every name in the sample project needs **+124px**
+ * of track against a reallocation that could free 37, so no arrangement of the other
+ * sixteen columns unclips them. Legibility is therefore the remedy, and it costs no
+ * pixels. The cell is an `<input>`, which cannot render a CSS ellipsis — the cut is
+ * hard and silent, with no visual sign that anything is missing.
+ *
+ * ⚠️ **`el.value`, and that is the whole point of doing this imperatively.** The input
+ * is `value={localName}` from `useBufferedField`, and `localName` diverges from
+ * `activity.name` by design — while the user types, and whenever the buffer ignores an
+ * external write (cloud-sync echo, undo, a collaborator's rename). For a tooltip whose
+ * entire job is "show me the part that is cut off", revealing a name other than the one
+ * on screen is worse than no tooltip. Reading the DOM node makes the wrong binding
+ * unexpressible.
+ *
+ * ⚠️ **`scrollWidth > clientWidth` IS VALID HERE AND IS NOT VALID FOR THE CONFIDENCE
+ * BUTTON.** The discriminator is the element, not the idiom: measured in a browser, a
+ * clipped name input reads 280 vs 201 and 235 vs 201, while the three truncating
+ * `truncate` confidence buttons all report `scrollWidth === clientWidth === 94`,
+ * identical to the seven that fit. A guard written on that comparison for a block
+ * element with `truncate` passes vacuously forever. Do not generalise either way.
+ *
+ * Known limits, both accepted: a disabled input (locked scenario) dispatches no mouse
+ * events in Chromium, so it gets no tooltip; and a title set during one hover goes
+ * stale only if the value changes without the pointer leaving, which is the case where
+ * the user is typing and no tooltip is shown anyway. The next hover re-syncs.
+ *
+ * Module scope, not a closure inside the component: `UnifiedActivityRow` is an accepted
+ * cognitive-complexity decline whose number must not quietly worsen (ground rule 9).
+ */
+function syncClippedNameTitle(e: React.MouseEvent<HTMLInputElement>): void {
+  const el = e.currentTarget;
+  el.title = el.scrollWidth > el.clientWidth ? el.value : "";
 }
 
 /**
@@ -578,6 +614,7 @@ export function UnifiedActivityRow({
             onChange={(e) => setLocalName(e.target.value)}
             onFocus={handleNameFocus}
             onBlur={handleNameBlur}
+            onMouseEnter={syncClippedNameTitle}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -693,7 +730,13 @@ export function UnifiedActivityRow({
       />
 
       {/* Distribution */}
-      <div className="flex items-center gap-0.5 group relative">
+      {/* ⚠️ No `gap-*`: the recommendation affordance below is OUT of flow, so the
+          `<select>` is the only in-flow child and takes the whole track. It used to
+          share the track with a text badge, and that badge — not the track width — was
+          the entire cause of this column clipping: with it present the select fell to
+          85.73px against the 101px `LogNormal` needs, and every clipped row in the
+          sample was a badge row. Measured in a browser. */}
+      <div className="flex items-center group relative">
         <select
           data-row-id={activity.id}
           data-field="distribution"
@@ -712,23 +755,38 @@ export function UnifiedActivityRow({
         >
           {DISTRIBUTION_TYPES.map((dt) => (
             <option key={dt} value={dt}>
-              {distributionLabel(dt)}
+              {gridDistributionLabel(dt)}
             </option>
           ))}
         </select>
+        {/* The recommendation affordance: a 12px dot, not a word.
+            ⚠️ **`right-[25px]` is arithmetic, not taste.** A native `<select>` reserves
+            its last 20px of content box for the arrow, and the box adds 4px padding plus
+            a 1px border to the right of it — so 25px from the cell's right edge is
+            exactly the arrow's left edge, whatever the track is resized to. The arrow is
+            the only thing on screen saying "this is a dropdown", and the text badge that
+            lived here covered at least 17 of its 20px in every state measured.
+            ⚠️ **A text badge cannot fit here at all**: the worst case is `Norm` + gap =
+            41.13px, and even suppressing the native arrow AND abbreviating every label
+            leaves it 5.63px short. That is why this is a dot and the recommendation
+            itself moved to the `title` — which it already carried.
+            ⚠️ The dot's size is capped by the gap between the label's ink and the arrow,
+            so it is coupled to `grid-labels.ts` and to the distribution track width.
+            It keeps `tabIndex={-1}`: it was already pointer-only, so nothing changes for
+            keyboard users, and `aria-label` gives the now-textless button its name. */}
         {!isLocked && recommendation.recommended !== activity.distributionType && (
           <button
+            type="button"
             onClick={() =>
               onUpdate(activity.id, {
                 distributionType: recommendation.recommended,
               })
             }
-            className="shrink-0 px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 rounded text-xs hover:bg-amber-200 dark:hover:bg-amber-800/50"
+            className="absolute right-[25px] top-1/2 -translate-y-1/2 h-3 w-3 rounded-full border border-amber-700/50 bg-amber-500 hover:bg-amber-600 dark:border-amber-200/50 dark:bg-amber-400 dark:hover:bg-amber-300"
             title={recommendation.rationale}
+            aria-label={`Apply the recommended distribution: ${distributionLabel(recommendation.recommended)}`}
             tabIndex={-1}
-          >
-            {distributionShortLabel(recommendation.recommended)}
-          </button>
+          />
         )}
         {/* Sparkline tooltip on hover */}
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-20 pointer-events-none">

@@ -408,7 +408,12 @@ export function UnifiedActivityGrid({
             <div className="text-right px-1.5">ML</div>
             <div className="text-right px-1.5">Max</div>
             <div className="px-1">Distribution</div>
-            <div className="px-1">Confidence</div>
+            {/* "Conf.", not "Confidence" — load-bearing, not cosmetic. At the 75px
+                confidence track the full word's ink runs 10.41px past its own cell and
+                2.41px into the Status header's ink. "Conf." restores the header row's
+                minimum ink gap to its 11.81px baseline. The full word is on hover, the
+                same affordance Actual and Src already use. Measured in a browser. */}
+            <div className="px-1" title="Confidence">Conf.</div>
             <div className="px-1">Status</div>
             <div className="px-1 text-center" title="Working days elapsed (In Progress) or total (Complete)">Actual</div>
             {/* Separator */}

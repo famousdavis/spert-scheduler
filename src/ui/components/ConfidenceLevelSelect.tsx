@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { RSMLevel } from "@domain/models/types";
 import { RSM_LEVELS, RSM_LABELS, RSM_DESCRIPTIONS } from "@domain/models/types";
+import { GRID_RSM_LABELS } from "./grid-labels";
 
 interface ConfidenceLevelSelectProps {
   value: RSMLevel;
@@ -178,13 +179,20 @@ export function ConfidenceLevelSelect({
         onClick={() => { if (!disabled) setOpen(!open); }}
         onKeyDown={onKeyDown}
         disabled={disabled}
-        title={disabled ? "Confidence only applies to T-Normal and LogNormal distributions" : undefined}
+        title={disabled ? "Confidence only applies to T-Normal and LogNormal distributions" : RSM_LABELS[value]}
+        aria-label={RSM_LABELS[value]}
         className={`w-full px-1 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm text-left focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 dark:text-gray-100 truncate ${
           disabled ? "opacity-40 cursor-not-allowed" : ""
         }`}
         tabIndex={disabled ? -1 : tabIndex}
       >
-        {RSM_LABELS[value]}
+        {/* ⚠️ The BUTTON is the only place the short label appears. The dropdown below
+            (`RSM_LABELS`), its filter, the Edit Activity modal, the Bulk toolbar,
+            Preferences, print and export all keep the full wording — see
+            `grid-labels.ts` for why that boundary is load-bearing. The full wording is
+            still on this button's `title` and `aria-label`, so nothing is lost: only
+            the 75px of track is. */}
+        {GRID_RSM_LABELS[value]}
       </button>
       {open &&
         createPortal(

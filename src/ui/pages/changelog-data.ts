@@ -13,6 +13,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.17",
+    date: "2026-09-12",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The activity grid gives space back to the activity names. The grid's columns are a fixed budget: every column except Name has a set width, and Name gets whatever is left over. Three of those fixed columns were wider than anything they could ever display, and the activity names were paying for it.",
+          "Confidence and Status are now the width their longest value actually needs, which releases 28 pixels — all of which go to the name. On the sample project that takes the activity names visible in full from 14 of 40 to 19 of 40. The grid itself is no wider than it was, and it starts scrolling at a narrower window than before.",
+          "A name that is cut off can now be read by hovering it. Names still run out of room — showing every name in the sample project would take more than four times the space this change recovered — so the cut-off is not something the column widths can fix, but it is no longer silent. Hover a name that is cut off and the whole name appears. Names that already fit show no tooltip, and what you see is always the name as it stands in the box, including edits you have not saved yet.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "The Distribution column stops cutting off its own value. On a row where the app suggests a different distribution, a small amber Tri / Norm label sat inside the Distribution cell beside the dropdown — and it took enough room that the dropdown could no longer show its own value. T-Normal was rendering as T-Norma.",
+          "That suggestion is now a small amber dot in the same place, leaving the dropdown the whole column. It still does exactly what it did: click it to apply the suggested distribution, hover it to read why that distribution is suggested. Screen readers now announce it by name rather than as an abbreviation. LogNormal reads as LogNorm in the grid so the dot has clear space to sit in; everywhere else — the activity editor, the bulk toolbar, Settings, the printed report and the exported schedule — is unchanged.",
+          "The Confidence column stops truncating its labels. Three of the ten confidence levels — Near certainty, Extremely low and Medium-high — did not fit the column and were shown cut short with an ellipsis, with no way to see the rest. The grid now shows short forms (Near cert., Ex. low, Med-high) that all fit, and the full wording is on hover, in the dropdown where you choose a level, and everywhere outside the grid. The column heading reads Conf. to match.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.16",
     date: "2026-09-12",
     sections: [
