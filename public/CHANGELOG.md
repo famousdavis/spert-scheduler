@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.67.16 — 2026-09-12
+
+### The scenario comparison no longer declares a scenario you have not run the winner
+
+Compare two scenarios where one has been simulated and the other has not, and the **Duration w/Buffer** row showed a number for both — but not the same kind of number. For the simulated scenario it showed the duration including its schedule buffer. For the one you had not run there was no buffer to include, so it quietly showed the duration *without* one, underneath a label promising the opposite.
+
+An unbuffered duration is always the shorter of the two, so the scenario with no simulation behind it was then marked green as the best of the comparison. On the sample project that margin ran to weeks: a scenario nobody had run appeared to finish well ahead of one that had been simulated properly.
+
+That cell is now left blank, which is what the two rows on either side of it — **Buffer (days)** and **End Date (w/buffer)** — already did. A scenario with no simulation results shows a dash in all three, and takes no part in the comparison until you run it.
+
+### A winner is no longer marked between two numbers that read the same
+
+The **Mean** row rounds to one decimal place for display, but chose its winner from the full-precision figures behind those. Two scenarios whose means differed in the second decimal therefore printed an identical `323.3` — with one of them bolded green and nothing on screen to explain why.
+
+Winners are now chosen from the figures as displayed, so two cells showing the same value are either both marked or neither. Where the values genuinely differ, nothing about the marking changes.
+
+**Buffer (days)** stays deliberately unmarked. A larger buffer is not straightforwardly better: it reflects how wide a spread the simulation found, which can mean an uncertain plan just as easily as a safe one.
+
 ## 0.67.15 — 2026-09-11
 
 ### Changing the work calendar now clears the simulation results it invalidates

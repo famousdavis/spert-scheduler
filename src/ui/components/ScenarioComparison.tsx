@@ -101,6 +101,38 @@ function bestOf(
   return mode === "min" ? Math.min(...nums) : Math.max(...nums);
 }
 
+/**
+ * Picks the best cell(s) of a row from the strings the row actually DISPLAYS,
+ * rather than from the underlying numbers.
+ *
+ * ⚠️ WI-41 (2026-09-12): the "Mean" row showed `323.3` against `323.3` — two visibly
+ * identical numbers — and bolded only one of them, because the row rendered
+ * `m.toFixed(1)` while the winner was chosen from the raw means, which differed in the
+ * second decimal. Deriving the highlight from the displayed string makes that whole
+ * class of mismatch unrepresentable rather than patched: two cells showing the same
+ * string necessarily carry the same highlight, because they are the same input.
+ *
+ * Pass the SAME array to a row's `values` and to this function — that is what closes
+ * the gap; two parallel arrays would just be a second place to diverge.
+ *
+ * Scope: `String(n)` round-trips every double exactly, so the rows formatted with it
+ * ("Duration (days)", "Duration w/Buffer") highlight identically under this helper and
+ * under the raw-number comparison it replaced. `toFixed` is the only lossy formatter
+ * in this table, which is why "Mean" was the only row affected.
+ */
+function highlightBestDisplayed(
+  displayed: (string | null)[],
+  mode: "min" | "max"
+): ("best" | null)[] {
+  const parsed = displayed.map((s) => {
+    if (s === null) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  });
+  const best = bestOf(parsed, mode);
+  return parsed.map((v) => pickBestHighlight(v, best));
+}
+
 export function ScenarioComparisonTable({
   scenarios,
   calendar,
@@ -141,8 +173,17 @@ export function ScenarioComparisonTable({
 
   const durations = entries.map((e) => e.schedule?.totalDurationDays ?? null);
   const buffers = entries.map((e) => e.buffer?.bufferDays ?? null);
+  // ⚠️ NO FALLBACK TO THE UNBUFFERED DURATION (WI-43, 2026-09-12). This row is
+  // labelled "Duration w/Buffer"; when there is no buffer it must blank, exactly as
+  // its two siblings above and below already do (`buffers`, and "End Date (w/buffer)").
+  // Until v0.67.16 it fell back to `e.schedule.totalDurationDays` — a DIFFERENT
+  // quantity under a label promising a buffered one — and because `bestOf` then
+  // compared that smaller number against the others' genuinely buffered ones, an
+  // un-simulated scenario was green-bolded as the winner (measured: 294 against a run
+  // scenario's 351). Blanking removes the cell from the contest on its own: `bestOf`
+  // filters nulls.
   const totalDurations = entries.map((e) =>
-    e.buffer ? Math.round(e.buffer.projectTargetDuration) : e.schedule?.totalDurationDays ?? null
+    e.buffer ? Math.round(e.buffer.projectTargetDuration) : null
   );
   const constraintDelays = entries.map((e) => {
     if (!e.schedule || !e.buffer) return null;
@@ -158,9 +199,14 @@ export function ScenarioComparisonTable({
     (e) => e.scenario.simulationResults?.standardDeviation ?? null
   );
 
-  const bestDuration = bestOf(durations, "min");
-  const bestTotal = bestOf(totalDurations, "min");
-  const bestMean = bestOf(means, "min");
+  // The displayed strings for the three highlighted rows. Each is handed to BOTH the
+  // row's `values` and `highlightBestDisplayed`, so display and comparison cannot drift
+  // apart (WI-41 — see the helper).
+  const durationValues = durations.map((d) => (d !== null ? String(d) : null));
+  const totalDurationValues = totalDurations.map((d) =>
+    d !== null ? String(d) : null
+  );
+  const meanValues = means.map((m) => (m !== null ? m.toFixed(1) : null));
 
   const percentileKeys = [50, 75, 90, 95];
 
@@ -183,10 +229,16 @@ export function ScenarioComparisonTable({
     },
     {
       label: "Duration (days)",
-      values: durations.map((d) => (d !== null ? String(d) : null)),
-      highlights: durations.map((d) => pickBestHighlight(d, bestDuration)),
+      values: durationValues,
+      highlights: highlightBestDisplayed(durationValues, "min"),
     },
     {
+      // ⚠️ DELIBERATELY NOT HIGHLIGHTED, and it is not an oversight (WI-41, 2026-09-12).
+      // More buffer is not unambiguously better: a large buffer means the simulation
+      // found a wide spread, which is as likely to signal an uncertain plan as a safe
+      // one. Marking a "best" here would make the table assert a preference the app
+      // has no basis for — doubly so because this row is DERIVED from the two either
+      // side of it, both of which are highlighted or blank on their own terms.
       label: "Buffer (days)",
       values: buffers.map(formatSignedBuffer),
     },
@@ -210,8 +262,8 @@ export function ScenarioComparisonTable({
     },
     {
       label: "Duration w/Buffer",
-      values: totalDurations.map((d) => (d !== null ? String(d) : null)),
-      highlights: totalDurations.map((d) => pickBestHighlight(d, bestTotal)),
+      values: totalDurationValues,
+      highlights: highlightBestDisplayed(totalDurationValues, "min"),
     },
     {
       label: "Activity Target",
@@ -228,8 +280,8 @@ export function ScenarioComparisonTable({
     },
     {
       label: "Mean",
-      values: means.map((m) => (m !== null ? m.toFixed(1) : null)),
-      highlights: means.map((m) => pickBestHighlight(m, bestMean)),
+      values: meanValues,
+      highlights: highlightBestDisplayed(meanValues, "min"),
     },
     {
       label: "Standard Deviation",
