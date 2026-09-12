@@ -18,7 +18,21 @@ export function distributionLabel(dt: DistributionType): string {
   }
 }
 
-/** Short label for distribution recommendation badges. */
+/**
+ * Short label for distribution recommendation badges.
+ *
+ * ⚠️ **No production consumer since v0.67.17 (2026-09-12), and RETAINED DELIBERATELY.** Its
+ * only caller was the activity grid's recommendation badge, which measured 22–39px inside a
+ * cell it shared with the distribution `<select>` — enough that the select could no longer
+ * show its own value, so `T-Normal` rendered as `T-Norma` on every row carrying one. The
+ * badge became a 12px dot with the recommendation on its `title`, and a dot has no text.
+ *
+ * **Kept, with its tests, rather than deleted:** a hover-revealed *text* badge is still an
+ * open option the owner has not ruled on, and that option uses this function unchanged.
+ * Deleting a `/domain` export and restoring it later is churn on a shared surface. If that
+ * option is settled against, this can go — but delete it for that reason, not because it
+ * looks orphaned.
+ */
 export function distributionShortLabel(dt: DistributionType): string {
   switch (dt) {
     case "logNormal":
