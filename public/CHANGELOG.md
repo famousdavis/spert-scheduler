@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.67.15 — 2026-09-11
+
+### Changing the work calendar now clears the simulation results it invalidates
+
+A project's work calendar — its holiday list, and any non-working days converted into working days — is one of the inputs the Monte Carlo simulation reads. Editing it did not clear the results of a simulation that had already been run, so the schedule buffer, the finish-with-buffer date and the milestone health readouts stayed on screen, presented as current, having been computed against the calendar you had just replaced.
+
+The deterministic dates beside them **did** recompute. So the summary card could show two figures drawn from two different calendars, with nothing to tell them apart: a finish-without-buffer date that had moved, next to a "+58 days" buffer and four green milestone ticks that had not. On a project with a scheduling constraint, adding a single holiday moves the simulated finish by a full day — and none of that movement reached the screen.
+
+All nine ways of editing a project's work calendar now clear the results: setting the project's holiday list; setting, adding or removing a converted work day; setting, adding or removing a forced work day; removing a work-day override; and upgrading one to a forced override. The panel returns to "Run simulation to calculate schedule buffer" and the export buttons disable, exactly as before a project's first run. Run the simulation again and the numbers come back, now computed against the calendar you actually have.
+
+Because the work calendar belongs to the project rather than to any one scenario, a calendar edit clears every scenario in that project.
+
+Two things are deliberately unchanged. A calendar edit the app refuses — converting a date that is one of the project's own holidays — changes nothing, and leaves your results alone. And **Company Holidays**, at the top of the Calendar page, is a global setting shared by every project rather than part of any one project's calendar; editing it still does not clear a project's results.
+
 ## 0.67.14 — 2026-09-09
 
 ### Milestone labels no longer sit on top of the timeline, or on each other
