@@ -57,8 +57,11 @@ const COLUMNS: { name: string; width: string; header?: string; field?: string }[
   { name: "mostLikely", width: "38px", header: "ML", field: "ml" }, // data-field is "ml", not "mostLikely"
   { name: "max", width: "38px", header: "Max", field: "max" },
   { name: "distribution", width: "110px", header: "Distribution", field: "distribution" },
-  { name: "confidence", width: "96px", header: "Confidence", field: "confidence" },
-  { name: "status", width: "110px", header: "Status", field: "status" },
+  // ⚠️ "Conf.", not "Confidence". The header is load-bearing, not cosmetic: at a 75px
+  // track the word "Confidence" runs 10.41px past its own cell and 2.41px into the
+  // Status header's ink. The width and the header text are ONE change.
+  { name: "confidence", width: "75px", header: "Conf.", field: "confidence" },
+  { name: "status", width: "103px", header: "Status", field: "status" },
   { name: "actual", width: "56px", header: "Actual", field: "actual" },
   { name: "separator", width: "1px" },
   { name: "src", width: "40px", header: "Src" },
@@ -128,10 +131,10 @@ describe("G2 — the template's width order", () => {
   });
 
   it("Confidence and Distribution keep their own widths through any reorder", () => {
-    // The two differ (96 vs 110), so a content swap that leaves the widths behind puts
+    // The two differ (75 vs 110), so a content swap that leaves the widths behind puts
     // each control in the other's column. Pinned by name, not by position.
     const byName = Object.fromEntries(COLUMNS.map((c) => [c.name, c.width]));
-    expect(byName.confidence).toBe("96px");
+    expect(byName.confidence).toBe("75px");
     expect(byName.distribution).toBe("110px");
     // Distribution now precedes Confidence; each keeps its own width.
     expect(COLUMNS.findIndex((c) => c.name === "distribution"))

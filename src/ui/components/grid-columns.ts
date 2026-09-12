@@ -42,9 +42,24 @@ export const GRID_COLUMN_LIST: readonly GridColumn[] = [
   { name: "min", width: "38px" },
   { name: "mostLikely", width: "38px" },
   { name: "max", width: "38px" },
+  // ⚠️ 110px, and it is NOT "unchanged because nobody looked". A native select needs
+  // `ink + 30` (border 2 + padding 8 + a 20px arrow), so its widest label `Triangular`
+  // (64.33) needs 94.33 and this column could give up 9px on clipping grounds alone.
+  // It does not, because the recommendation dot lives in the gap between the label's ink
+  // and the arrow — `(track − 25) − (5 + ink)` — and at 110 that gap is 15.67px on a
+  // `Triangular` row, enough for a 12px dot with 2px to spare. At 101 it would be 6.67
+  // and the dot would cover a third of the label. The dot's floor here is 108.33.
   { name: "distribution", width: "110px" },
-  { name: "confidence", width: "96px" },
-  { name: "status", width: "110px" },
+  // 75px and 103px: measured floors, not round numbers. `In Progress` needs 103 — Status
+  // was 96px once and was widened for exactly that reason, so 103 is its floor and not a
+  // target. Confidence at 75 fits the grid-local short labels in `grid-labels.ts` (worst
+  // case `Near cert.` 74.42) and NOT the shared `RSM_LABELS`; its header reads "Conf."
+  // for the same reason — at 75px the word "Confidence" runs 10.41px past its own cell
+  // and collides with the Status header. The 28px this releases goes to `name`, which is
+  // the only `1fr` track, taking it 255 → 283. Measured in a browser; jsdom has no
+  // layout and cannot re-derive any of it.
+  { name: "confidence", width: "75px" },
+  { name: "status", width: "103px" },
   // 56px, not 40: its "ACTUAL" header measures 54px at the 12px floor (WI-10) and was
   // overlapping the SRC header by 5px. It already overflowed at 11px — pre-existing,
   // and widened here because the floor made it worse. Measured in a browser.

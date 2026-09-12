@@ -286,7 +286,7 @@ describe('legibility floor: no numeric font size below 12 outside print', () => 
 const RULED_EXCEPTIONS: Record<string, string> = {
   'src/ui/charts/GanttChart.tsx:198': 'disabled state, paired with cursor-not-allowed',
   'src/ui/components/StorageLoginModal.tsx:135': 'the disabled half of a ternary',
-  'src/ui/components/UnifiedActivityRow.tsx:622': 'icon-only control, no text node',
+  'src/ui/components/UnifiedActivityRow.tsx:659': 'icon-only control, no text node',
   'src/ui/components/ScenarioTabs.tsx:117': 'drag-handle icon',
   'src/ui/components/DependencyPanel.tsx:331': '<select> placeholder state',
   'src/ui/components/DependencyPanel.tsx:346': '<select> placeholder state',
