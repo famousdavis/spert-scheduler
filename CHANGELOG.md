@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.67.18 — 2026-09-12
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.67.17.
+
+### Internal
+
+- **The copy of the Firestore security rules kept in this repository is back in step with the canonical file.** It had fallen one release behind: the canonical rules in the SPERT® Suite landing-page repository widened an owner-only restriction on the MyScrumBudget project collection from two fields to six, and the change was not copied here. Compared as rule content, with comments set aside, the copy carries the same rules as the canonical file again.
+
+- **No rule that is enforced anywhere changed.** The rules that actually govern the database are deployed from the landing-page repository, not from this one, and the fields involved belong to a different app's collection. This repository keeps a copy for a single reason: `preferences-firestore-sync.test.ts` reads it from disk and checks that every preference in the app's schema appears in the `spertscheduler_settings` allowlist. The copy is a test fixture, not a record of what is deployed.
+
+- **The canonical file's explanation of that restriction came across with it.** The copy has always carried the canonical rule comments word for word, and the reasoning is the part worth having — including why one further field was deliberately left out of the restriction.
+
 ## 0.67.17 — 2026-09-12
 
 ### The activity grid gives space back to the activity names
