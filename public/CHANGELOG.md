@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.67.21 — 2026-09-13
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.67.20.
+
+### Internal
+
+- **The reference-only copy of the Firestore rules is back in step with the canonical one.** This project keeps a copy of the suite-wide Firestore security rules for reference. It is never deployed — the canonical file lives in the landing-page project and is released from there — but it is genuinely read: a test parses it from disk to check that every saved-preference key still appears in this app's allowlist. That is why it is kept, and why it has to stay in step.
+
+- **What moved, and it belongs to another app.** Landing-page 2.5.38 added one field to the MyScrumBudget project rules and to the owner-only guard that stops a collaborator rewriting it. This copies that across, and nothing else. No rule enforced anywhere changed, because this file is not the one that is deployed.
+
+- **Nothing in this app behaves differently.** No Scheduler rule, screen, calculation or stored value is touched.
+
 ## 0.67.20 — 2026-09-13
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.67.19.
