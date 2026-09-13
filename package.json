@@ -1,7 +1,7 @@
 {
   "name": "spert-scheduler",
   "private": true,
-  "version": "0.67.18",
+  "version": "0.67.19",
   "type": "module",
   "license": "GPL-3.0",
   "engines": {
