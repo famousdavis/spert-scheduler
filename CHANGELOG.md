@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.67.20 — 2026-09-13
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.67.19.
+
+### Internal
+
+- **A note in the release checks said the licence is copied into nine projects. It is eight.** The licence file is copied byte-for-byte into every project in the suite, and each project carries a check that its own copy still matches. The note explaining that check said the licence lives in nine projects. It has been eight since August 21, 2026, when one project — private, instructor-only and distributed to nobody — withdrew the open-source grant and deleted its copy.
+
+- **The note now says eight, and says why.** The note now says eight, and says why. It also warns against “correcting” the references to nine that remain in the same note: those describe the July 2026 audit, when there really were nine, and changing them would make them false.
+
+- **Why this is a release.** Worth a release on its own because the note is an instruction, not decoration. It tells whoever changes the licence next how many projects to update in the same pass, and a wrong number there sends them hunting for a project that no longer carries the file.
+
 ## 0.67.19 — 2026-09-13
 
 Licence text only — no functional, data, or interface changes. The app behaves identically to 0.67.18.
