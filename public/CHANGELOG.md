@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.67.22 — 2026-09-14
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.67.21.
+
+### Internal
+
+- **The reference-only copy of the Firestore rules is back in step with the canonical one.** This project keeps a copy of the suite-wide Firestore security rules for reference. It is never deployed — the canonical file lives in the landing-page project and is released from there — but it is genuinely read: a test parses it from disk to check that every saved-preference key still appears in this app's allowlist. That is why it is kept, and why it has to stay in step.
+
+- **What moved, and it belongs to another app.** Landing-page 2.5.39 added a field allowlist to the SPERT Story Map project *create* rule, so a new Story Map project may only contain the fields that app actually uses. Updates there have been guarded since 2.5.17; creates now match. This copies that across, and nothing else. No rule enforced anywhere changed, because this file is not the one that is deployed.
+
+- **Why that change came in two releases, recorded because the order was the point.** The Story Map client was fixed and deployed first, in its own 0.53.7 release, and only then did the rule land. Firestore rules are global and take effect within seconds, while a web client is a static bundle that can sit in an open browser tab — so tightening the rule first would have broken project duplication for anyone still running the older client.
+
+- **Nothing in this app behaves differently.** No Scheduler rule, screen, calculation or stored value is touched.
+
 ## 0.67.21 — 2026-09-13
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.67.20.
