@@ -329,7 +329,10 @@ export function ProjectPage() {
   // derives it (no state write); otherwise the sequential useSchedule drives
   // `sequentialScheduleError`. The two paths are mutually exclusive on depMode.
   const scheduleError = depMode ? dependencyScheduleResult.scheduleError : sequentialScheduleError;
-  const scheduleErrorBanner = getScheduleErrorBanner(scheduleError);
+  // ⚠️ `allActivitiesValid` gates the GENERIC branch only, and it is the app's own
+  // "the rows say they are fine" signal (set by the grid, below). Rows-valid + engine-throw
+  // is the half-typed estimate window, not a fault the user can act on — see the helper.
+  const scheduleErrorBanner = getScheduleErrorBanner(scheduleError, allActivitiesValid);
 
   // Critical path activity IDs (only in dependency mode)
   const criticalPathIds = useMemo(() => {
