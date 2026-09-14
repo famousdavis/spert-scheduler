@@ -13,6 +13,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.23",
+    date: "2026-09-14",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Entering your first estimate no longer shows a schedule error. On a new activity, Min, Most Likely and Max all start at 1. Typing a realistic Min \u2014 say 5 \u2014 and tabbing onward briefly left the three numbers in an impossible order (5, 1, 1), and the app answered with a red Schedule Error panel quoting its own internal maths engine. The estimate was never wrong; you simply had not finished typing it. That panel no longer appears while you are part-way through a row.",
+          "What the panel was costing: it opened above the summary, pushed the whole page down by about an inch and pulled it back up again as you tabbed on, and it repeated the engine's own wording \u2014 including letters (a, c, b) that are not even in the order Min, Most Likely, Max. On the first activity of a new project it was unavoidable, because no left-to-right order escaped it: entering only Most Likely produced the same impossible order (1, 10, 1). It fired on the most ordinary thing anyone does in the app.",
+          "What this does not change: while the three numbers are still in an impossible order the schedule genuinely cannot be worked out, so Duration, Start and End go on showing \u201c\u2014\u201d and the Gantt chart stays hidden until you finish the row. That is unchanged. This release removes the alarming red panel and the page jump that came with it \u2014 not the blank columns underneath, which are a separate piece of work.",
+          "Real problems are still reported, and that is the careful part. The panel still appears the moment an estimate is genuinely left in the wrong order, alongside the existing amber list naming the activity, the red cell and the disabled Run Simulation button. Dependency-loop and work-calendar errors are untouched: they use the same panel but arise when your estimates are perfectly fine, so they are deliberately outside this change, and tests now pin that they still appear.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The change is a single condition in one small function, which gained the unit tests it had never had. Both failure modes were demonstrated by deliberately breaking the fix and confirming the tests catch it \u2014 including moving the new condition one branch too early, which is the mistake that would have silenced dependency-loop errors.",
+          "One known gap is recorded rather than fixed: if you type one estimate and then click away without touching the other two, the schedule stays blank with nothing on screen explaining why. It is filed as follow-up work.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.22",
     date: "2026-09-14",
     sections: [
