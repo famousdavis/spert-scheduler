@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.24",
+    date: "2026-09-15",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "The Activity probability dropdown now offers P40 and P30. It previously started at P50, which meant the lowest activity-level target you could pick was the fifty-fifty estimate. P40 and P30 sit below it, letting you build a deterministic schedule on a deliberately optimistic per-activity duration and leave more of the uncertainty to the project buffer. The default is still P50 \u2014 nothing changes unless you choose one of the new values.",
+          "The Project probability dropdown is unchanged. It still runs P50 to P99. P40 and P30 are offered for the per-activity target only, in both places it appears: the Activity/Project pair on a scenario's summary card, and the default for new scenarios in Settings.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The two new values were added to the Activity dropdown alone rather than to the shared percentile list that drives the Monte Carlo results table, the CSV and Excel exports and the print report \u2014 widening that list would have added two columns to every one of those surfaces. The activity target does not need an entry there: it is evaluated against each activity's own distribution at whatever probability you pick, and values from 1% to 99% were already accepted by the schema.",
+          "Tests pin both halves: that the Activity dropdown now leads with P30, P40, P50, and that the Project dropdown still contains neither. Both were confirmed to fail against the previous list before the change was kept.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.23",
     date: "2026-09-14",
     sections: [
