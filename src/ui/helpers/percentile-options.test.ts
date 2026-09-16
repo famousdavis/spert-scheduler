@@ -9,16 +9,31 @@ import {
 } from "./percentile-options";
 
 describe("percentile options", () => {
-  it("ACTIVITY_PERCENTILE_OPTIONS has 10 items from P50 to P95", () => {
-    expect(ACTIVITY_PERCENTILE_OPTIONS).toHaveLength(10);
-    expect(ACTIVITY_PERCENTILE_OPTIONS[0]!.label).toBe("P50");
-    expect(ACTIVITY_PERCENTILE_OPTIONS[0]!.value).toBe(0.5);
+  it("ACTIVITY_PERCENTILE_OPTIONS has 12 items from P30 to P95", () => {
+    expect(ACTIVITY_PERCENTILE_OPTIONS).toHaveLength(12);
+    expect(ACTIVITY_PERCENTILE_OPTIONS[0]!.label).toBe("P30");
+    expect(ACTIVITY_PERCENTILE_OPTIONS[0]!.value).toBe(0.3);
     expect(
       ACTIVITY_PERCENTILE_OPTIONS[ACTIVITY_PERCENTILE_OPTIONS.length - 1]!.label
     ).toBe("P95");
     expect(
       ACTIVITY_PERCENTILE_OPTIONS[ACTIVITY_PERCENTILE_OPTIONS.length - 1]!.value
     ).toBe(0.95);
+  });
+
+  it("ACTIVITY_PERCENTILE_OPTIONS offers P30 and P40 below P50", () => {
+    expect(ACTIVITY_PERCENTILE_OPTIONS.slice(0, 3)).toEqual([
+      { value: 0.3, label: "P30" },
+      { value: 0.4, label: "P40" },
+      { value: 0.5, label: "P50" },
+    ]);
+  });
+
+  it("PROJECT_PERCENTILE_OPTIONS still starts at P50 — P30/P40 are activity-only", () => {
+    const labels = PROJECT_PERCENTILE_OPTIONS.map((o) => o.label);
+    expect(labels).not.toContain("P30");
+    expect(labels).not.toContain("P40");
+    expect(Math.min(...PROJECT_PERCENTILE_OPTIONS.map((o) => o.value))).toBe(0.5);
   });
 
   it("PROJECT_PERCENTILE_OPTIONS has 14 items from P50 to P99", () => {
