@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.67.25 — 2026-09-17
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.67.24.
+
+### Internal
+
+- **The reference-only copy of the Firestore rules is back in step with the canonical one.** This project keeps a copy of the suite-wide Firestore security rules for reference. It is never deployed — the canonical file lives in the landing-page project and is released from there — but a test reads it from disk, which is why it has to stay in step.
+
+- **What moved belongs to another app, and it is comments only.** Landing-page 2.5.40 documented why the MyScrumBudget project rules keep accepting a project's tile colour, archived flag and dashboard order even though MyScrumBudget 0.42.0 stopped writing them: projects saved by earlier versions still carry those fields, and removing them from the rules first would stop those projects from being overwritten by an upload from local storage and leave the old values impossible to clear. This copies those comment changes across by hand, and nothing else. No rule changed, here or anywhere.
+
+- **One paragraph in this copy stays deliberately different from the canonical file.** This copy's longer explanation of why writing a missing field as `null` does not help spells out three emulator measurements that the canonical file keeps elsewhere. It is left exactly as it was, with the new dated note added beside it.
+
+- **Nothing in this app behaves differently.** No Scheduler rule, screen, calculation or stored value is touched.
+
 ## 0.67.24 — 2026-09-15
 
 ### Added

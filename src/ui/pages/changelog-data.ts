@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.25",
+    date: "2026-09-17",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Nothing about the app changed. A reference copy of the shared security rules only, and only its comments: no application code, no behaviour, no appearance, no data.",
+          "The reference-only copy of the Firestore rules is back in step with the canonical one. This project keeps a copy of the suite-wide Firestore security rules for reference. It is never deployed \u2014 the canonical file lives in the landing-page project and is released from there \u2014 but a test reads it from disk, which is why it has to stay in step.",
+          "What moved belongs to another app, and it is comments only. Landing-page 2.5.40 documented why the MyScrumBudget project rules keep accepting a project's tile colour, archived flag and dashboard order even though MyScrumBudget 0.42.0 stopped writing them: projects saved by earlier versions still carry those fields, and removing them from the rules first would stop those projects from being overwritten by an upload from local storage and leave the old values impossible to clear. This copies those comment changes across by hand, and nothing else. No rule changed, here or anywhere.",
+          "One paragraph in this copy stays deliberately different from the canonical file. This copy's longer explanation of why writing a missing field as null does not help spells out three emulator measurements that the canonical file keeps elsewhere. It is left exactly as it was, with the new dated note added beside it.",
+          "Nothing in this app behaves differently. No Scheduler rule, screen, calculation or stored value is touched.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.67.24",
     date: "2026-09-15",
     sections: [
