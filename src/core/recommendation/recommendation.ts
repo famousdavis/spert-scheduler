@@ -97,7 +97,7 @@ const CURVE_FITS: Record<"normal" | "logNormal", string> = {
   normal:
     "Most Likely is near the middle of a relatively narrow range. T-Normal may suit this roughly symmetric estimate.",
   logNormal:
-    "The range is relatively wide and extends much farther above Most Likely than below it. LogNormal may suit this pattern, with more room for longer durations.",
+    "The range is relatively wide and extends farther above Most Likely than below it. LogNormal may suit this pattern, with more room for longer durations.",
 };
 
 const T_NORMAL_OFF_CENTRE =

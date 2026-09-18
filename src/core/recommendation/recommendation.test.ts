@@ -102,7 +102,7 @@ function denseGrid(n: number): [number, number, number][] {
 const FITS_T_NORMAL =
   "Most Likely is near the middle of a relatively narrow range. T-Normal may suit this roughly symmetric estimate.";
 const FITS_LOGNORMAL =
-  "The range is relatively wide and extends much farther above Most Likely than below it. LogNormal may suit this pattern, with more room for longer durations.";
+  "The range is relatively wide and extends farther above Most Likely than below it. LogNormal may suit this pattern, with more room for longer durations.";
 const T_NORMAL_OFF_CENTRE =
   "Most Likely is away from the middle of the range. Triangular puts the peak at Most Likely and keeps durations between Min and Max.";
 const LOGNORMAL_NOT_RIGHT =
