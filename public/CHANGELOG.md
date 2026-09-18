@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.68.0 — 2026-09-18
+
+### Changed
+
+- **The distribution suggestion is judged from the three estimates alone.** The small amber dot beside an activity's Distribution dropdown used to take the activity's Confidence level into account, so the same Min, Most Likely and Max could get a different suggestion at a different Confidence — even on Triangular and Uniform activities, where the grid shows Confidence as not applicable. The suggestion now looks only at where Most Likely sits in the range and how wide the range is for the size of the estimate, using the thresholds the Medium level always used.
+
+- **The dot now appears for one of two reasons, and its tooltip says which.** Either the three numbers fit T-Normal or LogNormal and the activity uses neither that curve nor Uniform — T-Normal fits when Most Likely sits less than 6% from the middle of the range and the range is not wide, LogNormal when Most Likely sits more than 6% below the middle, but above Min, and the range is wide, “wide” meaning more than one and a half times the estimate's PERT mean — or the activity uses T-Normal or LogNormal and its numbers contradict that curve's shape, in which case the dot suggests Triangular and says what the contradiction is. When the activity's own curve fits as well, the dot stays quiet: a LogNormal activity whose Most Likely sits more than 6% below the middle of the range, but above Min, shows no dot, because which of the two is better depends on the nature of the uncertainty, and three numbers cannot tell you that.
+
+- **Uniform is never suggested, and a Uniform activity never shows a dot.** Three numbers cannot tell whether a most-likely value is really known, so choosing Uniform is left to you in both directions.
+
+- **Most Likely equal to Min or Max now suggests Triangular instead of Uniform.** Uniform ignores the most-likely value, so accepting it threw away the number you had just entered — on a Triangular activity estimated at 5 / 20 / 20 it moved the median from 15.6 days to 12.5, more optimistic than your own estimate. Triangular is the only one of the four distributions that can put the peak at the end of the range.
+
+- **An estimate with no spread gets no suggestion.** When Min, Most Likely and Max are equal, every distribution gives that same value — except LogNormal at zero, which cannot be built at all (see Notes) — so there is nothing to suggest. A freshly added row whose three estimates all start at 1 no longer carries a dot.
+
+- **No suggestion is shown for an estimate that is not yet valid,** such as one with Min above Most Likely: no curve fits it.
+
+- **The wording is plainer.** The dot's tooltip explains the suggestion in terms of your three numbers and no longer calls any distribution the “best”. Its accessible name now reads, for example, “Change distribution to Triangular.”
+
+- **Connect AI's automatic pick also comes from the numbers alone.** An activity an AI creates without naming a distribution still gets one automatically. If its three estimates differ, it gets T-Normal, LogNormal or Triangular — Triangular when Most Likely equals Min or Max. If they are all equal, it gets the scenario's default distribution, the same one “+ Add Activity” uses.
+
+- **An AI has to ask for Uniform.** The app never picks Uniform from the numbers, so for a flat estimate with no distinct most-likely value — a vendor's quoted lead time, a booked window — the AI must name Uniform itself. The prompt Connect AI copies for your chatbot now says so, and tells the AI when to choose a distribution rather than leave it to the app.
+
+- **One AI request is now refused.** An activity whose three estimates are all 0, created with no distribution named in a scenario whose default is LogNormal, is skipped as invalid, because LogNormal cannot describe a zero estimate. It used to be created as Uniform.
+
+### Notes
+
+- **A known gap, recorded rather than fixed here.** A LogNormal activity whose estimates are all 0 leaves the schedule blank, and until now the only thing on screen pointing at it was the amber dot suggesting Uniform. An estimate with no spread no longer gets a suggestion, so for the moment nothing points at that row; switching it to any other distribution still fixes it. Flagging the row directly is filed as follow-up work.
+
+### Internal
+
+- **The About page now describes the feature as automatic suggestions.**
+
+- **On the sample project, 6 activities show the dot instead of 10.** Six T-Normal activities whose Most Likely sits 33–41% of the way into the range are told Triangular. One LogNormal activity, and three T-Normal activities that were flagged only because of their High confidence, no longer show one.
+
+- **The suggestion's arithmetic is otherwise unchanged, and a test holds it there.** It compares the new suggestion with a frozen copy of the previous rule at Medium over more than 350,000 estimates — whole numbers, estimates in the wrong order, and fractional ones in the shape the Min/Max heuristic writes — and allows exactly two kinds of difference: no suggestion for an estimate with no spread, and Triangular where Uniform used to be suggested. Where the range is exactly one and a half times the estimate's PERT mean and Most Likely sits inside the range, more than 6% below its middle, the previous rule's answer depends on floating-point rounding; two further tests pin both directions of it, so a tidier-looking rewrite of the thresholds fails. Each new test that guards a change was shown to fail against a deliberately broken version, the previous rule among them, before the change was kept; the rest pin behaviour that did not change.
+
 ## 0.67.25 — 2026-09-17
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.67.24.

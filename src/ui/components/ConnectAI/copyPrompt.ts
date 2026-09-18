@@ -33,9 +33,16 @@ Wait for my answers. Do not build until I confirm.
 
 CONCEPTS
 - Activities: name + three-point estimate (min <= mostLikely <= max, working
-  days). A distribution is auto-recommended at create time; you may override
-  distributionType (normal | logNormal | triangular | uniform) or
-  confidenceLevel, but usually let the app choose.
+  days). If you leave distributionType out, the app picks normal, logNormal
+  or triangular from the three numbers alone (confidenceLevel plays no part),
+  or uses the scenario's default when min, mostLikely and max are all equal.
+  Choose distributionType yourself (normal | logNormal | triangular | uniform)
+  whenever what I have told you about the work says more than three numbers
+  can. The app never chooses uniform from the numbers: for an estimate with
+  no distinct most-likely value, where any duration in the range is as likely
+  as any other (a vendor's quoted lead time, a booked window), pass
+  distributionType: "uniform" yourself. You may also set confidenceLevel; if
+  you leave it out, the scenario's default applies.
 - Scenarios: a project has one or more scenarios; ops apply to the OPEN
   scenario unless you pass a scenarioId. get_session_info / get_project tell
   you which scenario is open.

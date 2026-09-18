@@ -118,11 +118,15 @@ export function createActivityCore(scenario: Scenario, p: CreateActivityPayload)
   }
 
   const confidenceLevel = p.confidenceLevel ?? scenario.settings.defaultConfidenceLevel;
-  // Auto-recommendation applies only at create time. recommendDistribution's
-  // 4th param is rsmLevel: RSMLevel; Activity.confidenceLevel is that type.
+  // With no distribution named, the app picks one from the three numbers alone —
+  // Confidence plays no part since v0.68.0, and it never picks Uniform from them.
+  // A point mass (min = mostLikely = max) has no pick, so it takes the scenario's
+  // default, the same default "+ Add Activity" uses — Uniform, if that is the
+  // default. Create time only.
   const distributionType =
     p.distributionType ??
-    recommendDistribution(p.min, p.mostLikely, p.max, confidenceLevel).recommended;
+    recommendDistribution(p.min, p.mostLikely, p.max) ??
+    scenario.settings.defaultDistributionType;
   // logNormal PERT-mean guard: explicit CORE logic, NOT part of ActivitySchema.
   // It must travel with the extraction (the schema cannot express it).
   if (distributionType === "logNormal" && computePertMean(p.min, p.mostLikely, p.max) <= 0) {

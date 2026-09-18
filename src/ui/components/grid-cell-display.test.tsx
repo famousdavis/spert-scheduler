@@ -7,7 +7,6 @@ import { render, screen, fireEvent, cleanup, within } from "@testing-library/rea
 import { UnifiedActivityGrid } from "./UnifiedActivityGrid";
 import { GRID_RSM_LABELS, gridDistributionLabel } from "./grid-labels";
 import { createScenario, createActivity } from "@app/api/project-service";
-import { recommendDistribution } from "@core/recommendation/recommendation";
 import { distributionLabel } from "@domain/helpers/format-labels";
 import { RSM_LABELS, DISTRIBUTION_TYPES } from "@domain/models/types";
 import type { Activity, DistributionType, RSMLevel } from "@domain/models/types";
@@ -141,31 +140,34 @@ describe("the confidence button is short, the dropdown behind it is not", () => 
   });
 });
 
-describe("the recommendation affordance is a dot, and still applies the recommendation", () => {
-  // Asserted, not assumed: the fixture only exercises the affordance if the recommended
-  // type actually differs from the stored one.
-  const stored: DistributionType = "uniform";
-  const recommendation = recommendDistribution(3, 5, 10, "mediumConfidence");
-  const badgeRow = () =>
-    activityFixture({ min: 3, mostLikely: 5, max: 10, distributionType: stored });
+describe("the suggestion affordance is a dot, and still applies the suggestion", () => {
+  // Owner rulings, 2026-09-17: the dot either points to a curve the three numbers fit, or
+  // corrects a T-Normal / LogNormal row whose shape contradicts them — and nothing else.
+  // Expected texts are written out, never computed from the function under test.
+  const row = (min: number, mostLikely: number, max: number, distributionType: DistributionType) =>
+    activityFixture({ min, mostLikely, max, distributionType });
 
-  it("the fixture really is a recommendation row", () => {
-    expect(recommendation.recommended).not.toBe(stored);
-  });
+  /** Each rendered row's dot, by its accessible name — or null where the row has none. */
+  const dotsByRow = () =>
+    Array.from(document.querySelectorAll<HTMLSelectElement>('[data-field="distribution"]')).map(
+      (select) =>
+        select.parentElement!.querySelector("button")?.getAttribute("aria-label") ?? null,
+    );
 
-  it("renders no text, names itself, and carries the rationale on hover", () => {
-    renderGrid([badgeRow()]);
-    const dot = screen.getByRole("button", {
-      name: /Apply the recommended distribution/,
-    });
+  const T_NORMAL_FITS =
+    "Most Likely is near the middle of a relatively narrow range. T-Normal may suit this roughly symmetric estimate.";
+
+  it("renders no text, names itself, and carries its reason on hover", () => {
+    // A curve match on a Triangular row: 5/10/15 is centred and not wide.
+    renderGrid([row(5, 10, 15, "triangular")]);
+    const dot = screen.getByRole("button", { name: "Change distribution to T-Normal." });
 
     // The whole point: a word here cost the `<select>` 24.27px and clipped its label on
     // every row that had one. Text coming back is the regression.
     expect(dot.textContent).toBe("");
-    expect(dot.title).toBe(recommendation.rationale);
-    expect(dot.getAttribute("aria-label")).toContain(
-      distributionLabel(recommendation.recommended),
-    );
+    expect(dot.title).toBe(T_NORMAL_FITS);
+    // The shared label, not the grid's abbreviation, names the distribution.
+    expect(dot.getAttribute("aria-label")).toContain(distributionLabel("normal"));
 
     // ⚠️ These two class literals ARE the arithmetic and jsdom cannot check the layout
     // they produce: 25px is the native `<select>`'s arrow (20) plus its right padding (4)
@@ -176,29 +178,59 @@ describe("the recommendation affordance is a dot, and still applies the recommen
     expect(dot.className).toContain("h-3 w-3");
   });
 
-  it("applies the recommendation when clicked", () => {
-    const onUpdate = renderGrid([badgeRow()]);
+  it("applies the suggestion when clicked", () => {
+    const onUpdate = renderGrid([row(5, 10, 15, "triangular")]);
     fireEvent.click(
-      screen.getByRole("button", { name: /Apply the recommended distribution/ }),
+      screen.getByRole("button", { name: "Change distribution to T-Normal." }),
     );
-    expect(onUpdate).toHaveBeenCalledWith(expect.any(String), {
-      distributionType: recommendation.recommended,
-    });
+    expect(onUpdate).toHaveBeenCalledWith(expect.any(String), { distributionType: "normal" });
   });
 
-  it("does not render at all when the stored type is already the recommended one", () => {
+  it("corrects a T-Normal row whose estimate is off-centre, saying why", () => {
+    renderGrid([row(3, 5, 10, "normal")]);
+    const dot = screen.getByRole("button", { name: "Change distribution to Triangular." });
+    expect(dot.title).toBe(
+      "Most Likely is away from the middle of the range. Triangular puts the peak at Most Likely and keeps durations between Min and Max.",
+    );
+  });
+
+  it("corrects a LogNormal row whose Most Likely equals Min", () => {
+    renderGrid([row(5, 5, 20, "logNormal")]);
+    const dot = screen.getByRole("button", { name: "Change distribution to Triangular." });
+    expect(dot.title).toBe(
+      "Most Likely equals Min. Triangular places the peak at Min and keeps durations within your range.",
+    );
+  });
+
+  // Each no-dot case renders a second row that DOES get a dot, as its positive control.
+  const CONTROL = "Change distribution to T-Normal."; // 5/10/15 on a Triangular row
+
+  it("shows no dot on a LogNormal row whose right-skewed estimate LogNormal also fits", () => {
+    renderGrid([row(3, 5, 10, "logNormal"), row(5, 10, 15, "triangular")]);
+    expect(dotsByRow()).toEqual([null, CONTROL]);
+  });
+
+  it("shows no dot on a Uniform row, even one whose numbers fit a curve", () => {
+    renderGrid([row(5, 10, 15, "uniform"), row(5, 10, 15, "triangular")]);
+    expect(dotsByRow()).toEqual([null, CONTROL]);
+  });
+
+  it("shows no dot for a point mass", () => {
+    renderGrid([row(1, 1, 1, "triangular"), row(5, 10, 15, "triangular")]);
+    expect(dotsByRow()).toEqual([null, CONTROL]);
+  });
+
+  it("shows no dot on a Triangular row whose Most Likely is at an end", () => {
+    renderGrid([row(5, 5, 20, "triangular"), row(5, 10, 15, "triangular")]);
+    expect(dotsByRow()).toEqual([null, CONTROL]);
+  });
+
+  it("does not render at all when the row already uses the suggested distribution", () => {
     // The leave-alone half. Without it, a component that never renders the affordance
     // would pass nothing above — but every assertion here would also be unreachable, and
     // an unreachable failure reads as a pass in a file this size.
-    renderGrid([activityFixture({
-      min: 3,
-      mostLikely: 5,
-      max: 10,
-      distributionType: recommendation.recommended,
-    })]);
-    expect(
-      screen.queryByRole("button", { name: /Apply the recommended distribution/ }),
-    ).toBeNull();
+    renderGrid([row(5, 10, 15, "normal"), row(5, 10, 15, "triangular")]);
+    expect(dotsByRow()).toEqual([null, CONTROL]);
   });
 });
 

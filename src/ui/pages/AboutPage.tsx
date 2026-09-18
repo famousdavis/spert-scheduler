@@ -93,7 +93,7 @@ export function AboutPage() {
             </li>
             <li>
               Choose from T-Normal, LogNormal, Triangular, or Uniform distributions per
-              activity (with automatic recommendations)
+              activity (with automatic suggestions)
             </li>
             <li>
               Set an activity-level probability target (e.g., P50) for the

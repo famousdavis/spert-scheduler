@@ -17,7 +17,7 @@ import {
   ACTIVITY_STATUSES,
 } from "@domain/models/types";
 import { ActivitySchema } from "@domain/schemas/project.schema";
-import { recommendDistribution } from "@core/recommendation/recommendation";
+import { suggestDistributionChange } from "@core/recommendation/recommendation";
 import { computeHeuristic } from "@core/estimation/heuristic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
@@ -531,15 +531,15 @@ export function UnifiedActivityRow({
     [activity.min, activity.mostLikely, activity.max, errors]
   );
 
-  const recommendation = useMemo(
+  const suggestion = useMemo(
     () =>
-      recommendDistribution(
+      suggestDistributionChange(
         activity.min,
         activity.mostLikely,
         activity.max,
-        activity.confidenceLevel
+        activity.distributionType
       ),
-    [activity.min, activity.mostLikely, activity.max, activity.confidenceLevel]
+    [activity.min, activity.mostLikely, activity.max, activity.distributionType]
   );
 
   const targetPct = Math.round(activityProbabilityTarget * 100);
@@ -759,7 +759,7 @@ export function UnifiedActivityRow({
             </option>
           ))}
         </select>
-        {/* The recommendation affordance: a 12px dot, not a word.
+        {/* The suggestion affordance: a 12px dot, not a word.
             ⚠️ **`right-[25px]` is arithmetic, not taste.** A native `<select>` reserves
             its last 20px of content box for the arrow, and the box adds 4px padding plus
             a 1px border to the right of it — so 25px from the cell's right edge is
@@ -774,17 +774,17 @@ export function UnifiedActivityRow({
             so it is coupled to `grid-labels.ts` and to the distribution track width.
             It keeps `tabIndex={-1}`: it was already pointer-only, so nothing changes for
             keyboard users, and `aria-label` gives the now-textless button its name. */}
-        {!isLocked && recommendation.recommended !== activity.distributionType && (
+        {!isLocked && suggestion && (
           <button
             type="button"
             onClick={() =>
               onUpdate(activity.id, {
-                distributionType: recommendation.recommended,
+                distributionType: suggestion.suggested,
               })
             }
             className="absolute right-[25px] top-1/2 -translate-y-1/2 h-3 w-3 rounded-full border border-amber-700/50 bg-amber-500 hover:bg-amber-600 dark:border-amber-200/50 dark:bg-amber-400 dark:hover:bg-amber-300"
-            title={recommendation.rationale}
-            aria-label={`Apply the recommended distribution: ${distributionLabel(recommendation.recommended)}`}
+            title={suggestion.reason}
+            aria-label={`Change distribution to ${distributionLabel(suggestion.suggested)}.`}
             tabIndex={-1}
           />
         )}
