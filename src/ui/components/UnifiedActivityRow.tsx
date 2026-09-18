@@ -32,7 +32,7 @@ import {
 } from "./unified-activity-helpers";
 import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
-import { confidenceApplies } from "@domain/helpers/confidence-applies";
+import { confidenceInertReason, distributionIsInert, DISTRIBUTION_INERT_TITLE } from "@domain/helpers/confidence-applies";
 import { EstimateInputs } from "./EstimateInputs";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";
@@ -475,7 +475,9 @@ export function UnifiedActivityRow({
   const isComplete = activity.status === "complete";
   const isInProgress = activity.status === "inProgress";
 
-  const confidenceIsRelevant = confidenceApplies(activity.distributionType);
+  const confidenceInert = confidenceInertReason(activity.distributionType, activity.min, activity.max, activity.sdOverride);
+  const confidenceIsRelevant = confidenceInert === null;
+  const distributionInert = distributionIsInert(activity.min, activity.mostLikely, activity.max, activity.distributionType, activity.sdOverride);
 
   const tabFieldOrder = useMemo(
     () => buildTabFieldOrder(heuristicEnabled, confidenceIsRelevant, isComplete, isInProgress),
@@ -750,7 +752,7 @@ export function UnifiedActivityRow({
           }
           onKeyDown={(e) => handleTabNav(e, "distribution")}
           disabled={isLocked}
-          className="w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+          {...distributionSelectLook(distributionInert)}
           tabIndex={heuristicEnabled ? 0 : -1}
         >
           {DISTRIBUTION_TYPES.map((dt) => (
@@ -788,19 +790,22 @@ export function UnifiedActivityRow({
             tabIndex={-1}
           />
         )}
-        {/* Sparkline tooltip on hover */}
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-20 pointer-events-none">
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded shadow-lg p-1">
-            <DistributionSparkline
-              min={activity.min}
-              mostLikely={activity.mostLikely}
-              max={activity.max}
-              distributionType={activity.distributionType}
-              width={80}
-              height={30}
-            />
+        {/* Sparkline tooltip on hover — not on a greyed cell, where it would draw a curve
+            beside a title saying the activity has no uncertainty. */}
+        {!distributionInert && (
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-20 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded shadow-lg p-1">
+              <DistributionSparkline
+                min={activity.min}
+                mostLikely={activity.mostLikely}
+                max={activity.max}
+                distributionType={activity.distributionType}
+                width={80}
+                height={30}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Confidence */}
@@ -815,6 +820,7 @@ export function UnifiedActivityRow({
           data-field="confidence"
           onKeyDown={(e) => handleTabNav(e, "confidence")}
           tabIndex={heuristicEnabled ? 0 : -1}
+          inertReason={confidenceInert}
         />
       </div>
 
@@ -980,6 +986,34 @@ export function UnifiedActivityRow({
       )}
     </div>
   );
+}
+
+/**
+ * The Distribution control's look: grey text, with a title saying why, where the estimate
+ * carries no uncertainty (`distributionIsInert`). It stays ENABLED either way.
+ *
+ * Module scope, like `commitActivityName` and `syncClippedNameTitle`, and spread onto the `<select>`
+ * so the component gains no conditional. Two WHOLE class strings, never a fragment assembled
+ * at runtime: Tailwind 4 only emits CSS for class names it can read as static text.
+ *
+ * ⚠️ The greys are MEASURED, not chosen from a table: this control stays enabled, so its text
+ * must reach 4.5:1 (an exemption for inactive controls does not apply). Against the select's
+ * own background, `text-gray-500` reads 4.84:1 on white, and `dark:text-gray-400` read only
+ * 3.96:1 on `dark:bg-gray-700`, which fails, so dark mode uses `gray-300`. It sits
+ * BELOW the component so that adding it moved no line the repo cites by number — the
+ * accepted lint declines above, and the legibility-floor pin.
+ */
+function distributionSelectLook(inert: boolean): { className: string; title?: string } {
+  return inert
+    ? {
+        className:
+          "w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+        title: DISTRIBUTION_INERT_TITLE,
+      }
+    : {
+        className:
+          "w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+      };
 }
 
 /**
