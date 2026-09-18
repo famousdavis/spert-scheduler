@@ -32,7 +32,12 @@ import { parseDateISO, isWorkingDay, formatDateISO, countWorkingDays, activityEn
 import { detectConstraintConflict } from "@core/schedule/constraint-utils";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
-import { confidenceInertReason, CONFIDENCE_INERT_TITLES } from "@domain/helpers/confidence-applies";
+import {
+  confidenceInertReason,
+  CONFIDENCE_INERT_TITLES,
+  distributionIsInert,
+  DISTRIBUTION_INERT_TITLE,
+} from "@domain/helpers/confidence-applies";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { ChecklistSection } from "@ui/components/ChecklistSection";
 import { DeliverablesSection } from "@ui/components/DeliverablesSection";
@@ -64,6 +69,30 @@ interface ActivityEditModalProps {
   activityNumberMap?: Map<string, number> | null;
 }
 
+
+/**
+ * The Distribution control's look: grey text, with a title saying why, where the drafts carry no
+ * uncertainty (`distributionIsInert`) — the grid does the same. It stays ENABLED either way.
+ *
+ * Unexported and module-level, spread onto the `<select>`: this component sits at the
+ * cognitive-complexity threshold, and a ternary in its body would count against it. Two WHOLE
+ * class strings, never a fragment assembled at runtime: Tailwind 4 only emits CSS for class
+ * names it can read as static text. The greys are the grid's, measured again against this
+ * select's own backgrounds (`bg-white`, `dark:bg-gray-700`), because the control is enabled
+ * and its text must reach 4.5:1.
+ */
+function distributionSelectLook(inert: boolean): { className: string; title?: string } {
+  return inert
+    ? {
+        className:
+          "w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300",
+        title: DISTRIBUTION_INERT_TITLE,
+      }
+    : {
+        className:
+          "w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100",
+      };
+}
 
 export function ActivityEditModal({
   activityId,
@@ -475,6 +504,13 @@ export function ActivityEditModal({
   // `nameMissing` is the same condition surfaced to the user: the Save button was already
   // correctly disabled for an empty name, but nothing said WHY.
   const nameMissing = name.trim().length === 0;
+  // ⚠️ Derived here, after the hooks, on purpose. Placed beside `confidenceInert` above, among the
+  // useState calls, this one line made the React Compiler report four
+  // `react-hooks/preserve-manual-memoization` errors on `handleTypeChange` (it inferred the
+  // constraint setters as dependencies); here it reports none. Measured 2026-09-18; the
+  // mechanism is not known, so re-measure before moving it.
+  const distributionInert = distributionIsInert(min, mostLikely, max, distributionType, activity?.sdOverride);
+
   const isValid =
     name.trim().length > 0 &&
     (!constraintType || (!!constraintType && !!constraintDate && !!constraintMode));
@@ -767,7 +803,7 @@ export function ActivityEditModal({
                     name="distributionType"
                     value={distributionType}
                     onChange={(e) => setDistributionType(e.target.value as DistributionType)}
-                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    {...distributionSelectLook(distributionInert)}
                   >
                     {DISTRIBUTION_TYPES.map((dt) => (
                       <option key={dt} value={dt}>

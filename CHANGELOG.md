@@ -4,13 +4,13 @@
 
 ### Changed
 
-- **Confidence shows a dash (—) wherever the confidence level cannot affect the activity.** That is every Triangular and Uniform activity, which take their shape from the three points alone; a T-Normal or LogNormal activity whose Min equals its Max, where the spread is zero at every confidence level; and one whose standard deviation was set directly, which nothing in the app does — it can only arrive in project data from elsewhere. The level itself is kept, and comes back if the activity changes. On hover the dash says which of the three reasons applies, and in the grid it is named “Confidence: not applicable” for screen readers, rather than naming a level.
+- **Confidence shows a dash (—) wherever the confidence level cannot affect the activity.** That is every Triangular and Uniform activity, which take their shape from the three points alone; a T-Normal or LogNormal activity whose standard deviation was set directly, which nothing in the app does — it can only arrive in project data from elsewhere; and any other T-Normal or LogNormal activity whose Min equals its Max, where the spread is zero at every confidence level. The level itself is kept, and comes back if the activity changes. On hover the dash says which of the three reasons applies, and in the grid it is named “Confidence: not applicable” for screen readers, rather than naming a level.
 
 - **A dashed Confidence control is disabled and skipped by Tab.** It used to stay live on a T-Normal or LogNormal activity with Min equal to Max, or with its standard deviation set directly — and with the Min/Max heuristic on, Tab stopped on it and it announced a level that could not change anything.
 
 - **The Edit Activity dialog shows the same dash, with the same explanations.** It follows your edits before you save: switching to Triangular or Uniform, or making Min equal Max, puts the dash in place of the level at once, and a blank Min or Max never does.
 
-- **In the activity grid, Distribution shows in grey text when Min, Most Likely and Max are equal.** With no uncertainty, the distribution does not change that activity's duration, and hovering says so. The dropdown stays usable, and the small preview curve that appears on hover is not drawn there. Two point estimates are deliberately left in normal text: one whose standard deviation was set directly, which has real spread, and a LogNormal activity estimated at 0, 0 and 0, which cannot be simulated and must not look settled.
+- **In the activity grid and the Edit Activity dialog, Distribution shows in grey text when Min, Most Likely and Max are equal.** With no uncertainty, the distribution does not change that activity's duration, and hovering says so. The dropdown stays usable. In the grid, the small preview curve that appears on hover is not drawn there; in the dialog, the grey follows your edits before you save. Two point estimates are deliberately left in normal text: one whose standard deviation was set directly, which has real spread, and a LogNormal activity estimated at 0, 0 and 0, which cannot be simulated and must not look settled.
 
 - **A locked activity whose Confidence applies now shows its level on hover.** It used to say that Confidence only applies to T-Normal and LogNormal, even on a T-Normal activity.
 
@@ -18,13 +18,13 @@
 
 - **Print and export are unchanged.** They still print and export the level for a T-Normal or LogNormal activity whose Min equals its Max, or whose standard deviation was set directly, while the grid and the dialog show a dash, because the activity importer requires a level for T-Normal and LogNormal rows.
 
-- **The grey is measured, not chosen from a table.** The Distribution dropdown stays usable, so its grey text must reach the 4.5:1 contrast that readable text needs. It measures 4.84:1 on the light background and 7.00:1 on the dark one. The dark grey is lighter than the obvious choice, which measured only 3.96:1.
+- **The grey is measured, not chosen from a table.** The Distribution dropdown stays usable, so its grey text must reach the 4.5:1 contrast that readable text needs. In both the grid and the dialog it measures 4.84:1 on the light background and 7.00:1 on the dark one. The dark grey is lighter than the obvious choice, which measured only 3.96:1.
 
 ### Internal
 
 - **Two rules, one home each.** Whether a distribution can change an activity's duration, and why a confidence level cannot apply, now live beside the existing Confidence rule, and the grid and the dialog ask them rather than restating them. A fifth copy of the older rule, inside the CSV importer, is recorded and deliberately left as it is.
 
-- **Tests pin both rules and every screen that shows them.** Each rendered grid test sets the row under test beside one that must come out the other way, and those tests fail against the previous release. The guards were shown to fail against nine deliberately broken versions — among them a dash keyed to the locked state, a blank field read as a zero range, and a label that no longer reaches the dialog's dash.
+- **Tests pin both rules and every screen that shows them.** Each rendered grid test sets the row under test beside one that must come out the other way, and those tests fail against the previous release; the dialog's Distribution tests carry controls of their own. The guards were shown to fail against fourteen deliberately broken versions — among them a dash keyed to the locked state, a blank field read as a zero range, a label that no longer reaches the dialog's dash, and a dialog that reads the saved activity instead of your edits.
 
 ## 0.68.0 — 2026-09-18
 
