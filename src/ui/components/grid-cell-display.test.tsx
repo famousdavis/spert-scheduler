@@ -97,11 +97,18 @@ describe("the grid abbreviates LogNormal, and only in the grid", () => {
 });
 
 describe("the confidence button is short, the dropdown behind it is not", () => {
-  // `normal` so the control is enabled — `confidenceApplies` is false for triangular and
-  // uniform, and a disabled button carries the "confidence does not apply" title instead.
+  // `normal` WITH A RANGE so the control is enabled. Triangular and Uniform show a dash, and
+  // since v0.68.1 so does a zero range — which every new activity has, at 1/1/1 — so this
+  // fixture sets Min, Most Likely and Max itself.
   const level: RSMLevel = "nearCertainty";
   const withLevel = () =>
-    activityFixture({ distributionType: "normal", confidenceLevel: level });
+    activityFixture({
+      distributionType: "normal",
+      confidenceLevel: level,
+      min: 3,
+      mostLikely: 5,
+      max: 10,
+    });
 
   it("shows the short label but names itself with the full one", () => {
     renderGrid([withLevel()]);

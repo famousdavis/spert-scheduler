@@ -6,6 +6,10 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { RSMLevel } from "@domain/models/types";
 import { RSM_LEVELS, RSM_LABELS, RSM_DESCRIPTIONS } from "@domain/models/types";
+import {
+  CONFIDENCE_INERT_TITLES,
+  type ConfidenceInertReason,
+} from "@domain/helpers/confidence-applies";
 import { GRID_RSM_LABELS } from "./grid-labels";
 
 interface ConfidenceLevelSelectProps {
@@ -16,6 +20,30 @@ interface ConfidenceLevelSelectProps {
   "data-field"?: string;
   onKeyDown?: (e: React.KeyboardEvent) => void;
   tabIndex?: number;
+  /**
+   * Why the level cannot apply to this activity, or null when it can. The trigger then shows
+   * a dash and names no level. The caller also disables the control; the dash keys on THIS,
+   * not on `disabled`, because a locked T-Normal row is disabled and still shows its level.
+   */
+  inertReason?: ConfidenceInertReason | null;
+}
+
+/** The trigger's accessible name where Confidence cannot apply: it must not announce a level. */
+const INERT_ARIA_LABEL = "Confidence: not applicable";
+
+/**
+ * What the trigger shows, says on hover, and announces. A module-level helper rather than
+ * ternaries in the component: a nested `disabled ? (zeroRange ? … : …) : …` trips
+ * `sonarjs/no-nested-conditional`.
+ */
+function triggerLabels(
+  value: RSMLevel,
+  inertReason: ConfidenceInertReason | null | undefined
+): { text: string; title: string; ariaLabel: string } {
+  if (inertReason) {
+    return { text: "—", title: CONFIDENCE_INERT_TITLES[inertReason], ariaLabel: INERT_ARIA_LABEL };
+  }
+  return { text: GRID_RSM_LABELS[value], title: RSM_LABELS[value], ariaLabel: RSM_LABELS[value] };
 }
 
 function confidenceOptionClass(isHighlighted: boolean, isSelected: boolean): string {
@@ -32,7 +60,9 @@ export function ConfidenceLevelSelect({
   "data-field": dataField,
   onKeyDown,
   tabIndex = -1,
+  inertReason,
 }: ConfidenceLevelSelectProps) {
+  const labels = triggerLabels(value, inertReason);
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [highlightIdx, setHighlightIdx] = useState(0);
@@ -179,8 +209,8 @@ export function ConfidenceLevelSelect({
         onClick={() => { if (!disabled) setOpen(!open); }}
         onKeyDown={onKeyDown}
         disabled={disabled}
-        title={disabled ? "Confidence only applies to T-Normal and LogNormal distributions" : RSM_LABELS[value]}
-        aria-label={RSM_LABELS[value]}
+        title={labels.title}
+        aria-label={labels.ariaLabel}
         className={`w-full px-1 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm text-left focus:border-blue-400 focus:outline-none bg-white dark:bg-gray-700 dark:text-gray-100 truncate ${
           disabled ? "opacity-40 cursor-not-allowed" : ""
         }`}
@@ -191,8 +221,8 @@ export function ConfidenceLevelSelect({
             Preferences, print and export all keep the full wording — see
             `grid-labels.ts` for why that boundary is load-bearing. The full wording is
             still on this button's `title` and `aria-label`, so nothing is lost: only
-            the 75px of track is. */}
-        {GRID_RSM_LABELS[value]}
+            the 75px of track is. Where Confidence cannot apply, all three name no level. */}
+        {labels.text}
       </button>
       {open &&
         createPortal(

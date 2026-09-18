@@ -4,11 +4,15 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { confidenceApplies } from "@domain/helpers/confidence-applies";
+import {
+  confidenceApplies,
+  confidenceInertReason,
+  distributionIsInert,
+} from "@domain/helpers/confidence-applies";
 import { DISTRIBUTION_TYPES } from "@domain/models/types";
 import { ActivityEditModal } from "./ActivityEditModal";
 import { useProjectStore } from "@ui/hooks/use-project-store";
-import type { Project } from "@domain/models/types";
+import type { Activity, Project } from "@domain/models/types";
 
 /**
  * Confidence applies only to the two distributions defined by a mean and an SD.
@@ -44,11 +48,67 @@ describe("confidenceApplies", () => {
   });
 });
 
+describe("confidenceInertReason — why Confidence cannot apply (owner ruling, 2026-09-17)", () => {
+  it("is null where the level sets a real spread", () => {
+    expect(confidenceInertReason("normal", 3, 10)).toBeNull();
+    expect(confidenceInertReason("logNormal", 3, 10)).toBeNull();
+  });
+
+  it("names the distribution for Triangular and Uniform, whatever the numbers", () => {
+    expect(confidenceInertReason("triangular", 3, 10)).toBe("distribution");
+    expect(confidenceInertReason("uniform", 5, 5, 2)).toBe("distribution");
+  });
+
+  it("names a zero range for T-Normal and LogNormal when Min equals Max", () => {
+    expect(confidenceInertReason("normal", 5, 5)).toBe("zeroRange");
+    expect(confidenceInertReason("logNormal", 0, 0)).toBe("zeroRange");
+  });
+
+  it("names the override when the standard deviation was set directly, ahead of a zero range", () => {
+    // Only a unit test reaches this: an sdOverride arrives by import or cloud, never the UI.
+    expect(confidenceInertReason("normal", 3, 10, 2)).toBe("sdOverride");
+    expect(confidenceInertReason("normal", 5, 5, 2)).toBe("sdOverride");
+  });
+
+  it("never reads two blank drafts as a zero range", () => {
+    // The dialog holds "" while a field is empty; "" === "" must not put a dash on a
+    // half-filled form. Positive control: two equal NUMBERS do.
+    expect(confidenceInertReason("normal", "", "")).toBeNull();
+    expect(confidenceInertReason("normal", "", 10)).toBeNull();
+    expect(confidenceInertReason("normal", 7, 7)).toBe("zeroRange");
+  });
+});
+
+describe("distributionIsInert — no uncertainty, so the distribution cannot change the duration", () => {
+  it("is true for a point estimate under every distribution", () => {
+    for (const d of DISTRIBUTION_TYPES) expect(distributionIsInert(5, 5, 5, d)).toBe(true);
+  });
+
+  it("is false once there is any range", () => {
+    expect(distributionIsInert(5, 5, 6, "triangular")).toBe(false);
+    expect(distributionIsInert(3, 5, 10, "normal")).toBe(false);
+  });
+
+  it("is false for 0/0/0 on LogNormal, which cannot be built at all — but true for 0/0/0 elsewhere", () => {
+    expect(distributionIsInert(0, 0, 0, "logNormal")).toBe(false);
+    expect(distributionIsInert(0, 0, 0, "normal")).toBe(true);
+  });
+
+  it("is false where an sdOverride gives the point estimate real spread", () => {
+    expect(distributionIsInert(5, 5, 5, "normal", 2)).toBe(false);
+    expect(distributionIsInert(5, 5, 5, "logNormal", 2)).toBe(false);
+  });
+
+  it("never reads blank drafts as equal", () => {
+    expect(distributionIsInert("", "", "", "triangular")).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // The surface that was missing the rule
 // ---------------------------------------------------------------------------
 
-const baseProject = (): Project =>
+const baseProject = (activity: Partial<Activity> = {}): Project =>
   ({
     id: "p1",
     name: "P1",
@@ -70,6 +130,7 @@ const baseProject = (): Project =>
             confidenceLevel: "mediumConfidence",
             distributionType: "normal",
             status: "planned",
+            ...activity,
           },
         ],
         dependencies: [],
@@ -106,6 +167,7 @@ const openModal = () => {
 
 const confidenceSelect = () =>
   document.querySelector('select[name="confidenceLevel"]') as HTMLSelectElement;
+const confidenceDash = () => document.querySelector("output");
 const distributionSelect = () =>
   document.querySelector('select[name="distributionType"]') as HTMLSelectElement;
 
@@ -117,7 +179,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("ActivityEditModal — Confidence greys out when it does not apply", () => {
+describe("ActivityEditModal — Confidence shows a dash where it does not apply", () => {
   it("the Estimates section really opens, so the assertions below are not vacuous", () => {
     openModal();
     expect(confidenceSelect()).not.toBeNull();
@@ -131,27 +193,32 @@ describe("ActivityEditModal — Confidence greys out when it does not apply", ()
   });
 
   it.each(["triangular", "uniform"] as const)(
-    "greys out immediately when the distribution is switched to %s — before any save",
+    "shows the dash immediately when the distribution is switched to %s — before any save",
     (dist) => {
+      // Rewritten deliberately in v0.68.1: this used to assert a DISABLED select, which still
+      // showed a level. The level is now replaced by a dash.
       openModal();
-      expect(confidenceSelect().disabled).toBe(false);
+      expect(confidenceSelect()).not.toBeNull();
+      expect(confidenceDash()).toBeNull();
 
       fireEvent.change(distributionSelect(), { target: { value: dist } });
 
       // ⚠️ Driven off LOCAL state. Reading the saved activity instead would leave the
       // control live until Save, which is the behaviour this fixes.
-      expect(confidenceSelect().disabled).toBe(true);
-      expect(confidenceSelect().title).toContain("only applies to");
+      expect(confidenceSelect()).toBeNull();
+      expect(confidenceDash()!.textContent).toBe("—");
+      expect(confidenceDash()!.title).toContain("only applies to");
     },
   );
 
   it("comes back when the distribution is switched back", () => {
     openModal();
     fireEvent.change(distributionSelect(), { target: { value: "uniform" } });
-    expect(confidenceSelect().disabled).toBe(true);
+    expect(confidenceSelect()).toBeNull();
 
     fireEvent.change(distributionSelect(), { target: { value: "logNormal" } });
     expect(confidenceSelect().disabled).toBe(false);
+    expect(confidenceDash()).toBeNull();
   });
 
   it("does not discard the stored confidence level when it stops applying", () => {
@@ -169,9 +236,48 @@ describe("ActivityEditModal — Confidence greys out when it does not apply", ()
   it("uses the same explanation the grid's control uses", () => {
     openModal();
     fireEvent.change(distributionSelect(), { target: { value: "uniform" } });
-    // Single source: ConfidenceLevelSelect and this native select must not drift apart.
-    expect(confidenceSelect().title).toBe(
+    // Single source: ConfidenceLevelSelect and this dash must not drift apart.
+    expect(confidenceDash()!.title).toBe(
       "Confidence only applies to T-Normal and LogNormal distributions",
     );
+  });
+
+  it("keeps the Confidence label attached: on a Triangular activity it names the dash", () => {
+    // A <span> would leave the label pointing at nothing — it is not a labelable element.
+    useProjectStore.setState({ projects: [baseProject({ distributionType: "triangular" })] });
+    openModal();
+    const labelled = screen.getByLabelText("Confidence");
+    expect(labelled.tagName).toBe("OUTPUT");
+    expect(labelled.textContent).toBe("—");
+    // An <output> is implicitly a polite live region; the dash must not be announced every
+    // time the distribution changes.
+    expect(labelled.getAttribute("aria-live")).toBe("off");
+  });
+
+  it("shows the dash, with its own reason, for a zero-range T-Normal activity", () => {
+    useProjectStore.setState({ projects: [baseProject({ min: 5, mostLikely: 5, max: 5 })] });
+    openModal();
+    expect(confidenceSelect()).toBeNull();
+    expect(confidenceDash()!.title).toBe(
+      "Min and Max are equal, so the spread is zero at every confidence level.",
+    );
+  });
+
+  it("does not read blank Min and Max drafts as a zero range", () => {
+    // T-Normal on purpose: on a Triangular activity the dash would be right anyway, and this
+    // would then pass for the wrong reason.
+    openModal();
+    const minInput = document.querySelector('input[name="estimateMin"]') as HTMLInputElement;
+    const maxInput = document.querySelector('input[name="estimateMax"]') as HTMLInputElement;
+    fireEvent.change(minInput, { target: { value: "" } });
+    fireEvent.change(maxInput, { target: { value: "" } });
+    expect(confidenceSelect()).not.toBeNull();
+    expect(confidenceDash()).toBeNull();
+
+    // Positive control, same test: two equal NUMBERS do put the dash there.
+    fireEvent.change(minInput, { target: { value: "5" } });
+    fireEvent.change(maxInput, { target: { value: "5" } });
+    expect(confidenceSelect()).toBeNull();
+    expect(confidenceDash()!.textContent).toBe("—");
   });
 });

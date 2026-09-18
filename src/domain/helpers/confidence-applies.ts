@@ -18,6 +18,10 @@ import type { DistributionType } from "@domain/models/types";
  * `UnifiedActivityRow` (twice, one negated), `schedule-export-service` (as
  * `usesConfidence`) and `print-sections`. **Call this; do not restate it.**
  *
+ * ⚠️ **A fifth copy survives, left unfixed on purpose:** `flat-activity-parser.ts:352`
+ * (`=== "triangular" || === "uniform"`, the negated form). It sits inside the importer's
+ * protected cognitive-complexity-110 function, whose decline is recorded at that site.
+ *
  * Deliberately a function of the distribution type alone — not of an `Activity` — so the
  * modal can ask about a type held in local state that has not been saved yet.
  */
@@ -31,3 +35,84 @@ export function confidenceApplies(distributionType: DistributionType): boolean {
  */
 export const CONFIDENCE_NA_TITLE =
   "Confidence only applies to T-Normal and LogNormal distributions";
+
+/**
+ * A three-point value as a surface holds it: the grid always has a number, and the Edit
+ * Activity dialog holds `""` while a field is blank. The two predicates below take these
+ * PRIMITIVES, not an `Activity`, for the same reason `confidenceApplies` takes a type: the
+ * dialog asks about drafts that have not been saved.
+ */
+export type EstimateValue = number | "";
+
+/** Why a Confidence level has no effect on an activity. */
+export type ConfidenceInertReason = "distribution" | "sdOverride" | "zeroRange";
+
+/**
+ * Why the Confidence level cannot change this activity's spread — or `null` when it can.
+ * Where it cannot, the grid and the Edit Activity dialog show a dash in place of the level
+ * (owner ruling, 2026-09-17), and the control is disabled and out of the tab order.
+ *
+ * - `distribution`: Triangular or Uniform take their shape from the three points alone.
+ * - `sdOverride`: the standard deviation was set directly, and `resolveSD` returns it ahead of
+ *   range × RSM, so the level is bypassed. Reachable only by import or cloud.
+ * - `zeroRange`: Min equals Max, so range × RSM is zero at every level.
+ *
+ * ⚠️ Only two NUMBERS can be equal: a blank draft (`""`) is not a zero range, or a half-filled
+ * dialog would show a dash.
+ *
+ * Print and export still use `confidenceApplies` alone, so for a zero-range or `sdOverride`
+ * T-Normal/LogNormal activity they print and export the level while the grid and the dialog
+ * show a dash. That is ruled (2026-09-17): the importer requires a level for those
+ * distributions, and a blank would break the export's round trip.
+ */
+export function confidenceInertReason(
+  distributionType: DistributionType,
+  min: EstimateValue,
+  max: EstimateValue,
+  sdOverride?: number
+): ConfidenceInertReason | null {
+  if (!confidenceApplies(distributionType)) return "distribution";
+  if (sdOverride != null) return "sdOverride";
+  if (typeof min === "number" && min === max) return "zeroRange";
+  return null;
+}
+
+/** The dash's `title`, one sentence per reason — only the first is about the distribution. */
+export const CONFIDENCE_INERT_TITLES: Record<ConfidenceInertReason, string> = {
+  distribution: CONFIDENCE_NA_TITLE,
+  sdOverride:
+    "This activity's standard deviation was set directly, so the confidence level does not change it.",
+  zeroRange: "Min and Max are equal, so the spread is zero at every confidence level.",
+};
+
+/**
+ * Can this activity's distribution change its duration? Not when Min, Most Likely and Max are
+ * the same number, and the grid then shows the Distribution in grey text (owner ruling,
+ * 2026-09-17) — while keeping the control ENABLED, because it is the only way out of the
+ * broken LogNormal state below.
+ *
+ * Two exceptions keep a point estimate live:
+ * - an `sdOverride` gives it real spread under T-Normal or LogNormal;
+ * - LogNormal at zero cannot be built at all (the distribution factory throws for a PERT mean
+ *   of 0 or less), so greying that row would dress a broken state as a settled one. For a point
+ *   estimate the PERT mean IS the value, so the test is on the value.
+ *
+ * ⚠️ Switching between distributions on such a row still re-deals every OTHER activity's random
+ * draws (T-Normal and LogNormal take two per sample, Triangular and Uniform one, from one shared
+ * stream), so its title says the distribution does not change THIS activity's duration — never
+ * that it has no effect.
+ */
+export function distributionIsInert(
+  min: EstimateValue,
+  mostLikely: EstimateValue,
+  max: EstimateValue,
+  distributionType: DistributionType,
+  sdOverride?: number
+): boolean {
+  if (typeof min !== "number" || min !== mostLikely || mostLikely !== max) return false;
+  return sdOverride == null && (distributionType !== "logNormal" || min > 0);
+}
+
+/** The greyed Distribution control's `title`. */
+export const DISTRIBUTION_INERT_TITLE =
+  "Min, Most Likely and Max are equal, so this activity has no uncertainty and its distribution does not change its duration.";
