@@ -784,11 +784,15 @@ export function ActivityEditModal({
                       <select> would still show its selected level, so the dash is a separate
                       element — an <output>, because the label above must still resolve to it
                       (a <span> is not labelable), and it is not focusable, so it leaves the tab
-                      order. Two `&&` guards, not a ternary: this component sits at the
+                      order. `aria-live="off"` because an <output> is implicitly a polite live
+                      region (role "status"), which would announce the dash whenever the
+                      distribution changes; what a screen reader actually says is UNVERIFIED.
+                      Two `&&` guards, not a ternary: this component sits at the
                       cognitive-complexity threshold. */}
                   {confidenceInert && (
                     <output
                       id={fieldConfidenceId}
+                      aria-live="off"
                       title={CONFIDENCE_INERT_TITLES[confidenceInert]}
                       className="block w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 opacity-40 cursor-not-allowed"
                     >

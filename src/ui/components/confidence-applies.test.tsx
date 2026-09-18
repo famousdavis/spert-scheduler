@@ -249,6 +249,9 @@ describe("ActivityEditModal — Confidence shows a dash where it does not apply"
     const labelled = screen.getByLabelText("Confidence");
     expect(labelled.tagName).toBe("OUTPUT");
     expect(labelled.textContent).toBe("—");
+    // An <output> is implicitly a polite live region; the dash must not be announced every
+    // time the distribution changes.
+    expect(labelled.getAttribute("aria-live")).toBe("off");
   });
 
   it("shows the dash, with its own reason, for a zero-range T-Normal activity", () => {
