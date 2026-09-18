@@ -34,8 +34,8 @@ export type SuggestedDistribution = Exclude<DistributionType, "uniform">;
  *
  * DESCRIPTION of the rules, with `range = max − min`, `mean = (min + 4·ml + max) / 6` and
  * `p = (ml − min) / range`:
- * - min = Most Likely = max (a point mass) → no suggestion: every distribution gives the
- *   same single value;
+ * - min = Most Likely = max (a point mass) → no suggestion: every distribution gives that
+ *   same value, except LogNormal at zero, which cannot be built at all;
  * - Most Likely equals Min or Max → Triangular (owner ruling, 2026-09-17): the user has put
  *   the peak at the end of the range, and neither T-Normal nor LogNormal can peak there.
  *   With the app's own distributions at Medium, LogNormal puts 19.5 % of outcomes below
@@ -130,7 +130,7 @@ const mostLikelyAtEnd = (end: "Min" | "Max") =>
  *
  * No dot for an estimate that is not a valid one (a negative value, or min ≤ Most Likely ≤
  * max broken): no curve fits it, and every sentence below describes a valid estimate. The
- * grid commits each cell as it is typed and flags the row, so such values do reach here.
+ * grid commits each cell as it is typed, so such values do reach here.
  *
  * `recommendDistribution` stays the AI's automatic pick and does not know the row's
  * current distribution; this function is the grid's.

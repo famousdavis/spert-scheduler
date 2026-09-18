@@ -27,8 +27,9 @@ describe("recommendDistribution", () => {
   });
 
   it("gives NO suggestion for a point mass (it used to suggest Uniform)", () => {
-    // Owner ruling 2026-09-17: every distribution gives the same single value, so there is
-    // nothing to suggest. Reversed deliberately from the pre-v0.68.0 "Uniform".
+    // Owner ruling 2026-09-17: every distribution gives that same value (LogNormal cannot be
+    // built at zero at all), so there is nothing to suggest. Reversed deliberately from the
+    // pre-v0.68.0 "Uniform".
     expect(recommendDistribution(5, 5, 5)).toBeNull();
     expect(recommendDistribution(1, 1, 1)).toBeNull();
     expect(recommendDistribution(0, 0, 0)).toBeNull();

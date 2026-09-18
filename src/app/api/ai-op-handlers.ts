@@ -119,9 +119,10 @@ export function createActivityCore(scenario: Scenario, p: CreateActivityPayload)
 
   const confidenceLevel = p.confidenceLevel ?? scenario.settings.defaultConfidenceLevel;
   // With no distribution named, the app picks one from the three numbers alone —
-  // Confidence plays no part since v0.68.0, and Uniform is never picked. A point
-  // mass (min = mostLikely = max) has no suggestion, so it takes the scenario's
-  // default, the same default "+ Add Activity" uses. Create time only.
+  // Confidence plays no part since v0.68.0, and it never picks Uniform from them.
+  // A point mass (min = mostLikely = max) has no pick, so it takes the scenario's
+  // default, the same default "+ Add Activity" uses — Uniform, if that is the
+  // default. Create time only.
   const distributionType =
     p.distributionType ??
     recommendDistribution(p.min, p.mostLikely, p.max) ??
