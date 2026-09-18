@@ -10,7 +10,7 @@ import {
   createActivity,
   addActivityToScenario,
 } from "./project-service";
-import type { Project, Scenario, Activity } from "@domain/models/types";
+import type { Project, Scenario, Activity, DistributionType } from "@domain/models/types";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -147,6 +147,67 @@ describe("create_activity", () => {
       scenarioId
     );
     expect(activityOf(res.project, scenarioId, "new2").description).toBeUndefined();
+  });
+});
+
+describe("create_activity — the distribution when the AI names none", () => {
+  // v0.68.0 (owner rulings, 2026-09-17): the app picks from the three numbers alone, never
+  // picks Uniform, and a point mass has no pick, so it takes the scenario's default. Each
+  // fixture sets a default the rules would NOT choose, so the default is visible when used.
+  function withDefault(defaultDistributionType: DistributionType) {
+    const { project, scenarioId } = build({ activityCount: 0 });
+    const settings = { ...scenarioOf(project, scenarioId).settings, defaultDistributionType };
+    return { project: withPatch(project, scenarioId, { settings }), scenarioId };
+  }
+
+  function createdType(project: Project, scenarioId: string, payload: Extract<AiOp, { op: "create_activity" }>["payload"]) {
+    const res = one(project, { seq: 1, op: "create_activity", payload }, scenarioId);
+    expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    return activityOf(res.project, scenarioId, payload.id).distributionType;
+  }
+
+  it("a point mass takes the scenario's default (it used to get Uniform)", () => {
+    const { project, scenarioId } = withDefault("normal");
+    expect(createdType(project, scenarioId, { id: "pm", name: "PM", min: 5, mostLikely: 5, max: 5 })).toBe("normal");
+  });
+
+  it("Most Likely at Min gets Triangular — not Uniform, and not the scenario's default", () => {
+    // The rules alone would give LogNormal here (the range is wide); the owner ruled that a
+    // Most Likely at an end gets Triangular.
+    const { project, scenarioId } = withDefault("normal");
+    expect(createdType(project, scenarioId, { id: "mlmin", name: "At Min", min: 5, mostLikely: 5, max: 20 })).toBe("triangular");
+  });
+
+  it("the pick ignores the Confidence level sent with the activity", () => {
+    // 7/11/16 is T-Normal at the rules' Medium calibration. Judged at High, as before
+    // v0.68.0, it came out Triangular. The level itself is still stored as sent.
+    const { project, scenarioId } = withDefault("triangular");
+    const res = one(
+      project,
+      { seq: 1, op: "create_activity", payload: { id: "hc", name: "High", min: 7, mostLikely: 11, max: 16, confidenceLevel: "highConfidence" } },
+      scenarioId
+    );
+    const created = activityOf(res.project, scenarioId, "hc");
+    expect(created.distributionType).toBe("normal");
+    expect(created.confidenceLevel).toBe("highConfidence");
+  });
+
+  it("0/0/0 in a LogNormal-default scenario is rejected as invalid (it used to land as Uniform)", () => {
+    // Accepted by the owner, 2026-09-17: the scenario's LogNormal has a PERT mean of 0, which
+    // the create path's LogNormal guard rejects.
+    const { project, scenarioId } = withDefault("logNormal");
+    expect(
+      outcome(project, { seq: 1, op: "create_activity", payload: { id: "z", name: "Z", min: 0, mostLikely: 0, max: 0 } }, scenarioId)
+    ).toEqual({ status: "skipped", reason: "invalid" });
+    // Positive control, same scenario: naming a distribution creates the same estimate.
+    expect(
+      outcome(project, { seq: 1, op: "create_activity", payload: { id: "z", name: "Z", min: 0, mostLikely: 0, max: 0, distributionType: "uniform" } }, scenarioId)
+    ).toEqual({ status: "applied" });
+  });
+
+  it("a distribution the AI names is kept as given, Uniform included", () => {
+    const { project, scenarioId } = withDefault("normal");
+    expect(createdType(project, scenarioId, { id: "u", name: "Flat", min: 9, mostLikely: 9, max: 28, distributionType: "uniform" })).toBe("uniform");
   });
 });
 
