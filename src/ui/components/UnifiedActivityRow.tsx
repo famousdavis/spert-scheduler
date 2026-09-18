@@ -784,7 +784,7 @@ export function UnifiedActivityRow({
             }
             className="absolute right-[25px] top-1/2 -translate-y-1/2 h-3 w-3 rounded-full border border-amber-700/50 bg-amber-500 hover:bg-amber-600 dark:border-amber-200/50 dark:bg-amber-400 dark:hover:bg-amber-300"
             title={suggestion.reason}
-            aria-label={`Use the suggested distribution: ${distributionLabel(suggestion.suggested)}`}
+            aria-label={`Change distribution to ${distributionLabel(suggestion.suggested)}.`}
             tabIndex={-1}
           />
         )}

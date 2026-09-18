@@ -16,7 +16,7 @@
 
 - **No suggestion is shown for an estimate that is not yet valid,** such as one with Min above Most Likely: no curve fits it.
 
-- **The wording is plainer.** The dot's tooltip explains the suggestion in terms of your three numbers and no longer calls any distribution the “best”. Its accessible name now reads “Use the suggested distribution”, followed by the distribution.
+- **The wording is plainer.** The dot's tooltip explains the suggestion in terms of your three numbers and no longer calls any distribution the “best”. Its accessible name now reads, for example, “Change distribution to Triangular.”
 
 - **Connect AI's automatic pick also comes from the numbers alone.** An activity an AI creates without naming a distribution still gets one automatically. If its three estimates differ, it gets T-Normal, LogNormal or Triangular — Triangular when Most Likely equals Min or Max. If they are all equal, it gets the scenario's default distribution, the same one “+ Add Activity” uses.
 

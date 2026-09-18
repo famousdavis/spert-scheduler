@@ -95,19 +95,19 @@ export interface DistributionSuggestion {
 
 const CURVE_FITS: Record<"normal" | "logNormal", string> = {
   normal:
-    "Most Likely sits near the middle of the range, and the range is not wide for the size of the estimate, so a symmetric curve fits these three points.",
+    "Most Likely is near the middle of a relatively narrow range. T-Normal may suit this roughly symmetric estimate.",
   logNormal:
-    "The range reaches further above Most Likely than below it, and it is wide for the size of the estimate, so a right-skewed curve fits these three points.",
+    "The range is relatively wide and extends much farther above Most Likely than below it. LogNormal may suit this pattern, with more room for longer durations.",
 };
 
 const T_NORMAL_OFF_CENTRE =
-  "T-Normal is symmetric, but these three points are not. Triangular follows them as given.";
+  "Most Likely is away from the middle of the range. Triangular puts the peak at Most Likely and keeps durations between Min and Max.";
 
 const LOGNORMAL_NOT_RIGHT_SKEWED =
-  "LogNormal is skewed to the right, but these three points are balanced or skewed the other way. Triangular follows them as given.";
+  "These estimates suggest little or no right skew. Triangular keeps Min and Max as bounds and puts the peak at Most Likely.";
 
 const mostLikelyAtEnd = (end: "Min" | "Max") =>
-  `Most Likely equals ${end}, so the peak belongs at the end of the range, and only Triangular can put it there.`;
+  `Most Likely equals ${end}. Triangular places the peak at ${end} and keeps durations within your range.`;
 
 /**
  * Whether an activity's row shows the suggestion dot, and with what text — the whole

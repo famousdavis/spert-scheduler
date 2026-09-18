@@ -155,12 +155,12 @@ describe("the suggestion affordance is a dot, and still applies the suggestion",
     );
 
   const T_NORMAL_FITS =
-    "Most Likely sits near the middle of the range, and the range is not wide for the size of the estimate, so a symmetric curve fits these three points.";
+    "Most Likely is near the middle of a relatively narrow range. T-Normal may suit this roughly symmetric estimate.";
 
   it("renders no text, names itself, and carries its reason on hover", () => {
     // A curve match on a Triangular row: 5/10/15 is centred and not wide.
     renderGrid([row(5, 10, 15, "triangular")]);
-    const dot = screen.getByRole("button", { name: "Use the suggested distribution: T-Normal" });
+    const dot = screen.getByRole("button", { name: "Change distribution to T-Normal." });
 
     // The whole point: a word here cost the `<select>` 24.27px and clipped its label on
     // every row that had one. Text coming back is the regression.
@@ -181,29 +181,29 @@ describe("the suggestion affordance is a dot, and still applies the suggestion",
   it("applies the suggestion when clicked", () => {
     const onUpdate = renderGrid([row(5, 10, 15, "triangular")]);
     fireEvent.click(
-      screen.getByRole("button", { name: "Use the suggested distribution: T-Normal" }),
+      screen.getByRole("button", { name: "Change distribution to T-Normal." }),
     );
     expect(onUpdate).toHaveBeenCalledWith(expect.any(String), { distributionType: "normal" });
   });
 
   it("corrects a T-Normal row whose estimate is off-centre, saying why", () => {
     renderGrid([row(3, 5, 10, "normal")]);
-    const dot = screen.getByRole("button", { name: "Use the suggested distribution: Triangular" });
+    const dot = screen.getByRole("button", { name: "Change distribution to Triangular." });
     expect(dot.title).toBe(
-      "T-Normal is symmetric, but these three points are not. Triangular follows them as given.",
+      "Most Likely is away from the middle of the range. Triangular puts the peak at Most Likely and keeps durations between Min and Max.",
     );
   });
 
   it("corrects a LogNormal row whose Most Likely equals Min", () => {
     renderGrid([row(5, 5, 20, "logNormal")]);
-    const dot = screen.getByRole("button", { name: "Use the suggested distribution: Triangular" });
+    const dot = screen.getByRole("button", { name: "Change distribution to Triangular." });
     expect(dot.title).toBe(
-      "Most Likely equals Min, so the peak belongs at the end of the range, and only Triangular can put it there.",
+      "Most Likely equals Min. Triangular places the peak at Min and keeps durations within your range.",
     );
   });
 
   // Each no-dot case renders a second row that DOES get a dot, as its positive control.
-  const CONTROL = "Use the suggested distribution: T-Normal"; // 5/10/15 on a Triangular row
+  const CONTROL = "Change distribution to T-Normal."; // 5/10/15 on a Triangular row
 
   it("shows no dot on a LogNormal row whose right-skewed estimate LogNormal also fits", () => {
     renderGrid([row(3, 5, 10, "logNormal"), row(5, 10, 15, "triangular")]);
