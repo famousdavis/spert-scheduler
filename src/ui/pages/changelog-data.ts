@@ -13,6 +13,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.70.0",
+    date: "2026-09-18",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "An activity's three estimate cells are saved together, when you leave them. Typing in Min, Most Likely or Max, and moving between those three cells with Tab, Shift+Tab or the mouse, no longer saves or checks anything. When you leave the three cells, your changes in them are saved in one step, which one Undo reverts \u2014 apart from a cleared or negative entry, below \u2014 and only then is the activity checked. So typing 11 into the Min of an activity estimated 5 / 10 / 20 and pressing Tab no longer flags it; if you leave the three cells with 11 still above the Most Likely, it is flagged then.",
+          "Enter saves the three estimate cells and moves on; Escape puts them back. In Min, Most Likely or Max, Enter leaves the three cells \u2014 which saves them, as above \u2014 and moves to where a Tab out of them would go: to Distribution with the Min/Max heuristic on; otherwise to the Actual cell of an activity that is in progress or complete, and if not, to the next activity's name, or to + Add Activity after the last one. Escape puts all three cells back to their saved values and leaves them, saving nothing. Until now both keys did nothing in an estimate cell, and a value you had tried to cancel with Escape was saved as soon as you left the cell.",
+          "A partly typed activity is flagged as soon as you leave its estimate cells. Typing Min 5 into a new activity and clicking elsewhere on the page, outside its three estimate cells, saves 5 / 1 / 1 (with the Min/Max heuristic off, the default), and the activity is now named in the validation summary, with its Min cell red and Run refused. Until now, for such an activity, the summary and the red cell waited until you had visited all three estimates, and only the line under the Run Simulation button said why Run was refused.",
+          "A cleared or negative estimate is flagged when you leave the three cells. The cell keeps what you typed, in red, and nothing is saved for it; your other changes in the three cells are saved. Typing an estimate of 0 or more over it and leaving the cells saves that number instead, and Escape in any of the three cells brings back the saved one. An Undo, or a save in the Edit Activity dialog, leaves it flagged.",
+          "Typed values win over the Min/Max heuristic. With the heuristic on, changing Most Likely recalculates Min and Max when you leave the three cells, but only the ones you have not typed in since you entered them: typing a Min and then a Most Likely keeps your Min. Until now each cell was saved as you left it, and changing Most Likely recalculated both.",
+          "The Keyboard Shortcuts list includes the estimate cells. Enter is now \u201cConfirm a name or estimate edit\u201d, and Escape \u201cCancel a name or estimate edit\u201d.",
+        ],
+      },
+      {
+        title: "Notes",
+        items: [
+          "Switching to another app or window does not count as leaving the estimate cells (checked in Chrome). Nothing is saved or checked, and what you typed is still there when you come back. Closing or reloading the browser tab while the cells hold something you typed loses it, because it was never saved.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The grid no longer reports an activity as still being typed. Nothing is saved while a row's three estimate cells are still being typed in, so the stamp that held such an activity's out-of-order estimates back from the validation summary, the error banner and the red cells is gone. What the grid reports is only an entry it refused.",
+          "Tests pin the three cells as one group, and were shown to fail against deliberately broken versions \u2014 among them every blur counted as leaving, an app switch counted as leaving, an Escape whose own blur saves what it cancelled, the heuristic overwriting a typed Min, Enter saving twice, and a save that lands after a scenario switch.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.69.0",
     date: "2026-09-18",
     sections: [

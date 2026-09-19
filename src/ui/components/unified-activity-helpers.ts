@@ -139,6 +139,22 @@ export function handleCrossRowTabNav(
   return false;
 }
 
+/**
+ * Enter in an estimate cell (v0.70.0): commit the row's three estimate cells and LEAVE them. Focus
+ * goes where a Tab out of the group's last cell goes — Distribution with the heuristic on; without
+ * it, Actual on a started or finished row, else the next row's name or "+ Add Activity" — and when
+ * nothing is there to take it, the cell simply blurs. Either way it is that blur that commits: the
+ * group commits only as focus leaves it, so an explicit commit here would write twice.
+ */
+export function leaveEstimateGroup(from: HTMLElement, activityId: string, fieldOrder: string[]): void {
+  const last = Math.max(fieldOrder.indexOf("min"), fieldOrder.indexOf("ml"), fieldOrder.indexOf("max"));
+  const next = fieldOrder[last + 1];
+  if (next !== undefined && focusField(activityId, next)) return;
+  const rowIds = next === undefined ? getActivityRowIds(from) : null;
+  if (rowIds && focusNextRow(activityId, rowIds)) return;
+  from.blur();
+}
+
 /** Handles Tab navigation within the current row (Tab forward / Shift+Tab backward). */
 export function handleInRowTabNav(
   e: React.KeyboardEvent,

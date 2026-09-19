@@ -16,6 +16,7 @@ import {
   getActivityRowIds,
   handleCrossRowTabNav,
   handleInRowTabNav,
+  leaveEstimateGroup,
 } from "./unified-activity-helpers";
 
 const focusFieldMock = vi.fn();
@@ -313,6 +314,57 @@ describe("handleInRowTabNav", () => {
     const e = makeKeyEvent(false);
     handleInRowTabNav(e, ["name", "ml", "max"], 2, "a1");
     expect(focusFieldMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("leaveEstimateGroup — where Enter takes focus from an estimate cell (v0.70.0)", () => {
+  function cellInGrid(): HTMLInputElement {
+    const grid = document.createElement("div");
+    grid.setAttribute("data-activity-grid", "");
+    const input = document.createElement("input");
+    input.setAttribute("data-row-id", "a1");
+    grid.appendChild(input);
+    document.body.appendChild(grid);
+    return input;
+  }
+
+  it("heuristic on: to Distribution, the field after Most Likely", () => {
+    focusFieldMock.mockReturnValue(true);
+    const from = cellInGrid();
+    const blur = vi.spyOn(from, "blur");
+    leaveEstimateGroup(from, "a1", buildTabFieldOrder(true, true, false, false));
+    expect(focusFieldMock).toHaveBeenCalledWith("a1", "distribution");
+    expect(blur).not.toHaveBeenCalled();
+    document.body.innerHTML = "";
+  });
+
+  it("heuristic off, a started or finished row: to Actual, the field after Max", () => {
+    focusFieldMock.mockReturnValue(true);
+    const from = cellInGrid();
+    leaveEstimateGroup(from, "a1", buildTabFieldOrder(false, true, true, false));
+    expect(focusFieldMock).toHaveBeenCalledWith("a1", "actual");
+    expect(focusNextRowMock).not.toHaveBeenCalled();
+    document.body.innerHTML = "";
+  });
+
+  it("heuristic off, a planned row: to the next row, as a Tab out of Max goes", () => {
+    focusNextRowMock.mockReturnValue(true);
+    const from = cellInGrid();
+    const blur = vi.spyOn(from, "blur");
+    leaveEstimateGroup(from, "a1", buildTabFieldOrder(false, true, false, false));
+    expect(focusFieldMock).not.toHaveBeenCalled();
+    expect(focusNextRowMock).toHaveBeenCalledWith("a1", ["a1"]);
+    expect(blur).not.toHaveBeenCalled();
+    document.body.innerHTML = "";
+  });
+
+  it("nothing there to take focus: the cell blurs, which is still the exit", () => {
+    focusFieldMock.mockReturnValue(false);
+    const from = cellInGrid();
+    const blur = vi.spyOn(from, "blur");
+    leaveEstimateGroup(from, "a1", buildTabFieldOrder(true, true, false, false));
+    expect(blur).toHaveBeenCalledTimes(1);
+    document.body.innerHTML = "";
   });
 });
 

@@ -135,9 +135,10 @@ function draftEstimateIssues(
  * an out-of-order or LogNormal-at-zero estimate as typed. Its tail is the owner's wording (R212),
  * chosen because it is true in every case: it is conditional on saving, and Run reads the saved
  * estimates whatever else is on screen. The first draft said "You can still save — the activity is
- * flagged in the grid", which was false twice — Save is disabled while the name is empty or an
- * estimate is negative, and a half-typed new row the dialog saves unchanged is not flagged in the
- * grid (its mid-entry stamp still matches) though Run is off. `null` when there is nothing to say.
+ * flagged in the grid", which was false twice in v0.69.0 — Save is disabled while the name is empty
+ * or an estimate is negative, and a half-typed new row the dialog saved unchanged was not flagged in
+ * the grid (its mid-entry stamp still matched) though Run was off. The second no longer holds since
+ * v0.70.0 removed the stamp; the first still does. `null` when there is nothing to say.
  */
 function estimateAdvisory(issues: { field: EstimateKey; message: string }[]): string | null {
   if (issues.length === 0) return null;

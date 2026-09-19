@@ -18,12 +18,11 @@ import {
   NAME_MAX_LENGTH,
 } from "@domain/models/types";
 import type { EstimateKey } from "@domain/helpers/estimate-rules";
-import type { CellIssues, EstimateTriple, RowReport } from "@ui/hooks/use-estimate-validity";
+import type { CellIssues, RowReport } from "@ui/hooks/use-estimate-validity";
 import { suggestDistributionChange } from "@core/recommendation/recommendation";
-import { computeHeuristic } from "@core/estimation/heuristic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
-import { computeElapsedDays, focusField, refuseEstimateEntry } from "./activity-row-helpers";
+import { commitEstimateGroup, computeElapsedDays, focusField, type EstimateDrafts } from "./activity-row-helpers";
 import {
   constraintBadgeClass,
   constraintBadgeLabel,
@@ -31,11 +30,12 @@ import {
   handleOffOrderTabNav,
   handleCrossRowTabNav,
   handleInRowTabNav,
+  leaveEstimateGroup,
 } from "./unified-activity-helpers";
 import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { confidenceInertReason, distributionIsInert, DISTRIBUTION_INERT_TITLE } from "@domain/helpers/confidence-applies";
-import { EstimateInputs } from "./EstimateInputs";
+import { EstimateInputs, type EstimateField } from "./EstimateInputs";
 import { ConfidenceLevelSelect } from "./ConfidenceLevelSelect";
 import { DistributionSparkline } from "./DistributionSparkline";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
@@ -51,8 +51,9 @@ interface UnifiedActivityRowProps {
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
   /**
-   * The row's report of what saved data cannot see — a refused entry, or that it is half-typed
-   * (v0.69.0; it carried a boolean before). Sent after every estimate blur.
+   * The row's report of what saved data cannot see — the entries it refused to store (v0.69.0; a
+   * boolean before, and until v0.70.0 a half-typed stamp too). Sent each time focus leaves the three
+   * estimate cells, and by Escape.
    */
   onValidityChange: (activityId: string, report: RowReport) => void;
   /** This activity's estimate cells to paint red, derived by the page from the saved activity. */
@@ -310,158 +311,37 @@ export function UnifiedActivityRow({
   // cell, a negative number), by field. Every other estimate error — out of order, LogNormal at
   // zero — is derived from the SAVED activity by the page (`useEstimateValidity`) and arrives as
   // `savedIssues`. Until v0.69.0 this map also held the schema's issues, written only from the
-  // blur handlers below, so an external repair (undo, the dialog, Connect AI, a cloud echo) left
-  // a red cell over a good value — WI-28's mechanism, removed rather than patched.
+  // blur handlers, so an external repair (undo, the dialog, Connect AI, a cloud echo) left a red
+  // cell over a good value — WI-28's mechanism, removed rather than patched.
+  //
+  // ⚠️ v0.70.0 — ONE OF TWO HOLDERS. The refused TEXT lives with the group's drafts in
+  // `EstimateInputs`; this is its MESSAGE, which paints the red and goes into the report. Both are
+  // set together, only by `handleGroupExit`: at an exit, and by Escape, which reverts the group to
+  // the store and so clears every refusal. An external write clears neither — a cleared estimate
+  // stays flagged until it is filled in — and a remount resets both.
   const [refused, setRefused] = useState<RefusedEntries>(NO_REFUSALS);
-  // ⚠️ v0.67.2 — the VALUE is read now, and that is the M12 fix. Until this release the
-  // plain-estimate commit path (`validateAndUpdate`, now `commitAndReport`) ran from INSIDE this setter's
-  // updater function, so React's development double-invocation ran the store write twice:
-  // every estimate edit pushed two undo frames on the dev server and the first Cmd+Z
-  // looked like it did nothing. Reading the state and calling the store outside the
-  // updater is the whole change; do not move the call back in.
-  //
-  // ⚠️ v0.69.0 — KEEP THIS SEED until the three estimate cells commit as one group. An all-equal
-  // row starts with nothing touched, so its first blur reports MID-ENTRY, and that is what holds
-  // a fresh row's half-typed triple (5/1/1) back from the summary, the banner and the red cells
-  // (v0.67.23's rule). Seed every row touched instead and that triple flags on the first Tab.
-  // Pinned by `UnifiedActivityRow.estimate-commit.test.tsx`'s blur-through sequence.
-  const [touchedFields, setTouchedFields] = useState<Set<string>>(() => {
-    const allEqual =
-      activity.min === activity.mostLikely &&
-      activity.mostLikely === activity.max;
-    return allEqual
-      ? new Set<string>()
-      : new Set(["min", "mostLikely", "max"]);
-  });
 
-  // Commit-and-flag, v0.63.1's design and still the rule: a numeric entry is STORED even when it
-  // leaves the triple out of order — the flag comes from the saved data, on the page — and the
-  // row reports only its own state (v0.69.0). It no longer parses the schema itself.
-  const commitAndReport = useCallback(
-    (field: EstimateKey, value: number, touched: Set<string>) => {
-      const nextRefused = withoutRefusal(refused, field);
+  // THE GROUP COMMIT (v0.70.0, WI-50): the three estimate cells are one group, and this runs once
+  // as focus leaves it — never while focus moves between them — with everything typed during the
+  // visit. What it writes and refuses is decided in `commitEstimateGroup`. Nothing is validated
+  // here: the flag is derived from the saved data by the page.
+  //
+  // ⚠️ `onUpdate` is THIS render's, and the commit is synchronous in the blur. A scenario tab takes
+  // focus before its click switches the scenario, so the write lands in the scenario being left.
+  // Deferred, or read through a ref to the latest props, it would target the NEW scenario, where the
+  // store finds no such activity and drops it (WI-54's guard).
+  //
+  // ⚠️ v0.67.2 (M12) — the store is called here, in the handler, never inside a state updater:
+  // React runs updaters twice in development, and every estimate edit used to push two undo frames.
+  const handleGroupExit = useCallback(
+    (drafts: EstimateDrafts) => {
+      const heuristic = heuristicEnabled ? { minPercent: heuristicMinPercent, maxPercent: heuristicMaxPercent } : null;
+      const { updates, refused: nextRefused } = commitEstimateGroup(activity, drafts, heuristic);
       setRefused(nextRefused);
-      onValidityChange(activity.id, rowReport(touched, nextRefused, { ...estimateTriple(activity), [field]: value }));
-
-      // ⚠️ v0.67.2 (R40) — a blur that leaves the number ON SCREEN unchanged writes
-      // nothing. Before this, merely looking at a cell and looking away committed the
-      // cell's own value back into the store: an undo frame, the simulation results
-      // discarded, a localStorage write and a cloud save, for a gesture that changed
-      // nothing. Tabbing through a row did it three times.
-      //
-      // ⚠️ COMPARE THE ROUNDED STORED NUMBER, NOT THE RAW ONE. The cell displays
-      // `Math.round`, and the store legitimately holds fractions (`computeHeuristic`
-      // gives `0.75` for a row added with the heuristic on). `value !== activity[field]`
-      // — the obvious guard, and the shape the heuristic branch above uses — is 1 !== 0.75
-      // for a cell that was only looked at, so it still writes the rounded number over the
-      // stored fraction. That was measured, on a straw implementation, passing every other
-      // pin in this file. The display/store mismatch it preserves is deliberate: see the
-      // R40 note in EstimateInputs.tsx.
-      if (Math.round(activity[field]) !== value) {
-        onUpdate(activity.id, { [field]: value });
-      }
+      onValidityChange(activity.id, { refused: nextRefused });
+      if (updates) onUpdate(activity.id, updates);
     },
-    [activity, refused, onUpdate, onValidityChange]
-  );
-
-  // ⚠️ THE BRANCHING BELOW IS PROTECTED. Do not simplify it back.
-  //
-  // v0.63.1 added the `else` that REPORTS a cleared estimate instead of silently swallowing
-  // it — added branching that IS the improvement, a number that got worse because the
-  // software got better. That behaviour is pinned by `UnifiedActivityRow.blur.test.tsx`'s
-  // "reports the cleared field as invalid instead of doing nothing" and "flags the cleared field
-  // so the user can see something happened" — cited by NAME since v0.69.0, whose one change to
-  // the first (the report is an object now, not `false`) moved the line numbers this comment
-  // used to give. Those two pins, not a complexity figure, are what guard it.
-  //
-  // ⚠️ THE cc-15 FRAMING IS HISTORICAL — this comment used to open "cc 15 — EXACTLY ON THE
-  // LINT THRESHOLD" and a session grepping that number would now find a function measuring
-  // NINE. It fell in v0.67.2 (WI-2) as a consequence of two deletions the item mandated —
-  // the dead `document.querySelector` sibling-write guards, and a nested state updater
-  // removed by the M12 hoist. NOTHING WAS REFACTORED TO REDUCE IT, and the drop is invisible
-  // to the lint ratchet either way, since sonarjs reports above 15. Re-derive with
-  // `npm run cc`; do not trust a figure written in prose.
-  //
-  // The surviving example of a deliberate crossing is ScenarioTabs' SortableScenarioTab,
-  // 13 → 15 on an accessibility fix.
-  const handleBlur = useCallback(
-    (field: EstimateKey, rawValue: string) => {
-      // v0.69.0 — refused BEFORE either branch below, because the heuristic branch writes
-      // unconditionally: an entry that cannot be stored is never stored.
-      const refusal = refuseEstimateEntry(rawValue);
-      if (refusal === null) {
-        const num = Math.round(parseFloat(rawValue));
-        // When heuristic is enabled and ML actually changed, auto-calculate min/max.
-        // ⚠️ v0.67.2 — `Math.round` on the stored value, for the reason spelled out in
-        // commitAndReport above: without it a stored `1` displayed over a fractional
-        // `0.75` reads as "changed" and one look at the cell recalculates all three
-        // estimates. This branch is where a single stale cell became three lost fields.
-        if (heuristicEnabled && field === "mostLikely" && num !== Math.round(activity.mostLikely)) {
-          const { min: minRaw, max: maxRaw } = computeHeuristic(num, heuristicMinPercent, heuristicMaxPercent);
-          // Update all three fields together
-          const updates = { mostLikely: num, min: Math.round(minRaw), max: Math.round(maxRaw) };
-          const touched = new Set(["min", "mostLikely", "max"]);
-          setTouchedFields(touched);
-          // Only this cell's refusal clears: a Min or Max still holding a cleared entry keeps
-          // showing it, so the row still reports it (v0.69.0).
-          const nextRefused = withoutRefusal(refused, field);
-          setRefused(nextRefused);
-          onValidityChange(activity.id, rowReport(touched, nextRefused, updates));
-          onUpdate(activity.id, updates);
-          // ⚠️ v0.67.2 — the sibling cells USED to be written here, by hand, with a
-          // document-scoped `document.querySelector`. That existed only because the
-          // inputs were uncontrolled and could not follow the store on their own. They
-          // are controlled now, so the recalculated min and max arrive the same way every
-          // other value does — through the prop — and the lookup is gone rather than
-          // documented: it would have addressed the wrong grid the moment a second one
-          // existed on the page.
-        } else {
-          const next = new Set(touchedFields);
-          next.add(field);
-          setTouchedFields(next);
-          // OUTSIDE the updater — see the touchedFields declaration. This call reaches the
-          // store, and a side effect inside an updater runs twice in development.
-          commitAndReport(field, num, next);
-        }
-      } else {
-        // ⚠️ v0.63.1 — REPORT the unparseable entry instead of silently doing nothing.
-        // Reaching here means `parseFloat` failed, which in practice means the user
-        // CLEARED the field: select-all, delete, tab away. Before this, the `if` above
-        // simply ended and nothing happened — no commit, no validity change, no error —
-        // while the UNCONTROLLED input (EstimateInputs.tsx, `defaultValue`) went on
-        // displaying the empty string. The field showed nothing, the store held the old
-        // number, and nothing on screen said which was real.
-        //
-        // ⚠️ v0.67.2: the input is CONTROLLED now, and this branch is still what keeps the
-        // empty field on screen — the cell holds an unparseable draft instead of dropping
-        // back to the store. The paragraph above narrates the pre-v0.63.1 defect and is
-        // kept for that; do not read "UNCONTROLLED" as a statement about today.
-        //
-        // Restoring the old value instead was considered and REJECTED: it fixes the
-        // defect by committing the same defect in the other direction, silently undoing
-        // work the user deliberately did. Storing empty is not available — min /
-        // mostLikely / max are non-negative numbers in ActivitySchema — which is why the
-        // sibling treatment of a numeric-but-invalid entry (committed AND flagged) only
-        // half-transfers. What transfers is the flagging.
-        //
-        // NOT gated on allEstimatesTouched, and the difference is principled rather than an
-        // oversight: that gate exists because min <= mostLikely <= max cannot be judged until
-        // all three are known. An empty field is invalid ON ITS OWN, so there is nothing to
-        // wait for.
-        //
-        // v0.69.0 — a NEGATIVE entry lands here too, refused exactly as a cleared one is:
-        // nothing written, the text left on screen, the cell red, the row reported. Until then
-        // `-5` was stored, and the next load rejected the whole project. Nothing is written, so
-        // the report's stamp is the triple already saved.
-        const next = new Set(touchedFields);
-        next.add(field);
-        setTouchedFields(next);
-        const nextRefused = { ...refused, [field]: refusal };
-        setRefused(nextRefused);
-        onValidityChange(activity.id, rowReport(next, nextRefused, estimateTriple(activity)));
-      }
-    },
-    [commitAndReport, heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, activity, refused, onUpdate, onValidityChange, touchedFields]
+    [activity, heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, onUpdate, onValidityChange]
   );
 
   const isComplete = activity.status === "complete";
@@ -496,6 +376,13 @@ export function UnifiedActivityRow({
     [activity.id, tabFieldOrder, heuristicEnabled, confidenceIsRelevant]
   );
 
+  // Enter in an estimate cell commits and LEAVES the group (v0.70.0): focus moves where a Tab out
+  // of the group's last cell would go, and that move's blur is the commit.
+  const handleLeave = useCallback(
+    (from: HTMLInputElement) => leaveEstimateGroup(from, activity.id, tabFieldOrder),
+    [activity.id, tabFieldOrder]
+  );
+
   // Stabilize the commit closure so useBufferedField.handleBlur is not
   // rebuilt on every parent render (only when activity.id or onUpdate change).
   const handleNameCommit = useCallback(
@@ -521,7 +408,7 @@ export function UnifiedActivityRow({
   // page's, so the red cannot disagree with the summary or outlive a repair.
   const cellErrors = useMemo(() => ({ ...savedIssues, ...refused }), [savedIssues, refused]);
   const estimateFields = useMemo(
-    () => [
+    (): EstimateField[] => [
       { dataField: "min", activityKey: "min", value: activity.min, error: cellErrors.min, title: "Optimistic estimate (days)" },
       { dataField: "ml", activityKey: "mostLikely", value: activity.mostLikely, error: cellErrors.mostLikely, title: "Most likely estimate (days)" },
       { dataField: "max", activityKey: "max", value: activity.max, error: cellErrors.max, title: "Pessimistic estimate (days)" },
@@ -724,7 +611,8 @@ export function UnifiedActivityRow({
       <EstimateInputs
         activityId={activity.id}
         fields={estimateFields}
-        onBlur={handleBlur as (field: string, value: string) => void}
+        onGroupExit={handleGroupExit}
+        onLeave={handleLeave}
         onKeyDown={handleTabNav as (e: React.KeyboardEvent, field: string) => void}
         disabled={isLocked}
       />
@@ -1018,35 +906,6 @@ function distributionSelectLook(inert: boolean): { className: string; title?: st
 type RefusedEntries = Partial<Record<EstimateKey, string>>;
 
 const NO_REFUSALS: RefusedEntries = {};
-
-/**
- * `refused` without `field`'s entry — the SAME object when it had none, so an ordinary commit
- * sets no new state. Module scope, like the helpers above: the component is an accepted
- * cognitive-complexity decline, and these live below it so no cited line number moves.
- */
-function withoutRefusal(refused: RefusedEntries, field: EstimateKey): RefusedEntries {
-  if (refused[field] === undefined) return refused;
-  const next = { ...refused };
-  delete next[field];
-  return next;
-}
-
-function allEstimatesTouched(touched: Set<string>): boolean {
-  return touched.has("min") && touched.has("mostLikely") && touched.has("max");
-}
-
-function estimateTriple(activity: Activity): EstimateTriple {
-  return { min: activity.min, mostLikely: activity.mostLikely, max: activity.max };
-}
-
-/**
- * What the row tells the page after an estimate blur (v0.69.0). `saved` is the triple the store
- * holds once this blur's write lands — the stamp that lets the page tell a still-half-typed row
- * from one a dialog, an undo or a collaborator has since rewritten.
- */
-function rowReport(touched: Set<string>, refused: RefusedEntries, saved: EstimateTriple): RowReport {
-  return { midEntry: allEstimatesTouched(touched) ? null : saved, refused };
-}
 
 /**
  * Small variance indicator showing actual vs estimated difference.

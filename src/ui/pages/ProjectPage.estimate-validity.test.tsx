@@ -3,8 +3,9 @@
 // See LICENSE file in the project root for full license text.
 
 /**
- * WI-49 (v0.69.0) at the PAGE: estimate validity derived from saved data, plus the two row
- * states saved data cannot see, read by every site that decides what the user sees.
+ * WI-49 (v0.69.0) and WI-50 (v0.70.0) at the PAGE: estimate validity derived from saved data, plus
+ * the one row state saved data cannot see (a refused entry), read by every site that decides what
+ * the user sees — and, since v0.70.0, the three estimate cells committing as ONE group.
  *
  * ⚠️ WHY THE PAGE AND NOT THE HOOK. The helper tests take the gate's inputs as arguments, so a
  * page that handed them the WRONG set would pass all of them. Every fixture here renders the
@@ -12,13 +13,19 @@
  * programmatic (`focusField` → `el.focus()`), so jsdom produces the same blur sequence a browser
  * does for a Tab.
  *
- * The fixtures named "second", "third" and "fourth" are the executor brief's (§3.2, R207.3,
- * R208, R209). Each one was pre-registered to FAIL a specific wrong gate; the plants that
- * demonstrate it are recorded in the PR body, not kept here.
+ * ⚠️ SINCE v0.70.0 `tab()` INSIDE A ROW'S THREE ESTIMATE CELLS COMMITS NOTHING: it is a real focus
+ * move to another cell of the group. A fixture that needs a commit must LEAVE the group — a Tab out
+ * of Max, `act(() => cell.blur())`, or focus moving to something else — and says which.
+ *
+ * RETIRED in v0.70.0, with their reason: the brief's "second", "third" and "fourth" banner fixtures
+ * (§3.2, R207.3, R208, R209) and the stale-stamp test (G-D). Each pinned how the page treated a
+ * SAVED half-typed triple while its row was still being typed — held back by the `mid-entry` stamp.
+ * Nothing is saved while a row is being typed any more, and a triple left half-typed is flagged at
+ * the exit by design (locked decision 2), so the state they pinned cannot occur.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { act, render, screen, fireEvent, within } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { StrictMode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
@@ -53,6 +60,7 @@ vi.mock("@ui/hooks/use-simulation", () => ({
 import { ProjectPage } from "./ProjectPage";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useNotificationStore } from "@ui/hooks/use-notification-store";
+import { useConfirmStore } from "@ui/hooks/use-confirm-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { createProject, createActivity, createScenario } from "@app/api/project-service";
 import {
@@ -148,98 +156,22 @@ describe("v0.67.23 at the page — a fresh row being typed shows no summary and 
     renderPage(p);
 
     typeInto(aid, "min", "5");
-    tab(aid, "min"); // to Most Likely: saved 5/1/1, half-typed
+    tab(aid, "min"); // to Most Likely, inside the group
     expect(document.activeElement).toBe(cell(aid, "ml"));
-    expect(stored(p.id, aid)).toMatchObject({ min: 5, mostLikely: 1, max: 1 });
+    // ⚠️ v0.70.0 — FLIPPED ON PURPOSE: this read `5/1/1`, the per-cell commit's half-typed save
+    // that the mid-entry stamp then held back. Since the three cells commit as one group, a Tab
+    // between them writes nothing at all.
+    expect(stored(p.id, aid)).toMatchObject({ min: 1, mostLikely: 1, max: 1 });
     expect(summary()).toBeNull();
     expect(bannerHeading()).toBeNull();
 
-    // The control, same test: out through Max, and the row is flagged — summary AND banner.
+    // The control, same test: out through Max — the group exit — and the half-typed 5/1/1 is
+    // saved and flagged: summary AND banner.
     tab(aid, "ml");
     tab(aid, "max");
+    expect(stored(p.id, aid)).toMatchObject({ min: 5, mostLikely: 1, max: 1 });
     expect(summary()).not.toBeNull();
     expect(bannerMessage()).toContain("Ostrander survey");
-  });
-});
-
-describe("the banner's gate — the brief's second, third and fourth fixtures", () => {
-  it("SECOND: a loaded flagged T-Normal row and a half-typed fresh row show NO banner", () => {
-    // A page-wide "some row is flagged" gate fails this: the T-Normal row IS flagged, and the
-    // engine throws on the half-typed Triangular row — so that gate shows the banner.
-    let fresh = "";
-    const p = projectOf((s) => {
-      const tNormal = activityWith("Tarragon calibration", s, {
-        min: 14, mostLikely: 13, max: 22, distributionType: "normal",
-      });
-      const f = activityWith("Wicklow handover", s);
-      fresh = f.id;
-      return [tNormal, f];
-    });
-    renderPage(p);
-    expect(within(summary()!.parentElement!).getByText("Tarragon calibration")).toBeTruthy();
-    expect(bannerHeading()).toBeNull(); // T-Normal builds: nothing to show at mount
-
-    typeInto(fresh, "min", "5");
-    tab(fresh, "min");
-
-    expect(stored(p.id, fresh)).toMatchObject({ min: 5, mostLikely: 1, max: 1 });
-    expect(bannerHeading()).toBeNull();
-    // Run still refuses, and says why, below the grid.
-    expect(runButton()).toBeDisabled();
-    expect(runReason()).not.toBeNull();
-  });
-
-  it.each([
-    ["sequential", false],
-    ["dependency", true],
-  ])("THIRD (%s mode): a half-typed row ABOVE a flagged one leaves the banner on, naming the flagged row", (_mode, dependencyMode) => {
-    // The engine builds in ARRAY order in both modes and reports only its first throw.
-    // Pre-registered failures: a first-thrower gate REMOVES the banner at the Tab (A throws
-    // first and is not flagged); a gate that keeps the engine's message NAMES A.
-    let a = "";
-    const p = projectOf(
-      (s) => {
-        const rowA = activityWith("Amberley footing", s); // 1/1/1, all-equal at mount
-        a = rowA.id;
-        const rowB = activityWith("Bexhill parapet", s, { min: 14, mostLikely: 13, max: 22 });
-        return [rowA, rowB];
-      },
-      { dependencyMode }
-    );
-    renderPage(p);
-    expect(bannerMessage()).toContain("Bexhill parapet");
-
-    typeInto(a, "min", "5");
-    tab(a, "min");
-
-    expect(stored(p.id, a)).toMatchObject({ min: 5, mostLikely: 1, max: 1 });
-    const message = bannerMessage();
-    expect(message).toContain("Bexhill parapet");
-    expect(message).not.toContain("Amberley footing");
-  });
-
-  it("FOURTH: a half-typed row with a cleared cell is summarised by that cell, and shows NO banner", () => {
-    // Its saved 5/1/1 still throws, but its ordering issue is held back (mid-entry), and a
-    // cleared cell never qualifies a thrower — the store still holds the old number.
-    let f = "";
-    const p = projectOf((s) => {
-      const row = activityWith("Fenwick culvert", s);
-      f = row.id;
-      return [row];
-    });
-    renderPage(p);
-
-    typeInto(f, "min", "5");
-    tab(f, "min");
-    typeInto(f, "ml", "");
-    tab(f, "ml");
-
-    expect(stored(p.id, f)).toMatchObject({ min: 5, mostLikely: 1, max: 1 });
-    const box = summary()!.parentElement!;
-    expect(box.textContent).toContain("Fenwick culvert");
-    expect(box.textContent).toContain("Most Likely: Enter a number.");
-    expect(box.textContent).not.toContain("Min must be <= Most Likely");
-    expect(bannerHeading()).toBeNull();
   });
 });
 
@@ -271,8 +203,8 @@ describe("a loaded out-of-order project — flagged at mount, from saved data", 
   });
 
   it("a LogNormal 0/0/0 row is flagged at mount on Max, and stays listed after a tab-through", () => {
-    // Before v0.69.0 this row passed the schema and silently blanked the schedule. And a look
-    // at its cells no longer drops it from the summary: mid-entry holds back ORDERING only.
+    // Before v0.69.0 this row passed the schema and silently blanked the schedule. And a look at
+    // its cells — in and out, typing nothing — does not drop it from the summary.
     let aid = "";
     const p = projectOf((s) => {
       const a = activityWith("Lapwing sump", s, { min: 0, mostLikely: 0, max: 0, distributionType: "logNormal" });
@@ -290,7 +222,8 @@ describe("a loaded out-of-order project — flagged at mount, from saved data", 
 
     act(() => cell(aid, "min").focus());
     tab(aid, "min");
-    tab(aid, "ml"); // two of three visited: the row now reports mid-entry
+    tab(aid, "ml");
+    tab(aid, "max"); // out of the group: an exit that typed nothing, so it writes nothing
     expectFlagged();
   });
 });
@@ -344,7 +277,7 @@ describe("the reported half — what saved data cannot see, and how it dies", ()
     const { p, aid } = twoScenarioProject();
     renderPage(p);
     typeInto(aid, "min", "");
-    tab(aid, "min");
+    act(() => cell(aid, "min").blur()); // leaves the group (v0.70.0: a Tab to ML would not)
     expect(cell(aid, "min").value).toBe("");
     expect(runButton()).toBeDisabled();
     expect(runReason()!.parentElement!.textContent).toContain("Min: Enter a number.");
@@ -360,7 +293,7 @@ describe("the reported half — what saved data cannot see, and how it dies", ()
     const { p, aid } = twoScenarioProject();
     renderPage(p);
     typeInto(aid, "min", "");
-    tab(aid, "min");
+    act(() => cell(aid, "min").blur()); // leaves the group
     expect(runButton()).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Quenby Downside" }));
@@ -384,7 +317,7 @@ describe("the reported half — what saved data cannot see, and how it dies", ()
     });
     renderPage(p);
     typeInto(gone, "min", "");
-    tab(gone, "min");
+    act(() => cell(gone, "min").blur()); // leaves the group
     expect(runButton()).toBeDisabled();
 
     act(() => useProjectStore.getState().deleteActivity(p.id, p.scenarios[0]!.id, gone));
@@ -397,31 +330,13 @@ describe("the reported half — what saved data cannot see, and how it dies", ()
     expect(runReason()).toBeNull();
   });
 
-  it("a half-typed row's stale mid-entry does not silence a later save of an out-of-order triple (G-D)", () => {
-    // Min typed, then the row left WITHOUT visiting all three cells; then the dialog's save
-    // path writes 14/13/22. The row's last report still says mid-entry — for the 5/1/1 it saw.
-    let aid = "";
-    const p = projectOf((s) => {
-      const a = activityWith("Wigeon spillway", s);
-      aid = a.id;
-      return [a];
-    });
-    renderPage(p);
-    typeInto(aid, "min", "5");
-    act(() => cell(aid, "min").blur());
-    expect(summary()).toBeNull(); // held back: half-typed
-
-    act(() =>
-      useProjectStore.getState().updateActivityField(p.id, p.scenarios[0]!.id, aid, { min: 14, mostLikely: 13, max: 22 })
-    );
-
-    expect(summary()!.parentElement!.textContent).toContain("Wigeon spillway");
-    expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true");
-  });
-
-  it("UNTIL PR 2 — a fresh row abandoned after Min is saved 5/1/1: Run refused with a reason, no summary, no banner", () => {
-    // PR 2 (group commit) flags this at the exit; under PR 1 the half-typed triple is held
-    // back from the summary and the banner, and only the reason below the grid explains Run.
+  it("an abandoned half-typed triple is SAVED AND FLAGGED at the exit: red Min, summary, banner, Run refused (WI-48)", () => {
+    // ⚠️ v0.70.0 — FLIPPED ON PURPOSE. This was "UNTIL PR 2 — … no summary, no banner": v0.69.0
+    // saved the 5/1/1 at the blur and held it back from the summary and the banner with the
+    // mid-entry stamp, so only the reason below the grid explained Run. Locked decision 2: an
+    // out-of-order triple is saved and flagged, never silently kept back — and since nothing is
+    // saved while a row is being typed, the exit is where that happens. WI-48 closes on this:
+    // the abandoned state is no longer SILENT.
     let aid = "";
     const p = projectOf((s) => {
       const a = activityWith("Gadwall intake", s);
@@ -430,13 +345,14 @@ describe("the reported half — what saved data cannot see, and how it dies", ()
     });
     renderPage(p);
     typeInto(aid, "min", "5");
-    act(() => cell(aid, "min").blur());
+    act(() => cell(aid, "min").blur()); // click away: the group exit
 
     expect(stored(p.id, aid)).toMatchObject({ min: 5, mostLikely: 1, max: 1 });
+    expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true");
+    expect(summary()!.parentElement!.textContent).toContain("Gadwall intake");
+    expect(bannerMessage()).toContain("Gadwall intake"); // Triangular 5/1/1 cannot be built
     expect(runButton()).toBeDisabled();
     expect(runReason()!.parentElement!.textContent).toContain("Gadwall intake");
-    expect(summary()).toBeNull();
-    expect(bannerHeading()).toBeNull();
   });
 });
 
@@ -450,10 +366,9 @@ describe("external writes — the flag follows the saved data (WI-28)", () => {
     });
     renderPage(p);
     typeInto(aid, "min", "14");
-    tab(aid, "min");
+    act(() => cell(aid, "min").blur()); // leaves the group (v0.70.0: a Tab to ML would not)
     expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true");
     expect(summary()).not.toBeNull();
-    act(() => cell(aid, "ml").blur());
 
     act(() => useProjectStore.getState().undo());
     expect(stored(p.id, aid).min).toBe(9);
@@ -516,6 +431,10 @@ describe("auto-run reads Run's set, never the display's", () => {
     // parameter build throw, so auto-run aborts whichever set it reads — a Triangular version
     // of this test passed with auto-run wired to the DISPLAY set (measured). T-Normal throws
     // only when min > max, so its 1/20/1 builds, and only the gate can stop the run.
+    //
+    // ⚠️ v0.70.0 — the half-typed triple now has to be LEFT to be saved, so this test leaves the
+    // group after Most Likely. Tabbing from Most Likely to Max alone writes nothing any more, and
+    // a test that stopped there would pass with no gate at all.
     usePreferencesStore.setState({ preferences: { ...DEFAULT_USER_PREFERENCES, autoRunSimulation: true } });
     let aid = "";
     const p = projectOf((s) => {
@@ -528,8 +447,10 @@ describe("auto-run reads Run's set, never the display's", () => {
     sim.run.mockReset(); // whatever the mount did
 
     typeInto(aid, "ml", "20");
-    tab(aid, "ml"); // saved 1/20/1: out of order, and half-typed, so the summary is held back
-    expect(summary()).toBeNull();
+    tab(aid, "ml"); // to Max, inside the group: nothing saved yet
+    expect(stored(p.id, aid)).toMatchObject({ min: 1, mostLikely: 1, max: 1 });
+    tab(aid, "max"); // out of the group: 1/20/1 is saved — out of order, flagged
+    expect(summary()!.parentElement!.textContent).toContain("Garganey leat");
     await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
     expect(sim.run).not.toHaveBeenCalled();
 
@@ -572,6 +493,7 @@ describe("the grid no longer sets the page's state from inside its own state upd
     tab(aid, "min");
     typeInto(aid, "ml", "");
     tab(aid, "ml");
+    tab(aid, "max"); // out of the group: the commit, and the row's report (v0.70.0)
     const warned = spy.mock.calls.some((c) => String(c[0]).includes("Cannot update a component"));
     spy.mockRestore();
     expect(warned).toBe(false);
@@ -600,5 +522,253 @@ describe("the hold — what is painted above the grid waits for the click; Run n
     expect(summary()).toBeNull(); // still held: the release waits a task, behind the click
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(summary()!.parentElement!.textContent).toContain("Eider penstock");
+  });
+});
+
+describe("WI-50 — the three estimate cells commit as ONE group, when focus leaves them (v0.70.0)", () => {
+  const frames = () => useProjectStore.getState().undoStack.length;
+
+  function oneRow(name: string, estimates: Partial<Activity> = { min: 5, mostLikely: 10, max: 20 }, settingsPatch: Partial<ScenarioSettings> = {}) {
+    let aid = "";
+    const p = projectOf((s) => {
+      const a = activityWith(name, s, estimates);
+      aid = a.id;
+      return [a];
+    }, settingsPatch);
+    return { p, aid };
+  }
+
+  it("the owner's gesture: 11 into Min of a 5-10-20 row and Tab — nothing is written or flagged until focus LEAVES the three cells", () => {
+    const { p, aid } = oneRow("Hobby spillway");
+    renderPage(p);
+    const before = frames();
+
+    typeInto(aid, "min", "11");
+    tab(aid, "min"); // to Most Likely
+    tab(aid, "ml"); // to Max — still inside the group
+    expect(document.activeElement).toBe(cell(aid, "max"));
+    expect(cell(aid, "min").value).toBe("11"); // the draft survives the moves between the cells
+    expect(stored(p.id, aid)).toMatchObject({ min: 5, mostLikely: 10, max: 20 });
+    expect(frames()).toBe(before);
+    expect(cell(aid, "min")).not.toHaveAttribute("aria-invalid");
+    expect(summary()).toBeNull();
+    expect(bannerHeading()).toBeNull();
+    expect(runButton()).toBeEnabled();
+
+    // The control, same test: a Tab out of Max leaves the group, and 11/10/20 is saved — one
+    // write — and flagged, from the saved triple.
+    tab(aid, "max");
+    expect(stored(p.id, aid)).toMatchObject({ min: 11, mostLikely: 10, max: 20 });
+    expect(frames()).toBe(before + 1);
+    expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true");
+    expect(summary()!.parentElement!.textContent).toContain("Hobby spillway");
+    expect(bannerMessage()).toContain("Hobby spillway");
+    expect(runButton()).toBeDisabled();
+  });
+
+  it("Min, Most Likely and Max typed in one visit are ONE write, and one Undo reverts all three", () => {
+    const { p, aid } = oneRow("Merlin culvert", {}); // as + Add Activity makes it: 1/1/1
+    renderPage(p);
+    const before = frames();
+
+    typeInto(aid, "min", "5");
+    tab(aid, "min");
+    typeInto(aid, "ml", "10");
+    tab(aid, "ml");
+    typeInto(aid, "max", "20");
+    tab(aid, "max"); // the exit
+
+    expect(stored(p.id, aid)).toMatchObject({ min: 5, mostLikely: 10, max: 20 });
+    expect(frames()).toBe(before + 1);
+    act(() => useProjectStore.getState().undo());
+    expect(stored(p.id, aid)).toMatchObject({ min: 1, mostLikely: 1, max: 1 });
+  });
+
+  it("Enter commits and leaves: focus goes where a Tab out of Max goes, and the commit is ONE write", () => {
+    let a = "";
+    let b = "";
+    const p = projectOf((s) => {
+      const rowA = activityWith("Sanderling weir", s, { min: 5, mostLikely: 10, max: 20 });
+      const rowB = activityWith("Knot sluice", s, { min: 2, mostLikely: 3, max: 4 });
+      a = rowA.id;
+      b = rowB.id;
+      return [rowA, rowB];
+    });
+    renderPage(p);
+    const before = frames();
+
+    typeInto(a, "min", "7");
+    fireEvent.keyDown(cell(a, "min"), { key: "Enter" });
+
+    expect(document.activeElement).toBe(cell(b, "name"));
+    expect(stored(p.id, a)).toMatchObject({ min: 7, mostLikely: 10, max: 20 });
+    // Through the blur Enter causes, never an explicit commit as well: that would be two.
+    expect(frames()).toBe(before + 1);
+  });
+
+  it("with the heuristic on, Enter lands on Distribution, and the heuristic fills only the cells not typed", () => {
+    const { p, aid } = oneRow("Dunlin outfall", { min: 5, mostLikely: 10, max: 20 }, { heuristicEnabled: true });
+    renderPage(p);
+    const distribution = document.querySelector<HTMLSelectElement>(`[data-row-id="${aid}"][data-field="distribution"]`)!;
+
+    typeInto(aid, "ml", "30");
+    fireEvent.keyDown(cell(aid, "ml"), { key: "Enter" });
+
+    expect(document.activeElement).toBe(distribution);
+    // 75 % and 200 % of 30, rounded: nothing but Most Likely was typed.
+    expect(stored(p.id, aid)).toMatchObject({ min: 23, mostLikely: 30, max: 60 });
+  });
+
+  it("Escape reverts all three cells to the store and leaves them — and the blur it causes commits nothing", () => {
+    const { p, aid } = oneRow("Whimbrel penstock");
+    renderPage(p);
+    const before = frames();
+
+    typeInto(aid, "min", "11");
+    tab(aid, "min");
+    typeInto(aid, "ml", "3");
+    fireEvent.keyDown(cell(aid, "ml"), { key: "Escape" });
+
+    expect(document.activeElement).toBe(document.body);
+    expect([cell(aid, "min").value, cell(aid, "ml").value, cell(aid, "max").value]).toEqual(["5", "10", "20"]);
+    expect(stored(p.id, aid)).toMatchObject({ min: 5, mostLikely: 10, max: 20 });
+    expect(frames()).toBe(before);
+    expect(summary()).toBeNull();
+    expect(runButton()).toBeEnabled();
+  });
+
+  it("Escape also clears a refused cell: the stored number comes back, the red goes, and Run returns", () => {
+    const { p, aid } = oneRow("Godwit sump");
+    renderPage(p);
+    typeInto(aid, "min", "");
+    act(() => cell(aid, "min").blur()); // leaves the group: the cleared cell is refused
+    expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true");
+    expect(runReason()!.parentElement!.textContent).toContain("Min: Enter a number.");
+
+    act(() => cell(aid, "min").focus());
+    fireEvent.keyDown(cell(aid, "min"), { key: "Escape" });
+
+    expect(cell(aid, "min").value).toBe("5");
+    expect(cell(aid, "min")).not.toHaveAttribute("aria-invalid");
+    expect(runButton()).toBeEnabled();
+    expect(runReason()).toBeNull();
+  });
+
+  it("a refused cell at the exit: the other typed cell is written; the cleared one stays empty, red and named", () => {
+    const { p, aid } = oneRow("Plover leat");
+    renderPage(p);
+    const before = frames();
+
+    typeInto(aid, "min", "");
+    tab(aid, "min");
+    typeInto(aid, "ml", "12");
+    tab(aid, "ml");
+    tab(aid, "max"); // the exit
+
+    expect(stored(p.id, aid)).toMatchObject({ min: 5, mostLikely: 12, max: 20 });
+    expect(frames()).toBe(before + 1);
+    const min = cell(aid, "min");
+    expect(min.value).toBe("");
+    expect(min).toHaveAttribute("aria-invalid", "true");
+    expect(document.getElementById(min.getAttribute("aria-describedby")!)?.textContent).toBe("Enter a number.");
+    expect(runButton()).toBeDisabled();
+    expect(runReason()!.parentElement!.textContent).toContain("Min: Enter a number.");
+    expect(summary()!.parentElement!.textContent).toContain("Min: Enter a number.");
+  });
+
+  it("a refused cell outlives a later visit and an external write; typing a number over it clears it", () => {
+    const { p, aid } = oneRow("Turnstone groyne");
+    renderPage(p);
+    typeInto(aid, "min", "");
+    act(() => cell(aid, "min").blur());
+
+    // A later visit that types elsewhere keeps it (locked 8 governs locked 12).
+    typeInto(aid, "max", "25");
+    act(() => cell(aid, "max").blur());
+    expect(stored(p.id, aid)).toMatchObject({ min: 5, mostLikely: 10, max: 25 });
+    expect(cell(aid, "min").value).toBe("");
+    expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true");
+
+    // An external write — here an undo — does not clear it either: it stays flagged until filled in.
+    act(() => useProjectStore.getState().undo());
+    expect(stored(p.id, aid)).toMatchObject({ max: 20 });
+    expect(cell(aid, "min").value).toBe("");
+    expect(runReason()!.parentElement!.textContent).toContain("Min: Enter a number.");
+
+    // The control, same test: typed over and left, it clears.
+    typeInto(aid, "min", "6");
+    act(() => cell(aid, "min").blur());
+    expect(stored(p.id, aid)).toMatchObject({ min: 6 });
+    expect(cell(aid, "min")).not.toHaveAttribute("aria-invalid");
+    expect(runButton()).toBeEnabled();
+  });
+
+  it("an app or window switch is NOT leaving: the draft waits, uncommitted, and commits when focus really leaves (owner, R214)", () => {
+    const { p, aid } = oneRow("Redshank sluice");
+    renderPage(p);
+    const before = frames();
+    typeInto(aid, "min", "11");
+
+    // MEASURED in Chrome 153: switching to another window or app blurs the input while it stays the
+    // page's focused element, and `document.hasFocus()` reads false. jsdom cannot switch windows,
+    // so that state is reproduced: the input still focused, the page reporting no focus.
+    const hasFocus = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    fireEvent.blur(cell(aid, "min"));
+    hasFocus.mockRestore();
+
+    expect(document.activeElement).toBe(cell(aid, "min"));
+    expect(cell(aid, "min").value).toBe("11");
+    expect(stored(p.id, aid)).toMatchObject({ min: 5 });
+    expect(frames()).toBe(before);
+
+    // Back, then out for real (a click on the page: the focused element is gone by the blur).
+    act(() => cell(aid, "min").blur());
+    expect(stored(p.id, aid)).toMatchObject({ min: 11 });
+    expect(frames()).toBe(before + 1);
+  });
+
+  it("Shift+Tab out of Min leaves the group: the row's own name input is not one of the three cells", () => {
+    const { p, aid } = oneRow("Curlew bund");
+    renderPage(p);
+    typeInto(aid, "min", "7");
+    fireEvent.keyDown(cell(aid, "min"), { key: "Tab", shiftKey: true });
+
+    expect(document.activeElement).toBe(cell(aid, "name"));
+    expect(stored(p.id, aid)).toMatchObject({ min: 7 });
+  });
+
+  it("a click from one row's Min into ANOTHER row's Min leaves the first row's group: it is keyed on the row too", () => {
+    let a = "";
+    let b = "";
+    const p = projectOf((s) => {
+      const rowA = activityWith("Stint channel", s, { min: 5, mostLikely: 10, max: 20 });
+      const rowB = activityWith("Phalarope bund", s, { min: 2, mostLikely: 3, max: 4 });
+      a = rowA.id;
+      b = rowB.id;
+      return [rowA, rowB];
+    });
+    renderPage(p);
+    typeInto(a, "min", "7");
+    act(() => cell(b, "min").focus());
+
+    expect(stored(p.id, a)).toMatchObject({ min: 7 });
+    expect(stored(p.id, b)).toMatchObject({ min: 2 });
+  });
+
+  it("Delete takes focus before it asks: the draft is committed, and then the confirmation opens", () => {
+    const { p, aid } = oneRow("Ruff penstock");
+    renderPage(p);
+    typeInto(aid, "min", "8");
+
+    // A real click focuses the button first (MEASURED in the pane: the blur's relatedTarget is the
+    // Delete button); jsdom's click does not, so the focus move is made explicitly.
+    const del = cell(aid, "min").closest(".group\\/row")!.querySelector<HTMLButtonElement>('button[aria-label="Delete activity"]')!;
+    act(() => del.focus());
+    expect(stored(p.id, aid)).toMatchObject({ min: 8 });
+    fireEvent.click(del);
+    // The confirmation is asked through the app-wide confirm store (its host is not on this page).
+    const pending = useConfirmStore.getState().pending;
+    expect(pending?.kind === "confirm" ? pending.options.title : null).toBe("Delete this activity?");
+    act(() => useConfirmStore.getState().dismissPending());
   });
 });

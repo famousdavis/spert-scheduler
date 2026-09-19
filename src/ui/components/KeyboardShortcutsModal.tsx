@@ -16,11 +16,13 @@ const SHORTCUTS = [
   { keys: ["?"], description: "Show keyboard shortcuts" },
   { keys: ["Tab"], description: "Move to next field in activity grid" },
   { keys: ["Shift", "Tab"], description: "Move to previous field in activity grid" },
-  // Name edits only (activity, scenario, project, section names). An estimate cell
-  // commits on blur/Tab and ignores Enter and Escape — measured on the sample project,
-  // 2026-09-06; making those keys work there is WI-29, not a wording change.
-  { keys: ["Enter"], description: "Confirm a name edit" },
-  { keys: ["Escape"], description: "Cancel a name edit" },
+  // Name edits (activity, scenario, project and section names) and, since v0.70.0, a grid row's
+  // three estimate cells, which commit together when focus leaves them: Enter commits them and
+  // moves on, Escape puts all three back to their saved values. Until v0.70.0 an estimate cell
+  // ignored both keys — measured 2026-09-06 — so these rows said "name edit" only (WI-16);
+  // WI-29 was the behaviour, and WI-50 closed it.
+  { keys: ["Enter"], description: "Confirm a name or estimate edit" },
+  { keys: ["Escape"], description: "Cancel a name or estimate edit" },
 ];
 
 function KeyCombo({ keys }: { keys: string[] }) {
