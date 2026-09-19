@@ -417,6 +417,7 @@ export function ProjectPage() {
     scenario?.simulationResults,
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.projectProbabilityTarget ?? 0.95,
+    scenario?.settings.dependencyMode ?? false,
     workCalendar
   );
 

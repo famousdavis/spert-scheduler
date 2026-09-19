@@ -2,7 +2,15 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { DistributionType, ActivityStatus, DependencyType } from "@domain/models/types";
+import type {
+  DistributionType,
+  ActivityStatus,
+  DependencyType,
+  MeasuredMilestoneHealth,
+  MilestoneBufferInfo,
+  MilestoneHealth,
+  MilestoneNoHealthReason,
+} from "@domain/models/types";
 
 /** Full display label for distribution types. */
 export function distributionLabel(dt: DistributionType): string {
@@ -85,27 +93,36 @@ export function pluralize(count: number, singular: string, plural = `${singular}
 
 // -- Milestone health --------------------------------------------------------
 
-export type MilestoneHealth = "green" | "amber" | "red";
+export type { MeasuredMilestoneHealth, MilestoneHealth, MilestoneNoHealthReason };
 
-/** Maps slackDays to a milestone health status. */
+/**
+ * Maps slackDays to a milestone health status. NO slack means no simulation result to judge by,
+ * and that is "none" — never a colour. ⚠️ Until v0.70.3 it returned "green" here, so a milestone
+ * nobody had measured read the same as one five or more days ahead.
+ */
+export function computeMilestoneHealth(slackDays: number): MeasuredMilestoneHealth;
+export function computeMilestoneHealth(slackDays: number | null): MilestoneHealth;
 export function computeMilestoneHealth(slackDays: number | null): MilestoneHealth {
-  if (slackDays === null || slackDays >= 5) return "green";
+  if (slackDays === null) return "none";
+  if (slackDays >= 5) return "green";
   if (slackDays >= 0) return "amber";
   return "red";
 }
 
-/** CSS class for a milestone health dot indicator. */
+/** CSS class for a milestone health dot indicator. "none" is grey: no health colour. */
 export function milestoneHealthDotClass(health: MilestoneHealth): string {
   if (health === "green") return "bg-green-500";
   if (health === "amber") return "bg-amber-500";
-  return "bg-red-500";
+  if (health === "red") return "bg-red-500";
+  return "bg-gray-400 dark:bg-gray-500";
 }
 
-/** CSS text color class for inline milestone health labels. */
+/** CSS text color class for inline milestone health labels (print). "none" is grey. */
 export function milestoneHealthTextClass(health: MilestoneHealth): string {
   if (health === "green") return "text-green-700";
   if (health === "amber") return "text-amber-700";
-  return "text-red-700 font-medium";
+  if (health === "red") return "text-red-700 font-medium";
+  return "text-gray-500";
 }
 
 /**
@@ -117,9 +134,28 @@ export function milestoneHealthTextClass(health: MilestoneHealth): string {
  * a bare "✓" on the card and "On Track" in print. Worse, "At Risk" meant AMBER on the panel but
  * RED on the card and in print. "At Risk" is now only ever the amber state, and "Late" the red.
  * Do not give a surface its own words again — add a state here instead.
+ *
+ * "none" is a grey dash and NO word (owner, 2026-09-19): a missing result must not read as a
+ * health. Its reason is carried by milestoneHealthHint, as hover and screen-reader text.
  */
 export function milestoneHealthLabel(health: MilestoneHealth): string {
   if (health === "green") return "On Track";
   if (health === "amber") return "At Risk";
-  return "Late";
+  if (health === "red") return "Late";
+  return "—";
+}
+
+// A Record, so a new reason without a hint does not compile. Each hint names the step that comes
+// FIRST: the reasons are assigned in that order (use-milestone-buffers.ts), so only "no-results"
+// can promise that one step shows the health.
+const NO_HEALTH_HINTS: Record<MilestoneNoHealthReason, string> = {
+  "dependencies-off": "Turn on Dependencies before this milestone's health can be shown",
+  "no-activities": "Assign activities to this milestone before its health can be shown",
+  "unlisted-target": "Choose a Project target from the list before this milestone's health can be shown",
+  "no-results": "Run the simulation to see this milestone's health",
+};
+
+/** The hover and screen-reader hint for a milestone with no health; undefined when it has one. */
+export function milestoneHealthHint(info: MilestoneBufferInfo): string | undefined {
+  return info.health === "none" ? NO_HEALTH_HINTS[info.noHealthReason] : undefined;
 }

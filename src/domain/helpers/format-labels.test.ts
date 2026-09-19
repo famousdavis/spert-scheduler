@@ -9,7 +9,13 @@ import {
   statusLabel,
   dependencyLabel,
   pluralize,
+  computeMilestoneHealth,
+  milestoneHealthDotClass,
+  milestoneHealthHint,
+  milestoneHealthLabel,
+  milestoneHealthTextClass,
 } from "./format-labels";
+import type { Milestone, MilestoneBufferInfo, MilestoneNoHealthReason } from "@domain/models/types";
 
 describe("distributionLabel", () => {
   it("formats logNormal correctly", () => {
@@ -91,5 +97,63 @@ describe("pluralize", () => {
   it("takes an irregular plural when given one", () => {
     expect(pluralize(1, "entry", "entries")).toBe("entry");
     expect(pluralize(3, "entry", "entries")).toBe("entries");
+  });
+});
+
+describe("computeMilestoneHealth", () => {
+  it("gives NO health without slack — never a colour (v0.70.3; it was green)", () => {
+    expect(computeMilestoneHealth(null)).toBe("none");
+  });
+
+  it("is green from 5 working days of slack, amber from 0 to 4, and red below 0", () => {
+    expect([10, 5, 4, 0, -1].map((slack) => computeMilestoneHealth(slack))).toEqual([
+      "green",
+      "green",
+      "amber",
+      "amber",
+      "red",
+    ]);
+  });
+});
+
+describe("the no-health state, on every milestone-health helper", () => {
+  it("is a grey dash with no word and no health colour", () => {
+    expect(milestoneHealthLabel("none")).toBe("—");
+    expect(milestoneHealthDotClass("none")).toBe("bg-gray-400 dark:bg-gray-500");
+    expect(milestoneHealthTextClass("none")).toBe("text-gray-500");
+  });
+
+  const MILESTONE: Milestone = { id: "m1", name: "Gate", targetDate: "2027-01-04" };
+  const none = (noHealthReason: MilestoneNoHealthReason): MilestoneBufferInfo => ({
+    milestone: MILESTONE,
+    deterministicEndDate: MILESTONE.targetDate,
+    deterministicDuration: 0,
+    bufferedEndDate: null,
+    bufferDays: null,
+    slackDays: null,
+    health: "none",
+    noHealthReason,
+  });
+
+  // The DRAFT wording — the owner rules it. Each names the step that comes first; only
+  // "no-results" may promise that one step shows the health (see use-milestone-buffers.ts).
+  it.each([
+    ["no-results", "Run the simulation to see this milestone's health"],
+    ["no-activities", "Assign activities to this milestone before its health can be shown"],
+    ["unlisted-target", "Choose a Project target from the list before this milestone's health can be shown"],
+    ["dependencies-off", "Turn on Dependencies before this milestone's health can be shown"],
+  ] as const)("hints %s with its own sentence", (reason, hint) => {
+    expect(milestoneHealthHint(none(reason))).toBe(hint);
+  });
+
+  it("gives a MEASURED milestone no hint", () => {
+    const measured: MilestoneBufferInfo = {
+      ...none("no-results"),
+      bufferDays: 12,
+      slackDays: 3,
+      health: "amber",
+      noHealthReason: undefined,
+    };
+    expect(milestoneHealthHint(measured)).toBeUndefined();
   });
 });

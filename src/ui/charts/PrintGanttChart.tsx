@@ -27,7 +27,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor } from "./gantt-utils";
 import type { TickLevel, TickObstacle } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -662,7 +662,7 @@ export function PrintGanttChart({
         {milestones.map((ms, msIndex) => {
           const info = milestoneBuffers?.get(ms.id);
           const x = toX(ms.targetDate);
-          const healthColor = info ? mc[info.health] : mc.line;
+          const healthColor = milestoneMarkerColor(mc, info);
           const ds = PRINT_DIAMOND_SIZE;
           const rowLift = (milestoneRows[msIndex] ?? 0) * PRINT_MILESTONE_ROW_STEP;
           return (

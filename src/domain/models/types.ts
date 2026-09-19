@@ -383,15 +383,46 @@ export interface DeterministicSchedule {
   dependencyConflicts?: DependencyConflict[];
 }
 
-export interface MilestoneBufferInfo {
+/** A health a milestone has been MEASURED to have: its slack, after a simulation. */
+export type MeasuredMilestoneHealth = "green" | "amber" | "red";
+
+/**
+ * A milestone's schedule health. "none" means there is no result to judge it by (v0.70.3): it
+ * gets no health colour and no health word on any surface. ⚠️ Until then a milestone with no
+ * result was "green" — the same as one comfortably ahead — so an unrun milestone read healthy,
+ * and an edit that cleared the results turned a Late milestone On Track until the next run.
+ */
+export type MilestoneHealth = MeasuredMilestoneHealth | "none";
+
+/**
+ * Why a milestone has no health, in the order a user has to put each right:
+ * - "dependencies-off": milestones are simulated only with dependencies on, so no run measures one;
+ * - "no-activities": nothing is assigned to finish before it, so there is nothing to measure;
+ * - "unlisted-target": the Project target is not one the simulation keeps a percentile for
+ *   (reachable only by import or Connect AI — the dropdown offers listed ones), so no run helps;
+ * - "no-results": the simulation has not run since the last change, or never ran.
+ */
+export type MilestoneNoHealthReason =
+  | "dependencies-off"
+  | "no-activities"
+  | "unlisted-target"
+  | "no-results";
+
+interface MilestoneBufferInfoBase {
   milestone: Milestone;
   deterministicEndDate: string; // latest end date among milestone's activities
   deterministicDuration: number; // working days from project start
   bufferedEndDate: string | null; // after adding buffer
   bufferDays: number | null;
   slackDays: number | null; // working days between bufferedEnd and targetDate (positive = healthy)
-  health: "green" | "amber" | "red";
 }
+
+/** A reason travels with "none", and only with "none" — the compiler holds a builder to both. */
+export type MilestoneBufferInfo = MilestoneBufferInfoBase &
+  (
+    | { health: MeasuredMilestoneHealth; noHealthReason?: undefined }
+    | { health: "none"; noHealthReason: MilestoneNoHealthReason }
+  );
 
 // -- Defaults ----------------------------------------------------------------
 

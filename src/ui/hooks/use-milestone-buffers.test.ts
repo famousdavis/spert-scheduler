@@ -79,6 +79,7 @@ function render(
   scheduledActivities: ScheduledActivity[],
   activities: Activity[],
   simulationResults?: SimulationRun,
+  { target = TARGET, dependencyMode = true }: { target?: number; dependencyMode?: boolean } = {},
 ) {
   return renderHook(() =>
     useMilestoneBuffers(
@@ -87,7 +88,8 @@ function render(
       activities,
       simulationResults,
       PROJECT_START,
-      TARGET,
+      target,
+      dependencyMode, // milestones are simulated only with it on
     ),
   ).result.current;
 }
@@ -111,7 +113,9 @@ describe("useMilestoneBuffers", () => {
       expect(info.bufferedEndDate).toBeNull();
       expect(info.bufferDays).toBeNull();
       expect(info.slackDays).toBeNull();
-      expect(info.health).toBe("green");
+      // Nothing assigned, nothing to measure: NO health (v0.70.3). It was "green" until then.
+      expect(info.health).toBe("none");
+      expect(info.noHealthReason).toBe("no-activities");
     });
   });
 
@@ -122,13 +126,15 @@ describe("useMilestoneBuffers", () => {
       expect(info.deterministicDuration).toBe(8);
     });
 
-    it("leaves buffer and slack null, and reports green", () => {
-      // Worth pinning because it is not obvious: computeMilestoneHealth(null) is "green",
-      // so a milestone with no simulation data reads as healthy rather than unknown.
+    it("leaves buffer and slack null, and reports NO health — not green", () => {
+      // ⚠️ This row pinned "green" until v0.70.3: computeMilestoneHealth(null) was "green", so a
+      // milestone with no simulation data read as healthy rather than unknown. That was the
+      // defect (WI-36), pinned as if it were the contract.
       const info = render([M1], SCHED, ACTS)!.get("m1")!;
       expect(info.bufferDays).toBeNull();
       expect(info.slackDays).toBeNull();
-      expect(info.health).toBe("green");
+      expect(info.health).toBe("none");
+      expect(info.noHealthReason).toBe("no-results");
     });
 
     it("takes the maximum end date regardless of array order", () => {
@@ -204,12 +210,73 @@ describe("useMilestoneBuffers", () => {
       // ...but the deterministic side is still computed.
       expect(info.deterministicEndDate).toBe("2026-04-15");
       expect(info.deterministicDuration).toBe(8);
+      // P95 IS a listed target, so a new run keeps its percentile: "run the simulation" is true.
+      expect(info.health).toBe("none");
+      expect(info.noHealthReason).toBe("no-results");
     });
 
     it("leaves buffer null for a milestone absent from milestoneResults", () => {
       const info = render([M1], SCHED, ACTS, simRun({ 95: 12 }, "someOtherId"))!.get("m1")!;
       expect(info.bufferDays).toBeNull();
       expect(info.slackDays).toBeNull();
+      expect(info.health).toBe("none");
+      expect(info.noHealthReason).toBe("no-results");
+    });
+
+    it("a MEASURED milestone carries no reason", () => {
+      const info = render([M1], SCHED, ACTS, RESULTS)!.get("m1")!;
+      expect(info.health).toBe("amber");
+      expect(info.noHealthReason).toBeUndefined();
+    });
+  });
+
+  /**
+   * Why a milestone has no health — each reason is the step a user has to take FIRST, so the
+   * order is part of the contract: its hint may only promise what that one step does.
+   */
+  describe("the no-health reason, and its order", () => {
+    const RESULTS = simRun({ 95: 12 });
+
+    // A run in sequential mode: results, but no milestone entries, because the simulation builds
+    // milestone parameters only in dependency mode (build-simulation-params.ts). Results that DO
+    // carry milestone entries cannot coexist with dependency mode off — toggling it clears them.
+    const SEQUENTIAL_RUN = { milestoneResults: undefined } as unknown as SimulationRun;
+
+    it("dependency mode OFF: 'dependencies-off', even after a run — no run measures a milestone", () => {
+      const info = render([M1], SCHED, ACTS, SEQUENTIAL_RUN, { dependencyMode: false })!.get("m1")!;
+      expect(info.health).toBe("none");
+      expect(info.noHealthReason).toBe("dependencies-off");
+    });
+
+    it("the SAME sequential run with dependency mode on reads 'no-results': the flag decides", () => {
+      const info = render([M1], SCHED, ACTS, SEQUENTIAL_RUN)!.get("m1")!;
+      expect(info.noHealthReason).toBe("no-results");
+    });
+
+    it("dependency mode off comes BEFORE no activities", () => {
+      const info = render([M1], SCHED, [], undefined, { dependencyMode: false })!.get("m1")!;
+      expect(info.noHealthReason).toBe("dependencies-off");
+    });
+
+    it("an UNLISTED Project target: 'unlisted-target', with results — a new run keeps no P93", () => {
+      const info = render([M1], SCHED, ACTS, RESULTS, { target: 0.93 })!.get("m1")!;
+      expect(info.health).toBe("none");
+      expect(info.noHealthReason).toBe("unlisted-target");
+    });
+
+    it("an unlisted target is named even with NO results, since running would not help", () => {
+      const info = render([M1], SCHED, ACTS, undefined, { target: 0.93 })!.get("m1")!;
+      expect(info.noHealthReason).toBe("unlisted-target");
+    });
+
+    it("no activities comes BEFORE an unlisted target", () => {
+      const info = render([M1], SCHED, [], undefined, { target: 0.93 })!.get("m1")!;
+      expect(info.noHealthReason).toBe("no-activities");
+    });
+
+    it("a listed target that the run measured is not a reason at all", () => {
+      const info = render([M1], SCHED, ACTS, RESULTS, { target: 0.95 })!.get("m1")!;
+      expect(info.health).toBe("amber");
     });
   });
 

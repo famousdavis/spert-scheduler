@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.70.3",
+    date: "2026-09-19",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "A milestone with no result no longer shows as healthy. Until now, a milestone the simulation had not measured showed the same green as one 5 or more working days ahead, wherever it appeared: \u201cOn Track\u201d in the Milestones panel and in print, a green dot on the summary card, and green on the Gantt and the printed Gantt. That covered a project not yet simulated, one whose results an edit had cleared, a milestone with no activities, a milestone in a scenario with Dependencies off, and a Project target the simulation keeps no result for. Such a milestone now shows a grey dash, with no health colour and no word; on the Gantt and the printed Gantt it is drawn in purple, like the legend's Milestone symbol, instead of a health colour.",
+          "Hovering over the grey dash says why there is no health, and what to do; screen readers read the same sentence. It reads \u201cRun the simulation to see this milestone's health\u201d, \u201cAssign activities to this milestone before its health can be shown\u201d, \u201cTurn on Dependencies before this milestone's health can be shown\u201d, or \u201cChoose a Project target from the list before this milestone's health can be shown\u201d. Where more than one applies, it names the one to fix first.",
+          "The summary card no longer shows \u201cRun simulation\u201d beside each milestone without a result. It was wrong for a milestone with no activities, with Dependencies off, or with a Project target the simulation keeps no result for, where running the simulation does not show its health. The grey dash's hint says what to do instead.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests build each case through the same code the app uses, and check the summary card, the Milestones panel, the printed report, the Gantt and the printed Gantt. They were shown to fail when a milestone with no result is made green again, when any one of those five is broken on its own, and when the reasons are checked in the wrong order. The existing check that the two Gantt charts agree does not look at colour, so a new check compares their milestone colours.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.70.2",
     date: "2026-09-19",
     sections: [

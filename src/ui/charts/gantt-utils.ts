@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { ScheduledActivity } from "@domain/models/types";
+import type { MilestoneBufferInfo, ScheduledActivity } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { formatDateISO } from "@core/calendar/calendar";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -326,6 +326,21 @@ export interface TickObstacle {
 
 /** How many rows the milestone header may use before it starts overlapping again. */
 export const MILESTONE_LABEL_ROWS = 2;
+
+/**
+ * A milestone marker's colour, on BOTH charts: its health, or the chart's own milestone colour
+ * (`line`) when there is no buffer info or no result to judge it by. ⚠️ Until v0.70.3 a milestone
+ * with no results drew GREEN here — its health was "green" — like one comfortably ahead. Owner,
+ * 2026-09-19: a no-results milestone draws neutral on the Gantt and on the printed Gantt.
+ * One function for both charts, so they cannot disagree on it (print parity).
+ */
+export function milestoneMarkerColor(
+  mc: { readonly green: string; readonly amber: string; readonly red: string; readonly line: string },
+  info: MilestoneBufferInfo | undefined,
+): string {
+  if (!info || info.health === "none") return mc.line;
+  return mc[info.health];
+}
 
 /**
  * Assigns each milestone's label block to a header row so neighbouring names do not
