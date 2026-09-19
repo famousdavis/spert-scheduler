@@ -44,6 +44,8 @@ import { CloneScenarioDialog } from "@ui/components/CloneScenarioDialog";
 import { InlineEdit } from "@ui/components/InlineEdit";
 
 import { ValidationSummary } from "@ui/components/ValidationSummary";
+import { ActivityGridBar } from "@ui/components/ActivityGridBar";
+import { useSectionCollapse } from "@ui/hooks/use-section-collapse";
 import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
 import { useScenarioComparison } from "@ui/hooks/use-scenario-comparison";
 import { PrintableReport } from "@ui/components/PrintableReport";
@@ -68,6 +70,9 @@ import type { AiOpResult } from "@app/api/ai-batch-service";
  * gone, after an out-of-order commit in a project with milestones (measured, v0.70.4).
  */
 const NO_SCHEDULED_ACTIVITIES: ScheduledActivity[] = [];
+
+/** The region the activity grid's bar shows and hides (v0.71.0). */
+const ACTIVITY_GRID_BODY_ID = "activity-grid-body";
 
 /**
  * Banner copy for a schedule-computation error. isCalendarError (set via the
@@ -190,6 +195,8 @@ export function ProjectPage() {
   // move, so a project loaded with a bad row showed every signal as valid at mount. Run sites
   // read `runnable`; the summary, the banner and the red cells read the flagged sets.
   const validity = useEstimateValidity(scenario);
+  // v0.71.0 — the grid's collapse, remembered per project in this browser. Starts expanded.
+  const gridCollapse = useSectionCollapse(id, "grid");
 
   // Set document.title so "Save as PDF" defaults to a descriptive filename
   const projectName = project?.name;
@@ -898,10 +905,13 @@ export function ProjectPage() {
             onScenarioNotesBlur={() => endUndoGroup()}
           />
 
-          {/* Validation errors — the flagged rows, held while a pointer is down (see above) */}
-          <ValidationSummary rows={paintedFlaggedRows} />
+          {/* Validation errors — the flagged rows, held while a pointer is down (see above). A click
+              on a row's name expands a collapsed grid before it jumps (v0.71.0). */}
+          <ValidationSummary rows={paintedFlaggedRows} onRevealGrid={gridCollapse.expand} />
 
-          {/* Unified Activity Grid — input + schedule merged */}
+          {/* Unified Activity Grid — input + schedule merged. Its header is the collapse bar
+              (v0.71.0), whose flagged count is the summary's HELD rows, so the two agree through a
+              press. */}
           <UnifiedActivityGrid
             activities={scenario.activities}
             bands={scenario.bands ?? []}
@@ -945,6 +955,17 @@ export function ProjectPage() {
             onEditActivity={setEditingActivityId}
             constraintWarningIds={constraintWarningIds}
             activityNumberMap={activityNumberMap}
+            header={
+              <ActivityGridBar
+                activityCount={scenario.activities.length}
+                flaggedCount={paintedFlaggedRows.length}
+                collapsed={gridCollapse.collapsed}
+                controls={ACTIVITY_GRID_BODY_ID}
+                onToggle={gridCollapse.toggle}
+              />
+            }
+            collapsed={gridCollapse.collapsed}
+            bodyId={ACTIVITY_GRID_BODY_ID}
           />
 
           {/* Milestone Panel — only shown when dependency mode is on */}
@@ -970,6 +991,7 @@ export function ProjectPage() {
               }
               isLocked={scenario.locked}
               formatActivityName={formatActivityName}
+              projectId={project.id}
             />
           )}
 
@@ -994,6 +1016,7 @@ export function ProjectPage() {
               onEditDependency={(fromId, toId) => setEditingDependency({ fromActivityId: fromId, toActivityId: toId })}
               isLocked={scenario.locked}
               formatActivityName={formatActivityName}
+              projectId={project.id}
             />
           )}
 

@@ -116,7 +116,13 @@ export function getActivityRowIds(target: HTMLElement): string[] | null {
 }
 
 /** Handles Tab navigation that crosses row boundaries (Tab from last field or Shift+Tab from name).
- *  Returns true if cross-row nav was handled; caller should return immediately. */
+ *  Returns true if cross-row nav was handled; caller should return immediately.
+ *
+ *  ⚠️ The browser's own Tab is cancelled ONLY when focus actually moved (v0.71.0). Shift+Tab from
+ *  the FIRST row's name has no row above it, and cancelling it anyway trapped the keyboard in that
+ *  cell (WCAG 2.1.2): now the browser's Shift+Tab carries focus up out of the grid. Tab from the
+ *  LAST row's last field was never trapped, because it lands on "+ Add Activity"; it follows the
+ *  same rule so that it cannot become so. */
 export function handleCrossRowTabNav(
   e: React.KeyboardEvent,
   currentField: string,
@@ -125,15 +131,13 @@ export function handleCrossRowTabNav(
   heuristicEnabled: boolean | undefined,
 ): boolean {
   if (!e.shiftKey && currentField === lastField) {
-    e.preventDefault();
     const rowIds = getActivityRowIds(e.target as HTMLElement);
-    if (rowIds) focusNextRow(activityId, rowIds);
+    if (rowIds && focusNextRow(activityId, rowIds)) e.preventDefault();
     return true;
   }
   if (e.shiftKey && currentField === "name") {
-    e.preventDefault();
     const rowIds = getActivityRowIds(e.target as HTMLElement);
-    if (rowIds) focusPrevRow(activityId, rowIds, heuristicEnabled ? "status" : undefined);
+    if (rowIds && focusPrevRow(activityId, rowIds, heuristicEnabled ? "status" : undefined)) e.preventDefault();
     return true;
   }
   return false;

@@ -8,6 +8,7 @@ import { DEPENDENCY_TYPES } from "@domain/models/types";
 import { dependencyLabel } from "@domain/helpers/format-labels";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { validateDependencies, detectCycle } from "@core/schedule/dependency-graph";
+import { useSectionCollapse } from "@ui/hooks/use-section-collapse";
 
 type DependencySortMode = "alpha" | "schedule";
 
@@ -37,6 +38,8 @@ interface DependencyPanelProps {
   onEditDependency?: (fromActivityId: string, toActivityId: string) => void;
   isLocked?: boolean;
   formatActivityName?: (a: Activity) => string;
+  /** Whose collapse this panel remembers (v0.71.0). */
+  projectId: string;
 }
 
 function LagInput({
@@ -91,6 +94,7 @@ export function DependencyPanel({
   onEditDependency,
   isLocked,
   formatActivityName,
+  projectId,
 }: DependencyPanelProps) {
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
@@ -187,7 +191,11 @@ export function DependencyPanel({
     });
   }, [dependencies, sortMode, scheduleStartMap, getActivityName]);
 
-  const [collapsed, setCollapsed] = useState(false);
+  // v0.71.0 — remembered per project in this browser, as the grid's collapse is. The body still
+  // UNMOUNTS when collapsed, and loses nothing typed: the click on this header blurs a lag being
+  // typed first, which commits it, and the add form's choices live here, above the body.
+  // `aria-controls` names the body even while it is absent; `aria-expanded="false"` says why.
+  const { collapsed, toggle } = useSectionCollapse(projectId, "dependencies");
 
   return (
     <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -195,7 +203,9 @@ export function DependencyPanel({
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
         <button
           className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={toggle}
+          aria-expanded={!collapsed}
+          aria-controls="dependencies-panel-body"
         >
           <svg
             className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-90"}`}
@@ -248,7 +258,7 @@ export function DependencyPanel({
         </div>
       </div>
 
-      {!collapsed && (<div className="p-4 space-y-3">
+      {!collapsed && (<div id="dependencies-panel-body" className="p-4 space-y-3">
 
       {/* Validation errors */}
       {validationErrors.length > 0 && (

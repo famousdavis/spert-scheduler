@@ -29,6 +29,7 @@ function renderPanel(name: string) {
   const onUpdateMilestone = vi.fn();
   render(
     <MilestonePanel
+      projectId="panel-test-project"
       milestones={[{ ...MILESTONE, name }]}
       activities={[]}
       milestoneBuffers={null}

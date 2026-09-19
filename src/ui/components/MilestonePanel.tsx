@@ -7,6 +7,7 @@ import type { Activity, Milestone, MilestoneBufferInfo } from "@domain/models/ty
 import { NAME_MAX_LENGTH } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
+import { useSectionCollapse } from "@ui/hooks/use-section-collapse";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   milestoneHealthHint,
@@ -25,6 +26,8 @@ interface MilestonePanelProps {
   onSetStartsAt: (activityId: string, milestoneId: string | null) => void;
   isLocked?: boolean;
   formatActivityName?: (a: Activity) => string;
+  /** Whose collapse this panel remembers (v0.71.0). */
+  projectId: string;
 }
 
 interface MilestoneNameInputProps {
@@ -114,6 +117,7 @@ export function MilestonePanel({
   onSetStartsAt,
   isLocked,
   formatActivityName,
+  projectId,
 }: MilestonePanelProps) {
   const [newName, setNewName] = useState("");
   const [newDate, setNewDate] = useState("");
@@ -163,7 +167,11 @@ export function MilestonePanel({
     }
   }
 
-  const [collapsed, setCollapsed] = useState(false);
+  // v0.71.0 — remembered per project in this browser, as the grid's collapse is. The body still
+  // UNMOUNTS when collapsed, and loses nothing typed: the click on this header blurs the field being
+  // typed in first, which commits it, and the add form's values live here, above the body.
+  // `aria-controls` names the body even while it is absent; `aria-expanded="false"` says why.
+  const { collapsed, toggle } = useSectionCollapse(projectId, "milestones");
 
   return (
     <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -171,7 +179,9 @@ export function MilestonePanel({
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
         <button
           className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={toggle}
+          aria-expanded={!collapsed}
+          aria-controls="milestones-panel-body"
         >
           <svg
             className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-90"}`}
@@ -193,7 +203,7 @@ export function MilestonePanel({
         </span>
       </div>
 
-      {!collapsed && (<div className="p-4 space-y-3">
+      {!collapsed && (<div id="milestones-panel-body" className="p-4 space-y-3">
 
       {/* Milestone list */}
       {milestones.map((m) => {

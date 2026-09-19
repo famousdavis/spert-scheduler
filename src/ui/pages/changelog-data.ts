@@ -13,6 +13,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.71.0",
+    date: "2026-09-19",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "The activity grid can be collapsed, so you no longer have to scroll past every activity to get from the summary card to the charts below it. A bar now heads the grid, with the number of activities in the scenario, such as “Activities (40)”, and the word “Hide”. Click it and everything in the grid below the bar folds away, leaving the bar, which now says “Show”; click it again and the grid comes back. The bar stays on screen either way, so the second click is always there to make. Section headers are not counted in the number. The bar is a button: Tab reaches it, Enter and Space work it, and screen readers are told whether the grid is expanded or collapsed.",
+          "A collapsed grid still tells you when activities need attention. While the grid is collapsed, the bar also shows how many activities are flagged, in amber, such as “· 1 flagged”, and the validation summary above it still lists them. Clicking an activity's name in the summary opens the grid and takes you to that activity's row, with the cursor in its name, as it does when the grid is open; in a locked scenario, where names cannot be edited, it scrolls to the row.",
+          "Collapsing only hides the grid. A cell you left invalid — cleared, or holding a number the grid would not take — still looks exactly as it did, in red, and your selection and any bulk change you have not yet applied are still there when you open the grid again.",
+          "The grid, the Milestones panel and the Dependencies panel remember whether you collapsed them. Each is remembered for each project separately, in this browser, and for the account you are signed in with, if any: signing out forgets it, as it forgets the scenario you last had open, and it is not shared with your other devices or with anyone you share a project with. Every project opens with them expanded until you collapse one. The two panels, shown when Dependencies is on, could already be collapsed, but opened expanded every time. With all three collapsed, only their header rows, and the validation summary when an activity is flagged, stand between the summary card and the Gantt chart.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Shift+Tab no longer gets stuck in the first activity's name. Until now, Shift+Tab in the name of the first activity in the grid did nothing, so the keyboard could not get from the activities back up out of the grid, to the new bar or to anything above it. It now moves to whatever comes before it, as Shift+Tab does elsewhere; from any later activity's name it still moves to the activity above. Tab from the last activity's last cell still goes to + Add Activity.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests collapse and expand the grid and both panels on the full page, and check what is kept and what is remembered, per project and per signed-in user. They check that a cleared estimate keeps what was typed and its red, that a selection and an unapplied bulk change survive, that the bar's count agrees with the validation summary even when the project changes while a mouse button is held down, that a click in the summary opens the grid before it scrolls, that storage which refuses to save never stops the bar working, and that Shift+Tab leaves the first activity's name. They were shown to fail against deliberately broken versions: the grid removed instead of hidden, hidden with a style class instead of the hidden attribute, a jump that scrolls before it opens the grid, a save without its error handling, a count read live instead of from the summary, a memory that forgets which user it belongs to, and Shift+Tab trapped again.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.70.5",
     date: "2026-09-19",
     sections: [
