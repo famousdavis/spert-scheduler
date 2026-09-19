@@ -52,6 +52,27 @@ function confidenceOptionClass(isHighlighted: boolean, isSelected: boolean): str
   return "dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/30";
 }
 
+/**
+ * The description under each level. On the highlighted row's blue tint the lighter grey measured
+ * 4.44:1 in light mode, under the 4.5:1 that 12px text needs, so that row takes the next grey down
+ * (6.94:1). Dark mode already passes there (5.22:1) and keeps its grey.
+ */
+function confidenceDescriptionClass(isHighlighted: boolean): string {
+  return isHighlighted ? "text-xs text-gray-600 dark:text-gray-400" : "text-xs text-gray-500 dark:text-gray-400";
+}
+
+/** The levels whose full label contains `filter`, ignoring case: all ten when it is empty. */
+function levelsMatching(filter: string): readonly RSMLevel[] {
+  if (!filter) return RSM_LEVELS;
+  const lower = filter.toLowerCase();
+  return RSM_LEVELS.filter((level) => RSM_LABELS[level].toLowerCase().includes(lower));
+}
+
+/** Where the highlight starts: on the row's current level if `levels` shows it, else the first. */
+function startIndex(levels: readonly RSMLevel[], value: RSMLevel): number {
+  return Math.max(0, levels.indexOf(value));
+}
+
 export function ConfidenceLevelSelect({
   value,
   onChange,
@@ -76,14 +97,6 @@ export function ConfidenceLevelSelect({
     openUp: false,
   });
 
-  // Reset filter and highlight when opening
-  useEffect(() => {
-    if (open) {
-      setFilter(""); // eslint-disable-line react-hooks/set-state-in-effect -- intentional state reset on open
-      setHighlightIdx(0);
-    }
-  }, [open]);
-
   // Auto-focus the filter input when dropdown opens
   useEffect(() => {
     if (open && filterInputRef.current) {
@@ -93,23 +106,14 @@ export function ConfidenceLevelSelect({
   }, [open]);
 
   // Filter levels by label match
-  const filteredLevels = useMemo(() => {
-    if (!filter) return RSM_LEVELS;
-    const lower = filter.toLowerCase();
-    return RSM_LEVELS.filter((level) =>
-      RSM_LABELS[level].toLowerCase().includes(lower)
-    );
-  }, [filter]);
+  const filteredLevels = useMemo(() => levelsMatching(filter), [filter]);
 
-  // Reset highlight when filter changes
-  useEffect(() => {
-    setHighlightIdx(0); // eslint-disable-line react-hooks/set-state-in-effect -- derived state reset
-  }, [filter]);
-
-  // Scroll highlighted option into view
+  // Scroll highlighted option into view. Keyed on `open` too: the list is new on every open
+  // and starts at the top, while the highlight can open on the same index it closed on,
+  // which alone would not re-run this.
   useEffect(() => {
     optionRefs.current[highlightIdx]?.scrollIntoView({ block: "nearest" });
-  }, [highlightIdx]);
+  }, [open, highlightIdx]);
 
   // Calculate dropdown position when opening
   useLayoutEffect(() => {
@@ -172,8 +176,29 @@ export function ConfidenceLevelSelect({
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [open]);
 
+  // The filter and highlight are set here, in the handlers, never by an effect: an effect runs
+  // after the render, so one keyed on the filter would undo the highlight chosen below — and
+  // reopening a list that was closed while filtered changes the filter.
+  const toggleOpen = () => {
+    if (disabled) return;
+    if (!open) {
+      // Open unfiltered, on the level the button shows.
+      setFilter("");
+      setHighlightIdx(startIndex(RSM_LEVELS, value));
+    }
+    setOpen(!open);
+  };
+
+  // Keep the current level highlighted while it still matches, else the first match.
+  const changeFilter = (next: string) => {
+    setFilter(next);
+    setHighlightIdx(startIndex(levelsMatching(next), value));
+  };
+
   const selectLevel = (level: RSMLevel) => {
-    onChange(level);
+    // Choosing the level the row already has changes nothing, so it writes nothing: no undo
+    // step, no save, and the simulation results stay. A native <select> behaves the same.
+    if (level !== value) onChange(level);
     setOpen(false);
     // Return focus to the trigger button
     buttonRef.current?.focus();
@@ -206,7 +231,7 @@ export function ConfidenceLevelSelect({
         type="button"
         data-row-id={dataRowId}
         data-field={dataField}
-        onClick={() => { if (!disabled) setOpen(!open); }}
+        onClick={toggleOpen}
         onKeyDown={onKeyDown}
         disabled={disabled}
         title={labels.title}
@@ -243,7 +268,7 @@ export function ConfidenceLevelSelect({
                 autoComplete="off"
                 aria-label="Filter confidence levels"
                 value={filter}
-                onChange={(e) => setFilter(e.target.value)}
+                onChange={(e) => changeFilter(e.target.value)}
                 onKeyDown={handleFilterKeyDown}
                 className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:border-blue-400 focus:outline-none placeholder-gray-400 dark:placeholder-gray-500"
                 placeholder="Type to filter…"
@@ -269,7 +294,7 @@ export function ConfidenceLevelSelect({
                       className={`w-full text-left px-3 py-2 ${confidenceOptionClass(isHighlighted, isSelected)}`}
                     >
                       <p className="text-sm font-medium">{RSM_LABELS[level]}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className={confidenceDescriptionClass(isHighlighted)}>
                         {RSM_DESCRIPTIONS[level]}
                       </p>
                     </button>
