@@ -27,9 +27,10 @@ import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   milestoneHealthDotClass,
+  milestoneHealthHint,
   milestoneHealthLabel,
   pluralize,
-  type MilestoneHealth,
+  type MeasuredMilestoneHealth,
 } from "@domain/helpers/format-labels";
 
 function targetFinishColorClass(ragColor: string | undefined, hasDate: boolean): string {
@@ -48,7 +49,7 @@ function formatSignedSlack(slackDays: number | null): string {
 // The glyph is the card's own; the WORD beside it is milestoneHealthLabel's, shared with the
 // Milestones panel and print (v0.70.2). Until then the card showed a bare ✓ or ⚠, and "✗ At Risk"
 // for the red state — which the panel called "Over", while its own "At Risk" was amber.
-function milestoneHealthGlyph(health: MilestoneHealth): string {
+function milestoneHealthGlyph(health: MeasuredMilestoneHealth): string {
   if (health === "green") return "✓";
   if (health === "amber") return "⚠";
   return "✗";
@@ -732,7 +733,9 @@ export function ScenarioSummaryCard({
                     ({formatDate(info.milestone.targetDate)})
                   </span>
                 </span>
-                {info.bufferDays !== null ? (
+                {/* Keyed on health, not on bufferDays: the hook sets buffer and slack together, so
+                    the two agree, and "none" is what narrows the glyph's type. */}
+                {info.health !== "none" ? (
                   <>
                     <span className="text-gray-500 dark:text-gray-400 tabular-nums">
                       Buffer: {info.bufferDays}d
@@ -756,8 +759,13 @@ export function ScenarioSummaryCard({
                     </span>
                   </>
                 ) : (
-                  <span className="text-gray-500 dark:text-gray-400 italic">
-                    Run simulation
+                  // No result, so no health (v0.70.3): a grey dash beside a grey dot, and no word.
+                  // The reason is the hover title and the screen-reader text. The italic "Run
+                  // simulation" this replaced was false for three of the five reasons — in
+                  // sequential mode, for one, no run ever measures a milestone.
+                  <span title={milestoneHealthHint(info)} className="text-gray-500 dark:text-gray-400">
+                    <span aria-hidden="true">{milestoneHealthLabel(info.health)}</span>
+                    <span className="sr-only">{milestoneHealthHint(info)}</span>
                   </span>
                 )}
               </div>

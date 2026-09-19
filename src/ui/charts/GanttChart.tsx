@@ -40,7 +40,7 @@ import {
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
   computeBarHitRect, buildActivityTooltip, tickHasYear,
-  barLabelText as computeBarLabelText,
+  barLabelText as computeBarLabelText, milestoneMarkerColor,
 } from "./gantt-utils";
 import { GanttActivityRow } from "./GanttActivityRow";
 import { GanttSvgDefs } from "./GanttSvgDefs";
@@ -866,9 +866,9 @@ export function GanttChart({
             if (dateRange === 0) return null;
             const mx = dateToX(m.targetDate, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin);
             const bufferInfo = milestoneBuffers?.get(m.id);
-            const healthColor = bufferInfo
-              ? mc[bufferInfo.health]
-              : mc.line;
+            // Health colour, or the chart's own milestone colour with no result (v0.70.3).
+            const healthColor =
+              milestoneMarkerColor(mc, bufferInfo);
             const diamondSize = MILESTONE_DIAMOND_SIZE;
             // Row 0 sits nearest the timeline; a crowded neighbour is lifted one step.
             const rowLift = (milestoneRows[msIndex] ?? 0) * MILESTONE_ROW_STEP;

@@ -8,9 +8,11 @@ import type {
   Calendar,
   Milestone,
   MilestoneBufferInfo,
+  MilestoneNoHealthReason,
   ScheduledActivity,
   SimulationRun,
 } from "@domain/models/types";
+import { STANDARD_PERCENTILES } from "@domain/models/types";
 import { advanceToNextWorkingDay, type WorkCalendar } from "@core/calendar/work-calendar";
 import { computeMilestoneBuffer } from "@core/schedule/buffer";
 import { computeMilestoneHealth } from "@domain/helpers/format-labels";
@@ -29,7 +31,28 @@ interface MilestoneSlackResult {
 interface MilestoneComputeContext {
   projectStartDate: string;
   projectProbabilityTarget: number;
+  dependencyMode: boolean;
   calendar: WorkCalendar | Calendar | undefined;
+}
+
+/** A Project target the simulation keeps a percentile for (the dropdown offers only these). */
+function isListedTarget(target: number): boolean {
+  return (STANDARD_PERCENTILES as readonly number[]).includes(Math.round(target * 100));
+}
+
+/**
+ * Why a milestone has no health, checked in the order a user has to put each right, so its hint
+ * names the step that comes FIRST — and "no-results" is left only when a run is all that is
+ * missing, the one case where "run the simulation" really does show the health.
+ * ⚠️ "dependencies-off" is first because nothing else matters without it: the simulation builds
+ * milestone parameters only in dependency mode (build-simulation-params.ts), so a run in
+ * sequential mode never measures a milestone — while the summary card still lists them.
+ */
+function noHealthReason(ctx: MilestoneComputeContext, hasActivities: boolean): MilestoneNoHealthReason {
+  if (!ctx.dependencyMode) return "dependencies-off";
+  if (!hasActivities) return "no-activities";
+  if (!isListedTarget(ctx.projectProbabilityTarget)) return "unlisted-target";
+  return "no-results";
 }
 
 function computeMilestoneSlack(
@@ -59,6 +82,7 @@ function computeSingleMilestoneInfo(
   ctx: MilestoneComputeContext,
 ): MilestoneBufferInfo {
   if (milestoneActivities.length === 0) {
+    // Nothing assigned, so nothing to measure: no health, not "green" (it was until v0.70.3).
     return {
       milestone,
       deterministicEndDate: milestone.targetDate,
@@ -66,7 +90,8 @@ function computeSingleMilestoneInfo(
       bufferedEndDate: null,
       bufferDays: null,
       slackDays: null,
-      health: "green",
+      health: "none",
+      noHealthReason: noHealthReason(ctx, false),
     };
   }
 
@@ -107,15 +132,11 @@ function computeSingleMilestoneInfo(
     }
   }
 
-  return {
-    milestone,
-    deterministicEndDate,
-    deterministicDuration,
-    bufferedEndDate,
-    bufferDays,
-    slackDays,
-    health: computeMilestoneHealth(slackDays),
-  };
+  const base = { milestone, deterministicEndDate, deterministicDuration, bufferedEndDate, bufferDays, slackDays };
+  const health = computeMilestoneHealth(slackDays);
+  return health === "none"
+    ? { ...base, health, noHealthReason: noHealthReason(ctx, true) }
+    : { ...base, health };
 }
 
 /**
@@ -125,7 +146,8 @@ function computeSingleMilestoneInfo(
  * 1. Find the latest end date among its assigned activities
  * 2. Compute buffer from milestone MC results
  * 3. Compute slack (working days between buffered end and target date)
- * 4. Determine health (green ≥ 5d, amber 0-4d, red < 0)
+ * 4. Determine health (green ≥ 5d, amber 0-4d, red < 0), or "none" with the reason when there
+ *    is no slack to judge by
  */
 export function useMilestoneBuffers(
   milestones: Milestone[],
@@ -134,6 +156,7 @@ export function useMilestoneBuffers(
   simulationResults: SimulationRun | undefined,
   projectStartDate: string,
   projectProbabilityTarget: number,
+  dependencyMode: boolean,
   calendar?: WorkCalendar | Calendar
 ): Map<string, MilestoneBufferInfo> | null {
   return useMemo(() => {
@@ -144,6 +167,7 @@ export function useMilestoneBuffers(
     const ctx: MilestoneComputeContext = {
       projectStartDate,
       projectProbabilityTarget,
+      dependencyMode,
       calendar,
     };
 
@@ -156,5 +180,5 @@ export function useMilestoneBuffers(
     }
 
     return result;
-  }, [milestones, scheduledActivities, activities, simulationResults, projectStartDate, projectProbabilityTarget, calendar]);
+  }, [milestones, scheduledActivities, activities, simulationResults, projectStartDate, projectProbabilityTarget, dependencyMode, calendar]);
 }
