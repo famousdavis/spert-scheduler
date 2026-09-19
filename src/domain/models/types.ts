@@ -36,6 +36,9 @@ export const MAX_SCENARIOS_PER_PROJECT = 50;
  */
 export const NAME_MAX_LENGTH = 200;
 
+/** A holiday's locale, as the schema bounds it — the `maxLength` of both inputs that edit one (v0.69.0). */
+export const HOLIDAY_LOCALE_MAX_LENGTH = 100;
+
 // -- Enums / Union Types -----------------------------------------------------
 
 export const RSM_LEVELS = [

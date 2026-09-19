@@ -12,6 +12,7 @@ import {
   CONSTRAINT_MODES,
   MAX_SCENARIOS_PER_PROJECT,
   NAME_MAX_LENGTH,
+  HOLIDAY_LOCALE_MAX_LENGTH,
 } from "../models/types";
 import {
   estimateOrderIssues,
@@ -37,12 +38,12 @@ const ISODateString = z
 export const HolidaySchema = z
   .object({
     id: z.string().min(1).max(64),
-    name: z.string().max(200), // allow empty for migrated data
+    name: z.string().max(NAME_MAX_LENGTH), // allow empty for migrated data
     startDate: ISODateString,
     endDate: ISODateString,
     source: z.enum(["manual", "api"]).optional(),
     countryCodes: z.array(z.string().min(2).max(10)).max(200).optional(),
-    locale: z.string().max(100).optional(),
+    locale: z.string().max(HOLIDAY_LOCALE_MAX_LENGTH).optional(),
   })
   .refine((h) => h.endDate >= h.startDate, {
     message: "End date must be >= start date",

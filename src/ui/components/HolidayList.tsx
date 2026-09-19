@@ -4,6 +4,7 @@
 
 import { useState, useCallback } from "react";
 import type { Calendar, Holiday } from "@domain/models/types";
+import { HOLIDAY_LOCALE_MAX_LENGTH, NAME_MAX_LENGTH } from "@domain/models/types";
 import type { NagerCountry } from "@domain/models/nager-types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 
@@ -97,6 +98,7 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
               type="text"
               name="editHolidayName"
               aria-label="Holiday name"
+              maxLength={NAME_MAX_LENGTH}
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm w-44 bg-white dark:bg-gray-700 dark:text-gray-100"
@@ -105,6 +107,7 @@ export function HolidayList({ calendar, countries, onUpdate }: HolidayListProps)
               type="text"
               name="editHolidayLocale"
               aria-label="Holiday locale"
+              maxLength={HOLIDAY_LOCALE_MAX_LENGTH}
               value={editLocale}
               onChange={(e) => setEditLocale(e.target.value)}
               placeholder="Locale"

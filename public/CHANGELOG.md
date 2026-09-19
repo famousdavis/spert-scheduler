@@ -16,7 +16,7 @@
 
 - **A click that also finishes an estimate is no longer lost.** Typing an estimate and then clicking the row's edit pencil, its Delete button or another cell commits the estimate on the press — and when that flagged the activity, the message appearing above the grid moved the grid between the press and the release, so the click landed on something else: the dialog did not open, and Delete asked nothing. The message now appears just after the click. And once the page has been scrolled down, the grid also keeps its place on screen when a message above it appears or disappears, in browsers that support scroll anchoring; at the very top of the page it still moves, after the click.
 
-- **Two ways to make a project unloadable from the grid are closed.** A negative estimate is refused: the cell keeps what you typed, turns red and says “Enter 0 or more.”, and nothing is saved. And every name is limited to the 200 characters a project can hold — activity, milestone, section, scenario and project names, wherever they can be typed. A longer name used to be accepted and made the project fail to load.
+- **Two ways to make a project unloadable from the grid are closed.** A negative estimate is refused: the cell keeps what you typed, turns red and says “Enter 0 or more.”, and nothing is saved. And every name is limited to the 200 characters a project can hold — activity, milestone, section, scenario, project and holiday names, wherever they can be typed — and a holiday's locale to its 100. A longer one used to be accepted, and made the project fail to load.
 
 - **The Edit Activity dialog warns before you save an out-of-order estimate, and refuses a negative one.** It still saves an out-of-order estimate as typed, and the grid flags it, but a line under the estimates now says what is wrong before you save. A negative estimate disables Save and says why. The Estimates section opens by itself when the saved estimates are flagged.
 
@@ -31,6 +31,8 @@
 - **Meanwhile, a new activity that is only partly typed stops Run.** Typing Min 5 into a new activity and moving on saves 5 / 1 / 1, which cannot be simulated. The validation summary and the red cells wait until you have visited all three estimates, as before, but Run is now disabled while the estimates are out of order, and the line under the Run Simulation button says why. Until now Run looked available and did nothing.
 
 - **Connect AI still cannot edit a flagged activity until its estimates are repaired.** Every change it proposes to such an activity, a rename included, is refused as invalid; a change that repairs the estimates is accepted.
+
+- **Connect AI is now told when a scenario holds a flagged estimate.** A scenario with an activity whose estimates are out of order, or a LogNormal activity at 0, 0 and 0, is reported to the AI as having an invalid estimate, with no schedule. Before, it was reported as fine, with a schedule, whenever the activity could still be simulated, so the AI could be refused an edit to an activity it had just been told was fine.
 
 - **An activity import now reports a LogNormal row estimated at 0, 0 and 0 as an error** on its Max column, instead of importing an activity that cannot be simulated. Triangular rows at 0, 0 and 0 and LogNormal rows at 0, 0 and 1 import as before.
 

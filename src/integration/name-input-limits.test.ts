@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, it, expect } from "vitest";
-import { NAME_MAX_LENGTH } from "@domain/models/types";
+import { HOLIDAY_LOCALE_MAX_LENGTH, NAME_MAX_LENGTH } from "@domain/models/types";
 
 /**
  * Every input that edits a NAME the schema bounds carries that bound as `maxLength` (v0.69.0,
@@ -21,11 +21,10 @@ import { NAME_MAX_LENGTH } from "@domain/models/types";
  * named here as an exception, with a reason.
  */
 const EXCEPTIONS: Record<string, string> = {
-  // Reported at WI-49's Checkpoint 1 (2026-09-18), NOT fixed in v0.69.0: the owner's ruling
-  // covers project, scenario, activity, milestone and band names. A holiday name is bounded too
-  // (200), and a project holiday rides the project's load gate.
-  'src/ui/components/CalendarEditor.tsx:name="holidayName"': "holiday name — reported, outside 1a",
-  'src/ui/components/HolidayList.tsx:name="editHolidayName"': "holiday name — reported, outside 1a",
+  // None. The two holiday-name inputs were listed here at WI-49's Checkpoint 1 and brought under
+  // the limit in the same release (R210.4): a project holiday rides `ProjectSchema`
+  // (globalCalendarOverride), the global calendar the preferences schema — both bound a holiday's
+  // name at 200 and its locale at 100. That an over-long one bricks a project is REASONED, not driven.
 };
 
 function sourceFiles(dir: string): string[] {
@@ -68,7 +67,7 @@ describe("every name input carries the schema's limit", () => {
   const editors = nameEditors();
 
   it("the census finds the name inputs it is meant to (a guard that finds nothing passes vacuously)", () => {
-    // Measured at v0.69.0: eleven name editors across ten files, plus the two holiday names.
+    // Measured at v0.69.0: thirteen name editors across twelve files, the two holiday names included.
     expect(editors.length).toBe(13);
     const keys = editors.map((e) => e.key);
     for (const expected of [
@@ -98,5 +97,14 @@ describe("every name input carries the schema's limit", () => {
 
   it("the limit is the schema's", () => {
     expect(NAME_MAX_LENGTH).toBe(200);
+    expect(HOLIDAY_LOCALE_MAX_LENGTH).toBe(100);
+  });
+
+  it("both holiday-locale inputs carry the locale's limit", () => {
+    const locales = sourceFiles(join(root, "src", "ui"))
+      .flatMap((file) => inputElements(readFileSync(file, "utf8")).map((element) => ({ file, element })))
+      .filter(({ element }) => /name="(holidayLocale|editHolidayLocale)"/.test(element));
+    expect(locales).toHaveLength(2);
+    for (const { element } of locales) expect(element).toMatch(/maxLength=\{HOLIDAY_LOCALE_MAX_LENGTH\}/);
   });
 });
