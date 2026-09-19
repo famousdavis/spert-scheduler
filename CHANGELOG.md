@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- **A click on the Gantt lands even when it also finishes an estimate you were typing.** Clicking a bar while an estimate was still being typed saves that estimate at the moment you press, before the click completes. Until now that could lose the click: saving the estimate could move or redraw the bars under the pointer, and when the schedule could not be calculated with the new estimate, the whole Gantt disappeared before the click finished. Nothing opened. The Gantt now stays as it was until the click has landed, so Edit Activity opens for the bar you clicked, and then the Gantt updates, or is removed if the schedule cannot be calculated. Version 0.69.0 kept such a click from being lost in the grid and above it, but not on the Gantt.
+- **A click on the Gantt lands even when it also finishes an estimate you were typing.** Clicking a bar while an estimate was still being typed saves that estimate, if it can be saved, at the moment you press, before the click completes. Until now that could lose the click: saving the estimate could move or redraw the bars under the pointer, and when the schedule could not be calculated with the new estimate, the whole Gantt disappeared before the click finished. Nothing opened. The Gantt now stays as it was until the click has landed, so Edit Activity opens for the bar you clicked, and then the Gantt updates, or is removed if the schedule cannot be calculated. Version 0.69.0 kept such a click from being lost in the grid and above it, but not on the Gantt.
 
 ### Internal
 
