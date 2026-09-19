@@ -747,9 +747,11 @@ export function ActivityEditModal({
         {/*
           ⚠️ ONLY THE SECTIONS SCROLL. The title and the Save/Cancel row sit OUTSIDE the scroller,
           in a flex column capped at 85vh (v0.70.1). Until then this whole box was the scroller,
-          footer included: at 1280×720 it is 612 px tall and its content measured 659–684 px in
-          every state, flagged or not, so Save and Cancel were below the fold — and a click on the
-          sliver of Save that showed landed on the overlay and asked about unsaved changes.
+          footer included: at 1280×720 it is 612 px tall, and with only the sections that open by
+          default its content measured 659–684 px, flagged or not (684 for every activity in the
+          sample project). So Save and Cancel sat cut off by the box's bottom edge or wholly below
+          it, and a click aimed at Save's centre landed on the overlay and asked about unsaved
+          changes.
           ⚠️ Do not put the footer back inside the scroller, and do not move the box's overflow
           back onto Dialog.Content; ActivityEditModal.test.tsx pins both.
           The box's p-6 moved onto its three parts, so the spacing is unchanged when nothing

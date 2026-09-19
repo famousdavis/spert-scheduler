@@ -750,13 +750,14 @@ describe("ActivityEditModal — dismissing the modal", () => {
 });
 
 /**
- * Save and Cancel stay on screen however long the form grows (v0.70.1).
+ * Save and Cancel stay outside the scroller, however long the form grows (v0.70.1).
  *
- * At 1280×720 the dialog is capped at 612 px (85vh), and its content measured 659–684 px in every
- * state with the footer INSIDE the one scrolling box — so Save and Cancel sat below the fold, and a
- * click on the sliver of Save that showed hit the overlay. jsdom does no layout, so whether they are
- * VISIBLE is checked in a browser; what these rows pin is the structure that decides it. The overflow
- * class is the mechanism itself — it is what makes an element a scroller — so it is what they read.
+ * At 1280×720 the dialog is capped at 612 px (85vh). With the footer INSIDE the one scrolling box
+ * and only the sections that open by default, its content measured 659–684 px — so Save and Cancel
+ * sat cut off by the box's bottom edge or wholly below it, and a click aimed at Save's centre landed
+ * on the overlay. jsdom does no layout, so whether they are VISIBLE is checked in a browser; what
+ * these rows pin is the structure that decides it. The overflow class is the mechanism itself — it
+ * is what makes an element a scroller — so it is what they read.
  *
  * ⚠️ The Name field's row is the non-vacuity PARTNER: it passes before and after the change, and
  * proves the walk can find a scroller at all. Without it, "no scroller around Save" would also pass
