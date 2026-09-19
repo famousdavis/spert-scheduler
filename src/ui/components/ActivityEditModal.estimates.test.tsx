@@ -85,7 +85,7 @@ describe("an out-of-order draft is advised, not refused", () => {
 
     expect(mlInput()).toHaveAttribute("aria-invalid", "true");
     expect(describedText(mlInput())).toContain("Most Likely must be <= Max");
-    expect(describedText(mlInput())).toContain("You can still save");
+    expect(describedText(mlInput())).toContain("If you save it like this, Run stays off until it is fixed.");
     expect(minInput()).not.toHaveAttribute("aria-invalid");
     expect(saveButton().disabled).toBe(false);
 
@@ -110,7 +110,7 @@ describe("an out-of-order draft is advised, not refused", () => {
     expandEstimates();
     fireEvent.change(maxInput(), { target: { value: "" } });
     // By its text: `role="status"` also matches the Confidence dash, an <output>.
-    expect(screen.queryByText(/You can still save/)).toBeNull();
+    expect(screen.queryByText(/If you save it like this/)).toBeNull();
     expect(maxInput()).not.toHaveAttribute("aria-invalid");
   });
 });
