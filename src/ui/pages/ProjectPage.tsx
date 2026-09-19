@@ -339,8 +339,9 @@ export function ProjectPage() {
   const scheduleError = depMode ? dependencyScheduleResult.scheduleError : sequentialScheduleError;
   // ⚠️ v0.69.0 — the generic branch is gated on `flaggedThrow`: the first FLAGGED activity whose
   // own distribution cannot be built, and its own message. v0.69.0 needed that because a
-  // half-typed row was saved and held back; since v0.70.0 nothing is saved half-typed, so it names
-  // the same activity as the engine's first throw. See the helper and `useEstimateValidity`.
+  // half-typed row was saved and held back; since v0.70.0 nothing is saved while a row's estimate
+  // cells are still being typed in, and nothing saved is held back, so it names the same activity as
+  // the engine's first throw. See the helper and `useEstimateValidity`.
   //
   // Both banner inputs are HELD while a pointer is down, with the summary's rows below: the
   // banner and the summary sit above the grid, and inserting, growing or removing either between

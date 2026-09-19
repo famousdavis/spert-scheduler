@@ -164,8 +164,10 @@ interface Derived {
  * ⚠️ v0.70.0 — `flaggedThrow` now names the SAME activity as the engine's own first throw, with
  * the same message (REASONED): every throw the distribution factory can raise — Triangular out of
  * order; T-Normal, LogNormal or Uniform with Min above Max; LogNormal at zero — is also an issue
- * of the strict schema, and nothing is saved half-typed any more. It was built in v0.69.0 to skip
- * a half-typed row's throw; it is kept, not simplified, in the PR that removed the reason.
+ * of the strict schema, and no saved issue is held back any more: nothing is saved while a row's
+ * three estimate cells are still being typed in, and a triple left out of order is flagged. It was
+ * built in v0.69.0 to skip a held-back half-typed row's throw; it is kept, not simplified, in the PR
+ * that removed the reason (simplifying it is a filed follow-up).
  */
 export function deriveEstimateValidity(
   activities: readonly Activity[],

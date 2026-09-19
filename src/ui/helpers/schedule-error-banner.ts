@@ -51,8 +51,8 @@ export interface ScheduleErrorBanner {
  * mid-entry, so that only the flagged rows' own builds could raise the banner.
  *
  * ⚠️ v0.70.0 - THE PREMATURE STATE IS GONE AT ITS SOURCE. A row's three estimate cells commit as
- * ONE group when focus leaves them, so nothing reaches the store half-typed: typing produces no
- * throw, and a triple LEFT half-typed is saved and flagged by design. `mid-entry` and its
+ * ONE group when focus leaves them, so nothing reaches the store while they are still being typed
+ * in: typing produces no throw, and a triple LEFT half-typed is saved and flagged by design. `mid-entry` and its
  * suppression were deleted; see the last paragraph for what the gate reads now.
  *
  * ⚠️ SCOPED TO THE GENERIC BRANCH ON PURPOSE. Cycle and calendar errors arise with perfectly
@@ -77,7 +77,8 @@ export interface ScheduleErrorBanner {
  *     because the engine could be throwing on a held-back half-typed row;
  *   - the engine aborts at its FIRST throw and builds in array order, so its message could name
  *     a half-typed row above a flagged one - v0.67.23 again, in the content.
- * ⚠️ Since v0.70.0 neither can happen - nothing is saved half-typed - and `flaggedThrow` names the
+ * ⚠️ Since v0.70.0 neither can happen - nothing is saved while a row is still being typed in, and a
+ * triple left half-typed is saved AND flagged, never held back - and `flaggedThrow` names the
  * same activity as the engine's first throw, with the same message (REASONED: every throw the
  * distribution factory raises is also an issue of the strict schema). It is kept as the gate.
  */

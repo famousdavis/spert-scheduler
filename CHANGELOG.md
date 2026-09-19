@@ -22,7 +22,7 @@
 
 ### Internal
 
-- **The grid no longer reports an activity as still being typed.** Nothing is saved half-typed any more, so the stamp that held such an activity's out-of-order estimates back from the validation summary, the error banner and the red cells is gone. What the grid reports is only an entry it refused.
+- **The grid no longer reports an activity as still being typed.** Nothing is saved while a row's three estimate cells are still being typed in, so the stamp that held such an activity's out-of-order estimates back from the validation summary, the error banner and the red cells is gone. What the grid reports is only an entry it refused.
 
 - **Tests pin the three cells as one group, and were shown to fail against deliberately broken versions** — among them every blur counted as leaving, an app switch counted as leaving, an Escape whose own blur saves what it cancelled, the heuristic overwriting a typed Min, Enter saving twice, and a save that lands after a scenario switch.
 
