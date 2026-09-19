@@ -27,6 +27,7 @@ import { downloadFile, sanitizeFilename } from "@ui/helpers/download";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   milestoneHealthDotClass,
+  milestoneHealthLabel,
   pluralize,
   type MilestoneHealth,
 } from "@domain/helpers/format-labels";
@@ -44,10 +45,13 @@ function formatSignedSlack(slackDays: number | null): string {
   return `${slackDays >= 0 ? "+" : ""}${slackDays}d`;
 }
 
+// The glyph is the card's own; the WORD beside it is milestoneHealthLabel's, shared with the
+// Milestones panel and print (v0.70.2). Until then the card showed a bare ✓ or ⚠, and "✗ At Risk"
+// for the red state — which the panel called "Over", while its own "At Risk" was amber.
 function milestoneHealthGlyph(health: MilestoneHealth): string {
   if (health === "green") return "✓";
   if (health === "amber") return "⚠";
-  return "✗ At Risk";
+  return "✗";
 }
 
 interface ScenarioSummaryCardProps {
@@ -742,8 +746,13 @@ export function ScenarioSummaryCard({
                     >
                       Slack: {formatSignedSlack(info.slackDays)}
                     </span>
-                    <span className="text-xs">
-                      {milestoneHealthGlyph(info.health)}
+                    {/* The glyph is hidden from screen readers: the word says the same thing.
+                        dark:text-gray-300 because nothing above this span sets a dark colour: it
+                        inherited BLACK on the dark card, 1.43:1 measured, which had already made
+                        the old "✗ At Risk" unreadable in dark. Light keeps the inherited black. */}
+                    <span className="text-xs dark:text-gray-300">
+                      <span aria-hidden="true">{milestoneHealthGlyph(info.health)}</span>{" "}
+                      {milestoneHealthLabel(info.health)}
                     </span>
                   </>
                 ) : (

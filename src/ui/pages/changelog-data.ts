@@ -13,6 +13,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.70.2",
+    date: "2026-09-19",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The summary card, the Milestones panel and the printed report name a milestone's health with the same three words: On Track, At Risk and Late. Until now each had its own. A milestone with 5 or more working days of slack read “Healthy” in the panel, “✓” on the card and “On Track” in print; one with 0 to 4 read “At Risk”, “⚠” and “Warning”; and one with negative slack read “Over”, “✗ At Risk” and “At Risk”. So “At Risk” meant the amber state in the panel and the red state on the card and in print. It now means amber everywhere, and Late is red.",
+          "The summary card shows the word beside its ✓, ⚠ or ✗. Screen readers read the word; the symbol is hidden from them.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "In dark mode, the summary card's milestone symbol and word are readable. They had no colour of their own and showed black on the dark card, a contrast of 1.43:1; they are now light grey, at 9.96:1.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "A test checks that the summary card, the Milestones panel and the printed report take their health words from one function, and renders all three for the same milestones. Nothing tested these words before: changing all three moved no test. It was shown to fail against deliberately broken versions — the old words, a surface with its own words again, the card without the word, and the card without its dark-mode colour.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.70.1",
     date: "2026-09-19",
     sections: [
