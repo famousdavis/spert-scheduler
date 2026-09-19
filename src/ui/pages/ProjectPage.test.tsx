@@ -23,7 +23,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { ConfirmHost } from "@ui/components/ConfirmHost";
 import { useConfirmStore } from "@ui/hooks/use-confirm-store";
@@ -83,8 +83,11 @@ import {
   addActivityToScenario,
 } from "@app/api/project-service";
 import { setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
+import { addMilestone, assignActivityToMilestone } from "@app/api/milestone-service";
+import { runSimulationSync } from "@app/api/simulation-service";
+import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
 import { MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
-import type { Project, Scenario } from "@domain/models/types";
+import type { Activity, Project, Scenario } from "@domain/models/types";
 
 // Names that appear in no component's static text, so an assertion on one can only be
 // satisfied by the fixture actually rendering.
@@ -927,5 +930,187 @@ describe("ProjectPage — the schedule-error banner is composed, not concatenate
         /cycle/i.test(el.textContent ?? "") && /Dependencies panel/i.test(el.textContent ?? "");
       expect(both).toBe(false);
     }
+  });
+});
+
+// -- the Gantt through a press that commits an estimate (v0.70.4) --------------------------------
+
+/**
+ * A click on a Gantt bar that also finishes a half-typed estimate.
+ *
+ * The press blurs the estimate cell, and the blur commits it — BEFORE the release and the click.
+ * Until v0.70.4 the Gantt mounted on, and drew from, the LIVE schedule, so an out-of-order
+ * commit (the schedule goes null) unmounted the Gantt under the pointer, and a valid one re-laid
+ * every bar; after a run the results cleared too, taking the buffer row and the Milestones
+ * panel's Buffer lines with them. The release landed elsewhere and no dialog opened.
+ *
+ * The page now paints the Gantt, and that panel, from what was on screen when the press began,
+ * until a task after the release. These rows commit to the REAL store mid-press, the way the
+ * cell's blur does, and read the page between the press and the release.
+ *
+ * ⚠️ THE ACTIVITIES ARE HELD WITH THE SCHEDULE. The first row is also the guard against the
+ * crash a held schedule beside LIVE activities would cause: GanttChart's uncertainty memo would
+ * run 3/30/10 through the distribution factory, which throws, during render.
+ */
+describe("ProjectPage — the Gantt through a press that commits an estimate", () => {
+  const releaseTask = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+  // Triangular, so an out-of-order Most Likely makes the schedule engine throw (a T-Normal one
+  // still schedules). Sequential mode: each activity starts when the one before ends, so a longer
+  // first activity moves every bar after it.
+  function ganttProject({ run = false, dependencyMode = false, milestone = false } = {}): Project {
+    const p = createProject(PROJECT_NAME, "2026-04-06");
+    let scenario = createScenario(SCENARIO_A, "2026-04-06");
+    scenario = { ...scenario, settings: { ...scenario.settings, dependencyMode } };
+    const triangular = (name: string, min: number, mostLikely: number, max: number): Activity => ({
+      ...createActivity(name, scenario.settings),
+      min,
+      mostLikely,
+      max,
+      distributionType: "triangular",
+    });
+    for (const a of [triangular("Kelp Survey", 3, 5, 10), triangular("Brine Assay", 2, 4, 8), triangular("Moraine Log", 4, 6, 12)]) {
+      scenario = addActivityToScenario(scenario, a);
+    }
+    if (milestone) {
+      scenario = addMilestone(scenario, "Quillon Gate", "2026-12-31", "ms-quillon");
+      for (const a of scenario.activities) scenario = assignActivityToMilestone(scenario, a.id, "ms-quillon");
+    }
+    if (run) {
+      const params = buildSimulationParams(
+        scenario.activities, dependencyMode, scenario.settings.probabilityTarget, scenario.dependencies,
+        scenario.milestones, scenario.startDate, undefined, scenario.settings.parkinsonsLawEnabled,
+      );
+      const results = runSimulationSync(
+        scenario.activities, 2000, "gantt-hold", params.deterministicDurations,
+        params.dependencyParams, params.sequentialConstraints,
+      );
+      scenario = { ...scenario, simulationResults: results };
+    }
+    return { ...p, scenarios: [scenario] };
+  }
+
+  const gantt = () => document.querySelector("svg[data-gantt-chart]");
+  const barXs = () => Array.from(document.querySelectorAll('rect[data-hit-layer="bar"]')).map((r) => r.getAttribute("x"));
+  const hasBufferRow = () => (gantt()?.textContent ?? "").includes("Schedule Buffer");
+  const panelShowsBuffer = () =>
+    (screen.getByDisplayValue("Quillon Gate").closest(".rounded-md")?.textContent ?? "").includes("Buffer:");
+  const commit = (project: Project, updates: Partial<Activity>) =>
+    act(() => {
+      const s = project.scenarios[0]!;
+      useProjectStore.getState().updateActivityField(project.id, s.id, s.activities[0]!.id, updates);
+    });
+
+  it("PARTNER: with no press, an out-of-order commit removes the Gantt at once", () => {
+    const p = ganttProject();
+    renderPage(p);
+    expect(gantt()).not.toBeNull();
+    commit(p, { mostLikely: 30 });
+    expect(gantt()).toBeNull();
+  });
+
+  it("an out-of-order commit mid-press keeps the Gantt and its bars until a task after the release", async () => {
+    const p = ganttProject();
+    renderPage(p);
+    const before = barXs();
+    expect(before).toHaveLength(3);
+
+    fireEvent.pointerDown(window);
+    commit(p, { mostLikely: 30 }); // 3 / 30 / 10: the schedule engine throws, the schedule is null
+    expect(gantt()).not.toBeNull();
+    expect(barXs()).toEqual(before);
+
+    fireEvent.pointerUp(window);
+    expect(gantt()).not.toBeNull(); // mouseup and click run in this same task
+    await releaseTask();
+    expect(gantt()).toBeNull();
+  });
+
+  it("a valid commit mid-press keeps every bar where it was; they move after the release", async () => {
+    const p = ganttProject();
+    renderPage(p);
+    const before = barXs();
+
+    fireEvent.pointerDown(window);
+    commit(p, { max: 80 }); // a longer first activity pushes the two after it right
+    expect(barXs()).toEqual(before);
+
+    fireEvent.pointerUp(window);
+    await releaseTask();
+    const after = barXs();
+    expect(after[0]).toBe(before[0]);
+    expect(Number(after[1])).toBeGreaterThan(Number(before[1]));
+  });
+
+  it("after a run, the Gantt keeps its buffer row through the press; it goes with the results after", async () => {
+    const p = ganttProject({ run: true });
+    renderPage(p);
+    expect(hasBufferRow()).toBe(true);
+
+    fireEvent.pointerDown(window);
+    commit(p, { max: 80 }); // clears the results, so the live buffer is null
+    expect(hasBufferRow()).toBe(true);
+
+    fireEvent.pointerUp(window);
+    await releaseTask();
+    expect(hasBufferRow()).toBe(false);
+  });
+
+  // ⚠️ A HELD VALUE MUST BE REFERENCE-STABLE, and `milestoneBuffers` was not whenever the schedule
+  // was null: its memo was fed a fresh `[]` every render, made a new Map every render, and the
+  // hold re-set it forever — "Too many re-renders", the page gone. It needs milestones AND a null
+  // schedule, and no press at all. Found in the browser on the sample, not by the rows above,
+  // which had milestones only with a valid schedule.
+  it("with milestones, an out-of-order commit leaves the page standing (no press)", () => {
+    const p = ganttProject({ run: true, dependencyMode: true, milestone: true });
+    renderPage(p);
+    commit(p, { mostLikely: 30 });
+    expect(gantt()).toBeNull();
+    expect(screen.getByDisplayValue("Quillon Gate")).toBeTruthy();
+  });
+
+  it("with milestones, an out-of-order commit mid-press leaves the page standing after the release", async () => {
+    const p = ganttProject({ run: true, dependencyMode: true, milestone: true });
+    renderPage(p);
+    fireEvent.pointerDown(window);
+    commit(p, { mostLikely: 30 });
+    expect(gantt()).not.toBeNull();
+    fireEvent.pointerUp(window);
+    await releaseTask();
+    expect(gantt()).toBeNull();
+    expect(screen.getByDisplayValue("Quillon Gate")).toBeTruthy();
+  });
+
+  it("after a run, the summary card keeps its schedule buffer through the press", async () => {
+    // Its buffer line is 2 px shorter once the results clear — enough, without scroll anchoring,
+    // to move everything below the card by 2 px under the pointer.
+    const p = ganttProject({ run: true });
+    renderPage(p);
+    // The hidden printable report carries the same label; the card's is the one on screen.
+    const bufferLine = () =>
+      screen.queryAllByText("Schedule Buffer:").find((el) => !el.closest(".print-report")) ?? null;
+    expect(bufferLine()).not.toBeNull();
+
+    fireEvent.pointerDown(window);
+    commit(p, { max: 80 });
+    expect(bufferLine()).not.toBeNull();
+
+    fireEvent.pointerUp(window);
+    await releaseTask();
+    expect(bufferLine()).toBeNull();
+  });
+
+  it("after a run, the Milestones panel keeps its Buffer line through the press", async () => {
+    const p = ganttProject({ run: true, dependencyMode: true, milestone: true });
+    renderPage(p);
+    expect(panelShowsBuffer()).toBe(true);
+
+    fireEvent.pointerDown(window);
+    commit(p, { max: 80 });
+    expect(panelShowsBuffer()).toBe(true);
+
+    fireEvent.pointerUp(window);
+    await releaseTask();
+    expect(panelShowsBuffer()).toBe(false);
   });
 });

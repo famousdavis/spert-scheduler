@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.70.4 — 2026-09-19
+
+### Fixed
+
+- **A click on the Gantt lands even when it also finishes an estimate you were typing.** Clicking a bar while an estimate was still being typed saves that estimate at the moment you press, before the click completes. Until now that could lose the click: saving the estimate could move or redraw the bars under the pointer, and when the schedule could not be calculated with the new estimate, the whole Gantt disappeared before the click finished. Nothing opened. The Gantt now stays as it was until the click has landed, so Edit Activity opens for the bar you clicked, and then the Gantt updates, or is removed if the schedule cannot be calculated. Version 0.69.0 kept such a click from being lost in the grid and above it, but not on the Gantt.
+
+### Internal
+
+- **Tests press on the page, save an estimate mid-press, and check the Gantt, its bars, its buffer row, the Milestones panel and the summary card's schedule buffer before and after the release.** They were shown to fail when each value held through a press is read live again.
+
 ## 0.70.3 — 2026-09-19
 
 ### Fixed
