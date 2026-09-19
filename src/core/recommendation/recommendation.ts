@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import type { DistributionType, RSMLevel } from "@domain/models/types";
+import { estimateOrderIssues } from "@domain/helpers/estimate-rules";
 import { computePertMean, computeSpertSD, computeSkewIndicator, computeCV } from "@core/estimation/spert";
 
 const SKEW_THRESHOLD = 0.1;
@@ -130,7 +131,10 @@ const mostLikelyAtEnd = (end: "Min" | "Max") =>
  *
  * No dot for an estimate that is not a valid one (a negative value, or min ≤ Most Likely ≤
  * max broken): no curve fits it, and every sentence below describes a valid estimate. The
- * grid commits each cell as it is typed, so such values do reach here.
+ * grid commits each cell as it is typed, so such values do reach here. The ordering half is
+ * `estimateOrderIssues`, the one rule the schema also uses (v0.69.0). Its `>` form lets a NaN
+ * Most Likely or Max past this guard where the old `<=` chain stopped it; the rules below then
+ * return no suggestion for it anyway (pinned), and no store holds a NaN estimate.
  *
  * `recommendDistribution` stays the AI's automatic pick and does not know the row's
  * current distribution; this function is the grid's.
@@ -141,7 +145,9 @@ export function suggestDistributionChange(
   max: number,
   current: DistributionType
 ): DistributionSuggestion | null {
-  if (current === "uniform" || !(0 <= min && min <= ml && ml <= max)) return null;
+  if (current === "uniform" || !(0 <= min && estimateOrderIssues(min, ml, max).length === 0)) {
+    return null;
+  }
   const suggested = recommendDistribution(min, ml, max);
 
   if ((suggested === "normal" || suggested === "logNormal") && suggested !== current) {

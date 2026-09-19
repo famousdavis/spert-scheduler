@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { ActivityBand } from "@domain/models/types";
+import { NAME_MAX_LENGTH } from "@domain/models/types";
 import { BandColorPicker } from "./BandColorPicker";
 import { GRID_COLUMNS, GRID_COLUMNS_WITH_CONSTRAINT } from "./grid-columns";
 import { hexToTintedBackground } from "@ui/helpers/color-utils";
@@ -152,6 +153,7 @@ export function BandHeaderRow({
           type="text"
           autoComplete="off"
           aria-label="Section name"
+          maxLength={NAME_MAX_LENGTH}
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onFocus={handleNameFocus}

@@ -297,7 +297,7 @@ export function ScenarioComparisonTable({
   ];
 
   return (
-    <div className="inline-block bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+    <div className="inline-block bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden [overflow-anchor:none]">
       {/* Comparison table — header bar (chrome, not in screenshot) above the
           captured region. Matches the GanttSection pattern: label on the left,
           copy button on the right. */}

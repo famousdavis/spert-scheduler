@@ -6,7 +6,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { useProjectStore, type LoadError } from "./use-project-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import { createProject } from "@app/api/project-service";
-import { MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
+import { MAX_SCENARIOS_PER_PROJECT, type SimulationRun } from "@domain/models/types";
 import type { AiOp } from "@app/api/ai-batch-service";
 
 describe("useProjectStore", () => {
@@ -1945,6 +1945,74 @@ describe("useProjectStore", () => {
       expect(newId).toBeNull();
       expect(useProjectStore.getState().projects).toBe(beforeProjects);
       expect(useProjectStore.getState().undoStack).toBe(beforeUndo);
+    });
+  });
+
+  describe("updateActivityField — an id that no longer exists (WI-54)", () => {
+    const run: SimulationRun = {
+      id: "run-1",
+      timestamp: "2026-09-18T00:00:00.000Z",
+      trialCount: 1000,
+      seed: "seed-1",
+      engineVersion: "test",
+      percentiles: { 50: 10, 95: 20 },
+      histogramBins: [],
+      mean: 10,
+      standardDeviation: 1,
+      minSample: 8,
+      maxSample: 12,
+      samples: [9, 10, 11],
+    };
+
+    it("changes nothing — no undo frame, Redo kept, results kept, no save — while a live id still writes", async () => {
+      const store = useProjectStore.getState();
+      const project = store.addProject("Dead Id Test", null);
+      const scenarioId = project.scenarios[0]!.id;
+      store.addActivity(project.id, scenarioId, "A1");
+      const liveId = useProjectStore.getState().getProject(project.id)!.scenarios[0]!.activities[0]!.id;
+      // One Redo frame to lose: an edit, then its undo.
+      store.updateActivityField(project.id, scenarioId, liveId, { name: "A1 renamed" });
+      useProjectStore.getState().undo();
+      useProjectStore.getState().setSimulationResults(project.id, scenarioId, run);
+
+      // The setup's own writes deferred their saves to microtasks; drain them BEFORE listening,
+      // or they land in `emitted` and read as this action's.
+      await Promise.resolve();
+      const beforeProjects = useProjectStore.getState().projects;
+      const beforeUndo = useProjectStore.getState().undoStack;
+      const beforeRedo = useProjectStore.getState().redoStack;
+      const beforeStored = localStorage.getItem(`spert:project:local:${project.id}`);
+      expect(beforeRedo).toHaveLength(1);
+      expect(beforeStored).not.toBeNull();
+      const emitted: string[] = [];
+      const unsub = cloudSyncBus.subscribe((e) => emitted.push(e.type));
+
+      // A write for an activity the scenario does not hold — what a commit racing the row's
+      // removal (a collaborator's delete, an AI op) would send.
+      useProjectStore.getState().updateActivityField(project.id, scenarioId, "no-such-activity", { min: 11 });
+      await Promise.resolve(); // persist() defers its emit to a microtask
+
+      const scenarioAfter = useProjectStore.getState().getProject(project.id)!.scenarios[0]!;
+      expect.soft(useProjectStore.getState().projects).toBe(beforeProjects);
+      expect.soft(useProjectStore.getState().undoStack).toBe(beforeUndo);
+      expect.soft(useProjectStore.getState().redoStack).toHaveLength(1);
+      expect.soft(scenarioAfter.simulationResults?.id).toBe("run-1");
+      expect.soft(localStorage.getItem(`spert:project:local:${project.id}`)).toBe(beforeStored);
+      expect.soft(emitted).toEqual([]);
+
+      // Positive control, same test: the same call with the LIVE id does write, so the
+      // assertions above cannot pass merely because this action writes nothing at all.
+      // Measured from the state just before it, so it does not depend on the dead-id outcome.
+      emitted.length = 0;
+      const projectsBeforeLive = useProjectStore.getState().projects;
+      const undoBeforeLive = useProjectStore.getState().undoStack.length;
+      useProjectStore.getState().updateActivityField(project.id, scenarioId, liveId, { min: 11 });
+      await Promise.resolve();
+      unsub();
+      expect(useProjectStore.getState().projects).not.toBe(projectsBeforeLive);
+      expect(useProjectStore.getState().undoStack).toHaveLength(undoBeforeLive + 1);
+      expect(useProjectStore.getState().getProject(project.id)!.scenarios[0]!.activities[0]!.min).toBe(11);
+      expect(emitted).toEqual(["save"]);
     });
   });
 });

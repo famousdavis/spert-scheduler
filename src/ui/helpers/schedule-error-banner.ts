@@ -30,9 +30,10 @@ export interface ScheduleErrorBanner {
  * union, so an error that somehow set both would otherwise fall to the calendar branch and
  * give work-week advice for a circular graph.
  *
- * ⚠️ v0.67.23 - `allActivitiesValid` GATES THE GENERIC BRANCH ONLY, and it is REQUIRED rather
+ * ⚠️ v0.67.23 - the second argument GATES THE GENERIC BRANCH ONLY, and it is REQUIRED rather
  * than optional for the same reason `ScheduleError.isCycleError` is: both call sites must
- * decide, so a third cannot silently default to "show it".
+ * decide, so a third cannot silently default to "show it". (v0.67.23 passed `allActivitiesValid`;
+ * v0.69.0 passes `flaggedThrow` — see the last paragraph.)
  *
  * THE DEFECT IT CLOSES. Estimates commit per FIELD, against two STALE siblings. A new
  * activity is 1/1/1, so the first thing anyone types - Min 5, or Most Likely 10 - leaves the
@@ -43,33 +44,39 @@ export interface ScheduleErrorBanner {
  * it. ⚠️ MEASURED: NO left-to-right order avoids it - skipping Min and typing only Most Likely
  * gives 1/10/1, which throws too. Right-to-left (Max, ML, Min) is clean throughout.
  *
- * WHY THIS FLAG IS THE RIGHT DISCRIMINATOR AND NOT A PROXY. `UnifiedActivityRow` already
- * suppresses its OWN min <= ml <= max error until all three fields are touched
- * (`allEstimatesTouched`), and that gate deliberately withholds `onValidityChange(false)`
- * too. So during the half-typed window the rows genuinely report valid while the engine
- * cannot build a distribution - and that combination IS the premature state. The gate that
- * already existed at the row was simply missing at the consumer.
+ * WHY THE GATE IS THE ROW'S OWN STATE AND NOT A PROXY. `UnifiedActivityRow` suppresses its OWN
+ * min <= ml <= max error until all three fields are touched (`allEstimatesTouched`). During that
+ * half-typed window the engine cannot build a distribution while the row is not yet wrong - and
+ * that combination IS the premature state. v0.67.23 read it as "every row reports valid"; since
+ * v0.69.0 the row REPORTS mid-entry, and only the flagged rows' own builds can raise the banner.
  *
  * ⚠️ SCOPED TO THE GENERIC BRANCH ON PURPOSE. Cycle and calendar errors arise with perfectly
- * valid estimates, so gating them on `allActivitiesValid` would silence real faults. Verified
+ * valid estimates, so gating them on estimate validity would silence real faults. Verified
  * throw-by-throw rather than assumed: the only throw under `core/schedule/` is
  * `DependencyCycleError`, and every calendar throw is either a `CalendarConfigurationError`
  * or starts with the iteration-limit message - both caught by `isCalendarError`, both checked
  * above this line.
  *
- * ⚠️ WHAT THIS DELIBERATELY SILENCES, so the next session does not read it as a bug. Any state
- * where the rows report valid but the engine still throws now shows NOTHING. Two are known:
- * (1) a row ABANDONED mid-entry - type Min, click away, never touch the other two - which
- * leaves a blank schedule with no message and a Run button that is enabled but a silent
- * no-op; FILED as a follow-up rather than fixed here, because closing it means adding
- * branching to `UnifiedActivityRow`, which carries two of the repo's three accepted lint
- * findings and has zero ratchet headroom. (2) `0/0/0` with LogNormal, which is schema-valid
- * (`nonnegative()`, and 0 <= 0 <= 0 passes both refinements) but throws `PERT mean must be
- * > 0`. Both are rare; the banner they replaced was wrong far more often than it was right.
+ * ⚠️ WHAT THIS DELIBERATELY SILENCED until v0.69.0, kept so the history reads: (1) a row
+ * ABANDONED mid-entry - type Min, click away, never touch the other two - left a blank schedule
+ * with no message and an enabled Run that did nothing; (2) `0/0/0` with LogNormal, which passed
+ * the schema but throws `PERT mean must be > 0`. Both are FLAGGED since v0.69.0 — Run is refused
+ * with the row named, and the LogNormal row is a schema error in its own right.
+ *
+ * ⚠️ v0.69.0 - THE SECOND ARGUMENT CHANGED MEANING. It was "every row reports valid"; it is now
+ * `flaggedThrow`: the build message of the first activity, in the engine's order, whose
+ * distribution cannot be built AND that has a saved issue not held back as mid-entry
+ * (`useEstimateValidity`). The generic branch shows only then, and shows THAT message rather
+ * than `error.message`. Two measured-by-design reasons, both pinned at the page:
+ *   - a page-wide "some row is flagged" gate reopens v0.67.23 whenever ANY row is flagged, and
+ *     since v0.69.0 a loaded bad row is flagged at mount;
+ *   - the engine aborts at its FIRST throw and builds in array order, so its message names
+ *     whichever row came first — a half-typed row above a flagged one would put the row being
+ *     typed in the banner, which is v0.67.23 again, in the content.
  */
 export function getScheduleErrorBanner(
   error: ScheduleError | null,
-  allActivitiesValid: boolean
+  flaggedThrow: string | null
 ): ScheduleErrorBanner | null {
   if (!error) return null;
   if (error.isCycleError) {
@@ -87,12 +94,12 @@ export function getScheduleErrorBanner(
       advice: "Check your work week settings in Settings.",
     };
   }
-  // Generic branch = the estimates branch, per the reachability note above. Suppressed while
-  // every row reports valid: that is the half-typed window, not a fault the user can act on.
-  if (allActivitiesValid) return null;
+  // Generic branch = the estimates branch, per the reachability note above. Shown only for a
+  // flagged activity that itself cannot be built — never for a half-typed one.
+  if (flaggedThrow === null) return null;
   return {
     heading: "Schedule Error",
-    message: error.message,
+    message: flaggedThrow,
     advice: "Check the affected activity's estimates and settings.",
   };
 }

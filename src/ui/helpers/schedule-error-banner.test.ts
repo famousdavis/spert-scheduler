@@ -33,28 +33,36 @@ const ESTIMATE_THROW =
   'Cannot create Triangular distribution for activity "Design": ' +
   "TriangularDistribution: must have a <= c <= b, got a=5, c=1, b=1";
 
+/** A FLAGGED activity's own build message — a different row from the engine's first thrower. */
+const FLAGGED_THROW =
+  'Cannot create Triangular distribution for activity "Build": ' +
+  "TriangularDistribution: must have a <= c <= b, got a=14, c=13, b=22";
+
 describe("getScheduleErrorBanner", () => {
-  it("returns null when there is no error, whatever the validity flag", () => {
-    expect(getScheduleErrorBanner(null, true)).toBeNull();
-    expect(getScheduleErrorBanner(null, false)).toBeNull();
+  it("returns null when there is no error, whatever the flagged thrower", () => {
+    expect(getScheduleErrorBanner(null, null)).toBeNull();
+    expect(getScheduleErrorBanner(null, FLAGGED_THROW)).toBeNull();
   });
 
-  describe("the generic (estimates) branch is gated on allActivitiesValid", () => {
+  describe("the generic (estimates) branch is gated on a FLAGGED activity that cannot be built", () => {
     // ⚠️ THE PAIR IS THE POINT. A suppression test alone passes just as well against a
     // function that returns null unconditionally, so the must-SHOW case sits beside the
-    // must-HIDE case, on the SAME error object, with only the flag differing. Neither
-    // assertion can pass vacuously while the other holds.
+    // must-HIDE case, on the SAME error object, with only the second argument differing.
+    // Neither assertion can pass vacuously while the other holds.
     const err = scheduleError({ message: ESTIMATE_THROW });
 
-    it("SUPPRESSES it while every row still reports valid (the half-typed window)", () => {
-      expect(getScheduleErrorBanner(err, true)).toBeNull();
+    it("SUPPRESSES it when no flagged activity throws (the half-typed window)", () => {
+      expect(getScheduleErrorBanner(err, null)).toBeNull();
     });
 
-    it("SHOWS it once a row reports invalid (the user really did leave it wrong)", () => {
-      const banner = getScheduleErrorBanner(err, false);
+    it("SHOWS it for a flagged thrower — with THAT activity's message, not the engine's first", () => {
+      // v0.69.0: the engine names whichever row threw first, which can be the row being typed.
+      // The banner must name the flagged row, so the message comes from the second argument.
+      const banner = getScheduleErrorBanner(err, FLAGGED_THROW);
       expect(banner).not.toBeNull();
       expect(banner!.heading).toBe("Schedule Error");
-      expect(banner!.message).toBe(ESTIMATE_THROW);
+      expect(banner!.message).toBe(FLAGGED_THROW);
+      expect(banner!.message).not.toBe(ESTIMATE_THROW);
       expect(banner!.advice).toBe(
         "Check the affected activity's estimates and settings."
       );
@@ -63,7 +71,7 @@ describe("getScheduleErrorBanner", () => {
 
   describe("the cycle and calendar branches are NOT gated", () => {
     // ⚠️ These two are the regression this change could most plausibly cause: both arise
-    // with estimates that are entirely fine, so `allActivitiesValid` is TRUE in their real
+    // with estimates that are entirely fine, so no activity is flagged in their real
     // conditions. A gate applied one branch too early would silence them both, and the
     // symptom — a blank schedule saying nothing — is exactly what v0.63.0 fixed for cycles.
     const cases: Array<[string, ScheduleError, string]> = [
@@ -76,9 +84,9 @@ describe("getScheduleErrorBanner", () => {
     ];
 
     it.each(cases)(
-      "shows the %s branch even when all rows are valid",
+      "shows the %s branch even when no activity is flagged",
       (_label, err, heading) => {
-        const banner = getScheduleErrorBanner(err, true);
+        const banner = getScheduleErrorBanner(err, null);
         expect(banner).not.toBeNull();
         expect(banner!.heading).toBe(heading);
       }
@@ -87,7 +95,7 @@ describe("getScheduleErrorBanner", () => {
     it("keeps cycle precedence when both flags are somehow set", () => {
       const banner = getScheduleErrorBanner(
         scheduleError({ isCycleError: true, isCalendarError: true }),
-        true
+        null
       );
       expect(banner!.heading).toBe("Dependency Cycle");
       // The load-bearing half: work-week advice for a circular graph is the wrong page.
@@ -97,9 +105,9 @@ describe("getScheduleErrorBanner", () => {
 
   it("never returns a banner with an empty heading, message or advice", () => {
     const shown: ScheduleErrorBanner[] = [
-      getScheduleErrorBanner(scheduleError(), false)!,
-      getScheduleErrorBanner(scheduleError({ isCycleError: true }), true)!,
-      getScheduleErrorBanner(scheduleError({ isCalendarError: true }), true)!,
+      getScheduleErrorBanner(scheduleError(), FLAGGED_THROW)!,
+      getScheduleErrorBanner(scheduleError({ isCycleError: true }), null)!,
+      getScheduleErrorBanner(scheduleError({ isCalendarError: true }), null)!,
     ];
     expect(shown).toHaveLength(3);
     for (const b of shown) {

@@ -2,8 +2,9 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type React from "react";
+import { refuseEstimateEntry } from "./activity-row-helpers";
 
 interface EstimateField {
   dataField: string;
@@ -62,7 +63,7 @@ const INPUT_CLASS_NORMAL = "border-gray-200 dark:border-gray-600";
  * while the store may hold a fraction — `computeHeuristic` stores `0.75` for a row added
  * with the heuristic on. A cell showing `1` over a stored `0.75` is CORRECT and is not to
  * be "fixed": whole numbers are what this grid shows. What was wrong was committing that
- * `1` back. The guard that stops it lives in `UnifiedActivityRow`'s `validateAndUpdate`
+ * `1` back. The guard that stops it lives in `UnifiedActivityRow`'s `commitAndReport`
  * and compares the rounded stored number, i.e. what is on screen — not the raw one.
  */
 function EstimateCell({
@@ -80,38 +81,62 @@ function EstimateCell({
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const stored = String(Math.round(field.value));
+  const errorId = useId();
 
   return (
-    <input
-      data-row-id={activityId}
-      data-field={field.dataField}
-      name={`estimate-${field.dataField}`}
-      aria-label={field.title}
-      type="number"
-      value={draft ?? stored}
-      onChange={(e) => setDraft(e.target.value)}
-      onFocus={(e) => e.target.select()}
-      onBlur={(e) => {
-        const raw = e.currentTarget.value;
-        // Reported on EVERY blur, unchanged from before v0.67.2 — including a blur that
-        // typed nothing. The row needs it to mark the field touched and to re-report
-        // validity; what v0.67.2 removed is the store WRITE, and that removal lives in
-        // the row so the touched/validity sequence does not move with it.
-        onBlur(field.activityKey, raw);
-        // Back to following the store — unless the entry cannot be read as a number,
-        // which in practice means the user cleared the field. That is flagged and left
-        // on screen exactly as typed (v0.63.1): restoring the stored number here would
-        // silently undo work the user deliberately did.
-        setDraft(Number.isNaN(parseFloat(raw)) ? raw : null);
-      }}
-      onKeyDown={(e) => onKeyDown(e, field.dataField)}
-      disabled={disabled}
-      className={`${INPUT_CLASS_BASE} ${field.error ? INPUT_CLASS_ERROR : INPUT_CLASS_NORMAL}`}
-      step="1"
-      min="0"
-      title={field.error ?? field.title}
-    />
+    <>
+      <input
+        data-row-id={activityId}
+        data-field={field.dataField}
+        name={`estimate-${field.dataField}`}
+        aria-label={field.title}
+        type="number"
+        value={draft ?? stored}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={(e) => {
+          const raw = e.currentTarget.value;
+          // Reported on EVERY blur, unchanged from before v0.67.2 — including a blur that
+          // typed nothing. The row needs it to mark the field touched and to re-report
+          // validity; what v0.67.2 removed is the store WRITE, and that removal lives in
+          // the row so the touched/validity sequence does not move with it.
+          onBlur(field.activityKey, raw);
+          // Back to following the store — unless the row refuses the entry: one that cannot
+          // be read as a number (in practice, the user cleared the field) or, since v0.69.0,
+          // a negative one. That is flagged and left on screen exactly as typed (v0.63.1):
+          // restoring the stored number here would silently undo work the user deliberately
+          // did. The rule is the row's, shared through `refuseEstimateEntry`.
+          setDraft(refuseEstimateEntry(raw) === null ? null : raw);
+        }}
+        onKeyDown={(e) => onKeyDown(e, field.dataField)}
+        disabled={disabled}
+        className={`${INPUT_CLASS_BASE} ${field.error ? INPUT_CLASS_ERROR : INPUT_CLASS_NORMAL}`}
+        step="1"
+        min="0"
+        title={field.error ?? field.title}
+        {...invalidAria(field.error, errorId)}
+      />
+      {/* v0.69.0 — the red is announced, not only painted: the message a sighted user reads in
+          the title, as text the input is described by. SCREEN-READER ONLY on purpose: a visible
+          line would grow the row, and a row that grows under a press moves every row below it. */}
+      {field.error && (
+        <span id={errorId} className="sr-only">
+          {field.error}
+        </span>
+      )}
+    </>
   );
+}
+
+/**
+ * `aria-invalid` and `aria-describedby` for a red cell, nothing for a clean one — spread onto
+ * the input, so the cell gains no conditional of its own.
+ */
+function invalidAria(
+  error: string | undefined,
+  errorId: string
+): { "aria-invalid"?: true; "aria-describedby"?: string } {
+  return error ? { "aria-invalid": true, "aria-describedby": errorId } : {};
 }
 
 export function EstimateInputs({

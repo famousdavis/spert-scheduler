@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.69.0 — 2026-09-18
+
+### Fixed
+
+- **A project holding an out-of-order estimate opens again.** Until now, one activity whose Min was above its Most Likely, or whose Most Likely was above its Max, made the whole project fail to load the next time it was opened — “This project is no longer available” — and one mistyped cell in the grid was enough. Such a project now opens, from this browser, from the cloud and from an exported file, and the activity is flagged instead.
+
+- **The flag comes from the saved estimates, so it is right however they got that way.** It is there when the project opens, after an undo, after a save in the Edit Activity dialog, and after a change from a collaborator or Connect AI; and it clears when the estimates are repaired, whichever of those repairs them. Before, only typing in the grid could raise or clear it: a repaired activity could stay red with Run disabled, and an activity loaded out of order showed nothing at all.
+
+- **An out-of-order activity is flagged even when a schedule can still be calculated.** A T-Normal or LogNormal activity with Min above Most Likely still produces a schedule, and it could be simulated to a complete plan with nothing on screen to say its Most Likely had not been used. It is now named in the validation summary, its cell is red, and Run is refused.
+
+- **A LogNormal activity estimated at 0, 0 and 0 is flagged.** It cannot be simulated, and until now it blanked the schedule with nothing on screen to say why. It is now named in the summary, with its Max cell red: “A LogNormal activity needs an estimate above zero”.
+
+- **Every Run control refuses while an activity is flagged.** The two “Run simulation” links in the scenario summary card could start a simulation — or show the engine's raw error — while the Run Simulation button was disabled. They now show a message naming the activities to fix. The line under the Run Simulation button now names each activity that stops it and says why, in place of one general sentence that stayed on screen even after the problem had been fixed.
+
+- **A click that also finishes an estimate is no longer lost.** Typing an estimate and then clicking the row's edit pencil, its Delete button or another cell commits the estimate on the press — and when that flagged the activity, the message appearing above the grid moved the grid between the press and the release, so the click landed on something else: the dialog did not open, and Delete asked nothing. The message now appears just after the click. And once the page has been scrolled down, the grid also keeps its place on screen when a message above it appears or disappears, in browsers that support scroll anchoring; at the very top of the page it still moves, after the click.
+
+- **Two ways to make a project unloadable from the grid are closed.** A negative estimate is refused: the cell keeps what you typed, turns red and says “Enter 0 or more.”, and nothing is saved. And every name is limited to the 200 characters a project can hold — activity, milestone, section, scenario and project names, wherever they can be typed. A longer name used to be accepted and made the project fail to load.
+
+- **The Edit Activity dialog warns before you save an out-of-order estimate, and refuses a negative one.** It still saves an out-of-order estimate as typed, and the grid flags it, but a line under the estimates now says what is wrong before you save. A negative estimate disables Save and says why. The Estimates section opens by itself when the saved estimates are flagged.
+
+- **A cleared estimate stays flagged until it is filled in.** Clearing one estimate cell and then editing another used to remove the first cell's red and report the activity as fine, while the cell was still empty.
+
+- **The red estimate cells are announced, not only painted.** A screen reader now hears that the cell is invalid, and why.
+
+### Notes
+
+- **This release does not change when estimates are checked.** Typing 11 into the Min of an activity estimated 5 / 10 / 20 and pressing Tab still flags it at once, because 11 is above the Most Likely of 10 until you reach it. Checking only when you leave the three estimate cells is planned for the next release.
+
+- **Meanwhile, a new activity that is only partly typed stops Run.** Typing Min 5 into a new activity and moving on saves 5 / 1 / 1, which cannot be simulated. The validation summary and the red cells wait until you have visited all three estimates, as before, but Run is now disabled while the estimates are out of order, and the line under the Run Simulation button says why. Until now Run looked available and did nothing.
+
+- **Connect AI still cannot edit a flagged activity until its estimates are repaired.** Every change it proposes to such an activity, a rename included, is refused as invalid; a change that repairs the estimates is accepted.
+
+- **An activity import now reports a LogNormal row estimated at 0, 0 and 0 as an error** on its Max column, instead of importing an activity that cannot be simulated. Triangular rows at 0, 0 and 0 and LogNormal rows at 0, 0 and 1 import as before.
+
+- **A change that arrives for an activity that has just been deleted — for example from a collaborator — now changes nothing.** It used to discard the scenario's simulation results and clear Redo.
+
+### Internal
+
+- **One ordering rule and one LogNormal rule, one home each.** The project file's load check and the checks on everything you enter now share them, and the two differ in one place only: loading accepts an out-of-order estimate so that it can be flagged. The rules for a negative estimate, a name's length and a scheduling constraint still refuse the project at load, as before. No change to the project data format.
+
+- **Estimate validity is worked out from the saved project, plus two things only the grid can see:** a cell holding an entry it refused, and an activity still being typed. What the grid reports is discarded when its row leaves the screen, so a row that comes back from another scenario, or with an undo, starts clean.
+
+- **Tests pin each piece at the page, and were shown to fail against deliberately broken versions** — among them a message that is not held for the click, a Run link that is not refused, a flag that forgets a dialog save, a report that survives its row, and a check that reads what is shown rather than what is saved.
+
 ## 0.68.1 — 2026-09-18
 
 ### Changed

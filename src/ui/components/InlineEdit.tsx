@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
+import { NAME_MAX_LENGTH } from "@domain/models/types";
 
 interface InlineEditProps {
   value: string;
@@ -85,6 +86,7 @@ export function InlineEdit({
         name={name}
         autoComplete="off"
         aria-label={ariaLabel ?? placeholder}
+        maxLength={NAME_MAX_LENGTH}
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
         onFocus={handleFocus}

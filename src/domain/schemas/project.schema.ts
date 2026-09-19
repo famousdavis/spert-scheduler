@@ -11,7 +11,13 @@ import {
   CONSTRAINT_TYPES,
   CONSTRAINT_MODES,
   MAX_SCENARIOS_PER_PROJECT,
+  NAME_MAX_LENGTH,
 } from "../models/types";
+import {
+  estimateOrderIssues,
+  logNormalHasNoMean,
+  LOGNORMAL_NEEDS_ESTIMATE_ABOVE_ZERO,
+} from "../helpers/estimate-rules";
 
 // -- Primitive Schemas -------------------------------------------------------
 
@@ -80,10 +86,10 @@ export const DeliverableItemSchema = z.object({
 
 // -- Activity ----------------------------------------------------------------
 
-export const ActivitySchema = z
+const ActivityShape = z
   .object({
     id: z.string().min(1).max(64),
-    name: z.string().max(200),
+    name: z.string().max(NAME_MAX_LENGTH),
     min: z.number().nonnegative(),
     mostLikely: z.number().nonnegative(),
     max: z.number().nonnegative(),
@@ -102,27 +108,58 @@ export const ActivitySchema = z
     deliverables: z.array(DeliverableItemSchema).max(50).optional(),
     description: z.string().max(2000).optional(),
     notes: z.string().max(2000).optional(),
-  })
-  .refine((a) => a.min <= a.mostLikely, {
-    message: "Min must be <= Most Likely",
-    path: ["min"],
-  })
-  .refine((a) => a.mostLikely <= a.max, {
-    message: "Most Likely must be <= Max",
-    path: ["mostLikely"],
-  })
-  .superRefine((a, ctx) => {
-    const hasType = a.constraintType != null;
-    const hasDate = a.constraintDate != null;
-    const hasMode = a.constraintMode != null;
-    if (hasType !== hasDate || hasType !== hasMode) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "Constraint fields must be all set or all null: constraintType, constraintDate, and constraintMode",
-        path: ["constraintType"],
-      });
-    }
+  });
+
+type ActivityFields = z.infer<typeof ActivityShape>;
+
+function checkConstraintTriad(a: ActivityFields, ctx: z.RefinementCtx): void {
+  const hasType = a.constraintType != null;
+  const hasDate = a.constraintDate != null;
+  const hasMode = a.constraintMode != null;
+  if (hasType !== hasDate || hasType !== hasMode) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Constraint fields must be all set or all null: constraintType, constraintDate, and constraintMode",
+      path: ["constraintType"],
+    });
+  }
+}
+
+function checkEstimateOrder(a: ActivityFields, ctx: z.RefinementCtx): void {
+  for (const issue of estimateOrderIssues(a.min, a.mostLikely, a.max)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: issue.message, path: [issue.field] });
+  }
+}
+
+/**
+ * The TOLERANT activity: what `ScenarioSchema` nests, so all five `ProjectSchema.safeParse` load
+ * gates accept an activity whose Min, Most Likely and Max are out of order (v0.69.0).
+ *
+ * Until v0.69.0 one out-of-order triple made the whole project fail to load on the next open —
+ * the grid commits each estimate as it is typed, and a typo plus a reload lost the project. A
+ * loaded out-of-order activity is now FLAGGED on screen instead, from the strict schema below,
+ * and it must stay that way: loading it without the flag measured worse than the brick, a silent
+ * blank schedule or a confident plan built on the typo.
+ *
+ * ⚠️ TOLERANCE IS FOR ORDERING ONLY. A negative estimate, an over-long name and a half-set
+ * constraint are still refused here, exactly as before.
+ */
+export const StoredActivitySchema = ActivityShape.superRefine(checkConstraintTriad);
+
+/**
+ * The STRICT activity: every INPUT boundary (CSV import, Connect AI) and every on-screen flag
+ * (the grid's red cells, the validation summary, Run) parses against this. It keeps its name so
+ * a new input consumer that reaches for it by habit gets the safe behaviour.
+ *
+ * Issue order is today's: the ordering issues, then the constraint issue, then the LogNormal
+ * one, which is new in v0.69.0.
+ */
+export const ActivitySchema = ActivityShape.superRefine(checkEstimateOrder)
+  .superRefine(checkConstraintTriad)
+  .refine((a) => !logNormalHasNoMean(a.distributionType, a.min, a.mostLikely, a.max), {
+    message: LOGNORMAL_NEEDS_ESTIMATE_ABOVE_ZERO,
+    path: ["max"],
   });
 
 // -- Activity Dependency -----------------------------------------------------
@@ -138,7 +175,7 @@ export const ActivityDependencySchema = z.object({
 
 export const MilestoneSchema = z.object({
   id: z.string().min(1).max(64),
-  name: z.string().max(200),
+  name: z.string().max(NAME_MAX_LENGTH),
   targetDate: ISODateString,
 });
 
@@ -146,7 +183,7 @@ export const MilestoneSchema = z.object({
 
 export const ActivityBandSchema = z.object({
   id: z.string().min(1).max(64),
-  name: z.string().max(200), // empty string allowed
+  name: z.string().max(NAME_MAX_LENGTH), // empty string allowed
   insertBeforeActivityId: z.string().min(1).max(64).nullable(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
 });
@@ -207,9 +244,9 @@ export const SimulationRunSchema = z.object({
 
 export const ScenarioSchema = z.object({
   id: z.string().min(1).max(64),
-  name: z.string().min(1).max(200),
+  name: z.string().min(1).max(NAME_MAX_LENGTH),
   startDate: ISODateString,
-  activities: z.array(ActivitySchema).max(500),
+  activities: z.array(StoredActivitySchema).max(500),
   dependencies: z.array(ActivityDependencySchema).max(2000),
   milestones: z.array(MilestoneSchema).max(100),
   settings: ScenarioSettingsSchema,
@@ -252,7 +289,7 @@ export const GanttAppearanceSettingsSchema = z.object({
 
 export const ProjectSchema = z.object({
   id: z.string().min(1).max(64),
-  name: z.string().min(1).max(200),
+  name: z.string().min(1).max(NAME_MAX_LENGTH),
   createdAt: z.string().max(64),
   schemaVersion: z.number().int().positive(),
   // Lesson 38: required field, nullable, defaults to null when absent. Every

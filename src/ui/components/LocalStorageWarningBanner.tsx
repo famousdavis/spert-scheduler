@@ -17,7 +17,7 @@ export function LocalStorageWarningBanner() {
   if (!show) return null;
 
   return (
-    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4 flex items-center gap-4 no-print">
+    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4 flex items-center gap-4 no-print [overflow-anchor:none]">
       <p className="text-sm text-amber-800 dark:text-amber-200 flex-1">
         <strong>Your data exists only in this browser</strong> and can be lost without
         warning. Export at the end of every session to protect your work.

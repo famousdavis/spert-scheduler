@@ -218,16 +218,18 @@ describe("import characterisation — a broken dependency graph in a project JSO
 
     // ProjectPage builds exactly this, from exactly this input.
     //
-    // ⚠️ `allActivitiesValid: true` is deliberate and is the STRONGER argument, not a
-    // placeholder. v0.67.23 gates the GENERIC branch on that flag; a cycle arises with
-    // estimates that are entirely fine, so `true` is also the realistic value here. Passing
-    // it proves the cycle branch is NOT gated — with `false` this test would still pass if
-    // someone moved the gate above the cycle check, which is the mistake worth catching.
+    // ⚠️ The second argument is `null` — "no flagged activity throws" — deliberately, and it is
+    // the STRONGER argument, not a placeholder. The GENERIC branch is gated on it (v0.67.23; its
+    // meaning changed in v0.69.0 from "every row reports valid" to the flagged thrower's message,
+    // and `null` is the same side of the gate as `true` was). A cycle arises with estimates that
+    // are entirely fine, so `null` is also the realistic value here. Passing it proves the cycle
+    // branch is NOT gated — with a message this test would still pass if someone moved the gate
+    // above the cycle check, which is the mistake worth catching.
     const banner = getScheduleErrorBanner({
       message: (caught as Error).message,
       isCalendarError: isCalendarError(caught),
       isCycleError: isDependencyCycleError(caught),
-    }, true);
+    }, null);
     expect(banner).not.toBeNull();
     expect(banner!.heading).toBe("Dependency Cycle");
     expect(banner!.message).toMatch(/cycle/i);
@@ -236,19 +238,19 @@ describe("import characterisation — a broken dependency graph in a project JSO
   });
 
   it("the calendar branch is unaffected — the wrong advice is specific to the other branch", () => {
-    // `true` for the same reason as the cycle case above: a misconfigured work week is not
-    // an estimates problem, so the calendar branch must survive rows-all-valid.
+    // `null` for the same reason as the cycle case above: a misconfigured work week is not
+    // an estimates problem, so the calendar branch must survive "no activity is flagged".
     const banner = getScheduleErrorBanner({
       message: "bad work week",
       isCalendarError: true,
       isCycleError: false,
-    }, true);
+    }, null);
     expect(banner!.heading).toBe("Calendar Configuration Error");
     expect(banner!.advice).toBe("Check your work week settings in Settings.");
   });
 
-  it("no error yields no banner, whichever way the validity flag points", () => {
-    expect(getScheduleErrorBanner(null, true)).toBeNull();
-    expect(getScheduleErrorBanner(null, false)).toBeNull();
+  it("no error yields no banner, whichever way the flagged-thrower gate points", () => {
+    expect(getScheduleErrorBanner(null, null)).toBeNull();
+    expect(getScheduleErrorBanner(null, "a flagged activity's build message")).toBeNull();
   });
 });

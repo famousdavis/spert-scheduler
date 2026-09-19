@@ -20,7 +20,7 @@ export function FirstRunBanner() {
   };
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 flex items-center gap-4 no-print">
+    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 flex items-center gap-4 no-print [overflow-anchor:none]">
       <p className="text-sm text-blue-800 dark:text-blue-200 flex-1">
         SPERT® Suite web apps are free to use. No account is required to use
         them. By accessing or using this app, you agree to our{" "}

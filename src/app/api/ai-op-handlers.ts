@@ -127,8 +127,11 @@ export function createActivityCore(scenario: Scenario, p: CreateActivityPayload)
     p.distributionType ??
     recommendDistribution(p.min, p.mostLikely, p.max) ??
     scenario.settings.defaultDistributionType;
-  // logNormal PERT-mean guard: explicit CORE logic, NOT part of ActivitySchema.
-  // It must travel with the extraction (the schema cannot express it).
+  // logNormal PERT-mean guard. ⚠️ Since v0.69.0 ActivitySchema DOES express this state — a
+  // strict-schema refine flags a LogNormal whose min + ML + max is 0, which equals this test for
+  // nonnegative estimates (see `logNormalHasNoMean`) — so the parse below would reject it too.
+  // Kept anyway, deliberately: this is the ENGINE's own arithmetic (factory.ts), so the AI path
+  // refuses exactly what the engine cannot build, whatever the schema's equivalent becomes.
   if (distributionType === "logNormal" && computePertMean(p.min, p.mostLikely, p.max) <= 0) {
     return reject("invalid");
   }
@@ -167,8 +170,11 @@ export function handleCreateActivity(scenario: Scenario, p: CreateActivityPayloa
 //
 // Merge-then-validate: provided fields (description normalized first) merge over
 // the activity's current values; the merged activity goes through the full
-// ActivitySchema parse plus the logNormal PERT-mean guard (core logic, NOT part
-// of the schema — it travels with the extraction). value_unchanged is judged
+// ActivitySchema parse plus the logNormal PERT-mean guard (the engine's own test,
+// kept beside the schema's equivalent since v0.69.0 — see the note in the create
+// core). Because the MERGED activity is validated, a row whose SAVED estimates the
+// grid flags cannot be edited at all — a rename included — until an update repairs
+// them; that is ruled (owner, 2026-09-18) and pinned. value_unchanged is judged
 // AFTER validation, over the provided fields only.
 // Collect only the provided fields into an activity patch, normalizing
 // description (trim; empty/whitespace → undefined = clear). `descProvided`

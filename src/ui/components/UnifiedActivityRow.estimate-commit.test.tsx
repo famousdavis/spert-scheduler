@@ -30,6 +30,7 @@ import type { Activity, SimulationRun } from "@domain/models/types";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { cloudSyncBus } from "@infrastructure/persistence/sync-bus";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
+import type { RowReport } from "@ui/hooks/use-estimate-validity";
 
 const cell = (field: string, id: string) =>
   document.querySelector<HTMLInputElement>(`[data-row-id="${id}"][data-field="${field}"]`)!;
@@ -53,7 +54,7 @@ interface LiveRowProps {
   pid: string;
   sid: string;
   heuristic?: boolean;
-  onValidityChange?: (id: string, valid: boolean) => void;
+  onValidityChange?: (id: string, report: RowReport) => void;
   spyUpdate?: (id: string, updates: Partial<Activity>) => void;
 }
 
@@ -295,8 +296,14 @@ describe("UnifiedActivityRow — a blur that changes nothing writes nothing", ()
     // ⚠️ Constraint 5, and the reason the no-op guard sits at the store write rather than
     // in the cell. An all-equal activity starts with NO field marked touched, because
     // min <= mostLikely <= max cannot be judged until all three are known. A guard that
-    // made the cell skip `onBlur` entirely would also skip the touch marking, and this
-    // sequence would silently become [] — an invalid estimate that is never reported.
+    // made the cell skip `onBlur` entirely would also skip the touch marking, and the row
+    // would never report that it had left mid-entry — an invalid estimate held back forever.
+    //
+    // ⚠️ v0.69.0 — REWRITTEN ON ITS VALUE, deliberately. The row no longer reports a boolean
+    // (this pinned `[false]`); it reports what saved data cannot see, and the page derives the
+    // flag from the saved 9/5/5. The sequence is the mount SEED at work: mid-entry while any
+    // cell is unvisited, then clean. Seed every row touched instead and the first report is
+    // already clean — v0.67.23 reopened — so this test also pins the seed.
     const onValidityChange = vi.fn();
     const spyUpdate = vi.fn();
     const { pid, sid, aid } = seed({ min: 5, mostLikely: 5, max: 5 });
@@ -306,10 +313,14 @@ describe("UnifiedActivityRow — a blur that changes nothing writes nothing", ()
     typeInto("ml", aid, "5"); // re-typed, unchanged
     typeInto("max", aid, "5"); // re-typed, unchanged
 
+    const halfTyped = { midEntry: { min: 9, mostLikely: 5, max: 5 }, refused: {} };
     expect({
       validity: onValidityChange.mock.calls.map((c) => c[1]),
       writes: spyUpdate.mock.calls.map((c) => c[1]),
-    }).toEqual({ validity: [false], writes: [{ min: 9 }] });
+    }).toEqual({
+      validity: [halfTyped, halfTyped, { midEntry: null, refused: {} }],
+      writes: [{ min: 9 }],
+    });
   });
 
   it("calls onUpdate exactly once per commit under StrictMode", () => {

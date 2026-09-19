@@ -4,6 +4,7 @@
 
 import { useCallback, useState } from "react";
 import type { Activity, Milestone, MilestoneBufferInfo } from "@domain/models/types";
+import { NAME_MAX_LENGTH } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -47,6 +48,7 @@ function MilestoneNameInput({ milestoneId, name, disabled, onCommit }: Milestone
       name="milestoneName"
       autoComplete="off"
       aria-label="Milestone name"
+      maxLength={NAME_MAX_LENGTH}
       value={localValue}
       onChange={(e) => setLocalValue(e.target.value)}
       onFocus={handleFocus}
@@ -328,6 +330,7 @@ export function MilestonePanel({
             type="text"
             name="newMilestoneName"
             aria-label="New milestone name"
+            maxLength={NAME_MAX_LENGTH}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Milestone name"

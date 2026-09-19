@@ -9,6 +9,9 @@ import { useProjectActions } from "@ui/hooks/use-project-actions";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule, type ScheduleError } from "@ui/hooks/use-schedule";
 import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
+import { runBlockedMessage } from "@ui/helpers/run-blocked-message";
+import { useEstimateValidity } from "@ui/hooks/use-estimate-validity";
+import { useHeldWhilePointerDown } from "@ui/hooks/use-held-while-pointer-down";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
 import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
@@ -130,7 +133,6 @@ export function ProjectPage() {
   const [newScenarioOpen, setNewScenarioOpen] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
-  const [allActivitiesValid, setAllActivitiesValid] = useState(true);
   const [sequentialScheduleError, setSequentialScheduleError] = useState<ScheduleError | null>(null);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [editingDependency, setEditingDependency] = useState<{ fromActivityId: string; toActivityId: string } | null>(null);
@@ -173,6 +175,12 @@ export function ProjectPage() {
   }, [project, selection]);
 
   const scenario = project?.scenarios.find((s) => s.id === activeScenarioId);
+
+  // v0.69.0 (WI-49): estimate validity is DERIVED from the saved activities, plus what the rows
+  // report that saved data cannot see. It replaces a `useState(true)` that only the grid could
+  // move, so a project loaded with a bad row showed every signal as valid at mount. Run sites
+  // read `runnable`; the summary, the banner and the red cells read the flagged sets.
+  const validity = useEstimateValidity(scenario);
 
   // Set document.title so "Save as PDF" defaults to a descriptive filename
   const projectName = project?.name;
@@ -329,10 +337,20 @@ export function ProjectPage() {
   // derives it (no state write); otherwise the sequential useSchedule drives
   // `sequentialScheduleError`. The two paths are mutually exclusive on depMode.
   const scheduleError = depMode ? dependencyScheduleResult.scheduleError : sequentialScheduleError;
-  // ⚠️ `allActivitiesValid` gates the GENERIC branch only, and it is the app's own
-  // "the rows say they are fine" signal (set by the grid, below). Rows-valid + engine-throw
-  // is the half-typed estimate window, not a fault the user can act on — see the helper.
-  const scheduleErrorBanner = getScheduleErrorBanner(scheduleError, allActivitiesValid);
+  // ⚠️ v0.69.0 — the generic branch is gated on `flaggedThrow`: the first FLAGGED activity whose
+  // own distribution cannot be built, and its own message. NOT "some row is flagged" (that
+  // reopens v0.67.23 whenever any row is, and a loaded bad row now is at mount), and NOT the
+  // engine's message (the engine names its FIRST throw, which can be a half-typed row above the
+  // flagged one). See the helper and `useEstimateValidity`.
+  //
+  // Both banner inputs are HELD while a pointer is down, with the summary's rows below: the
+  // banner and the summary sit above the grid, and inserting, growing or removing either between
+  // `pointerdown` and `click` moves the grid under the click (v0.69.0). Nothing that gates Run is
+  // held.
+  const paintedScheduleError = useHeldWhilePointerDown(scheduleError);
+  const paintedFlaggedThrow = useHeldWhilePointerDown(validity.flaggedThrow);
+  const paintedFlaggedRows = useHeldWhilePointerDown(validity.flaggedRows);
+  const scheduleErrorBanner = getScheduleErrorBanner(paintedScheduleError, paintedFlaggedThrow);
 
   // Critical path activity IDs (only in dependency mode)
   const criticalPathIds = useMemo(() => {
@@ -365,6 +383,10 @@ export function ProjectPage() {
   }, [depMode, activities, dependencies, probTarget]);
 
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
+  // The warnings panel also sits above the grid and reads `schedule`, which is null whenever
+  // the engine throws — so a commit can remove it under a click, as it can the banner. Held for
+  // that panel only (v0.69.0).
+  const paintedSchedule = useHeldWhilePointerDown(schedule);
 
   // Schedule buffer = MC percentile at project target - deterministic span
   const buffer = useScheduleBuffer(
@@ -445,7 +467,7 @@ export function ProjectPage() {
   useAutoRunSimulation({
     projectId: id,
     scenario,
-    allActivitiesValid,
+    allActivitiesValid: validity.runnable,
     workCalendar,
     isRunning: simulation.isRunning,
     runSimulation: simulation.run,
@@ -564,6 +586,15 @@ export function ProjectPage() {
 
   const handleRunSimulation = useCallback(() => {
     if (!id || !scenario) return;
+    // v0.69.0 (WI-53) — the gate is HERE, in the handler, not only on the panel's button. The
+    // summary card's two "Run simulation" links call this directly, and before this line they
+    // ran a complete plan on a flagged row while the button beside the grid was disabled. The
+    // panel's button stays natively disabled (a disabled button dispatches no click), so this
+    // toast is what the links show.
+    if (!validity.runnable) {
+      toast.error(runBlockedMessage(validity.runBlockers));
+      return;
+    }
 
     let params: SimulationParams;
     try {
@@ -597,7 +628,7 @@ export function ProjectPage() {
       params.dependencyParams,
       params.sequentialConstraints,
     );
-  }, [id, scenario, simulation, setSimulationResults, workCalendar]);
+  }, [id, scenario, simulation, setSimulationResults, workCalendar, validity.runnable, validity.runBlockers]);
 
   const handleSettingsChange = useCallback(
     (updates: Partial<ScenarioSettings>) => {
@@ -644,8 +675,12 @@ export function ProjectPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with project name and actions */}
-      <div className="flex items-center justify-between">
+      {/* Header with project name and actions.
+          `[overflow-anchor:none]` here and on everything else above the grid (v0.69.0): none of
+          it may become the browser's scroll anchor, so that when the flag grows or shrinks above
+          the grid, the browser keeps the GRID still on screen. A free layer under the hold, which
+          is what actually protects a click; anchoring does not engage at scrollY 0. */}
+      <div className="flex items-center justify-between [overflow-anchor:none]">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           <InlineEdit
             value={project.name}
@@ -707,7 +742,7 @@ export function ProjectPage() {
       </div>
 
       {/* Scenario tabs + compare toggle */}
-      <div className="flex items-center justify-between min-w-0">
+      <div className="flex items-center justify-between min-w-0 [overflow-anchor:none]">
         <ScenarioTabs
           scenarios={project.scenarios}
           activeScenarioId={activeScenarioId}
@@ -744,7 +779,7 @@ export function ProjectPage() {
         />
       )}
       {compareMode && compareScenarios.length < 2 && (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-gray-400 [overflow-anchor:none]">
           Select 2-3 scenarios above to compare.
         </p>
       )}
@@ -755,7 +790,7 @@ export function ProjectPage() {
           hygiene), whose isCalendarError branch uses the shared, two-shape
           work-calendar.ts predicate — not a narrower reimplementation. */}
       {scheduleErrorBanner && (
-        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 [overflow-anchor:none]">
           <p className="text-sm font-medium text-red-800 dark:text-red-300">
             {scheduleErrorBanner.heading}
           </p>
@@ -773,11 +808,11 @@ export function ProjectPage() {
       )}
 
       {/* Constraint conflict / dependency violation warnings */}
-      {((schedule?.constraintConflicts && schedule.constraintConflicts.length > 0) ||
-        (schedule?.dependencyConflicts && schedule.dependencyConflicts.length > 0)) && (
+      {((paintedSchedule?.constraintConflicts && paintedSchedule.constraintConflicts.length > 0) ||
+        (paintedSchedule?.dependencyConflicts && paintedSchedule.dependencyConflicts.length > 0)) && (
         <WarningsPanel
-          conflicts={schedule?.constraintConflicts ?? []}
-          dependencyConflicts={schedule?.dependencyConflicts}
+          conflicts={paintedSchedule?.constraintConflicts ?? []}
+          dependencyConflicts={paintedSchedule?.dependencyConflicts}
           activityNumberMap={activityNumberMap}
         />
       )}
@@ -827,10 +862,8 @@ export function ProjectPage() {
             onScenarioNotesBlur={() => endUndoGroup()}
           />
 
-          {/* Validation errors */}
-          {!allActivitiesValid && (
-            <ValidationSummary activities={scenario.activities} />
-          )}
+          {/* Validation errors — the flagged rows, held while a pointer is down (see above) */}
+          <ValidationSummary rows={paintedFlaggedRows} />
 
           {/* Unified Activity Grid — input + schedule merged */}
           <UnifiedActivityGrid
@@ -859,7 +892,8 @@ export function ProjectPage() {
             onReorderWithBands={(activities, bands) =>
               reorderWithBands(id!, scenario.id, activities, bands)
             }
-            onValidityChange={setAllActivitiesValid}
+            onValidityChange={validity.reportRow}
+            cellIssues={validity.cellIssues}
             onBulkUpdate={(activityIds, updates) =>
               bulkUpdateActivities(id!, scenario.id, activityIds, updates)
             }
@@ -979,7 +1013,8 @@ export function ProjectPage() {
             progress={simulation.progress}
             error={simulation.error}
             elapsedMs={simulation.elapsedMs}
-            allActivitiesValid={allActivitiesValid}
+            allActivitiesValid={validity.runnable}
+            runBlockers={validity.runBlockers}
             hasActivities={scenario.activities.length > 0}
             autoRunEnabled={autoRunSimulation}
             deterministicSpan={schedule?.spanDays}
