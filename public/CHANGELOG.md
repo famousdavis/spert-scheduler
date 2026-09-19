@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.70.5 — 2026-09-19
+
+### Fixed
+
+- **The Confidence dropdown in the activity grid opens on the activity's current level.** It used to open with the top level, “Near certainty”, highlighted whatever level the activity had, so the arrow keys and Enter started from the top of the list, and the activity's own level could be out of sight below the bottom of the list. The current level is now highlighted each time the dropdown opens, the list scrolls to it, and the arrow keys move up and down from it. As you type in the filter box, the highlight goes to the current level while it still matches what you type, and otherwise to the first match.
+
+- **In the grid's Confidence dropdown, choosing the level an activity already has no longer counts as an edit.** Pressing Enter as soon as the dropdown opens, or clicking the activity's current level, now just closes the dropdown. Until now, choosing the level it already had cleared the simulation results, added a step to Undo and saved the project, as if the level had changed. Choosing a different level works as before.
+
+- **In the same dropdown, the description under the highlighted level is easier to read in the light theme.** It is now a darker grey, which meets the minimum contrast for small text against the blue highlight.
+
+### Internal
+
+- **Tests open the dropdown at several levels, move through it with the arrow keys and the filter box, reopen it after closing it with a filter typed, check that opening it, and opening it again on the same level, asks for the highlighted level to be brought into view, check which grey each description uses, and check that choosing the activity's current level saves nothing while choosing another still saves and can be undone.** They were shown to fail when opening puts the highlight back on the top level, when typing puts it back on the first match, when the list scrolls only as the highlight moves and not when the dropdown opens, when choosing the current level saves again, and when the highlighted level's description loses its darker grey.
+
 ## 0.70.4 — 2026-09-19
 
 ### Fixed
