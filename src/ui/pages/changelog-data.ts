@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.70.1",
+    date: "2026-09-19",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Save and Cancel no longer scroll out of sight in the Edit Activity dialog. Only its sections scroll now, and the title and the Save and Cancel buttons no longer scroll with them. Until now the whole dialog scrolled, with Save and Cancel at the end, below every section. On a 1280 × 720 screen that put them out of sight when the dialog opened, for every activity in the sample project: the dialog is 612 pixels tall there, and each of the 40 activities needs 684 with only its General section open. A click aimed at a button cut off by the dialog's bottom edge could land outside the dialog, which closes it, or asks about your unsaved changes if there are any.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The Edit Activity dialog no longer logs a warning about a missing description to the browser console when it opens. Its title still names it for screen readers.",
+          "Tests pin the dialog's title, Save and Cancel outside the part that scrolls, and were shown to fail against deliberately broken versions — the old layout, and Save and Cancel moved back into the scrolling part. A companion test fails if nothing in the dialog scrolls at all.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.70.0",
     date: "2026-09-18",
     sections: [

@@ -744,12 +744,35 @@ export function ActivityEditModal({
     <Dialog.Root open onOpenChange={(open) => { if (!open) handleDismiss(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-xl z-50 max-h-[85vh] overflow-y-auto">
-          <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        {/*
+          ⚠️ ONLY THE SECTIONS SCROLL. The title and the Save/Cancel row sit OUTSIDE the scroller,
+          in a flex column capped at 85vh (v0.70.1). Until then this whole box was the scroller,
+          footer included: at 1280×720 it is 612 px tall, and with only the sections that open by
+          default its content measured 659–684 px, flagged or not (684 for every activity in the
+          sample project). So Save and Cancel sat cut off by the box's bottom edge or wholly below
+          it, and a click aimed at Save's centre landed on the overlay and asked about unsaved
+          changes.
+          ⚠️ Do not put the footer back inside the scroller, and do not move the box's overflow
+          back onto Dialog.Content; ActivityEditModal.test.tsx pins both.
+          The box's p-6 moved onto its three parts, so the spacing is unchanged when nothing
+          scrolls: the title's pb-2 + the scroller's pt-1 are the old mt-3, and the scroller's
+          pb-1 + the footer's pt-4 are the old mt-5. The scroller keeps a little of each gap, and
+          its side gutters, as its OWN padding, so a focus ring at its edge is not clipped.
+          aria-describedby={undefined} is Radix's documented opt-out for a dialog whose title
+          names it: no one sentence describes a form this long, and without it Radix warns on
+          every open. ⚠️ It goes AFTER className: dialog-stacking.test.ts reads only a className
+          written straight after the tag name, and this layer vanished from its z-index check
+          when the attribute came first.
+        */}
+        <Dialog.Content
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xl z-50 max-h-[85vh] flex flex-col"
+          aria-describedby={undefined}
+        >
+          <Dialog.Title className="shrink-0 px-6 pt-6 pb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Edit Activity
           </Dialog.Title>
 
-          <div className="mt-3 space-y-0">
+          <div className="min-h-0 overflow-y-auto px-6 pt-1 pb-1 space-y-0">
             {/* ── Section 1: General ── */}
             <Section title="General" defaultOpen>
               {/* Name + Status (side-by-side) */}
@@ -1187,8 +1210,8 @@ export function ActivityEditModal({
             )}
           </div>
 
-          {/* Actions */}
-          <div className="mt-5 flex justify-end gap-2">
+          {/* Actions — outside the scroller, so always on screen */}
+          <div className="shrink-0 px-6 pt-4 pb-6 flex justify-end gap-2">
             {/*
               ⚠️ THREE DELIBERATE DECISIONS LIVE ON THESE TWO BUTTONS, and every one of them has
               already been changed or proposed for change at least once. Read before touching either.
