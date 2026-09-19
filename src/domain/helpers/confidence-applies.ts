@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import type { DistributionType } from "@domain/models/types";
+import { logNormalHasNoMean } from "@domain/helpers/estimate-rules";
 
 /**
  * Does the confidence level affect this distribution's spread?
@@ -94,8 +95,9 @@ export const CONFIDENCE_INERT_TITLES: Record<ConfidenceInertReason, string> = {
  * Two exceptions keep a point estimate live:
  * - an `sdOverride` gives it real spread under T-Normal or LogNormal;
  * - LogNormal at zero cannot be built at all (the distribution factory throws for a PERT mean
- *   of 0 or less), so greying that row would dress a broken state as a settled one. For a point
- *   estimate the PERT mean IS the value, so the test is on the value.
+ *   of 0 or less), so greying that row would dress a broken state as a settled one. The test is
+ *   `logNormalHasNoMean`, the same predicate that makes `ActivitySchema` flag the row (v0.69.0);
+ *   for a point estimate it reduces to the value being 0.
  *
  * ⚠️ Switching between distributions on such a row still re-deals every OTHER activity's random
  * draws (T-Normal and LogNormal take two per sample, Triangular and Uniform one, from one shared
@@ -110,7 +112,7 @@ export function distributionIsInert(
   sdOverride?: number
 ): boolean {
   if (typeof min !== "number" || min !== mostLikely || mostLikely !== max) return false;
-  return sdOverride == null && (distributionType !== "logNormal" || min > 0);
+  return sdOverride == null && !logNormalHasNoMean(distributionType, min, mostLikely, max);
 }
 
 /** The greyed Distribution control's `title`. */

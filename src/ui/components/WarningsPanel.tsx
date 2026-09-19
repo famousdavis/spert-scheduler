@@ -77,7 +77,7 @@ export function WarningsPanel({ conflicts, dependencyConflicts = [], activityNum
   const warnings = conflicts.filter((c) => c.severity === "warning");
 
   return (
-    <div className="rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+    <div className="rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 [overflow-anchor:none]">
       <button
         type="button"
         onClick={() => setCollapsed(!collapsed)}

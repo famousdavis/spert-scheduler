@@ -179,6 +179,27 @@ function findScenario(
 }
 
 /**
+ * Does this scenario still hold this activity? The pre-check `updateActivityField` makes before
+ * it mutates anything (WI-54, v0.69.0).
+ *
+ * Without it a write for an id the scenario no longer holds — a commit racing the row's removal
+ * by a collaborator or an AI op — pushed an undo frame, emptied the Redo stack, rewrote
+ * localStorage, emitted a cloud save and discarded the scenario's simulation results, all for an
+ * activity that no longer exists: `updateActivity` clears the results whether or not anything
+ * matched. It must run BEFORE `mutateScenario`, because `pushUndo` runs before the `set`.
+ * Module-level, not an inline `.some` callback: this file is at its nested-function ceiling.
+ */
+function scenarioHasActivity(
+  projects: Project[],
+  projectId: string,
+  scenarioId: string,
+  activityId: string
+): boolean {
+  const scenario = findScenario(projects, projectId, scenarioId);
+  return scenario !== undefined && scenario.activities.some((a) => a.id === activityId);
+}
+
+/**
  * Check if a scenario is locked. Used as a guard before mutations.
  * Returns true if the scenario is locked or doesn't exist.
  */
@@ -1150,10 +1171,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   // ones below. Description is shared/exported scope text; editing it clears
   // simulationResults (same as rename), a deliberate trade (see the description
   // field plan). Do not add an `updateActivityDescription` non-invalidating action.
-  updateActivityField: (projectId, scenarioId, activityId, updates) =>
+  updateActivityField: (projectId, scenarioId, activityId, updates) => {
+    // WI-54: a write for an activity the scenario no longer holds changes nothing. See
+    // `scenarioHasActivity`.
+    if (!scenarioHasActivity(get().projects, projectId, scenarioId, activityId)) return;
     mutateScenario(projectId, scenarioId, "already-invalidated", (s) =>
       updateActivity(s, activityId, updates)
-    ),
+    );
+  },
 
   updateActivityChecklist: (projectId, scenarioId, activityId, checklist) => {
     if (isLocked(get().projects, projectId, scenarioId)) return;

@@ -44,7 +44,12 @@ function openFor(overrides: Partial<Activity>) {
     />
   );
   // The Estimates section starts collapsed; its fields are not in the DOM until it opens.
-  fireEvent.click(screen.getByRole("button", { name: /Estimates/ }));
+  // ⚠️ v0.69.0: EXCEPT when the saved estimates are flagged (out of order, or LogNormal at zero):
+  // then it opens by itself (owner, R206.3), and a click here would CLOSE it. Expand it only if
+  // it is still collapsed.
+  if (!document.querySelector('select[name="distributionType"]')) {
+    fireEvent.click(screen.getByRole("button", { name: /Estimates/ }));
+  }
 }
 
 const distribution = () =>

@@ -273,6 +273,51 @@ describe("update_activity_estimate", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// A FLAGGED row — the owner's ruling 2a (2026-09-18, WI-49)
+// ---------------------------------------------------------------------------
+
+/**
+ * Since v0.69.0 a project can hold an activity whose SAVED estimates the grid flags: out of order
+ * (min ≤ Most Likely ≤ max broken), or LogNormal at zero. It loads, instead of making the project
+ * unloadable. Connect AI keeps refusing to edit such a row — any field, a rename too — until its
+ * numbers are valid, because every update is validated on the MERGED activity; and it accepts an
+ * update that repairs them. Owner ruling 2a: keep it, and pin it.
+ *
+ * ⚠️ These pass by construction today. Their value is the plant they were falsified against:
+ * validate the PATCH instead of the merge, and the two refusals below turn into acceptances.
+ */
+describe("a flagged row (v0.69.0): refused until repaired, and a repair is accepted", () => {
+  const FLAGGED: Array<[string, Partial<Activity>, Partial<Activity>]> = [
+    ["out of order", { min: 14, mostLikely: 13, max: 22 }, { min: 9 }],
+    ["LogNormal at zero", { min: 0, mostLikely: 0, max: 0, distributionType: "logNormal" }, { max: 1 }],
+  ];
+
+  function withFlaggedRow(saved: Partial<Activity>) {
+    const { project, scenarioId, activityIds } = build({ activityCount: 1 });
+    const scenario = scenarioOf(project, scenarioId);
+    const flagged = withPatch(project, scenarioId, {
+      activities: scenario.activities.map((a) => ({ ...a, ...saved })),
+    });
+    return { project: flagged, scenarioId, id: activityIds[0]! };
+  }
+
+  it.each(FLAGGED)("%s: a rename is refused as invalid, and nothing changes", (_label, saved) => {
+    const { project, scenarioId, id } = withFlaggedRow(saved);
+    const res = one(project, { seq: 1, op: "rename_activity", payload: { id, name: "Renamed" } }, scenarioId);
+    expect(res.results[0]!.outcome).toEqual({ status: "skipped", reason: "invalid" });
+    expect(activityOf(res.project, scenarioId, id)).toMatchObject(saved);
+    expect(activityOf(res.project, scenarioId, id).name).not.toBe("Renamed");
+  });
+
+  it.each(FLAGGED)("%s: an estimate update that repairs it is applied", (_label, saved, repair) => {
+    const { project, scenarioId, id } = withFlaggedRow(saved);
+    const res = one(project, { seq: 1, op: "update_activity_estimate", payload: { id, ...repair } }, scenarioId);
+    expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    expect(activityOf(res.project, scenarioId, id)).toMatchObject(repair);
+  });
+});
+
 describe("rename_activity", () => {
   it("renames (applied)", () => {
     const { project, scenarioId, activityIds } = build();

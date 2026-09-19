@@ -4,6 +4,7 @@
 
 import { useId, useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { NAME_MAX_LENGTH } from "@domain/models/types";
 
 interface ScenarioOption {
   id: string;
@@ -83,6 +84,7 @@ export function NewScenarioDialog({
                 id={nameFieldId}
                 name="newScenarioName"
                 type="text"
+                maxLength={NAME_MAX_LENGTH}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 dark:text-gray-100"

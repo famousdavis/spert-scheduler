@@ -18,7 +18,7 @@ import {
   addActivityToScenario,
 } from "./project-service";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
-import type { Scenario, ActivityDependency } from "@domain/models/types";
+import type { Activity, Scenario, ActivityDependency } from "@domain/models/types";
 
 const monFri = () => buildWorkCalendar([1, 2, 3, 4, 5], [], []);
 const zeroCal = () => buildWorkCalendar([], [], []); // no working days at all
@@ -112,17 +112,30 @@ describe("classifyAndComputeScenario", () => {
     expect(classifyAndComputeScenario(scenario, zeroCal()).scheduleStatus).toBe("calendar_misconfigured");
   });
 
-  it("unknown for a non-calendar throw (triangular min > max order violation)", () => {
+  // ⚠️ v0.69.0 (R210.3): an out-of-order estimate is `invalid_estimate`, decided BEFORE computing.
+  // These two rows used to read `unknown` (Triangular, which throws) and `ok` WITH a schedule
+  // (T-Normal, which builds) — the second is the one that let the AI be told a row was fine.
+  it.each([
+    ["Triangular 5/3/1 (it throws; was unknown)", 5, 3, 1, "triangular" as const],
+    ["T-Normal 14/13/22 (it builds; was ok, with a schedule)", 14, 13, 22, "normal" as const],
+  ])("invalid_estimate, and no schedule, for an out-of-order estimate: %s", (_label, min, mostLikely, max, distributionType) => {
     const { scenario } = makeScenario({ count: 1 });
     const invalid: Scenario = {
       ...scenario,
-      activities: scenario.activities.map((a) => ({
-        ...a,
-        min: 5,
-        mostLikely: 3,
-        max: 1,
-        distributionType: "triangular" as const,
-      })),
+      activities: scenario.activities.map((a) => ({ ...a, min, mostLikely, max, distributionType })),
+    };
+    const c = classifyAndComputeScenario(invalid, monFri());
+    expect(c.scheduleStatus).toBe("invalid_estimate");
+    expect(c.schedule).toBeUndefined();
+  });
+
+  it("unknown for a throw that is neither a calendar nor an estimate problem", () => {
+    // Runtime-only: a distribution type the factory does not know (a hand-edited or newer file).
+    // The cast is the only way to reach the factory's default branch, which is the point.
+    const { scenario } = makeScenario({ count: 1 });
+    const invalid: Scenario = {
+      ...scenario,
+      activities: scenario.activities.map((a) => ({ ...a, distributionType: "bogus" as unknown as Activity["distributionType"] })),
     };
     expect(classifyAndComputeScenario(invalid, monFri()).scheduleStatus).toBe("unknown");
   });

@@ -87,3 +87,20 @@ export function computeElapsedDays(
     (isWorkingDay(today, calendar) ? 1 : 0);
   return Math.max(1, elapsed);
 }
+
+export const ENTER_A_NUMBER = "Enter a number.";
+export const ENTER_ZERO_OR_MORE = "Enter 0 or more.";
+
+/**
+ * Why an estimate cell's entry cannot be stored — or `null` when it can. The grid row refuses
+ * the entry at the blur and flags the cell; the cell keeps the text on screen (v0.63.1's rule).
+ *
+ * - Not a number — in practice a CLEARED cell (v0.63.1).
+ * - A NEGATIVE number (v0.69.0). Until then `-5` was stored, and the next load rejected the
+ *   whole project: estimates are `nonnegative()` in the schema every load gate uses. `-0` is 0.
+ */
+export function refuseEstimateEntry(raw: string): string | null {
+  const parsed = parseFloat(raw);
+  if (Number.isNaN(parsed)) return ENTER_A_NUMBER;
+  return parsed < 0 ? ENTER_ZERO_OR_MORE : null;
+}

@@ -104,7 +104,13 @@ describe("UnifiedActivityRow — estimate commit on blur", () => {
     // numbers in ActivitySchema, which is why the fix is to REPORT rather than commit.
     expect(onUpdate).not.toHaveBeenCalled();
     // But the row now says so, which is the whole difference.
-    expect(onValidityChange).toHaveBeenCalledWith("a1", false);
+    // ⚠️ v0.69.0 — MOVED ON ITS VALUE, deliberately: the row reports its state rather than a
+    // boolean, and a refused cell is exactly what saved data cannot see. The established
+    // 2/5/9 row is not half-typed, so there is no mid-entry stamp.
+    expect(onValidityChange).toHaveBeenCalledWith("a1", {
+      midEntry: null,
+      refused: { min: "Enter a number." },
+    });
   });
 
   it("keeps showing what the user typed rather than restoring the old value", () => {

@@ -243,7 +243,7 @@ export function ScenarioSummaryCard({
     constraintDelayDays !== null && constraintDelayDays > 0 && !hasErrorConflict;
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 [overflow-anchor:none]">
       {/* Lock indicator banner */}
       {isLocked && (
         <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md -mt-1 mb-2">

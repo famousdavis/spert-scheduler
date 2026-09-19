@@ -12,6 +12,34 @@ import { HistogramChart } from "@ui/charts/HistogramChart";
 import { CDFChart } from "@ui/charts/CDFChart";
 import { PercentileTable } from "@ui/charts/PercentileTable";
 import { CopyImageButton } from "@ui/components/CopyImageButton";
+import type { ActivityProblem } from "@ui/hooks/use-estimate-validity";
+
+const NO_BLOCKERS: readonly ActivityProblem[] = [];
+
+/**
+ * Why Run is off, under the button (v0.69.0). It NAMES every activity that stops Run and says
+ * what is wrong with each. It replaced one generic sentence — "Fix validation errors in
+ * activities before running simulation." — which stayed on screen after an undo had repaired
+ * the estimate, telling the user to fix errors that no longer existed (WI-28).
+ *
+ * It lives HERE, below the grid, and never in the validation summary or the banner above it:
+ * those hold back a half-typed row's ordering error, and this line is what explains Run while
+ * they do. The amber pair is the summary's: `text-amber-700` alone measured 3.53:1 on dark.
+ */
+function RunBlockedReason({ blockers }: { blockers: readonly ActivityProblem[] }) {
+  return (
+    <div className="text-sm text-amber-700 dark:text-amber-300">
+      <p>Run needs every activity's estimates to be valid. Fix:</p>
+      <ul className="mt-1 space-y-0.5">
+        {blockers.map((b) => (
+          <li key={b.id}>
+            <span className="font-medium">{b.name}</span>: {b.messages.join("; ")}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function healthColor(pct: number, greenPct: number, amberPct: number): string {
   if (pct >= greenPct) return "#16a34a";
@@ -28,6 +56,8 @@ interface SimulationPanelProps {
   error: string | null;
   elapsedMs: number | null;
   allActivitiesValid: boolean;
+  /** Every activity that stops Run, with its reasons — named in the line under the button. */
+  runBlockers?: readonly ActivityProblem[];
   hasActivities: boolean;
   autoRunEnabled?: boolean;
   deterministicSpan?: number;
@@ -50,6 +80,7 @@ export function SimulationPanel({
   error,
   elapsedMs,
   allActivitiesValid,
+  runBlockers = NO_BLOCKERS,
   hasActivities,
   autoRunEnabled,
   deterministicSpan,
@@ -153,11 +184,7 @@ export function SimulationPanel({
         </p>
       )}
 
-      {!allActivitiesValid && hasActivities && (
-        <p className="text-amber-700 text-sm">
-          Fix validation errors in activities before running simulation.
-        </p>
-      )}
+      {!allActivitiesValid && hasActivities && <RunBlockedReason blockers={runBlockers} />}
 
       {/* Progress */}
       {isRunning && progress && (

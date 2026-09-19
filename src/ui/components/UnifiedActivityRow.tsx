@@ -15,13 +15,15 @@ import type { WorkCalendar } from "@core/calendar/work-calendar";
 import {
   DISTRIBUTION_TYPES,
   ACTIVITY_STATUSES,
+  NAME_MAX_LENGTH,
 } from "@domain/models/types";
-import { ActivitySchema } from "@domain/schemas/project.schema";
+import type { EstimateKey } from "@domain/helpers/estimate-rules";
+import type { CellIssues, EstimateTriple, RowReport } from "@ui/hooks/use-estimate-validity";
 import { suggestDistributionChange } from "@core/recommendation/recommendation";
 import { computeHeuristic } from "@core/estimation/heuristic";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
-import { computeElapsedDays, focusField } from "./activity-row-helpers";
+import { computeElapsedDays, focusField, refuseEstimateEntry } from "./activity-row-helpers";
 import {
   constraintBadgeClass,
   constraintBadgeLabel,
@@ -48,7 +50,13 @@ interface UnifiedActivityRowProps {
   onToggleSelect?: (activityId: string) => void;
   onUpdate: (activityId: string, updates: Partial<Activity>) => void;
   onDelete: (activityId: string) => void;
-  onValidityChange: (activityId: string, isValid: boolean) => void;
+  /**
+   * The row's report of what saved data cannot see — a refused entry, or that it is half-typed
+   * (v0.69.0; it carried a boolean before). Sent after every estimate blur.
+   */
+  onValidityChange: (activityId: string, report: RowReport) => void;
+  /** This activity's estimate cells to paint red, derived by the page from the saved activity. */
+  savedIssues?: CellIssues;
   isLocked?: boolean;
   heuristicEnabled?: boolean;
   heuristicMinPercent?: number;
@@ -62,9 +70,6 @@ interface UnifiedActivityRowProps {
   isLastRow?: boolean;
   isAnyDragging?: boolean;
 }
-
-type FieldErrors = Partial<Record<string, string>>;
-
 
 /**
  * Reject-empty-after-trim on the activity-name commit — the rule `InlineEdit` already
@@ -264,6 +269,7 @@ export function UnifiedActivityRow({
   onUpdate,
   onDelete,
   onValidityChange,
+  savedIssues,
   isLocked,
   heuristicEnabled,
   heuristicMinPercent = 50,
@@ -300,13 +306,25 @@ export function UnifiedActivityRow({
     transition,
   };
 
-  const [errors, setErrors] = useState<FieldErrors>({});
+  // v0.69.0 — ONLY what saved data cannot see: an entry this row refused to store (a cleared
+  // cell, a negative number), by field. Every other estimate error — out of order, LogNormal at
+  // zero — is derived from the SAVED activity by the page (`useEstimateValidity`) and arrives as
+  // `savedIssues`. Until v0.69.0 this map also held the schema's issues, written only from the
+  // blur handlers below, so an external repair (undo, the dialog, Connect AI, a cloud echo) left
+  // a red cell over a good value — WI-28's mechanism, removed rather than patched.
+  const [refused, setRefused] = useState<RefusedEntries>(NO_REFUSALS);
   // ⚠️ v0.67.2 — the VALUE is read now, and that is the M12 fix. Until this release the
-  // plain-estimate commit path called `validateAndUpdate` from INSIDE this setter's
+  // plain-estimate commit path (`validateAndUpdate`, now `commitAndReport`) ran from INSIDE this setter's
   // updater function, so React's development double-invocation ran the store write twice:
   // every estimate edit pushed two undo frames on the dev server and the first Cmd+Z
   // looked like it did nothing. Reading the state and calling the store outside the
   // updater is the whole change; do not move the call back in.
+  //
+  // ⚠️ v0.69.0 — KEEP THIS SEED until the three estimate cells commit as one group. An all-equal
+  // row starts with nothing touched, so its first blur reports MID-ENTRY, and that is what holds
+  // a fresh row's half-typed triple (5/1/1) back from the summary, the banner and the red cells
+  // (v0.67.23's rule). Seed every row touched instead and that triple flags on the first Tab.
+  // Pinned by `UnifiedActivityRow.estimate-commit.test.tsx`'s blur-through sequence.
   const [touchedFields, setTouchedFields] = useState<Set<string>>(() => {
     const allEqual =
       activity.min === activity.mostLikely &&
@@ -316,33 +334,14 @@ export function UnifiedActivityRow({
       : new Set(["min", "mostLikely", "max"]);
   });
 
-  const allEstimatesTouched = (touched: Set<string>) =>
-    touched.has("min") && touched.has("mostLikely") && touched.has("max");
-
-  const validateAndUpdate = useCallback(
-    (field: "min" | "mostLikely" | "max", value: number, touched: Set<string>) => {
-      const updates = { [field]: value };
-      const candidate = { ...activity, ...updates };
-
-      const result = ActivitySchema.safeParse(candidate);
-      if (result.success) {
-        setErrors((prev) => {
-          const next = { ...prev };
-          delete next[field];
-          delete next["min"];
-          delete next["mostLikely"];
-          return next;
-        });
-        onValidityChange(activity.id, true);
-      } else if (allEstimatesTouched(touched)) {
-        const fieldErrors: FieldErrors = {};
-        for (const issue of result.error.issues) {
-          const path = issue.path.join(".");
-          fieldErrors[path] = issue.message;
-        }
-        setErrors((prev) => ({ ...prev, ...fieldErrors }));
-        onValidityChange(activity.id, false);
-      }
+  // Commit-and-flag, v0.63.1's design and still the rule: a numeric entry is STORED even when it
+  // leaves the triple out of order — the flag comes from the saved data, on the page — and the
+  // row reports only its own state (v0.69.0). It no longer parses the schema itself.
+  const commitAndReport = useCallback(
+    (field: EstimateKey, value: number, touched: Set<string>) => {
+      const nextRefused = withoutRefusal(refused, field);
+      setRefused(nextRefused);
+      onValidityChange(activity.id, rowReport(touched, nextRefused, { ...estimateTriple(activity), [field]: value }));
 
       // ⚠️ v0.67.2 (R40) — a blur that leaves the number ON SCREEN unchanged writes
       // nothing. Before this, merely looking at a cell and looking away committed the
@@ -359,18 +358,21 @@ export function UnifiedActivityRow({
       // pin in this file. The display/store mismatch it preserves is deliberate: see the
       // R40 note in EstimateInputs.tsx.
       if (Math.round(activity[field]) !== value) {
-        onUpdate(activity.id, updates);
+        onUpdate(activity.id, { [field]: value });
       }
     },
-    [activity, onUpdate, onValidityChange]
+    [activity, refused, onUpdate, onValidityChange]
   );
 
   // ⚠️ THE BRANCHING BELOW IS PROTECTED. Do not simplify it back.
   //
   // v0.63.1 added the `else` that REPORTS a cleared estimate instead of silently swallowing
   // it — added branching that IS the improvement, a number that got worse because the
-  // software got better. That behaviour is pinned by `UnifiedActivityRow.blur.test.tsx:102`
-  // and `:141`; those two pins, not a complexity figure, are what guard it.
+  // software got better. That behaviour is pinned by `UnifiedActivityRow.blur.test.tsx`'s
+  // "reports the cleared field as invalid instead of doing nothing" and "flags the cleared field
+  // so the user can see something happened" — cited by NAME since v0.69.0, whose one change to
+  // the first (the report is an object now, not `false`) moved the line numbers this comment
+  // used to give. Those two pins, not a complexity figure, are what guard it.
   //
   // ⚠️ THE cc-15 FRAMING IS HISTORICAL — this comment used to open "cc 15 — EXACTLY ON THE
   // LINT THRESHOLD" and a session grepping that number would now find a function measuring
@@ -383,42 +385,28 @@ export function UnifiedActivityRow({
   // The surviving example of a deliberate crossing is ScenarioTabs' SortableScenarioTab,
   // 13 → 15 on an accessibility fix.
   const handleBlur = useCallback(
-    (field: "min" | "mostLikely" | "max", rawValue: string) => {
-      const parsed = parseFloat(rawValue);
-      if (!isNaN(parsed)) {
-        const num = Math.round(parsed);
+    (field: EstimateKey, rawValue: string) => {
+      // v0.69.0 — refused BEFORE either branch below, because the heuristic branch writes
+      // unconditionally: an entry that cannot be stored is never stored.
+      const refusal = refuseEstimateEntry(rawValue);
+      if (refusal === null) {
+        const num = Math.round(parseFloat(rawValue));
         // When heuristic is enabled and ML actually changed, auto-calculate min/max.
         // ⚠️ v0.67.2 — `Math.round` on the stored value, for the reason spelled out in
-        // validateAndUpdate above: without it a stored `1` displayed over a fractional
+        // commitAndReport above: without it a stored `1` displayed over a fractional
         // `0.75` reads as "changed" and one look at the cell recalculates all three
         // estimates. This branch is where a single stale cell became three lost fields.
         if (heuristicEnabled && field === "mostLikely" && num !== Math.round(activity.mostLikely)) {
           const { min: minRaw, max: maxRaw } = computeHeuristic(num, heuristicMinPercent, heuristicMaxPercent);
-          const min = Math.round(minRaw);
-          const max = Math.round(maxRaw);
-          setTouchedFields((prev) => {
-            const next = new Set(prev);
-            next.add("min");
-            next.add("mostLikely");
-            next.add("max");
-            return next;
-          });
           // Update all three fields together
-          const updates = { mostLikely: num, min, max };
-          const candidate = { ...activity, ...updates };
-          const result = ActivitySchema.safeParse(candidate);
-          // ⚠️ NO `else`, AND DELIBERATELY LEFT THAT WAY IN v0.63.1 — do not "complete"
-          // this by symmetry with the branch below. It has the same missing-else shape,
-          // but it is UNREACHABLE: heuristicMinPercent is schema-bounded to 1–99 and
-          // heuristicMaxPercent to 101–1000, which forces min <= mostLikely <= max.
-          // Verified by exhaustion rather than argument — 5,121,171 schema-valid
-          // (mostLikely, minPercent, maxPercent) combinations, zero violations. Adding an
-          // error path here would be untestable code guarding a state the schema forbids.
-          // It becomes reachable only if those bounds widen; if you widen them, fix this.
-          if (result.success) {
-            setErrors({});
-            onValidityChange(activity.id, true);
-          }
+          const updates = { mostLikely: num, min: Math.round(minRaw), max: Math.round(maxRaw) };
+          const touched = new Set(["min", "mostLikely", "max"]);
+          setTouchedFields(touched);
+          // Only this cell's refusal clears: a Min or Max still holding a cleared entry keeps
+          // showing it, so the row still reports it (v0.69.0).
+          const nextRefused = withoutRefusal(refused, field);
+          setRefused(nextRefused);
+          onValidityChange(activity.id, rowReport(touched, nextRefused, updates));
           onUpdate(activity.id, updates);
           // ⚠️ v0.67.2 — the sibling cells USED to be written here, by hand, with a
           // document-scoped `document.querySelector`. That existed only because the
@@ -433,7 +421,7 @@ export function UnifiedActivityRow({
           setTouchedFields(next);
           // OUTSIDE the updater — see the touchedFields declaration. This call reaches the
           // store, and a side effect inside an updater runs twice in development.
-          validateAndUpdate(field, num, next);
+          commitAndReport(field, num, next);
         }
       } else {
         // ⚠️ v0.63.1 — REPORT the unparseable entry instead of silently doing nothing.
@@ -456,20 +444,24 @@ export function UnifiedActivityRow({
         // sibling treatment of a numeric-but-invalid entry (committed AND flagged) only
         // half-transfers. What transfers is the flagging.
         //
-        // NOT gated on allEstimatesTouched, unlike validateAndUpdate above, and the
-        // difference is principled rather than an oversight: that gate exists because
-        // min <= mostLikely <= max cannot be judged until all three are known. An empty
-        // field is invalid ON ITS OWN, so there is nothing to wait for.
-        setTouchedFields((prev) => {
-          const next = new Set(prev);
-          next.add(field);
-          return next;
-        });
-        setErrors((prev) => ({ ...prev, [field]: "Enter a number." }));
-        onValidityChange(activity.id, false);
+        // NOT gated on allEstimatesTouched, and the difference is principled rather than an
+        // oversight: that gate exists because min <= mostLikely <= max cannot be judged until
+        // all three are known. An empty field is invalid ON ITS OWN, so there is nothing to
+        // wait for.
+        //
+        // v0.69.0 — a NEGATIVE entry lands here too, refused exactly as a cleared one is:
+        // nothing written, the text left on screen, the cell red, the row reported. Until then
+        // `-5` was stored, and the next load rejected the whole project. Nothing is written, so
+        // the report's stamp is the triple already saved.
+        const next = new Set(touchedFields);
+        next.add(field);
+        setTouchedFields(next);
+        const nextRefused = { ...refused, [field]: refusal };
+        setRefused(nextRefused);
+        onValidityChange(activity.id, rowReport(next, nextRefused, estimateTriple(activity)));
       }
     },
-    [validateAndUpdate, heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, activity, onUpdate, onValidityChange, touchedFields]
+    [commitAndReport, heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, activity, refused, onUpdate, onValidityChange, touchedFields]
   );
 
   const isComplete = activity.status === "complete";
@@ -524,13 +516,17 @@ export function UnifiedActivityRow({
     revertValue: revertNameValue,
   } = useBufferedField(activity.name, handleNameCommit);
 
+  // Each cell's error: its own refused entry first (that is the text on screen), then the page's
+  // saved-data issue for its field (v0.69.0). One source per kind, and no row-local copy of the
+  // page's, so the red cannot disagree with the summary or outlive a repair.
+  const cellErrors = useMemo(() => ({ ...savedIssues, ...refused }), [savedIssues, refused]);
   const estimateFields = useMemo(
     () => [
-      { dataField: "min", activityKey: "min", value: activity.min, error: errors["min"], title: "Optimistic estimate (days)" },
-      { dataField: "ml", activityKey: "mostLikely", value: activity.mostLikely, error: errors["mostLikely"], title: "Most likely estimate (days)" },
-      { dataField: "max", activityKey: "max", value: activity.max, error: errors["max"], title: "Pessimistic estimate (days)" },
+      { dataField: "min", activityKey: "min", value: activity.min, error: cellErrors.min, title: "Optimistic estimate (days)" },
+      { dataField: "ml", activityKey: "mostLikely", value: activity.mostLikely, error: cellErrors.mostLikely, title: "Most likely estimate (days)" },
+      { dataField: "max", activityKey: "max", value: activity.max, error: cellErrors.max, title: "Pessimistic estimate (days)" },
     ],
-    [activity.min, activity.mostLikely, activity.max, errors]
+    [activity.min, activity.mostLikely, activity.max, cellErrors]
   );
 
   const suggestion = useMemo(
@@ -546,7 +542,8 @@ export function UnifiedActivityRow({
 
   const targetPct = Math.round(activityProbabilityTarget * 100);
 
-  const hasErrors = Object.keys(errors).length > 0;
+  // The row tint reads the same red as the cells (v0.69.0).
+  const hasErrors = Object.keys(cellErrors).length > 0;
 
   return (
     <div
@@ -612,6 +609,7 @@ export function UnifiedActivityRow({
             autoComplete="off"
             aria-label="Activity name"
             type="text"
+            maxLength={NAME_MAX_LENGTH}
             value={localName}
             onChange={(e) => setLocalName(e.target.value)}
             onFocus={handleNameFocus}
@@ -1014,6 +1012,40 @@ function distributionSelectLook(inert: boolean): { className: string; title?: st
         className:
           "w-full px-1 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
       };
+}
+
+/** The estimate cells holding an entry the row refused to store, with each cell's message. */
+type RefusedEntries = Partial<Record<EstimateKey, string>>;
+
+const NO_REFUSALS: RefusedEntries = {};
+
+/**
+ * `refused` without `field`'s entry — the SAME object when it had none, so an ordinary commit
+ * sets no new state. Module scope, like the helpers above: the component is an accepted
+ * cognitive-complexity decline, and these live below it so no cited line number moves.
+ */
+function withoutRefusal(refused: RefusedEntries, field: EstimateKey): RefusedEntries {
+  if (refused[field] === undefined) return refused;
+  const next = { ...refused };
+  delete next[field];
+  return next;
+}
+
+function allEstimatesTouched(touched: Set<string>): boolean {
+  return touched.has("min") && touched.has("mostLikely") && touched.has("max");
+}
+
+function estimateTriple(activity: Activity): EstimateTriple {
+  return { min: activity.min, mostLikely: activity.mostLikely, max: activity.max };
+}
+
+/**
+ * What the row tells the page after an estimate blur (v0.69.0). `saved` is the triple the store
+ * holds once this blur's write lands — the stamp that lets the page tell a still-half-typed row
+ * from one a dialog, an undo or a collaborator has since rewritten.
+ */
+function rowReport(touched: Set<string>, refused: RefusedEntries, saved: EstimateTriple): RowReport {
+  return { midEntry: allEstimatesTouched(touched) ? null : saved, refused };
 }
 
 /**

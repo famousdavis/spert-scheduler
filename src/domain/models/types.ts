@@ -27,6 +27,18 @@ export const SCHEMA_VERSION = 23;
  */
 export const MAX_SCENARIOS_PER_PROJECT = 50;
 
+/**
+ * The longest name the schema accepts for a project, scenario, activity, milestone or band — and
+ * so the `maxLength` of every input that edits one (v0.69.0). One value on purpose: until
+ * v0.69.0 the grid's activity-name input had no limit at all, a 202-character name committed
+ * silently, and the next load rejected the whole project; project, scenario and band names
+ * reached the same state through their own inputs.
+ */
+export const NAME_MAX_LENGTH = 200;
+
+/** A holiday's locale, as the schema bounds it — the `maxLength` of both inputs that edit one (v0.69.0). */
+export const HOLIDAY_LOCALE_MAX_LENGTH = 100;
+
 // -- Enums / Union Types -----------------------------------------------------
 
 export const RSM_LEVELS = [

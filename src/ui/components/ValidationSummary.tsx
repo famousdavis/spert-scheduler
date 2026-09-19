@@ -2,35 +2,21 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { Activity } from "@domain/models/types";
-import { ActivitySchema } from "@domain/schemas/project.schema";
-import { nameOrUnnamed } from "@domain/helpers/display-name";
+import type { ActivityProblem } from "@ui/hooks/use-estimate-validity";
 
 interface ValidationSummaryProps {
-  activities: Activity[];
+  /**
+   * The flagged activities, already worked out by `useEstimateValidity` from the SAME parse that
+   * paints the red cells and gates Run (v0.69.0). This component used to re-parse the activities
+   * it was handed; now it renders what it is given, which is what lets the page HOLD its input
+   * while a pointer is down — a re-parse of live activities would drop a just-repaired row
+   * mid-click, and the summary's removal would move the grid under the click.
+   */
+  rows: readonly ActivityProblem[];
 }
 
-interface ActivityError {
-  activityId: string;
-  activityName: string;
-  messages: string[];
-}
-
-export function ValidationSummary({ activities }: ValidationSummaryProps) {
-  const errors: ActivityError[] = [];
-
-  for (const activity of activities) {
-    const result = ActivitySchema.safeParse(activity);
-    if (!result.success) {
-      errors.push({
-        activityId: activity.id,
-        activityName: nameOrUnnamed(activity.name),
-        messages: result.error.issues.map((issue) => issue.message),
-      });
-    }
-  }
-
-  if (errors.length === 0) return null;
+export function ValidationSummary({ rows }: ValidationSummaryProps) {
+  if (rows.length === 0) return null;
 
   const scrollToActivity = (activityId: string) => {
     const el = document.querySelector<HTMLElement>(
@@ -42,22 +28,24 @@ export function ValidationSummary({ activities }: ValidationSummaryProps) {
     }
   };
 
+  // `[overflow-anchor:none]`: this box sits above the grid, and it must never become the
+  // browser's scroll anchor — its own growth or removal would then move the grid (v0.69.0).
   return (
-    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 space-y-1.5">
+    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 space-y-1.5 [overflow-anchor:none]">
       <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-        {errors.length} activit{errors.length === 1 ? "y has" : "ies have"}{" "}
+        {rows.length} activit{rows.length === 1 ? "y has" : "ies have"}{" "}
         validation errors
       </p>
       <ul className="space-y-1">
-        {errors.map((err) => (
-          <li key={err.activityId} className="text-sm text-amber-700 dark:text-amber-300">
+        {rows.map((row) => (
+          <li key={row.id} className="text-sm text-amber-700 dark:text-amber-300">
             <button
-              onClick={() => scrollToActivity(err.activityId)}
+              onClick={() => scrollToActivity(row.id)}
               className="text-amber-800 dark:text-amber-200 font-medium hover:underline"
             >
-              {err.activityName}
+              {row.name}
             </button>
-            : {err.messages.join("; ")}
+            : {row.messages.join("; ")}
           </li>
         ))}
       </ul>

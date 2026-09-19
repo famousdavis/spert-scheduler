@@ -23,6 +23,7 @@ import {
   RSM_LABELS,
   DISTRIBUTION_TYPES,
   ACTIVITY_STATUSES,
+  NAME_MAX_LENGTH,
 } from "@domain/models/types";
 import { confirmDialog } from "@ui/hooks/use-confirm-store";
 import { useProjectStore } from "@ui/hooks/use-project-store";
@@ -39,6 +40,12 @@ import {
   DISTRIBUTION_INERT_TITLE,
 } from "@domain/helpers/confidence-applies";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+import {
+  estimateOrderIssues,
+  logNormalHasNoMean,
+  LOGNORMAL_NEEDS_ESTIMATE_ABOVE_ZERO,
+  type EstimateKey,
+} from "@domain/helpers/estimate-rules";
 import { ChecklistSection } from "@ui/components/ChecklistSection";
 import { DeliverablesSection } from "@ui/components/DeliverablesSection";
 import {
@@ -92,6 +99,100 @@ function distributionSelectLook(inert: boolean): { className: string; title?: st
         className:
           "w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100",
       };
+}
+
+type EstimateDraft = number | "";
+
+/** Every draft is a number — a blank one means the field is still being typed. */
+function allNumbers(min: EstimateDraft, mostLikely: EstimateDraft, max: EstimateDraft): [number, number, number] | null {
+  return typeof min === "number" && typeof mostLikely === "number" && typeof max === "number"
+    ? [min, mostLikely, max]
+    : null;
+}
+
+/**
+ * What is wrong with the three estimates in these drafts, by the field that carries each message —
+ * the grid's rules, from the same predicates the schema uses (v0.69.0). Empty while any draft is
+ * blank: the triple cannot be judged half-typed.
+ */
+function draftEstimateIssues(
+  min: EstimateDraft,
+  mostLikely: EstimateDraft,
+  max: EstimateDraft,
+  distributionType: DistributionType
+): { field: EstimateKey; message: string }[] {
+  const triple = allNumbers(min, mostLikely, max);
+  if (!triple) return [];
+  const issues: { field: EstimateKey; message: string }[] = estimateOrderIssues(...triple);
+  if (logNormalHasNoMean(distributionType, ...triple)) {
+    issues.push({ field: "max", message: LOGNORMAL_NEEDS_ESTIMATE_ABOVE_ZERO });
+  }
+  return issues;
+}
+
+/**
+ * The advisory under the Estimates grid — it warns BEFORE Save (owner, 2026-09-17): the dialog saves
+ * an out-of-order or LogNormal-at-zero estimate as typed. Its tail is the owner's wording (R212),
+ * chosen because it is true in every case: it is conditional on saving, and Run reads the saved
+ * estimates whatever else is on screen. The first draft said "You can still save — the activity is
+ * flagged in the grid", which was false twice — Save is disabled while the name is empty or an
+ * estimate is negative, and a half-typed new row the dialog saves unchanged is not flagged in the
+ * grid (its mid-entry stamp still matches) though Run is off. `null` when there is nothing to say.
+ */
+function estimateAdvisory(issues: { field: EstimateKey; message: string }[]): string | null {
+  if (issues.length === 0) return null;
+  return `${issues.map((i) => i.message).join(". ")}. If you save it like this, Run stays off until it is fixed.`;
+}
+
+/** A negative draft cannot be saved: the next load would reject the whole project (v0.69.0). */
+function hasNegativeDraft(min: EstimateDraft, mostLikely: EstimateDraft, max: EstimateDraft): boolean {
+  return [min, mostLikely, max].some((v) => typeof v === "number" && v < 0);
+}
+
+const NEGATIVE_ESTIMATE_MESSAGE = "Estimates can't be negative. Enter 0 or more.";
+
+/**
+ * `aria-invalid` and `aria-describedby` for each estimate input — built once and spread, because
+ * this component sits at the cognitive-complexity threshold and six `cond ? … : undefined`
+ * attributes measured 15 → 21 here. A field is invalid when it carries an issue or is negative.
+ */
+function estimateInputAria(
+  issues: { field: EstimateKey }[],
+  drafts: Record<EstimateKey, EstimateDraft>,
+  describedById: string
+): Record<EstimateKey, { "aria-invalid"?: true; "aria-describedby"?: string }> {
+  const aria = (field: EstimateKey) => {
+    const draft = drafts[field];
+    const invalid = issues.some((i) => i.field === field) || (typeof draft === "number" && draft < 0);
+    return invalid ? { "aria-invalid": true as const, "aria-describedby": describedById } : {};
+  };
+  return { min: aria("min"), mostLikely: aria("mostLikely"), max: aria("max") };
+}
+
+/**
+ * Does the SAVED activity have an estimate the grid flags? Decides whether the Estimates section
+ * opens by itself (owner, 2026-09-17; R206.3) — only then, so M18's collapsed default stands for
+ * every other activity. It reads the saved activity, never the drafts: `Section` reads
+ * `defaultOpen` once, at mount, and the modal mounts per open.
+ */
+function savedEstimatesFlagged(activity: Activity | undefined): boolean {
+  if (!activity) return false;
+  const { min, mostLikely, max, distributionType } = activity;
+  return draftEstimateIssues(min, mostLikely, max, distributionType).length > 0;
+}
+
+/**
+ * The "can't be saved" prompt's sentence, by cause — a helper, not a nested ternary, for the
+ * complexity reason above. The name comes first: its message is already on screen.
+ */
+function unsaveableDescription(nameMissing: boolean, negativeEstimate: boolean): string {
+  if (nameMissing) {
+    return "This activity needs a name, so your changes can't be saved. Discarding them can't be undone.";
+  }
+  if (negativeEstimate) {
+    return "An estimate is negative, so your changes can't be saved. Discarding them can't be undone.";
+  }
+  return "This activity's constraint needs both a date and a mode, so your changes can't be saved. Discarding them can't be undone.";
 }
 
 export function ActivityEditModal({
@@ -219,6 +320,7 @@ export function ActivityEditModal({
   const fieldMinId = `${baseId}-min`;
   const fieldMlId = `${baseId}-ml`;
   const fieldMaxId = `${baseId}-max`;
+  const fieldEstimateNoteId = `${baseId}-estimate-note`;
   const fieldConfidenceId = `${baseId}-confidence`;
   const fieldDistributionId = `${baseId}-distribution`;
   const fieldConstraintTypeId = `${baseId}-ctype`;
@@ -510,9 +612,17 @@ export function ActivityEditModal({
   // constraint setters as dependencies); here it reports none. Measured 2026-09-18; the
   // mechanism is not known, so re-measure before moving it.
   const distributionInert = distributionIsInert(min, mostLikely, max, distributionType, activity?.sdOverride);
+  // v0.69.0 — also derived here, after the hooks, for the reason in the note above. What the
+  // drafts' three estimates break (advisory only: Save stays enabled), and whether one is
+  // negative (refused: the next load would reject the whole project).
+  const estimateIssues = draftEstimateIssues(min, mostLikely, max, distributionType);
+  const estimateNote = estimateAdvisory(estimateIssues);
+  const negativeEstimate = hasNegativeDraft(min, mostLikely, max);
+  const estimateAria = estimateInputAria(estimateIssues, { min, mostLikely, max }, fieldEstimateNoteId);
 
   const isValid =
     name.trim().length > 0 &&
+    !negativeEstimate &&
     (!constraintType || (!!constraintType && !!constraintDate && !!constraintMode));
 
   // -- Dirty check: detect any unsaved changes --
@@ -570,9 +680,9 @@ export function ActivityEditModal({
         // renders "Activity name is required." inline beneath the field, whereas an incomplete
         // constraint renders no explanation anywhere, so this prompt is the only place the user
         // is told. Pinned by "names the CONSTRAINT, not the name…" in the test file.
-        description: nameMissing
-          ? "This activity needs a name, so your changes can't be saved. Discarding them can't be undone."
-          : "This activity's constraint needs both a date and a mode, so your changes can't be saved. Discarding them can't be undone.",
+        // v0.69.0: THREE causes — a negative estimate joined them, so the sentence is chosen by
+        // a helper rather than a nested ternary.
+        description: unsaveableDescription(nameMissing, negativeEstimate),
         confirmLabel: "Discard",
         // Not the default "Cancel": this modal has a button of its own by that name which does
         // something else, and two controls reading "Cancel" one on top of the other is a
@@ -583,7 +693,7 @@ export function ActivityEditModal({
       if (!shouldDiscard) return;
     }
     onClose();
-  }, [hasChanges, isValid, nameMissing, handleSave, onClose]);
+  }, [hasChanges, isValid, nameMissing, negativeEstimate, handleSave, onClose]);
 
   /**
    * Cancel's own handler. Deliberately NOT a branch inside handleDismiss — the two controls ask
@@ -653,7 +763,7 @@ export function ActivityEditModal({
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    maxLength={200}
+                    maxLength={NAME_MAX_LENGTH}
                     aria-invalid={nameMissing}
                     aria-describedby={nameMissing ? fieldNameErrorId : undefined}
                     className={
@@ -746,7 +856,8 @@ export function ActivityEditModal({
             </Section>
 
             {/* ── Section 2: Estimates ── */}
-            <Section title="Estimates" defaultOpen={false}>
+            {/* Opens by itself only when the SAVED estimates are flagged (v0.69.0). */}
+            <Section title="Estimates" defaultOpen={savedEstimatesFlagged(activity)}>
               <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 1fr 1fr 2fr 2fr" }}>
                 <div>
                   <label htmlFor={fieldMinId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -760,6 +871,7 @@ export function ActivityEditModal({
                     step={0.5}
                     value={min}
                     onChange={(e) => setMin(e.target.value === "" ? "" : Number(e.target.value))}
+                    {...estimateAria.min}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
                   />
                 </div>
@@ -775,6 +887,7 @@ export function ActivityEditModal({
                     step={0.5}
                     value={mostLikely}
                     onChange={(e) => setMostLikely(e.target.value === "" ? "" : Number(e.target.value))}
+                    {...estimateAria.mostLikely}
                     onBlur={handleMostLikelyBlur}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
                   />
@@ -791,6 +904,7 @@ export function ActivityEditModal({
                     step={0.5}
                     value={max}
                     onChange={(e) => setMax(e.target.value === "" ? "" : Number(e.target.value))}
+                    {...estimateAria.max}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
                   />
                 </div>
@@ -851,6 +965,19 @@ export function ActivityEditModal({
                     </select>
                   )}
                 </div>
+              </div>
+              {/* v0.69.0 — what the estimates break, said before Save. The negative line refuses
+                  Save (the `nameMissing` precedent); the advisory does not. Always rendered, and
+                  empty when there is nothing to say, so the inputs' aria-describedby resolves. */}
+              <div id={fieldEstimateNoteId}>
+                {negativeEstimate && (
+                  <p className="text-xs text-red-700 dark:text-red-400">{NEGATIVE_ESTIMATE_MESSAGE}</p>
+                )}
+                {estimateNote && (
+                  <p role="status" className="mt-1 rounded bg-amber-50 dark:bg-amber-900/30 px-2 py-1 text-xs text-amber-800 dark:text-amber-200">
+                    {estimateNote}
+                  </p>
+                )}
               </div>
             </Section>
 

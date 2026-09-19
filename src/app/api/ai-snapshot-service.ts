@@ -30,7 +30,7 @@ import {
   validateDependencies,
   type ValidationError,
 } from "@core/schedule/dependency-graph";
-import { computePertMean } from "@core/estimation/spert";
+import { estimateOrderIssues, logNormalHasNoMean } from "@domain/helpers/estimate-rules";
 
 // ---------------------------------------------------------------------------
 // The read model the paired AI client consumes via scheduler_get_project.
@@ -104,16 +104,25 @@ export interface ScenarioComputation {
 // Pre-classification + schedule computation
 // ---------------------------------------------------------------------------
 
-function hasInvalidLogNormal(scenario: Scenario): boolean {
+/**
+ * Does any activity break an ESTIMATE rule — Min, Most Likely and Max out of order, or LogNormal at
+ * zero? The same two predicates the page flags from (v0.69.0, R210.3). Until v0.69.0 this checked
+ * LogNormal only, with a private copy of the rule, so an out-of-order activity whose distribution
+ * still builds was reported `ok` with a schedule, and one that threw was reported `unknown` — the
+ * AI could be refused an edit to a row it had been told was fine.
+ */
+function hasInvalidEstimate(scenario: Scenario): boolean {
   return scenario.activities.some(
-    (a) => a.distributionType === "logNormal" && computePertMean(a.min, a.mostLikely, a.max) <= 0
+    (a) =>
+      estimateOrderIssues(a.min, a.mostLikely, a.max).length > 0 ||
+      logNormalHasNoMean(a.distributionType, a.min, a.mostLikely, a.max)
   );
 }
 
 /**
  * Classify a scenario and, when computable, produce its deterministic schedule.
  * Pre-classifies BEFORE computing so the throwing schedule path never runs on a
- * cyclic graph or an invalid logNormal estimate; the compute itself is wrapped
+ * cyclic graph or an invalid estimate (out of order, or LogNormal at zero); the compute itself is wrapped
  * in a typed catch that maps both calendar-throw shapes to
  * `calendar_misconfigured` and anything else to `unknown`.
  */
@@ -125,7 +134,7 @@ export function classifyAndComputeScenario(
   if (dependencyMode && detectCycle(scenario.activities.map((a) => a.id), scenario.dependencies)) {
     return { scheduleStatus: "cycle_detected" };
   }
-  if (hasInvalidLogNormal(scenario)) {
+  if (hasInvalidEstimate(scenario)) {
     return { scheduleStatus: "invalid_estimate" };
   }
   try {

@@ -4,6 +4,7 @@
 
 import { useId, useState, useEffect } from "react";
 import type { Calendar, Holiday } from "@domain/models/types";
+import { HOLIDAY_LOCALE_MAX_LENGTH, NAME_MAX_LENGTH } from "@domain/models/types";
 import type { NagerCountry } from "@domain/models/nager-types";
 import { generateId } from "@app/api/id";
 import { formatDateISO } from "@core/calendar/calendar";
@@ -98,6 +99,7 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
             id={nameId}
             name="holidayName"
             type="text"
+            maxLength={NAME_MAX_LENGTH}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="e.g., Lincoln's Birthday"
@@ -112,6 +114,7 @@ export function CalendarEditor({ calendar, onUpdate }: CalendarEditorProps) {
             id={localeId}
             name="holidayLocale"
             type="text"
+            maxLength={HOLIDAY_LOCALE_MAX_LENGTH}
             value={newLocale}
             onChange={(e) => setNewLocale(e.target.value)}
             placeholder="e.g., Illinois"

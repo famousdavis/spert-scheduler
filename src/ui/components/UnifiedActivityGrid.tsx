@@ -25,6 +25,7 @@ import type {
 } from "@domain/models/types";
 import { computeHeuristic } from "@core/estimation/heuristic";
 import type { BulkApplyPayload } from "./BulkActionToolbar";
+import type { CellIssues, RowReport } from "@ui/hooks/use-estimate-validity";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { UnifiedActivityRow } from "./UnifiedActivityRow";
 import { BandHeaderRow } from "./BandHeaderRow";
@@ -61,7 +62,13 @@ interface UnifiedActivityGridProps {
     activities: Activity[],
     bands: ActivityBand[],
   ) => void;
-  onValidityChange: (allValid: boolean) => void;
+  /**
+   * Each row's report, forwarded unchanged to the page (v0.69.0). The grid no longer aggregates
+   * validity: the page derives it from the saved activities and these reports.
+   */
+  onValidityChange: (activityId: string, report: RowReport) => void;
+  /** Per activity, the estimate cells to paint red — derived by the page from saved data. */
+  cellIssues?: ReadonlyMap<string, CellIssues>;
   onBulkUpdate?: (activityIds: string[], updates: Partial<Activity>) => void;
   onBulkDelete?: (activityIds: string[]) => void;
   isScenarioLocked?: boolean;
@@ -90,6 +97,7 @@ export function UnifiedActivityGrid({
   onUpdateBand,
   onReorderWithBands,
   onValidityChange,
+  cellIssues,
   onBulkUpdate,
   onBulkDelete,
   isScenarioLocked,
@@ -111,7 +119,6 @@ export function UnifiedActivityGrid({
     showConstraintColumn ? GRID_COLUMN_LIST_WITH_CONSTRAINT : GRID_COLUMN_LIST,
     activityNumberMap ? NAME_COLUMN_MIN_WITH_IDS_PX : NAME_COLUMN_MIN_PX
   );
-  const [, setInvalidIds] = useState<Set<string>>(new Set());
   // Global drag suppression for the insert-strip overlay. Wired through
   // DndContext callbacks below. `useDndContext()` can't be used here because
   // the provider is rendered inside this component's JSX return — calling it
@@ -146,22 +153,6 @@ export function UnifiedActivityGrid({
       if (newId) signalActivityAddById(newId);
     },
     [onInsertAfterBand, signalActivityAddById],
-  );
-
-  const handleValidityChange = useCallback(
-    (activityId: string, isValid: boolean) => {
-      setInvalidIds((prev) => {
-        const next = new Set(prev);
-        if (isValid) {
-          next.delete(activityId);
-        } else {
-          next.add(activityId);
-        }
-        onValidityChange(next.size === 0);
-        return next;
-      });
-    },
-    [onValidityChange]
   );
 
   const handleBulkApply = useCallback(
@@ -483,7 +474,8 @@ export function UnifiedActivityGrid({
                       onToggleSelect={toggleSelect}
                       onUpdate={onUpdate}
                       onDelete={handleDeleteActivity}
-                      onValidityChange={handleValidityChange}
+                      onValidityChange={onValidityChange}
+                      savedIssues={cellIssues?.get(activity.id)}
                       isLocked={isScenarioLocked}
                       heuristicEnabled={heuristicEnabled}
                       heuristicMinPercent={heuristicMinPercent}
