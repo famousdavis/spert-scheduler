@@ -8,6 +8,7 @@ import { NAME_MAX_LENGTH } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+import { milestoneHealthLabel, type MilestoneHealth } from "@domain/helpers/format-labels";
 
 interface MilestonePanelProps {
   milestones: Milestone[];
@@ -73,16 +74,18 @@ function formatMilestoneCount(count: number): string {
   return `${count} ${count === 1 ? "milestone" : "milestones"}`;
 }
 
-function HealthBadge({ health }: { health: "green" | "amber" | "red" }) {
+// The WORD comes from milestoneHealthLabel, shared with the summary card and print; only the
+// badge colours are this panel's own. It kept a private "Healthy" / "At Risk" / "Over" map until
+// v0.70.2, in which "At Risk" was amber while the other two surfaces used it for red.
+function HealthBadge({ health }: { health: MilestoneHealth }) {
   const colors = {
     green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
     amber: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
     red: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   };
-  const labels = { green: "Healthy", amber: "At Risk", red: "Over" };
   return (
     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${colors[health]}`}>
-      {labels[health]}
+      {milestoneHealthLabel(health)}
     </span>
   );
 }

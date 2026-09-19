@@ -108,9 +108,18 @@ export function milestoneHealthTextClass(health: MilestoneHealth): string {
   return "text-red-700 font-medium";
 }
 
-/** Human-readable milestone health label. */
+/**
+ * THE milestone health word, for every surface that names one: the scenario summary card, the
+ * Milestones panel and the printed report all render this, and `milestone-health-vocabulary.test.tsx`
+ * pins that all three import it. Owner ruling, 2026-09-05: On Track / At Risk / Late.
+ *
+ * ⚠️ Until v0.70.2 each surface had its own words, and one milestone read "Healthy" on the panel,
+ * a bare "✓" on the card and "On Track" in print. Worse, "At Risk" meant AMBER on the panel but
+ * RED on the card and in print. "At Risk" is now only ever the amber state, and "Late" the red.
+ * Do not give a surface its own words again — add a state here instead.
+ */
 export function milestoneHealthLabel(health: MilestoneHealth): string {
   if (health === "green") return "On Track";
-  if (health === "amber") return "Warning";
-  return "At Risk";
+  if (health === "amber") return "At Risk";
+  return "Late";
 }
