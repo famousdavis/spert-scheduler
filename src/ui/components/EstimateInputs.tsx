@@ -2,13 +2,14 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type React from "react";
-import { refuseEstimateEntry } from "./activity-row-helpers";
+import type { EstimateKey } from "@domain/helpers/estimate-rules";
+import { NO_DRAFTS, refusedDraftsOnly, type EstimateDrafts } from "./activity-row-helpers";
 
-interface EstimateField {
+export interface EstimateField {
   dataField: string;
-  activityKey: string;
+  activityKey: EstimateKey;
   /** The stored number. Displayed rounded — see EstimateCell. */
   value: number;
   error?: string;
@@ -18,7 +19,13 @@ interface EstimateField {
 interface EstimateInputsProps {
   activityId: string;
   fields: EstimateField[];
-  onBlur: (field: string, value: string) => void;
+  /**
+   * Called ONCE as focus leaves the three cells, with everything they hold as typed text — and by
+   * Escape with nothing at all, which is a revert to the store. The row commits and reports from it.
+   */
+  onGroupExit: (drafts: EstimateDrafts) => void;
+  /** Enter: move focus out of the group. The row decides where; the blur that follows commits. */
+  onLeave: (from: HTMLInputElement) => void;
   onKeyDown: (e: React.KeyboardEvent, field: string) => void;
   disabled?: boolean;
 }
@@ -29,8 +36,47 @@ const INPUT_CLASS_BASE =
 const INPUT_CLASS_ERROR = "border-red-400 bg-red-50 dark:bg-red-900/30";
 const INPUT_CLASS_NORMAL = "border-gray-200 dark:border-gray-600";
 
+/** The `data-field`s of the three cells: focus moving between them stays inside the group. */
+const GROUP_FIELDS: ReadonlySet<string> = new Set(["min", "ml", "max"]);
+
 /**
- * One estimate cell (Min / Most Likely / Max).
+ * A window or app switch, not a move within the page. The input is blurred but stays the page's
+ * focused element, and the page has lost focus. MEASURED in Chrome 153 (2026-09-18): switching
+ * to another window or another app blurred the input with `document.activeElement` still the input
+ * and `document.hasFocus()` false; clicking plain text, a `tabIndex={-1}` button or a scenario tab
+ * blurred it with `document.activeElement` already the body and `hasFocus()` true.
+ *
+ * ⚠️ BOTH halves, never `hasFocus()` alone: jsdom clears the focused element before it fires a
+ * blur, so `hasFocus()` reads false during EVERY blur there, and every test would read as a switch.
+ */
+function isWindowSwitch(input: HTMLInputElement): boolean {
+  return document.activeElement === input && !document.hasFocus();
+}
+
+/**
+ * Does this blur take focus out of the row's three estimate cells?
+ *
+ * - **Stays:** focus moves to another of the three cells of THIS row — Tab or Shift+Tab between
+ *   them, or a click. Keyed on the row as well as the field: Shift+Tab out of Min lands on the
+ *   row's own name input, and a click can land on another row's Min.
+ * - **Stays, owner's ruling (R214):** a window or app switch. The drafts wait, uncommitted, and the
+ *   user carries on when they come back. The accepted cost: a half-typed row whose tab is closed
+ *   while away is lost, because it was never saved.
+ * - **Leaves:** everything else — including a NULL `relatedTarget`, which is what a click on
+ *   something that cannot take focus gives. Never refuse null: it is the commonest exit there is
+ *   (R186). Whether the activity still exists when the commit lands is the store's check, not this.
+ */
+function leavesGroup(e: React.FocusEvent<HTMLInputElement>, activityId: string): boolean {
+  const next = e.relatedTarget;
+  if (next instanceof HTMLElement && next.dataset.rowId === activityId && GROUP_FIELDS.has(next.dataset.field ?? "")) {
+    return false;
+  }
+  return !isWindowSwitch(e.currentTarget);
+}
+
+/**
+ * One estimate cell (Min / Most Likely / Max). It holds no state: the GROUP holds the drafts
+ * (v0.70.0, WI-50), because the three cells commit together when focus leaves them.
  *
  * ⚠️ v0.67.2 — CONTROLLED, and it used to be uncontrolled (`defaultValue`). That is the
  * whole of WI-2 and it was not a cosmetic change. React writes `element.value` once at
@@ -41,10 +87,12 @@ const INPUT_CLASS_NORMAL = "border-gray-200 dark:border-gray-600";
  * cell that went on showing the old one. Then the next blur committed that old one back
  * over the store: clicking a cell and clicking away silently rewrote the project.
  *
- * The rule now, in one line: **follow the store unless the user has typed since focusing.**
+ * The rule now, in one line: **follow the store unless the user has typed since the group was
+ * entered.**
  *
- *   `draft === null`  the store wins — always, focused or not
- *   `draft !== null`  the user has typed; their text wins until they leave the cell
+ *   no draft   the store wins — always, focused or not
+ *   a draft    the user has typed; their text wins until they leave the GROUP (it was "the cell"
+ *              until v0.70.0) — and a REFUSED draft outlives the exit, below
  *
  * Keeping the store while focused-but-untouched (rather than snapshotting at focus, the
  * way `useBufferedField` does for text) is deliberate: a snapshot taken at focus is still
@@ -63,23 +111,28 @@ const INPUT_CLASS_NORMAL = "border-gray-200 dark:border-gray-600";
  * while the store may hold a fraction — `computeHeuristic` stores `0.75` for a row added
  * with the heuristic on. A cell showing `1` over a stored `0.75` is CORRECT and is not to
  * be "fixed": whole numbers are what this grid shows. What was wrong was committing that
- * `1` back. The guard that stops it lives in `UnifiedActivityRow`'s `commitAndReport`
- * and compares the rounded stored number, i.e. what is on screen — not the raw one.
+ * `1` back. The guard that stops it lives in the group commit (`commitEstimateGroup`) and
+ * compares what is on screen — the typed number and the stored one, both rounded.
  */
 function EstimateCell({
   activityId,
   field,
+  draft,
+  onDraft,
+  onFocus,
   onBlur,
   onKeyDown,
   disabled,
 }: {
   activityId: string;
   field: EstimateField;
-  onBlur: (field: string, value: string) => void;
-  onKeyDown: (e: React.KeyboardEvent, field: string) => void;
+  draft: string | undefined;
+  onDraft: (key: EstimateKey, text: string) => void;
+  onFocus: (e: React.FocusEvent<HTMLInputElement>) => void;
+  onBlur: (e: React.FocusEvent<HTMLInputElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, field: string) => void;
   disabled?: boolean;
 }) {
-  const [draft, setDraft] = useState<string | null>(null);
   const stored = String(Math.round(field.value));
   const errorId = useId();
 
@@ -92,22 +145,9 @@ function EstimateCell({
         aria-label={field.title}
         type="number"
         value={draft ?? stored}
-        onChange={(e) => setDraft(e.target.value)}
-        onFocus={(e) => e.target.select()}
-        onBlur={(e) => {
-          const raw = e.currentTarget.value;
-          // Reported on EVERY blur, unchanged from before v0.67.2 — including a blur that
-          // typed nothing. The row needs it to mark the field touched and to re-report
-          // validity; what v0.67.2 removed is the store WRITE, and that removal lives in
-          // the row so the touched/validity sequence does not move with it.
-          onBlur(field.activityKey, raw);
-          // Back to following the store — unless the row refuses the entry: one that cannot
-          // be read as a number (in practice, the user cleared the field) or, since v0.69.0,
-          // a negative one. That is flagged and left on screen exactly as typed (v0.63.1):
-          // restoring the stored number here would silently undo work the user deliberately
-          // did. The rule is the row's, shared through `refuseEstimateEntry`.
-          setDraft(refuseEstimateEntry(raw) === null ? null : raw);
-        }}
+        onChange={(e) => onDraft(field.activityKey, e.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         onKeyDown={(e) => onKeyDown(e, field.dataField)}
         disabled={disabled}
         className={`${INPUT_CLASS_BASE} ${field.error ? INPUT_CLASS_ERROR : INPUT_CLASS_NORMAL}`}
@@ -139,13 +179,69 @@ function invalidAria(
   return error ? { "aria-invalid": true, "aria-describedby": errorId } : {};
 }
 
+/**
+ * The three estimate cells as ONE GROUP (v0.70.0, WI-50). What is typed into any of them is held
+ * here, and nothing is written or checked while focus moves between them; when focus leaves the
+ * group the row commits all of it at once — one write, one undo frame — and only then is anything
+ * flagged. Enter commits and leaves; Escape reverts all three to the store.
+ *
+ * ⚠️ NO WRAPPER ELEMENT, so no single `focusout` to listen for: the cells are DIRECT CSS-grid
+ * children of the row, and `grid-column-alignment.test.tsx` asserts that structure. Each cell's own
+ * blur decides whether focus left the group (`leavesGroup`).
+ */
 export function EstimateInputs({
   activityId,
   fields,
-  onBlur,
+  onGroupExit,
+  onLeave,
   onKeyDown,
   disabled,
 }: EstimateInputsProps) {
+  const [drafts, setDrafts] = useState<EstimateDrafts>(NO_DRAFTS);
+  // Escape reverts and then blurs, and that blur runs with the drafts Escape has just cleared still
+  // in hand — state set in the keydown has not rendered yet — so without this it would commit
+  // exactly what Escape cancelled: WI-29's defect. The name field solves the same race the same way
+  // (`useBufferedField`'s `suppressNextBlur`). Cleared on focus, in case the blur never came.
+  const skipNextExit = useRef(false);
+
+  const handleDraft = (key: EstimateKey, text: string) => {
+    setDrafts((prev) => ({ ...prev, [key]: text }));
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    skipNextExit.current = false;
+    e.target.select();
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (skipNextExit.current) {
+      skipNextExit.current = false;
+      return;
+    }
+    if (!leavesGroup(e, activityId)) return;
+    // Synchronously, in this blur, through the row's props of THIS render: a scenario tab takes
+    // focus before its click switches the scenario, so the commit lands in the scenario being left.
+    onGroupExit(drafts);
+    setDrafts(refusedDraftsOnly(drafts));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, dataField: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onLeave(e.currentTarget);
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      skipNextExit.current = true;
+      setDrafts(NO_DRAFTS);
+      onGroupExit(NO_DRAFTS);
+      e.currentTarget.blur();
+      return;
+    }
+    onKeyDown(e, dataField);
+  };
+
   return (
     <>
       {fields.map((f) => (
@@ -157,8 +253,11 @@ export function EstimateInputs({
           <EstimateCell
             activityId={activityId}
             field={f}
-            onBlur={onBlur}
-            onKeyDown={onKeyDown}
+            draft={drafts[f.activityKey]}
+            onDraft={handleDraft}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
             disabled={disabled}
           />
         </div>

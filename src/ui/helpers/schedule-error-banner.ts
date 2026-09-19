@@ -35,20 +35,25 @@ export interface ScheduleErrorBanner {
  * decide, so a third cannot silently default to "show it". (v0.67.23 passed `allActivitiesValid`;
  * v0.69.0 passes `flaggedThrow` — see the last paragraph.)
  *
- * THE DEFECT IT CLOSES. Estimates commit per FIELD, against two STALE siblings. A new
- * activity is 1/1/1, so the first thing anyone types - Min 5, or Most Likely 10 - leaves the
- * store briefly incoherent (5/1/1), the engine throws, and a red banner quoting
+ * THE DEFECT IT CLOSED. Until v0.70.0 estimates committed per FIELD, against two STALE siblings.
+ * A new activity is 1/1/1, so the first thing anyone typed - Min 5, or Most Likely 10 - left the
+ * store briefly incoherent (5/1/1), the engine threw, and a red banner quoting
  * `TriangularDistribution: must have a <= c <= b` appeared DURING NORMAL DATA ENTRY, on the
  * first activity of a fresh project, taking 126 px of layout with it and unmounting the
  * Gantt. The user had made no mistake: 5/10/20 is valid, they had simply not finished typing
  * it. ⚠️ MEASURED: NO left-to-right order avoids it - skipping Min and typing only Most Likely
  * gives 1/10/1, which throws too. Right-to-left (Max, ML, Min) is clean throughout.
  *
- * WHY THE GATE IS THE ROW'S OWN STATE AND NOT A PROXY. `UnifiedActivityRow` suppresses its OWN
- * min <= ml <= max error until all three fields are touched (`allEstimatesTouched`). During that
- * half-typed window the engine cannot build a distribution while the row is not yet wrong - and
- * that combination IS the premature state. v0.67.23 read it as "every row reports valid"; since
- * v0.69.0 the row REPORTS mid-entry, and only the flagged rows' own builds can raise the banner.
+ * WHY THE GATE WAS THE ROW'S OWN STATE AND NOT A PROXY. The row suppressed its OWN min <= ml <=
+ * max error until all three fields were touched. During that half-typed window the engine could
+ * not build a distribution while the row was not yet wrong - and that combination WAS the
+ * premature state. v0.67.23 read it as "every row reports valid"; v0.69.0 had the row REPORT
+ * mid-entry, so that only the flagged rows' own builds could raise the banner.
+ *
+ * ⚠️ v0.70.0 - THE PREMATURE STATE IS GONE AT ITS SOURCE. A row's three estimate cells commit as
+ * ONE group when focus leaves them, so nothing reaches the store half-typed: typing produces no
+ * throw, and a triple LEFT half-typed is saved and flagged by design. `mid-entry` and its
+ * suppression were deleted; see the last paragraph for what the gate reads now.
  *
  * ⚠️ SCOPED TO THE GENERIC BRANCH ON PURPOSE. Cycle and calendar errors arise with perfectly
  * valid estimates, so gating them on estimate validity would silence real faults. Verified
@@ -65,14 +70,16 @@ export interface ScheduleErrorBanner {
  *
  * ⚠️ v0.69.0 - THE SECOND ARGUMENT CHANGED MEANING. It was "every row reports valid"; it is now
  * `flaggedThrow`: the build message of the first activity, in the engine's order, whose
- * distribution cannot be built AND that has a saved issue not held back as mid-entry
- * (`useEstimateValidity`). The generic branch shows only then, and shows THAT message rather
- * than `error.message`. Two measured-by-design reasons, both pinned at the page:
- *   - a page-wide "some row is flagged" gate reopens v0.67.23 whenever ANY row is flagged, and
- *     since v0.69.0 a loaded bad row is flagged at mount;
- *   - the engine aborts at its FIRST throw and builds in array order, so its message names
- *     whichever row came first — a half-typed row above a flagged one would put the row being
- *     typed in the banner, which is v0.67.23 again, in the content.
+ * distribution cannot be built AND that has a saved issue (`useEstimateValidity`). The generic
+ * branch shows only then, and shows THAT message rather than `error.message`. v0.69.0's two
+ * reasons, both then pinned at the page, rested on a half-typed row being saved and held back:
+ *   - a page-wide "some row is flagged" gate reopened v0.67.23 whenever ANY row was flagged,
+ *     because the engine could be throwing on a held-back half-typed row;
+ *   - the engine aborts at its FIRST throw and builds in array order, so its message could name
+ *     a half-typed row above a flagged one - v0.67.23 again, in the content.
+ * ⚠️ Since v0.70.0 neither can happen - nothing is saved half-typed - and `flaggedThrow` names the
+ * same activity as the engine's first throw, with the same message (REASONED: every throw the
+ * distribution factory raises is also an issue of the strict schema). It is kept as the gate.
  */
 export function getScheduleErrorBanner(
   error: ScheduleError | null,
@@ -95,7 +102,7 @@ export function getScheduleErrorBanner(
     };
   }
   // Generic branch = the estimates branch, per the reachability note above. Shown only for a
-  // flagged activity that itself cannot be built — never for a half-typed one.
+  // flagged activity that itself cannot be built.
   if (flaggedThrow === null) return null;
   return {
     heading: "Schedule Error",

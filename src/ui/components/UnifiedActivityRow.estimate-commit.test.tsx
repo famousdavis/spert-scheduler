@@ -292,18 +292,20 @@ describe("UnifiedActivityRow — a blur that changes nothing writes nothing", ()
     expect(stored(pid, sid)).toEqual({ min: 5, ml: 12, max: 20 });
   });
 
-  it("keeps the touched-field gate sequence that a blur-through produces", () => {
+  it("reports the row at every exit, and writes only the cell whose number changed", () => {
     // ⚠️ Constraint 5, and the reason the no-op guard sits at the store write rather than
-    // in the cell. An all-equal activity starts with NO field marked touched, because
-    // min <= mostLikely <= max cannot be judged until all three are known. A guard that
-    // made the cell skip `onBlur` entirely would also skip the touch marking, and the row
-    // would never report that it had left mid-entry — an invalid estimate held back forever.
+    // in the cell: a cell that skipped its blur whenever nothing changed would skip the
+    // row's report with it.
     //
-    // ⚠️ v0.69.0 — REWRITTEN ON ITS VALUE, deliberately. The row no longer reports a boolean
-    // (this pinned `[false]`); it reports what saved data cannot see, and the page derives the
-    // flag from the saved 9/5/5. The sequence is the mount SEED at work: mid-entry while any
-    // cell is unvisited, then clean. Seed every row touched instead and the first report is
-    // already clean — v0.67.23 reopened — so this test also pins the seed.
+    // ⚠️ v0.70.0 — MOVED ON PURPOSE, on its key and on its behaviour. Until v0.70.0 this was
+    // "keeps the touched-field gate sequence that a blur-through produces" and pinned
+    // `[mid-entry(9/5/5), mid-entry(9/5/5), clean]`: a row that mounted all-equal reported
+    // `mid-entry` while any cell was unvisited, which held its half-typed triple back from the
+    // summary, and the test pinned the mount SEED behind that. Both are gone — the three cells
+    // commit as one group, so nothing is saved while a row is being typed. Each `typeInto` here
+    // ends in a blur with a null `relatedTarget`, which LEAVES the group, so each is its own exit:
+    // 9/5/5 is saved, flagged by the page from the saved triple, and the row reports clean; the
+    // two re-typed, unchanged cells write nothing (R40).
     const onValidityChange = vi.fn();
     const spyUpdate = vi.fn();
     const { pid, sid, aid } = seed({ min: 5, mostLikely: 5, max: 5 });
@@ -313,12 +315,12 @@ describe("UnifiedActivityRow — a blur that changes nothing writes nothing", ()
     typeInto("ml", aid, "5"); // re-typed, unchanged
     typeInto("max", aid, "5"); // re-typed, unchanged
 
-    const halfTyped = { midEntry: { min: 9, mostLikely: 5, max: 5 }, refused: {} };
+    const clean = { refused: {} };
     expect({
       validity: onValidityChange.mock.calls.map((c) => c[1]),
       writes: spyUpdate.mock.calls.map((c) => c[1]),
     }).toEqual({
-      validity: [halfTyped, halfTyped, { midEntry: null, refused: {} }],
+      validity: [clean, clean, clean],
       writes: [{ min: 9 }],
     });
   });
@@ -364,5 +366,69 @@ describe("UnifiedActivityRow — a blur that changes nothing writes nothing", ()
       commits: 1,
       controlRuns: 2,
     });
+  });
+});
+
+describe("UnifiedActivityRow — the three cells commit as one group (v0.70.0, WI-50)", () => {
+  beforeEach(() => { localStorage.clear(); });
+
+  /** Move focus within the group, as a Tab or a click from one cell to another does. */
+  function moveTo(field: string, id: string) {
+    act(() => { cell(field, id).focus(); });
+  }
+
+  it("R40 on the TYPED side: 5.4 over a stored 5 writes nothing; 5.6 writes 6", () => {
+    // The stored side is pinned above ("leaves a fractional stored estimate alone…"). This is the
+    // other half: rounded on one side only, 5.4 !== 5 and a no-op write lands — an undo frame and
+    // the simulation results discarded, for a number the cell shows unchanged.
+    const { pid, sid, aid } = seed({ min: 5, mostLikely: 10, max: 20 });
+    render(<LiveRow pid={pid} sid={sid} />);
+    const frames = useProjectStore.getState().undoStack.length;
+
+    typeInto("min", aid, "5.4");
+    expect({ store: stored(pid, sid).min, newFrames: useProjectStore.getState().undoStack.length - frames })
+      .toEqual({ store: 5, newFrames: 0 });
+
+    // The control, same test: a fraction that rounds to a different number is written, rounded.
+    typeInto("min", aid, "5.6");
+    expect({ store: stored(pid, sid).min, newFrames: useProjectStore.getState().undoStack.length - frames })
+      .toEqual({ store: 6, newFrames: 1 });
+  });
+
+  it("typed values beat the heuristic (R185.7): Most Likely alone recomputes both; with a typed Min, the Min is kept", () => {
+    const { pid, sid, aid } = seed({ min: 5, mostLikely: 18, max: 20 });
+    render(<LiveRow pid={pid} sid={sid} heuristic />);
+
+    // Most Likely alone: the heuristic fills Min and Max from it — 75 % and 200 % of 30.
+    moveTo("ml", aid);
+    fireEvent.change(cell("ml", aid), { target: { value: "30" } });
+    act(() => { cell("ml", aid).blur(); });
+    expect(stored(pid, sid)).toEqual({ min: 23, ml: 30, max: 60 });
+
+    // Min typed, then Most Likely, in ONE visit: the typed Min survives, only Max is filled.
+    moveTo("min", aid);
+    fireEvent.change(cell("min", aid), { target: { value: "7" } });
+    moveTo("ml", aid); // inside the group: nothing is written yet
+    expect(stored(pid, sid)).toEqual({ min: 23, ml: 30, max: 60 });
+    fireEvent.change(cell("ml", aid), { target: { value: "40" } });
+    act(() => { cell("ml", aid).blur(); });
+    expect(stored(pid, sid)).toEqual({ min: 7, ml: 40, max: 80 });
+  });
+
+  it("one exit is one store write, however many cells were typed", () => {
+    const spyUpdate = vi.fn();
+    const { pid, sid, aid } = seed({ min: 5, mostLikely: 10, max: 20 });
+    render(<LiveRow pid={pid} sid={sid} spyUpdate={spyUpdate} />);
+
+    moveTo("min", aid);
+    fireEvent.change(cell("min", aid), { target: { value: "6" } });
+    moveTo("ml", aid);
+    fireEvent.change(cell("ml", aid), { target: { value: "11" } });
+    moveTo("max", aid);
+    fireEvent.change(cell("max", aid), { target: { value: "21" } });
+    expect(spyUpdate).not.toHaveBeenCalled(); // three cells typed, focus still inside the group
+    act(() => { cell("max", aid).blur(); });
+
+    expect(spyUpdate.mock.calls.map((c) => c[1])).toEqual([{ min: 6, mostLikely: 11, max: 21 }]);
   });
 });

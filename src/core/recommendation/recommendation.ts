@@ -130,8 +130,10 @@ const mostLikelyAtEnd = (end: "Min" | "Max") =>
  * chose it, and the dot is the only place the app says the numbers fit a curve.
  *
  * No dot for an estimate that is not a valid one (a negative value, or min ≤ Most Likely ≤
- * max broken): no curve fits it, and every sentence below describes a valid estimate. The
- * grid commits each cell as it is typed, so such values do reach here. The ordering half is
+ * max broken): no curve fits it, and every sentence below describes a valid estimate. Such
+ * values do reach here: an out-of-order triple is saved and flagged rather than refused — the
+ * grid saves one when focus leaves a row's three estimate cells (v0.70.0; each cell as it was
+ * typed, before that), the dialog saves one, and a project holding one loads. The ordering half is
  * `estimateOrderIssues`, the one rule the schema also uses (v0.69.0). Its `>` form lets a NaN
  * Most Likely or Max past this guard where the old `<=` chain stopped it; the rules below then
  * return no suggestion for it anyway (pinned), and no store holds a NaN estimate.

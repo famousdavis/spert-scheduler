@@ -105,10 +105,11 @@ describe("UnifiedActivityRow — estimate commit on blur", () => {
     expect(onUpdate).not.toHaveBeenCalled();
     // But the row now says so, which is the whole difference.
     // ⚠️ v0.69.0 — MOVED ON ITS VALUE, deliberately: the row reports its state rather than a
-    // boolean, and a refused cell is exactly what saved data cannot see. The established
-    // 2/5/9 row is not half-typed, so there is no mid-entry stamp.
+    // boolean, and a refused cell is exactly what saved data cannot see.
+    // ⚠️ v0.70.0 — MOVED ON ITS KEY ALONE: the report lost `midEntry`, the half-typed stamp,
+    // when the three cells began to commit as one group. `fireEvent.blur` carries a null
+    // `relatedTarget`, which is leaving the group, so this blur is still the commit.
     expect(onValidityChange).toHaveBeenCalledWith("a1", {
-      midEntry: null,
       refused: { min: "Enter a number." },
     });
   });

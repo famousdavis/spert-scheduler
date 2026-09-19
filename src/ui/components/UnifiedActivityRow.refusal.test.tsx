@@ -55,7 +55,8 @@ describe("a negative estimate is refused at the blur", () => {
     expect(field("min").getAttribute("title")).toBe("Enter 0 or more.");
     expect(field("min")).toHaveAttribute("aria-invalid", "true");
     expect(document.getElementById(field("min").getAttribute("aria-describedby")!)?.textContent).toBe("Enter 0 or more.");
-    expect(onValidityChange).toHaveBeenLastCalledWith("a1", { midEntry: null, refused: { min: "Enter 0 or more." } });
+    // v0.70.0: the report lost its `midEntry` key; nothing else in this file moved.
+    expect(onValidityChange).toHaveBeenLastCalledWith("a1", { refused: { min: "Enter 0 or more." } });
   });
 
   it("is refused BEFORE the heuristic branch, which would otherwise write all three", () => {
@@ -83,7 +84,7 @@ describe("the report describes the ROW, not the last cell", () => {
     expect(onUpdate).toHaveBeenLastCalledWith("a1", { mostLikely: 6 });
     expect(field("min").value).toBe("");
     expect(field("min")).toHaveAttribute("aria-invalid", "true");
-    expect(onValidityChange).toHaveBeenLastCalledWith("a1", { midEntry: null, refused: { min: "Enter a number." } });
+    expect(onValidityChange).toHaveBeenLastCalledWith("a1", { refused: { min: "Enter a number." } });
   });
 
   it("a refused cell given a number clears its own entry", () => {
@@ -91,6 +92,6 @@ describe("the report describes the ROW, not the last cell", () => {
     enter("min", "");
     enter("min", "3");
     expect(field("min")).not.toHaveAttribute("aria-invalid");
-    expect(onValidityChange).toHaveBeenLastCalledWith("a1", { midEntry: null, refused: {} });
+    expect(onValidityChange).toHaveBeenLastCalledWith("a1", { refused: {} });
   });
 });

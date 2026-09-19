@@ -5,36 +5,24 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Activity, Scenario } from "@domain/models/types";
 import { ActivitySchema } from "@domain/schemas/project.schema";
-import { estimateOrderIssues, type EstimateKey } from "@domain/helpers/estimate-rules";
+import type { EstimateKey } from "@domain/helpers/estimate-rules";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { computeDependencyDurations } from "@core/schedule/deterministic";
 
 /**
- * What a grid row reports about itself: the two things SAVED DATA CANNOT SEE (v0.69.0).
- * Everything else about an activity's validity is derived below from the saved activity, so it
- * survives a reload, an undo and a cloud echo — which a report cannot.
+ * What a grid row reports about itself: the one thing SAVED DATA CANNOT SEE (v0.69.0). Everything
+ * else about an activity's validity is derived below from the saved activity, so it survives a
+ * reload, an undo and a cloud echo — which a report cannot.
  *
- * The two flags coexist (a half-typed row can also hold a cleared cell), and the report is the
- * row's LAST one: absent means clean.
+ * The report is the row's LAST one, sent each time focus leaves its three estimate cells and by
+ * Escape; absent means clean. ⚠️ Until v0.70.0 it also carried `midEntry`, a stamp of a half-typed
+ * row's saved triple that held the row's ORDERING issues back from the summary, the banner and the
+ * red cells (v0.67.23's rule). Since the three cells commit as one group, nothing is saved while a
+ * row is being typed, so there is nothing to hold back: a triple left out of order is flagged.
  */
 export interface RowReport {
-  /**
-   * The row is half-typed — some estimate cell has not been visited since the row mounted
-   * all-equal — carrying the saved triple the row expected when it reported. While the saved
-   * triple still matches it, the row's ORDERING issues are held back from the summary, the
-   * banner and the red cells (v0.67.23's rule, kept until the estimate cells commit as a group).
-   * A different saved triple — a dialog save, an undo — means the stamp no longer describes what
-   * is stored, and the ordering issue shows. `null`: the row is not mid-entry.
-   */
-  midEntry: EstimateTriple | null;
   /** Cells holding an entry the row refused to store (cleared, negative), with their messages. */
   refused: Partial<Record<EstimateKey, string>>;
-}
-
-export interface EstimateTriple {
-  min: number;
-  mostLikely: number;
-  max: number;
 }
 
 /** An activity and what is wrong with it, as the summary, the Run reason and the toast list it. */
@@ -54,15 +42,17 @@ export interface EstimateValidity {
   runBlockers: readonly ActivityProblem[];
   /**
    * The FLAGGED activities, as the validation summary renders them: saved issues and refused
-   * cells, minus a half-typed row's ordering issues. Reference-stable, so it can be held.
+   * cells. Reference-stable, so it can be held. ⚠️ Since v0.70.0 the SAME list as `runBlockers`:
+   * the two differed only by a half-typed row's held-back ordering issues, and nothing is held back
+   * now. Two names are kept because the page reads them differently — Run's live, the summary's held.
    */
   flaggedRows: readonly ActivityProblem[];
-  /** Per activity, the estimate cells to paint red: the saved issues minus the held-back ones. */
+  /** Per activity, the estimate cells to paint red: the saved issues, by field. */
   cellIssues: ReadonlyMap<string, CellIssues>;
   /**
    * The first activity, in the engine's own order, whose distribution cannot be built AND that
-   * has a saved issue not held back — its own build message. `null` when there is none. This, not
-   * the engine's error, is what the generic schedule-error banner may show; see the helper.
+   * has a saved issue — its own build message. `null` when there is none. This, not the engine's
+   * error, is what the generic schedule-error banner may show; see the helper.
    */
   flaggedThrow: string | null;
   /** Where a row sends its report. Stable per scenario. */
@@ -127,32 +117,6 @@ export function liveReports(
   return entries.every(isLive) ? book : new Map(entries.filter(isLive));
 }
 
-function roundedEqual(a: number, b: number): boolean {
-  return Math.round(a) === Math.round(b);
-}
-
-/**
- * Does this report's mid-entry stamp still describe what is stored? Compared ROUNDED: the grid
- * shows and writes whole numbers, and a cell that was only looked at writes nothing over a stored
- * fraction (R40), so its stamp holds the displayed number.
- */
-function stillMidEntry(report: RowReport | undefined, activity: Activity): boolean {
-  const stamp = report?.midEntry;
-  if (!stamp) return false;
-  return (
-    roundedEqual(stamp.min, activity.min) &&
-    roundedEqual(stamp.mostLikely, activity.mostLikely) &&
-    roundedEqual(stamp.max, activity.max)
-  );
-}
-
-/** A half-typed row's ORDERING issues, and only those, are held back — never 3.8's or any other. */
-function unsuppressedIssues(issues: SavedIssue[], activity: Activity, midEntry: boolean): SavedIssue[] {
-  if (!midEntry) return issues;
-  const ordering = estimateOrderIssues(activity.min, activity.mostLikely, activity.max);
-  return issues.filter((i) => !ordering.some((o) => o.field === i.field && o.message === i.message));
-}
-
 function refusedMessages(refused: RowReport["refused"] | undefined): string[] {
   if (!refused) return [];
   return ESTIMATE_KEYS.filter((key) => refused[key] !== undefined).map(
@@ -196,6 +160,12 @@ interface Derived {
  * engine builds distributions in, in both modes (`computeDeterministicSchedule`'s loop, and
  * `computeDependencyDurations` before any graph walk). That order is why `flaggedThrow` is the
  * first qualifying thrower and not merely any.
+ *
+ * ⚠️ v0.70.0 — `flaggedThrow` now names the SAME activity as the engine's own first throw, with
+ * the same message (REASONED): every throw the distribution factory can raise — Triangular out of
+ * order; T-Normal, LogNormal or Uniform with Min above Max; LogNormal at zero — is also an issue
+ * of the strict schema, and nothing is saved half-typed any more. It was built in v0.69.0 to skip
+ * a half-typed row's throw; it is kept, not simplified, in the PR that removed the reason.
  */
 export function deriveEstimateValidity(
   activities: readonly Activity[],
@@ -203,24 +173,19 @@ export function deriveEstimateValidity(
   book: ReportBook,
   probabilityTarget: number
 ): Derived {
-  const derived: Derived = { runnable: true, runBlockers: [], flaggedRows: [], cellIssues: new Map(), flaggedThrow: null };
+  const problems: ActivityProblem[] = [];
+  const derived: Derived = { runnable: true, runBlockers: problems, flaggedRows: problems, cellIssues: new Map(), flaggedThrow: null };
   for (const activity of activities) {
     const issues = saved.get(activity.id) ?? [];
-    const report = book.get(activity.id)?.report;
-    const shown = unsuppressedIssues(issues, activity, stillMidEntry(report, activity));
-    const refused = refusedMessages(report?.refused);
-    const name = nameOrUnnamed(activity.name);
+    const refused = refusedMessages(book.get(activity.id)?.report.refused);
     if (issues.length > 0 || refused.length > 0) {
       derived.runnable = false;
-      derived.runBlockers.push({ id: activity.id, name, messages: [...refused, ...issues.map((i) => i.message)] });
+      problems.push({ id: activity.id, name: nameOrUnnamed(activity.name), messages: [...refused, ...issues.map((i) => i.message)] });
     }
-    if (shown.length > 0 || refused.length > 0) {
-      derived.flaggedRows.push({ id: activity.id, name, messages: [...refused, ...shown.map((i) => i.message)] });
-    }
-    const cells = toCellIssues(shown);
+    const cells = toCellIssues(issues);
     if (cells) derived.cellIssues.set(activity.id, cells);
-    // `unparseable` never qualifies a thrower: a refused cell leaves the old number in the store.
-    if (derived.flaggedThrow === null && shown.length > 0) {
+    // A refused cell never qualifies a thrower: it leaves the old number in the store.
+    if (derived.flaggedThrow === null && issues.length > 0) {
       derived.flaggedThrow = buildFailure(activity, probabilityTarget);
     }
   }
@@ -229,7 +194,7 @@ export function deriveEstimateValidity(
 
 /**
  * Estimate validity for the page (WI-49, v0.69.0): DERIVED from the saved activities, plus the
- * two row states saved data cannot see. It replaces a `useState(true)` that only the grid's rows
+ * one row state saved data cannot see (two until v0.70.0). It replaces a `useState(true)` that only the grid's rows
  * could move, so a project loaded with a bad row showed every signal as valid at mount (WI-28's
  * mechanism, and the reason a relaxed load gate alone measured worse than the brick).
  *

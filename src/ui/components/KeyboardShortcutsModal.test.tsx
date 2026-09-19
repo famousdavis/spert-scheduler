@@ -51,14 +51,17 @@ describe("KeyboardShortcutsModal", () => {
     });
   });
 
-  it("documents Enter and Escape as name-edit keys only — an estimate cell commits on blur, not Enter", () => {
-    // Measured on the sample project (2026-09-06): a real Enter keydown in a Min cell
-    // leaves focus in the cell and the store unchanged; the click-away commits. Escape
-    // is inert there too. Both rows used to claim "cell edit" for every cell.
+  it("documents Enter and Escape for name edits and the estimate cells — and still for no other cell", () => {
+    // ⚠️ v0.70.0 — MOVED ON PURPOSE. This pinned the name-only rows ("Confirm a name edit",
+    // "Cancel a name edit"), because until v0.70.0 an estimate cell ignored both keys (measured on
+    // the sample project, 2026-09-06: Enter left focus in the cell and the store unchanged).
+    // WI-50 made the estimate cells take them — Enter commits the row's three cells and moves on,
+    // Escape reverts them — so the rows name estimates too. They must still not claim EVERY cell:
+    // the grid handles neither key in Distribution, Confidence, Status or Actual.
     renderOpen();
     const rows = documentedRows();
-    expect(rows).toContainEqual({ keys: ["Enter"], description: "Confirm a name edit" });
-    expect(rows).toContainEqual({ keys: ["Escape"], description: "Cancel a name edit" });
+    expect(rows).toContainEqual({ keys: ["Enter"], description: "Confirm a name or estimate edit" });
+    expect(rows).toContainEqual({ keys: ["Escape"], description: "Cancel a name or estimate edit" });
     expect(rows.map((r) => r.description)).not.toContain("Confirm cell edit");
     expect(rows.map((r) => r.description)).not.toContain("Cancel cell edit");
   });
