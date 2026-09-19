@@ -17,7 +17,7 @@ import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
-import type { Activity, ScenarioSettings, DeterministicSchedule } from "@domain/models/types";
+import type { Activity, ScenarioSettings, DeterministicSchedule, ScheduledActivity } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import { formatDateISO, parseDateISO, countWorkingDays, durationToFinishDateISO } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
@@ -59,6 +59,15 @@ import { ConnectAiPanel } from "@ui/components/ConnectAI/ConnectAiPanel";
 import type { AiFeedItem } from "@ui/components/ConnectAI/AiActivityFeed";
 import { AI_CONSENT_KEY, AI_SESSION_ID_KEY, AI_CONSENT_VERSION } from "@app/ai-connectivity-constants";
 import type { AiOpResult } from "@app/api/ai-batch-service";
+
+/**
+ * ⚠️ ONE empty array for "no schedule", shared across renders. `milestoneBuffers` is held while a
+ * pointer is down, and a held value must be reference-stable — but `schedule?.activities ?? []`
+ * made a NEW array on every render whenever the schedule was null, so the milestone memo made a
+ * new Map every render and the hold re-set it forever: "Too many re-renders", the whole page
+ * gone, after an out-of-order commit in a project with milestones (measured, v0.70.4).
+ */
+const NO_SCHEDULED_ACTIVITIES: ScheduledActivity[] = [];
 
 /**
  * Banner copy for a schedule-computation error. isCalendarError (set via the
@@ -385,7 +394,7 @@ export function ProjectPage() {
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
   // The warnings panel also sits above the grid and reads `schedule`, which is null whenever
   // the engine throws — so a commit can remove it under a click, as it can the banner. Held for
-  // that panel only (v0.69.0).
+  // that panel (v0.69.0), and for the Gantt (v0.70.4, below).
   const paintedSchedule = useHeldWhilePointerDown(schedule);
 
   // Schedule buffer = MC percentile at project target - deterministic span
@@ -412,7 +421,7 @@ export function ProjectPage() {
   // Milestone buffers
   const milestoneBuffers = useMilestoneBuffers(
     scenario?.milestones ?? [],
-    schedule?.activities ?? [],
+    schedule?.activities ?? NO_SCHEDULED_ACTIVITIES,
     scenario?.activities ?? [],
     scenario?.simulationResults,
     scenario?.startDate ?? "2025-01-06",
@@ -420,6 +429,32 @@ export function ProjectPage() {
     scenario?.settings.dependencyMode ?? false,
     workCalendar
   );
+
+  // ⚠️ THE GANTT IS PAINTED FROM HELD COPIES while a pointer is down (v0.70.4), and so is the
+  // Milestones panel above it. A press on a bar commits a half-typed estimate on its blur,
+  // BEFORE the click: the schedule can go null, unmounting the Gantt under the pointer, or re-lay
+  // every bar; after a run the results clear too, so `buffer` goes null and the timeline
+  // shortens, and the panel loses its Buffer/Slack lines. Measured on the sample, the release
+  // then landed on other text or on the svg, and nothing opened.
+  // ⚠️ THE ACTIVITIES ARE HELD WITH THE SCHEDULE — NEVER ONE WITHOUT THE OTHER. GanttChart's
+  // uncertainty memo runs every activity through the distribution factory, trusting that the
+  // Gantt renders only when the schedule computed, i.e. when those same activities passed it.
+  // A held schedule beside LIVE activities breaks that: an out-of-order commit makes the factory
+  // throw during render, and nothing below the router catches it — React Router's error screen
+  // replaced the whole page, measured.
+  // ⚠️ `buffer` AND `milestoneBuffers` LOOK UNNECESSARY IN CHROME'S DEFAULT LAYOUT, AND ARE NOT.
+  // With Fit to window the x-scale, and the header height, follow the timeline end that the
+  // buffer sets: measured with the buffer read live, bar #5 moved and the click missed. And
+  // without scroll anchoring, which not every browser has, the panel's lost lines move the
+  // Gantt up 98 px: measured under `overflow-anchor: none`, the click missed. The summary card
+  // takes the held buffer too: its buffer line is 2 px shorter once the results clear, which
+  // moved everything below it — the grid as well as the Gantt — in that same browser setting.
+  // All four are display inputs here. Each must be reference-stable across renders — a store
+  // value, or a memo whose own inputs are (see NO_SCHEDULED_ACTIVITIES, which is what made
+  // `milestoneBuffers` so). The grid, the Run gate and every Run input stay live.
+  const paintedActivities = useHeldWhilePointerDown(scenario?.activities);
+  const paintedBuffer = useHeldWhilePointerDown(buffer);
+  const paintedMilestoneBuffers = useHeldWhilePointerDown(milestoneBuffers);
 
   const autoRunSimulation = usePreferencesStore(
     (s) => s.preferences.autoRunSimulation,
@@ -825,7 +860,7 @@ export function ProjectPage() {
           <ScenarioSummaryCard
             startDate={scenario.startDate}
             schedule={schedule}
-            buffer={buffer}
+            buffer={paintedBuffer}
             calendar={workCalendar}
             settings={scenario.settings}
             hasSimulationResults={!!scenario.simulationResults}
@@ -917,7 +952,7 @@ export function ProjectPage() {
             <MilestonePanel
               milestones={scenario.milestones}
               activities={scenario.activities}
-              milestoneBuffers={milestoneBuffers}
+              milestoneBuffers={paintedMilestoneBuffers}
               onAddMilestone={(name, targetDate) =>
                 addMilestone(id!, scenario.id, name, targetDate)
               }
@@ -963,22 +998,22 @@ export function ProjectPage() {
           )}
 
           {/* Gantt Chart */}
-          {schedule && scenario.activities.length > 0 && (
+          {paintedSchedule && paintedActivities && paintedActivities.length > 0 && (
             <GanttSection
               projectName={project.name}
-              activities={scenario.activities}
+              activities={paintedActivities}
               bands={scenario.bands ?? []}
-              scheduledActivities={schedule.activities}
+              scheduledActivities={paintedSchedule.activities}
               projectStartDate={scenario.startDate}
-              projectEndDate={schedule.projectEndDate}
-              buffer={buffer}
+              projectEndDate={paintedSchedule.projectEndDate}
+              buffer={paintedBuffer}
               dependencies={scenario.dependencies}
               dependencyMode={scenario.settings.dependencyMode}
               activityTarget={scenario.settings.probabilityTarget}
               projectTarget={scenario.settings.projectProbabilityTarget}
               calendar={workCalendar}
               milestones={scenario.milestones}
-              milestoneBuffers={milestoneBuffers}
+              milestoneBuffers={paintedMilestoneBuffers}
               criticalPathIds={criticalPathIds}
               onEditActivity={setEditingActivityId}
               onRenameActivity={(activityId, newName) =>
