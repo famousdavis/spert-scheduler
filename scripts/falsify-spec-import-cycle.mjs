@@ -49,10 +49,21 @@ export const mutations = [
   {
     // The calendar branch must stay distinguishable from the generic one; if the predicate
     // stops being consulted, both branches collapse and the pins stop meaning anything.
+    //
+    // ⚠️ NEEDLE REPAIRED in v0.71.3. It read `return error.isCalendarError`, which is the shape
+    // this helper had BEFORE v0.63.0 added the cycle branch and turned the ternary into a chain
+    // of `if`s. From then until now the needle matched nothing, so I3 ABORTED the run and I4
+    // never executed at all — this spec had been guarding three mutations, not five, and said so
+    // only to whoever ran it. Verified stale at 118f678 (an unmodified checkout aborts here
+    // identically), so it was not the WI-15 change that broke it.
+    //
+    // The abort is the runner working as designed: it refuses to report rather than counting a
+    // no-op edit as a survivor. That is the one defect class this tool was committed to prevent,
+    // and it is why the staleness surfaced at all instead of reading as a passing guard.
     id: "I3  the calendar branch is never taken",
     file: BANNER,
-    find: `  return error.isCalendarError`,
-    replace: `  return false`,
+    find: `  if (error.isCalendarError) {`,
+    replace: `  if (false) {`,
     expectFailing: /calendar branch is unaffected/,
   },
   {

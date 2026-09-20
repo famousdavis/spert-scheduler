@@ -40,6 +40,7 @@ import { computeDependencySchedule } from "@core/schedule/deterministic";
 import { runDependencyTrials } from "@core/simulation/monte-carlo";
 import { isCalendarError } from "@core/calendar/work-calendar";
 import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
+import type { FlaggedThrower } from "@ui/hooks/use-estimate-validity";
 import type { Project, ActivityDependency, Scenario } from "@domain/models/types";
 
 const START = "2026-03-02";
@@ -251,6 +252,16 @@ describe("import characterisation — a broken dependency graph in a project JSO
 
   it("no error yields no banner, whichever way the flagged-thrower gate points", () => {
     expect(getScheduleErrorBanner(null, null)).toBeNull();
-    expect(getScheduleErrorBanner(null, "a flagged activity's build message")).toBeNull();
+    // v0.71.3: the gate carries the flagged ACTIVITY now, not its build message. The point of
+    // this line is unchanged — no error means no banner, whichever way the gate points.
+    const flagged: FlaggedThrower = {
+      id: "a1",
+      name: "Design",
+      messages: ["Most Likely is above Max"],
+      min: 5,
+      mostLikely: 30,
+      max: 20,
+    };
+    expect(getScheduleErrorBanner(null, flagged)).toBeNull();
   });
 });

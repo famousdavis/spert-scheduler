@@ -2,8 +2,8 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { flushSync } from "react-dom";
 import type { ActivityProblem } from "@ui/hooks/use-estimate-validity";
+import { scrollToActivity } from "@ui/helpers/scroll-to-activity";
 
 interface ValidationSummaryProps {
   /**
@@ -27,20 +27,6 @@ interface ValidationSummaryProps {
 export function ValidationSummary({ rows, onRevealGrid, activityNumberMap }: ValidationSummaryProps) {
   if (rows.length === 0) return null;
 
-  const scrollToActivity = (activityId: string) => {
-    // ⚠️ EXPAND FIRST, AND SYNCHRONOUSLY, here in the handler. A collapsed grid is `display: none`,
-    // and Chrome can neither scroll to nor focus a cell inside it: the click did nothing, and focus
-    // stayed here. `flushSync` lays the rows out before the lines below look for one.
-    flushSync(onRevealGrid);
-    const el = document.querySelector<HTMLElement>(
-      `[data-row-id="${activityId}"][data-field="name"]`
-    );
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.focus();
-    }
-  };
-
   // `[overflow-anchor:none]`: this box sits above the grid, and it must never become the
   // browser's scroll anchor — its own growth or removal would then move the grid (v0.69.0).
   return (
@@ -62,7 +48,7 @@ export function ValidationSummary({ rows, onRevealGrid, activityNumberMap }: Val
             <li key={row.id} className="flex items-baseline text-sm text-amber-700 dark:text-amber-300">
               <button
                 type="button"
-                onClick={() => scrollToActivity(row.id)}
+                onClick={() => scrollToActivity(row.id, onRevealGrid)}
                 title={row.name}
                 className="flex items-baseline gap-1.5 max-w-[50%] shrink-0 text-amber-800 dark:text-amber-200 font-medium hover:underline"
               >

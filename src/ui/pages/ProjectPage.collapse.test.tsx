@@ -123,6 +123,17 @@ const idOf = (p: Project, i: number) => p.scenarios[0]!.activities[i]!.id;
 const cell = (id: string, field: string) =>
   document.querySelector<HTMLInputElement>(`[data-row-id="${id}"][data-field="${field}"]`)!;
 const summary = () => screen.queryByText(/validation errors$/);
+/**
+ * A row's link INSIDE the amber validation summary.
+ *
+ * ⚠️ Scoped on purpose. Since v0.71.3 the red schedule-error banner ALSO renders a link with the
+ * same accessible name, for the flagged activity that blocked the schedule — so an unscoped
+ * `getByRole` is ambiguous exactly when both boxes are up, which is the third jump case below.
+ * It threw `Found multiple elements`, which is the friendly failure; the unfriendly one would
+ * have been a `getAllBy...[0]` quietly clicking whichever box React rendered first.
+ */
+const summaryLink = (name: string) =>
+  within(summary()!.parentElement!).getByRole("button", { name });
 const stored = () => JSON.parse(localStorage.getItem(KEY) ?? "null") as Record<string, string[]> | null;
 
 /** Focus a cell and type into it — focus first, as a user's click or Tab would. */
@@ -320,7 +331,7 @@ describe("the validation summary's jump", () => {
     fireEvent.click(bar());
 
     const hiddenAtScroll = recordHiddenAtScroll(() =>
-      fireEvent.click(screen.getByRole("button", { name: "Tamber sounding" }))
+      fireEvent.click(summaryLink("Tamber sounding"))
     );
 
     expect(hiddenAtScroll).toEqual([false]);
@@ -337,12 +348,38 @@ describe("the validation summary's jump", () => {
     const setItem = vi.spyOn(Storage.prototype, "setItem");
 
     const hiddenAtScroll = recordHiddenAtScroll(() =>
-      fireEvent.click(screen.getByRole("button", { name: "Tamber sounding" }))
+      fireEvent.click(summaryLink("Tamber sounding"))
     );
 
     expect(hiddenAtScroll).toEqual([false]);
     expect(document.activeElement).toBe(cell(idOf(p, 0), "name"));
     expect(setItem.mock.calls.filter(([key]) => String(key).includes("collapsed-sections"))).toEqual([]);
+  });
+
+  it("the SCHEDULE-ERROR banner jumps too, in plain words and without the engine's text", () => {
+    // v0.71.3 (WI-15). 30 / 10 / 20 is a SAVED issue, so the row is flagged AND its distribution
+    // cannot be built — the one state that raises the red banner beside the amber summary.
+    const p = projectOf({ rows: [["Tamber sounding", { min: 30 }], "Wrasse survey"] });
+    renderPage(p);
+    fireEvent.click(bar());
+
+    const banner = screen.getByText(/^Schedule Error$/).parentElement!;
+    // What the user is told: the summary's own rule, then their own numbers. No engine text.
+    expect(banner.textContent).toContain(
+      "Min is above Most Likely. This activity has Min 30, Most Likely 10 and Max 20."
+    );
+    expect(banner.textContent).not.toMatch(/Distribution:/);
+    expect(banner.textContent).not.toMatch(/Cannot create/);
+
+    // ⚠️ The ACCESSIBLE NAME, not textContent: a CSS gap is not an audible space.
+    const link = within(banner).getByRole("button", { name: "Tamber sounding" });
+
+    const hiddenAtScroll = recordHiddenAtScroll(() => fireEvent.click(link));
+
+    // Same two guarantees as the summary's link, because it is the same extracted function.
+    expect(hiddenAtScroll).toEqual([false]);
+    expect(bar()).toHaveAttribute("aria-expanded", "true");
+    expect(document.activeElement).toBe(cell(idOf(p, 0), "name"));
   });
 
   it("in a locked scenario it expands and scrolls, and cannot focus the disabled Name cell", () => {
@@ -352,7 +389,7 @@ describe("the validation summary's jump", () => {
     fireEvent.click(bar());
 
     const hiddenAtScroll = recordHiddenAtScroll(() =>
-      fireEvent.click(screen.getByRole("button", { name: "Tamber sounding" }))
+      fireEvent.click(summaryLink("Tamber sounding"))
     );
 
     expect(hiddenAtScroll).toEqual([false]);
