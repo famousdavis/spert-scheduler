@@ -3,11 +3,20 @@
 // See LICENSE file in the project root for full license text.
 
 import type { ScheduleError } from "@ui/hooks/use-schedule";
+import type { FlaggedThrower } from "@ui/hooks/use-estimate-validity";
+
+/** The activity the generic branch names, as a click target. Absent on cycle and calendar. */
+export interface ScheduleErrorBannerLink {
+  activityId: string;
+  /** `#4 Design` when the grid is numbering rows, `Design` when it is not. */
+  label: string;
+}
 
 export interface ScheduleErrorBanner {
   heading: string;
   message: string;
   advice: string;
+  link?: ScheduleErrorBannerLink;
 }
 
 /**
@@ -33,7 +42,10 @@ export interface ScheduleErrorBanner {
  * ⚠️ v0.67.23 - the second argument GATES THE GENERIC BRANCH ONLY, and it is REQUIRED rather
  * than optional for the same reason `ScheduleError.isCycleError` is: both call sites must
  * decide, so a third cannot silently default to "show it". (v0.67.23 passed `allActivitiesValid`;
- * v0.69.0 passes `flaggedThrow` — see the last paragraph.)
+ * v0.69.0 passed `flaggedThrow`; v0.71.3 passes the activity itself — see the last paragraph.)
+ * ⚠️ The THIRD argument is genuinely optional, and that is not an inconsistency with the second:
+ * an absent number map is a REAL state (the project is not numbering its rows), whereas an absent
+ * gate would be a caller declining to decide.
  *
  * THE DEFECT IT CLOSED. Until v0.70.0 estimates committed per FIELD, against two STALE siblings.
  * A new activity is 1/1/1, so the first thing anyone typed - Min 5, or Most Likely 10 - left the
@@ -81,10 +93,27 @@ export interface ScheduleErrorBanner {
  * triple left half-typed is saved AND flagged, never held back - and `flaggedThrow` names the
  * same activity as the engine's first throw, with the same message (REASONED: every throw the
  * distribution factory raises is also an issue of the strict schema). It is kept as the gate.
+ *
+ * ⚠️ v0.71.3 (WI-15) - THE GENERIC BRANCH STOPPED QUOTING THE ENGINE. It showed the build message
+ * verbatim, which on stage read `Cannot create Triangular distribution for activity "Project
+ * Mobilization & Governance": TriangularDistribution: must have a <= c <= b, got a=9, c=30,
+ * b=22` - two layers of engine jargon, with generic advice that named no activity and linked
+ * nowhere. MEASURED at v0.71.2: it renders 550 px ABOVE the amber validation summary, which was
+ * already saying the same thing properly about the same row. The owner ruled that BOTH should
+ * stay - this app is for people new to Monte Carlo, for whom a second explanation in plain words
+ * is the feature rather than noise - and that this one should be rewritten, not suppressed.
+ *
+ * ⚠️ IT MUST NOT INTRODUCE A RULE THE SUMMARY NEVER STATES, which is why `message` is built from
+ * the thrower's OWN `messages` - the summary's array, not a restatement of it. MEASURED
+ * divergence if it were not: on Uniform 30/9/28 the engine fails on Min > Max while the summary
+ * reports Min > Most Likely, and `estimateOrderIssues` never states Min > Max at all. Two
+ * different plain-English rules, 550 px apart, about one row, are WORSE than one jargon string a
+ * reader can dismiss as noise. The three numbers are the only thing this adds.
  */
 export function getScheduleErrorBanner(
   error: ScheduleError | null,
-  flaggedThrow: string | null
+  thrower: FlaggedThrower | null,
+  activityNumbers?: ReadonlyMap<string, number> | null
 ): ScheduleErrorBanner | null {
   if (!error) return null;
   if (error.isCycleError) {
@@ -104,10 +133,24 @@ export function getScheduleErrorBanner(
   }
   // Generic branch = the estimates branch, per the reachability note above. Shown only for a
   // flagged activity that itself cannot be built.
-  if (flaggedThrow === null) return null;
+  if (thrower === null) return null;
+  const number = activityNumbers?.get(thrower.id);
   return {
     heading: "Schedule Error",
-    message: flaggedThrow,
-    advice: "Check the affected activity's estimates and settings.",
+    // The summary's OWN words for this row, then the three numbers as the grid shows them.
+    // Rounded because the cells round: the store may hold a fraction, and a banner quoting
+    // 8.6 beside a cell reading 9 is a defect of its own.
+    message:
+      `${thrower.messages.join("; ")}. This activity has Min ${Math.round(thrower.min)}, ` +
+      `Most Likely ${Math.round(thrower.mostLikely)} and Max ${Math.round(thrower.max)}.`,
+    // Deliberately says nothing about ordering. It reads every shape this branch can carry, and
+    // one of them is a LogNormal 0/0/0, whose three estimates ARE in order - ordering advice
+    // there would be a non-sequitur. The rule that was actually broken is in `message`, in the
+    // summary's wording.
+    advice: "The schedule cannot be calculated until this activity's estimates are fixed.",
+    link: {
+      activityId: thrower.id,
+      label: number == null ? thrower.name : `#${number} ${thrower.name}`,
+    },
   };
 }

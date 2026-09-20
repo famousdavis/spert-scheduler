@@ -32,6 +32,29 @@ export interface ActivityProblem {
   messages: string[];
 }
 
+/**
+ * The first FLAGGED activity whose distribution cannot be built: who it is, what the validation
+ * summary says about it, and the three numbers as the grid shows them. v0.71.3 (WI-15) widened
+ * this from the engine's build message to the activity itself, so the banner can name the row in
+ * the summary's OWN words and link to it.
+ *
+ * WARNING: `messages` IS THE SUMMARY'S LINE, the same array, not a second description of the same
+ * row. That is deliberate and load-bearing: the banner and the summary appear together, 550 px
+ * apart (measured), about the same activity, and a novice - who is the reader this app is for -
+ * cannot tell two differently-worded rules apart. The engine's own wording WOULD introduce one:
+ * on Uniform 30/9/28 the build fails on Min > Max while the summary reports Min > Most Likely,
+ * and `estimateOrderIssues` never states Min > Max at all. Reusing this array makes that
+ * divergence impossible by construction rather than by review.
+ */
+export interface FlaggedThrower {
+  id: string;
+  name: string;
+  messages: string[];
+  min: number;
+  mostLikely: number;
+  max: number;
+}
+
 /** The red estimate cells of one activity, by field, with each cell's message. */
 export type CellIssues = Partial<Record<EstimateKey, string>>;
 
@@ -51,10 +74,11 @@ export interface EstimateValidity {
   cellIssues: ReadonlyMap<string, CellIssues>;
   /**
    * The first activity, in the engine's own order, whose distribution cannot be built AND that
-   * has a saved issue — its own build message. `null` when there is none. This, not the engine's
-   * error, is what the generic schedule-error banner may show; see the helper.
+   * has a saved issue. `null` when there is none. This, not the engine's error, is what the
+   * generic schedule-error banner shows; see the helper. THE GATE IS UNCHANGED from v0.69.0 —
+   * only what it carries widened, from the build message to the activity itself (v0.71.3).
    */
-  flaggedThrow: string | null;
+  flaggedThrower: FlaggedThrower | null;
   /** Where a row sends its report. Stable per scenario. */
   reportRow: (activityId: string, report: RowReport) => void;
 }
@@ -152,16 +176,16 @@ interface Derived {
   runBlockers: ActivityProblem[];
   flaggedRows: ActivityProblem[];
   cellIssues: Map<string, CellIssues>;
-  flaggedThrow: string | null;
+  flaggedThrower: FlaggedThrower | null;
 }
 
 /**
  * Every set the page reads, in one pass over the activities in ARRAY order — the order the
  * engine builds distributions in, in both modes (`computeDeterministicSchedule`'s loop, and
- * `computeDependencyDurations` before any graph walk). That order is why `flaggedThrow` is the
+ * `computeDependencyDurations` before any graph walk). That order is why `flaggedThrower` is the
  * first qualifying thrower and not merely any.
  *
- * ⚠️ v0.70.0 — `flaggedThrow` now names the SAME activity as the engine's own first throw, with
+ * ⚠️ v0.70.0 — `flaggedThrower` now names the SAME activity as the engine's own first throw, with
  * the same message (REASONED): every throw the distribution factory can raise — Triangular out of
  * order; T-Normal, LogNormal or Uniform with Min above Max; LogNormal at zero — is also an issue
  * of the strict schema, and no saved issue is held back any more: nothing is saved while a row's
@@ -176,19 +200,23 @@ export function deriveEstimateValidity(
   probabilityTarget: number
 ): Derived {
   const problems: ActivityProblem[] = [];
-  const derived: Derived = { runnable: true, runBlockers: problems, flaggedRows: problems, cellIssues: new Map(), flaggedThrow: null };
+  const derived: Derived = { runnable: true, runBlockers: problems, flaggedRows: problems, cellIssues: new Map(), flaggedThrower: null };
   for (const activity of activities) {
     const issues = saved.get(activity.id) ?? [];
     const refused = refusedMessages(book.get(activity.id)?.report.refused);
-    if (issues.length > 0 || refused.length > 0) {
+    // Built ONCE and shared by the summary's row and the thrower below, so the banner cannot
+    // word this activity's problem differently from the summary. See `FlaggedThrower`.
+    const messages = [...refused, ...issues.map((i) => i.message)];
+    const name = nameOrUnnamed(activity.name);
+    if (messages.length > 0) {
       derived.runnable = false;
-      problems.push({ id: activity.id, name: nameOrUnnamed(activity.name), messages: [...refused, ...issues.map((i) => i.message)] });
+      problems.push({ id: activity.id, name, messages });
     }
     const cells = toCellIssues(issues);
     if (cells) derived.cellIssues.set(activity.id, cells);
     // A refused cell never qualifies a thrower: it leaves the old number in the store.
-    if (derived.flaggedThrow === null && issues.length > 0) {
-      derived.flaggedThrow = buildFailure(activity, probabilityTarget);
+    if (derived.flaggedThrower === null && issues.length > 0 && buildFailure(activity, probabilityTarget) !== null) {
+      derived.flaggedThrower = { id: activity.id, name, messages, min: activity.min, mostLikely: activity.mostLikely, max: activity.max };
     }
   }
   return derived;

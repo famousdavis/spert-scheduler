@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.71.3",
+    date: "2026-09-20",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The message for estimates in the wrong order is in plain words, and takes you to the activity. When one activity's Min, Most Likely and Max are out of order the schedule cannot be calculated, and the red panel used to quote the internal maths engine, naming the distribution class and its letters: a <= c <= b, got a=9, c=30, b=22. It now names the activity as a link, says what is wrong in the same words the validation summary uses, and shows the three numbers you entered: “#1 Project Mobilization & Governance: Most Likely is above Max. This activity has Min 9, Most Likely 30 and Max 22.” Clicking the activity's name takes you to its row and puts the cursor in it, opening the activity grid first if you had collapsed it. The line below it now tells you what this means for the schedule instead of asking you to check your settings.",
+          "That explanation now meets the AA contrast standard in the light theme. It was set in a red that measured 4.36:1 against the panel behind it, below the 4.5:1 the standard asks for at this text size; it is now 5.87:1. The dark theme already passed and is unchanged.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The banner's jump to an activity is the validation summary's own scroll-and-focus, extracted into one helper rather than copied. With the activity grid collapsed the row is still in the document but has a zero-sized box, and scrolling to it and focusing it then do nothing at all, silently, so the reveal has to be flushed synchronously before the row is looked for. The message is built from the flagged activity's own summary messages rather than from the engine's error, which makes it impossible for the two panels to state different rules: on a Uniform activity the engine fails on Min above Max while the summary reports Min above Most Likely, and the stored rule never states the first of those at all. Eight falsification runs — five against the banner's wording, numbers and link, three against the shared jump — each failed exactly the predicted tests by name. A ninth mutation, in the older import-cycle spec, was found to have been aborting that run since the dependency-cycle branch landed in 0.63.0; its needle was repaired, which restored two mutations that had not executed since.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.71.2",
     date: "2026-09-19",
     sections: [

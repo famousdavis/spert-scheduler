@@ -9,6 +9,7 @@ import { useProjectActions } from "@ui/hooks/use-project-actions";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useSchedule, type ScheduleError } from "@ui/hooks/use-schedule";
 import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
+import { ScheduleErrorBanner } from "@ui/components/ScheduleErrorBanner";
 import { runBlockedMessage } from "@ui/helpers/run-blocked-message";
 import { useEstimateValidity } from "@ui/hooks/use-estimate-validity";
 import { useHeldWhilePointerDown } from "@ui/hooks/use-held-while-pointer-down";
@@ -353,20 +354,28 @@ export function ProjectPage() {
   // derives it (no state write); otherwise the sequential useSchedule drives
   // `sequentialScheduleError`. The two paths are mutually exclusive on depMode.
   const scheduleError = depMode ? dependencyScheduleResult.scheduleError : sequentialScheduleError;
-  // ⚠️ v0.69.0 — the generic branch is gated on `flaggedThrow`: the first FLAGGED activity whose
-  // own distribution cannot be built, and its own message. v0.69.0 needed that because a
-  // half-typed row was saved and held back; since v0.70.0 nothing is saved while a row's estimate
-  // cells are still being typed in, and nothing saved is held back, so it names the same activity as
-  // the engine's first throw. See the helper and `useEstimateValidity`.
+  // ⚠️ v0.69.0 — the generic branch is gated on the FLAGGED THROWER: the first flagged activity
+  // whose own distribution cannot be built. v0.69.0 needed that because a half-typed row was saved
+  // and held back; since v0.70.0 nothing is saved while a row's estimate cells are still being
+  // typed in, and nothing saved is held back, so it names the same activity as the engine's first
+  // throw. ⚠️ v0.71.3 (WI-15) widened it from that activity's build MESSAGE to the activity
+  // itself, so the banner can name the row in the validation summary's own words and link to it.
+  // See the helper and `useEstimateValidity`.
   //
   // Both banner inputs are HELD while a pointer is down, with the summary's rows below: the
   // banner and the summary sit above the grid, and inserting, growing or removing either between
   // `pointerdown` and `click` moves the grid under the click (v0.69.0). Nothing that gates Run is
   // held.
   const paintedScheduleError = useHeldWhilePointerDown(scheduleError);
-  const paintedFlaggedThrow = useHeldWhilePointerDown(validity.flaggedThrow);
+  const paintedFlaggedThrower = useHeldWhilePointerDown(validity.flaggedThrower);
   const paintedFlaggedRows = useHeldWhilePointerDown(validity.flaggedRows);
-  const scheduleErrorBanner = getScheduleErrorBanner(paintedScheduleError, paintedFlaggedThrow);
+  // The number map is NOT held: it moves only with the activity list or the numbering toggle,
+  // neither of which a press can change, and holding it would be a second thing to keep in step.
+  const scheduleErrorBanner = getScheduleErrorBanner(
+    paintedScheduleError,
+    paintedFlaggedThrower,
+    activityNumberMap
+  );
 
   // Critical path activity IDs (only in dependency mode)
   const criticalPathIds = useMemo(() => {
@@ -833,21 +842,10 @@ export function ProjectPage() {
           hygiene), whose isCalendarError branch uses the shared, two-shape
           work-calendar.ts predicate — not a narrower reimplementation. */}
       {scheduleErrorBanner && (
-        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 [overflow-anchor:none]">
-          <p className="text-sm font-medium text-red-800 dark:text-red-300">
-            {scheduleErrorBanner.heading}
-          </p>
-          {/* Separate paragraphs, not one space-joined line. The message is a raw engine
-              diagnostic that ends without punctuation ("…cannot compute topological order"),
-              so running the advice on after it produced a single unreadable sentence — most
-              visibly for the cycle branch, whose advice is a full instruction. */}
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-            {scheduleErrorBanner.message}
-          </p>
-          <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-            {scheduleErrorBanner.advice}
-          </p>
-        </div>
+        <ScheduleErrorBanner
+          banner={scheduleErrorBanner}
+          onRevealGrid={gridCollapse.expand}
+        />
       )}
 
       {/* Constraint conflict / dependency violation warnings */}
