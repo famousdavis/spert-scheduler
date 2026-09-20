@@ -288,8 +288,10 @@ const RULED_EXCEPTIONS: Record<string, string> = {
   'src/ui/components/StorageLoginModal.tsx:135': 'the disabled half of a ternary',
   'src/ui/components/UnifiedActivityRow.tsx:546': 'icon-only control, no text node',
   'src/ui/components/ScenarioTabs.tsx:117': 'drag-handle icon',
-  'src/ui/components/DependencyPanel.tsx:331': '<select> placeholder state',
-  'src/ui/components/DependencyPanel.tsx:346': '<select> placeholder state',
+  // Re-keyed :331 / :346 → :341 / :356 in v0.71.0: the same two add-form <select>s (Predecessor,
+  // Successor), byte-identical, moved down by the panel's remembered collapse. Not new sites.
+  'src/ui/components/DependencyPanel.tsx:341': '<select> placeholder state',
+  'src/ui/components/DependencyPanel.tsx:356': '<select> placeholder state',
 };
 
 const INVERTED_PAIR = /text-gray-400 dark:text-gray-500/g;

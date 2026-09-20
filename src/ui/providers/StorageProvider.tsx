@@ -25,6 +25,7 @@ import {
   setStorageNamespace,
 } from "@infrastructure/persistence/local-storage-repository";
 import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memory";
+import { clearAllCollapsedSections } from "@infrastructure/persistence/section-collapse-memory";
 import { clearPreferences } from "@infrastructure/persistence/preferences-repository";
 import { bumpSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 
@@ -97,7 +98,8 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   //   2. cancel pending Firestore saves (credentials still valid)
   //   3. zero in-memory project state (before C2 guard re-evaluates on next
   //      sign-in and before localStorage cleanup wipes the mirror)
-  //   4. clear per-user localStorage keys (projects, scenario memory, prefs)
+  //   4. clear per-user localStorage keys (projects, scenario memory, collapsed
+  //      sections, prefs)
   //   5. reset the preferences Zustand store (separate store from projects)
   // Keys intentionally preserved: spert:storage-mode (continuity),
   // spert_firstRun_seen (per-browser), Nager country cache (not user-specific),
@@ -109,6 +111,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       useProjectStore.getState().clearAllData();
       new LocalStorageRepository().clearAll();
       clearAllLastScenarios();
+      clearAllCollapsedSections();
       clearPreferences();
       usePreferencesStore.getState().clearInMemory();
     });

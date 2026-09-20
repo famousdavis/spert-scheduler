@@ -10,6 +10,7 @@ import { migrateLocalToCloud } from "@infrastructure/firebase/firestore-migratio
 import type { MigrationResult } from "@infrastructure/firebase/firestore-migration";
 import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
 import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memory";
+import { clearAllCollapsedSections } from "@infrastructure/persistence/section-collapse-memory";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 
 export interface UseStorageModeSwitchResult {
@@ -85,6 +86,11 @@ export function useStorageModeSwitch(): UseStorageModeSwitchResult {
     // mode-switch happens before sign-out; clearing must hit local data.
     new LocalStorageRepository("local").clearAll();
     clearAllLastScenarios();
+    // ⚠️ Like the line above, this clears the ACTIVE namespace — the signed-in user's uid, not
+    // "local" — so it forgets that user's collapsed sections and leaves the discarded local
+    // projects' entries behind. Harmless for view state: a leftover entry can only make a project
+    // with that same id open collapsed (v0.71.0).
+    clearAllCollapsedSections();
     useProjectStore.getState().clearAllData();
     setConfirmDiscardOpen(false);
     switchMode("local");

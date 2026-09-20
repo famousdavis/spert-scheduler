@@ -100,6 +100,7 @@ describe("the Milestones panel", () => {
   const renderPanel = () =>
     render(
       <MilestonePanel
+        projectId="panel-test-project"
         milestones={MILESTONES}
         activities={[]}
         milestoneBuffers={buffers()}

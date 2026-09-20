@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
+import { flushSync } from "react-dom";
 import type { ActivityProblem } from "@ui/hooks/use-estimate-validity";
 
 interface ValidationSummaryProps {
@@ -13,12 +14,18 @@ interface ValidationSummaryProps {
    * mid-click, and the summary's removal would move the grid under the click.
    */
   rows: readonly ActivityProblem[];
+  /** Shows the grid, which may be collapsed (v0.71.0). Called before the jump, synchronously. */
+  onRevealGrid: () => void;
 }
 
-export function ValidationSummary({ rows }: ValidationSummaryProps) {
+export function ValidationSummary({ rows, onRevealGrid }: ValidationSummaryProps) {
   if (rows.length === 0) return null;
 
   const scrollToActivity = (activityId: string) => {
+    // ⚠️ EXPAND FIRST, AND SYNCHRONOUSLY, here in the handler. A collapsed grid is `display: none`,
+    // and Chrome can neither scroll to nor focus a cell inside it: the click did nothing, and focus
+    // stayed here. `flushSync` lays the rows out before the lines below look for one.
+    flushSync(onRevealGrid);
     const el = document.querySelector<HTMLElement>(
       `[data-row-id="${activityId}"][data-field="name"]`
     );

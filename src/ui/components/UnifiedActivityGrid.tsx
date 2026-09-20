@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, type ReactNode } from "react";
 import {
   DndContext,
   closestCenter,
@@ -80,6 +80,12 @@ interface UnifiedActivityGridProps {
   onEditActivity?: (activityId: string) => void;
   constraintWarningIds?: Set<string>;
   activityNumberMap?: Map<string, number> | null;
+  /** v0.71.0 — the card's first row, shown in both states: the page passes the grid's collapse bar. */
+  header?: ReactNode;
+  /** v0.71.0 — hides everything below `header`: the toolbar, the rows and the Add buttons. */
+  collapsed?: boolean;
+  /** The id of the region `collapsed` hides, for the header's `aria-controls`. */
+  bodyId?: string;
 }
 
 export function UnifiedActivityGrid({
@@ -109,6 +115,9 @@ export function UnifiedActivityGrid({
   onEditActivity,
   constraintWarningIds,
   activityNumberMap,
+  header,
+  collapsed,
+  bodyId,
 }: UnifiedActivityGridProps) {
   const showConstraintColumn = shouldShowConstraintColumn(dependencyMode, activities);
   const gridCols = showConstraintColumn ? GRID_COLUMNS_WITH_CONSTRAINT : GRID_COLUMNS;
@@ -345,6 +354,14 @@ export function UnifiedActivityGrid({
       className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
       data-activity-grid
     >
+      {header}
+
+      {/* v0.71.0 — everything below the header collapses. Hidden, NOT unmounted: an unmount would
+          drop the selection, the toolbar's staged values and every refused draft with its red.
+          ⚠️ The `hidden` ATTRIBUTE, never Tailwind's `hidden` class, which jsdom computes as
+          `display: block` — a test would find a collapsed grid visible. Its contents are left at
+          their old indentation on purpose, as the Dependencies and Milestones panels' bodies are. */}
+      <div id={bodyId} hidden={collapsed}>
       {/* Bulk action toolbar - hidden when scenario is locked */}
       {hasSelection && !isScenarioLocked && (
         <BulkActionToolbar
@@ -584,6 +601,7 @@ export function UnifiedActivityGrid({
           + Section
         </button>
       </div>
+      </div>{/* end of the collapsible body */}
     </div>
   );
 }

@@ -287,6 +287,44 @@ describe("handleCrossRowTabNav", () => {
     expect(handleCrossRowTabNav(e, "ml", "max", "a1", false)).toBe(false);
     document.body.innerHTML = "";
   });
+
+  // v0.71.0 — WCAG 2.1.2: the browser's own Tab is cancelled ONLY when focus actually moved. The
+  // first row's Shift+Tab has nowhere to go, and cancelling it trapped the keyboard in that cell.
+  it("Shift+Tab with no row above does NOT cancel the browser's Tab", () => {
+    const input = makeTargetInGrid();
+    const e = makeKeyEvent(true, input);
+    focusPrevRowMock.mockReturnValue(false);
+    expect(handleCrossRowTabNav(e, "name", "max", "a1", false)).toBe(true);
+    expect(e.preventDefault).not.toHaveBeenCalled();
+    document.body.innerHTML = "";
+  });
+
+  it("Shift+Tab that moves focus to the row above cancels the browser's Tab", () => {
+    const input = makeTargetInGrid();
+    const e = makeKeyEvent(true, input);
+    focusPrevRowMock.mockReturnValue(true);
+    expect(handleCrossRowTabNav(e, "name", "max", "a1", false)).toBe(true);
+    expect(e.preventDefault).toHaveBeenCalledTimes(1);
+    document.body.innerHTML = "";
+  });
+
+  it("Tab from the last field with nowhere to go does NOT cancel the browser's Tab", () => {
+    const input = makeTargetInGrid();
+    const e = makeKeyEvent(false, input);
+    focusNextRowMock.mockReturnValue(false);
+    expect(handleCrossRowTabNav(e, "max", "max", "a1", false)).toBe(true);
+    expect(e.preventDefault).not.toHaveBeenCalled();
+    document.body.innerHTML = "";
+  });
+
+  it("Tab from the last field that moves focus cancels the browser's Tab", () => {
+    const input = makeTargetInGrid();
+    const e = makeKeyEvent(false, input);
+    focusNextRowMock.mockReturnValue(true);
+    expect(handleCrossRowTabNav(e, "max", "max", "a1", false)).toBe(true);
+    expect(e.preventDefault).toHaveBeenCalledTimes(1);
+    document.body.innerHTML = "";
+  });
 });
 
 describe("handleInRowTabNav", () => {

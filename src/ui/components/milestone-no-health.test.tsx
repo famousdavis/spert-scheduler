@@ -135,6 +135,7 @@ function renderCard(s: Situation) {
 function renderPanel(s: Situation) {
   return render(
     <MilestonePanel
+      projectId="panel-test-project"
       milestones={[GATE]}
       activities={s.activities}
       milestoneBuffers={buffersFor(s)}
