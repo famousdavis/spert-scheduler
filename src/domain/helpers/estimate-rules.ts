@@ -13,8 +13,8 @@ export interface EstimateOrderIssue {
   message: string;
 }
 
-export const MIN_ABOVE_MOST_LIKELY = "Min must be <= Most Likely";
-export const MOST_LIKELY_ABOVE_MAX = "Most Likely must be <= Max";
+export const MIN_ABOVE_MOST_LIKELY = "Min is above Most Likely";
+export const MOST_LIKELY_ABOVE_MAX = "Most Likely is above Max";
 
 const MIN_ISSUE: EstimateOrderIssue = { field: "min", message: MIN_ABOVE_MOST_LIKELY };
 const MOST_LIKELY_ISSUE: EstimateOrderIssue = { field: "mostLikely", message: MOST_LIKELY_ABOVE_MAX };

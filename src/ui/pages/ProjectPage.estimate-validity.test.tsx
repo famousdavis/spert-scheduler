@@ -25,7 +25,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { act, render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
@@ -195,7 +195,7 @@ describe("a loaded out-of-order project — flagged at mount, from saved data", 
     expect(min).toHaveAttribute("aria-invalid", "true");
     const describedBy = min.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
-    expect(document.getElementById(describedBy!)?.textContent).toBe("Min must be <= Most Likely");
+    expect(document.getElementById(describedBy!)?.textContent).toBe("Min is above Most Likely");
     expect(cell(aid, "ml")).not.toHaveAttribute("aria-invalid");
     expect(summary()!.parentElement!.textContent).toContain("Kittiwake abutment");
     expect(runButton()).toBeDisabled();
@@ -247,7 +247,7 @@ describe("every Run control refuses while Run is refused (WI-53)", () => {
     expect(toasts).toHaveLength(2);
     for (const t of toasts) {
       expect(t).toContain("Merganser outfall");
-      expect(t).toContain("Min must be <= Most Likely");
+      expect(t).toContain("Min is above Most Likely");
     }
   });
 
@@ -770,5 +770,48 @@ describe("WI-50 — the three estimate cells commit as ONE group, when focus lea
     const pending = useConfirmStore.getState().pending;
     expect(pending?.kind === "confirm" ? pending.options.title : null).toBe("Delete this activity?");
     act(() => useConfirmStore.getState().dismissPending());
+  });
+});
+
+/**
+ * v0.71.1 — the summary's line is an error message: the activity's number, its name, then the
+ * problem. The NUMBER follows the project's own "show activity numbers" setting (the owner's rule),
+ * so a number in this list is always a number visible in the grid beside it.
+ */
+describe("v0.71.1 at the page — the summary names the activity the way the grid does", () => {
+  function twoRows(showActivityIds: boolean): { p: Project; second: string } {
+    let second = "";
+    const p = projectOf((s) => {
+      const first = activityWith("Teal conduit", s);
+      const bad = activityWith("Vireo cutover", s, { min: 30, mostLikely: 10, max: 20 });
+      second = bad.id;
+      return [first, bad];
+    });
+    return { p: { ...p, showActivityIds }, second };
+  }
+
+  const summaryLine = () => summary()!.parentElement!.querySelector("li")!;
+
+  it("leads with the SAME number the grid shows", () => {
+    const { p, second } = twoRows(true);
+    renderPage(p);
+
+    // The grid numbers it #2; so does the summary, and the problem follows the name.
+    const row = cell(second, "name").closest("div")!.parentElement!;
+    expect(within(row).getByText("#2")).toBeInTheDocument();
+    expect(summaryLine().textContent).toBe("#2 Vireo cutover: Min is above Most Likely");
+  });
+
+  it("shows no number when the project does not number its activities", () => {
+    const { p } = twoRows(false);
+    renderPage(p);
+
+    // ⚠️ SCOPED: the hidden print report numbers its own rows, so a document-wide text query
+    // finds a "#2" that is not on screen.
+    const grid = document.querySelector("[data-activity-grid]") as HTMLElement;
+    expect(document.querySelectorAll('[data-row-id][data-field="name"]')).toHaveLength(2);
+    expect(within(grid).queryByText("#2")).toBeNull();
+    expect(within(summary()!.parentElement!).queryByText("#2")).toBeNull();
+    expect(summaryLine().textContent).toBe("Vireo cutover: Min is above Most Likely");
   });
 });

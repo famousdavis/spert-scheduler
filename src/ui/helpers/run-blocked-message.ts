@@ -7,7 +7,7 @@ import type { ActivityProblem } from "@ui/hooks/use-estimate-validity";
 /** How many activities a toast names before it summarises the rest. */
 const TOAST_NAMED_LIMIT = 3;
 
-/** One activity and its reasons, as a phrase: `Design (Min must be <= Most Likely)`. */
+/** One activity and its reasons, as a phrase: `Design (Min is above Most Likely)`. */
 export function describeProblem(problem: ActivityProblem): string {
   return `${problem.name} (${problem.messages.join("; ")})`;
 }

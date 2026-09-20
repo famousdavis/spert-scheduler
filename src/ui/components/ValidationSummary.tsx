@@ -16,9 +16,15 @@ interface ValidationSummaryProps {
   rows: readonly ActivityProblem[];
   /** Shows the grid, which may be collapsed (v0.71.0). Called before the jump, synchronously. */
   onRevealGrid: () => void;
+  /**
+   * The `#N` each activity carries in the grid, or null when this project does not show activity
+   * numbers (v0.71.1). The page's own map, so a number here is the number on screen — and when the
+   * grid shows none, neither does this list, rather than a number matching nothing.
+   */
+  activityNumberMap?: Map<string, number> | null;
 }
 
-export function ValidationSummary({ rows, onRevealGrid }: ValidationSummaryProps) {
+export function ValidationSummary({ rows, onRevealGrid, activityNumberMap }: ValidationSummaryProps) {
   if (rows.length === 0) return null;
 
   const scrollToActivity = (activityId: string) => {
@@ -43,18 +49,34 @@ export function ValidationSummary({ rows, onRevealGrid }: ValidationSummaryProps
         {rows.length} activit{rows.length === 1 ? "y has" : "ies have"}{" "}
         validation errors
       </p>
+      {/* v0.71.1 — the line leads with the activity's number, then its name, then what is wrong with
+          it. The name is capped at half the line and truncated with the whole of it on hover, so the
+          problem always starts on the first line: an activity named up to the field's 200 characters
+          used to fill the width and push its own problem onto the third line. The number is outside
+          that cap and can never be truncated, and it stays inside the button, so the whole line is
+          one click target. */}
       <ul className="space-y-1">
-        {rows.map((row) => (
-          <li key={row.id} className="text-sm text-amber-700 dark:text-amber-300">
-            <button
-              onClick={() => scrollToActivity(row.id)}
-              className="text-amber-800 dark:text-amber-200 font-medium hover:underline"
-            >
-              {row.name}
-            </button>
-            : {row.messages.join("; ")}
-          </li>
-        ))}
+        {rows.map((row) => {
+          const number = activityNumberMap?.get(row.id);
+          return (
+            <li key={row.id} className="flex items-baseline text-sm text-amber-700 dark:text-amber-300">
+              <button
+                type="button"
+                onClick={() => scrollToActivity(row.id)}
+                title={row.name}
+                className="flex items-baseline gap-1.5 max-w-[50%] shrink-0 text-amber-800 dark:text-amber-200 font-medium hover:underline"
+              >
+                {/* ⚠️ The space is a real text node, not the flex gap: without it a screen reader
+                    announces "#4Tamber sounding". A flex container drops whitespace-only children
+                    from the layout, so it costs nothing on screen. */}
+                {number != null && <span className="shrink-0 tabular-nums">#{number}</span>}
+                {number != null && " "}
+                <span className="truncate">{row.name}</span>
+              </button>
+              <span className="min-w-0">: {row.messages.join("; ")}</span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

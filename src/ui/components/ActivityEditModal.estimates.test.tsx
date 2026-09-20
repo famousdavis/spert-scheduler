@@ -84,7 +84,7 @@ describe("an out-of-order draft is advised, not refused", () => {
     fireEvent.change(maxInput(), { target: { value: "10" } }); // ML 13 > Max 10
 
     expect(mlInput()).toHaveAttribute("aria-invalid", "true");
-    expect(describedText(mlInput())).toContain("Most Likely must be <= Max");
+    expect(describedText(mlInput())).toContain("Most Likely is above Max");
     expect(describedText(mlInput())).toContain("If you save it like this, Run stays off until it is fixed.");
     expect(minInput()).not.toHaveAttribute("aria-invalid");
     expect(saveButton().disabled).toBe(false);
