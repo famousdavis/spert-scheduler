@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.71.4 — 2026-09-20
+
+### Changed
+
+- “Can any activities run at the same time?” — the prompt you paste into your AI chatbot now asks a question you can answer. Its second setup question used to ask whether your activities have dependencies “or do they just run one after another” — but running one after another is a dependency, so the question offered a choice between a thing and itself. It now asks whether anything can run at the same time as anything else, and spells out what each answer means: one activity at a time, where each starts when the one before it finishes and the durations add up; or a network, where you say what waits for what and anything you have not linked runs in parallel from day one, so the project is as long as its longest chain rather than the sum.
+- If you choose the network, the chatbot now tells you where the two settings are, because no AI tool can turn either of them on for you. It names the “Dependencies” toggle in the summary panel above the activity list, on the same row as “Parkinson’s Law” — and says it is not the Dependencies panel further down the page, which has no toggle — and the “Turn on Read” button in the Connect AI panel, beside “Permissions: Write”. If you choose one activity at a time, it asks you to confirm “Dependencies” is already off, since with Read Mode off nothing can check that setting for you. Either way it is told not to create dependencies until you have confirmed the network and both settings are on.
+- The prompt says what Read Mode buys before asking for it. The list of tools that need Read Mode used to open by telling the chatbot to ask you to enable it, without ever saying what it is for. It now explains first: with Read Mode off every write is fire-and-forget, so the chatbot cannot discover ids, cannot confirm a change landed, cannot read your notes and descriptions for context, and cannot touch dependencies at all.
+
+### Internal
+
+- The prompt file now records that it carries two registers. The setup question’s options are a script the chatbot reads out, and inside relayed text “you” addresses the reader rather than the chatbot — an earlier draft said “you cannot set either of these yourself”, which relayed verbatim tells the user they cannot touch their own toggles. Those lines are kept free of second person; the tool sections, which are not relayed, address the chatbot directly. Both control locations were re-derived at source and then confirmed in the running app rather than from the code: the summary panel’s two toggles on one row above the activity list, and a live session reading “Permissions: Write | Turn on Read”. A guard pins the new question’s wording, both locations and the dependency hold; run against the old text first, both of its tests failed while the file’s existing test went on passing, so it is not asserting something that was already true.
+
 ## 0.71.3 — 2026-09-20
 
 ### Changed

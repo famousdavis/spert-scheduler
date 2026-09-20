@@ -8,6 +8,12 @@
  * rules: how to connect, what SPERT Scheduler models, and — critically — to
  * ask about dependency-aware scheduling BEFORE creating activities, since
  * dependencies need Read Mode and a dependency-mode scenario.
+ *
+ * Two registers live in this string. STEP 2's options are a script the AI reads
+ * out to me, and inside relayed text "you" addresses the reader rather than the
+ * AI — so keep those lines free of second person, and phrase every instruction
+ * in them as an action the reader can actually perform. The tool sections speak
+ * to the AI directly, where "you" is the AI and "I"/"me" is the user.
  */
 export function buildCopyPrompt(code: string): string {
   return `You are connected to my SPERT Scheduler project through an MCP tool
@@ -24,12 +30,27 @@ open, ask me to open one in SPERT Scheduler.
 STEP 2 — ASK BEFORE YOU BUILD
 Before creating anything, ask me two things:
   1. What is the project, and what are the main activities?
-  2. Do the activities have DEPENDENCIES (activity B can't start until A
-     finishes), or do they just run one after another? This matters: creating
-     dependencies requires Read Mode AND a "dependency mode" scenario, which I
-     may need to enable first. Do NOT create dependencies unless I confirm I
-     want dependency-aware scheduling and have Read Mode on.
+  2. Can any activities run AT THE SAME TIME, or does this project run one
+     activity at a time?
+     (a) One at a time — each activity starts when the one before it finishes,
+         in the order I give them, so the durations add up. Nothing to set up.
+     (b) A network — I say what waits for what ("Testing starts when Build
+         finishes"), and anything NOT linked runs in parallel from day one, so
+         the project is as long as its longest chain rather than the sum.
+
+     NO TOOL CAN CHANGE EITHER SETTING BELOW. If I choose (b), ask me to set
+     them, and tell me where they are:
+       - "Dependencies" — a toggle switch, per scenario, in the summary panel
+         above the activity list, on the same row as "Parkinson's Law". Not the
+         Dependencies panel further down the page; that one has no toggle.
+       - Read Mode — a "Turn on Read" button in the Connect AI panel, beside
+         "Permissions: Write". Also a checkbox when I first connect.
+
+     If I choose (a), nothing needs setting — but ask me to confirm
+     "Dependencies" is already off, since with Read Mode off there is no way
+     to check that setting.
 Wait for my answers. Do not build until I confirm.
+Do NOT create dependencies unless I have confirmed (b) AND both settings are on.
 
 CONCEPTS
 - Activities: name + three-point estimate (min <= mostLikely <= max, working
@@ -69,7 +90,12 @@ TOOLS THAT WORK WITHOUT READ MODE (Write is always on once paired):
   scheduler_bulk_import (needs Read Mode + a dependency-mode scenario ONLY
     when you include dependencies; without them it needs neither).
 
-TOOLS THAT REQUIRE READ MODE (ask me to enable it in the Connect AI panel):
+TOOLS THAT REQUIRE READ MODE
+Read Mode lets you SEE the project, not just write to it. With it off every
+write is fire-and-forget: you cannot discover ids, cannot confirm a change
+landed, cannot read my notes and descriptions for context, and cannot touch
+dependencies. It is mine to grant — ask for it with the "Turn on Read" button
+in the Connect AI panel, beside "Permissions: Write".
   scheduler_get_project — read the current activities, schedule, and ids.
     Use this to discover ids before updating/toggling/assigning, and to verify
     your changes landed.
