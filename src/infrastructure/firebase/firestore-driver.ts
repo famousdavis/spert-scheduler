@@ -43,7 +43,12 @@ import type {
 import { SCHEMA_VERSION } from "@domain/models/types";
 import type { Project, UserPreferences } from "@domain/models/types";
 import { ProjectSchema } from "@domain/schemas/project.schema";
-import { UserPreferencesSchema } from "@domain/schemas/preferences.schema";
+import {
+  clearRetainedPreferences,
+  readPreferencesPerField,
+  setRetainedPreferences,
+  withRetainedPreferences,
+} from "@infrastructure/persistence/preferences-repository";
 import { applyMigrations } from "@infrastructure/persistence/migrations";
 import type { LoadError } from "@infrastructure/persistence/local-storage-repository";
 
@@ -670,25 +675,45 @@ export class FirestoreDriver {
 
   // -- Preferences ------------------------------------------------------------
 
+  /** WI-68: the read is per field, so a value a newer release wrote that this
+   *  copy does not understand costs only that one setting. It used to cost all
+   *  of them: one `partial().safeParse` over the whole document returned `{}`,
+   *  and `useCloudSync` then applied nothing at all.
+   *
+   *  The unreadable raw values are retained under this UID in the preferences
+   *  repository's shared map — the same key `StorageProvider` sets as the
+   *  storage namespace on sign-in — so `resetPreferences` clears the cloud side
+   *  and the local side together. */
   async loadPreferences(): Promise<Partial<UserPreferences>> {
     if (!db) return {};
     try {
       const ref = doc(db, SETTINGS_COL, this.uid);
       const snap = await getDoc(ref);
-      if (!snap.exists()) return {};
-      const parsed = UserPreferencesSchema.partial().safeParse(snap.data());
-      return parsed.success ? parsed.data : {};
+      if (!snap.exists()) {
+        clearRetainedPreferences(this.uid);
+        return {};
+      }
+      const { valid, retained } = readPreferencesPerField(snap.data());
+      setRetainedPreferences(this.uid, retained);
+      return valid;
     } catch (e) {
       console.error("Failed to load cloud preferences:", e);
       return {};
     }
   }
 
+  /** ⚠️ Deliberately a WHOLE-DOCUMENT `setDoc` with no `{ merge: true }`.
+   *  `resetPreferences` writes exactly `DEFAULT_USER_PREFERENCES`, and four
+   *  optional keys (`globalCalendar`, `defaultHolidayCountry`,
+   *  `targetFinishGreenPct`, `targetFinishAmberPct`) are absent from it. Under
+   *  a merge those would survive the reset in the cloud and come back on the
+   *  next load. The values this copy could not read are written back here
+   *  instead, and a reset clears them first. */
   async savePreferences(prefs: UserPreferences): Promise<void> {
     if (!db) return;
     try {
       const ref = doc(db, SETTINGS_COL, this.uid);
-      await setDoc(ref, sanitizeForFirestore(prefs));
+      await setDoc(ref, sanitizeForFirestore(withRetainedPreferences(this.uid, prefs)));
     } catch (e) {
       console.error("Failed to save cloud preferences:", e);
       this.onSaveErrorCb?.(e);

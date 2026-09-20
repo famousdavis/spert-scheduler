@@ -9,6 +9,7 @@ import {
   clearPreferences,
   migrateLegacyPreferencesToLocal,
   _resetLegacyPreferencesMigrationForTests,
+  _resetRetainedPreferencesForTests,
 } from "./preferences-repository";
 import {
   setStorageNamespace,
@@ -24,6 +25,10 @@ const LEGACY_STORAGE_KEY = "spert:user-preferences";
 beforeEach(() => {
   localStorage.clear();
   setStorageNamespace("local");
+  // WI-68: the retained-values map is module state and outlives
+  // `localStorage.clear()`, so a value retained by one test would otherwise be
+  // written back by the next test's save.
+  _resetRetainedPreferencesForTests();
 });
 
 describe("loadPreferences", () => {
@@ -106,7 +111,12 @@ describe("savePreferences", () => {
       ganttShowArrows: true,
     };
     savePreferences(prefs);
-    expect(loadPreferences()).toEqual(prefs);
+    // WI-68: the per-field read fills each absent optional key with its
+    // documented default rather than leaving it `undefined`. This fixture
+    // predates `workDays` and `suppressLocalStorageWarning`, so the round trip
+    // is now "what you stored, over the defaults" — see the dedicated pin in
+    // preferences-forward-compat.test.ts.
+    expect(loadPreferences()).toEqual({ ...DEFAULT_USER_PREFERENCES, ...prefs });
   });
 
   it("storeFullSimulationData defaults to false", () => {

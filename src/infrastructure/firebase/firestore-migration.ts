@@ -16,7 +16,9 @@ import {
 } from "./firestore-sanitize";
 import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
 import {
+  activePreferencesNamespace,
   loadPreferences,
+  withRetainedPreferences,
 } from "@infrastructure/persistence/preferences-repository";
 import { SCHEMA_VERSION } from "@domain/models/types";
 import type { ProjectRole } from "./firestore-driver";
@@ -168,10 +170,15 @@ export async function migrateLocalToCloud(
 
   // Migrate preferences
   try {
+    // WI-68: carry the values this copy could not read across to the cloud
+    // too, rather than replacing them with this version's defaults. They sit on
+    // known keys, so `hasOnly` still passes.
     const prefs = loadPreferences();
     await setDoc(
       doc(db, SETTINGS_COL, uid),
-      sanitizeForFirestore(prefs),
+      sanitizeForFirestore(
+        withRetainedPreferences(activePreferencesNamespace(), prefs)
+      ),
       { merge: true }
     );
   } catch (e) {
