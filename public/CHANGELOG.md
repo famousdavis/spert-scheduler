@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.71.2 — 2026-09-19
+
+### Fixed
+
+- **A setting this version does not recognise no longer resets all your other settings.** Until now, if a newer release had saved a preference value this copy could not read — a distribution type added after this copy was built, say — then reading your preferences failed as a whole and every setting reverted to its default: date format, theme, trial count, all of them. With Cloud Storage on, the same read returned nothing at all, and the next preference you changed wrote those defaults over your cloud settings, for every device. Preferences are now read one setting at a time. A setting this version cannot read falls back to its default while you are using this copy; every other setting this version can read is kept exactly as you had it; and the value it could not read is written back untouched when you change something else, so a newer copy still finds it. Changing that setting yourself replaces it, and “Reset to defaults” still clears everything, the values it could not read included. This protects copies built from this release onwards — a copy built before it still resets.
+
+### Internal
+
+- Preferences are parsed per field against their own schema, locally and from Firestore, and the raw values that fail are retained in a namespace-keyed map the cloud driver shares under the same UID, so a reset clears both sides at once. The cloud write stays a whole-document setDoc with no { merge: true }: four optional keys are absent from the defaults, and under a merge they would survive a reset in the cloud and return on the next load. A key this version does not know at all is still dropped rather than written back — the spertscheduler_settings rule validates with keys().hasOnly(...), so one unallowlisted key would make every preferences save for that user fail. Nineteen tests pin the behaviour on both sides with fixtures that cannot pass vacuously, and five falsification runs against the whole suite — the whole-object parse restored, the write-back removed, a reset that keeps the retained values, a save that ignores which keys changed, and unknown keys written back — each failed exactly the predicted tests, by name.
+
 ## 0.71.1 — 2026-09-19
 
 ### Changed
