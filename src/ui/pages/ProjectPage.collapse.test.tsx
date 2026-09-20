@@ -234,7 +234,8 @@ describe("a collapsed grid never hides a flag", () => {
     const p = projectOf();
     renderPage(p);
     refuseMin(idOf(p, 0));
-    // Expanded, the red cell and the summary say it; the bar does not (R232 Q1).
+    // Expanded, the red cell and the summary say it; the bar does not: the count belongs to the
+    // collapsed bar (the owner's rule).
     expect(bar().textContent).toBe("Activities (2)Hide");
 
     fireEvent.click(bar());

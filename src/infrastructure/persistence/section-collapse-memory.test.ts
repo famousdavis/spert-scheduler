@@ -102,7 +102,7 @@ describe("section collapse memory", () => {
  * ⚠️ PINNED HERE, AT THE MODULE, AND NOT THROUGH A CLICK. A toggle whose storage write throws fails
  * no test when it is driven through the page: the state is set before the write, so the section
  * still collapses, and the throw surfaces only as vitest's run-level "unhandled error" — exit 1 with
- * 0 failed tests (measured in the WI-63 review). Asserting `not.toThrow()` on the write itself is
+ * 0 failed tests (measured). Asserting `not.toThrow()` on the write itself is
  * what makes a missing catch a failing TEST.
  */
 describe("section collapse memory — storage that refuses", () => {
