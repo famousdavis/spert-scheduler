@@ -24,9 +24,11 @@ describe("estimateOrderIssues — the one ordering rule", () => {
     expect(estimateOrderIssues(30, 20, 10).map((i) => i.field)).toEqual(["min", "mostLikely"]);
   });
 
-  it("keeps the words the grid, the summary and the CSV importer have always used", () => {
-    expect(MIN_ABOVE_MOST_LIKELY).toBe("Min must be <= Most Likely");
-    expect(MOST_LIKELY_ABOVE_MAX).toBe("Most Likely must be <= Max");
+  // The words every surface shows, reworded in v0.71.1: they used to read "Min must be <= Most
+  // Likely", which is how code puts it, not how a person would.
+  it("pins the exact words the grid, the summary, the dialog, the Run toast and the CSV importer show", () => {
+    expect(MIN_ABOVE_MOST_LIKELY).toBe("Min is above Most Likely");
+    expect(MOST_LIKELY_ABOVE_MAX).toBe("Most Likely is above Max");
   });
 });
 

@@ -10,8 +10,8 @@ const problem = (name: string, ...messages: string[]): ActivityProblem => ({ id:
 
 describe("runBlockedMessage — the toast a refused Run link shows", () => {
   it("names one activity and every reason it has", () => {
-    expect(runBlockedMessage([problem("Design", "Min must be <= Most Likely", "Max: Enter a number.")])).toBe(
-      "Simulation not run. Fix this activity first: Design (Min must be <= Most Likely; Max: Enter a number.)."
+    expect(runBlockedMessage([problem("Design", "Min is above Most Likely", "Max: Enter a number.")])).toBe(
+      "Simulation not run. Fix this activity first: Design (Min is above Most Likely; Max: Enter a number.)."
     );
   });
 

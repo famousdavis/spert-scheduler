@@ -202,14 +202,14 @@ describe("Data validation", () => {
     const rows = [HEADER_ROW, validRow("A1", "Task", "10", "4", "15", "Medium")];
     const result = parseFlatActivityTable(rows, makeIdGen());
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors.some((e) => e.message.includes("Min must be <= Most Likely"))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes("Min is above Most Likely"))).toBe(true);
   });
 
   it("errors on mostLikely > max", () => {
     const rows = [HEADER_ROW, validRow("A1", "Task", "2", "10", "5", "Medium")];
     const result = parseFlatActivityTable(rows, makeIdGen());
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors.some((e) => e.message.includes("Most Likely must be <= Max"))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes("Most Likely is above Max"))).toBe(true);
   });
 
   it("errors on non-integer duration", () => {

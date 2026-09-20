@@ -907,7 +907,11 @@ export function ProjectPage() {
 
           {/* Validation errors — the flagged rows, held while a pointer is down (see above). A click
               on a row's name expands a collapsed grid before it jumps (v0.71.0). */}
-          <ValidationSummary rows={paintedFlaggedRows} onRevealGrid={gridCollapse.expand} />
+          <ValidationSummary
+            rows={paintedFlaggedRows}
+            onRevealGrid={gridCollapse.expand}
+            activityNumberMap={activityNumberMap}
+          />
 
           {/* Unified Activity Grid — input + schedule merged. Its header is the collapse bar
               (v0.71.0), whose flagged count is the summary's HELD rows, so the two agree through a

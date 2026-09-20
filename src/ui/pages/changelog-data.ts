@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.71.1",
+    date: "2026-09-19",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Each line of the validation summary now reads as an error message. It leads with the activity's number, then the name, then what is wrong: “#4 Technical Architecture & Integration Strategy: Min is above Most Likely”. The number is the one the grid shows beside the activity, so a project with “Show Activity IDs” switched off has no number here either. A name too long for the line is shortened with an ellipsis, and the whole of it is on hover; the number is never shortened, and clicking the activity's name still takes you to its row. Until now a long name filled the line and pushed the problem onto a third one.",
+          "The two messages for estimates in the wrong order are in plain words. “Min must be <= Most Likely” now reads “Min is above Most Likely”, and “Most Likely must be <= Max” reads “Most Likely is above Max”. They appear in the same five places as before: the validation summary, the red cell's description for screen readers, the Edit Activity dialog, the message the Run link shows when it refuses to run, and the errors the CSV importer reports.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin the new line's structure and the new words. The number matches the one the grid shows and disappears with it, an activity with no name keeps its number and stays clickable, and the problem sits outside the button that carries the name — which is what keeps a long name from displacing it. The words themselves are pinned once, at their source, and the fifteen places that quoted the old ones were updated in the same commit. The width itself is a layout property, so it is measured in a browser at 1280 and 853 rather than asserted here.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.71.0",
     date: "2026-09-19",
     sections: [

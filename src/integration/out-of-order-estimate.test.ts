@@ -31,13 +31,13 @@ function projectWithEstimate(patch: Partial<Activity>): Project {
 }
 
 const OUT_OF_ORDER: Array<[string, Partial<Activity>, Array<[string, string]>]> = [
-  ["min above Most Likely", { min: 14 }, [["min", "Min must be <= Most Likely"]]],
-  ["Most Likely above max", { mostLikely: 30 }, [["mostLikely", "Most Likely must be <= Max"]]],
+  ["min above Most Likely", { min: 14 }, [["min", "Min is above Most Likely"]]],
+  ["Most Likely above max", { mostLikely: 30 }, [["mostLikely", "Most Likely is above Max"]]],
   ["both halves", { min: 30, mostLikely: 20, max: 10 }, [
-    ["min", "Min must be <= Most Likely"],
-    ["mostLikely", "Most Likely must be <= Max"],
+    ["min", "Min is above Most Likely"],
+    ["mostLikely", "Most Likely is above Max"],
   ]],
-  ["a half-typed fresh row", { min: 5, mostLikely: 1, max: 1 }, [["min", "Min must be <= Most Likely"]]],
+  ["a half-typed fresh row", { min: 5, mostLikely: 1, max: 1 }, [["min", "Min is above Most Likely"]]],
 ];
 
 describe("an out-of-order estimate does not brick a project", () => {
@@ -114,7 +114,7 @@ describe("CSV import keeps refusing what the strict schema refuses", () => {
   it("still reports an out-of-order row", () => {
     const result = parseFlatActivityTable([HEADER, row("A1", "14", "13", "22", "triangular")]);
     expect(result.activities).toHaveLength(0);
-    expect(result.errors.some((e) => e.message.includes("Min must be <= Most Likely"))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes("Min is above Most Likely"))).toBe(true);
   });
 
   it("now refuses a LogNormal 0/0/0 row on Max, and still imports a Triangular 0/0/0 and a LogNormal 0/0/1", () => {
