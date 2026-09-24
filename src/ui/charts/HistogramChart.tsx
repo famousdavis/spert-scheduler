@@ -54,7 +54,7 @@ export function HistogramChart({
       count: bin.count,
     }));
 
-  // Buffer left edge: deterministic schedule span (P50, constraint-adjusted) when
+  // Buffer left edge: deterministic schedule span (constraint-adjusted) when
   // available, otherwise fall back to MC activity percentile value
   const bufferLeft = deterministicSpan ?? activityPercentileValue;
   const showBufferZone =
