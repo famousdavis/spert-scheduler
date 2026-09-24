@@ -399,7 +399,7 @@ export function PreferencesSection() {
             onChange={(val) => updatePreferences({ defaultParkinsonsLawEnabled: val })}
           />
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            Clamp simulated activity durations to at least the deterministic (P50) duration for new scenarios
+            Clamp simulated activity durations to at least the deterministic duration — set by the Default Activity Target — for new scenarios
           </span>
         </div>
 

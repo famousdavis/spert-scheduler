@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.71.5 — 2026-09-24
+
+### Fixed
+
+- **Parkinson’s Law no longer claims its floor is always P50.** With Parkinson’s Law on, a simulated activity duration is never less than the activity’s deterministic duration — and that duration is calculated at the scenario’s Activity target, which can be anything from P30 to P95. The toggle’s tooltip on the summary card and its description in Settings both said “the deterministic (P50) duration”, which is true only while the target is P50; at P80 it understated the floor by thirty percentage points. The tooltip now says the duration is set by your Activity target. The Settings line says it is set by the Default Activity Target, because that preference applies to new scenarios. The About page already described it correctly and is unchanged.
+
+### Internal
+
+- A test renders both surfaces, with the summary card at an Activity target of P80, and checks that neither explanation names a fixed percentile and that each names a control the same screen actually has, so renaming that control fails the test rather than leaving the explanation pointing at nothing. Run against the old wording first, both tests failed. A code comment in the histogram that called the deterministic span “P50” was corrected the same way.
+
 ## 0.71.4 — 2026-09-20
 
 ### Changed

@@ -603,7 +603,7 @@ export function ScenarioSummaryCard({
             />
           </div>
 
-          <div className="flex items-center gap-1.5" title="Parkinson's Law: when enabled, simulated activity durations are never less than the deterministic (P50) duration">
+          <div className="flex items-center gap-1.5" title="Parkinson's Law: when enabled, simulated activity durations are never less than the deterministic duration set by your Activity target">
             <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
               Parkinson&apos;s Law:
             </span>
