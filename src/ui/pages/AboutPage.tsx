@@ -89,14 +89,14 @@ export function AboutPage() {
             </li>
             <li>
               Select a subjective confidence level, which sets the spread of T-Normal,
-              LogNormal and Beta-PERT activities: through the SPERT Ratio Scale Modifier
+              LogNormal, and Beta-PERT activities: through the SPERT Ratio Scale Modifier
               for T-Normal and LogNormal, and on the Statistical PERT® Beta Edition scale
               for Beta-PERT
             </li>
             <li>
               Choose from T-Normal, LogNormal, Beta-PERT, Triangular, or Uniform
               distributions per activity (with automatic suggestions of T-Normal,
-              LogNormal or Triangular; Beta-PERT and Uniform are always your choice)
+              LogNormal, or Triangular; Beta-PERT and Uniform are always your choice)
             </li>
             <li>
               Beta-PERT stays between Min and Max and peaks exactly at Most Likely. Its

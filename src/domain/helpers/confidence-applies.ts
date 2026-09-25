@@ -42,7 +42,7 @@ export function confidenceApplies(distributionType: DistributionType): boolean {
  * native `<select>` explain themselves identically.
  */
 export const CONFIDENCE_NA_TITLE =
-  "Confidence only applies to T-Normal, LogNormal and Beta-PERT distributions";
+  "Confidence only applies to T-Normal, LogNormal, and Beta-PERT distributions";
 
 /**
  * A three-point value as a surface holds it: the grid always has a number, and the Edit

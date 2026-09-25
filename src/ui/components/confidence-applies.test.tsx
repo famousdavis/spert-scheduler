@@ -261,7 +261,7 @@ describe("ActivityEditModal — Confidence shows a dash where it does not apply"
     fireEvent.change(distributionSelect(), { target: { value: "uniform" } });
     // Single source: ConfidenceLevelSelect and this dash must not drift apart.
     expect(confidenceDash()!.title).toBe(
-      "Confidence only applies to T-Normal, LogNormal and Beta-PERT distributions",
+      "Confidence only applies to T-Normal, LogNormal, and Beta-PERT distributions",
     );
   });
 

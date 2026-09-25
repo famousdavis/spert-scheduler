@@ -61,7 +61,7 @@ const distribution = () =>
   Array.from(document.querySelectorAll<HTMLSelectElement>('select[data-field="distribution"]'));
 
 const NA_TRIANGULAR_UNIFORM =
-  "Confidence only applies to T-Normal, LogNormal and Beta-PERT distributions";
+  "Confidence only applies to T-Normal, LogNormal, and Beta-PERT distributions";
 const NA_ZERO_RANGE = "Min and Max are equal, so the spread is zero at every confidence level.";
 const NA_SD_OVERRIDE =
   "This activity's standard deviation was set directly, so the confidence level does not change it.";
