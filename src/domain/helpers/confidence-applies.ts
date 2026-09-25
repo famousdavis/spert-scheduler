@@ -20,9 +20,11 @@ import { logNormalHasNoMean } from "@domain/helpers/estimate-rules";
  * `UnifiedActivityRow` (twice, one negated), `schedule-export-service` (as
  * `usesConfidence`) and `print-sections`. **Call this; do not restate it.**
  *
- * ⚠️ **A fifth copy survives, left unfixed on purpose:** `flat-activity-parser.ts:352`
- * (`=== "triangular" || === "uniform"`, the negated form). It sits inside the importer's
- * protected cognitive-complexity-110 function, whose decline is recorded at that site.
+ * ⚠️ **A fifth copy survives, left unfixed on purpose:** `flat-activity-parser.ts:360`
+ * (`=== "triangular" || === "uniform"`, the negated form — so a Beta-PERT row without a level
+ * is refused, correctly). It sits inside the importer's protected cognitive-complexity-106
+ * function (110 until v0.72.0, which named the distribution in its message with
+ * `distributionLabel`), whose decline is recorded at that site.
  *
  * Deliberately a function of the distribution type alone — not of an `Activity` — so the
  * modal can ask about a type held in local state that has not been saved yet.

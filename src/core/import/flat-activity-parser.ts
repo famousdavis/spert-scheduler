@@ -11,6 +11,7 @@ import type {
 } from "@domain/models/types";
 import { DEFAULT_SCENARIO_SETTINGS } from "@domain/models/types";
 import { ActivitySchema } from "@domain/schemas/project.schema";
+import { distributionLabel } from "@domain/helpers/format-labels";
 import { detectCycle } from "@core/schedule/dependency-graph";
 import type { FlatActivityRow, CSVImportError, CSVParseResult } from "./types";
 
@@ -24,8 +25,11 @@ const CONFIDENCE_MAP: Record<string, RSMLevel> = {
   veryhigh: "veryHighConfidence",
   high: "highConfidence",
   mediumhigh: "mediumHighConfidence",
+  // The app's own labels are hyphenated ("Medium-high"), and normalizeKey keeps hyphens.
+  "medium-high": "mediumHighConfidence",
   medium: "mediumConfidence",
   mediumlow: "mediumLowConfidence",
+  "medium-low": "mediumLowConfidence",
   low: "lowConfidence",
   verylow: "veryLowConfidence",
   extremelylow: "extremelyLowConfidence",
@@ -37,6 +41,10 @@ const CONFIDENCE_ACCEPTED = Object.keys(CONFIDENCE_MAP).join(", ");
 const DISTRIBUTION_MAP: Record<string, DistributionType> = {
   normal: "normal",
   lognormal: "logNormal",
+  // The token and the app's own label. normalizeKey lowercases and strips whitespace, so
+  // "betaPert", "BetaPERT" and "Beta PERT" all arrive as "betapert", and "Beta-PERT" as "beta-pert".
+  betapert: "betaPert",
+  "beta-pert": "betaPert",
   triangular: "triangular",
   uniform: "uniform",
 };
@@ -325,10 +333,10 @@ export function parseFlatActivityTable(
       continue;
     }
 
-    // Normalize distribution (optional — defaults to the scenario's configured
-    // default distribution type, DEFAULT_SCENARIO_SETTINGS.defaultDistributionType,
-    // currently "triangular") — parsed before confidence because empty confidence
-    // is allowed for triangular/uniform
+    // Normalize distribution (optional — a blank cell takes the CONSTANT
+    // DEFAULT_SCENARIO_SETTINGS.defaultDistributionType, currently "triangular", NOT the
+    // scenario's or the user's configured default) — parsed before confidence because empty
+    // confidence is allowed for triangular/uniform
     let distributionType: DistributionType = DEFAULT_SCENARIO_SETTINGS.defaultDistributionType;
     if (rawDistribution) {
       const distKey = normalizeKey(rawDistribution);
@@ -346,7 +354,7 @@ export function parseFlatActivityTable(
     }
 
     // Normalize confidence level — empty is allowed for triangular/uniform
-    // (confidence only affects T-Normal and LogNormal)
+    // (confidence only affects T-Normal, LogNormal and Beta-PERT)
     let confidenceLevel: RSMLevel;
     if (!rawConfidence) {
       if (distributionType === "triangular" || distributionType === "uniform") {
@@ -355,7 +363,7 @@ export function parseFlatActivityTable(
         errors.push({
           row: rowNum,
           column: "Confidence Level",
-          message: `Confidence Level is required for ${distributionType === "logNormal" ? "LogNormal" : "T-Normal"} distribution.`,
+          message: `Confidence Level is required for ${distributionLabel(distributionType)} distribution.`,
           severity: "error",
         });
         continue;
