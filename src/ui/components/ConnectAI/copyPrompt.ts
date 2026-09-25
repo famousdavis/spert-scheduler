@@ -57,13 +57,19 @@ CONCEPTS
   days). If you leave distributionType out, the app picks normal, logNormal
   or triangular from the three numbers alone (confidenceLevel plays no part),
   or uses the scenario's default when min, mostLikely and max are all equal.
-  Choose distributionType yourself (normal | logNormal | triangular | uniform)
-  whenever what I have told you about the work says more than three numbers
-  can. The app never chooses uniform from the numbers: for an estimate with
+  Choose distributionType yourself (normal | logNormal | betaPert |
+  triangular | uniform) whenever what I have told you about the work says
+  more than three numbers can.
+  The app never chooses uniform from the numbers: for an estimate with
   no distinct most-likely value, where any duration in the range is as likely
   as any other (a vendor's quoted lead time, a booked window), pass
-  distributionType: "uniform" yourself. You may also set confidenceLevel; if
-  you leave it out, the scenario's default applies.
+  distributionType: "uniform" yourself. Beta-PERT is distributionType:
+  "betaPert". Beta-PERT stays between Min and Max and peaks exactly at Most
+  Likely. Its spread follows the Confidence level on the Statistical PERT®
+  Beta Edition scale (Medium: SD = range ÷ 6), so its middle value moves as
+  Confidence changes. It is not the fixed PERT formula (O + 4M + P) ÷ 6. The
+  app never picks it from the numbers — use it when I ask for it. You may also
+  set confidenceLevel; if you leave it out, the scenario's default applies.
 - Scenarios: a project has one or more scenarios; ops apply to the OPEN
   scenario unless you pass a scenarioId. get_session_info / get_project tell
   you which scenario is open.

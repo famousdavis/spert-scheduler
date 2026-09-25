@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { applyAiOpsToProject, type AiOp } from "./ai-batch-service";
+import { suggestDistributionChange } from "@core/recommendation/recommendation";
 import {
   createProject,
   createScenario,
@@ -208,6 +209,36 @@ describe("create_activity — the distribution when the AI names none", () => {
   it("a distribution the AI names is kept as given, Uniform included", () => {
     const { project, scenarioId } = withDefault("normal");
     expect(createdType(project, scenarioId, { id: "u", name: "Flat", min: 9, mostLikely: 9, max: 28, distributionType: "uniform" })).toBe("uniform");
+  });
+
+  it("a Beta-PERT the AI names is kept as given, at the level it sends", () => {
+    const { project, scenarioId } = withDefault("normal");
+    const res = one(
+      project,
+      { seq: 1, op: "create_activity", payload: { id: "b", name: "Beta", min: 10, mostLikely: 12, max: 40, distributionType: "betaPert", confidenceLevel: "highConfidence" } },
+      scenarioId
+    );
+    expect(res.results[0]!.outcome).toEqual({ status: "applied" });
+    const created = activityOf(res.project, scenarioId, "b");
+    expect([created.distributionType, created.confidenceLevel]).toEqual(["betaPert", "highConfidence"]);
+  });
+
+  it("a point mass takes a Beta-PERT scenario default — the numbers themselves never pick Beta-PERT", () => {
+    // A point mass samples identically under every distribution, so this is harmless.
+    const beta = withDefault("betaPert");
+    expect(createdType(beta.project, beta.scenarioId, { id: "pm", name: "PM", min: 5, mostLikely: 5, max: 5 })).toBe("betaPert");
+    // Control: the same point mass under a Triangular default.
+    const tri = withDefault("triangular");
+    expect(createdType(tri.project, tri.scenarioId, { id: "pm", name: "PM", min: 5, mostLikely: 5, max: 5 })).toBe("triangular");
+  });
+
+  it("under a Beta-PERT default, numbers the rules can read take their own pick: 10/20/30 is T-Normal, with no dot", () => {
+    // The numbers pick unless the user asks (owner ruling, 2026-09-24). The row's type then IS
+    // the numbers' pick, so it can carry no suggestion dot.
+    const { project, scenarioId } = withDefault("betaPert");
+    const type = createdType(project, scenarioId, { id: "sym", name: "Sym", min: 10, mostLikely: 20, max: 30 });
+    expect(type).toBe("normal");
+    expect(suggestDistributionChange(10, 20, 30, type)).toBeNull();
   });
 });
 

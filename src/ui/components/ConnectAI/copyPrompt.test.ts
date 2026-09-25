@@ -21,6 +21,23 @@ describe("the Connect AI copy prompt — choosing a distribution", () => {
   });
 });
 
+describe("the Connect AI copy prompt — Beta-PERT (v0.72.0)", () => {
+  const prompt = buildCopyPrompt("ABC-123");
+  // The prompt wraps its lines, so compare words, not line breaks.
+  const words = prompt.replace(/\s+/g, " ");
+
+  it("offers betaPert, and defines it in the approved words — not as the fixed PERT formula", () => {
+    // Every other tool's "Beta-PERT" is the fixed λ = 4 PERT; without its own definition an AI
+    // describes this one as (O + 4M + P) ÷ 6, which no Confidence level here is.
+    expect(words).toContain("(normal | logNormal | betaPert | triangular | uniform)");
+    expect(words).toContain('Beta-PERT is distributionType: "betaPert".');
+    expect(words).toContain(
+      "Beta-PERT stays between Min and Max and peaks exactly at Most Likely. Its spread follows the Confidence level on the Statistical PERT® Beta Edition scale (Medium: SD = range ÷ 6), so its middle value moves as Confidence changes. It is not the fixed PERT formula (O + 4M + P) ÷ 6."
+    );
+    expect(words).toContain("The app never picks it from the numbers — use it when I ask for it.");
+  });
+});
+
 describe("the Connect AI copy prompt — the parallelism question", () => {
   const prompt = buildCopyPrompt("ABC-123");
 
