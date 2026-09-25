@@ -185,6 +185,21 @@ describe("Distribution shows in grey text where the estimate carries no uncertai
     expect(control!.title).toBe("");
   });
 
+  it("draws a Beta-PERT row's hover sparkline at that row's own Confidence", () => {
+    renderGrid([
+      row(10, 20, 30, "betaPert", { confidenceLevel: "highConfidence" }),
+      row(10, 20, 30, "betaPert", { confidenceLevel: "lowConfidence" }),
+      row(10, 20, 30, "triangular", { confidenceLevel: "highConfidence" }),
+      row(10, 20, 30, "triangular", { confidenceLevel: "lowConfidence" }),
+    ]);
+    const strokes = distribution().map((select) =>
+      select.parentElement!.querySelectorAll("svg path")[1]!.getAttribute("d")
+    );
+    expect(strokes[0]).not.toBe(strokes[1]);
+    // Control: Triangular's picture does not depend on the level.
+    expect(strokes[2]).toBe(strokes[3]);
+  });
+
   it("draws no hover sparkline on a greyed cell", () => {
     // The sparkline draws a curve even for a point estimate, beside a title saying there is
     // no uncertainty.

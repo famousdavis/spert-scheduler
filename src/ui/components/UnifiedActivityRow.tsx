@@ -686,6 +686,7 @@ export function UnifiedActivityRow({
                 mostLikely={activity.mostLikely}
                 max={activity.max}
                 distributionType={activity.distributionType}
+                confidenceLevel={activity.confidenceLevel}
                 width={80}
                 height={30}
               />
