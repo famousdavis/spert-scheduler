@@ -20,7 +20,7 @@ export interface FlatActivityRow {
   mostLikely: number;
   max: number;
   confidenceLevel: RSMLevel;
-  distributionType: DistributionType; // defaulted to "normal"
+  distributionType: DistributionType; // defaulted to "triangular" (a blank or unrecognised cell)
   status: ActivityStatus; // defaulted to "planned"
   predecessorTokens: string[]; // raw strings, e.g. ["A1", "A3+2"]
 }

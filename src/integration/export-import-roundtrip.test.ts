@@ -56,6 +56,34 @@ describe("Export/Import integration", () => {
     );
   });
 
+  it("round-trips Beta-PERT rows unchanged, stamped with the current schema version", () => {
+    const project = createProject("Beta Project", "2026-10-05");
+    const scenario = project.scenarios[0]!;
+    const beta = {
+      ...createActivity("Beta row", scenario.settings),
+      min: 10,
+      mostLikely: 12,
+      max: 40,
+      distributionType: "betaPert" as const,
+      confidenceLevel: "highConfidence" as const,
+    };
+    const fullProject: Project = {
+      ...project,
+      scenarios: [{ ...addActivityToScenario(scenario, beta), settings: { ...scenario.settings, defaultDistributionType: "betaPert" } }],
+    };
+
+    const json = serializeExport([fullProject]);
+    expect(JSON.parse(json).projects[0].schemaVersion).toBe(24);
+    const result = validateImport(json, []);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const imported = result.projects[0]!;
+    expect(imported.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(imported.scenarios[0]!.settings.defaultDistributionType).toBe("betaPert");
+    expect(imported.scenarios[0]!.activities[0]).toEqual(beta);
+  });
+
   it("imports a v1 project and applies migrations", () => {
     const v1Project = {
       id: "v1-legacy",

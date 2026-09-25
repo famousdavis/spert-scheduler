@@ -65,3 +65,18 @@ export function logNormalHasNoMean(
 ): boolean {
   return distributionType === "logNormal" && min + mostLikely + max <= 0;
 }
+
+/**
+ * Is this three-point estimate symmetric — Most Likely exactly halfway between Min and Max?
+ *
+ * ⚠️ ONE predicate, used everywhere symmetry changes a result (WI-64): Beta-PERT's shortcut to the
+ * owner's own symmetric curve, its exact midpoint at P50, and the suggestion dot's "exactly
+ * symmetric" wording. Neither `ml === (min + max) / 2` nor `min + max === 2 * ml` is float-safe:
+ * `0.1 + 0.7` is `0.7999999999999999`, so a two-decimal estimate as symmetric as 0.1 / 0.4 / 0.7
+ * fails both. The tolerance is four units in the last place at the estimate's own scale: it
+ * absorbs the rounding of the sum, and for estimates up to a million days it is under a
+ * billionth of a day, so no estimate typed even a cent off-centre is called symmetric.
+ */
+export function isSymmetricEstimate(min: number, mostLikely: number, max: number): boolean {
+  return Math.abs(min + max - 2 * mostLikely) <= 4 * Number.EPSILON * Math.max(1, Math.abs(max));
+}

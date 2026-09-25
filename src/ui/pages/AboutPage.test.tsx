@@ -61,6 +61,27 @@ describe("AboutPage", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Beta-PERT (v0.72.0). Every other tool's "Beta-PERT" is the fixed PERT formula, and this one
+   * is not, so the page carries the owner's approved definition word for word — and no longer
+   * says Confidence always works through the Ratio Scale Modifier, which is not how it sets
+   * Beta-PERT's spread.
+   */
+  it("defines Beta-PERT in the approved words, and no longer ties Confidence to the RSM alone", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <AboutPage />
+      </MemoryRouter>
+    );
+    const text = (container.textContent ?? "").replace(/\s+/g, " ");
+    expect(text).toContain(
+      "Beta-PERT stays between Min and Max and peaks exactly at Most Likely. Its spread follows the Confidence level on the Statistical PERT® Beta Edition scale (Medium: SD = range ÷ 6), so its middle value moves as Confidence changes. It is not the fixed PERT formula (O + 4M + P) ÷ 6."
+    );
+    expect(text).toContain("Choose from T-Normal, LogNormal, Beta-PERT, Triangular, or Uniform");
+    expect(text).not.toContain("maps to a statistical standard deviation via the SPERT Ratio Scale Modifier");
+    expect(text).not.toContain("(with automatic suggestions)");
+  });
+
   it("no longer cites Section 7(b) alone", () => {
     const { container } = render(
       <MemoryRouter>

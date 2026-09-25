@@ -80,7 +80,7 @@ describe("measure-complexity — suppressed functions", () => {
 
     expect(row).toBeDefined();
     expect(row!.suppressed).toBe(false);
-    expect(row!.cc).toBe(110);
+    expect(row!.cc).toBe(106);
   });
 
   it("counts the suppressed function in the total, not just as a flag", async () => {

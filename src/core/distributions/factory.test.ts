@@ -8,6 +8,7 @@ import { NormalDistribution } from "./normal";
 import { LogNormalDistribution } from "./log-normal";
 import { TriangularDistribution } from "./triangular";
 import { UniformDistribution } from "./uniform";
+import { BetaPertDistribution } from "./beta-pert";
 import type { Activity } from "@domain/models/types";
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
@@ -44,6 +45,30 @@ describe("createDistributionForActivity", () => {
       makeActivity({ distributionType: "triangular" })
     );
     expect(dist).toBeInstanceOf(TriangularDistribution);
+  });
+
+  it("creates BetaPertDistribution for betaPert type, spread by the activity's Confidence level", () => {
+    const at = (confidenceLevel: Activity["confidenceLevel"]) =>
+      createDistributionForActivity(
+        makeActivity({ min: 10, mostLikely: 20, max: 30, distributionType: "betaPert", confidenceLevel })
+      );
+    expect(at("mediumConfidence")).toBeInstanceOf(BetaPertDistribution);
+    // Medium is range ÷ 6; High is range ÷ (2√15) — the level reaches the distribution.
+    expect(Math.sqrt(at("mediumConfidence").variance())).toBeCloseTo(20 / 6, 12);
+    expect(Math.sqrt(at("highConfidence").variance())).toBeCloseTo(20 / (2 * Math.sqrt(15)), 12);
+  });
+
+  it("wraps a Beta-PERT order-violation with its label and the activity's name", () => {
+    const activity = makeActivity({
+      name: "Bad Row",
+      min: 10,
+      mostLikely: 50,
+      max: 40,
+      distributionType: "betaPert",
+    });
+    expect(() => createDistributionForActivity(activity)).toThrow(
+      /Cannot create Beta-PERT distribution for activity "Bad Row"/
+    );
   });
 
   it("normal distribution has correct PERT mean", () => {

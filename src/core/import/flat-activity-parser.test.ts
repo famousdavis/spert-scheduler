@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { parseFlatActivityTable } from "./flat-activity-parser";
+import { RSM_LABELS, RSM_LEVELS } from "@domain/models/types";
 
 // Deterministic ID generator for predictable assertions
 function makeIdGen() {
@@ -143,6 +144,42 @@ describe("Normalization", () => {
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]!.message).toContain("Unrecognized distribution");
     expect(result.activities[0]!.distributionType).toBe("triangular");
+  });
+
+  it("reads Beta-PERT by its token and by the app's own label, with no warning", () => {
+    for (const input of ["betaPert", "Beta-PERT", "beta-pert", "BetaPERT", "Beta PERT"]) {
+      const rows = [HEADER_ROW, validRow("A1", "Task", "2", "4", "8", "High", input)];
+      const result = parseFlatActivityTable(rows, makeIdGen());
+      expect(result.errors).toHaveLength(0);
+      expect(result.warnings).toHaveLength(0);
+      expect(result.activities[0]!.distributionType).toBe("betaPert");
+      expect(result.activities[0]!.confidenceLevel).toBe("highConfidence");
+    }
+  });
+
+  it("reads every Confidence label the app itself shows, the hyphenated two included", () => {
+    // Until v0.72.0 "Medium-high" and "Medium-low" were refused: normalizeKey keeps hyphens.
+    for (const level of RSM_LEVELS) {
+      const rows = [HEADER_ROW, validRow("A1", "Task", "2", "4", "8", RSM_LABELS[level], "Beta-PERT")];
+      const result = parseFlatActivityTable(rows, makeIdGen());
+      expect(result.errors).toHaveLength(0);
+      expect(result.warnings).toHaveLength(0);
+      expect(result.activities[0]!.confidenceLevel).toBe(level);
+    }
+    for (const [input, level] of [["Medium-High", "mediumHighConfidence"], ["Medium-Low", "mediumLowConfidence"]] as const) {
+      const rows = [HEADER_ROW, validRow("A1", "Task", "2", "4", "8", input, "betaPert")];
+      expect(parseFlatActivityTable(rows, makeIdGen()).activities[0]!.confidenceLevel).toBe(level);
+    }
+  });
+
+  it("names the right distribution when a Confidence level is missing — Beta-PERT, not T-Normal", () => {
+    const missing = (distribution: string) =>
+      parseFlatActivityTable([HEADER_ROW, validRow("A1", "Task", "2", "4", "8", "", distribution)], makeIdGen())
+        .errors.map((e) => e.message);
+    expect(missing("Beta-PERT")).toEqual(["Confidence Level is required for Beta-PERT distribution."]);
+    // Controls: the other two that need a level keep their own names.
+    expect(missing("normal")).toEqual(["Confidence Level is required for T-Normal distribution."]);
+    expect(missing("logNormal")).toEqual(["Confidence Level is required for LogNormal distribution."]);
   });
 
   it("normalizes status variants", () => {

@@ -2,16 +2,35 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { DistributionType } from "@domain/models/types";
+import type { DistributionType, RSMLevel } from "@domain/models/types";
+import { betaPertShape } from "@core/distributions/beta-pert";
+import { estimateOrderIssues } from "@domain/helpers/estimate-rules";
 
 interface DistributionSparklineProps {
   min: number;
   mostLikely: number;
   max: number;
   distributionType: DistributionType;
+  /** Beta-PERT's curve is drawn at this level, because its spread follows it. The other types'
+   *  pictures do not use it. */
+  confidenceLevel: RSMLevel;
   width?: number;
   height?: number;
   className?: string;
+}
+
+/** The three points and the level, for the one curve that needs them. */
+interface SparklineEstimate {
+  min: number;
+  mostLikely: number;
+  max: number;
+  mlNorm: number;
+  confidenceLevel: RSMLevel;
+}
+
+interface SparklinePath {
+  fill: string;
+  stroke: string;
 }
 
 /**
@@ -23,6 +42,7 @@ export function DistributionSparkline({
   mostLikely,
   max,
   distributionType,
+  confidenceLevel,
   width = 60,
   height = 20,
   className = "",
@@ -31,8 +51,14 @@ export function DistributionSparkline({
   const range = max - min || 1;
   const mlNorm = (mostLikely - min) / range;
 
-  // Generate path based on distribution type
-  const path = generatePath(distributionType, mlNorm, width, height);
+  // Generate path based on distribution type. `null` is "no curve": an estimate Beta-PERT cannot
+  // be drawn for.
+  const path = generatePath(
+    distributionType,
+    { min, mostLikely, max, mlNorm, confidenceLevel },
+    width,
+    height
+  );
 
   return (
     <svg
@@ -42,21 +68,25 @@ export function DistributionSparkline({
       className={`inline-block ${className}`}
       aria-hidden="true"
     >
-      {/* Fill area under the curve */}
-      <path
-        d={path.fill}
-        className="fill-blue-100 dark:fill-blue-900/40"
-      />
-      {/* Line on top */}
-      <path
-        d={path.stroke}
-        className="fill-none stroke-blue-500 dark:stroke-blue-400"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {path && (
+        <>
+          {/* Fill area under the curve */}
+          <path
+            d={path.fill}
+            className="fill-blue-100 dark:fill-blue-900/40"
+          />
+          {/* Line on top */}
+          <path
+            d={path.stroke}
+            className="fill-none stroke-blue-500 dark:stroke-blue-400"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </>
+      )}
       {/* Mode marker (vertical line at most likely) */}
-      {distributionType !== "uniform" && (() => {
+      {path && distributionType !== "uniform" && (() => {
         const pad = 2;
         const markerX = pad + mlNorm * (width - 2 * pad);
         return (
@@ -78,18 +108,22 @@ export function DistributionSparkline({
 
 function generatePath(
   type: DistributionType,
-  mlNorm: number,
+  estimate: SparklineEstimate,
   width: number,
   height: number
-): { fill: string; stroke: string } {
+): SparklinePath | null {
   const pad = 2; // Padding from edges
   const maxY = height - pad;
   const minY = pad;
+  const { mlNorm } = estimate;
 
   switch (type) {
     case "normal":
     case "logNormal":
       return generateBellCurve(mlNorm, width, height, pad, minY, maxY, type === "logNormal");
+
+    case "betaPert":
+      return generateBetaPert(estimate, width, pad, minY, maxY);
 
     case "triangular":
       return generateTriangle(mlNorm, width, height, pad, minY, maxY);
@@ -100,6 +134,40 @@ function generatePath(
     default:
       return generateBellCurve(mlNorm, width, height, pad, minY, maxY, false);
   }
+}
+
+/**
+ * Beta-PERT's TRUE curve at the row's Confidence level — the one sparkline here that is not
+ * schematic — scaled to its own peak, as the others are, with the peak exactly at Most Likely.
+ *
+ * ⚠️ No curve (`null`) for an estimate it cannot be drawn for. An out-of-order row is flagged and
+ * its distribution cannot be built, but the grid still renders this sparkline for it (only a
+ * point estimate hides it), so the check must live here. And never a `NaN` in a path: with
+ * α, β ≥ 1 on [0, 1] the density is finite everywhere, and `0 ** 0` is 1 at a J-shape's end.
+ */
+function generateBetaPert(
+  estimate: SparklineEstimate,
+  width: number,
+  pad: number,
+  minY: number,
+  maxY: number
+): SparklinePath | null {
+  const { min, mostLikely, max, mlNorm, confidenceLevel } = estimate;
+  if (min === max || estimateOrderIssues(min, mostLikely, max).length > 0) return null;
+  const { alpha, beta } = betaPertShape(min, mostLikely, max, confidenceLevel);
+  const density = (t: number) => t ** (alpha - 1) * (1 - t) ** (beta - 1);
+  const peak = density(mlNorm);
+  // 31 even samples, plus Most Likely itself so the drawn peak is the real one.
+  const ts = [...Array.from({ length: 31 }, (_, i) => i / 30), mlNorm].sort((a, b) => a - b);
+  const points = ts.map((t) => {
+    const x = pad + t * (width - 2 * pad);
+    const svgY = maxY - (density(t) / peak) * (maxY - minY);
+    return `${x.toFixed(1)},${svgY.toFixed(1)}`;
+  });
+
+  const strokePath = `M ${points.join(" L ")}`;
+  const fillPath = `${strokePath} L ${width - pad},${maxY} L ${pad},${maxY} Z`;
+  return { fill: fillPath, stroke: strokePath };
 }
 
 function generateBellCurve(

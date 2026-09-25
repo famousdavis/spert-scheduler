@@ -67,8 +67,15 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 const UID = "uid-forward-compat";
 const STORAGE_KEY = `spert:user-preferences:${UID}`;
 
-/** A value only a NEWER release knows. Rejected by this copy's enum. */
-const UNKNOWN_VALUE = "betaPert";
+/**
+ * A value this copy's enum rejects, standing in for one only a NEWER release knows.
+ *
+ * ⚠️ Deliberately NOT a real type. It was "betaPert" until v0.72.0 made that value readable —
+ * and then this file silently stopped guarding the write-back: with retention turned off, no
+ * test here failed any more. A value no release will ever ship keeps it a test of the
+ * mechanism, whatever the enum grows to.
+ */
+const UNKNOWN_VALUE = "no-such-distribution";
 /** A key only a NEWER release knows. */
 const UNKNOWN_KEY = "defaultRiskAppetite";
 

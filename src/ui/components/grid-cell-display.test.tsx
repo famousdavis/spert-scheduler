@@ -75,7 +75,7 @@ describe("the grid abbreviates LogNormal, and only in the grid", () => {
     renderGrid([activityFixture()]);
     const options = Array.from(distributionSelect().options).map((o) => o.textContent);
 
-    expect(options).toEqual(["T-Normal", "LogNorm", "Triangular", "Uniform"]);
+    expect(options).toEqual(["T-Normal", "LogNorm", "Beta-PERT", "Triangular", "Uniform"]);
 
     // ⚠️ The side that must NOT move, asserted on the same gesture. `distributionLabel`
     // feeds the printed report and the XLSX/CSV export; shortening it there would satisfy
@@ -87,7 +87,7 @@ describe("the grid abbreviates LogNormal, and only in the grid", () => {
   it("overrides exactly one label and passes the rest through", () => {
     // Non-vacuity: if `gridDistributionLabel` were reduced to a pass-through, the test
     // above would still pass as soon as someone edited the shared label instead. This
-    // pins the divergence itself — one type differs, three are identical.
+    // pins the divergence itself — one type differs, the other four are identical.
     const differing = DISTRIBUTION_TYPES.filter(
       (dt) => gridDistributionLabel(dt) !== distributionLabel(dt),
     );
@@ -161,8 +161,9 @@ describe("the suggestion affordance is a dot, and still applies the suggestion",
         select.parentElement!.querySelector("button")?.getAttribute("aria-label") ?? null,
     );
 
+  // 5/10/15 is exactly symmetric, so the sentence says so (WI-71).
   const T_NORMAL_FITS =
-    "Most Likely is near the middle of a relatively narrow range. T-Normal may suit this roughly symmetric estimate.";
+    "Most Likely is in the middle of a relatively narrow range. T-Normal may suit this exactly symmetric estimate.";
 
   it("renders no text, names itself, and carries its reason on hover", () => {
     // A curve match on a Triangular row: 5/10/15 is centred and not wide.
@@ -220,6 +221,18 @@ describe("the suggestion affordance is a dot, and still applies the suggestion",
   it("shows no dot on a Uniform row, even one whose numbers fit a curve", () => {
     renderGrid([row(5, 10, 15, "uniform"), row(5, 10, 15, "triangular")]);
     expect(dotsByRow()).toEqual([null, CONTROL]);
+  });
+
+  it("shows no dot on a Beta-PERT row, even one whose numbers fit a curve", () => {
+    renderGrid([row(5, 10, 15, "betaPert"), row(5, 10, 15, "triangular")]);
+    expect(dotsByRow()).toEqual([null, CONTROL]);
+  });
+
+  it("says roughly, not exactly, for an estimate inside T-Normal's band that is not symmetric", () => {
+    renderGrid([row(5, 10, 16, "triangular")]);
+    expect(screen.getByRole("button", { name: "Change distribution to T-Normal." }).title).toBe(
+      "Most Likely is near the middle of a relatively narrow range. T-Normal may suit this roughly symmetric estimate.",
+    );
   });
 
   it("shows no dot for a point mass", () => {

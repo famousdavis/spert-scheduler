@@ -13,6 +13,7 @@ import {
 import { UniformDistribution } from "./uniform";
 import { TriangularDistribution } from "./triangular";
 import { NormalDistribution } from "./normal";
+import { BetaPertDistribution } from "./beta-pert";
 import { createSeededRng } from "@infrastructure/rng";
 import type { Distribution } from "./distribution";
 import type { Activity } from "@domain/models/types";
@@ -144,6 +145,40 @@ describe("isBreach (boundary mutants must die here)", () => {
     expect(isBreach("logNormal", UNBOUNDED_BREACH_THRESHOLD)).toBe(true);
     expect(isBreach("normal", 0.9998)).toBe(false);
     expect(isBreach("logNormal", 0.9998)).toBe(false);
+  });
+
+  it("Beta-PERT is BOUNDED but breaches at the model-honesty threshold, like T-Normal", () => {
+    // Its cdf reaches 1.0 by double rounding well before Max on a thin tail, so the bounded rule
+    // would flag an in-progress row early and at a rounding artefact.
+    expect(isBreach("betaPert", UNBOUNDED_BREACH_THRESHOLD)).toBe(true);
+    expect(isBreach("betaPert", 0.9998)).toBe(false);
+    expect(isBreach("betaPert", 0.99989)).toBe(false);
+  });
+
+  it("an in-progress Near-certainty 10/20/30 Beta-PERT row is exhausted at 25 days, long before its cdf is 1", () => {
+    // Its 0.9999 point is 24.94 days (independent reference); its cdf only rounds to 1.0 at 28.66.
+    const row = (t: number) =>
+      makeActivity({
+        min: 10,
+        mostLikely: 20,
+        max: 30,
+        confidenceLevel: "nearCertainty",
+        distributionType: "betaPert",
+        status: "inProgress",
+        actualDuration: t,
+      });
+    const base = new BetaPertDistribution(10, 20, 30, "nearCertainty");
+
+    const at25 = buildMcDistribution(row(25), base);
+    expect(at25.isExhausted).toBe(true);
+    expect(at25.dist).toBeInstanceOf(DegenerateDistribution);
+    // The bounded rule would NOT have fired: the cdf is still below 1.
+    expect(base.cdf(25)).toBeLessThan(1);
+    expect(isBreach("triangular", base.cdf(25))).toBe(false);
+
+    const at248 = buildMcDistribution(row(24.8), base);
+    expect(at248.isExhausted).toBe(false);
+    expect(at248.dist).toBeInstanceOf(TruncatedDistribution);
   });
 });
 

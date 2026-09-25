@@ -408,6 +408,21 @@ function migrateV22toV23(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v23 → v24: Beta-PERT, a fifth distribution type (v0.72.0). A pure relabel: nothing in an
+ * existing project changes.
+ *
+ * ⚠️ The bump is the point. A build from before v0.72.0 cannot parse "betaPert"; with the
+ * project still stamped 23 it would drop a collaborator's Beta-PERT row from its copy and write
+ * that copy back on its next unrelated edit. Stamped 24, it meets the future-version guard
+ * (v0.50.1) instead and evicts the project cleanly, with no write.
+ */
+function migrateV23toV24(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 24;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -431,6 +446,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   20: migrateV20toV21,
   21: migrateV21toV22,
   22: migrateV22toV23,
+  23: migrateV23toV24,
 };
 
 /**

@@ -186,6 +186,27 @@ describe("Phase 1 criterion 2 — mixed validity", () => {
     expect(scenarioOf(res.project, scenarioId).activities.map((a) => a.id)).toEqual(["ok1", "ok2"]);
   });
 
+  it("bulk_create_activities applies a Beta-PERT item — the contract's bulk enum carries it", () => {
+    const { project, scenarioId } = baseProject();
+    const op: AiOp = {
+      seq: 1,
+      op: "bulk_create_activities",
+      payload: {
+        activities: [
+          { id: "b1", name: "Beta", min: 10, mostLikely: 12, max: 40, distributionType: "betaPert" },
+          { id: "b2", name: "Beta out of order", min: 10, mostLikely: 50, max: 40, distributionType: "betaPert" },
+        ],
+      },
+    };
+    const res = one(project, op, scenarioId);
+    expect(res.results[0]!.outcome).toEqual({
+      status: "partial",
+      appliedCount: 1,
+      skippedItems: [{ index: 1, id: "b2", reason: "invalid" }],
+    });
+    expect(scenarioOf(res.project, scenarioId).activities[0]!.distributionType).toBe("betaPert");
+  });
+
   it("bulk_create_activities skips an over-ceiling estimate per-item (A1), not the whole op", () => {
     const { project, scenarioId } = baseProject();
     const op: AiOp = {

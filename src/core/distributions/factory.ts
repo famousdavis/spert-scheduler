@@ -9,15 +9,18 @@ import { NormalDistribution } from "./normal";
 import { LogNormalDistribution } from "./log-normal";
 import { TriangularDistribution } from "./triangular";
 import { UniformDistribution } from "./uniform";
+import { BetaPertDistribution } from "./beta-pert";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 /**
- * Creates a Distribution instance for the given activity using its
- * PERT mean, resolved SD, and chosen distribution type.
+ * Creates a Distribution instance for the given activity and its chosen distribution type:
+ * T-Normal and LogNormal from its PERT mean and resolved SD, Triangular and Uniform from its
+ * three points, and Beta-PERT from its three points and its Confidence level.
  */
 const DISTRIBUTION_LABELS: Record<Activity["distributionType"], string> = {
   normal: "Normal",
   logNormal: "LogNormal",
+  betaPert: "Beta-PERT",
   triangular: "Triangular",
   uniform: "Uniform",
 };
@@ -42,6 +45,14 @@ export function createDistributionForActivity(activity: Activity): Distribution 
         }
         return new LogNormalDistribution(mean, sd);
 
+      case "betaPert":
+        return new BetaPertDistribution(
+          activity.min,
+          activity.mostLikely,
+          activity.max,
+          activity.confidenceLevel
+        );
+
       case "triangular":
         return new TriangularDistribution(
           activity.min,
@@ -63,7 +74,7 @@ export function createDistributionForActivity(activity: Activity): Distribution 
     // a total Record over the compile-time DistributionType union (so
     // TypeScript sees this lookup as always a `string`): it exists for the
     // one path the type system can't see — the `default` branch above firing
-    // on a runtime value that isn't actually one of the four known types
+    // on a runtime value that isn't actually one of the known types
     // (e.g. malformed data from an older export, a hand-edited project file,
     // or a future schema version read by an older build). In that case
     // DISTRIBUTION_LABELS[...] is genuinely undefined at runtime and this
