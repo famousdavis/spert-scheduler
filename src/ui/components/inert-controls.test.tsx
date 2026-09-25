@@ -109,6 +109,16 @@ describe("Confidence shows a dash wherever it cannot apply", () => {
     expect(control!.textContent).toBe("Med.");
   });
 
+  it("but NOT on a Beta-PERT row carrying an sdOverride: its spread comes from the level", () => {
+    renderGrid([row(3, 5, 10, "betaPert", { sdOverride: 2 }), row(3, 5, 10, "normal", { sdOverride: 2 })]);
+    const [beta, control] = confidence();
+    expect(beta!.textContent).toBe("Med.");
+    expect(beta!.title).not.toBe(NA_SD_OVERRIDE);
+    // Positive control: the same override on T-Normal does take the dash.
+    expect(control!.textContent).toBe("—");
+    expect(control!.title).toBe(NA_SD_OVERRIDE);
+  });
+
   it("but a LOCKED T-Normal row still shows its level: the dash keys on the rule, not on `disabled`", () => {
     renderGrid([row(3, 5, 10, "normal"), row(3, 5, 10, "triangular")], { isScenarioLocked: true });
     const [locked, control] = confidence();
@@ -165,6 +175,14 @@ describe("Distribution shows in grey text where the estimate carries no uncertai
     const [overridden, control] = distribution();
     expect(overridden!.title).toBe("");
     expect(control!.title).toBe(NO_UNCERTAINTY);
+  });
+
+  it("IS greyed on a Triangular point estimate carrying an sdOverride, which Triangular never reads", () => {
+    renderGrid([row(5, 5, 5, "triangular", { sdOverride: 2 }), row(5, 5, 5, "normal", { sdOverride: 2 })]);
+    const [triangular, control] = distribution();
+    expect(triangular!.title).toBe(NO_UNCERTAINTY);
+    // Positive control: on T-Normal the override does give the point estimate spread.
+    expect(control!.title).toBe("");
   });
 
   it("draws no hover sparkline on a greyed cell", () => {

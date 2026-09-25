@@ -60,16 +60,19 @@ export type ConfidenceInertReason = "distribution" | "sdOverride" | "zeroRange";
  *
  * - `distribution`: Triangular or Uniform take their shape from the three points alone.
  * - `sdOverride`: the standard deviation was set directly, and `resolveSD` returns it ahead of
- *   range × RSM, so the level is bypassed. Reachable only by import or cloud.
- * - `zeroRange`: Min equals Max, so range × RSM is zero at every level.
+ *   range × RSM, so the level is bypassed. Reachable only by import or cloud, and only for
+ *   T-Normal and LogNormal: Beta-PERT takes its spread from its level and ignores an
+ *   `sdOverride` (v0.72.0), so on a Beta-PERT row the level still applies.
+ * - `zeroRange`: Min equals Max, so the spread is zero at every level.
  *
  * ⚠️ Only two NUMBERS can be equal: a blank draft (`""`) is not a zero range, or a half-filled
  * dialog would show a dash.
  *
  * Print and export still use `confidenceApplies` alone, so for a zero-range or `sdOverride`
  * T-Normal/LogNormal activity they print and export the level while the grid and the dialog
- * show a dash. That is ruled (2026-09-17): the importer requires a level for those
- * distributions, and a blank would break the export's round trip.
+ * show a dash. That is ruled (2026-09-17). ⚠️ The reason once given here — that a blank would
+ * break the export's round trip — does not hold: the schedule export is for sharing a schedule
+ * with people who use Excel, and was never meant to be re-imported (owner ruling, 2026-09-19).
  */
 export function confidenceInertReason(
   distributionType: DistributionType,
@@ -78,9 +81,18 @@ export function confidenceInertReason(
   sdOverride?: number
 ): ConfidenceInertReason | null {
   if (!confidenceApplies(distributionType)) return "distribution";
-  if (sdOverride != null) return "sdOverride";
+  if (sdOverride != null && spreadIsResolvedSd(distributionType)) return "sdOverride";
   if (typeof min === "number" && min === max) return "zeroRange";
   return null;
+}
+
+/**
+ * Is this distribution's spread the standard deviation `resolveSD` returns — so one an
+ * `sdOverride` can replace? Only T-Normal's and LogNormal's. Beta-PERT's spread comes from its
+ * Confidence level, and Triangular and Uniform have none to replace.
+ */
+function spreadIsResolvedSd(distributionType: DistributionType): boolean {
+  return distributionType === "normal" || distributionType === "logNormal";
 }
 
 /** The dash's `title`, one sentence per reason — only the first is about the distribution. */
@@ -98,16 +110,18 @@ export const CONFIDENCE_INERT_TITLES: Record<ConfidenceInertReason, string> = {
  * broken LogNormal state below.
  *
  * Two exceptions keep a point estimate live:
- * - an `sdOverride` gives it real spread under T-Normal or LogNormal;
+ * - an `sdOverride` gives it real spread under T-Normal or LogNormal — and only there. Until
+ *   v0.72.0 this check ignored the distribution, so a Triangular or Uniform point estimate
+ *   carrying an `sdOverride`, which neither uses, was left live;
  * - LogNormal at zero cannot be built at all (the distribution factory throws for a PERT mean
  *   of 0 or less), so greying that row would dress a broken state as a settled one. The test is
  *   `logNormalHasNoMean`, the same predicate that makes `ActivitySchema` flag the row (v0.69.0);
  *   for a point estimate it reduces to the value being 0.
  *
  * ⚠️ Switching between distributions on such a row still re-deals every OTHER activity's random
- * draws (T-Normal and LogNormal take two per sample, Triangular and Uniform one, from one shared
- * stream), so its title says the distribution does not change THIS activity's duration — never
- * that it has no effect.
+ * draws (T-Normal and LogNormal take two per sample; Beta-PERT, Triangular and Uniform one, from
+ * one shared stream), so its title says the distribution does not change THIS activity's
+ * duration — never that it has no effect.
  */
 export function distributionIsInert(
   min: EstimateValue,
@@ -117,7 +131,8 @@ export function distributionIsInert(
   sdOverride?: number
 ): boolean {
   if (typeof min !== "number" || min !== mostLikely || mostLikely !== max) return false;
-  return sdOverride == null && !logNormalHasNoMean(distributionType, min, mostLikely, max);
+  const overrideGivesSpread = sdOverride != null && spreadIsResolvedSd(distributionType);
+  return !overrideGivesSpread && !logNormalHasNoMean(distributionType, min, mostLikely, max);
 }
 
 /** The greyed Distribution control's `title`. */

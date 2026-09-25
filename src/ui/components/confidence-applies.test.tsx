@@ -75,6 +75,14 @@ describe("confidenceInertReason — why Confidence cannot apply (owner ruling, 2
     // Only a unit test reaches this: an sdOverride arrives by import or cloud, never the UI.
     expect(confidenceInertReason("normal", 3, 10, 2)).toBe("sdOverride");
     expect(confidenceInertReason("normal", 5, 5, 2)).toBe("sdOverride");
+    expect(confidenceInertReason("logNormal", 3, 10, 2)).toBe("sdOverride");
+  });
+
+  it("ignores an sdOverride on Beta-PERT, whose spread comes from its level, not from an SD", () => {
+    expect(confidenceInertReason("betaPert", 3, 10)).toBeNull();
+    expect(confidenceInertReason("betaPert", 3, 10, 2)).toBeNull();
+    // Positive control: a zero range still takes the dash on Beta-PERT.
+    expect(confidenceInertReason("betaPert", 5, 5, 2)).toBe("zeroRange");
   });
 
   it("never reads two blank drafts as a zero range", () => {
@@ -104,6 +112,14 @@ describe("distributionIsInert — no uncertainty, so the distribution cannot cha
   it("is false where an sdOverride gives the point estimate real spread", () => {
     expect(distributionIsInert(5, 5, 5, "normal", 2)).toBe(false);
     expect(distributionIsInert(5, 5, 5, "logNormal", 2)).toBe(false);
+  });
+
+  it("stays true where an sdOverride cannot give spread: Beta-PERT, and Triangular and Uniform", () => {
+    // None of the three reads an SD. Until v0.72.0 this ignored the type, and the Triangular and
+    // Uniform point estimates below were wrongly left live.
+    expect(distributionIsInert(5, 5, 5, "betaPert", 2)).toBe(true);
+    expect(distributionIsInert(5, 5, 5, "triangular", 2)).toBe(true);
+    expect(distributionIsInert(5, 5, 5, "uniform", 2)).toBe(true);
   });
 
   it("never reads blank drafts as equal", () => {

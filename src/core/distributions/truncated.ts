@@ -109,10 +109,13 @@ export class DegenerateDistribution implements Distribution {
 }
 
 /**
- * Boundedness-aware breach predicate. Bounded types (Triangular, Uniform) breach at
- * p0 >= 1.0 exactly (cdf(max) = 1.0); unbounded types (Normal, LogNormal) at the
- * model-honesty threshold. The `never` default makes a fifth DistributionType a compile
- * error (mirrors factory.ts).
+ * Breach predicate. Triangular and Uniform breach at p0 >= 1.0 exactly (cdf(max) = 1.0);
+ * Normal and LogNormal, which are unbounded, at the model-honesty threshold.
+ *
+ * ⚠️ Beta-PERT is BOUNDED and still takes the threshold. On a thin tail its cdf rounds to 1.0
+ * well before Max — a Near-certainty 10/20/30 row at 28.66 days, where its 0.9999 point is
+ * 24.94 — so the bounded rule would flag it at a rounding artefact. The `never` default makes a
+ * sixth DistributionType a compile error (mirrors factory.ts).
  */
 export function isBreach(distributionType: DistributionType, p0: number): boolean {
   switch (distributionType) {
