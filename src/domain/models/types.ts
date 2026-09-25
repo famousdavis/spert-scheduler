@@ -12,7 +12,7 @@
 export const ENGINE_VERSION = "1.1.1";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 // -- Schema Limits -----------------------------------------------------------
 

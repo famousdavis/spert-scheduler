@@ -1369,4 +1369,27 @@ describe("applyMigrations", () => {
     expect(result.schemaVersion).toBe(22);
     expect(result.forcedWorkDays).toEqual(["2025-01-01"]);
   });
+
+  // -- v23 → v24 --------------------------------------------------------------
+
+  it("v23→v24: relabels, and changes nothing else (Beta-PERT, v0.72.0)", () => {
+    const scenarios = [
+      {
+        id: "s1",
+        name: "Baseline",
+        startDate: "2026-10-05",
+        settings: { defaultDistributionType: "triangular", probabilityTarget: 0.5 },
+        activities: [
+          { id: "a1", name: "Task 1", min: 1, mostLikely: 2, max: 3, distributionType: "normal" },
+        ],
+        dependencies: [],
+        milestones: [],
+      },
+    ];
+    const v23Data = { schemaVersion: 23, name: "P", forcedWorkDays: ["2026-10-10"], scenarios };
+    const before = JSON.parse(JSON.stringify(v23Data)) as Record<string, unknown>;
+    const result = applyMigrations(v23Data, 23, 24) as Record<string, unknown>;
+    expect(result.schemaVersion).toBe(24);
+    expect({ ...result, schemaVersion: 23 }).toEqual(before);
+  });
 });
