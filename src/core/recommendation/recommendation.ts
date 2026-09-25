@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import type { DistributionType, RSMLevel } from "@domain/models/types";
-import { estimateOrderIssues } from "@domain/helpers/estimate-rules";
+import { estimateOrderIssues, isSymmetricEstimate } from "@domain/helpers/estimate-rules";
 import { computePertMean, computeSpertSD, computeSkewIndicator, computeCV } from "@core/estimation/spert";
 
 const SKEW_THRESHOLD = 0.1;
@@ -101,6 +101,16 @@ const CURVE_FITS: Record<"normal" | "logNormal", string> = {
     "The range is relatively wide and extends farther above Most Likely than below it. LogNormal may suit this pattern, with more room for longer durations.",
 };
 
+/**
+ * T-Normal's curve-fit sentence for an estimate that IS symmetric (WI-71). "Roughly" stays for
+ * the rest of T-Normal's band, which admits Most Likely anywhere within 6 % of the middle —
+ * 5/10/16 is in it and is not symmetric — so a blanket "exactly" would be false across most of
+ * the band. Symmetric means `isSymmetricEstimate`, the one rule Beta-PERT's exact median also
+ * uses, on the STORED values: a row reading 5-10-15 can hold 5/10/15.4 and correctly say "roughly".
+ */
+const T_NORMAL_FITS_EXACTLY =
+  "Most Likely is in the middle of a relatively narrow range. T-Normal may suit this exactly symmetric estimate.";
+
 const T_NORMAL_OFF_CENTRE =
   "Most Likely is away from the middle of the range. Triangular puts the peak at Most Likely and keeps durations between Min and Max.";
 
@@ -122,7 +132,9 @@ const mostLikelyAtEnd = (end: "Min" | "Max") =>
  *   than 6 % from the middle); LogNormal contradicts one that is not right-skewed
  *   (skew ≤ 0.1), or whose Most Likely equals Min.
  *
- * Never on a Uniform row: Uniform is the user's call (2026-09-17, as above). A LogNormal row
+ * Never on a Uniform row: Uniform is the user's call (2026-09-17, as above). Never on a
+ * Beta-PERT row either: nothing suggests Beta-PERT, and a user who picks it — or makes it the
+ * default — has chosen a curve for every such row (owner ruling, 2026-09-24). A LogNormal row
  * whose estimate is right-skewed with Most Likely inside the range gets NO dot although the
  * suggestion is Triangular: both curves fit, and which is better depends on the nature of
  * the uncertainty, which three numbers cannot show (2026-09-17). Triangular rows keep their
@@ -147,13 +159,17 @@ export function suggestDistributionChange(
   max: number,
   current: DistributionType
 ): DistributionSuggestion | null {
-  if (current === "uniform" || !(0 <= min && estimateOrderIssues(min, ml, max).length === 0)) {
+  if (
+    current === "uniform" ||
+    current === "betaPert" ||
+    !(0 <= min && estimateOrderIssues(min, ml, max).length === 0)
+  ) {
     return null;
   }
   const suggested = recommendDistribution(min, ml, max);
 
   if ((suggested === "normal" || suggested === "logNormal") && suggested !== current) {
-    return { suggested, reason: CURVE_FITS[suggested] };
+    return { suggested, reason: curveFitReason(suggested, min, ml, max) };
   }
 
   if (suggested === "triangular" && (current === "normal" || current === "logNormal")) {
@@ -162,6 +178,18 @@ export function suggestDistributionChange(
   }
 
   return null;
+}
+
+/** The curve-fit sentence: T-Normal's says "exactly symmetric" only where the estimate is. */
+function curveFitReason(
+  suggested: "normal" | "logNormal",
+  min: number,
+  ml: number,
+  max: number
+): string {
+  return suggested === "normal" && isSymmetricEstimate(min, ml, max)
+    ? T_NORMAL_FITS_EXACTLY
+    : CURVE_FITS[suggested];
 }
 
 /** Why the row's own curve cannot follow these three points — or `null` when it can. */

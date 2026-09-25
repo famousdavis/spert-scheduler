@@ -101,6 +101,9 @@ function denseGrid(n: number): [number, number, number][] {
 
 const FITS_T_NORMAL =
   "Most Likely is near the middle of a relatively narrow range. T-Normal may suit this roughly symmetric estimate.";
+// WI-71: an estimate that IS symmetric says so. The matrix's centred example, 8/10/12, is one.
+const FITS_T_NORMAL_EXACTLY =
+  "Most Likely is in the middle of a relatively narrow range. T-Normal may suit this exactly symmetric estimate.";
 const FITS_LOGNORMAL =
   "The range is relatively wide and extends farther above Most Likely than below it. LogNormal may suit this pattern, with more room for longer durations.";
 const T_NORMAL_OFF_CENTRE =
@@ -117,7 +120,7 @@ type Cell = [string, DistributionType, [number, number, number], DistributionTyp
 // Columns, left to right: centred & not wide · centred & wide · below the middle & not wide ·
 // below the middle & wide · above the middle (incl. Most Likely = Max) · Most Likely = Min.
 const MATRIX: Cell[] = [
-  ["centred, not wide", "triangular", [8, 10, 12], "normal", FITS_T_NORMAL],
+  ["centred, not wide", "triangular", [8, 10, 12], "normal", FITS_T_NORMAL_EXACTLY],
   ["centred, wide", "triangular", [1, 10, 19], null, null],
   ["below middle, not wide", "triangular", [8, 10, 15], null, null],
   ["below middle, wide", "triangular", [2, 5, 20], "logNormal", FITS_LOGNORMAL],
@@ -135,7 +138,7 @@ const MATRIX: Cell[] = [
   ["Most Likely = Min", "normal", [5, 5, 20], "triangular", ML_AT_MIN],
   ["Most Likely = Min, narrower", "normal", [5, 5, 10], "triangular", ML_AT_MIN],
 
-  ["centred, not wide", "logNormal", [8, 10, 12], "normal", FITS_T_NORMAL],
+  ["centred, not wide", "logNormal", [8, 10, 12], "normal", FITS_T_NORMAL_EXACTLY],
   ["centred, wide", "logNormal", [1, 10, 19], "triangular", LOGNORMAL_NOT_RIGHT],
   ["below middle, not wide", "logNormal", [8, 10, 15], null, null],
   ["below middle, wide", "logNormal", [2, 5, 20], null, null],
@@ -188,5 +191,62 @@ describe("suggestDistributionChange — when the grid shows a dot, and what it s
     // Positive control, same test: the same rows with the triple put back in order do show one.
     expect(suggestDistributionChange(0, 0, 1, "normal")).not.toBeNull();
     expect(suggestDistributionChange(0, 5, 15, "normal")).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Beta-PERT (v0.72.0) and the exact wording (WI-71)
+// ---------------------------------------------------------------------------
+
+describe("Beta-PERT and the suggestion dot", () => {
+  it("never shows a dot on a Beta-PERT row — the matrix's estimates and every whole-number one to 30", () => {
+    let checked = 0;
+    for (const [, , [min, ml, max]] of MATRIX) {
+      expect(suggestDistributionChange(min, ml, max, "betaPert")).toBeNull();
+    }
+    for (let min = 0; min <= 30; min++) {
+      for (let ml = min; ml <= 30; ml++) {
+        for (let max = ml; max <= 30; max++) {
+          expect(suggestDistributionChange(min, ml, max, "betaPert")).toBeNull();
+          checked++;
+        }
+      }
+    }
+    expect(checked).toBe(5456);
+    // Positive control: the same numbers draw a dot on a Triangular row.
+    expect(suggestDistributionChange(10, 20, 30, "triangular")).not.toBeNull();
+  });
+
+  it("is never what the numbers pick: the AI's automatic choice never returns betaPert", () => {
+    const picks = new Set<string | null>();
+    for (let min = 0; min <= 30; min++) {
+      for (let ml = min; ml <= 30; ml++) {
+        for (let max = ml; max <= 30; max++) picks.add(recommendDistribution(min, ml, max));
+      }
+    }
+    for (let i = 0; i < 2000; i++) {
+      const [a, b, c] = [(i * 7919) % 997, (i * 104729) % 991, (i * 1299709) % 983].map((v) => v / 10);
+      const [min, ml, max] = [a!, b!, c!].sort((x, y) => x - y) as [number, number, number];
+      picks.add(recommendDistribution(min, ml, max));
+    }
+    expect(picks.has("betaPert")).toBe(false);
+    // The sweep can see every answer the function gives: the three curves and "no pick".
+    expect([...picks].map(String).sort()).toEqual(["logNormal", "normal", "null", "triangular"]);
+  });
+});
+
+describe("T-Normal's curve-fit sentence says \"exactly\" only for a symmetric estimate (WI-71)", () => {
+  it("says exactly symmetric where the estimate is — including 0.1 / 0.4 / 0.7", () => {
+    for (const [min, ml, max] of [[5, 10, 15], [3, 6, 9], [8, 10, 12], [0.1, 0.4, 0.7]] as const) {
+      expect(suggestDistributionChange(min, ml, max, "triangular")?.reason).toBe(FITS_T_NORMAL_EXACTLY);
+    }
+  });
+
+  it("keeps roughly for the rest of T-Normal's band: off-centre by a day, and by a stored fraction", () => {
+    // 5/10/16 is inside the band (Most Likely within 6 % of the middle) and is not symmetric.
+    // 5/10/15.4 READS 5-10-15 in the grid, which rounds, but is not symmetric as stored.
+    for (const [min, ml, max] of [[5, 10, 16], [8, 10, 12.5], [5, 10, 15.4]] as const) {
+      expect(suggestDistributionChange(min, ml, max, "triangular")?.reason).toBe(FITS_T_NORMAL);
+    }
   });
 });
