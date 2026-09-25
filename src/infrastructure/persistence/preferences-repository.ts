@@ -59,8 +59,8 @@ export function _resetLegacyPreferencesMigrationForTests(): void {
 
 // -- WI-68: forward compatibility --------------------------------------------
 //
-// A preference VALUE a newer release writes but this copy does not know — say
-// `defaultDistributionType: "betaPert"` — used to cost the user EVERY other
+// A preference VALUE a newer release writes but this copy does not know — say a
+// `defaultDistributionType` it has never heard of — used to cost the user EVERY other
 // preference. One `safeParse` ran over the whole object and a single bad field
 // returned `DEFAULT_USER_PREFERENCES` in full, so date format, theme and trial
 // count all reverted; the next save then wrote that reset over the stored copy

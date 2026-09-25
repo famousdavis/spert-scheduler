@@ -59,6 +59,7 @@ export type RSMLevel = (typeof RSM_LEVELS)[number];
 export const DISTRIBUTION_TYPES = [
   "normal",
   "logNormal",
+  "betaPert",
   "triangular",
   "uniform",
 ] as const;

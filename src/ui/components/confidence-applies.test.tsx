@@ -15,7 +15,8 @@ import { useProjectStore } from "@ui/hooks/use-project-store";
 import type { Activity, Project } from "@domain/models/types";
 
 /**
- * Confidence applies only to the two distributions defined by a mean and an SD.
+ * Confidence applies to the two distributions defined by a mean and an SD, and to Beta-PERT,
+ * whose spread it sets (v0.72.0).
  *
  * ⚠️ **The rule was written out FOUR times before v0.67.0** — `UnifiedActivityRow` twice
  * (once as a negation), `schedule-export-service` as `usesConfidence`, and
@@ -33,6 +34,12 @@ describe("confidenceApplies", () => {
     expect(confidenceApplies("logNormal")).toBe(true);
   });
 
+  it("is true for Beta-PERT, whose spread follows the Confidence level", () => {
+    // Without this every Beta-PERT row would show the Confidence dash and lose the one input
+    // that tunes its curve.
+    expect(confidenceApplies("betaPert")).toBe(true);
+  });
+
   it("is false for the two defined by min/most-likely/max alone", () => {
     expect(confidenceApplies("triangular")).toBe(false);
     expect(confidenceApplies("uniform")).toBe(false);
@@ -40,10 +47,10 @@ describe("confidenceApplies", () => {
 
   it("answers for every distribution type the app supports", () => {
     // ⚠️ Non-vacuity: a new distribution added to DISTRIBUTION_TYPES without a decision
-    // here would default to `false` silently. This asserts the set is exactly the four
-    // reasoned about, so adding a fifth fails until someone chooses.
+    // here would default to `false` silently. This asserts the set is exactly the five
+    // reasoned about, so adding a sixth fails until someone chooses.
     expect([...DISTRIBUTION_TYPES].sort()).toEqual(
-      ["logNormal", "normal", "triangular", "uniform"],
+      ["betaPert", "logNormal", "normal", "triangular", "uniform"],
     );
   });
 });
@@ -238,7 +245,7 @@ describe("ActivityEditModal — Confidence shows a dash where it does not apply"
     fireEvent.change(distributionSelect(), { target: { value: "uniform" } });
     // Single source: ConfidenceLevelSelect and this dash must not drift apart.
     expect(confidenceDash()!.title).toBe(
-      "Confidence only applies to T-Normal and LogNormal distributions",
+      "Confidence only applies to T-Normal, LogNormal and Beta-PERT distributions",
     );
   });
 

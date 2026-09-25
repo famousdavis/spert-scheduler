@@ -19,6 +19,8 @@ export function distributionLabel(dt: DistributionType): string {
       return "LogNormal";
     case "normal":
       return "T-Normal";
+    case "betaPert":
+      return "Beta-PERT";
     case "triangular":
       return "Triangular";
     case "uniform":
@@ -47,6 +49,8 @@ export function distributionShortLabel(dt: DistributionType): string {
       return "LogN";
     case "normal":
       return "Norm";
+    case "betaPert":
+      return "Beta";
     case "triangular":
       return "Tri";
     case "uniform":

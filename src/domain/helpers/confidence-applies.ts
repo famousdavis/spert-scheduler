@@ -8,10 +8,11 @@ import { logNormalHasNoMean } from "@domain/helpers/estimate-rules";
 /**
  * Does the confidence level affect this distribution's spread?
  *
- * Confidence feeds the Ratio Scale Modifier, which sets the standard deviation for the
- * two distributions defined by a mean and an SD. Triangular and Uniform take their shape
- * from min/most-likely/max alone, so a confidence level is inert for them — which is why
- * the control is disabled rather than merely ignored.
+ * It does for three. For T-Normal and LogNormal, the two distributions defined by a mean and an
+ * SD, Confidence feeds the Ratio Scale Modifier, which sets that SD. For Beta-PERT (v0.72.0) it
+ * picks the SD from the Statistical PERT® Beta Edition scale, and the shape is solved from it.
+ * Triangular and Uniform take their shape from min/most-likely/max alone, so a confidence level
+ * is inert for them — which is why the control is disabled rather than merely ignored.
  *
  * ⚠️ **This rule was written out FOUR separate times before v0.67.0**, once as a negation,
  * and the divergence was the actual defect: the activity-edit modal was the only surface
@@ -27,7 +28,11 @@ import { logNormalHasNoMean } from "@domain/helpers/estimate-rules";
  * modal can ask about a type held in local state that has not been saved yet.
  */
 export function confidenceApplies(distributionType: DistributionType): boolean {
-  return distributionType === "normal" || distributionType === "logNormal";
+  return (
+    distributionType === "normal" ||
+    distributionType === "logNormal" ||
+    distributionType === "betaPert"
+  );
 }
 
 /**
@@ -35,7 +40,7 @@ export function confidenceApplies(distributionType: DistributionType): boolean {
  * native `<select>` explain themselves identically.
  */
 export const CONFIDENCE_NA_TITLE =
-  "Confidence only applies to T-Normal and LogNormal distributions";
+  "Confidence only applies to T-Normal, LogNormal and Beta-PERT distributions";
 
 /**
  * A three-point value as a surface holds it: the grid always has a number, and the Edit

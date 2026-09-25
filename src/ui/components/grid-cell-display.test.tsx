@@ -75,7 +75,7 @@ describe("the grid abbreviates LogNormal, and only in the grid", () => {
     renderGrid([activityFixture()]);
     const options = Array.from(distributionSelect().options).map((o) => o.textContent);
 
-    expect(options).toEqual(["T-Normal", "LogNorm", "Triangular", "Uniform"]);
+    expect(options).toEqual(["T-Normal", "LogNorm", "Beta-PERT", "Triangular", "Uniform"]);
 
     // ⚠️ The side that must NOT move, asserted on the same gesture. `distributionLabel`
     // feeds the printed report and the XLSX/CSV export; shortening it there would satisfy
@@ -87,7 +87,7 @@ describe("the grid abbreviates LogNormal, and only in the grid", () => {
   it("overrides exactly one label and passes the rest through", () => {
     // Non-vacuity: if `gridDistributionLabel` were reduced to a pass-through, the test
     // above would still pass as soon as someone edited the shared label instead. This
-    // pins the divergence itself — one type differs, three are identical.
+    // pins the divergence itself — one type differs, the other four are identical.
     const differing = DISTRIBUTION_TYPES.filter(
       (dt) => gridDistributionLabel(dt) !== distributionLabel(dt),
     );

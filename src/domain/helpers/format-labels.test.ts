@@ -33,6 +33,10 @@ describe("distributionLabel", () => {
   it("formats uniform correctly", () => {
     expect(distributionLabel("uniform")).toBe("Uniform");
   });
+
+  it("formats betaPert correctly", () => {
+    expect(distributionLabel("betaPert")).toBe("Beta-PERT");
+  });
 });
 
 describe("distributionShortLabel", () => {
@@ -46,6 +50,10 @@ describe("distributionShortLabel", () => {
 
   it("formats triangular correctly", () => {
     expect(distributionShortLabel("triangular")).toBe("Tri");
+  });
+
+  it("formats betaPert correctly", () => {
+    expect(distributionShortLabel("betaPert")).toBe("Beta");
   });
 
   it("formats uniform correctly", () => {

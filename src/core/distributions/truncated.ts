@@ -121,6 +121,7 @@ export function isBreach(distributionType: DistributionType, p0: number): boolea
       return p0 >= 1.0;
     case "normal":
     case "logNormal":
+    case "betaPert":
       return p0 >= UNBOUNDED_BREACH_THRESHOLD;
     default: {
       const _exhaustive: never = distributionType;
