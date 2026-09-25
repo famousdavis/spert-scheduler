@@ -13,6 +13,43 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.0",
+    date: "2026-09-24",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Beta-PERT, a fifth distribution. Beta-PERT stays between Min and Max and peaks exactly at Most Likely. Its spread follows the Confidence level on the Statistical PERT® Beta Edition scale (Medium: SD = range ÷ 6), so its middle value moves as Confidence changes. It is not the fixed PERT formula (O + 4M + P) ÷ 6. It is third in every Distribution list — T-Normal, LogNormal, Beta-PERT, Triangular, Uniform — in the activity grid, the Edit Activity dialog, the bulk-edit toolbar and Settings, where you can also make it the default for new activities. On a Beta-PERT row the Confidence control stays active, because there Confidence is what shapes the curve; hover over the Distribution cell to see the curve drawn at the row’s Confidence.",
+          "Switching an activity to Beta-PERT usually makes it shorter — here is why, so it does not surprise you. At the Medium confidence level, Beta-PERT is narrower than Triangular, and new activities are Triangular unless you change your default. An activity estimated at 10 / 12 / 40 days is scheduled at 20 days as Triangular and 16 as Beta-PERT, and its 95th percentile falls from 33.5 to 26.6 days. Switch a whole project and its whole schedule shortens the same way.",
+          "Less confidence can make a Beta-PERT activity shorter, when its Most Likely sits near its Max. Beta-PERT’s peak always stays on Most Likely. As confidence falls, its curve spreads out toward the far side of the range — and when Most Likely is near Max, the far side is the short side. An activity estimated at 10 / 38 / 40 days is scheduled at 38 days at Near certainty and 28 days at Guesstimate. When Most Likely is near Min, the usual case, less confidence makes it longer, as you would expect: 10 / 12 / 40 goes from 13 days to 23.",
+          "Connect AI can create Beta-PERT activities. Ask your AI chatbot for Beta-PERT and it will set it; it never chooses Beta-PERT by itself. The prompt you copy from the Connect AI panel now defines Beta-PERT, so the chatbot does not mistake it for the textbook PERT formula. This works once the Connect AI service is updated, which follows this release.",
+          "Importing activities from a spreadsheet understands Beta-PERT. The Distribution column accepts Beta-PERT, BetaPERT, Beta PERT and betaPert. A Beta-PERT row needs a Confidence level, and if it has none, the message now names Beta-PERT — it used to say T-Normal. The Confidence column also accepts the app’s own spellings “Medium-high” and “Medium-low”, which it used to refuse.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "The suggestion dot never appears on a Beta-PERT row — including a row that is Beta-PERT because it is your default distribution: choosing Beta-PERT is choosing a curve.",
+          "The suggestion dot says “exactly symmetric” when an estimate is. When it suggests T-Normal for an estimate such as 5 / 10 / 15, it used to call it “roughly symmetric”. It now says “exactly symmetric”, and keeps “roughly symmetric” for estimates that are only close, such as 5 / 10 / 16. The grid rounds what it shows, so a row that reads 5-10-15 but holds 15.4 still says “roughly” — correctly.",
+          "The About page describes Beta-PERT, and no longer says that the Confidence level always works through the SPERT Ratio Scale Modifier.",
+          "Please reload any SPERT Scheduler tab that has been open since before September 20. Projects are saved in a new format with this release (schema version 24). With cloud storage, a tab still running an older version sets aside any project the new version has opened — it shows “Newer version” instead of risking overwriting your changes — until you reload it. A tab from before September 20 has a further problem: if it meets Beta-PERT as your default distribution in Settings, it resets your other settings too.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "A point estimate on a Triangular or Uniform activity is now greyed even when a standard deviation was set for it directly. Min, Most Likely and Max all equal means the activity has no uncertainty, and the Distribution control shows that in grey. A standard deviation set directly — possible only through a file import or the cloud — kept such a Triangular or Uniform row looking live, although neither distribution uses one. T-Normal and LogNormal, which do use it, are unchanged.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Beta-PERT’s shape is Beta(1 + λp, 1 + λ(1 − p)) on [Min, Max], with p = (Most Likely − Min) ÷ (Max − Min) and λ ≥ 0 solved so the standard deviation equals the level’s: in closed form, as the one non-negative root of a cubic, taken by its trigonometric form with the arccosine’s argument clamped (a Most Likely a hair off-centre, 10 / 20.0000001 / 30, otherwise returns NaN). Each level’s spread is derived from the Beta Edition’s shape parameter, stored by name; Extremely low, which the Beta Edition lacks, takes the mean of Very low’s and Guesstimate’s spread. A symmetric estimate uses the Beta Edition’s own Beta(β, β), and its median is its exact midpoint, so it is never scheduled a day late. Sampling takes one random draw per sample, by the inverse CDF (Halley’s method on the regularized incomplete beta; no new library), so changing one row’s Confidence never reshuffles another row’s draws. Checked against two independent 60-digit references: the worst error over 17,160 quantiles is 5 × 10⁻¹⁵ of the range, and 3.8 × 10⁻¹³ relative in tails down to 10⁻³⁰⁰. An in-progress Beta-PERT activity counts as exhausted at the same 99.99 % point as T-Normal, not at Max. A simulation with every row Beta-PERT takes about five times as long as with T-Normal: about 0.13 s longer at the default 10,000 trials. No existing distribution’s results change (ENGINE_VERSION stays 1.1.1; the four committed oracles are byte-identical). SCHEMA_VERSION 23 → 24, with a relabeling migration.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.71.6",
     date: "2026-09-24",
     sections: [

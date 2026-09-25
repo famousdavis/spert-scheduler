@@ -73,7 +73,7 @@ All computation runs in the browser. There is no backend.
 ## Key Features
 
 - **Baseline scenarios:** The first scenario in every project is the Baseline (protected from deletion). Additional scenarios can be cloned from any existing scenario for what-if analysis or re-baselining.
-- **Four distribution types:** Normal, LogNormal, Triangular, Uniform — with automatic recommendation per activity.
+- **Five distribution types:** Normal, LogNormal, Beta-PERT, Triangular, Uniform — with an automatic recommendation per activity among Normal, LogNormal and Triangular (Beta-PERT and Uniform are never recommended; the user picks them).
 - **Holiday calendar:** Multi-day holiday ranges with global overrides per project. Country holidays via Nager.Date API (100+ countries) with built-in US holidays as offline fallback.
 - **Configurable work week:** Interactive pill toggles for any day combination (Mon-Fri, Sun-Thu, non-contiguous). Per-project converted work days to override non-work days as working days, and per-project forced work days to override global (company-wide) holidays into working days — project-added holidays are never overridable.
 - **Export/Import:** JSON-based project backup and restore on the Settings page, with schema migration and conflict resolution (skip, replace, import as copy).
@@ -115,7 +115,7 @@ Project
         │     ├── id, name
         │     ├── min, mostLikely, max (three-point estimates)
         │     ├── confidenceLevel: RSMLevel (10 levels)
-        │     ├── distributionType: "normal" | "logNormal" | "triangular" | "uniform"
+        │     ├── distributionType: "normal" | "logNormal" | "betaPert" | "triangular" | "uniform"
         │     ├── status: "planned" | "inProgress" | "complete"
         │     └── actualDuration?: number
         ├── dependencies: ActivityDependency[]
@@ -178,9 +178,11 @@ interface Distribution {
 }
 ```
 
-Four implementations: Normal (Box-Muller + Acklam), LogNormal (exp of normal), Triangular (inverse CDF), Uniform (linear interpolation).
+Five implementations: Normal (Box-Muller + Acklam), LogNormal (exp of normal), Beta-PERT (inverse CDF — Halley on the regularized incomplete beta, one draw per sample), Triangular (inverse CDF), Uniform (linear interpolation).
 
-Factory: `createDistributionForActivity(activity)` computes PERT mean + resolved SD, switches on `distributionType`.
+Beta-PERT (v0.72.0) is a beta on [Min, Max] with its peak exactly at Most Likely; its SD per Confidence level is the Statistical PERT® Beta Edition's symmetric SD (Medium = range ÷ 6), and its shape is solved per estimate from a closed-form cubic. It is not the fixed-λ PERT beta, whose mean is (O + 4M + P) ÷ 6.
+
+Factory: `createDistributionForActivity(activity)` switches on `distributionType`: Normal and LogNormal from the PERT mean and resolved SD, Triangular and Uniform from the three points, Beta-PERT from the three points and the Confidence level.
 
 ## Two Independent Computation Paths
 
