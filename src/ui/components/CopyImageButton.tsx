@@ -31,11 +31,14 @@ function resolveButtonClass(supported: boolean, status: CopyStatus): string {
 interface CopyImageButtonProps {
   targetRef: RefObject<HTMLElement | null>;
   title?: string;
+  /** Capture the target's whole scroll width — see `CopyChartOptions.captureFullWidth`. */
+  captureFullWidth?: boolean;
 }
 
 export function CopyImageButton({
   targetRef,
   title = "Copy as image",
+  captureFullWidth = false,
 }: CopyImageButtonProps) {
   const [status, setStatus] = useState<CopyStatus>("idle");
 
@@ -46,7 +49,7 @@ export function CopyImageButton({
 
     setStatus("copying");
     try {
-      await copyChartAsPng(targetRef.current);
+      await copyChartAsPng(targetRef.current, { captureFullWidth });
       setStatus("success");
       setTimeout(() => setStatus("idle"), 2000);
     } catch (err) {
@@ -57,7 +60,7 @@ export function CopyImageButton({
       setStatus("error");
       setTimeout(() => setStatus("idle"), 2000);
     }
-  }, [targetRef]);
+  }, [targetRef, captureFullWidth]);
 
   const unsupportedTitle =
     "Copy image is not supported in this browser — try Chrome, Edge, or Safari";

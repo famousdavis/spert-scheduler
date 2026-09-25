@@ -81,19 +81,60 @@ function neutralizeUnsupportedColors(doc: Document, clonedEl: HTMLElement): void
   });
 }
 
+/** Options for {@link copyChartAsPng}. */
+export interface CopyChartOptions {
+  /**
+   * Capture the element's whole scrollable width, not only the part scrolled into view.
+   *
+   * html2canvas renders what the element's own box shows. For an element that scrolls
+   * sideways — the Gantt chart's container whenever Fit to window is off — that is the
+   * scrolled-into-view part, and the PNG still looks complete, so nothing prompts anyone
+   * to check it (WI-57). Opt-in: every other copy site captures an element that does not
+   * scroll, and keeps exactly the capture it had.
+   */
+  captureFullWidth?: boolean;
+}
+
+/**
+ * Widen a sideways-scrolling element to its whole scroll width and stop it clipping, so
+ * html2canvas renders all of it. An element with nothing hidden is left untouched.
+ *
+ * ⚠️ Call it on html2canvas's CLONE, in `onclone` — never on the live element, which
+ * would change the page itself. Ending the scroll also discards the scroll position
+ * html2canvas copies into its clone (`restoreNodeScroll`), so the capture starts at the
+ * left edge even when the chart has been scrolled.
+ *
+ * `border-box` makes the arithmetic exact whatever the element's own box-sizing:
+ * `offsetWidth` is the border-box width, and adding the hidden width to it gives the
+ * width at which nothing is hidden. (Tailwind's preflight already makes every element
+ * here border-box; this keeps the helper from depending on that.)
+ */
+export function expandToFullWidth(el: HTMLElement): void {
+  const hidden = el.scrollWidth - el.clientWidth;
+  if (hidden <= 0) return;
+  el.style.boxSizing = "border-box";
+  el.style.width = `${el.offsetWidth + hidden}px`;
+  el.style.overflow = "visible";
+}
+
 /**
  * Copy a DOM element as a PNG image to the clipboard.
  * Elements with the `copy-image-button` class are excluded from the capture.
  * @param element The element to capture
+ * @param options See {@link CopyChartOptions}
  */
 export async function copyChartAsPng(
-  element: HTMLElement
+  element: HTMLElement,
+  { captureFullWidth = false }: CopyChartOptions = {},
 ): Promise<void> {
   const canvas = await html2canvas(element, {
     backgroundColor: "#ffffff",
     scale: 2, // Higher resolution
     ignoreElements: (el) => el.classList.contains("copy-image-button"),
-    onclone: neutralizeUnsupportedColors,
+    onclone: (doc, clonedEl) => {
+      if (captureFullWidth) expandToFullWidth(clonedEl);
+      neutralizeUnsupportedColors(doc, clonedEl);
+    },
   });
 
   const blob = await new Promise<Blob>((resolve, reject) => {

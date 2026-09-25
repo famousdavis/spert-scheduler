@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.71.6 — 2026-09-24
+
+### Fixed
+
+- **“Copy Gantt chart as image” now copies the whole chart.** When the chart is wider than its panel — a long project with Fit to window off, which is the default — the copied picture used to hold only the part you could see. With the window 1280 pixels wide, the sample project’s copy stopped partway through “UAT Sign-off” and left out Go-Live, its date, the finish date and the end of the schedule buffer. If you had scrolled the chart sideways, the copy cut off the activity names instead. The picture still looked like a complete chart, so nothing told you anything was missing. The copy now always includes the whole chart, from the first activity name to the finish date, however wide your window is and wherever the chart is scrolled. Nothing on screen changes: the chart scrolls as it did, and Fit to window works as it did. The other copy buttons — the histogram, the cumulative distribution, the percentile table and the scenario comparison — are unchanged.
+
+### Internal
+
+- The shared copy helper gained an option that only the Gantt turns on. With it, html2canvas’s copy of the page — never the page itself — widens the chart’s scrolling panel to its full width before the picture is taken, which also discards the scroll position html2canvas would otherwise reproduce. Measured in Chrome by capturing the image the button hands the clipboard: at windows 1280 and 853 pixels wide, the sample’s copy is now the same picture, byte for byte, where it was two different cut-offs; with Fit to window on, where nothing is hidden, the picture is byte-identical to before; and a copy takes as long as it did, because almost all of that time is html2canvas copying the page, which this does not change. Two other shapes were built and measured: handing html2canvas the chart’s SVG directly fails outright in html2canvas 1.4.1 (“Unable to find element in cloned iframe”), and wrapping the chart in a box sized to it loses the panel’s border from the picture and pushes the legend’s “Date prepared” out of view on screen. Six new tests follow the chain from the Gantt’s button to html2canvas’s copy, and ten deliberate breakages of it, each of which failed exactly the tests predicted for it by name, are kept as a committed falsification spec. The Gantt parity test cannot see any of the three changed files, so it is not coverage for this fix.
+
 ## 0.71.5 — 2026-09-24
 
 ### Fixed

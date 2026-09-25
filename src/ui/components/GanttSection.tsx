@@ -89,8 +89,12 @@ export function GanttSection(props: GanttSectionProps) {
           </svg>
           Gantt Chart
         </button>
+        {/* captureFullWidth: the chart's container scrolls sideways whenever Fit to window
+            is off (the default), and a copy of it would hold only the part in view — a PNG
+            that looks complete while missing the chart's end, or its start if the chart has
+            been scrolled (WI-57). */}
         {!collapsed && (
-          <CopyImageButton targetRef={chartRef} title="Copy Gantt chart as image" />
+          <CopyImageButton targetRef={chartRef} title="Copy Gantt chart as image" captureFullWidth />
         )}
       </div>
 
