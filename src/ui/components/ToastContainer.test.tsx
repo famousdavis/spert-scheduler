@@ -17,9 +17,10 @@ import { useNotificationStore } from "@ui/hooks/use-notification-store";
  *
  * Two halves, and the second is the one a later edit would break without noticing.
  * `no-print` hides the container only because it is portaled into <body>. The print
- * stylesheet's ancestor rules (`#root > *`, `#root > * > main > *`) are ID selectors with
- * !important, and they outrank `.no-print`'s `display: none` for anything they match —
- * which is how the no-print banners inside <main> still take up space in print.
+ * stylesheet's rules for #root and the elements below it are ID selectors with
+ * !important, and they outrank `.no-print`'s `display: none` for anything they match.
+ * Only the one for <main>'s children skips `no-print`; until it did, the no-print
+ * banners inside <main> printed as a blank gap at the top of the report.
  */
 
 let root: HTMLDivElement;

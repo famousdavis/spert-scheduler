@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.3",
+    date: "2026-09-26",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Printing while a banner is showing no longer leaves a blank gap at the top of the first page. The notices that can appear at the top of the screen — the first-visit notice about the Terms of Service, the reminder that your data exists only in this browser, and an invitation to a shared project — never printed, but they still kept their space on the page. With the first two showing, a printout started about an inch down page 1, and everything below moved down with it. A printout now starts at the top of the page whether a notice is showing or not, whichever page of the app you print.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The print rule that resets the layout of the containers around the report now skips anything marked no-print directly inside <main>. Its #root selectors carry an ID, so on every property both rules set, they outranked the no-print class: a notice kept only visibility: hidden and printed invisible but as tall as its content. A second rule, meant to hide everything in <main> except the report’s container, is removed: it was added after the reset rule and lost to that rule’s specificity from the day it was written, so it never took effect. A new test builds the page’s shape in the DOM and asks which elements the reset rule matches — not a no-print notice in <main>, and still the report’s own container. Removing the change fails exactly that test.",
+          "Measured on real PDFs (headless Chrome), before and after, in light and dark. Before: with both notices showing, page 1 of the Cloud ERP sample’s report started 104 px lower and the Activities table ran onto page 2; with only the storage reminder, 42 px lower. After: a printout made with any notice showing is pixel-identical to one made with none, on all 12 pages; with none showing, nothing changes. The Calendar, Settings, About and Changelog pages print as before, without the gap.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.72.2",
     date: "2026-09-26",
     sections: [

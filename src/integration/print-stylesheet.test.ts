@@ -72,3 +72,47 @@ describe("Print stylesheet — the app shell paints no background in print", () 
     expect(rule.declarations).toContain("background: transparent !important");
   });
 });
+
+/**
+ * In print, a `no-print` banner in <main> must take no space.
+ *
+ * The neutraliser's #root selectors carry an ID, so on every property both set they outrank
+ * `.no-print` (one class) — display, height, margin, padding — and leave only
+ * `visibility: hidden`. Anything they match prints invisible but full height. Measured on
+ * real PDFs before this: with the first-run and local-storage banners on screen, page 1 of
+ * the report started 104 CSS px lower. After: pixel-identical to a printout with no banner,
+ * on every page, in both themes. jsdom applies no `@media print`, so this pins the
+ * MECHANISM: which elements the neutraliser's selectors match, asked of the DOM itself.
+ */
+describe("Print stylesheet — a no-print child of <main> takes no space in print", () => {
+  it("the neutraliser matches the report's ancestor in <main> but no no-print child of <main>", () => {
+    const rule = ruleContaining(printBlock(stylesheetWithoutComments()), "#root > *");
+    // Positive control: the lookup found the neutraliser.
+    expect(rule.declarations).toContain("display: block !important");
+    const neutraliser = rule.selectors.join(", ");
+
+    // The shape the report prints from: #root > layout root > <main> > [banner, page root > report].
+    const root = document.createElement("div");
+    root.id = "root";
+    const layoutRoot = document.createElement("div");
+    const main = document.createElement("main");
+    const banner = document.createElement("div");
+    banner.className = "no-print";
+    const pageRoot = document.createElement("div");
+    const report = document.createElement("div");
+    report.className = "print-report";
+    pageRoot.append(report);
+    main.append(banner, pageRoot);
+    layoutRoot.append(main);
+    root.append(layoutRoot);
+    document.body.append(root);
+    try {
+      expect(banner.matches(neutraliser)).toBe(false);
+      // The report's own ancestor must still be neutralised, or the report cannot flow
+      // across printed pages.
+      expect(pageRoot.matches(neutraliser)).toBe(true);
+    } finally {
+      root.remove();
+    }
+  });
+});

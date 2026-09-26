@@ -82,11 +82,6 @@ input[type="number"] {
     padding: 0 !important;
   }
 
-  /* Hide everything in <main> that isn't an ancestor of .print-report */
-  main > *:not(:has(.print-report)) {
-    display: none !important;
-  }
-
   /* Within the print report's container, hide non-report siblings */
   .space-y-6 > *:not(.print-report) {
     display: none !important;
@@ -108,12 +103,18 @@ input[type="number"] {
      Background graphics turned off. In dark mode that printed as a navy block on page 1
      wherever the report does not cover the shell, and as a thin line down the right edge
      of every page, where the page's clip edge cuts both rectangles. Transparent, not
-     white, so that nothing is painted under the report at all. */
+     white, so that nothing is painted under the report at all.
+     `:not(.no-print)`: the #root selectors carry an ID, so they outrank `.no-print` (one
+     class) on every property both rules set, whatever their order. Without it, a no-print
+     child of <main> (the first-run notice, the local-storage warning, the invitation card)
+     got back its display, height, margin and padding and kept only `visibility: hidden`:
+     invisible, but as tall as its content, a blank gap at the top of page 1. `no-print`
+     is what keeps a child of <main> out of print; nothing else does. */
   body,
   #root,
   #root > *,
   #root > * > main,
-  #root > * > main > * {
+  #root > * > main > *:not(.no-print) {
     display: block !important;
     min-height: 0 !important;
     height: auto !important;
