@@ -119,6 +119,12 @@ function bestOf(
  * ("Duration (days)", "Duration w/Buffer") highlight identically under this helper and
  * under the raw-number comparison it replaced. `toFixed` is the only lossy formatter
  * in this table, which is why "Mean" was the only row affected.
+ *
+ * ⚠️ NO BEST WITHOUT A RIVAL (WI-60): a row marks nothing unless at least TWO of its
+ * cells have a value. `bestOf` filters blanks out, so a lone value is its own minimum —
+ * with one scenario run and one not, the run scenario's "Duration w/Buffer" and "Mean"
+ * were marked best against an empty cell. Ties still mark every tied cell, and an unrun
+ * scenario still competes on "Duration (days)", where it has a real value.
  */
 function highlightBestDisplayed(
   displayed: (string | null)[],
@@ -129,6 +135,7 @@ function highlightBestDisplayed(
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
   });
+  if (parsed.filter((v) => v !== null).length < 2) return parsed.map(() => null);
   const best = bestOf(parsed, mode);
   return parsed.map((v) => pickBestHighlight(v, best));
 }
@@ -181,7 +188,8 @@ export function ScenarioComparisonTable({
   // compared that smaller number against the others' genuinely buffered ones, an
   // un-simulated scenario was green-bolded as the winner (measured: 294 against a run
   // scenario's 351). Blanking removes the cell from the contest on its own: `bestOf`
-  // filters nulls.
+  // filters nulls. (That left the run scenario to win alone; since WI-60 a row with
+  // one value marks nothing — see `highlightBestDisplayed`.)
   const totalDurations = entries.map((e) =>
     e.buffer ? Math.round(e.buffer.projectTargetDuration) : null
   );
