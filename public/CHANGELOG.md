@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.72.2 — 2026-09-26
+
+### Fixed
+
+- **A notification on screen no longer prints on every page of the report.** Messages such as “Seed copied to clipboard” stay on screen for a few seconds after you act. If you clicked Print while one was showing, it printed at the bottom right of every page, over the rows of the tables and over the Gantt chart’s legend. It no longer prints at all.
+- **Printing while the app is in dark mode gives a clean white page.** In dark mode the app’s dark background printed too, even with the print dialog’s “Background graphics” turned off: as a thin dark line down the right edge of every page, and as a dark navy band at the top of page 1 whenever a notice was showing at the top of the screen, such as the reminder that your data exists only in this browser. The printed report now comes out the same in dark mode as in light mode.
+
+### Internal
+
+- The notification area now carries the app’s existing `no-print` class. That works because the notifications are placed directly in the page’s `<body>`: the print stylesheet’s rules for the containers around the report are ID selectors marked `!important`, and on the elements they match they outrank `no-print`. A new test checks both halves — the class, and that the container sits in `<body>` outside `#root`.
+- In print, the containers around the report now have a transparent background, set in the same print rule that already resets their layout. The app shell’s `bg-gray-50` / `dark:bg-gray-900` had printed under the report because `print-color-adjust: exact` on every element prints backgrounds whatever the Background graphics setting says. The thin line was not a gap: the shell’s rectangle lay exactly under the report’s white one, the printed page’s edge cut both, and at some zoom levels a sliver of the dark one showed through. The light theme printed the same shapes in near-white gray-50; they are now pure white, and nothing else in a light-mode printout changes. A new test pins the declaration.
+- Measured on real PDFs of the Cloud ERP sample (12 pages, headless Chrome), before and after. Before: a toast on screen printed on all 12 pages, in both themes, with Background graphics on and off. After: each printout taken with a toast on screen is pixel-identical to the same printout without one, and a dark-mode printout is pixel-identical to a light-mode one. Removing either change fails exactly the test written for it.
+
 ## 0.72.1 — 2026-09-25
 
 ### Fixed
