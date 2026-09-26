@@ -11,9 +11,14 @@ export function ToastContainer() {
 
   if (notifications.length === 0) return null;
 
+  // `no-print`: a `fixed` element repeats on every printed page, so a toast still on
+  // screen when the user prints landed on every page of the report. The class works
+  // because the portal target is <body>, outside #root: the print stylesheet's
+  // ancestor rules are ID selectors with !important, and they outrank `.no-print` for
+  // anything they match.
   return createPortal(
     <div
-      className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2"
+      className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 no-print"
       aria-label="Notifications"
     >
       {notifications.map((notification) => (

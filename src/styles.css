@@ -102,7 +102,13 @@ input[type="number"] {
 
   /* Neutralize flex/grid/min-height on all ancestors of .print-report
      so content flows naturally across printed pages.
-     Chain: body > #root > div.flex.flex-col > main.flex-1 > div.space-y-6 > .print-report */
+     Chain: body > #root > div.flex.flex-col > main.flex-1 > div.space-y-6 > .print-report
+     Their backgrounds too. The app shell paints bg-gray-50 / dark:bg-gray-900 under the
+     report, and `print-color-adjust: exact` below prints it even with the browser's
+     Background graphics turned off. In dark mode that printed as a navy block on page 1
+     wherever the report does not cover the shell, and as a thin line down the right edge
+     of every page, where the page's clip edge cuts both rectangles. Transparent, not
+     white, so that nothing is painted under the report at all. */
   body,
   #root,
   #root > *,
@@ -116,6 +122,7 @@ input[type="number"] {
     padding: 0 !important;
     margin: 0 !important;
     max-width: 100% !important;
+    background: transparent !important;
   }
 
   /* Page setup */
