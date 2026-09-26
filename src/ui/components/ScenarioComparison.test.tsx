@@ -27,6 +27,10 @@ import type { Scenario } from "@domain/models/types";
  * highlighted" test would still pass. `Duration (days)` (below) asserts a cell IS
  * highlighted on the same render, so it is the positive control for the instrument:
  * rename the class and it fails loudly rather than turning the others green.
+ *
+ * WI-60 (v0.72.1): a row marks a best only when at least two cells have a value. With
+ * one scenario run and one not, WI-43's fix had moved the unearned mark from the unrun
+ * column to the run one rather than removing it.
  */
 
 afterEach(cleanup);
@@ -111,13 +115,14 @@ function highlightedRowsForColumn(column: number): string[] {
 
 const BUFFER_ROWS = ["Buffer (days)", "End Date (w/buffer)", "Duration w/Buffer"];
 
-describe("ScenarioComparisonTable — a scenario that has not been run (WI-43)", () => {
-  // Baseline is run and buffered to 140; the clone is UNRUN and its deterministic
-  // schedule is LONGER (120 vs 100), so post-fix it legitimately wins nothing.
-  const RUN = withResults(scenarioLasting("Baseline", 100), 140, 200);
-  const UNRUN = scenarioLasting("Clone", 120);
-  const UNRUN_COL = 1;
+// Baseline is run and buffered to 140; the clone is UNRUN and its deterministic
+// schedule is LONGER (120 vs 100), so post-fix it legitimately wins nothing.
+// Shared by the WI-43 and WI-60 blocks below.
+const RUN = withResults(scenarioLasting("Baseline", 100), 140, 200);
+const UNRUN = scenarioLasting("Clone", 120);
+const UNRUN_COL = 1;
 
+describe("ScenarioComparisonTable — a scenario that has not been run (WI-43)", () => {
   const renderPair = () =>
     render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} />);
 
@@ -148,6 +153,46 @@ describe("ScenarioComparisonTable — a scenario that has not been run (WI-43)",
     // sweep returns, so prove the run scenario's highlight is visible to it first.
     expect(highlightedRowsForColumn(0)).toContain("Duration (days)");
     expect(highlightedRowsForColumn(UNRUN_COL)).toEqual([]);
+  });
+});
+
+describe("ScenarioComparisonTable — no best without a rival (WI-60)", () => {
+  it("marks no best in a row where only one scenario has a value", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} />);
+    // Positive control ON THIS RENDER (see the "Buffer (days)" test below for why it
+    // cannot live in a sibling): both scenarios have a deterministic schedule, so this
+    // row HAS a rival, and its minimum must still be marked.
+    expect(textsOf("Duration (days)")).toEqual(["100", "120"]);
+    expect(highlightsOf("Duration (days)")).toEqual([true, false]);
+    // Premise: the run scenario has a value in both rows below, the unrun one none.
+    expect(textsOf("Duration w/Buffer")).toEqual(["140", BLANK]);
+    expect(textsOf("Mean")).toEqual(["200.0", BLANK]);
+    // One assertion over both rows, so the guard missing from EITHER fails it, and the
+    // diff shows which.
+    expect({
+      "Duration w/Buffer": highlightsOf("Duration w/Buffer"),
+      Mean: highlightsOf("Mean"),
+    }).toEqual({
+      "Duration w/Buffer": [false, false],
+      Mean: [false, false],
+    });
+  });
+
+  // Two run scenarios with the unrun one between them. The smaller buffered duration is
+  // in the LAST column, so a highlight that defaulted to the first cell would miss it.
+  const RUN_A = withResults(scenarioLasting("Plan A", 100), 160, 210);
+  const UNRUN_B = scenarioLasting("Plan B", 130);
+  const RUN_C = withResults(scenarioLasting("Plan C", 110), 140, 190);
+
+  it("still marks the better of two run scenarios, and nothing in the unrun one", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN_A, UNRUN_B, RUN_C]} />);
+    expect(textsOf("Duration w/Buffer")).toEqual(["160", BLANK, "140"]);
+    expect(highlightsOf("Duration w/Buffer")).toEqual([false, false, true]);
+    expect(textsOf("Mean")).toEqual(["210.0", BLANK, "190.0"]);
+    expect(highlightsOf("Mean")).toEqual([false, false, true]);
+    // Plan B is not the shortest on "Duration (days)" either (130 against 100 and 110),
+    // so it has no row to win.
+    expect(highlightedRowsForColumn(1)).toEqual([]);
   });
 });
 

@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.1",
+    date: "2026-09-25",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "In Compare, a scenario is no longer marked best in a row where it has nothing to be compared against — for example when the other scenario has not been run yet. A scenario that has not been run has no Duration w/Buffer and no Mean, so those cells show a dash. The run scenario’s number in those rows was still shown in green bold as the best, against an empty cell. A row now marks a best only when at least two scenarios have a number in it. A scenario that has not been run still competes on Duration (days), because it has a schedule before it is run: if it is the shortest there, it is still marked. When two scenarios tie for best, both are still marked.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "One check in the function that picks each row’s best. A new test compares one run scenario with one that has not been run: neither Duration w/Buffer nor Mean is marked, while in the same render Duration (days), where both have a number, still is, so the test proves it can see a mark. A second compares three scenarios, two of them run: the better run one is still marked and the one not run carries nothing. Against the old code the first failed and the second passed. scripts/falsify-spec-comparison-rival.mjs removes the check, raises it to three, and applies it to one row at a time; each breaks exactly the tests it names.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.72.0",
     date: "2026-09-25",
     sections: [
