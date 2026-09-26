@@ -19,7 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Fixed",
         items: [
-          "Printing while a banner is showing no longer leaves a blank gap at the top of the first page. The notices that can appear at the top of the screen — the first-visit notice about the Terms of Service, the reminder that your data exists only in this browser, and an invitation to a shared project — never printed, but they still kept their space on the page. With the first two showing, a printout started about an inch down page 1, and everything below moved down with it. A printout now starts at the top of the page whether a notice is showing or not, whichever page of the app you print.",
+          "Printing while a banner is showing no longer leaves a blank gap at the top of the first page. The notices that can appear at the top of the screen — the first-visit notice about the Terms of Service, the reminder that your data exists only in this browser, and an invitation to a shared project — never printed, but they still kept their space on the page. With the first two showing, a printout started about an inch down page 1. A printout now starts at the top of the page whether a notice is showing or not, whichever page of the app you print.",
         ],
       },
       {
