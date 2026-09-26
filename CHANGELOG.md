@@ -26,7 +26,7 @@
 - **The suggestion dot says “exactly symmetric” when an estimate is.** When it suggests T-Normal for an estimate such as 5 / 10 / 15, it used to call it “roughly symmetric”. It now says “exactly symmetric”, and keeps “roughly symmetric” for estimates that are only close, such as 5 / 10 / 16. The grid rounds what it shows, so a row that reads 5-10-15 but holds 15.4 still says “roughly” — correctly.
 - **The About page describes Beta-PERT**, and no longer says that the Confidence level always works through the SPERT Ratio Scale Modifier.
 - **Reload every SPERT Scheduler tab that was open before this update.** This release saves projects in a new format (schema version 24). With cloud storage, a tab still running an older version stops showing each project this version has opened, and says the project “was updated with a newer version of SPERT Scheduler” rather than risk overwriting your changes. Nothing is deleted: reload the tab and the project is back.
-- **If a tab has been open since before September 20, reload it before you make Beta-PERT your default distribution.** Versions from before September 20 do not recognise Beta-PERT as a setting. One that reads it resets all your other settings (date format, theme, trial count and the rest) to their defaults, and can save that reset over your settings — with cloud storage, on every device.
+- **If a tab has been open since before September 20, reload it before you make Beta-PERT your default distribution.** A version from before September 20 cannot cope with a setting it does not recognise, such as Beta-PERT: it resets all your other settings (date format, theme, trial count and the rest) to their defaults, and can save that reset over your settings — with cloud storage, on every device.
 
 ### Fixed
 
