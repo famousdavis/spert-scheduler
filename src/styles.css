@@ -145,6 +145,24 @@ input[type="number"] {
     break-inside: avoid;
   }
 
+  /* One activity's Tasks or Deliverables: its name row and its items, one <tbody> each
+     (PrintItemTable). Rows are kept whole above, but nothing kept a row with the next, so
+     an activity's name could end a page with its items on the next, or its list could
+     split across two pages under no name. A group taller than a page still breaks inside;
+     it has to. */
+  .print-item-group {
+    break-inside: avoid;
+  }
+
+  /* The Tasks or Deliverables title stays with its table. These sections no longer start a
+     new page, and when the first activity does not fit under the title, Chrome moves the
+     whole table to the next page. Without this rule the title could be left alone at the
+     foot of a page: measured, whenever the section began in a band about 96 px high near
+     the foot. */
+  .print-item-title {
+    break-after: avoid;
+  }
+
   /* Print-friendly colors */
   * {
     color-adjust: exact;

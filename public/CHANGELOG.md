@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.72.4 — 2026-09-26
+
+### Fixed
+
+- **In the printed Tasks and Deliverables lists, an activity’s name is no longer left alone at the bottom of a page, and a list short enough to fit on one page is no longer split across two. The two lists now start right after the section before them instead of on a new page.** Each activity’s tasks and deliverables print under a grey row with its name and a count such as (0/2). That row could print by itself at the bottom of a page with its items on the next, and a short list could start at the bottom of one page and finish on the next under no name. Now an activity’s name always has its list under it, and a list that fits on one page is kept on one page. A list too long for one page still continues onto the next page, where its name is not repeated. The two lists used to start on a new page even when the page before had room left, so the sample project’s report is now 11 pages instead of 12.
+
+### Internal
+
+- The Tasks and Deliverables tables now put each activity’s name row and its items in one `<tbody>` (`print-item-group`), and the print stylesheet keeps that group whole with `break-inside: avoid`. Rows were already kept whole, but nothing kept a row with the next. The two sections also drop `print-section-keep`, as the other four long tables (Activities, Dependencies, Constraints, Descriptions) already do, and their title carries `print-item-title` with `break-after: avoid`. Without that rule, a section beginning near the foot of a page left its title there alone: measured by pushing the section down the page in 8 px steps, it happened across a band about 96 px high. Tests render the table and check the grouping, the section and the title, and pin both stylesheet rules. Removing any one change fails exactly the test written for it.
+- Measured on real PDFs of the Cloud ERP sample (headless Chrome), in light and dark. Before: two activity names printed alone at the bottom of a page, two three-task lists were split across pages, and the Tasks and Deliverables sections each started a new page, leaving about 43% and 30% of the page before them blank. After: none of those, every task and deliverable prints exactly once, and the report is 11 pages instead of 12. The pages before the Tasks section print as before.
+
 ## 0.72.3 — 2026-09-26
 
 ### Fixed
