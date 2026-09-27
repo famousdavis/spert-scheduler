@@ -145,6 +145,15 @@ input[type="number"] {
     break-inside: avoid;
   }
 
+  /* One activity's Tasks or Deliverables: its name row and its items, one <tbody> each
+     (PrintItemTable). Rows are kept whole above, but nothing kept a row with the next, so
+     an activity's name could end a page with its items on the next, or its list could
+     split across two pages under no name. A group taller than a page still breaks inside;
+     it has to. */
+  .print-item-group {
+    break-inside: avoid;
+  }
+
   /* Print-friendly colors */
   * {
     color-adjust: exact;

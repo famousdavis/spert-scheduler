@@ -429,30 +429,32 @@ export function PrintItemTable({
             <th className="py-1 text-center w-[30%]">{itemStatusLabel}</th>
           </tr>
         </thead>
-        <tbody>
-          {activities.flatMap((activity) => {
-            const items = getItems(activity)!;
-            const doneCount = items.filter((i) => i.completed).length;
-            return [
-              <tr key={`${activity.id}-header`} className="border-b border-gray-300 bg-gray-50">
+        {/* One <tbody> per activity, so the print stylesheet can keep an activity's
+            name row on the same page as its items (`.print-item-group`). */}
+        {activities.map((activity) => {
+          const items = getItems(activity)!;
+          const doneCount = items.filter((i) => i.completed).length;
+          return (
+            <tbody key={activity.id} className="print-item-group">
+              <tr className="border-b border-gray-300 bg-gray-50">
                 <td colSpan={2} className="py-0.5 pr-1 font-medium">
                   {nameOrUnnamed(activity.name)}
                   <span className="ml-2 text-gray-500 font-normal tabular-nums">
                     ({doneCount}/{items.length})
                   </span>
                 </td>
-              </tr>,
-              ...items.map((item) => (
-                <tr key={`${activity.id}-${item.id}`} className="border-b border-gray-200">
+              </tr>
+              {items.map((item) => (
+                <tr key={item.id} className="border-b border-gray-200">
                   <td className="py-0.5 pr-1 pl-3">{item.text}</td>
                   <td className="py-0.5 text-center">
                     {item.completed ? "✓" : "—"}
                   </td>
                 </tr>
-              )),
-            ];
-          })}
-        </tbody>
+              ))}
+            </tbody>
+          );
+        })}
       </table>
     </section>
   );

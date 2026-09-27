@@ -116,3 +116,22 @@ describe("Print stylesheet — a no-print child of <main> takes no space in prin
     }
   });
 });
+
+/**
+ * In print, an activity's Tasks or Deliverables group is kept whole across a page break.
+ *
+ * `PrintItemTable` renders each activity's name row and its items as one
+ * `tbody.print-item-group` (pinned in `print-item-table.test.tsx`). Rows were already kept
+ * whole, but nothing kept a row with the next: on the Cloud ERP sample two activity names
+ * printed alone at the bottom of a page and two short lists split across pages. With this
+ * rule, measured on real PDFs, none do.
+ */
+describe("Print stylesheet — an activity's Tasks or Deliverables stay together", () => {
+  it("keeps each print-item-group whole across a page break", () => {
+    const block = printBlock(stylesheetWithoutComments());
+    expect(block).toContain(".print-item-group");
+    const rule = ruleContaining(block, ".print-item-group");
+    expect(rule.selectors).toEqual([".print-item-group"]);
+    expect(rule.declarations).toContain("break-inside: avoid");
+  });
+});

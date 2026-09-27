@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.4",
+    date: "2026-09-26",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "In the printed Tasks and Deliverables lists, an activity’s name is no longer left alone at the bottom of a page, and a list short enough to fit on one page is no longer split across two. Each activity’s tasks and deliverables print under a grey row with its name and a count such as (0/2). That row could print by itself at the bottom of a page with its items on the next, and a short list could start at the bottom of one page and finish on the next under no name. Now an activity’s name always has its list under it, and a list that fits on one page is kept on one page. A list too long for one page still continues onto the next page, where its name is not repeated.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The Tasks and Deliverables tables now put each activity’s name row and its items in one <tbody> (print-item-group), and the print stylesheet keeps that group whole with break-inside: avoid. Rows were already kept whole, but nothing kept a row with the next. A new test renders the table and checks the grouping; another pins the stylesheet rule. Removing either change fails exactly the test written for it.",
+          "Measured on real PDFs of the Cloud ERP sample (12 pages, headless Chrome), in light and dark. Before: two activity names printed alone at the bottom of a page, and two three-task lists were split across pages. After: none, every task and deliverable prints exactly once, and the report is still 12 pages. Only the four page breaks that cut those groups moved.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.72.3",
     date: "2026-09-26",
     sections: [
