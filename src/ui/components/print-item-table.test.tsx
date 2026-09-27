@@ -67,4 +67,26 @@ describe("PrintItemTable — an activity's name row and its items print as one g
     // No body row sits outside a group.
     expect(container.querySelectorAll("tbody tr")).toHaveLength(7);
   });
+
+  // The section flows on from the one before it, as the other long tables do, instead of
+  // starting a new page; the print stylesheet keeps its title with its table
+  // (`.print-item-title`, pinned in print-stylesheet.test.ts). Measured on the sample: the
+  // report went from 12 pages to 11, and no title was left at the foot of a page.
+  it("lets the section flow across pages, with its title marked to stay with its table", () => {
+    render(
+      <PrintItemTable
+        scenario={scenarioWithTasks()}
+        sectionTitle="Activity Tasks"
+        itemLabel="Task"
+        itemStatusLabel="Status"
+        getItems={(a) => a.checklist}
+      />,
+    );
+    const title = screen.getByRole("heading", { name: "Activity Tasks" });
+    expect(title).toHaveClass("print-item-title");
+    const section = title.closest("section");
+    // Non-vacuity: the lookup found the section, so the next line can fail.
+    expect(section).not.toBeNull();
+    expect(section).not.toHaveClass("print-section-keep");
+  });
 });

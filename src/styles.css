@@ -154,6 +154,15 @@ input[type="number"] {
     break-inside: avoid;
   }
 
+  /* The Tasks or Deliverables title stays with its table. These sections no longer start a
+     new page, and when the first activity does not fit under the title, Chrome moves the
+     whole table to the next page. Without this rule the title could be left alone at the
+     foot of a page: measured, whenever the section began in a band about 96 px high near
+     the foot. */
+  .print-item-title {
+    break-after: avoid;
+  }
+
   /* Print-friendly colors */
   * {
     color-adjust: exact;

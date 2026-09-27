@@ -417,9 +417,13 @@ export function PrintItemTable({
   });
   if (activities.length === 0) return null;
 
+  // No `print-section-keep`: these lists usually run past a page, and the keep only made each
+  // one start on a new page, leaving the page before it part-empty. The four other long tables
+  // (Activities, Dependencies, Constraints, Descriptions) already flow. `.print-item-group`
+  // keeps each activity together, and `.print-item-title` keeps the title with its table.
   return (
-    <section className="mb-3 print-section-keep">
-      <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
+    <section className="mb-3">
+      <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2 print-item-title">
         {sectionTitle}
       </h2>
       <table className="w-full text-[9px] border-collapse">

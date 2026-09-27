@@ -135,3 +135,21 @@ describe("Print stylesheet — an activity's Tasks or Deliverables stay together
     expect(rule.declarations).toContain("break-inside: avoid");
   });
 });
+
+/**
+ * In print, the Tasks or Deliverables title stays with its table.
+ *
+ * Those sections no longer start a new page. When the first activity does not fit under the
+ * title, Chrome moves the whole table to the next page, and without this rule the title was
+ * left alone at the foot of the page — measured on real PDFs whenever the section began in a
+ * band about 96 px high near the foot. With the rule, the title moves with its table.
+ */
+describe("Print stylesheet — the Tasks and Deliverables title stays with its table", () => {
+  it("keeps the print-item-title with what follows it", () => {
+    const block = printBlock(stylesheetWithoutComments());
+    expect(block).toContain(".print-item-title");
+    const rule = ruleContaining(block, ".print-item-title");
+    expect(rule.selectors).toEqual([".print-item-title"]);
+    expect(rule.declarations).toContain("break-after: avoid");
+  });
+});
