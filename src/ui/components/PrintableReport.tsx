@@ -12,6 +12,7 @@ import type {
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
+import type { ScheduleError } from "@ui/hooks/use-schedule";
 import { APP_VERSION } from "@app/constants";
 import {
   formatDateISO,
@@ -20,6 +21,7 @@ import {
 import { useDateFormat, useDateFormatShort } from "@ui/hooks/use-date-format";
 import { PrintGanttChart } from "@ui/charts/PrintGanttChart";
 import {
+  PrintValidationBox,
   PrintSummarySection,
   PrintActivityTable,
   PrintDescriptionsTable,
@@ -40,6 +42,8 @@ interface PrintableReportProps {
   calendar?: WorkCalendar | Calendar;
   criticalPathIds?: Set<string> | null;
   targetRAGColor?: string;
+  /** The page's schedule error, typed; the validation box reads its kind (WI-58). */
+  scheduleError?: ScheduleError | null;
 }
 
 export function PrintableReport({
@@ -52,6 +56,7 @@ export function PrintableReport({
   calendar,
   criticalPathIds,
   targetRAGColor,
+  scheduleError = null,
 }: PrintableReportProps) {
   const formatDate = useDateFormat();
   const formatDateShort = useDateFormatShort();
@@ -81,6 +86,8 @@ export function PrintableReport({
           Generated: {formatDate(formatDateISO(new Date()))}
         </p>
       </div>
+
+      <PrintValidationBox scenario={scenario} scheduleError={scheduleError} />
 
       <PrintSummarySection
         project={project}

@@ -17,6 +17,11 @@ import { cdf } from "@core/analytics/analytics";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { durationToFinishDateISO } from "@core/calendar/calendar";
 import { CDFComparisonChart, type CDFDataset } from "@ui/charts/CDFComparisonChart";
+import { isCalendarError } from "@core/calendar/work-calendar";
+import { isDependencyCycleError } from "@core/schedule/dependency-graph";
+import type { ScheduleError } from "@ui/hooks/use-schedule";
+import { savedScenarioFlags, type SavedScenarioFlags } from "@ui/helpers/scenario-flags";
+import { compareRunNote, flagNote, scheduleErrorKind } from "@ui/helpers/flag-sentences";
 import { CopyImageButton } from "./CopyImageButton";
 
 // Color palette for comparison lines
@@ -42,12 +47,28 @@ interface ScenarioComparison {
   scenario: Scenario;
   schedule: DeterministicSchedule | null;
   buffer: ScheduleBuffer | null;
-  error: string | null;
+  /** Typed as the page types it, so a note can tell a cycle or a calendar error from an estimate. */
+  error: ScheduleError | null;
+  /** What its SAVED activities have flagged (WI-58). */
+  flags: SavedScenarioFlags;
+}
+
+/**
+ * The ON-SCREEN scenario's Run gate, as a pair: which scenario it belongs to, and whether its Run is
+ * refused. A refused cell is not in the saved plan, so it never flags a column — but it does refuse
+ * that screen's Run, and the grey note must not ask for a run the Run button beside it refuses.
+ */
+export interface CompareRunGate {
+  scenarioId: string | null;
+  runBlocked: boolean;
 }
 
 interface ScenarioComparisonProps {
   scenarios: Scenario[];
   calendar?: WorkCalendar | Calendar;
+  /** The project numbers its activities: a note then leads each row with its `#n` (WI-58). */
+  showActivityNumbers?: boolean;
+  activeRunGate?: CompareRunGate | null;
 }
 
 function computeEntry(
@@ -56,7 +77,7 @@ function computeEntry(
 ): ScenarioComparison {
   let schedule: DeterministicSchedule | null = null;
   let buffer: ScheduleBuffer | null = null;
-  let error: string | null = null;
+  let error: ScheduleError | null = null;
 
   if (scenario.activities.length > 0) {
     try {
@@ -76,7 +97,11 @@ function computeEntry(
             calendar
           );
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      error = {
+        message: err instanceof Error ? err.message : String(err),
+        isCalendarError: isCalendarError(err),
+        isCycleError: isDependencyCycleError(err),
+      };
     }
   }
 
@@ -89,7 +114,8 @@ function computeEntry(
     );
   }
 
-  return { scenario, schedule, buffer, error };
+  const flags = savedScenarioFlags(scenario.activities, scenario.settings.probabilityTarget);
+  return { scenario, schedule, buffer, error, flags };
 }
 
 function bestOf(
@@ -110,7 +136,8 @@ function bestOf(
  * `m.toFixed(1)` while the winner was chosen from the raw means, which differed in the
  * second decimal. Deriving the highlight from the displayed string makes that whole
  * class of mismatch unrepresentable rather than patched: two cells showing the same
- * string necessarily carry the same highlight, because they are the same input.
+ * string necessarily carry the same highlight among the contenders, because they are
+ * the same input.
  *
  * Pass the SAME array to a row's `values` and to this function — that is what closes
  * the gap; two parallel arrays would just be a second place to diverge.
@@ -125,13 +152,20 @@ function bestOf(
  * with one scenario run and one not, the run scenario's "Duration w/Buffer" and "Mean"
  * were marked best against an empty cell. Ties still mark every tied cell, and an unrun
  * scenario still competes on "Duration (days)", where it has a real value.
+ *
+ * ⚠️ A FLAGGED SCENARIO DOES NOT COMPETE (WI-58): the table must never crown a plan the
+ * app refuses to simulate. Its value still DISPLAYS; `contenders[i]` false keeps it out of
+ * the contest, so the others compete among themselves — and with two compared and one
+ * flagged, nothing is marked (WI-60's rule, above). The marks depend only on the values and
+ * the flags, never on the order of the columns.
  */
 function highlightBestDisplayed(
   displayed: (string | null)[],
-  mode: "min" | "max"
+  mode: "min" | "max",
+  contenders: readonly boolean[]
 ): ("best" | null)[] {
-  const parsed = displayed.map((s) => {
-    if (s === null) return null;
+  const parsed = displayed.map((s, i) => {
+    if (s === null || !contenders[i]) return null;
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
   });
@@ -140,14 +174,125 @@ function highlightBestDisplayed(
   return parsed.map((v) => pickBestHighlight(v, best));
 }
 
+/** The error's kind, as the schedule-error banner decides it; an estimate only with a flagged thrower. */
+function kindOf(e: ScenarioComparison) {
+  return scheduleErrorKind(e.error, e.flags.anyStops);
+}
+
+/**
+ * Can this scenario be run from its own screen? It has activities, no flagged row, and a schedule
+ * that computes — and, for the scenario on screen, a Run button that is not refused by a cell the
+ * grid would not store (the gate is that SCREEN's, so the note never asks for a run it refuses).
+ */
+function canRun(e: ScenarioComparison, gate: CompareRunGate | null): boolean {
+  if (e.scenario.activities.length === 0 || e.flags.rows.length > 0 || e.error) return false;
+  return !(gate?.runBlocked && gate.scenarioId === e.scenario.id);
+}
+
+function runNoteOf(entries: ScenarioComparison[], gate: CompareRunGate | null): string | null {
+  const runnable = entries.map((e) => canRun(e, gate));
+  const unrun = entries.filter((e, i) => runnable[i] && !e.scenario.simulationResults);
+  return compareRunNote(
+    unrun.map((e) => e.scenario.name),
+    runnable.every(Boolean)
+  );
+}
+
+/**
+ * One flagged scenario's note (WI-58), in the owner's words: its name and the summary's heading in
+ * medium weight, then the rows and what they stop. One row reads as one sentence run; several put each
+ * row on its own line — at most three, as the Run toast — because Compare is a summary and the full
+ * list is one tab away.
+ */
+function FlagNoteView({ entry, showActivityNumbers }: { entry: ScenarioComparison; showActivityNumbers: boolean }) {
+  const { rows } = entry.flags;
+  const note = flagNote(
+    {
+      scenarioName: entry.scenario.name,
+      rows: rows.map((r) => ({
+        label: showActivityNumbers ? `#${r.position} ${r.name}` : r.name,
+        messages: r.messages,
+      })),
+      anyStops: entry.flags.anyStops,
+      errorKind: kindOf(entry),
+    },
+    "compare"
+  );
+  if (note.rows.length === 1 && !note.more) {
+    return (
+      <p className="px-4 py-2 text-xs text-amber-700 border-t border-gray-100">
+        <span className="font-medium text-amber-800">{note.heading}</span> {note.rows[0]} {note.consequence}
+      </p>
+    );
+  }
+  return (
+    <div className="px-4 py-2 text-xs text-amber-700 border-t border-gray-100 space-y-0.5">
+      <p className="font-medium text-amber-800">{note.heading}</p>
+      {note.rows.map((line, i) => (
+        <p key={rows[i]!.id}>{line}</p>
+      ))}
+      {note.more && <p>{note.more}</p>}
+      <p>{note.consequence}</p>
+    </div>
+  );
+}
+
+/**
+ * The notes under the table, in this order: one amber note per flagged scenario (column order), the
+ * grey run note, the red note. ⚠️ The wrapper is `w-0 min-w-full` so the notes WRAP AT THE TABLE'S
+ * WIDTH and never widen the box — or the copied image — around it: a note contributes nothing to the
+ * captured region's width, then stretches to it (WI-58; measured: the engine's error note had widened
+ * the box from 404 to 1,216 px, and the copied image with it).
+ * ⚠️ Inside the captured region: light colours only, NO `dark:` variant (see the note on tableRef).
+ */
+function ComparisonNotes({
+  entries,
+  showActivityNumbers,
+  activeRunGate,
+}: {
+  entries: ScenarioComparison[];
+  showActivityNumbers: boolean;
+  activeRunGate: CompareRunGate | null;
+}) {
+  const flagged = entries.filter((e) => e.flags.rows.length > 0);
+  const runNote = runNoteOf(entries, activeRunGate);
+  // The red note keeps today's words for every failure EXCEPT a flagged row's own estimate, which the
+  // scenario's amber note already states in the summary's words (and without the engine's jargon).
+  const failing = entries.filter((e) => e.error && kindOf(e) !== "estimate");
+  if (flagged.length === 0 && !runNote && failing.length === 0) return null;
+  return (
+    <div className="w-0 min-w-full">
+      {flagged.map((e) => (
+        <FlagNoteView key={e.scenario.id} entry={e} showActivityNumbers={showActivityNumbers} />
+      ))}
+      {runNote && (
+        <p className="px-4 py-2 text-xs text-gray-500 border-t border-gray-100">{runNote}</p>
+      )}
+      {failing.length > 0 && (
+        <p className="px-4 py-2 text-xs text-red-700 border-t border-gray-100">
+          Could not compute a schedule for:{" "}
+          {failing.map((e) => `${e.scenario.name} (${e.error!.message})`).join("; ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function ScenarioComparisonTable({
   scenarios,
   calendar,
+  showActivityNumbers = false,
+  activeRunGate = null,
 }: ScenarioComparisonProps) {
   const formatDate = useDateFormat();
   const tableRef = useRef<HTMLDivElement>(null);
   const cdfRef = useRef<HTMLDivElement>(null);
-  const entries = scenarios.map((s) => computeEntry(s, calendar));
+  const entries = useMemo(
+    () => scenarios.map((s) => computeEntry(s, calendar)),
+    [scenarios, calendar]
+  );
+  // A flagged scenario displays its values but does not compete for "best" (WI-58).
+  const contenders = entries.map((e) => e.flags.rows.length === 0);
 
   // Format duration as finish date for CDF tooltip (uses first scenario's start date)
   const firstStartDate = scenarios[0]?.startDate;
@@ -238,7 +383,7 @@ export function ScenarioComparisonTable({
     {
       label: "Duration (days)",
       values: durationValues,
-      highlights: highlightBestDisplayed(durationValues, "min"),
+      highlights: highlightBestDisplayed(durationValues, "min", contenders),
     },
     {
       // ⚠️ DELIBERATELY NOT HIGHLIGHTED, and it is not an oversight (WI-41, 2026-09-12).
@@ -271,7 +416,7 @@ export function ScenarioComparisonTable({
     {
       label: "Duration w/Buffer",
       values: totalDurationValues,
-      highlights: highlightBestDisplayed(totalDurationValues, "min"),
+      highlights: highlightBestDisplayed(totalDurationValues, "min", contenders),
     },
     {
       label: "Activity Target",
@@ -289,7 +434,7 @@ export function ScenarioComparisonTable({
     {
       label: "Mean",
       values: meanValues,
-      highlights: highlightBestDisplayed(meanValues, "min"),
+      highlights: highlightBestDisplayed(meanValues, "min", contenders),
     },
     {
       label: "Standard Deviation",
@@ -341,6 +486,13 @@ export function ScenarioComparisonTable({
                   className="text-right px-4 py-2 text-gray-900 font-semibold whitespace-nowrap min-w-[120px]"
                 >
                   {e.scenario.name}
+                  {/* A <div>, not a span: its own line, and a block the accessible name
+                      separates with a space ("Fast-track 1 flagged"). The grid bar's words. */}
+                  {e.flags.rows.length > 0 && (
+                    <div className="text-xs font-medium text-amber-700">
+                      {e.flags.rows.length} flagged
+                    </div>
+                  )}
                 </th>
               ))}
             </tr>
@@ -369,20 +521,11 @@ export function ScenarioComparisonTable({
             ))}
           </tbody>
         </table>
-        {entries.some((e) => !e.scenario.simulationResults) && (
-          <p className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100">
-            Run simulation on all scenarios for complete comparison data.
-          </p>
-        )}
-        {entries.some((e) => e.error) && (
-          <p className="px-4 py-2 text-xs text-red-700 border-t border-gray-100">
-            Could not compute a schedule for:{" "}
-            {entries
-              .filter((e) => e.error)
-              .map((e) => `${e.scenario.name} (${e.error})`)
-              .join("; ")}
-          </p>
-        )}
+        <ComparisonNotes
+          entries={entries}
+          showActivityNumbers={showActivityNumbers}
+          activeRunGate={activeRunGate}
+        />
       </div>
 
       {/* CDF Comparison Chart — same chrome pattern. The existing h4 inside the

@@ -33,6 +33,8 @@ interface MilestoneComputeContext {
   projectProbabilityTarget: number;
   dependencyMode: boolean;
   calendar: WorkCalendar | Calendar | undefined;
+  /** The screen's Run is refused (WI-58). */
+  runBlocked: boolean;
 }
 
 /** A Project target the simulation keeps a percentile for (the dropdown offers only these). */
@@ -43,15 +45,19 @@ function isListedTarget(target: number): boolean {
 /**
  * Why a milestone has no health, checked in the order a user has to put each right, so its hint
  * names the step that comes FIRST — and "no-results" is left only when a run is all that is
- * missing, the one case where "run the simulation" really does show the health.
+ * missing, the one case where "run the simulation" really does show the health. "run-blocked"
+ * (WI-58) comes just before it: the run is still the step that shows the health, but the screen's
+ * Run is refused until the validation errors are fixed, so the hint names those first.
  * ⚠️ "dependencies-off" is first because nothing else matters without it: the simulation builds
  * milestone parameters only in dependency mode (build-simulation-params.ts), so a run in
  * sequential mode never measures a milestone — while the summary card still lists them.
+ * It runs only at health "none", so no reason can take a measured health away.
  */
 function noHealthReason(ctx: MilestoneComputeContext, hasActivities: boolean): MilestoneNoHealthReason {
   if (!ctx.dependencyMode) return "dependencies-off";
   if (!hasActivities) return "no-activities";
   if (!isListedTarget(ctx.projectProbabilityTarget)) return "unlisted-target";
+  if (ctx.runBlocked) return "run-blocked";
   return "no-results";
 }
 
@@ -148,6 +154,10 @@ function computeSingleMilestoneInfo(
  * 3. Compute slack (working days between buffered end and target date)
  * 4. Determine health (green ≥ 5d, amber 0-4d, red < 0), or "none" with the reason when there
  *    is no slack to judge by
+ *
+ * `runBlocked` is the screen's Run gate (WI-58); it only chooses a no-health reason. It is optional
+ * only because `calendar` before it is: its default, false, is the behaviour before WI-58, and the
+ * page always passes it.
  */
 export function useMilestoneBuffers(
   milestones: Milestone[],
@@ -157,7 +167,8 @@ export function useMilestoneBuffers(
   projectStartDate: string,
   projectProbabilityTarget: number,
   dependencyMode: boolean,
-  calendar?: WorkCalendar | Calendar
+  calendar?: WorkCalendar | Calendar,
+  runBlocked = false
 ): Map<string, MilestoneBufferInfo> | null {
   return useMemo(() => {
     if (milestones.length === 0) return null;
@@ -169,6 +180,7 @@ export function useMilestoneBuffers(
       projectProbabilityTarget,
       dependencyMode,
       calendar,
+      runBlocked,
     };
 
     for (const milestone of milestones) {
@@ -180,5 +192,5 @@ export function useMilestoneBuffers(
     }
 
     return result;
-  }, [milestones, scheduledActivities, activities, simulationResults, projectStartDate, projectProbabilityTarget, dependencyMode, calendar]);
+  }, [milestones, scheduledActivities, activities, simulationResults, projectStartDate, projectProbabilityTarget, dependencyMode, calendar, runBlocked]);
 }

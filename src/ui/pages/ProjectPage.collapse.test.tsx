@@ -122,7 +122,10 @@ const region = () => document.getElementById(bar().getAttribute("aria-controls")
 const idOf = (p: Project, i: number) => p.scenarios[0]!.activities[i]!.id;
 const cell = (id: string, field: string) =>
   document.querySelector<HTMLInputElement>(`[data-row-id="${id}"][data-field="${field}"]`)!;
-const summary = () => screen.queryByText(/validation errors$/);
+// The SCREEN summary. Since WI-58 the printed report carries the same heading at the top of page 1
+// (hidden on screen, but in the DOM), so the print copy is skipped, as for "Schedule Buffer:".
+const summary = () =>
+  screen.queryAllByText(/validation errors$/).find((el) => !el.closest(".print-report")) ?? null;
 /**
  * A row's link INSIDE the amber validation summary.
  *

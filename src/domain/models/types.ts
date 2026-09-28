@@ -401,12 +401,16 @@ export type MilestoneHealth = MeasuredMilestoneHealth | "none";
  * - "no-activities": nothing is assigned to finish before it, so there is nothing to measure;
  * - "unlisted-target": the Project target is not one the simulation keeps a percentile for
  *   (reachable only by import or Connect AI — the dropdown offers listed ones), so no run helps;
+ * - "run-blocked": the screen's Run is refused — a flagged row, or a cell the grid would not store —
+ *   so the validation errors come before any run (WI-58);
  * - "no-results": the simulation has not run since the last change, or never ran.
+ * Computed for display and never stored or sent.
  */
 export type MilestoneNoHealthReason =
   | "dependencies-off"
   | "no-activities"
   | "unlisted-target"
+  | "run-blocked"
   | "no-results";
 
 interface MilestoneBufferInfoBase {

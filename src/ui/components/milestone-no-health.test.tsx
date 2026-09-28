@@ -49,6 +49,7 @@ const HINT: Record<MilestoneNoHealthReason, string> = {
   "no-activities": "Assign activities to this milestone before its health can be shown",
   "unlisted-target": "Choose a Project target from the list before this milestone's health can be shown",
   "dependencies-off": "Turn on Dependencies before this milestone's health can be shown",
+  "run-blocked": "Fix the validation errors, then run the simulation to see this milestone's health",
 };
 
 // Hand-derived, as in use-milestone-buffers.test.ts: 2026-04-06 is a Monday; the activity ends
@@ -80,6 +81,8 @@ interface Situation {
   results: SimulationRun | undefined;
   target: number;
   dependencyMode: boolean;
+  /** The screen's Run is refused (WI-58). */
+  runBlocked?: boolean;
 }
 
 const MEASURED: Situation = { activities: [ASSIGNED], results: RUN, target: 0.95, dependencyMode: true };
@@ -89,6 +92,11 @@ const NO_HEALTH: { reason: MilestoneNoHealthReason; cases: string; situation: Si
     reason: "no-results",
     cases: "never run, or results cleared by an edit",
     situation: { ...MEASURED, results: undefined },
+  },
+  {
+    reason: "run-blocked",
+    cases: "no results, and the screen's Run refused by a flagged row or a refused cell",
+    situation: { ...MEASURED, results: undefined, runBlocked: true },
   },
   { reason: "no-activities", cases: "nothing assigned to it", situation: { ...MEASURED, activities: [] } },
   {
@@ -106,7 +114,7 @@ const DEPENDENCY_MODE_CASES = NO_HEALTH.filter((c) => c.reason !== "dependencies
 
 function buffersFor(s: Situation): Map<string, MilestoneBufferInfo> {
   return renderHook(() =>
-    useMilestoneBuffers([GATE], SCHEDULED, s.activities, s.results, START, s.target, s.dependencyMode),
+    useMilestoneBuffers([GATE], SCHEDULED, s.activities, s.results, START, s.target, s.dependencyMode, undefined, s.runBlocked),
   ).result.current!;
 }
 

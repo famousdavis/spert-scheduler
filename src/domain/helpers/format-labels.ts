@@ -151,11 +151,13 @@ export function milestoneHealthLabel(health: MilestoneHealth): string {
 
 // A Record, so a new reason without a hint does not compile. Each hint names the step that comes
 // FIRST: the reasons are assigned in that order (use-milestone-buffers.ts), so only "no-results"
-// can promise that one step shows the health.
+// and "run-blocked" can promise that a run shows the health — and "run-blocked" names the fixes that
+// must come before it, because the screen's Run is refused until then (WI-58).
 const NO_HEALTH_HINTS: Record<MilestoneNoHealthReason, string> = {
   "dependencies-off": "Turn on Dependencies before this milestone's health can be shown",
   "no-activities": "Assign activities to this milestone before its health can be shown",
   "unlisted-target": "Choose a Project target from the list before this milestone's health can be shown",
+  "run-blocked": "Fix the validation errors, then run the simulation to see this milestone's health",
   "no-results": "Run the simulation to see this milestone's health",
 };
 

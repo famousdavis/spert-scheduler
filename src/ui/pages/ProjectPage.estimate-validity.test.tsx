@@ -119,7 +119,10 @@ function stored(projectId: string, aid: string): Activity {
   return useProjectStore.getState().getProject(projectId)!.scenarios[0]!.activities.find((a) => a.id === aid)!;
 }
 
-const summary = () => screen.queryByText(/validation errors$/);
+// The SCREEN summary. Since WI-58 the printed report carries the same heading at the top of page 1
+// (hidden on screen, but in the DOM), so the print copy is skipped, as for "Schedule Buffer:".
+const summary = () =>
+  screen.queryAllByText(/validation errors$/).find((el) => !el.closest(".print-report")) ?? null;
 const bannerHeading = () => screen.queryByText("Schedule Error");
 /** The banner's message paragraph — the one that names an activity. */
 function bannerMessage(): string {
@@ -237,9 +240,14 @@ describe("every Run control refuses while Run is refused (WI-53)", () => {
     expect(runButton()).toBeDisabled();
     expect(runReason()).not.toBeNull();
 
-    // No results yet, so the card shows BOTH links: the buffer row's and the export row's.
-    const links = screen.getAllByRole("button", { name: "Run simulation" });
+    // No results yet, so the card shows BOTH links: the buffer row's and the export row's. Since WI-58
+    // the buffer row's reads "run the simulation", after "Fix the validation errors, then".
+    const links = screen.getAllByRole("button", { name: /^(Run simulation|run the simulation)$/ });
     expect(links).toHaveLength(2);
+    // WI-58: the page hands the card its refused Run, so the buffer row names the fixes first.
+    expect(screen.getByRole("button", { name: "run the simulation" }).parentElement!.textContent).toBe(
+      "Fix the validation errors, then run the simulation to calculate the schedule buffer"
+    );
     for (const link of links) fireEvent.click(link);
 
     expect(sim.run).not.toHaveBeenCalled();
@@ -522,6 +530,120 @@ describe("the hold — what is painted above the grid waits for the click; Run n
     expect(summary()).toBeNull(); // still held: the release waits a task, behind the click
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(summary()!.parentElement!.textContent).toContain("Eider penstock");
+  });
+});
+
+describe("WI-58 — Compare and print describe the SAVED plan; the Compare table is held through a press", () => {
+  /** Baseline and Fast-track, one valid activity each; Fast-track's is T-Normal (a flag there still builds). */
+  function twoScenarios(fastTrack: Partial<Activity> = { min: 9, mostLikely: 13, max: 22 }) {
+    const p = projectOf((s) => [activityWith("Tern weir", s, { min: 9, mostLikely: 13, max: 22 })], {}, "Baseline");
+    const base = createScenario("Fast-track", "2026-04-06");
+    const row = activityWith("Gannet sluice", base.settings, { distributionType: "normal", ...fastTrack });
+    const fast = { ...base, activities: [row] };
+    return { p: { ...p, scenarios: [...p.scenarios, fast] }, fastId: fast.id, aid: row.id };
+  }
+
+  /** Compare mode on, then a tick per name — a tick also selects its tab, so the LAST is on screen. */
+  function compare(...names: string[]) {
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+    for (const n of names) fireEvent.click(screen.getByRole("checkbox", { name: `Compare scenario ${n}` }));
+  }
+
+  const header = (name: string) => screen.queryByRole("columnheader", { name });
+  /** The grey note: a gray paragraph among the notes that follow the Compare table. */
+  const greyNote = () => {
+    const notes = document.querySelector("thead")?.closest("table")?.nextElementSibling;
+    return notes ? Array.from(notes.querySelectorAll("p")).filter((el) => /text-gray-\d/.test(el.className)).map((el) => el.textContent) : [];
+  };
+  const printBox = () =>
+    Array.from(document.querySelectorAll(".print-report section")).find((el) =>
+      /validation errors$/.test(el.querySelector("p")?.textContent ?? "")
+    ) ?? null;
+  const fastRow = (projectId: string, fastId: string, aid: string) =>
+    useProjectStore.getState().getProject(projectId)!.scenarios.find((x) => x.id === fastId)!.activities.find((a) => a.id === aid)!;
+
+  it("a commit that flags the scenario on screen reaches Compare only after the click has landed", async () => {
+    const { p, fastId, aid } = twoScenarios();
+    renderPage(p);
+    compare("Baseline", "Fast-track");
+    expect(header("Fast-track")).not.toBeNull(); // the table is up, unflagged
+    typeInto(aid, "min", "14"); // 14/13/22: Min above Most Likely
+
+    fireEvent.pointerDown(window);
+    act(() => cell(aid, "min").blur()); // the press's blur commits the draft
+    expect(fastRow(p.id, fastId, aid).min).toBe(14); // the commit landed...
+    expect(header("Fast-track 1 flagged")).toBeNull(); // ...and the table is HELD
+    expect(header("Fast-track")).not.toBeNull();
+
+    fireEvent.pointerUp(window);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(header("Fast-track 1 flagged")).not.toBeNull();
+  });
+
+  it("a cell the grid REFUSED flags neither Compare nor the printout — but the grey note stops asking for that run", () => {
+    const { p, aid } = twoScenarios();
+    renderPage(p);
+    compare("Baseline", "Fast-track");
+    expect(greyNote()).toEqual(["Run simulation on all scenarios for complete comparison data."]);
+
+    typeInto(aid, "min", "-5");
+    act(() => cell(aid, "min").blur());
+    expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true"); // refused, on screen
+    expect(summary()).not.toBeNull();
+    expect(header("Fast-track")).not.toBeNull(); // the saved plan is valid: no flag in Compare
+    expect(greyNote()).toEqual(["Run simulation on Baseline to add its results to the comparison."]);
+    expect(printBox()).toBeNull();
+  });
+
+  it("the second tick paints no one-column table: the table's mount waits for the release too", async () => {
+    const { p } = twoScenarios();
+    renderPage(p);
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Compare scenario Baseline" }));
+    expect(header("Baseline")).toBeNull(); // one ticked: no table yet (the print report's own tables are in the DOM too)
+    expect(screen.getByText("Select 2-3 scenarios above to compare.")).toBeDefined();
+
+    fireEvent.pointerDown(window);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Compare scenario Fast-track" }));
+    expect(screen.getByRole("checkbox", { name: "Compare scenario Fast-track" })).toBeChecked(); // the tick is live
+    expect(header("Baseline")).toBeNull(); // no table while pressed: never a one-column one
+    fireEvent.pointerUp(window);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(header("Baseline")).not.toBeNull();
+    expect(header("Fast-track")).not.toBeNull();
+  });
+
+  it("a milestone with no health names the validation errors first while Run is refused (W9)", () => {
+    const p = projectOf(
+      (s) => [activityWith("Heron gate", s, { min: 14, mostLikely: 13, max: 22, distributionType: "normal", milestoneId: "m1" })],
+      { dependencyMode: true }
+    );
+    const withMilestone = {
+      ...p,
+      scenarios: [{ ...p.scenarios[0]!, milestones: [{ id: "m1", name: "Dredging complete", targetDate: "2026-09-30" }] }],
+    };
+    renderPage(withMilestone);
+    expect(runButton()).toBeDisabled(); // premise: Run is refused
+    const hints = Array.from(document.querySelectorAll(".sr-only"))
+      .map((el) => el.textContent)
+      .filter((t) => /milestone's health/.test(t ?? ""));
+    expect(hints.length).toBeGreaterThan(0);
+    expect(new Set(hints)).toEqual(new Set(["Fix the validation errors, then run the simulation to see this milestone's health"]));
+  });
+
+  it("a SAVED flag is printed: the box names the row and what it stops", () => {
+    const { p } = twoScenarios({ min: 14, mostLikely: 13, max: 22 });
+    renderPage(p);
+    fireEvent.click(screen.getByRole("button", { name: "Fast-track" })); // print follows the tab on screen
+    expect(printBox()!.textContent).toBe(
+      "1 activity has validation errors" +
+        "#1 Gannet sluice: Min is above Most Likely" +
+        "This scenario cannot be simulated until this is fixed."
+    );
   });
 });
 
