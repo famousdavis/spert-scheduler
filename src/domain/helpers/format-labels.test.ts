@@ -144,9 +144,11 @@ describe("the no-health state, on every milestone-health helper", () => {
   });
 
   // The DRAFT wording — the owner rules it. Each names the step that comes first; only
-  // "no-results" may promise that one step shows the health (see use-milestone-buffers.ts).
+  // "no-results" may promise that one step shows the health (see use-milestone-buffers.ts), and
+  // "run-blocked" (WI-58, the owner's words) names the fixes that must come before that run.
   it.each([
     ["no-results", "Run the simulation to see this milestone's health"],
+    ["run-blocked", "Fix the validation errors, then run the simulation to see this milestone's health"],
     ["no-activities", "Assign activities to this milestone before its health can be shown"],
     ["unlisted-target", "Choose a Project target from the list before this milestone's health can be shown"],
     ["dependencies-off", "Turn on Dependencies before this milestone's health can be shown"],

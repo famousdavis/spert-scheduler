@@ -41,6 +41,23 @@ function targetFinishColorClass(ragColor: string | undefined, hasDate: boolean):
   return "font-semibold text-blue-700 dark:text-blue-400";
 }
 
+/**
+ * Why the two export buttons are off (WI-58). While this screen's Run is refused, asking for a run
+ * first sends the user to a button that will not start: name the step that comes first.
+ */
+function exportOffTitle(runBlocked: boolean): string {
+  return runBlocked
+    ? "Fix the validation errors, then run the simulation to enable export"
+    : "Run simulation first to enable export";
+}
+
+/** The no-buffer line around its "run" link (WI-58): the link stays on the words that run it. */
+function bufferPrompt(runBlocked: boolean): { before: string; link: string; after: string } {
+  return runBlocked
+    ? { before: "Fix the validation errors, then ", link: "run the simulation", after: "to calculate the schedule buffer" }
+    : { before: "", link: "Run simulation", after: "to calculate schedule buffer" };
+}
+
 function formatSignedSlack(slackDays: number | null): string {
   if (slackDays === null) return "—";
   return `${slackDays >= 0 ? "+" : ""}${slackDays}d`;
@@ -62,6 +79,12 @@ interface ScenarioSummaryCardProps {
   calendar?: WorkCalendar | Calendar;
   settings: ScenarioSettings;
   hasSimulationResults: boolean;
+  /**
+   * This screen's Run is refused — a flagged row, or a cell the grid would not store (WI-58). The
+   * page passes its HELD flagged rows: the buffer line is visible text above the grid, and it must not
+   * change length between a press and its click.
+   */
+  runBlocked?: boolean;
   onSettingsChange: (updates: Partial<ScenarioSettings>) => void;
   onStartDateChange: (startDate: string) => void;
   onNewSeed: () => void;
@@ -154,6 +177,7 @@ export function ScenarioSummaryCard({
   calendar,
   settings,
   hasSimulationResults,
+  runBlocked = false,
   onSettingsChange,
   onStartDateChange,
   onNewSeed,
@@ -651,20 +675,22 @@ export function ScenarioSummaryCard({
                 </span>
               );
             } else {
+              const prompt = bufferPrompt(runBlocked);
               bufferContent = (
                 <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                  {prompt.before}
                   {onRunSimulation ? (
                     <button
                       type="button"
                       onClick={onRunSimulation}
                       className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 not-italic"
                     >
-                      Run simulation
+                      {prompt.link}
                     </button>
                   ) : (
-                    "Run simulation"
+                    prompt.link
                   )}{" "}
-                  to calculate schedule buffer
+                  {prompt.after}
                 </span>
               );
             }
@@ -692,7 +718,7 @@ export function ScenarioSummaryCard({
               onClick={handleExportXlsx}
               disabled={exportDisabled || exporting}
               className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={exportDisabled ? "Run simulation first to enable export" : "Download as formatted Excel file"}
+              title={exportDisabled ? exportOffTitle(runBlocked) : "Download as formatted Excel file"}
             >
               {exporting ? "Exporting…" : "XLSX"}
             </button>
@@ -700,7 +726,7 @@ export function ScenarioSummaryCard({
               onClick={handleExportCsv}
               disabled={exportDisabled}
               className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={exportDisabled ? "Run simulation first to enable export" : "Download as CSV file"}
+              title={exportDisabled ? exportOffTitle(runBlocked) : "Download as CSV file"}
             >
               CSV
             </button>

@@ -12,7 +12,9 @@ import type {
   SimulationRun,
 } from "@domain/models/types";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
+import type { ScheduleError } from "@ui/hooks/use-schedule";
 import { STANDARD_PERCENTILES, RSM_LABELS } from "@domain/models/types";
+import { useMemo } from "react";
 import {
   distributionLabel,
   statusLabel,
@@ -23,6 +25,8 @@ import {
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { confidenceApplies } from "@domain/helpers/confidence-applies";
+import { savedScenarioFlags } from "@ui/helpers/scenario-flags";
+import { flagNote, scheduleErrorKind } from "@ui/helpers/flag-sentences";
 
 function formatSignedBufferDays(buffer: { bufferDays: number } | null): string {
   if (!buffer) return "—";
@@ -40,6 +44,48 @@ function formatSignedSlackDays(slackDays: number | null | undefined): string {
 }
 
 type FormatDate = (iso: string) => string;
+
+// -- Validation errors (WI-58) -----------------------------------------------
+
+export interface PrintValidationBoxProps {
+  scenario: Scenario;
+  /** The page's typed schedule error: "cannot be calculated" only when it IS a flagged row's estimate. */
+  scheduleError: ScheduleError | null;
+}
+
+/**
+ * The printed scenario's validation errors, at the top of page 1 (WI-58): the validation summary's
+ * heading and lines, then what they stop. From the SAVED activities — the paper describes the saved
+ * plan, so a cell the grid refused to store prints nothing. Every row, always numbered as the printed
+ * Activities table numbers it. Plain text only: print hides every <button>, and the screen summary puts
+ * each row's number and name in one.
+ */
+export function PrintValidationBox({ scenario, scheduleError }: PrintValidationBoxProps) {
+  const { activities } = scenario;
+  const { probabilityTarget } = scenario.settings;
+  const flags = useMemo(() => savedScenarioFlags(activities, probabilityTarget), [activities, probabilityTarget]);
+  if (flags.rows.length === 0) return null;
+  const note = flagNote(
+    {
+      scenarioName: scenario.name,
+      rows: flags.rows.map((r) => ({ label: `#${r.position} ${r.name}`, messages: r.messages })),
+      anyStops: flags.anyStops,
+      errorKind: scheduleErrorKind(scheduleError, flags.anyStops),
+    },
+    "print"
+  );
+  return (
+    <section className="mb-3 print-section-keep border border-amber-300 bg-amber-50 rounded p-2 text-xs text-amber-800">
+      <p className="font-semibold">{note.heading}</p>
+      <ul className="mt-0.5">
+        {note.rows.map((line, i) => (
+          <li key={flags.rows[i]!.id}>{line}</li>
+        ))}
+      </ul>
+      <p className="mt-1 font-medium">{note.consequence}</p>
+    </section>
+  );
+}
 
 // -- Project Summary ---------------------------------------------------------
 

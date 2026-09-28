@@ -18,7 +18,7 @@ import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
-import type { Activity, ScenarioSettings, DeterministicSchedule, ScheduledActivity } from "@domain/models/types";
+import type { Activity, Scenario, ScenarioSettings, DeterministicSchedule, ScheduledActivity } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import { formatDateISO, parseDateISO, countWorkingDays, durationToFinishDateISO } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
@@ -47,7 +47,7 @@ import { InlineEdit } from "@ui/components/InlineEdit";
 import { ValidationSummary } from "@ui/components/ValidationSummary";
 import { ActivityGridBar } from "@ui/components/ActivityGridBar";
 import { useSectionCollapse } from "@ui/hooks/use-section-collapse";
-import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
+import { ScenarioComparisonTable, type CompareRunGate } from "@ui/components/ScenarioComparison";
 import { useScenarioComparison } from "@ui/hooks/use-scenario-comparison";
 import { PrintableReport } from "@ui/components/PrintableReport";
 import { SensitivityPanel } from "@ui/components/SensitivityPanel";
@@ -71,6 +71,14 @@ import type { AiOpResult } from "@app/api/ai-batch-service";
  * gone, after an out-of-order commit in a project with milestones (measured, v0.70.4).
  */
 const NO_SCHEDULED_ACTIVITIES: ScheduledActivity[] = [];
+
+/**
+ * ⚠️ ONE empty scenario list, for the same reason (WI-58): the Compare table's input is held while a
+ * pointer is down, and `project?.scenarios ?? []` made a new array every render while the project was
+ * missing — measured: holding it turned "This project is no longer available." into "Too many
+ * re-renders", and signing out while a project was open crashed the same way.
+ */
+const NO_SCENARIOS: Scenario[] = [];
 
 /** The region the activity grid's bar shows and hides (v0.71.0). */
 const ACTIVITY_GRID_BODY_ID = "activity-grid-body";
@@ -443,7 +451,9 @@ export function ProjectPage() {
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.projectProbabilityTarget ?? 0.95,
     scenario?.settings.dependencyMode ?? false,
-    workCalendar
+    workCalendar,
+    // Live, not held: it changes only a hover title and screen-reader text, which move nothing.
+    !validity.runnable
   );
 
   // ⚠️ THE GANTT IS PAINTED FROM HELD COPIES while a pointer is down (v0.70.4), and so is the
@@ -702,7 +712,22 @@ export function ProjectPage() {
     handleToggleCompare,
     handleToggleCompareMode,
     compareScenarios,
-  } = useScenarioComparison(project?.scenarios ?? []);
+  } = useScenarioComparison(project?.scenarios ?? NO_SCENARIOS);
+  // ⚠️ THE COMPARE TABLE PAINTS FROM A HELD INPUT while a pointer is down (WI-58). It sits above the
+  // grid, and a commit made by a press — an estimate committed on the blur of a click on a row's pencil
+  // — changes it before the click lands: its flag lines and notes appear or go, and a run's results
+  // clear, unmounting the CDF chart (measured: the box 948 → 563 px, and without scroll anchoring the
+  // pencil moved 385 px and the click missed). Its scenarios, its MOUNT condition and the on-screen Run
+  // gate below all come from the same pre-press snapshot, so a press cannot resize it. The calendar is
+  // not held: nothing on this page can change it.
+  const paintedCompareScenarios = useHeldWhilePointerDown(compareScenarios);
+  // The on-screen scenario's id and its Run gate, built TOGETHER and held as one: a tab switch during a
+  // press must not attach one scenario's gate to another's column.
+  const compareRunGate = useMemo<CompareRunGate>(
+    () => ({ scenarioId: activeScenarioId, runBlocked: !validity.runnable }),
+    [activeScenarioId, validity.runnable]
+  );
+  const paintedCompareRunGate = useHeldWhilePointerDown(compareRunGate);
 
   if (!project) {
     return (
@@ -824,13 +849,15 @@ export function ProjectPage() {
       </div>
 
       {/* Scenario comparison table */}
-      {compareMode && compareScenarios.length >= 2 && (
+      {compareMode && paintedCompareScenarios.length >= 2 && (
         <ScenarioComparisonTable
-          scenarios={compareScenarios}
+          scenarios={paintedCompareScenarios}
           calendar={workCalendar}
+          showActivityNumbers={showActivityNumbers}
+          activeRunGate={paintedCompareRunGate}
         />
       )}
-      {compareMode && compareScenarios.length < 2 && (
+      {compareMode && paintedCompareScenarios.length < 2 && (
         <p className="text-sm text-gray-400 [overflow-anchor:none]">
           Select 2-3 scenarios above to compare.
         </p>
@@ -869,6 +896,7 @@ export function ProjectPage() {
             calendar={workCalendar}
             settings={scenario.settings}
             hasSimulationResults={!!scenario.simulationResults}
+            runBlocked={paintedFlaggedRows.length > 0}
             onSettingsChange={handleSettingsChange}
             onStartDateChange={(startDate) =>
               updateScenarioStartDate(id!, scenario.id, startDate)
@@ -1200,6 +1228,7 @@ export function ProjectPage() {
           calendar={workCalendar}
           criticalPathIds={criticalPathIds}
           targetRAGColor={targetRAGColor}
+          scheduleError={scheduleError}
         />
       )}
 

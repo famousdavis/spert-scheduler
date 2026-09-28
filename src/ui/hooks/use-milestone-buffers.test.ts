@@ -79,7 +79,11 @@ function render(
   scheduledActivities: ScheduledActivity[],
   activities: Activity[],
   simulationResults?: SimulationRun,
-  { target = TARGET, dependencyMode = true }: { target?: number; dependencyMode?: boolean } = {},
+  {
+    target = TARGET,
+    dependencyMode = true,
+    runBlocked = false,
+  }: { target?: number; dependencyMode?: boolean; runBlocked?: boolean } = {},
 ) {
   return renderHook(() =>
     useMilestoneBuffers(
@@ -90,6 +94,8 @@ function render(
       PROJECT_START,
       target,
       dependencyMode, // milestones are simulated only with it on
+      undefined,
+      runBlocked,
     ),
   ).result.current;
 }
@@ -277,6 +283,26 @@ describe("useMilestoneBuffers", () => {
     it("a listed target that the run measured is not a reason at all", () => {
       const info = render([M1], SCHED, ACTS, RESULTS, { target: 0.95 })!.get("m1")!;
       expect(info.health).toBe("amber");
+    });
+
+    // WI-58: the screen's Run is refused, so the validation errors come before the run.
+    it("the screen's Run refused, no results: 'run-blocked'", () => {
+      const info = render([M1], SCHED, ACTS, undefined, { runBlocked: true })!.get("m1")!;
+      expect(info.health).toBe("none");
+      expect(info.noHealthReason).toBe("run-blocked");
+    });
+
+    it("'run-blocked' comes AFTER every earlier reason: dependencies off, no activities, an unlisted target", () => {
+      const blocked = { runBlocked: true };
+      expect(render([M1], SCHED, ACTS, undefined, { ...blocked, dependencyMode: false })!.get("m1")!.noHealthReason).toBe("dependencies-off");
+      expect(render([M1], SCHED, [], undefined, blocked)!.get("m1")!.noHealthReason).toBe("no-activities");
+      expect(render([M1], SCHED, ACTS, undefined, { ...blocked, target: 0.93 })!.get("m1")!.noHealthReason).toBe("unlisted-target");
+    });
+
+    it("a refused Run never takes a MEASURED health away — the reason is chosen only at 'none'", () => {
+      const info = render([M1], SCHED, ACTS, RESULTS, { runBlocked: true })!.get("m1")!;
+      expect(info.health).toBe("amber");
+      expect(info.noHealthReason).toBeUndefined();
     });
   });
 

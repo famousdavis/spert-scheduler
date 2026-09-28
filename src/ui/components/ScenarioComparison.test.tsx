@@ -3,11 +3,11 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, screen } from "@testing-library/react";
 
 import { ScenarioComparisonTable } from "./ScenarioComparison";
 import { createScenario, createActivity } from "@app/api/project-service";
-import type { Scenario } from "@domain/models/types";
+import type { Activity, Scenario } from "@domain/models/types";
 
 /**
  * The comparison table's `highlights` mechanism (WI-43 + WI-41, v0.67.16).
@@ -234,5 +234,270 @@ describe("ScenarioComparisonTable — highlighting matches what the cells displa
     // the control in the test above was not enough; it has to be in this one.
     expect(highlightsOf("Duration (days)")).toContain(true);
     expect(highlightsOf("Buffer (days)")).toEqual([false, false]);
+  });
+});
+
+// ── WI-58: a flagged scenario (validation errors in its SAVED activities) ─────────────────
+
+/** A second, FLAGGED activity: Min above Most Likely on a T-Normal, which still builds. It runs
+ *  alongside the first in dependency mode, so the scenario's Duration (days) is unchanged. */
+function withParallelFlag(scenario: Scenario, name = "Change programme"): Scenario {
+  const flaggedRow: Activity = {
+    ...createActivity(name, scenario.settings),
+    min: 5,
+    mostLikely: 4,
+    max: 10,
+    distributionType: "normal",
+  };
+  return {
+    ...scenario,
+    settings: { ...scenario.settings, dependencyMode: true },
+    activities: [...scenario.activities, flaggedRow],
+  };
+}
+
+/** A scenario whose ONE activity stops its schedule: a Triangular out of order. */
+function stoppedBy(name: string): Scenario {
+  const scenario = createScenario(name, START);
+  const row: Activity = {
+    ...createActivity("Global design workshops", scenario.settings),
+    min: 30,
+    mostLikely: 26,
+    max: 40,
+    distributionType: "triangular",
+  };
+  return { ...scenario, activities: [row] };
+}
+
+/** Two activities that depend on each other: a cycle, which the UI refuses and an import can carry. */
+function cyclic(name: string, extra: Activity[] = []): Scenario {
+  const scenario = createScenario(name, START);
+  const a = { ...createActivity("A", scenario.settings), min: 5, mostLikely: 10, max: 20 };
+  const b = { ...createActivity("B", scenario.settings), min: 5, mostLikely: 10, max: 20 };
+  return {
+    ...scenario,
+    settings: { ...scenario.settings, dependencyMode: true },
+    activities: [a, b, ...extra],
+    dependencies: [
+      { fromActivityId: a.id, toActivityId: b.id, type: "FS", lagDays: 0 },
+      { fromActivityId: b.id, toActivityId: a.id, type: "FS", lagDays: 0 },
+    ],
+  };
+}
+
+/** The notes under the table, in order, as the reader sees them: whatever follows the table in the
+ *  captured region, located WITHOUT the wrapper's width classes so that removing those fails only the
+ *  test that is about them. */
+function notesBox(): Element | null {
+  const table = document.querySelector("table")!;
+  const after = table.nextElementSibling;
+  return after && after.tagName === "DIV" ? after : null;
+}
+function notes(): { text: string; tone: string }[] {
+  const nodes = notesBox() ? Array.from(notesBox()!.children) : [];
+  return nodes.map((n) => {
+    const cls = (n as HTMLElement).className;
+    let tone = "grey";
+    if (cls.includes("amber")) tone = "amber";
+    else if (cls.includes("red")) tone = "red";
+    return { text: n.textContent ?? "", tone };
+  });
+}
+
+const ALL_ROWS = ["Duration (days)", "Duration w/Buffer", "Mean"];
+const marksOf = () => Object.fromEntries(ALL_ROWS.map((l) => [l, highlightsOf(l)]));
+
+describe("WI-58 — the flag in the column header", () => {
+  it("reads '1 flagged' under the name, and the header's accessible name carries both", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, withParallelFlag(scenarioLasting("Fast-track", 100))]} />);
+    expect(screen.getByRole("columnheader", { name: "Fast-track 1 flagged" })).toBeDefined();
+    expect(screen.getByRole("columnheader", { name: "Baseline" })).toBeDefined();
+  });
+
+  it("counts every flagged row: '2 flagged'", () => {
+    const twice = withParallelFlag(withParallelFlag(scenarioLasting("Fast-track", 100)), "Data governance");
+    render(<ScenarioComparisonTable scenarios={[RUN, twice]} />);
+    expect(screen.getByRole("columnheader", { name: "Fast-track 2 flagged" })).toBeDefined();
+  });
+});
+
+describe("WI-58 — a flagged scenario is never marked best (C1)", () => {
+  it("does not compete, however low its values; the others still do", () => {
+    const flaggedLowest = withParallelFlag(scenarioLasting("Flagged", 90));
+    render(<ScenarioComparisonTable scenarios={[scenarioLasting("A", 100), flaggedLowest, scenarioLasting("C", 110)]} />);
+    expect(textsOf("Duration (days)")).toEqual(["100", "90", "110"]);
+    expect(highlightsOf("Duration (days)")).toEqual([true, false, false]);
+  });
+
+  it("with two compared and one flagged, marks nothing (WI-60: a best needs two contenders)", () => {
+    render(<ScenarioComparisonTable scenarios={[scenarioLasting("A", 100), withParallelFlag(scenarioLasting("B", 90))]} />);
+    expect(highlightsOf("Duration (days)")).toEqual([false, false]);
+    cleanup();
+    // Control: the same values without the flag mark the 90.
+    render(<ScenarioComparisonTable scenarios={[scenarioLasting("A", 100), scenarioLasting("B", 90)]} />);
+    expect(highlightsOf("Duration (days)")).toEqual([false, true]);
+  });
+
+  it("a three-way tie (S10): the two valid scenarios are best in all three rows, the flagged one in none", () => {
+    const base = withResults(scenarioLasting("Baseline", 100), 140, 200);
+    const twin = withResults(scenarioLasting("Twin", 100), 140, 200);
+    const flagged = withResults(withParallelFlag(scenarioLasting("Flagged", 100)), 140, 200);
+    render(<ScenarioComparisonTable scenarios={[base, flagged, twin]} />);
+    expect(textsOf("Mean")).toEqual(["200.0", "200.0", "200.0"]);
+    expect(marksOf()).toEqual({
+      "Duration (days)": [true, false, true],
+      "Duration w/Buffer": [true, false, true],
+      Mean: [true, false, true],
+    });
+  });
+
+  it("a flagged scenario WITH results and the lower values (S11) wins no row, in either column order", () => {
+    const lean = withResults(withParallelFlag(scenarioLasting("Lean", 90)), 130, 190);
+    const base = withResults(scenarioLasting("Baseline", 100), 140, 200);
+    render(<ScenarioComparisonTable scenarios={[lean, base]} />);
+    expect(marksOf()).toEqual({ "Duration (days)": [false, false], "Duration w/Buffer": [false, false], Mean: [false, false] });
+    cleanup();
+    render(<ScenarioComparisonTable scenarios={[base, lean]} />);
+    expect(marksOf()).toEqual({ "Duration (days)": [false, false], "Duration w/Buffer": [false, false], Mean: [false, false] });
+    cleanup();
+    // Control: unflagged, the same values win all three rows.
+    render(<ScenarioComparisonTable scenarios={[withResults(scenarioLasting("Lean", 90), 130, 190), base]} />);
+    expect(marksOf()).toEqual({ "Duration (days)": [true, false], "Duration w/Buffer": [true, false], Mean: [true, false] });
+  });
+});
+
+describe("WI-58 — the notes under the table: which, in what words, in what order", () => {
+  it("W3: a flag that does not stop the schedule — one amber note, in the owner's words", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, withParallelFlag(scenarioLasting("Fast-track", 100))]} />);
+    expect(notes()).toEqual([
+      {
+        tone: "amber",
+        text: "Fast-track: 1 activity has validation errors. Change programme: Min is above Most Likely. It cannot be simulated until this is fixed.",
+      },
+    ]);
+  });
+
+  it("W4: a flag that stops the schedule REPLACES the red engine note (C3)", () => {
+    const { container } = render(<ScenarioComparisonTable scenarios={[RUN, stoppedBy("Aggressive")]} />);
+    expect(notes()).toEqual([
+      {
+        tone: "amber",
+        text: "Aggressive: 1 activity has validation errors. Global design workshops: Min is above Most Likely. Its schedule cannot be calculated until this is fixed.",
+      },
+    ]);
+    for (const jargon of ["Cannot create", "Distribution:", "<=", "got a="]) {
+      expect(container.textContent).not.toContain(jargon);
+    }
+  });
+
+  it("a cycle keeps today's red note, word for word, with no flag (C3's control)", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, cyclic("Cyclic")]} />);
+    const red = notes().filter((n) => n.tone === "red");
+    expect(red).toHaveLength(1);
+    expect(red[0]!.text).toMatch(/^Could not compute a schedule for: Cyclic \(Dependency cycle detected/);
+    expect(notes().filter((n) => n.tone === "amber")).toEqual([]);
+  });
+
+  it("a cycle AND a stopping row (S8b): the red cycle note, and the amber note with W3's words", () => {
+    const thrower: Activity = { ...stoppedBy("x").activities[0]! };
+    render(<ScenarioComparisonTable scenarios={[RUN, cyclic("Cyclic", [thrower])]} />);
+    const tones = notes().map((n) => n.tone);
+    expect(tones).toEqual(["amber", "red"]);
+    expect(notes()[0]!.text).toMatch(/It cannot be simulated until this is fixed\.$/);
+    expect(notes()[1]!.text).toMatch(/Dependency cycle detected/);
+  });
+
+  it("several rows (P-b): each on its own line — three, then 'and N more.' — then what they stop", () => {
+    let many = scenarioLasting("Stretch", 100);
+    for (const n of ["One", "Two", "Three", "Four", "Five"]) many = withParallelFlag(many, n);
+    render(<ScenarioComparisonTable scenarios={[RUN, many]} />);
+    const amber = notesBox()!.firstElementChild!;
+    expect(Array.from(amber.children).map((p) => p.textContent)).toEqual([
+      "Stretch: 5 activities have validation errors.",
+      "One: Min is above Most Likely.",
+      "Two: Min is above Most Likely.",
+      "Three: Min is above Most Likely.",
+      "and 2 more.",
+      "It cannot be simulated until these are fixed.",
+    ]);
+  });
+
+  it("numbers each row by ITS scenario's own order when the project numbers activities (P-e)", () => {
+    const early = withParallelFlag(scenarioLasting("Early", 100)); // the flagged row is its #2
+    const late = withParallelFlag(withParallelFlag(scenarioLasting("Late", 100), "Valid first"), "Flag"); // #2 and #3
+    render(<ScenarioComparisonTable scenarios={[early, late]} showActivityNumbers />);
+    expect(notes()[0]!.text).toContain("#2 Change programme: Min is above Most Likely.");
+    expect(notes()[1]!.text).toContain("#3 Flag: Min is above Most Likely.");
+    cleanup();
+    render(<ScenarioComparisonTable scenarios={[early, late]} />);
+    expect(notes()[0]!.text).toContain(" Change programme: Min is above Most Likely.");
+    expect(notes()[0]!.text).not.toContain("#");
+  });
+});
+
+describe("WI-58 — the grey note asks only for a run that can start (C4)", () => {
+  const grey = () => notes().filter((n) => n.tone === "grey").map((n) => n.text);
+
+  it("today's words when EVERY compared scenario can run — in the darker grey", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} />);
+    expect(grey()).toEqual(["Run simulation on all scenarios for complete comparison data."]);
+    const p = notesBox()!.lastElementChild!;
+    expect(p.className).toContain("text-gray-500");
+    expect(p.className).not.toContain("text-gray-400");
+  });
+
+  it("names the one that can when a flagged scenario is compared (S6c)", () => {
+    render(<ScenarioComparisonTable scenarios={[scenarioLasting("Baseline", 100), withParallelFlag(scenarioLasting("Fast-track", 100))]} />);
+    expect(grey()).toEqual(["Run simulation on Baseline to add its results to the comparison."]);
+  });
+
+  it("names two in column order, and 'their'", () => {
+    const flagged = withParallelFlag(scenarioLasting("Fast-track", 100));
+    render(<ScenarioComparisonTable scenarios={[scenarioLasting("Plan B", 100), flagged, scenarioLasting("Baseline", 100)]} />);
+    expect(grey()).toEqual(["Run simulation on Plan B and Baseline to add their results to the comparison."]);
+  });
+
+  it("names the valid one beside a flagged scenario that HAS results (S9)", () => {
+    const merged = withResults(withParallelFlag(scenarioLasting("Merged", 100)), 140, 200);
+    render(<ScenarioComparisonTable scenarios={[merged, scenarioLasting("Baseline", 100)]} />);
+    expect(grey()).toEqual(["Run simulation on Baseline to add its results to the comparison."]);
+  });
+
+  it("says nothing when no unrun scenario can run: flagged, stopped, empty or cyclic beside a run one", () => {
+    const empty: Scenario = createScenario("Empty", START);
+    for (const other of [withParallelFlag(scenarioLasting("Fast-track", 100)), stoppedBy("Aggressive"), empty, cyclic("Cyclic")]) {
+      render(<ScenarioComparisonTable scenarios={[RUN, other]} />);
+      expect(grey()).toEqual([]);
+      cleanup();
+    }
+  });
+
+  it("follows the SCREEN's Run gate for the scenario on screen: a refused cell stops its run being asked for (S4u)", () => {
+    const planB = scenarioLasting("Plan B", 100);
+    const base = scenarioLasting("Baseline", 100);
+    render(<ScenarioComparisonTable scenarios={[base, planB]} activeRunGate={{ scenarioId: planB.id, runBlocked: true }} />);
+    expect(grey()).toEqual(["Run simulation on Baseline to add its results to the comparison."]);
+    cleanup();
+    // The gate is that ONE scenario's: pointing at another id changes nothing here.
+    render(<ScenarioComparisonTable scenarios={[base, planB]} activeRunGate={{ scenarioId: "someone-else", runBlocked: true }} />);
+    expect(grey()).toEqual(["Run simulation on all scenarios for complete comparison data."]);
+  });
+});
+
+describe("WI-58 — the captured region stays light (C7) and the notes cannot widen it", () => {
+  it("carries no dark: variant anywhere inside the region the copy button captures", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, withParallelFlag(scenarioLasting("Fast-track", 100)), cyclic("Cyclic")]} />);
+    const region = document.querySelector("table")!.parentElement!;
+    // Non-vacuity: the region holds the new text.
+    expect(region.textContent).toContain("1 flagged");
+    expect(notes().map((n) => n.tone)).toEqual(["amber", "red"]);
+    expect(region.querySelectorAll('[class*="dark:"]')).toHaveLength(0);
+  });
+
+  it("wraps the notes in a box that contributes no width (measured in Chrome: the copied PNG stayed 810 px)", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, withParallelFlag(scenarioLasting("Fast-track", 100))]} />);
+    const wrap = notesBox()!;
+    expect(wrap.textContent).toContain("validation errors"); // non-vacuity: it holds a note
+    expect(wrap.className.split(/\s+/)).toEqual(expect.arrayContaining(["w-0", "min-w-full"]));
   });
 });
