@@ -134,10 +134,10 @@ function SortableScenarioTab({
           name="compareScenario"
           aria-label={`Compare scenario ${scenario.name}`}
           checked={selectedForCompare?.has(scenario.id) ?? false}
-          onChange={(e) => {
-            e.stopPropagation();
-            onToggleCompare(scenario.id);
-          }}
+          // The tab selects on click, so the tick must stop its click, or ticking a
+          // scenario would also switch to it (WI-82).
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => onToggleCompare(scenario.id)}
           className="rounded border-gray-300 dark:border-gray-600 mr-1"
         />
       )}
