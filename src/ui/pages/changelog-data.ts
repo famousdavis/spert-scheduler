@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.7",
+    date: "2026-09-29",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "In Compare, ticking or unticking a scenario’s box no longer switches to that scenario: the one you are working on stays on screen. Until now a click on the box also opened that scenario, so the last box you clicked decided which scenario was on screen, whichever one you had been working on. To switch scenarios, click a scenario’s name, as before. An estimate a cell refused to store — a cleared or negative one — is no longer lost when you tick or untick another scenario’s box. Switching to another scenario and back still discards it and shows the saved number again, as before.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The Compare box on each scenario’s tab now stops its click from reaching the tab, which selects on click — as the tab’s name, lock, clone and delete buttons already do. It used to stop only its change event, which nothing on the tab listens for. A tick no longer records its scenario as the project’s last-opened one.",
+          "Tests: the tick in the tab bar (a tick only toggles; the tab’s name, and a click on the tab outside its buttons, still select it), on the page with the real store (the scenario on screen keeps aria-current and its rows while both scenarios are compared), and a refused entry surviving a tick, each with its positive control in the same test. The page tests’ compare() helper now chooses the scenario on screen by its tab, never by the order of the ticks; two of its tests had relied on a tick selecting. jsdom does not turn Space into a click, so the keyboard case was measured in the browser. scripts/falsify-spec-compare-tick.mjs breaks the fix three ways, and each fails exactly the tests it names, across the whole suite.",
+          "Measured in headless Chrome on the Cloud ERP sample at 1280 × 720, before and after. In light and dark: after cloning Baseline, choosing Baseline’s tab, turning Compare on and ticking both, the clone was on screen before and Baseline is now, with its own rows and “Scenario: Baseline” in the printout’s header; and Space on the clone’s box unticks and reticks it and leaves Baseline on screen. In light: a -5 typed into a Min survives the clone’s tick, still flagged, and the printout opens with the comparison, then “The rest of this report describes Baseline.”",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.72.6",
     date: "2026-09-29",
     sections: [
