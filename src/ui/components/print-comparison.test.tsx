@@ -184,7 +184,8 @@ describe("the printed table and notes", () => {
 describe("the printed S-curves: fixed, light, unanimated, legend-free", () => {
   const a = run(scenarioOf("Fast-track", [VALID]), EARLY);
   const b = run(scenarioOf("Baseline", [VALID]), LATE);
-  const chart = (s: HTMLElement) => s.querySelector("svg.recharts-surface")!;
+  /** The chart's own SVG — a Recharts legend would add its 14 x 14 icon SVGs with the same class. */
+  const chart = (s: HTMLElement) => s.querySelector(".recharts-wrapper > svg.recharts-surface")!;
 
   it("is a fixed-size chart, not a responsive one: its SVG is drawn inside the hidden report", () => {
     const s = section(renderReport(b, [a, b]))!;
