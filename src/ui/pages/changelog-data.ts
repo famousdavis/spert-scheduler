@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.8",
+    date: "2026-09-29",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Nothing about the app changed. A test only: no application code, no behaviour, no appearance, no data.",
+          "A slow release check is fast again. One check confirms the symmetry rule — whether Most Likely sits exactly halfway between Min and Max — on about a hundred thousand estimates. It made two assertions per estimate, about two hundred thousand in all, and when the whole suite ran at once it came close to its 5-second time limit: once in 36 runs it ran out, which would have failed a release for no reason in the app. It now checks the same estimates, keeps the first few that break the rule so that a failure still names them, and asserts once. In the full suite it took 1.29–1.41 seconds and now takes 0.04–0.06; on its own, 0.66–0.68 seconds and now 0.024 (three runs each, before and after). The rule was broken on purpose in three ways — calling every estimate symmetric, calling none with a fraction symmetric, and walking only a sliver of the estimates — and each failed exactly the tests predicted for it, across the whole suite, before the change was kept.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.72.7",
     date: "2026-09-29",
     sections: [
