@@ -47,7 +47,8 @@ import { InlineEdit } from "@ui/components/InlineEdit";
 import { ValidationSummary } from "@ui/components/ValidationSummary";
 import { ActivityGridBar } from "@ui/components/ActivityGridBar";
 import { useSectionCollapse } from "@ui/hooks/use-section-collapse";
-import { ScenarioComparisonTable, type CompareRunGate } from "@ui/components/ScenarioComparison";
+import { ScenarioComparisonTable } from "@ui/components/ScenarioComparison";
+import type { CompareRunGate } from "@ui/helpers/comparison-model";
 import { useScenarioComparison } from "@ui/hooks/use-scenario-comparison";
 import { PrintableReport } from "@ui/components/PrintableReport";
 import { SensitivityPanel } from "@ui/components/SensitivityPanel";
@@ -1229,6 +1230,8 @@ export function ProjectPage() {
           criticalPathIds={criticalPathIds}
           targetRAGColor={targetRAGColor}
           scheduleError={scheduleError}
+          compareScenarios={compareScenarios}
+          showActivityNumbers={showActivityNumbers}
         />
       )}
 

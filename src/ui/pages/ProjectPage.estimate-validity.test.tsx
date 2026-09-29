@@ -549,7 +549,9 @@ describe("WI-58 — Compare and print describe the SAVED plan; the Compare table
     for (const n of names) fireEvent.click(screen.getByRole("checkbox", { name: `Compare scenario ${n}` }));
   }
 
-  const header = (name: string) => screen.queryByRole("columnheader", { name });
+  /** The SCREEN table's header — the always-mounted report prints a second comparison table (WI-61). */
+  const header = (name: string) =>
+    screen.queryAllByRole("columnheader", { name }).find((el) => !el.closest(".print-report")) ?? null;
   /** The grey note: a gray paragraph among the notes that follow the Compare table. */
   const greyNote = () => {
     const notes = document.querySelector("thead")?.closest("table")?.nextElementSibling;
@@ -595,6 +597,24 @@ describe("WI-58 — Compare and print describe the SAVED plan; the Compare table
     expect(header("Fast-track")).not.toBeNull(); // the saved plan is valid: no flag in Compare
     expect(greyNote()).toEqual(["Run simulation on Baseline to add its results to the comparison."]);
     expect(printBox()).toBeNull();
+  });
+
+  it("the PRINTED comparison's grey note follows the saved plan: a refused cell leaves no scenario out (WI-61)", () => {
+    const { p, aid } = twoScenarios();
+    renderPage(p);
+    compare("Baseline", "Fast-track");
+    fireEvent.click(screen.getByRole("button", { name: "Fast-track" })); // on screen by its tab, never by tick order
+    typeInto(aid, "min", "-5");
+    act(() => cell(aid, "min").blur());
+    expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true"); // refused, on screen
+    const printedGreyNote = () => {
+      const section = Array.from(document.querySelectorAll(".print-report section")).find(
+        (el) => el.querySelector("h2")?.textContent === "Scenario Comparison"
+      );
+      return section ? Array.from(section.querySelectorAll("p.text-gray-500")).map((el) => el.textContent) : [];
+    };
+    expect(greyNote()).toEqual(["Run simulation on Baseline to add its results to the comparison."]); // the screen's gate
+    expect(printedGreyNote()).toEqual(["Run simulation on all scenarios for complete comparison data."]); // the saved plan
   });
 
   it("the second tick paints no one-column table: the table's mount waits for the release too", async () => {

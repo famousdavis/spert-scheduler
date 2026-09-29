@@ -39,6 +39,13 @@ export interface ScheduleErrorBanner {
  * union, so an error that somehow set both would otherwise fall to the calendar branch and
  * give work-week advice for a circular graph.
  *
+ * ⚠️ v0.72.6 (WI-61) - THE CALENDAR ADVICE NAMES AN ESTIMATE OR A DATE FIRST. It said "Check your
+ * work week settings in Settings.", but Settings refuses an empty work week, so the calendar errors
+ * a user can actually reach are a typo: one activity estimated at thousands of days (measured:
+ * 8000 / 9000 / 10000 trips `addWorkingDays`' 10,000-day cap) or a date typed decades off
+ * (measured: Start No Earlier Than 2062-06-01 trips `countWorkingDays`' cap). The words are the
+ * owner's (ruling, 2026-09-28); the heading and the engine's message line above them stay.
+ *
  * ⚠️ v0.67.23 - the second argument GATES THE GENERIC BRANCH ONLY, and it is REQUIRED rather
  * than optional for the same reason `ScheduleError.isCycleError` is: both call sites must
  * decide, so a third cannot silently default to "show it". (v0.67.23 passed `allActivitiesValid`;
@@ -128,7 +135,8 @@ export function getScheduleErrorBanner(
     return {
       heading: "Calendar Configuration Error",
       message: error.message,
-      advice: "Check your work week settings in Settings.",
+      advice:
+        "Check for an estimate or a date that is far off — a typo such as 9000 days or the year 2062; otherwise check the work week in Settings and your holidays.",
     };
   }
   // Generic branch = the estimates branch, per the reachability note above. Shown only for a

@@ -141,7 +141,8 @@ describe("Recharts axis ticks follow the theme", () => {
   it("covers CDFComparisonChart too, which the pre-flight could not reach", async () => {
     const { container } = await renderSized(
       <CDFComparisonChart
-        datasets={[{ label: "Base", color: "#2563eb", points: POINTS }]}
+        datasets={[{ id: "s-base", label: "Base", color: "#2563eb", points: POINTS }]}
+        caption="Duration (days) · Dashed line: P95 target"
       />,
     );
     expect(ticks(container).length).toBeGreaterThan(0);
