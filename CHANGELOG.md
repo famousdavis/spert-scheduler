@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.72.9 — 2026-09-29
+
+### Changed
+
+- **Cloning a scenario now puts the copy to the right of the scenario you cloned, not to its left.** That holds for Clone Scenario and for the + button’s Add Scenario window, which also copies a scenario — the first one, unless you choose another under “Copy from”. Cloning your first scenario therefore leaves it first — still the bold tab, and, when you compare it, still the first column. Scenarios already in a project keep their order.
+- **In Compare, once three scenarios are ticked, the other boxes are greyed out: three is the most you can compare, and pointing at a greyed box says so.** Until now a fourth tick was ignored without a word. Untick one of the three and the other boxes can be ticked again at once.
+
+### Fixed
+
+- **A copied comparison table or percentile table no longer shows a date with a stray space in it (such as 09/21 /2026), and its numbers now line up on the right, as they do on screen.** The tables on screen are unchanged.
+- **In dark mode, the Clone Scenario window’s description and its “Drop completed activities” label are readable.**
+
+### Internal
+
+- Cloning inserts the copy at its source’s position plus one (it was the source’s own position, since 0.37.0). Both ways to clone go through the one store action, so one change covers them. No migration. Four store tests were rewritten for the new placement (three of them retitled), and they were the only tests the change alone failed.
+- The Compare limit is one named constant, used by the selection and by the tabs. Each tab’s greyed state is decided by the tab bar and handed to the tab as a plain value, so the tab’s cognitive complexity stays at 15. The greyed box carries the reason as its title, which is also its accessible description; the page’s accessibility tree reads “You can compare up to three scenarios.” for it. The native tooltip itself could not be screen-captured from the session that measured this. The legibility guard’s exception for the tab’s drag handle is re-keyed to the handle’s new line; the handle is unchanged.
+- The copied tables’ gap came from html2canvas, which copies a picture of an element: it measures each run of text in its own copy of the page, where the tables’ digits are all as wide as a 0, then draws it on a canvas that draws a narrow 1 narrow, so a gap opened after it. The copy now makes its own clone of the element use ordinary digit widths before it is drawn, so what is measured is what is drawn. Measured before and after on all six copy buttons, in light and dark: the histogram, the cumulative chart, the Gantt and the comparison’s S-curves copy pixel-for-pixel as before; the comparison table and the percentile table change only in their number columns (the percentile table’s “Duration (days)” heading moves about a third of a pixel as its column narrows).
+- Dark-mode contrast in the Clone Scenario window, measured on the window’s own background: the description went from 3.03:1 to 5.64:1 and the label from 1.42:1 to 9.96:1 (the New Name label, unchanged, reads 9.96:1 on both). Light mode is unchanged: 4.84:1 and 10.3:1.
+- Tests: cloning the first, a middle and the last scenario; on the page, Clone Scenario on the first tab leaves it first and bold, with the copy on screen to its right; three ticked greys each unticked box with the reason and leaves a ticked one enabled, with two ticked as the control, in the tab bar and on the page; the copy’s digit step on a table cell, with the untouched page as the control. `scripts/falsify-spec-demo-nits.mjs` breaks the change seven ways — the clone back to the left, the grey without its reason, the reason without its grey, the limit read as “more than three”, the limit moved to four, the digit step skipped, the digit step inverted — and each fails exactly the tests it names, across the whole suite. One was first predicted to fail two tests and failed four: two earlier copy tests rightly fail too, and the spec says so.
+- Measured in headless Chrome on the Cloud ERP sample at 1280 × 720, before and after, in light and dark: Clone Scenario on Baseline left the copy first and bold before, and leaves Baseline first and bold now, with the copy to its right, on screen, and second in Compare; with four scenarios and three ticked, the fourth box is greyed and a click on it does nothing, and unticking one enables it again. In light: the + button’s Add Scenario, copying the first scenario, put its scenario first before and second now.
+
 ## 0.72.8 — 2026-09-29
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.72.7.
