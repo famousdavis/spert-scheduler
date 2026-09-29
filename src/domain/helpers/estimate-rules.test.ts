@@ -51,7 +51,12 @@ describe("isSymmetricEstimate — the one symmetry rule", () => {
     expect(isSymmetricEstimate(0.1, 0.4, 0.7)).toBe(true);
   });
 
+  // ⚠️ ONE assertion for the whole grid, not two per triple (WI-86). 200,400 `expect` calls were
+  // nearly all of this test's time — up to 1.8 s in the full parallel suite, where it once ran
+  // past vitest's 5 s timeout. Each triple is checked with a plain comparison instead, and the
+  // first few that break the rule are kept, so a failure still prints one.
   it("holds for every symmetric two-decimal estimate, and for none a cent off-centre", () => {
+    const broken: string[] = [];
     let symmetric = 0;
     let offCentre = 0;
     for (let minCents = 0; minCents < 1000; minCents += 3) {
@@ -61,12 +66,18 @@ describe("isSymmetricEstimate — the one symmetry rule", () => {
         const max = Number(((minCents + 2 * halfCents) / 100).toFixed(2));
         // Max one cent further out: min + max − 2·ML is off by exactly a cent.
         const nudged = Number(((minCents + 2 * halfCents + 1) / 100).toFixed(2));
-        expect(isSymmetricEstimate(min, ml, max)).toBe(true);
-        expect(isSymmetricEstimate(min, ml, nudged)).toBe(false);
+        if (!isSymmetricEstimate(min, ml, max) && broken.length < 5) {
+          broken.push(`${min} / ${ml} / ${max} is symmetric but was not called symmetric`);
+        }
+        if (isSymmetricEstimate(min, ml, nudged) && broken.length < 5) {
+          broken.push(`${min} / ${ml} / ${nudged} is a cent off-centre but was called symmetric`);
+        }
         symmetric++;
         offCentre++;
       }
     }
+    expect(broken).toEqual([]);
+    // The loops ran: an empty list from a grid that was never walked would prove nothing.
     expect(symmetric + offCentre).toBeGreaterThan(190_000);
   });
 
