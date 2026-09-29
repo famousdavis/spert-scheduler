@@ -86,3 +86,49 @@ describe("ScenarioTabs Compare tick (WI-82)", () => {
     expect(onToggleCompare).toHaveBeenCalledTimes(1); // neither selection ticked anything
   });
 });
+
+/**
+ * WI-87 (owner ruling, 2026-09-29): a fourth tick used to be ignored in silence — the box stayed
+ * unticked and nothing said why. Once three are ticked, every UNTICKED box is disabled and its
+ * title says why; a ticked box stays enabled, so one can always be unticked.
+ */
+describe("ScenarioTabs Compare limit (WI-87)", () => {
+  it("with three ticked, each unticked box is greyed and says why, and a ticked box is not; with two, none is", () => {
+    const names = ["Lute Baseline", "Lute Crash", "Lute Stretch", "Lute Rescope"];
+    const [a, b, c, d] = names.map((n) => createScenario(n, "2026-01-05"));
+    const box = (name: string) =>
+      screen.getByRole("checkbox", { name: `Compare scenario ${name}` }) as HTMLInputElement;
+    const tabs = (selected: Set<string>) => (
+      <ScenarioTabs
+        scenarios={[a!, b!, c!, d!]}
+        activeScenarioId={a!.id}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+        onClone={vi.fn()}
+        onDelete={vi.fn()}
+        compareMode
+        selectedForCompare={selected}
+        onToggleCompare={vi.fn()}
+      />
+    );
+
+    // The control, same test: two ticked — the limit is not reached, so no box is greyed.
+    const { rerender } = render(tabs(new Set([a!.id, c!.id])));
+    for (const n of names) {
+      expect(box(n)).toBeEnabled();
+      expect(box(n)).not.toHaveAttribute("title");
+    }
+
+    // Three ticked: the one unticked box is disabled and carries the reason; the ticked are not.
+    rerender(tabs(new Set([a!.id, b!.id, c!.id])));
+    expect(box("Lute Rescope")).toBeDisabled();
+    expect(box("Lute Rescope")).not.toBeChecked();
+    expect(box("Lute Rescope")).toHaveAttribute("title", "You can compare up to three scenarios.");
+    expect(box("Lute Rescope")).toHaveAccessibleDescription("You can compare up to three scenarios.");
+    for (const n of ["Lute Baseline", "Lute Crash", "Lute Stretch"]) {
+      expect(box(n)).toBeChecked();
+      expect(box(n)).toBeEnabled();
+      expect(box(n)).not.toHaveAttribute("title");
+    }
+  });
+});

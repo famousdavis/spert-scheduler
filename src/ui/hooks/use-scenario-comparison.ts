@@ -6,9 +6,16 @@ import { useState, useCallback, useMemo } from "react";
 import type { Scenario } from "@domain/models/types";
 
 /**
+ * The most scenarios Compare shows at once — the ONE definition of the cap. The hook refuses a
+ * tick past it, and the scenario tabs grey out the remaining boxes when it is reached (WI-87).
+ * The tabs' tooltip says "three" in words, and its test pins both, so a change here fails there.
+ */
+export const MAX_COMPARE_SCENARIOS = 3;
+
+/**
  * Manages scenario comparison mode state:
  * - Toggle compare mode on/off
- * - Select/deselect scenarios (max 3)
+ * - Select/deselect scenarios (at most MAX_COMPARE_SCENARIOS)
  * - Compute filtered scenario list for comparison table
  */
 export function useScenarioComparison(scenarios: Scenario[]) {
@@ -22,7 +29,7 @@ export function useScenarioComparison(scenarios: Scenario[]) {
       const next = new Set(prev);
       if (next.has(scenarioId)) {
         next.delete(scenarioId);
-      } else if (next.size < 3) {
+      } else if (next.size < MAX_COMPARE_SCENARIOS) {
         next.add(scenarioId);
       }
       return next;

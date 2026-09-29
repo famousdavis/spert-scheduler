@@ -20,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Scenario } from "@domain/models/types";
+import { MAX_COMPARE_SCENARIOS } from "@ui/hooks/use-scenario-comparison";
 import { InlineEdit } from "./InlineEdit";
 
 interface ScenarioTabsProps {
@@ -37,6 +38,26 @@ interface ScenarioTabsProps {
   onToggleCompare?: (scenarioId: string) => void;
 }
 
+const COMPARE_LIMIT_TITLE = "You can compare up to three scenarios.";
+
+/**
+ * WI-87 (owner ruling, 2026-09-29): once the Compare selection is full, every box NOT ticked is
+ * greyed and says why — the hook already refused the extra tick, but silently. A ticked box is
+ * never blocked, so one can always be unticked, and the rest re-enable at once.
+ *
+ * Decided HERE, per tab, and handed to the tab as a plain value: `SortableScenarioTab` is held
+ * at cognitive complexity 15, and a condition written inside it would take it past the limit.
+ */
+function compareBlockedTitle(
+  selected: Set<string> | undefined,
+  scenarioId: string
+): string | undefined {
+  if (!selected || selected.size < MAX_COMPARE_SCENARIOS || selected.has(scenarioId)) {
+    return undefined;
+  }
+  return COMPARE_LIMIT_TITLE;
+}
+
 function SortableScenarioTab({
   scenario,
   isActive,
@@ -52,6 +73,7 @@ function SortableScenarioTab({
   compareMode,
   selectedForCompare,
   onToggleCompare,
+  compareBlockedTitle,
   activeRef,
 }: {
   scenario: Scenario;
@@ -68,6 +90,7 @@ function SortableScenarioTab({
   compareMode?: boolean;
   selectedForCompare?: Set<string>;
   onToggleCompare?: (scenarioId: string) => void;
+  compareBlockedTitle?: string;
   activeRef?: (el: HTMLDivElement | null) => void;
 }) {
   const {
@@ -138,6 +161,8 @@ function SortableScenarioTab({
           // scenario would also switch to it (WI-82).
           onClick={(e) => e.stopPropagation()}
           onChange={() => onToggleCompare(scenario.id)}
+          disabled={compareBlockedTitle !== undefined}
+          title={compareBlockedTitle}
           className="rounded border-gray-300 dark:border-gray-600 mr-1"
         />
       )}
@@ -346,6 +371,7 @@ export function ScenarioTabs({
                 compareMode={compareMode}
                 selectedForCompare={selectedForCompare}
                 onToggleCompare={onToggleCompare}
+                compareBlockedTitle={compareBlockedTitle(selectedForCompare, scenario.id)}
                 activeRef={setActiveTab}
               />
             ))}

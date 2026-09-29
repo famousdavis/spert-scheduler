@@ -118,6 +118,31 @@ export function expandToFullWidth(el: HTMLElement): void {
 }
 
 /**
+ * Give every element in the clone proportional numerals, so html2canvas draws digits at the
+ * places it measured them (WI-62).
+ *
+ * html2canvas measures each run of text in its cloned DOM, where `tabular-nums` makes every
+ * digit as wide as a 0, then draws the run on a 2D canvas, which has no numeric-spacing
+ * setting and draws proportional digits. A narrow "1" therefore left a gap after its run: a
+ * copied table showed "10 /05/2026", and right-aligned numbers stopped short of the edge.
+ * Making the clone proportional too means what is measured is what is drawn.
+ *
+ * ⚠️ Call it on html2canvas's CLONE, in `onclone` — the page keeps its tabular digits. Only
+ * elements whose numerals are not already `normal` are touched, and their children inherit it.
+ */
+export function setProportionalNumerals(el: HTMLElement): void {
+  const fix = (node: HTMLElement | SVGElement) => {
+    if (getComputedStyle(node).fontVariantNumeric !== "normal") {
+      node.style.fontVariantNumeric = "normal";
+    }
+  };
+  fix(el);
+  el.querySelectorAll("*").forEach((node) => {
+    if (node instanceof HTMLElement || node instanceof SVGElement) fix(node);
+  });
+}
+
+/**
  * Copy a DOM element as a PNG image to the clipboard.
  * Elements with the `copy-image-button` class are excluded from the capture.
  * @param element The element to capture
@@ -133,6 +158,7 @@ export async function copyChartAsPng(
     ignoreElements: (el) => el.classList.contains("copy-image-button"),
     onclone: (doc, clonedEl) => {
       if (captureFullWidth) expandToFullWidth(clonedEl);
+      setProportionalNumerals(clonedEl);
       neutralizeUnsupportedColors(doc, clonedEl);
     },
   });

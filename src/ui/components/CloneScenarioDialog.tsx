@@ -39,7 +39,7 @@ export function CloneScenarioDialog({
           <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Clone Scenario
           </Dialog.Title>
-          <Dialog.Description className="text-sm text-gray-500 mt-1">
+          <Dialog.Description className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Create a copy of &ldquo;{sourceName}&rdquo;
           </Dialog.Description>
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
@@ -66,7 +66,7 @@ export function CloneScenarioDialog({
                 onChange={(e) => setDropCompleted(e.target.checked)}
                 className="rounded border-gray-300"
               />
-              <span className="text-gray-700">
+              <span className="text-gray-700 dark:text-gray-300">
                 Drop completed activities (reforecast)
               </span>
             </label>
