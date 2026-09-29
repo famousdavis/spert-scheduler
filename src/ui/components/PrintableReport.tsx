@@ -21,6 +21,8 @@ import {
 import { useDateFormat, useDateFormatShort } from "@ui/hooks/use-date-format";
 import { PrintGanttChart } from "@ui/charts/PrintGanttChart";
 import {
+  PrintScheduleErrorBox,
+  PrintComparisonSection,
   PrintValidationBox,
   PrintSummarySection,
   PrintActivityTable,
@@ -44,7 +46,13 @@ interface PrintableReportProps {
   targetRAGColor?: string;
   /** The page's schedule error, typed; the validation box reads its kind (WI-58). */
   scheduleError?: ScheduleError | null;
+  /** The LIVE compared scenarios — empty unless Compare is on (WI-61). Two or three print the section. */
+  compareScenarios?: Scenario[];
+  /** The project numbers its activities; the printed comparison's notes number rows as the screen's do. */
+  showActivityNumbers?: boolean;
 }
+
+const NO_COMPARISON: Scenario[] = [];
 
 export function PrintableReport({
   project,
@@ -57,6 +65,8 @@ export function PrintableReport({
   criticalPathIds,
   targetRAGColor,
   scheduleError = null,
+  compareScenarios = NO_COMPARISON,
+  showActivityNumbers = false,
 }: PrintableReportProps) {
   const formatDate = useDateFormat();
   const formatDateShort = useDateFormatShort();
@@ -87,7 +97,19 @@ export function PrintableReport({
         </p>
       </div>
 
+      {/* Page 1's order (owner ruling, 2026-09-28): the header, the error boxes, the comparison, then
+          the report. The boxes say why THIS scenario's dates are blank; they come first. */}
+      <PrintScheduleErrorBox scheduleError={scheduleError} />
       <PrintValidationBox scenario={scenario} scheduleError={scheduleError} />
+      {compareScenarios.length >= 2 && (
+        <PrintComparisonSection
+          scenarios={compareScenarios}
+          calendar={calendar}
+          showActivityNumbers={showActivityNumbers}
+          reportScenarioName={scenario.name}
+          formatDate={formatDate}
+        />
+      )}
 
       <PrintSummarySection
         project={project}

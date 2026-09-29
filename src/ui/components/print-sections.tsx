@@ -27,6 +27,18 @@ import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { confidenceApplies } from "@domain/helpers/confidence-applies";
 import { savedScenarioFlags } from "@ui/helpers/scenario-flags";
 import { flagNote, scheduleErrorKind } from "@ui/helpers/flag-sentences";
+import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
+import {
+  buildComparisonModel,
+  type ComparisonCdf,
+  type ComparisonFlagNote,
+  type ComparisonModel,
+} from "@ui/helpers/comparison-model";
+import type { Calendar } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
+import { axisTick } from "@ui/charts/axis-theme";
+import { mergeCdfDatasets, CDF_TARGET_DASH, CDF_TARGET_STROKE } from "@ui/charts/cdf-comparison-data";
 
 function formatSignedBufferDays(buffer: { bufferDays: number } | null): string {
   if (!buffer) return "—";
@@ -83,6 +95,234 @@ export function PrintValidationBox({ scenario, scheduleError }: PrintValidationB
         ))}
       </ul>
       <p className="mt-1 font-medium">{note.consequence}</p>
+    </section>
+  );
+}
+
+// -- Schedule error (WI-84) --------------------------------------------------
+
+export interface PrintScheduleErrorBoxProps {
+  /** The page's typed schedule error, LIVE — the paper describes the saved plan. */
+  scheduleError: ScheduleError | null;
+}
+
+/**
+ * Why the printout's dates are blank, when the scenario's schedule fails on a dependency cycle or a
+ * calendar error (WI-84): the page banner's own heading, message and advice — the words
+ * `getScheduleErrorBanner` returns, never a second copy of them. With no flagged thrower it is non-null
+ * for exactly those two kinds: an estimate is WI-58's box's to explain, and any other failure shows no
+ * banner on the page either. Directly under the header, above WI-58's box and the comparison (owner
+ * ruling, 2026-09-28), so a tall comparison can never push it off page 1.
+ */
+export function PrintScheduleErrorBox({ scheduleError }: PrintScheduleErrorBoxProps) {
+  const banner = getScheduleErrorBanner(scheduleError, null);
+  if (!banner) return null;
+  return (
+    <section className="mb-3 print-section-keep border border-red-300 bg-red-50 rounded p-2 text-xs text-red-800">
+      <p className="font-semibold">{banner.heading}</p>
+      <p className="mt-0.5">{banner.message}</p>
+      <p className="mt-1 font-medium">{banner.advice}</p>
+    </section>
+  );
+}
+
+// -- Scenario Comparison (WI-61) ----------------------------------------------
+
+/**
+ * The printed S-curves' size. FIXED, because `ResponsiveContainer` measures its parent and the report is
+ * `display: none` until the print: measured, a responsive chart printed a blank box. 680 px is as wide as
+ * the report's text box allows — A4 at 96 dpi less two 1 cm margins is 718 px, less the report's `p-4`,
+ * 686 — and 300 px is the screen's height.
+ */
+const PRINT_CDF_WIDTH = 680;
+const PRINT_CDF_HEIGHT = 300;
+
+/**
+ * One dash pattern per curve, so a black-and-white printer can tell them apart — blue and green print as
+ * one grey (luma 122 and 128). The first curve is solid; none is the target line's 5 5 or the grid's
+ * 3 3. The key shows each curve's pattern.
+ */
+const PRINT_CURVE_DASHES: readonly (string | undefined)[] = [undefined, "9 4", "2 3"];
+
+/**
+ * The S-curves on paper: the screen chart's data, through the same transform, with none of the things a
+ * hidden report cannot do. A fixed size; the light theme's ticks whatever `html.dark` says; no entrance
+ * animation (it draws with `stroke-dasharray`, so a print taken during it left the lines half-drawn); and
+ * no Recharts `<Legend>`, which sizes the plot from a measurement that reads 0 x 0 inside the hidden
+ * report, so it printed on the axis labels — the key below is plain elements instead.
+ */
+function PrintCdfChart({ cdf }: { cdf: ComparisonCdf }) {
+  return (
+    <LineChart
+      width={PRINT_CDF_WIDTH}
+      height={PRINT_CDF_HEIGHT}
+      data={mergeCdfDatasets(cdf.datasets)}
+      margin={{ top: 10, right: 30, left: 0, bottom: 5 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis
+        dataKey="value"
+        type="number"
+        tick={axisTick(false)}
+        tickFormatter={(v) => String(Math.round(v))}
+        domain={["dataMin", "dataMax"]}
+      />
+      <YAxis
+        tick={axisTick(false)}
+        label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
+        domain={[0, 100]}
+      />
+      {cdf.datasets.map((d, i) => (
+        <Line
+          key={d.id}
+          type="monotone"
+          dataKey={d.id}
+          name={d.label}
+          stroke={d.color}
+          strokeDasharray={PRINT_CURVE_DASHES[i]}
+          dot={false}
+          strokeWidth={2}
+          isAnimationActive={false}
+        />
+      ))}
+      <ReferenceLine
+        y={cdf.target * 100}
+        stroke={CDF_TARGET_STROKE}
+        strokeDasharray={CDF_TARGET_DASH}
+        strokeWidth={1}
+      />
+    </LineChart>
+  );
+}
+
+/** The chart's key, in the table's column order: each curve's colour and dash pattern, then its name. */
+function PrintCdfKey({ cdf }: { cdf: ComparisonCdf }) {
+  return (
+    <div className="flex flex-wrap justify-center gap-x-4 gap-y-0.5 mt-0.5 text-xs text-gray-700">
+      {cdf.datasets.map((d, i) => (
+        <span key={d.id} className="inline-flex items-center gap-1">
+          <svg width="24" height="8" aria-hidden="true">
+            <line x1="0" y1="4" x2="24" y2="4" stroke={d.color} strokeWidth="2" strokeDasharray={PRINT_CURVE_DASHES[i]} />
+          </svg>
+          {d.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** A flagged scenario's note, in Compare's words — and EVERY row: paper has no tab to go to for the rest. */
+function PrintFlagNote({ flag }: { flag: ComparisonFlagNote }) {
+  const note = flagNote(flag.input, "compare-print");
+  if (note.rows.length === 1) {
+    return (
+      <p className="mt-1 text-xs text-amber-700">
+        <span className="font-medium text-amber-800">{note.heading}</span> {note.rows[0]} {note.consequence}
+      </p>
+    );
+  }
+  return (
+    <div className="mt-1 text-xs text-amber-700">
+      <p className="font-medium text-amber-800">{note.heading}</p>
+      {note.rows.map((line, i) => (
+        <p key={flag.rowIds[i]}>{line}</p>
+      ))}
+      <p>{note.consequence}</p>
+    </div>
+  );
+}
+
+/**
+ * The screen's table, as the paper sets it: the report's 12 px, and headers that WRAP — on screen they
+ * are `whitespace-nowrap`, and a table wider than the paper made Chrome shrink every page (measured: 77 %
+ * with three 44-character names). Kept whole.
+ */
+function PrintComparisonTable({ model }: { model: ComparisonModel }) {
+  return (
+    <table className="text-xs border-collapse print-section-keep">
+      <thead>
+        <tr className="bg-gray-50 border-b border-gray-200">
+          <th className="text-left px-2.5 py-0.5 text-gray-500 font-medium whitespace-nowrap">Metric</th>
+          {model.columns.map((col) => (
+            <th key={col.id} className="text-right px-2.5 py-0.5 text-gray-900 font-semibold [overflow-wrap:anywhere]">
+              {col.name}
+              {col.flaggedCount > 0 && (
+                <div className="text-xs font-medium text-amber-700">{col.flaggedCount} flagged</div>
+              )}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {model.rows.map((row, i) => (
+          <tr key={row.label} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+            <td className="px-2.5 py-0.5 text-gray-600 whitespace-nowrap">{row.label}</td>
+            {row.values.map((val, j) => (
+              <td
+                key={j}
+                className={`px-2.5 py-0.5 text-right tabular-nums whitespace-nowrap ${row.highlights?.[j] === "best" ? "text-green-700 font-semibold" : "text-gray-900"}`}
+              >
+                {val ?? <span className="text-gray-300">&mdash;</span>}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export interface PrintComparisonSectionProps {
+  /** The LIVE compared scenarios — two or three — in column order. */
+  scenarios: Scenario[];
+  calendar?: WorkCalendar | Calendar;
+  showActivityNumbers: boolean;
+  /** The scenario whose report follows: the one on screen. */
+  reportScenarioName: string;
+  formatDate: FormatDate;
+}
+
+/**
+ * The comparison, printed (WI-61): the screen's table and its notes, then its S-curves whenever the
+ * screen shows them, then the line naming the scenario whose report follows. From the SAME model as the
+ * screen's table, so the words and the marks come from one code path — with the SAVED plan's Run gate
+ * (none: a cell the grid refused to store never leaves a scenario out of the grey note) and every flagged
+ * row (owner rulings, 2026-09-27 and 2026-09-28).
+ * ⚠️ A BLOCK, not the screen's inline-block, and not kept whole: an inline-block cannot break, so a tall
+ * comparison jumped whole to the next page and left page 1 with the header alone. The table and the
+ * S-curves are each kept whole; the notes break between lines; the title never ends a page.
+ */
+export function PrintComparisonSection({
+  scenarios,
+  calendar,
+  showActivityNumbers,
+  reportScenarioName,
+  formatDate,
+}: PrintComparisonSectionProps) {
+  const model = useMemo(
+    () => buildComparisonModel({ scenarios, calendar, showActivityNumbers, runGate: null, formatDate }),
+    [scenarios, calendar, showActivityNumbers, formatDate]
+  );
+  return (
+    <section className="mb-3">
+      <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2 print-comparison-title">
+        Scenario Comparison
+      </h2>
+      <PrintComparisonTable model={model} />
+      {model.flagNotes.map((f) => (
+        <PrintFlagNote key={f.scenarioId} flag={f} />
+      ))}
+      {model.runNote && <p className="mt-1 text-xs text-gray-500">{model.runNote}</p>}
+      {model.failNote && <p className="mt-1 text-xs text-red-700">{model.failNote}</p>}
+      {model.cdf && (
+        <div className="mt-3 print-section-keep bg-white" style={{ width: PRINT_CDF_WIDTH }}>
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">Cumulative Distribution Comparison</h3>
+          <PrintCdfChart cdf={model.cdf} />
+          <PrintCdfKey cdf={model.cdf} />
+          <p className="text-xs text-gray-500 text-center mt-0.5">{model.cdf.caption}</p>
+        </div>
+      )}
+      <p className="mt-2 text-xs">The rest of this report describes {reportScenarioName}.</p>
     </section>
   );
 }

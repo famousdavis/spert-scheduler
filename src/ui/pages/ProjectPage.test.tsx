@@ -912,7 +912,8 @@ describe("ProjectPage — the schedule-error banner is composed, not concatenate
 
     // PREMISE: the banner is actually on screen. Without a genuine cycle there is no error
     // and the assertions below would pass vacuously by finding nothing to contradict them.
-    const heading = screen.getByText("Dependency Cycle");
+    // The screen's banner, not the always-mounted report's copy of its words (WI-61's print box).
+    const heading = screen.getAllByText("Dependency Cycle").find((el) => !el.closest(".print-report"))!;
     expect(heading).toBeInTheDocument();
 
     const banner = heading.parentElement!;

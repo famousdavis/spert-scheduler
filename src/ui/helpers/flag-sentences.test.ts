@@ -142,6 +142,33 @@ describe("the print box", () => {
   });
 });
 
+describe("the printed comparison (WI-61): Compare's words, EVERY row", () => {
+  it("lists all five rows with no 'and N more.', under Compare's heading and consequence", () => {
+    const note = flagNote(
+      input({ scenarioName: "Stretch", rows: [OCM, GDW, MDG, INT, FIN], anyStops: true, errorKind: "estimate" }),
+      "compare-print"
+    );
+    expect(note).toEqual({
+      heading: "Stretch: 5 activities have validation errors.",
+      rows: [
+        "#7 Organizational Change Management Program: Min is above Most Likely.",
+        "#8 Global Design Workshops & Fit-Gap Analysis: Min is above Most Likely.",
+        "#9 Master Data Governance & Standards: Most Likely is above Max.",
+        "#10 Integration Design: Most Likely is above Max.",
+        "#11 Financials Solution Design: Min is above Most Likely.",
+      ],
+      more: null,
+      consequence: "Its schedule cannot be calculated. It cannot be simulated until these are fixed.",
+    });
+  });
+
+  it("one row reads exactly as the screen's note does", () => {
+    expect(inline(flagNote(input({}), "compare-print"))).toBe(
+      "Fast-track: 1 activity has validation errors. #7 Organizational Change Management Program: Min is above Most Likely. It cannot be simulated until this is fixed."
+    );
+  });
+});
+
 describe("the grey run note (W5)", () => {
   it("today's words only when every compared scenario can run", () => {
     expect(compareRunNote(["Baseline"], true)).toBe("Run simulation on all scenarios for complete comparison data.");

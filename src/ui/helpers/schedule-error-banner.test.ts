@@ -243,6 +243,21 @@ describe("getScheduleErrorBanner", () => {
     });
   });
 
+  it("the calendar advice names an estimate or a date that is far off first (WI-61)", () => {
+    // Settings refuses an empty work week, so the calendar errors a user can reach are a typo: an
+    // estimate of thousands of days, or a date typed decades off. Heading and message are unchanged.
+    const banner = getScheduleErrorBanner(
+      scheduleError({ message: "Calendar iteration limit exceeded - date range too large", isCalendarError: true }),
+      null
+    );
+    expect(banner).toEqual({
+      heading: "Calendar Configuration Error",
+      message: "Calendar iteration limit exceeded - date range too large",
+      advice:
+        "Check for an estimate or a date that is far off — a typo such as 9000 days or the year 2062; otherwise check the work week in Settings and your holidays.",
+    });
+  });
+
   it("never returns a banner with an empty heading, message or advice", () => {
     const shown: ScheduleErrorBanner[] = [
       getScheduleErrorBanner(scheduleError(), thrower(), NUMBERS)!,

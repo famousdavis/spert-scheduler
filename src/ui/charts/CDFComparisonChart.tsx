@@ -10,28 +10,24 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
 
 import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 
 import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
-import type { CDFPoint } from "@domain/models/types";
-import { interpolateCDF } from "@ui/helpers/cdf-interpolate";
+import { mergeCdfDatasets, CDF_TARGET_DASH, CDF_TARGET_STROKE, type CDFDataset } from "./cdf-comparison-data";
 // Note: CopyImageButton intentionally NOT imported here. The parent
 // (ScenarioComparison) provides its own copy button in the chrome header.
 // Previously this component had its own floating top-right button, which
 // produced a duplicate when ScenarioComparison added one in v0.44.0/0.44.1.
 
-export interface CDFDataset {
-  label: string;
-  points: CDFPoint[];
-  color: string;
-}
-
 interface CDFComparisonChartProps {
   datasets: CDFDataset[];
   probabilityTarget?: number;
+  /** The words under the chart, from the comparison model — the printed chart prints the same (WI-61). */
+  caption: string;
   formatDurationAsDate?: (days: number) => string;
 }
 
@@ -44,6 +40,7 @@ const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 export function CDFComparisonChart({
   datasets,
   probabilityTarget = 0.95,
+  caption,
   formatDurationAsDate,
 }: CDFComparisonChartProps) {
   const isDark = useIsDarkClass();
@@ -55,27 +52,13 @@ export function CDFComparisonChart({
     );
   }
 
-  // Merge all datasets into a single data array for Recharts
-  // Find the union of all x-values (duration values) across datasets
-  const allValues = new Set<number>();
-  for (const dataset of datasets) {
-    for (const pt of dataset.points) {
-      if (Number.isFinite(pt.value)) {
-        allValues.add(Number(pt.value.toFixed(2)));
-      }
-    }
-  }
-  const sortedValues = Array.from(allValues).sort((a, b) => a - b);
-
-  // Create merged data with interpolated values for each dataset
-  const mergedData = sortedValues.map((value) => {
-    const row: Record<string, number> = { value };
-    for (const dataset of datasets) {
-      const prob = interpolateCDF(dataset.points, value);
-      row[dataset.label] = Number((prob * 100).toFixed(1));
-    }
-    return row;
-  });
+  // One data array for Recharts, keyed by scenario ID — the printed chart draws from the same transform.
+  const mergedData = mergeCdfDatasets(datasets);
+  // ⚠️ The legend follows the TABLE's column order (WI-61). Recharts 3.8.1's Legend sorts by
+  // `itemSorter: 'value'` by default — alphabetically — while the columns follow the tabs. Not
+  // 'dataKey' (that is now the scenario ID: a random order) and not `null` (the registration order,
+  // which Recharts documents as unstable between renders): a function returning the column index.
+  const columnOf = new Map(datasets.map((d, i) => [d.id, i]));
 
   return (
     <div className="bg-white dark:bg-gray-800 p-2">
@@ -110,32 +93,32 @@ export function CDFComparisonChart({
             <Legend
               wrapperStyle={{ fontSize: AXIS_TICK_FONT_SIZE }}
               iconType="line"
+              itemSorter={(item) => columnOf.get(String(item.dataKey)) ?? 0}
             />
             {datasets.map((dataset, idx) => (
               <Line
-                key={dataset.label}
+                key={dataset.id}
                 type="monotone"
-                dataKey={dataset.label}
+                dataKey={dataset.id}
+                name={dataset.label}
                 stroke={dataset.color || COLORS[idx % COLORS.length]}
                 dot={false}
                 strokeWidth={2}
               />
             ))}
-            {/* Reference line for target probability */}
-            <line
-              x1="0%"
-              y1={`${100 - probabilityTarget * 100}%`}
-              x2="100%"
-              y2={`${100 - probabilityTarget * 100}%`}
-              stroke="#6b7280"
-              strokeDasharray="5 5"
+            {/* The target line ON THE PLOT'S SCALE (WI-61). It was a raw <line> at 5 % of the whole
+                SVG, which put the "P95" line at 97.9 % and ran it across the axis labels. */}
+            <ReferenceLine
+              y={probabilityTarget * 100}
+              stroke={CDF_TARGET_STROKE}
+              strokeDasharray={CDF_TARGET_DASH}
               strokeWidth={1}
             />
           </LineChart>
         </ResponsiveContainer>
       {/* Target label */}
       <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
-        Duration (days) &middot; Dashed line: P{Math.round(probabilityTarget * 100)} target
+        {caption}
       </div>
     </div>
   );

@@ -163,6 +163,11 @@ input[type="number"] {
     break-after: avoid;
   }
 
+  /* The printed comparison's title stays with its table (WI-61): it never ends a page. */
+  .print-comparison-title {
+    break-after: avoid;
+  }
+
   /* Print-friendly colors */
   * {
     color-adjust: exact;

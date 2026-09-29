@@ -24,8 +24,12 @@ export function scheduleErrorKind(error: ClassifiableError | null, anyStops: boo
   return anyStops ? "estimate" : "other";
 }
 
-/** Where the sentences are shown: a note under the Compare table, or the box on a printout's first page. */
-export type FlagSurface = "compare" | "print";
+/**
+ * Where the sentences are shown: a note under the Compare table ("compare"), the same note in the
+ * printed comparison ("compare-print" — Compare's words, EVERY row: paper has no tab to go to for the
+ * rest, WI-61), or the box on a printout's first page ("print").
+ */
+export type FlagSurface = "compare" | "compare-print" | "print";
 
 export interface FlagNoteRow {
   /** `#7 Organizational Change Management Program`, or the name alone — numbered by the CALLER, per surface. */
@@ -45,7 +49,7 @@ export interface FlagNoteInput {
 export interface FlagNote {
   /** Compare: `Fast-track: 1 activity has validation errors.` · print: `1 activity has validation errors`. */
   heading: string;
-  /** One line per row, in the summary's words. Compare shows at most `TOAST_NAMED_LIMIT`; print, every row. */
+  /** One line per row, in the summary's words. Compare shows at most `TOAST_NAMED_LIMIT`; paper, every row. */
   rows: string[];
   /** Compare only, past the limit: `and 2 more.` */
   more: string | null;
@@ -66,7 +70,7 @@ function asSentence(text: string): string {
   return text.endsWith(".") ? text : `${text}.`;
 }
 
-const CONSEQUENCES: Record<FlagSurface, { calculate: string; calculateAll: string; simulate: string; simulateAll: string }> = {
+const CONSEQUENCES: Record<"compare" | "print", { calculate: string; calculateAll: string; simulate: string; simulateAll: string }> = {
   compare: {
     calculate: "Its schedule cannot be calculated until this is fixed.",
     calculateAll: "Its schedule cannot be calculated. It cannot be simulated until these are fixed.",
@@ -87,7 +91,7 @@ const CONSEQUENCES: Record<FlagSurface, { calculate: string; calculateAll: strin
  * with every estimate fine, so there the rows stop the simulation only, and the red note says the rest.
  */
 function consequenceOf(input: FlagNoteInput, surface: FlagSurface): string {
-  const words = CONSEQUENCES[surface];
+  const words = CONSEQUENCES[surface === "print" ? "print" : "compare"];
   const one = input.rows.length === 1;
   if (input.errorKind === "estimate" && input.anyStops) {
     return one ? words.calculate : words.calculateAll;
@@ -108,7 +112,7 @@ export function flagNote(input: FlagNoteInput, surface: FlagSurface): FlagNote {
   if (surface === "print") {
     return { heading, rows: lines, more: null, consequence };
   }
-  const shown = lines.slice(0, TOAST_NAMED_LIMIT);
+  const shown = surface === "compare" ? lines.slice(0, TOAST_NAMED_LIMIT) : lines;
   const hidden = lines.length - shown.length;
   return {
     heading: `${input.scenarioName}: ${heading}.`,

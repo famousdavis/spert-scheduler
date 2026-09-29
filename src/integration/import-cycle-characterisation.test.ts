@@ -247,7 +247,11 @@ describe("import characterisation — a broken dependency graph in a project JSO
       isCycleError: false,
     }, null);
     expect(banner!.heading).toBe("Calendar Configuration Error");
-    expect(banner!.advice).toBe("Check your work week settings in Settings.");
+    // v0.72.6 (WI-61): the owner's new advice — the calendar errors a user can reach are a typo in an
+    // estimate or a date, and Settings refuses an empty work week.
+    expect(banner!.advice).toBe(
+      "Check for an estimate or a date that is far off — a typo such as 9000 days or the year 2062; otherwise check the work week in Settings and your holidays."
+    );
   });
 
   it("no error yields no banner, whichever way the flagged-thrower gate points", () => {
