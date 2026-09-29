@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { ScenarioTabs } from "./ScenarioTabs";
 import { createScenario } from "@app/api/project-service";
 
@@ -39,5 +39,50 @@ describe("ScenarioTabs clone control", () => {
     expect(clone).toHaveAccessibleName("Clone scenario");
     expect(clone.querySelector("svg")).not.toBeNull();
     expect(clone.textContent!.trim()).toBe("");
+  });
+});
+
+/**
+ * WI-82 (owner ruling, 2026-09-28): a Compare tick only ticks. The tab selects on `click`, and the
+ * checkbox used to stop only its `change` — so its click reached the tab, and ticking a scenario
+ * also switched to it. The controls are the two ways a tab is still chosen: its name, and a click
+ * anywhere on the tab that is not one of its controls.
+ */
+describe("ScenarioTabs Compare tick (WI-82)", () => {
+  it("a tick toggles the scenario and does not select it; its name and the tab itself still select it", () => {
+    const a = createScenario("Oboe Baseline", "2026-01-05");
+    const b = createScenario("Oboe Crash", "2026-01-05");
+    const onSelect = vi.fn();
+    const onToggleCompare = vi.fn();
+    render(
+      <ScenarioTabs
+        scenarios={[a, b]}
+        activeScenarioId={a.id}
+        onSelect={onSelect}
+        onAdd={vi.fn()}
+        onClone={vi.fn()}
+        onDelete={vi.fn()}
+        compareMode
+        selectedForCompare={new Set<string>()}
+        onToggleCompare={onToggleCompare}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Compare scenario Oboe Crash" }));
+    expect(onToggleCompare).toHaveBeenCalledTimes(1);
+    expect(onToggleCompare).toHaveBeenCalledWith(b.id);
+    expect(onSelect).not.toHaveBeenCalled();
+
+    // The controls, same test: B's name selects it, and so does B's tab outside its controls.
+    const name = screen.getByRole("button", { name: "Oboe Crash" });
+    fireEvent.click(name);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenLastCalledWith(b.id);
+    const tab = name.parentElement!;
+    expect(tab).toContainElement(screen.getByRole("checkbox", { name: "Compare scenario Oboe Crash" })); // it IS B's tab
+    fireEvent.click(tab);
+    expect(onSelect).toHaveBeenCalledTimes(2);
+    expect(onSelect).toHaveBeenLastCalledWith(b.id);
+    expect(onToggleCompare).toHaveBeenCalledTimes(1); // neither selection ticked anything
   });
 });

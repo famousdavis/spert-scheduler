@@ -543,10 +543,12 @@ describe("WI-58 — Compare and print describe the SAVED plan; the Compare table
     return { p: { ...p, scenarios: [...p.scenarios, fast] }, fastId: fast.id, aid: row.id };
   }
 
-  /** Compare mode on, then a tick per name — a tick also selects its tab, so the LAST is on screen. */
-  function compare(...names: string[]) {
+  /** Compare mode on, a tick per name, then `onScreen` chosen by its tab — the scenario on screen
+   *  is chosen by its tab, never by a tick (WI-82). */
+  function compare(names: string[], onScreen: string) {
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
     for (const n of names) fireEvent.click(screen.getByRole("checkbox", { name: `Compare scenario ${n}` }));
+    fireEvent.click(screen.getByRole("button", { name: onScreen }));
   }
 
   /** The SCREEN table's header — the always-mounted report prints a second comparison table (WI-61). */
@@ -567,7 +569,7 @@ describe("WI-58 — Compare and print describe the SAVED plan; the Compare table
   it("a commit that flags the scenario on screen reaches Compare only after the click has landed", async () => {
     const { p, fastId, aid } = twoScenarios();
     renderPage(p);
-    compare("Baseline", "Fast-track");
+    compare(["Baseline", "Fast-track"], "Fast-track");
     expect(header("Fast-track")).not.toBeNull(); // the table is up, unflagged
     typeInto(aid, "min", "14"); // 14/13/22: Min above Most Likely
 
@@ -587,7 +589,7 @@ describe("WI-58 — Compare and print describe the SAVED plan; the Compare table
   it("a cell the grid REFUSED flags neither Compare nor the printout — but the grey note stops asking for that run", () => {
     const { p, aid } = twoScenarios();
     renderPage(p);
-    compare("Baseline", "Fast-track");
+    compare(["Baseline", "Fast-track"], "Fast-track");
     expect(greyNote()).toEqual(["Run simulation on all scenarios for complete comparison data."]);
 
     typeInto(aid, "min", "-5");
@@ -602,8 +604,7 @@ describe("WI-58 — Compare and print describe the SAVED plan; the Compare table
   it("the PRINTED comparison's grey note follows the saved plan: a refused cell leaves no scenario out (WI-61)", () => {
     const { p, aid } = twoScenarios();
     renderPage(p);
-    compare("Baseline", "Fast-track");
-    fireEvent.click(screen.getByRole("button", { name: "Fast-track" })); // on screen by its tab, never by tick order
+    compare(["Baseline", "Fast-track"], "Fast-track"); // on screen by its tab, never by tick order
     typeInto(aid, "min", "-5");
     act(() => cell(aid, "min").blur());
     expect(cell(aid, "min")).toHaveAttribute("aria-invalid", "true"); // refused, on screen
@@ -664,6 +665,75 @@ describe("WI-58 — Compare and print describe the SAVED plan; the Compare table
         "#1 Gannet sluice: Min is above Most Likely" +
         "This scenario cannot be simulated until this is fixed."
     );
+  });
+
+  // WI-82 (owner ruling, 2026-09-28): a Compare tick only ticks. Its click used to reach the tab,
+  // which selects on click, so the scenario ticked LAST ended on screen — and the one left behind
+  // lost any entry its grid had refused.
+  /** A scenario tab's name button, on screen — never a copy in the always-mounted report. */
+  const tabName = (name: string) => {
+    const found = screen.getAllByRole("button", { name }).filter((el) => !el.closest(".print-report"));
+    expect(found).toHaveLength(1);
+    return found[0]!;
+  };
+  const tick = (name: string) => fireEvent.click(screen.getByRole("checkbox", { name: `Compare scenario ${name}` }));
+  /** A grid row, by its name cell — on screen, never in the report. */
+  const gridRow = (aid: string) => {
+    const el = cell(aid, "name");
+    return el && !el.closest(".print-report") ? el : null;
+  };
+
+  it("a tick only ticks: the scenario on screen stays there while both are compared, and a click on a tab still selects it (WI-82)", () => {
+    const { p, aid: fastAid } = twoScenarios();
+    const baseAid = p.scenarios[0]!.activities[0]!.id;
+    renderPage(p);
+    expect(tabName("Baseline")).toHaveAttribute("aria-current", "true"); // premise: Baseline on screen
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+    tick("Baseline");
+    tick("Fast-track");
+
+    expect(header("Baseline")).not.toBeNull(); // both ticks landed: the table compares the two
+    expect(header("Fast-track")).not.toBeNull();
+    expect(tabName("Baseline")).toHaveAttribute("aria-current", "true");
+    expect(tabName("Fast-track")).not.toHaveAttribute("aria-current");
+    expect(gridRow(baseAid)).not.toBeNull();
+    expect(gridRow(fastAid)).toBeNull();
+
+    // The control, same test: a click on Fast-track's tab, outside its controls, selects it.
+    const fastTab = tabName("Fast-track").parentElement!;
+    expect(fastTab).toContainElement(screen.getByRole("checkbox", { name: "Compare scenario Fast-track" })); // it IS the tab
+    fireEvent.click(fastTab);
+    expect(tabName("Fast-track")).toHaveAttribute("aria-current", "true");
+    expect(tabName("Baseline")).not.toHaveAttribute("aria-current");
+    expect(gridRow(fastAid)).not.toBeNull();
+    expect(gridRow(baseAid)).toBeNull();
+  });
+
+  it("an entry the grid REFUSED survives a tick; a switch to another tab and back still drops it, by design (WI-82)", () => {
+    const { p } = twoScenarios();
+    const baseAid = p.scenarios[0]!.activities[0]!.id;
+    renderPage(p);
+    typeInto(baseAid, "min", "-5");
+    act(() => cell(baseAid, "min").blur());
+    expect(stored(p.id, baseAid).min).toBe(9); // premise: refused, not saved...
+    expect(cell(baseAid, "min").value).toBe("-5"); // ...and still shown, flagged
+    expect(cell(baseAid, "min")).toHaveAttribute("aria-invalid", "true");
+    expect(summary()).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+    tick("Baseline");
+    tick("Fast-track");
+    expect(header("Fast-track")).not.toBeNull(); // the ticks landed
+    expect(cell(baseAid, "min").value).toBe("-5");
+    expect(cell(baseAid, "min")).toHaveAttribute("aria-invalid", "true");
+    expect(summary()).not.toBeNull();
+
+    // The control, same test: a deliberate switch away and back drops the refused entry.
+    fireEvent.click(tabName("Fast-track"));
+    fireEvent.click(tabName("Baseline"));
+    expect(cell(baseAid, "min").value).toBe("9");
+    expect(cell(baseAid, "min")).not.toHaveAttribute("aria-invalid");
+    expect(summary()).toBeNull();
   });
 });
 
