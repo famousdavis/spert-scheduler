@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.12",
+    date: "2026-09-30",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "In the bulk toolbar, Distribution now comes before Confidence, as it already does in the activity grid, the Edit Activity window, the printed report and the exported schedule.",
+          "When you choose Uniform or Triangular there, Confidence is greyed out, and any level you had picked in it is dropped, because those distributions do not use a confidence level. Applying the change leaves each activity’s own confidence level as it was. Choose T-Normal, LogNormal or Beta-PERT instead and Confidence is available again, empty.",
+          "With no distribution chosen, Confidence stays available: it changes the selected activities that use a confidence level, and on the others it is kept, taking effect if one is later changed to a distribution that uses it.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.72.11",
     date: "2026-09-30",
     sections: [

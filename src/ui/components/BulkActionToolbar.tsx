@@ -126,8 +126,8 @@ export function BulkActionToolbar({
         {selectedCount} selected
       </span>
 
-      {/* Distribution type dropdown — BEFORE Confidence, the order of every other surface (WI-25
-          swapped six in v0.67.0; this toolbar was the seventh, fixed in WI-32) */}
+      {/* Distribution type dropdown — BEFORE Confidence, as in the grid, the Edit Activity window,
+          print and export since v0.67.0. This toolbar was missed then; fixed in WI-32. */}
       <select
         name="bulkDistribution"
         aria-label="Set distribution for selected activities"
