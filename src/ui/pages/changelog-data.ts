@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.10",
+    date: "2026-09-29",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Nothing about the app changed. A test only, and the script that checks it: no application code, no behaviour, no appearance, no data.",
+          "A release check that ran close to its time limit is now quick. One check confirms that a project already holding the maximum of fifty scenarios refuses a fifty-first, with a message saying why: on a page with fifty scenario tabs it opens the + button’s Add Scenario window, types a name and presses Add. To find the window’s name field and its Add button it searched the whole page — about 1,400 elements, some 280 of them buttons — and those two searches were most of its time: 71–72% when it ran on its own, 84–88% when the whole suite ran together. It took 0.6–0.7 seconds on its own, 1.0–1.3 seconds in the full suite, and up to 5 seconds on a heavily loaded machine, against a 5-second limit: once it ran out, which would have failed a release for no reason in the app. It now searches only the Add Scenario window, where both are: 0.19 seconds on its own and 0.17–0.25 in the full suite (three runs each, before and after), and with the same ten processes hogging the processor, 0.37 seconds where it had taken 2.4. It still opens the same window on the same fifty-scenario page, presses the same button, and checks the same message and that the project still holds fifty. The check was broken on purpose four ways — the page’s limit removed, the message’s words changed, the limit read as “more than fifty”, and the window’s Add button disconnected — and each failed this check and nothing else, across the whole suite, both before and after the change.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.72.9",
     date: "2026-09-29",
     sections: [
