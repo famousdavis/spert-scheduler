@@ -560,6 +560,43 @@ describe("ProjectPage — scenario lifecycle guards", () => {
       MAX_SCENARIOS_PER_PROJECT
     );
   });
+
+  /**
+   * WI-89 — the Clone Scenario window's path to the cap, which the test above does not reach:
+   * a tab's Clone button opens CloneScenarioDialog, whose Clone calls handleClone, and
+   * handleClone carries its own copy of the guard.
+   *
+   * ⚠️ The toast is the only witness. The store refuses a clone at the cap by itself, so with
+   * the page's guard removed the count still stays at fifty (measured in WI-88).
+   */
+  it("cloning past the scenario cap is refused with an explanatory toast", () => {
+    const names = Array.from(
+      { length: MAX_SCENARIOS_PER_PROJECT },
+      (_, i) => `${SCENARIO_A} ${i + 1}`
+    );
+    const p = makeProject(PROJECT_NAME, names);
+    renderPage(p);
+
+    // Every lookup is narrow, for the reason the test above gives (WI-88). The first tab is
+    // found by its name among the page's buttons alone, never by role across the whole page,
+    // and its Clone button and the window's controls are then looked for inside the tab and
+    // the window.
+    const tab = screen.getByText(`${SCENARIO_A} 1`, { selector: "button" }).parentElement!;
+    fireEvent.click(within(tab).getByRole("button", { name: "Clone scenario" }));
+    const dialog = screen.getByRole("dialog", { name: "Clone Scenario" });
+
+    // The control: the window is open and nothing has been refused yet.
+    expect(errorToasts()).toEqual([]);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clone" }));
+
+    expect(errorToasts().join(" ")).toContain(
+      `maximum of ${MAX_SCENARIOS_PER_PROJECT} scenarios`
+    );
+    expect(useProjectStore.getState().getProject(p.id)!.scenarios).toHaveLength(
+      MAX_SCENARIOS_PER_PROJECT
+    );
+  });
 });
 
 // -- keyboard wiring ----------------------------------------------------------
