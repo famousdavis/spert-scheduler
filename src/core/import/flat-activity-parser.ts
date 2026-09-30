@@ -93,15 +93,15 @@ const REQUIRED_FIELDS = [
   "confidence",
 ] as const;
 
-/** Default column order when no header is detected and user opts to treat first row as data */
-const DEFAULT_COLUMN_ORDER = [
+/** Headerless column order (assumeDefaultColumnOrder) — the CSV template's order, pinned together by a test */
+export const DEFAULT_COLUMN_ORDER = [
   "activityId",
   "name",
   "min",
   "mostLikely",
   "max",
-  "confidence",
   "distribution",
+  "confidence",
   "status",
   "predecessors",
 ] as const;
@@ -110,7 +110,7 @@ interface HeaderMap {
   [field: string]: number; // field name → column index
 }
 
-function resolveHeaders(
+export function resolveHeaders(
   headerRow: string[]
 ): { headers: HeaderMap } | { missingFields: string[] } {
   const headers: HeaderMap = {};

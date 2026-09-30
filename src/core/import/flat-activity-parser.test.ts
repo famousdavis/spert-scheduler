@@ -762,9 +762,11 @@ describe("Edge cases", () => {
   });
 
   it("supports assumeDefaultColumnOrder option (no header row)", () => {
+    // Headerless rows are read in the template's order: Distribution BEFORE Confidence (v0.73.0).
+    // Written out, not built with validRow(), whose order is HEADER_ROW's for the header tests.
     const rows = [
-      validRow("A1", "Task 1", "2", "4", "8", "Medium"),
-      validRow("A2", "Task 2", "3", "5", "9", "High", "normal", "planned", "A1"),
+      ["A1", "Task 1", "2", "4", "8", "normal", "Medium", "planned", ""],
+      ["A2", "Task 2", "3", "5", "9", "logNormal", "High", "planned", "A1"],
     ];
     const result = parseFlatActivityTable(rows, makeIdGen(), {
       assumeDefaultColumnOrder: true,
@@ -772,6 +774,8 @@ describe("Edge cases", () => {
     expect(result.errors).toHaveLength(0);
     expect(result.activities).toHaveLength(2);
     expect(result.dependencies).toHaveLength(1);
+    expect(result.activities[1]!.distributionType).toBe("logNormal");
+    expect(result.activities[1]!.confidenceLevel).toBe("highConfidence");
   });
 
   it("sets noHeaderDetected when first row looks like data but has no header", () => {
@@ -956,8 +960,8 @@ describe("Section row skip via Type column", () => {
     // row including the first as data and uses the 9-column default order. Both
     // rows below have valid estimates and would be skipped if section-skip fired.
     const rows: string[][] = [
-      ["A1", "Task 1", "2", "4", "8", "Medium", "normal", "planned", ""],
-      ["S1", "Header", "1", "2", "3", "Medium", "normal", "planned", ""],
+      ["A1", "Task 1", "2", "4", "8", "normal", "Medium", "planned", ""],
+      ["S1", "Header", "1", "2", "3", "normal", "Medium", "planned", ""],
     ];
     const result = parseFlatActivityTable(rows, makeIdGen(), { assumeDefaultColumnOrder: true });
     // Both rows are treated as activities; Type column is not consulted
@@ -967,7 +971,7 @@ describe("Section row skip via Type column", () => {
   it("assumeDefaultColumnOrder with 500+ rows still hits activity-limit early-exit", () => {
     const rows: string[][] = [];
     for (let i = 1; i <= 510; i++) {
-      rows.push([`A${i}`, `Task ${i}`, "1", "2", "3", "Medium", "normal", "planned", ""]);
+      rows.push([`A${i}`, `Task ${i}`, "1", "2", "3", "normal", "Medium", "planned", ""]);
     }
     const result = parseFlatActivityTable(rows, makeIdGen(), { assumeDefaultColumnOrder: true });
     expect(result.activities).toHaveLength(500);

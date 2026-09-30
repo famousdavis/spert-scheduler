@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { RSMLevel, DistributionType, ActivityStatus } from "@domain/models/types";
 import { RSM_LEVELS, RSM_LABELS, DISTRIBUTION_TYPES, ACTIVITY_STATUSES } from "@domain/models/types";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
+import { confidenceApplies, CONFIDENCE_NA_TITLE } from "@domain/helpers/confidence-applies";
 import { confirmDialog } from "@ui/hooks/use-confirm-store";
 
 export interface BulkApplyPayload {
@@ -13,6 +14,23 @@ export interface BulkApplyPayload {
   distributionType?: DistributionType;
   status?: ActivityStatus;
   recalculateHeuristic?: boolean;
+}
+
+/**
+ * Does the STAGED distribution make a Confidence level meaningless? Only when one is staged and
+ * `confidenceApplies` says it ignores the level (Triangular, Uniform). The toolbar then disables
+ * its Confidence menu and clears any level staged there (WI-32, owner ruling, 2026-09-06).
+ *
+ * ⚠️ NOTHING STAGED → `false`, so Confidence stays ENABLED. That is deliberate, and it differs
+ * from the grid, which disables Confidence on a single Triangular or Uniform activity: the grid
+ * edits ONE activity of a known type, while this toolbar edits a SET of mixed types. Setting a
+ * level on the whole set changes the activities that use one and does no harm to the others —
+ * Triangular and Uniform never read the level, and nothing strips a stored level, so it takes
+ * effect if that activity's distribution is later changed to one that uses it (owner ruling,
+ * 2026-09-06). Not a defect; do not "align" it with the grid.
+ */
+function stagedDistributionIgnoresConfidence(staged: DistributionType | ""): boolean {
+  return staged !== "" && !confidenceApplies(staged);
 }
 
 interface BulkActionToolbarProps {
@@ -39,6 +57,16 @@ export function BulkActionToolbar({
   const [stagedStatus, setStagedStatus] = useState<ActivityStatus | "">("");
 
   const hasStaged = stagedConfidence !== "" || stagedDistribution !== "" || stagedStatus !== "";
+  const confidenceDisabled = stagedDistributionIgnoresConfidence(stagedDistribution);
+
+  // The level is CLEARED here, in the handler — never in an effect — so a disabled menu shows its
+  // placeholder rather than a level that reads as "this will be applied", and Apply sends none.
+  // Staging a distribution that uses Confidence again re-enables the menu EMPTY: the earlier
+  // level is not restored.
+  const handleDistributionChange = (value: DistributionType | "") => {
+    setStagedDistribution(value);
+    if (stagedDistributionIgnoresConfidence(value)) setStagedConfidence("");
+  };
 
   const handleApply = async () => {
     if (!hasStaged) return;
@@ -98,34 +126,40 @@ export function BulkActionToolbar({
         {selectedCount} selected
       </span>
 
-      {/* Confidence level dropdown */}
-      <select
-        name="bulkConfidence"
-        aria-label="Set confidence level for selected activities"
-        value={stagedConfidence}
-        onChange={(e) => setStagedConfidence(e.target.value as RSMLevel | "")}
-        className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"
-      >
-        <option value="">Set Confidence...</option>
-        {RSM_LEVELS.map((level) => (
-          <option key={level} value={level}>
-            {RSM_LABELS[level]}
-          </option>
-        ))}
-      </select>
-
-      {/* Distribution type dropdown */}
+      {/* Distribution type dropdown — BEFORE Confidence, as in the grid, the Edit Activity window,
+          print and export since v0.67.0. This toolbar was missed then; fixed in WI-32. */}
       <select
         name="bulkDistribution"
         aria-label="Set distribution for selected activities"
         value={stagedDistribution}
-        onChange={(e) => setStagedDistribution(e.target.value as DistributionType | "")}
+        onChange={(e) => handleDistributionChange(e.target.value as DistributionType | "")}
         className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500"
       >
         <option value="">Set Distribution...</option>
         {DISTRIBUTION_TYPES.map((dt) => (
           <option key={dt} value={dt}>
             {distributionLabel(dt)}
+          </option>
+        ))}
+      </select>
+
+      {/* Confidence level dropdown — disabled while the staged distribution ignores it. A native
+          <select> stays truthful disabled here because the level was cleared with it, so it shows
+          its placeholder; the Edit Activity window shows a dash instead, because a disabled menu
+          there would still show the activity's own level. */}
+      <select
+        name="bulkConfidence"
+        aria-label="Set confidence level for selected activities"
+        value={stagedConfidence}
+        onChange={(e) => setStagedConfidence(e.target.value as RSMLevel | "")}
+        disabled={confidenceDisabled}
+        title={confidenceDisabled ? CONFIDENCE_NA_TITLE : undefined}
+        className="px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <option value="">Set Confidence...</option>
+        {RSM_LEVELS.map((level) => (
+          <option key={level} value={level}>
+            {RSM_LABELS[level]}
           </option>
         ))}
       </select>
