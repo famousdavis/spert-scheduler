@@ -837,6 +837,49 @@ describe("ProjectPage — compare mode", () => {
     expect(box(SCENARIO_D)).toBeEnabled();
     expect(box(SCENARIO_D)).not.toHaveAttribute("title");
   });
+
+  it("a ticked scenario that is deleted stops counting toward the three (WI-62)", async () => {
+    const p = makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B, SCENARIO_C, SCENARIO_D]);
+    renderPage(p);
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+    const box = (name: string) =>
+      screen.getByRole("checkbox", { name: `Compare scenario ${name}` });
+    // Only the Compare boxes: the page has other checkboxes, some ticked by default.
+    const ticked = () =>
+      screen.getAllByRole("checkbox", { name: /^Compare scenario /, checked: true });
+    fireEvent.click(box(SCENARIO_A));
+    fireEvent.click(box(SCENARIO_B));
+    fireEvent.click(box(SCENARIO_C));
+    // The control, same test: with three ticked, the fourth box is greyed.
+    expect(ticked()).toHaveLength(3);
+    expect(box(SCENARIO_D)).toBeDisabled();
+
+    // Delete a TICKED scenario through its tab's ✕, and confirm.
+    fireEvent.click(within(tabRoot(SCENARIO_C)).getByTitle("Delete scenario"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(useProjectStore.getState().getProject(p.id)!.scenarios).toHaveLength(3);
+
+    // Two are ticked now, so the fourth box is free again, and says nothing.
+    expect(ticked()).toHaveLength(2);
+    expect(box(SCENARIO_D)).toBeEnabled();
+    expect(box(SCENARIO_D)).not.toHaveAttribute("title");
+
+    // It can take the deleted one's place.
+    fireEvent.click(box(SCENARIO_D));
+    expect(ticked()).toHaveLength(3);
+    // The on-screen table (h3); the printable report carries its own copy under an h2.
+    const table = screen
+      .getByRole("heading", { level: 3, name: "Scenario Comparison" })
+      .closest("div.inline-block") as HTMLElement;
+    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual([
+      "Metric",
+      SCENARIO_A,
+      SCENARIO_B,
+      SCENARIO_D,
+    ]);
+  });
 });
 
 // -- cloning a scenario -------------------------------------------------------

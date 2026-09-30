@@ -140,8 +140,32 @@ describe("useScenarioComparison", () => {
       rerender({ scenarios: SCENARIOS.filter((s) => s.id !== "s4") });
 
       expect(result.current.compareScenarios.map((s) => s.id)).toEqual(["s1"]);
-      // The id stays in the selection set — the filter is what protects the render.
-      expect(result.current.selectedForCompare.has("s4")).toBe(true);
+      // WI-62: the selection the tabs read is the LIVE one — a gone scenario's id is not in it.
+      // (It used to stay, and the limit and the tabs' greyed boxes counted it.)
+      expect(result.current.selectedForCompare.has("s4")).toBe(false);
+    });
+
+    it("a ticked scenario that is deleted frees its place under the limit (WI-62)", () => {
+      const { result, rerender } = renderHook(
+        ({ scenarios }) => useScenarioComparison(scenarios),
+        { initialProps: { scenarios: SCENARIOS } },
+      );
+      act(() => result.current.handleToggleCompareMode());
+      act(() => {
+        result.current.handleToggleCompare("s1");
+        result.current.handleToggleCompare("s2");
+        result.current.handleToggleCompare("s3");
+      });
+      // The control, same test: at the limit, a fourth tick is refused.
+      act(() => result.current.handleToggleCompare("s4"));
+      expect(result.current.selectedForCompare.has("s4")).toBe(false);
+
+      rerender({ scenarios: SCENARIOS.filter((s) => s.id !== "s3") });
+      expect([...result.current.selectedForCompare].sort()).toEqual(["s1", "s2"]);
+
+      act(() => result.current.handleToggleCompare("s4"));
+      expect([...result.current.selectedForCompare].sort()).toEqual(["s1", "s2", "s4"]);
+      expect(result.current.compareScenarios.map((s) => s.id)).toEqual(["s1", "s2", "s4"]);
     });
   });
 });
