@@ -254,7 +254,7 @@ describe("useProjectStore", () => {
     expect(updated.scenarios[0]!.activities).toHaveLength(1);
   });
 
-  it("duplicates scenario with new IDs (clone inserted to left of source)", () => {
+  it("duplicates scenario with new IDs (clone inserted to the right of its source)", () => {
     const store = useProjectStore.getState();
     const project = store.addProject("Clone Test", null);
 
@@ -267,10 +267,11 @@ describe("useProjectStore", () => {
 
     updated = useProjectStore.getState().getProject(project.id)!;
     expect(updated.scenarios).toHaveLength(2);
-    // Clone is inserted at the source index (0), pushing original to index 1
-    expect(updated.scenarios[0]!.name).toBe("Clone");
-    expect(updated.scenarios[0]!.id).not.toBe(baselineId);
-    expect(updated.scenarios[1]!.id).toBe(baselineId);
+    // Cloning the FIRST scenario leaves it first; the clone goes to its right (WI-62)
+    expect(updated.scenarios[0]!.id).toBe(baselineId);
+    expect(updated.scenarios[0]!.name).toBe("Baseline");
+    expect(updated.scenarios[1]!.name).toBe("Clone");
+    expect(updated.scenarios[1]!.id).not.toBe(baselineId);
   });
 
   it("duplicateScenario returns the new clone's ID", () => {
@@ -285,7 +286,7 @@ describe("useProjectStore", () => {
     expect(newId).toBeTruthy();
     expect(newId).not.toBe(baselineId);
     const after = useProjectStore.getState().getProject(project.id)!;
-    expect(after.scenarios[0]!.id).toBe(newId);
+    expect(after.scenarios[1]!.id).toBe(newId);
   });
 
   it("duplicateScenario returns undefined for unknown projectId", () => {
@@ -329,7 +330,7 @@ describe("useProjectStore", () => {
     expect(after.scenarios).toHaveLength(MAX_SCENARIOS_PER_PROJECT);
   });
 
-  it("cloning a middle scenario inserts clone at source index", () => {
+  it("cloning a middle scenario inserts the clone immediately to its right", () => {
     const store = useProjectStore.getState();
     const project = store.addProject("Middle Clone Test", null);
     // Project starts with Baseline; add A and B
@@ -345,15 +346,15 @@ describe("useProjectStore", () => {
     expect(updated.scenarios).toHaveLength(4);
     expect(updated.scenarios.map((s) => s.name)).toEqual([
       "Baseline",
-      "A_clone",
       "A",
+      "A_clone",
       "B",
     ]);
-    expect(updated.scenarios[1]!.id).toBe(cloneId);
-    expect(updated.scenarios[2]!.id).toBe(aId);
+    expect(updated.scenarios[1]!.id).toBe(aId);
+    expect(updated.scenarios[2]!.id).toBe(cloneId);
   });
 
-  it("cloning the last scenario places clone at length-2", () => {
+  it("cloning the last scenario places the clone last", () => {
     const store = useProjectStore.getState();
     const project = store.addProject("Last Clone Test", null);
     store.addScenario(project.id, "A", "2025-01-06");
@@ -368,11 +369,11 @@ describe("useProjectStore", () => {
     expect(updated.scenarios.map((s) => s.name)).toEqual([
       "Baseline",
       "A",
-      "B_clone",
       "B",
+      "B_clone",
     ]);
-    expect(updated.scenarios[2]!.id).toBe(cloneId);
-    expect(updated.scenarios[3]!.id).toBe(bId);
+    expect(updated.scenarios[2]!.id).toBe(bId);
+    expect(updated.scenarios[3]!.id).toBe(cloneId);
   });
 
   // Scenario locking tests

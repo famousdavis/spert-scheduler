@@ -1038,7 +1038,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       const clone = cloneScenario(scenario, newName, options);
       newCloneId = clone.id;
       const projects = state.projects.map((p) =>
-        p.id === projectId ? addScenarioToProject(p, clone, sourceIndex) : p
+        p.id === projectId ? addScenarioToProject(p, clone, sourceIndex + 1) : p
       );
       return { projects: persist(projects, projectId, "results-unaffected") };
     });

@@ -815,6 +815,100 @@ describe("ProjectPage — compare mode", () => {
       screen.getByRole("button", { name: "Exit Compare" })
     ).toBeInTheDocument();
   });
+
+  it("once three are ticked the fourth box is greyed, and unticking one frees it (WI-87)", () => {
+    renderPage(makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B, SCENARIO_C, SCENARIO_D]));
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+    const box = (name: string) =>
+      screen.getByRole("checkbox", { name: `Compare scenario ${name}` });
+
+    // The control, same test: at two ticked, the fourth box is still free.
+    fireEvent.click(box(SCENARIO_A));
+    fireEvent.click(box(SCENARIO_B));
+    expect(box(SCENARIO_D)).toBeEnabled();
+
+    fireEvent.click(box(SCENARIO_C));
+    expect(box(SCENARIO_D)).toBeDisabled();
+    expect(box(SCENARIO_D)).toHaveAccessibleDescription("You can compare up to three scenarios.");
+    expect(box(SCENARIO_B)).toBeEnabled(); // a ticked box can always be unticked
+
+    fireEvent.click(box(SCENARIO_B));
+    expect(box(SCENARIO_B)).not.toBeChecked();
+    expect(box(SCENARIO_D)).toBeEnabled();
+    expect(box(SCENARIO_D)).not.toHaveAttribute("title");
+  });
+
+  it("a ticked scenario that is deleted stops counting toward the three (WI-62)", async () => {
+    const p = makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B, SCENARIO_C, SCENARIO_D]);
+    renderPage(p);
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+    const box = (name: string) =>
+      screen.getByRole("checkbox", { name: `Compare scenario ${name}` });
+    // Only the Compare boxes: the page has other checkboxes, some ticked by default.
+    const ticked = () =>
+      screen.getAllByRole("checkbox", { name: /^Compare scenario /, checked: true });
+    fireEvent.click(box(SCENARIO_A));
+    fireEvent.click(box(SCENARIO_B));
+    fireEvent.click(box(SCENARIO_C));
+    // The control, same test: with three ticked, the fourth box is greyed.
+    expect(ticked()).toHaveLength(3);
+    expect(box(SCENARIO_D)).toBeDisabled();
+
+    // Delete a TICKED scenario through its tab's ✕, and confirm.
+    fireEvent.click(within(tabRoot(SCENARIO_C)).getByTitle("Delete scenario"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(useProjectStore.getState().getProject(p.id)!.scenarios).toHaveLength(3);
+
+    // Two are ticked now, so the fourth box is free again, and says nothing.
+    expect(ticked()).toHaveLength(2);
+    expect(box(SCENARIO_D)).toBeEnabled();
+    expect(box(SCENARIO_D)).not.toHaveAttribute("title");
+
+    // It can take the deleted one's place.
+    fireEvent.click(box(SCENARIO_D));
+    expect(ticked()).toHaveLength(3);
+    // The on-screen table (h3); the printable report carries its own copy under an h2.
+    const table = screen
+      .getByRole("heading", { level: 3, name: "Scenario Comparison" })
+      .closest("div.inline-block") as HTMLElement;
+    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual([
+      "Metric",
+      SCENARIO_A,
+      SCENARIO_B,
+      SCENARIO_D,
+    ]);
+  });
+});
+
+// -- cloning a scenario -------------------------------------------------------
+
+describe("ProjectPage — cloning a scenario", () => {
+  /** Scenario names in tab order, read from the drag handles (one per tab, named after it). */
+  const tabOrder = () =>
+    screen
+      .getAllByRole("button", { name: /^Reorder scenario / })
+      .map((h) => h.getAttribute("aria-label")!.replace(/^Reorder scenario /, ""));
+
+  it("Clone Scenario on the first tab leaves it first and bold; the copy goes to its right (WI-62)", async () => {
+    renderPage(makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B]));
+    // The control, same test: before the clone, A is first and is the bold tab.
+    expect(tabOrder()).toEqual([SCENARIO_A, SCENARIO_B]);
+    expect(tabButton(SCENARIO_A)).toHaveClass("font-semibold");
+
+    fireEvent.click(within(tabRoot(SCENARIO_A)).getByRole("button", { name: "Clone scenario" }));
+    const dialog = await screen.findByRole("dialog", { name: "Clone Scenario" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clone" }));
+
+    const copy = `${SCENARIO_A} (Copy)`;
+    await waitFor(() => expect(tabOrder()).toEqual([SCENARIO_A, copy, SCENARIO_B]));
+    // The bold marks the FIRST tab (the tab's only carrier of it is this class): still A's.
+    expect(tabButton(SCENARIO_A)).toHaveClass("font-semibold");
+    expect(tabButton(copy)).not.toHaveClass("font-semibold");
+    // The clone still becomes the scenario on screen.
+    expectActiveScenario(copy, [SCENARIO_A, SCENARIO_B]);
+  });
 });
 
 // -- Connect AI gating --------------------------------------------------------

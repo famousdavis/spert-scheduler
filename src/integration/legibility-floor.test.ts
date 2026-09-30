@@ -287,7 +287,9 @@ const RULED_EXCEPTIONS: Record<string, string> = {
   'src/ui/charts/GanttChart.tsx:198': 'disabled state, paired with cursor-not-allowed',
   'src/ui/components/StorageLoginModal.tsx:135': 'the disabled half of a ternary',
   'src/ui/components/UnifiedActivityRow.tsx:546': 'icon-only control, no text node',
-  'src/ui/components/ScenarioTabs.tsx:117': 'drag-handle icon',
+  // Re-keyed :117 → :140 in WI-62: the same drag handle, byte-identical, moved down by the
+  // Compare-limit helper and prop added above it (WI-87). Not a new site.
+  'src/ui/components/ScenarioTabs.tsx:140': 'drag-handle icon',
   // Re-keyed :331 / :346 → :341 / :356 in v0.71.0: the same two add-form <select>s (Predecessor,
   // Successor), byte-identical, moved down by the panel's remembered collapse. Not new sites.
   'src/ui/components/DependencyPanel.tsx:341': '<select> placeholder state',
