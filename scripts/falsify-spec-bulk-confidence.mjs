@@ -2,10 +2,13 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-// Falsification spec for the bulk toolbar's Confidence menu (WI-32, v0.72.12).
+// Falsification spec for WI-32 (v0.73.0): Distribution before Confidence in the bulk toolbar,
+// the CSV import template and the headerless column order.
 //
 //   BulkActionToolbar.confidence.test.tsx — Distribution before Confidence; Confidence disabled,
 //     titled and cleared while Triangular or Uniform is staged; enabled with nothing staged.
+//   import-template-column-order.test.ts — the template's header resolves to
+//     DEFAULT_COLUMN_ORDER, and its rows import the same pasted headerless as from the file.
 //
 // Each straw names EXACTLY the tests it must fail, and no others, written down before the run.
 // Read "K failing; named-match K", not merely a non-zero exit: the runner passes a straw on any
@@ -30,6 +33,16 @@ const NOTHING = "nothing staged → Confidence enabled, and returning to the pla
 const CLEARED = "the menu falls back to its placeholder, and T-Normal brings it back EMPTY";
 const PAYLOAD = "Apply sends no level with Triangular — and, the control, sends it with T-Normal";
 
+const PARSER = new URL("../src/core/import/flat-activity-parser.ts", import.meta.url).pathname;
+const TEMPLATE = new URL("../public/spert-activity-import-template.csv", import.meta.url).pathname;
+
+const TEMPLATE_ORDER = "the template's header resolves to DEFAULT_COLUMN_ORDER, then Type";
+const TEMPLATE_ROWS = "its rows import the same pasted without the header as from the file with it";
+const HEADERLESS_1 = "supports assumeDefaultColumnOrder option (no header row)";
+const HEADERLESS_2 =
+  "assumeDefaultColumnOrder path does not trigger section skip (Type absent from default order)";
+const HEADERLESS_3 = "assumeDefaultColumnOrder with 500+ rows still hits activity-limit early-exit";
+
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /** Matches exactly these test titles, as the verbose reporter prints them. */
@@ -50,6 +63,33 @@ const status = at("      {/* Status dropdown");
 if (!(dist < conf && conf < status)) throw new Error("falsify-spec-bulk-confidence: menus out of order");
 const DIST_BLOCK = source.slice(dist, conf);
 const CONF_BLOCK = source.slice(conf, status);
+
+// T1 puts the template's Confidence Level and Distribution columns back in their pre-v0.73.0
+// places, in the header and every data row; the comment lines are left as they are.
+const template = readFileSync(TEMPLATE, "utf8");
+const splitCsv = (line) => {
+  const out = [];
+  let cur = "";
+  let quoted = false;
+  for (const ch of line) {
+    if (ch === '"') quoted = !quoted;
+    else if (ch === "," && !quoted) {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+};
+const TEMPLATE_SWAPPED_BACK = template
+  .split("\n")
+  .map((line) => {
+    if (line === "" || line.startsWith("#")) return line;
+    const c = splitCsv(line);
+    [c[5], c[6]] = [c[6], c[5]];
+    return c.map((v) => (v.includes(",") ? `"${v}"` : v)).join(",");
+  })
+  .join("\n");
 
 export const testFile = "src/";
 export const mutations = [
@@ -97,5 +137,21 @@ export const mutations = [
     find: 'return staged !== "" && !confidenceApplies(staged);',
     replace: 'return staged === "" || !confidenceApplies(staged);',
     expectFailing: only(TRIANGULAR, UNIFORM, NOTHING),
+  },
+  {
+    id: "T1  the template's columns swapped back  [expect 2: TEMPLATE_ORDER, TEMPLATE_ROWS]",
+    file: TEMPLATE,
+    find: template,
+    replace: TEMPLATE_SWAPPED_BACK,
+    expectFailing: only(TEMPLATE_ORDER, TEMPLATE_ROWS),
+  },
+  {
+    // The headerless order back to Confidence first: the template no longer matches it, and the
+    // three headerless parser tests, whose rows are in the new order, no longer parse.
+    id: "T2  DEFAULT_COLUMN_ORDER swapped back  [expect 5: TEMPLATE_ORDER, TEMPLATE_ROWS, HEADERLESS_1-3]",
+    file: PARSER,
+    find: '  "distribution",\n  "confidence",\n',
+    replace: '  "confidence",\n  "distribution",\n',
+    expectFailing: only(TEMPLATE_ORDER, TEMPLATE_ROWS, HEADERLESS_1, HEADERLESS_2, HEADERLESS_3),
   },
 ];
