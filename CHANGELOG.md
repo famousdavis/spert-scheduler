@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.72.11 — 2026-09-30
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.72.10.
+
+### Internal
+
+- **Two things the app does had no check of their own, and now each has one.**
+- **The printed report’s Activities table.** Under Confidence it shows a level for T-Normal, LogNormal and Beta-PERT, and a dash for Triangular and Uniform. That rule is written in the print code itself, and reversing it failed no check anywhere; renaming a distribution failed other parts’ checks but none of print’s. A new check prints one activity of each of the five distributions, each at a different confidence level and with all three statuses among them, and reads every row’s Distribution, Confidence and Status against words written out in the check, never taken from the code it checks. The dashes and the levels sit in one table, so each is the other’s control, and the Triangular and Uniform rows carry levels too — ones that would print if the rule were reversed.
+- **The Clone Scenario window at the limit of fifty scenarios.** A project already holding fifty refuses another, with a message saying why. The check for that goes through the + button’s Add Scenario window only, and the Clone Scenario window has its own copy of the refusal: removing it failed no check. The project still refused the fifty-first scenario, because it refuses one on its own, but without a word, so only the message tells the two apart. A new check, on a page with fifty scenario tabs, clicks the first tab’s Clone button, presses Clone in the Clone Scenario window, and checks that the message names the maximum and that the project still holds fifty; before the Clone there is no message, as its control. Like the + button’s check since 0.72.10, it never asks the whole page for a button by role: it finds the tab by its name among the page’s buttons, then the Clone button inside that tab and the window’s button inside the window. It took 0.10–0.15 seconds in the full suite (three runs).
+- Each gap was proved before its check was written: reversing print’s Confidence rule, and removing the Clone window’s refusal, each failed nothing across the whole suite. Now each fails exactly its new check, and so does rewording the Clone window’s message, which leaves the + button’s check — the same words, in another place — passing. `scripts/falsify-spec-missing-tests.mjs` breaks the change these three ways. A fourth was run by hand: renaming “T-Normal” in the shared names fails the new print check and the thirteen existing checks that pin the word, exactly the fourteen named before the run. The tool that runs these deliberate breakages cannot report that one: it keeps at most 1,048,576 bytes of a test run’s output, that run writes 1,119,386, and a passing run already writes 1,003,055. That is left for a fix of its own.
+
 ## 0.72.10 — 2026-09-29
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.72.9.
