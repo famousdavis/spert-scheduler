@@ -539,10 +539,19 @@ describe("ProjectPage — scenario lifecycle guards", () => {
     // Drive the real path: the + control opens NewScenarioDialog, whose submit calls
     // handleAddScenario — the guard under test.
     fireEvent.click(screen.getByTitle("Add scenario"));
-    fireEvent.change(screen.getByLabelText("Scenario Name"), {
+
+    // WI-88: find the name field and the Add button INSIDE the Add Scenario window. Asked of
+    // the whole page — about 1,400 elements, some 280 of them buttons, with fifty tabs — these
+    // two queries took 71–72% of this test alone and 84–88% in the full suite, where it ran
+    // 1.0–1.3 s, and 2.4 s on a loaded machine, against the 5 s timeout. Scoped, the lookups
+    // take 14 ms alone and 33–64 ms in the suite, and the test 0.17–0.25 s in the suite and
+    // 0.37 s loaded. The same clicks reach the same elements; the page, the guard and the
+    // assertions are unchanged.
+    const dialog = screen.getByRole("dialog", { name: "Add Scenario" });
+    fireEvent.change(within(dialog).getByLabelText("Scenario Name"), {
       target: { value: "Overflow Scenario" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
 
     expect(errorToasts().join(" ")).toContain(
       `maximum of ${MAX_SCENARIOS_PER_PROJECT} scenarios`
