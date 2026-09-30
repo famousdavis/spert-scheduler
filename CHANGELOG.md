@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.73.1 — 2026-09-30
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.73.0.
+
+### Internal
+
+- **The tool that runs deliberate breakages no longer gives up on a run that prints more than a mebibyte, and when a run does overflow it says so instead of blaming the code.**
+- **Why it gave up.** The tool reads each test run’s printed output to find vitest’s summary. It kept at most 1,048,576 bytes of it — Node’s default — and Node counts a run’s two output streams together against that limit. Renaming “T-Normal” in the shared names fails fourteen checks across the whole suite and prints 1,121,581 bytes, so the output was cut off before the summary and the tool stopped with “the mutant almost certainly failed to compile”. Nothing had failed to compile. A passing whole suite already prints 1,005,236 bytes (563,359 on one stream, 441,877 on the other), 43,340 under the limit, so a few more checks would have stopped every whole-suite run at its first step.
+- **What changed.** The tool now keeps up to 64 MiB, as the mutation-testing script already did. When a run still overflows, it names the buffer as the cause — in the first run, in a breakage’s run, or in the last run that checks everything was put back — and never says the code failed to compile. A run with no summary that did not overflow keeps that message. Three new checks each pair an overflowed run with the same run without the overflow, as its control.
+- **Measured.** Before the change the “T-Normal” breakage stopped with the compile message; after it, the same breakage runs to a verdict: fourteen failing, exactly the fourteen named before the run, the set 0.72.11 found by hand. Taking the new limit out again brings the overflow back, now reported as an overflow; giving an overflow the compile message again fails all three new checks; and dropping the overflow from the comparison fails the two that go through it.
+- **Every committed breakage spec was rerun** — 22 in this project and 2 in SPERT Forecaster, which carries the same tool byte for byte and changes with it in the same pass. None changed its verdict. Here, sixteen run clean and one keeps the survivor it documents. The other five were already not clean before this change, and are left for a fix of their own: one has a breakage that no check catches, and four stop at a breakage whose target text has since changed.
+
 ## 0.73.0 — 2026-09-30
 
 ### Changed

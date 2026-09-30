@@ -17,9 +17,10 @@
 // ⚠️ S3 was run BY HAND and is deliberately not here: the shared label "T-Normal"
 // renamed to "Gaussian" in format-labels.ts. It failed 14 tests, exactly the 14 named before the run —
 // the new print test, format-labels' "formats normal correctly", two flat-activity-parser tests on the
-// missing-Confidence message, and ten grid-cell-display tests. This runner cannot report it: that run
-// writes 1,119,386 bytes, and execFileSync's default maxBuffer (1 MiB) counts stdout and stderr
-// together, so the output is cut off before vitest's summary and the runner aborts.
+// missing-Confidence message, and ten grid-cell-display tests. This runner could not report it before
+// v0.73.1: that run wrote 1,119,386 bytes, and execFileSync's default maxBuffer (1 MiB) counts stdout
+// and stderr together, so the output was cut off before vitest's summary and the runner aborted.
+// v0.73.1 raised the buffer to 64 MiB; S3 now runs to a verdict, the same 14.
 //
 // ⚠️ G2 does NOT leave fifty-one scenarios. The store's own guard (duplicateScenario) refuses a
 // clone at the cap too, so with the page's guard gone the test fails on the missing toast and the
