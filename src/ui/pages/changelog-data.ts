@@ -22,7 +22,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "In the Edit Activity window, a greyed-out Save button now says why it is off. A line beside it gives the reason: “Save needs a name for this activity.”, “Save needs every estimate to be 0 or more.” or “Save needs a date for the scheduling constraint.” It gives one reason at a time: when more than one applies, it names the first of the three in that order, and once that is fixed it names the next, or goes when nothing is left.",
           "A scheduling constraint with a Type but no Date now says so under its Date field: “Choose a date, or click Clear constraint to remove it.” Before, Save turned off and the only explanation was in the prompt raised by pressing Escape or clicking outside the window. Choosing a date, or clicking Clear constraint, removes the message.",
           "When the missing date is what stops Save, the “Discard your changes?” prompt now says the constraint “needs a date”. It used to say “needs both a date and a mode”, but a constraint’s mode is set as soon as its Type is chosen, so the date is the only part that can be missing. The prompt and the line beside Save now give the same reason.",
-          "While Save is off, screen readers hear the reason as Save’s description, and the empty Date field is marked invalid and described by its message.",
+          "For screen readers, the reason is attached to Save as its description while Save is off, and the empty Date field is marked invalid and linked to its message.",
         ],
       },
       {
