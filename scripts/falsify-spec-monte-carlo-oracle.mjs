@@ -9,24 +9,24 @@ const MC = new URL("../src/core/simulation/monte-carlo.ts", import.meta.url).pat
 export const testFile = "src/core/simulation/monte-carlo-oracle.test.ts";
 export const mutations = [
   {
-    id: "O1  sequential in-progress path perturbed by 1e-7",
+    id: "O1  constrained sequential path (runConstrainedTrials) perturbed by 1e-7",
     file: MC,
-    find: `          const sampled = distributions[info.distIndex]!.sample(rng);`,
-    replace: `          const sampled = distributions[info.distIndex]!.sample(rng) * 1.0000001;`,
+    find: `distributions[info.distIndex]!.sample(rng)`,
+    replace: `distributions[info.distIndex]!.sample(rng) * 1.0000001`,
     expectFailing: /matches the pinned output/,
   },
   {
-    id: "O2  sequential main path perturbed by 1e-7",
+    id: "O2  unconstrained sequential path (runFastTrials) perturbed by 1e-7",
     file: MC,
-    find: `        const sampled = distributions[i]!.sample(rng);`,
-    replace: `        const sampled = distributions[i]!.sample(rng) * 1.0000001;`,
+    find: `const sampled = distributions[i]!.sample(rng);`,
+    replace: `const sampled = distributions[i]!.sample(rng) * 1.0000001;`,
     expectFailing: /matches the pinned output/,
   },
   {
-    id: "O3  dependency path perturbed by 1e-7",
+    id: "O3  dependency path (sampleTrialDurations) perturbed by 1e-7",
     file: MC,
-    find: `        const sampled = dist.sample(rng);`,
-    replace: `        const sampled = dist.sample(rng) * 1.0000001;`,
+    find: `const sampled = activeDistributions.get(id)!.sample(rng);`,
+    replace: `const sampled = activeDistributions.get(id)!.sample(rng) * 1.0000001;`,
     expectFailing: /matches the pinned output/,
   },
 ];

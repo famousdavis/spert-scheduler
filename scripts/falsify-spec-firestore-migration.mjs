@@ -86,10 +86,11 @@ export const mutations = [
     expectFailing: /stamps owner, members, schemaVersion and updatedAt/,
   },
   {
-    id: "F10 updatedAt written as a plain value instead of the server sentinel",
+    // Re-pointed in v0.73.2: v0.64.9 moved this write from serverTimestamp() to ISO 8601.
+    id: "F10 updatedAt written as a string that is not ISO 8601",
     file: FM,
-    find: `        updatedAt: serverTimestamp(),`,
-    replace: `        updatedAt: 0,`,
+    find: `        updatedAt: new Date().toISOString(),`,
+    replace: `        updatedAt: new Date().toUTCString(),`,
     expectFailing: /stamps owner, members, schemaVersion and updatedAt/,
   },
   {
