@@ -59,6 +59,12 @@ import {
   ScheduleAnalysisSection,
 } from "@ui/components/activity-modal-sections";
 import { computeHeuristic } from "@core/estimation/heuristic";
+import {
+  saveBlockedReason,
+  unsaveableCause,
+  unsaveableDescription,
+  type UnsaveableCause,
+} from "@ui/helpers/unsaveable-cause";
 import { computeElapsedDays } from "./activity-row-helpers";
 
 interface ActivityEditModalProps {
@@ -183,17 +189,19 @@ function savedEstimatesFlagged(activity: Activity | undefined): boolean {
 }
 
 /**
- * The "can't be saved" prompt's sentence, by cause — a helper, not a nested ternary, for the
- * complexity reason above. The name comes first: its message is already on screen.
+ * The Date field's `aria-invalid` and `aria-describedby` while it is empty under a chosen Type —
+ * built here and spread, for the complexity reason above `estimateInputAria` (v0.73.3).
  */
-function unsaveableDescription(nameMissing: boolean, negativeEstimate: boolean): string {
-  if (nameMissing) {
-    return "This activity needs a name, so your changes can't be saved. Discarding them can't be undone.";
-  }
-  if (negativeEstimate) {
-    return "An estimate is negative, so your changes can't be saved. Discarding them can't be undone.";
-  }
-  return "This activity's constraint needs both a date and a mode, so your changes can't be saved. Discarding them can't be undone.";
+function constraintDateAria(
+  constraintDate: string | null,
+  errorId: string
+): { "aria-invalid"?: true; "aria-describedby"?: string } {
+  return constraintDate ? {} : { "aria-invalid": true, "aria-describedby": errorId };
+}
+
+/** Save's `aria-describedby`, naming the line beside it while Save is off (v0.73.3). Spread, as above. */
+function saveBlockedAria(saveBlocked: UnsaveableCause | null, reasonId: string): { "aria-describedby"?: string } {
+  return saveBlocked ? { "aria-describedby": reasonId } : {};
 }
 
 export function ActivityEditModal({
@@ -326,10 +334,12 @@ export function ActivityEditModal({
   const fieldDistributionId = `${baseId}-distribution`;
   const fieldConstraintTypeId = `${baseId}-ctype`;
   const fieldConstraintDateId = `${baseId}-cdate`;
+  const fieldConstraintDateErrorId = `${baseId}-cdate-error`;
   const fieldConstraintNoteId = `${baseId}-cnote`;
   const fieldNotesId = `${baseId}-notes`;
   const fieldDescriptionId = `${baseId}-description`;
   const fieldDescriptionCounterId = `${baseId}-description-counter`;
+  const saveBlockedId = `${baseId}-save-blocked`;
   const conflictTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -621,10 +631,10 @@ export function ActivityEditModal({
   const negativeEstimate = hasNegativeDraft(min, mostLikely, max);
   const estimateAria = estimateInputAria(estimateIssues, { min, mostLikely, max }, fieldEstimateNoteId);
 
-  const isValid =
-    name.trim().length > 0 &&
-    !negativeEstimate &&
-    (!constraintType || (!!constraintType && !!constraintDate && !!constraintMode));
+  // v0.73.3 — the first reason Save is off, or null; `isValid` is derived from it, so Save's state
+  // and the line beside it cannot disagree. Here, beside the old `isValid`, for the note above.
+  const saveBlocked = unsaveableCause(nameMissing, negativeEstimate, constraintType, constraintDate, constraintMode);
+  const isValid = saveBlocked === null;
 
   // -- Dirty check: detect any unsaved changes --
   const hasChanges = useMemo(() => {
@@ -671,7 +681,7 @@ export function ActivityEditModal({
     // NOT new in v0.67.12 — only the window it appears in is. Undated, the "previously" read as
     // though this release introduced it, and a reader specifically hunting false provenance on
     // this file misread it that way. False provenance here is what shipped v0.67.3.
-    if (hasChanges && !isValid) {
+    if (hasChanges && saveBlocked) {
       const shouldDiscard = await confirmDialog.ask({
         title: "Discard your changes?",
         // ⚠️ TWO CAUSES, not one. `isValid` fails on an empty name OR on a constraint missing
@@ -683,7 +693,12 @@ export function ActivityEditModal({
         // is told. Pinned by "names the CONSTRAINT, not the name…" in the test file.
         // v0.69.0: THREE causes — a negative estimate joined them, so the sentence is chosen by
         // a helper rather than a nested ternary.
-        description: unsaveableDescription(nameMissing, negativeEstimate),
+        // v0.73.3 (2026-10-01): this prompt is no longer the only place the user is told. The
+        // window itself now says why — under the empty Date field, and beside the disabled Save.
+        // The sentence comes from `unsaveableDescription`, reading the same cause as that line,
+        // so the two cannot disagree; and "and a mode" went from the constraint sentence, because
+        // Mode cannot be missing (choosing a Type fills it, and a radio cannot be unchecked).
+        description: unsaveableDescription(saveBlocked),
         confirmLabel: "Discard",
         // Not the default "Cancel": this modal has a button of its own by that name which does
         // something else, and two controls reading "Cancel" one on top of the other is a
@@ -694,7 +709,7 @@ export function ActivityEditModal({
       if (!shouldDiscard) return;
     }
     onClose();
-  }, [hasChanges, isValid, nameMissing, negativeEstimate, handleSave, onClose]);
+  }, [hasChanges, isValid, saveBlocked, handleSave, onClose]);
 
   /**
    * Cancel's own handler. Deliberately NOT a branch inside handleDismiss — the two controls ask
@@ -1049,11 +1064,17 @@ export function ActivityEditModal({
                         type="date"
                         value={constraintDate ?? ""}
                         onChange={handleDateChange}
+                        {...constraintDateAria(constraintDate, fieldConstraintDateErrorId)}
                         className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       />
                       {dateAdjustedNote && (
                         <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
                           {dateAdjustedNote}
+                        </p>
+                      )}
+                      {!constraintDate && (
+                        <p id={fieldConstraintDateErrorId} className="text-xs text-red-700 dark:text-red-400 mt-1">
+                          Choose a date, or click Clear constraint to remove it.
                         </p>
                       )}
                     </div>
@@ -1212,6 +1233,11 @@ export function ActivityEditModal({
 
           {/* Actions — outside the scroller, so always on screen */}
           <div className="shrink-0 px-6 pt-4 pb-6 flex justify-end gap-2">
+            {saveBlocked && (
+              <p id={saveBlockedId} className="mr-auto self-center text-sm text-amber-700 dark:text-amber-300">
+                {saveBlockedReason(saveBlocked)}
+              </p>
+            )}
             {/*
               ⚠️ THREE DELIBERATE DECISIONS LIVE ON THESE TWO BUTTONS, and every one of them has
               already been changed or proposed for change at least once. Read before touching either.
@@ -1276,6 +1302,7 @@ export function ActivityEditModal({
               type="button"
               disabled={!isValid}
               onClick={handleSave}
+              {...saveBlockedAria(saveBlocked, saveBlockedId)}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               Save
