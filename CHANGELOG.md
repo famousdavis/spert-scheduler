@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.73.2 — 2026-10-01
+
+Internal only — no functional, data, or interface changes. The app behaves identically to 0.73.1.
+
+### Internal
+
+- **Nine deliberate breakages in four of the committed breakage specs could not run, because the code each one targets had moved or changed. Each now targets the code as it is, and all four specs run clean.** A breakage spec breaks the code on purpose, one breakage at a time, to prove that the checks it names can fail; nothing runs these specs automatically. The tool stops a spec at the first breakage whose target it cannot find, so it reported four of the nine. A read of every target in all 22 specs — 185 breakages — found the rest, and after this change it finds every target exactly once. These are the four specs 0.73.1 left stopping at a changed target.
+- **The Compare table’s “no best without a rival” spec — four breakages.** The rule they break, that a row marks no best unless two of its cells have a value, moved unchanged into the comparison model in 0.72.6, and in 0.72.5 the calls two of them rewrite gained a third argument, which scenarios may compete. Those two had not run since 0.72.5, and none of the four since 0.72.6. They now target the new file and the new calls. The flagged-scenario checks added in 0.72.5 rely on the same rule — a flagged scenario does not compete, so a row can be left with one contender — and fail when it is broken, so they are now among the checks each breakage names. The four fail 3, 9, 3 and 3 checks, in each case exactly the checks the breakage names.
+- **The cloud-upload spec — one breakage.** It wrote the upload time as a plain number where the server’s timestamp belonged. Since 0.64.9 the upload writes the time as ISO 8601 text and the check asserts that format, so the old breakage no longer described a fault. The new one writes the time as text in another format (“Thu, 01 Oct 2026 14:46:59 GMT”). That still passes the check that the value is text, and fails the one that it is ISO 8601 — the assertion the check’s own comment says matters. All fifteen breakages in the spec are caught.
+- **The Gantt chart geometry spec — one breakage.** It made the axis keep every tick label. The function that thins them was rewritten in 0.67.14, and the breakage now does the same thing at its first line. Because the tool stops at the first missing target, the three breakages after it had not run since 0.67.14 either. All eight are caught by the chart’s committed geometry checks.
+- **The simulation output spec — three breakages.** Each scales one sampling path’s draws by one part in ten million. The spec was committed on the morning of 2 August, and that afternoon the simulation’s sampling loops were split into functions of their own, moving all three targets: none had run since the day it was written. They now target the three loops where they are, and all three are caught by the pinned simulation output — 2, 9 and 8 failing checks, each one the breakage names.
+- **The bootstrap confidence-interval spec — one breakage survived, and a new check catches it.** Reading the interval’s lower bound one place too low in the sorted estimates failed no check: the two exact checks replace the random draws with a constant, so every estimate is equal and which place the bound reads cannot be seen. The new check fills each of 100 resamples with copies of a different sample, so the sorted estimates are exactly 1 to 100 and the lower bound must be 3. The breakage gives 2 and fails it, and only it.
+- **The new check draws its values in descending order on purpose.** Another breakage in the spec skips sorting the estimates. Its only catcher ran on real random draws and caught it in 8 of 11 runs; with the estimates arriving as 100 down to 1, it now fails the new check on every run as well. The spec ran twice, all nine breakages caught both times.
+- The tool and the other seventeen specs are unchanged.
+
 ## 0.73.1 — 2026-09-30
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.73.0.

@@ -376,6 +376,34 @@ describe("computeBatchPercentileCIs", () => {
     expect(result[50]!.point).toBe(50);
   });
 
+  it("EXACT: with each resample a different element, the lower bound is the estimate at floor(alpha · B)", () => {
+    // The two tests above stub Math.random to a CONSTANT, so every resample is the same,
+    // every bootstrap estimate is equal, and WHICH index a bound reads is invisible to them.
+    // Here resample b draws samples[n - 1 - b] every time, so it is constant at n - b and the
+    // sorted estimates are exactly 1..100: each index reads a different value.
+    //
+    // ⚠️ THE STUB DESCENDS ON PURPOSE — do not "simplify" it to ascending. The estimates
+    // arrive as 100, 99, …, 1, so a read that skips sorting them gets lower 98 and upper 4
+    // and fails the control below. Drawn ascending, they arrive already sorted and a missing
+    // sort passes here unseen.
+    //
+    // ⚠️ B = 100 with the default ciLevel puts alpha · B half-way between two integers —
+    // (1 - 0.95) / 2 * 100 = 2.500000000000002 — so lowerIdx = 2 and the lower bound is 3,
+    // and an index one off reads 2. Keep the product away from an integer: ciLevel 0.8 with
+    // B = 10 gives 0.9999999999999998 in floating point, which floors to 0, and an index one
+    // below that is clamped back to 0 and goes unseen.
+    const n = 100; // the sample count, and B: one resample per element
+    const samples = Array.from({ length: n }, (_, i) => i + 1);
+    let call = 0;
+    vi.spyOn(Math, "random").mockImplementation(() => (n - 1 - Math.floor(call++ / n) + 0.5) / n);
+
+    const result = computeBatchPercentileCIs(samples, [50], n);
+
+    // Control: the estimates differ, which a constant stub cannot show.
+    expect(result[50]!.upper).toBeGreaterThan(result[50]!.lower);
+    expect(result[50]!.lower).toBe(3);
+  });
+
   it("a single bootstrap iteration still produces usable bounds (index clamping)", () => {
     // lowerIdx/upperIdx both clamp to 0 here; without the Math.max/?? guards this is where
     // an undefined bound would surface.

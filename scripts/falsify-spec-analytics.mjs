@@ -27,6 +27,7 @@ export const mutations = [
     expectFailing: /reports the confidence level it was given/,
   },
   {
+    // Its failing count varies between runs (the bootstrap draws with Math.random); the verdict reads the named-match, stable at 2.
     id: "N4  point estimate taken from the resample instead of the sorted originals",
     file: F,
     find: `    const point = pointEstimates[p]!;`,
@@ -41,18 +42,25 @@ export const mutations = [
     expectFailing: /pinned to index 0|point estimates rise/,
   },
   {
+    // Before v0.73.2 its only catcher was "brackets every point estimate", which runs on the real Math.random and caught it in 8 of 11 runs.
     id: "N6  CI bounds no longer sorted, so lower/upper are arbitrary",
     file: F,
     find: `    estimates.sort((a, b) => a - b);`,
     replace: `    // estimates left unsorted`,
-    expectFailing: /brackets every point estimate|pinned/,
+    expectFailing: /brackets every point estimate|pinned|the lower bound is the estimate at floor/,
   },
   {
-    id: "N7  lowerIdx clamp removed (negative index -> undefined bound)",
+    // The clamp alone is dead: alpha = (1 - ciLevel) / 2 is never negative for any ciLevel the
+    // code receives, so removing Math.max(0, …) changes nothing, and the read site clamps the
+    // index again (`estimates[Math.max(0, lowerIdx)] ?? point`). What makes this straw
+    // observable is its "- 1": once alpha · B >= 1 it moves the lower bound down one order
+    // statistic, and the "lower bound is the estimate at floor(alpha · B)" test pins that index.
+    // Before v0.73.2 no test did, and this straw survived.
+    id: "N7  lower bound read one order statistic low (clamp removed, - 1 added)",
     file: F,
     find: `  // Compute CI bounds for each percentile\n  const alpha = (1 - ciLevel) / 2;\n  const lowerIdx = Math.max(0, Math.floor(alpha * bootstrapIterations));`,
     replace: `  // Compute CI bounds for each percentile\n  const alpha = (1 - ciLevel) / 2;\n  const lowerIdx = Math.floor(alpha * bootstrapIterations) - 1;`,
-    expectFailing: /single bootstrap iteration|brackets every point|single sample collapses/,
+    expectFailing: /single bootstrap iteration|brackets every point|single sample collapses|the lower bound is the estimate at floor/,
   },
   {
     id: "N8  bootstrap resample draws from a fixed index instead of a random one",

@@ -62,8 +62,8 @@ export const mutations = [
   {
     id: "G3  suppressOverlappingTicks -> passthrough  [was UNPINNED before the audit]",
     file: GU,
-    find: `  const filtered: Tick[] = [];\n  let lastX = -Infinity;`,
-    replace: `  return allTicks;\n  const filtered: Tick[] = [];\n  let lastX = -Infinity;`,
+    find: `  if (allTicks.length === 0 || p.dateRange === 0) return allTicks;\n`,
+    replace: `  return allTicks;\n`,
     expectFailing: /long-span INTERACTIVE chart matches its committed geometry/,
   },
   // ⚠️ G7/G8 ARE THE GATE ON THE §3.3 GanttChart:952 SPLIT — same role G5/G6 played for
