@@ -155,6 +155,17 @@ const statusSelect = () =>
 const clearName = (input: HTMLInputElement) =>
   fireEvent.change(input, { target: { value: "   " } });
 
+// Module level since v0.73.3, so the "why Save is off" rows below can use it too; it was declared
+// inside "dismissing the modal" before.
+const setConstraintTypeOnly = () => {
+  // Reaches `hasChanges && !isValid` WITHOUT touching the name: picking a type defaults the
+  // mode to "hard" but leaves the date null, and `isValid` requires all three.
+  fireEvent.click(screen.getByRole("button", { name: "Scheduling Constraint" }));
+  fireEvent.change(document.querySelector('select[name="constraintType"]')!, {
+    target: { value: "SNET" },
+  });
+};
+
 beforeEach(() => {
   useProjectStore.setState({ projects: [baseProject()] });
   // The confirm store is a module singleton: a question left pending by one row is still
@@ -404,15 +415,6 @@ describe("ActivityEditModal — dismissing the modal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   const pressEscape = () => fireEvent.keyDown(document, { key: "Escape" });
 
-  const setConstraintTypeOnly = () => {
-    // Reaches `hasChanges && !isValid` WITHOUT touching the name: picking a type defaults the
-    // mode to "hard" but leaves the date null, and `isValid` requires all three.
-    fireEvent.click(screen.getByRole("button", { name: "Scheduling Constraint" }));
-    fireEvent.change(document.querySelector('select[name="constraintType"]')!, {
-      target: { value: "SNET" },
-    });
-  };
-
   // ⚠️ Positive control for the store read-back, FIRST on purpose. Every "the store is unchanged"
   // assertion below is a leave-alone, and a leave-alone proves nothing unless the same instrument
   // has been shown to register a change. If this fails, `storedStatus()` is reading something the
@@ -644,6 +646,9 @@ describe("ActivityEditModal — dismissing the modal", () => {
     // "This activity needs a name, so your changes can't be saved." With a perfectly good name
     // that sentence was simply false, and the constraint case renders no inline explanation
     // anywhere in the editor, so the prompt was the only place the user could have been told.
+    // v0.73.3 (2026-10-01): the editor now says it too, under the Date field and beside Save
+    // (pinned in "why Save is off" below), and the sentence reads "needs a date" — "and a mode"
+    // went, because choosing a Type fills an empty Mode and a radio cannot be unchecked.
     it("names the CONSTRAINT, not the name, when the constraint is what blocks saving", async () => {
       const { onClose } = open();
 
@@ -652,7 +657,7 @@ describe("ActivityEditModal — dismissing the modal", () => {
 
       const asked = await askedDialog(DISCARD_CHANGES_TITLE);
       expect(within(asked).queryByText(/needs a name/i)).toBeNull();
-      expect(within(asked).getByText(/constraint needs both a date and a mode/i)).toBeTruthy();
+      expect(within(asked).getByText(/constraint needs a date/i)).toBeTruthy();
       clickIn(asked, "Discard");
 
       await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
@@ -746,6 +751,123 @@ describe("ActivityEditModal — dismissing the modal", () => {
         expect(screen.getByRole("dialog", { name: "Edit Activity" })).toBeTruthy();
       });
     }
+  });
+});
+
+/**
+ * Why Save is off, said in the window itself (v0.73.3).
+ *
+ * Before this release a constraint with a Type and no Date turned Save off and nothing anywhere in
+ * the window said why — the discard prompt was the only place, and only Escape or a click outside
+ * raised it. The empty name and the negative estimate explained themselves beside their fields; the
+ * constraint did not. Now the Date field says so beneath it, and a line beside Save names the FIRST
+ * reason it is off: the name, then a negative estimate, then the constraint's date.
+ *
+ * ⚠️ Every text query is scoped to the editor. These rows raise no prompt, but the line beside Save
+ * stays in the document under one that is raised, so an unscoped query can match it there.
+ */
+describe("ActivityEditModal — why Save is off", () => {
+  const DATE_MESSAGE = "Choose a date, or click Clear constraint to remove it.";
+  const REASON_NAME = "Save needs a name for this activity.";
+  const REASON_NEGATIVE = "Save needs every estimate to be 0 or more.";
+  const REASON_DATE = "Save needs a date for the scheduling constraint.";
+
+  const editor = () => screen.getByRole("dialog", { name: "Edit Activity" });
+  const dateInput = () => editor().querySelector<HTMLInputElement>('input[name="constraintDate"]');
+  // The line BESIDE Save: a paragraph in Save's own row, found by that structure — not through
+  // Save's aria-describedby, which the first row pins on its own, so the two can fail apart.
+  const lineBesideSave = () => saveButton().parentElement!.querySelector("p");
+
+  it("a constraint without a date: the Date field and the line beside Save both say so", () => {
+    open();
+    // Positive control: before a Type is chosen there is no Date field, no message, no line, and
+    // Save is on and describes nothing.
+    expect(dateInput()).toBeNull();
+    expect(within(editor()).queryByText(DATE_MESSAGE)).toBeNull();
+    expect(lineBesideSave()).toBeNull();
+    expect(saveButton().disabled).toBe(false);
+    expect(saveButton()).not.toHaveAttribute("aria-describedby");
+
+    setConstraintTypeOnly();
+
+    const message = within(editor()).getByText(DATE_MESSAGE);
+    expect(message.id).not.toBe("");
+    expect(dateInput()).toHaveAttribute("aria-invalid", "true");
+    expect(dateInput()).toHaveAttribute("aria-describedby", message.id);
+    expect(saveButton().disabled).toBe(true);
+    expect(lineBesideSave()?.textContent).toBe(REASON_DATE);
+    expect(saveButton()).toHaveAccessibleDescription(REASON_DATE);
+  });
+
+  it("entering the date clears both, and Save is on with no description", () => {
+    open();
+    setConstraintTypeOnly();
+    // Positive control: each thing asserted gone below is showing first.
+    expect(within(editor()).getByText(DATE_MESSAGE)).toBeTruthy();
+    expect(lineBesideSave()?.textContent).toBe(REASON_DATE);
+    expect(saveButton().disabled).toBe(true);
+    expect(saveButton()).toHaveAttribute("aria-describedby");
+
+    fireEvent.change(dateInput()!, { target: { value: "2026-12-01" } });
+
+    expect(within(editor()).queryByText(DATE_MESSAGE)).toBeNull();
+    expect(lineBesideSave()).toBeNull();
+    expect(saveButton().disabled).toBe(false);
+    expect(saveButton()).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("Clear constraint from a dateless constraint clears both, and Save is on", () => {
+    open();
+    setConstraintTypeOnly();
+    // Positive control, as above.
+    expect(within(editor()).getByText(DATE_MESSAGE)).toBeTruthy();
+    expect(lineBesideSave()?.textContent).toBe(REASON_DATE);
+    expect(saveButton().disabled).toBe(true);
+
+    fireEvent.click(within(editor()).getByRole("button", { name: "Clear constraint" }));
+
+    expect(within(editor()).queryByText(DATE_MESSAGE)).toBeNull();
+    expect(lineBesideSave()).toBeNull();
+    expect(saveButton().disabled).toBe(false);
+  });
+
+  it("an empty name: the line beside Save names it, and the field's own message stays", () => {
+    open();
+    // Positive control: neither shows while the name is there.
+    expect(lineBesideSave()).toBeNull();
+    expect(within(editor()).queryByText("Activity name is required.")).toBeNull();
+
+    clearName(nameInput());
+
+    expect(saveButton().disabled).toBe(true);
+    expect(lineBesideSave()?.textContent).toBe(REASON_NAME);
+    expect(within(editor()).getByText("Activity name is required.")).toBeTruthy();
+  });
+
+  it("an empty name AND a constraint without a date: the line names the name, first", () => {
+    open();
+    setConstraintTypeOnly();
+    // Positive control: the constraint alone IS a reason the line gives, so the name winning below
+    // is the order, not a cause that went missing.
+    expect(lineBesideSave()?.textContent).toBe(REASON_DATE);
+
+    clearName(nameInput());
+
+    expect(lineBesideSave()?.textContent).toBe(REASON_NAME);
+    // One reason at a time: the constraint's is not given beside it.
+    expect(within(editor()).queryByText(REASON_DATE)).toBeNull();
+  });
+
+  it("a negative estimate: the line beside Save names it", () => {
+    open();
+    // Positive control: no line while every estimate is 0 or more.
+    expect(lineBesideSave()).toBeNull();
+
+    fireEvent.click(within(editor()).getByRole("button", { name: "Estimates" }));
+    fireEvent.change(within(editor()).getByLabelText("Min"), { target: { value: "-5" } });
+
+    expect(saveButton().disabled).toBe(true);
+    expect(lineBesideSave()?.textContent).toBe(REASON_NEGATIVE);
   });
 });
 
