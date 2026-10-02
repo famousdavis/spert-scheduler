@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from "vitest";
-import { parseFlatActivityTable } from "./flat-activity-parser";
+import { columnLabel, parseFlatActivityTable } from "./flat-activity-parser";
 import { RSM_LABELS, RSM_LEVELS } from "@domain/models/types";
 
 // Deterministic ID generator for predictable assertions
@@ -73,7 +73,8 @@ describe("Header resolution", () => {
     const result = parseFlatActivityTable(rows, makeIdGen());
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors[0]!.message).toContain("Missing required column");
-    expect(result.errors[0]!.message).toContain("mostLikely");
+    // The column's heading, not its internal key ("mostLikely"), since v0.74.0 (2026-10-01).
+    expect(result.errors[0]!.message).toContain("Most Likely");
   });
 
   it("silently ignores extra unknown columns", () => {
@@ -94,6 +95,54 @@ describe("Header resolution", () => {
     const result = parseFlatActivityTable(rows, makeIdGen());
     expect(result.errors).toHaveLength(0);
     expect(result.activities).toHaveLength(1);
+  });
+});
+
+// =============================================================================
+// Column labels (v0.74.0): the headings a user reads, never the internal keys
+// =============================================================================
+
+describe("Column labels", () => {
+  it("both missing-column messages name the template's headings", () => {
+    // A first row that looks like data: no header row at all. ("Task" would not do as the name:
+    // it is itself a heading the importer accepts for Activity Name.)
+    const noHeader = parseFlatActivityTable([["A1", "Design", "3", "5", "8", "normal", "Medium"]], makeIdGen());
+    expect(noHeader.noHeaderDetected).toBe(true);
+    expect(noHeader.errors.map((e) => e.message)).toEqual([
+      "No recognizable header row found. Missing columns: Activity ID, Activity Name, Optimistic (Min), Most Likely, Pessimistic (Max), Confidence Level.",
+    ]);
+
+    // A header row without two of its required columns, then without one.
+    const two = parseFlatActivityTable(
+      [["Activity ID", "Activity Name", "Optimistic (Min)", "Pessimistic (Max)"], ["A1", "Task", "3", "8"]],
+      makeIdGen()
+    );
+    expect(two.errors.map((e) => e.message)).toEqual([
+      "Missing required columns: Most Likely, Confidence Level.",
+    ]);
+    const one = parseFlatActivityTable(
+      [["Activity ID", "Activity Name", "Optimistic (Min)", "Pessimistic (Max)", "Confidence Level"], ["A1", "Task", "3", "8", "Medium"]],
+      makeIdGen()
+    );
+    expect(one.errors.map((e) => e.message)).toEqual(["Missing required column: Most Likely."]);
+
+    // Control: the keys these headings replace appear nowhere.
+    for (const r of [noHeader, two, one]) {
+      expect(JSON.stringify(r.errors)).not.toMatch(/activityId|mostLikely/);
+    }
+  });
+
+  it("columnLabel shows an internal key as its heading, and leaves a heading as it is", () => {
+    // The keys a schema failure names (Zod's issue path) — the ones the preview's Column cell meets.
+    expect(columnLabel("name")).toBe("Activity Name");
+    expect(columnLabel("min")).toBe("Optimistic (Min)");
+    expect(columnLabel("mostLikely")).toBe("Most Likely");
+    expect(columnLabel("max")).toBe("Pessimistic (Max)");
+    // The parser's own checks already name a heading; a placeholder is not a column at all.
+    expect(columnLabel("Predecessors")).toBe("Predecessors");
+    expect(columnLabel("—")).toBe("—");
+    // An inherited property is not a table entry.
+    expect(columnLabel("toString")).toBe("toString");
   });
 });
 
@@ -807,7 +856,7 @@ describe("Edge cases", () => {
     expect(result.activities).toHaveLength(0);
   });
 
-  it("defaults distribution to normal when column is absent", () => {
+  it("defaults distribution to triangular when column is absent", () => {
     const rows = [
       ["Activity ID", "Activity Name", "Optimistic (Min)", "Most Likely", "Pessimistic (Max)", "Confidence Level"],
       ["A1", "Task 1", "2", "4", "8", "Medium"],

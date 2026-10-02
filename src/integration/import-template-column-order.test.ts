@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  COLUMN_LABELS,
   DEFAULT_COLUMN_ORDER,
   parseFlatActivityTable,
   resolveHeaders,
@@ -114,5 +115,13 @@ describe("the CSV import template and the headerless column order", () => {
       return c.map((v) => (v.includes(",") ? `"${v}"` : v)).join(",");
     });
     expect(byName(pasteHeaderless(swapped))).not.toEqual(byName(withHeader));
+  });
+
+  it("the column labels the import's messages use are the template's own headings, in its order", () => {
+    // v0.74.0: missing-column messages and the preview's Column cell show these, not field keys.
+    const fields = [...DEFAULT_COLUMN_ORDER, "type"] as const;
+    expect(fields.map((f) => COLUMN_LABELS[f])).toEqual(cells(TABLE_LINES[0]!));
+    // Control: the keys themselves — what the messages showed before — do not pass this comparison.
+    expect([...fields]).not.toEqual(cells(TABLE_LINES[0]!));
   });
 });

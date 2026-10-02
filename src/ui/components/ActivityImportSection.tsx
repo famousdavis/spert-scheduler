@@ -14,25 +14,74 @@ import { Link } from "react-router-dom";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { toast } from "@ui/hooks/use-notification-store";
 import {
-  importActivitiesFromCSV,
+  readCsvRows,
+  parseCsvFileRows,
   parseClipboardTable,
   getDefaultScenarioName,
 } from "@app/api/csv-import-service";
-import { parseFlatActivityTable } from "@core/import/flat-activity-parser";
+import { parseFlatActivityTable, columnLabel } from "@core/import/flat-activity-parser";
 import type { CSVParseResult, CSVImportError } from "@core/import/types";
+import { formatDateISO } from "@core/calendar/calendar";
 import { generateId } from "@app/api/id";
 import type { Project, Scenario, ScenarioSettings } from "@domain/models/types";
 import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
+import { pluralize } from "@domain/helpers/format-labels";
 import type { ImportApplyParams } from "@ui/hooks/use-project-store";
 import type { ImportOutcome } from "@app/api/export-import-service";
 
 // -- State machine ------------------------------------------------------------
 
+/** Where a preview's rows came from: a file, by its name, or the paste box. */
+type PreviewSource = { kind: "file"; name: string } | { kind: "paste" };
+
+type PreviewState = {
+  step: "preview";
+  result: CSVParseResult;
+  defaultName: string;
+  /** The rows this preview was built from — what "Treat first row as data" reads again. */
+  rows: string[][];
+  source: PreviewSource;
+};
+
 type ActivityImportState =
   | { step: "idle" }
   | { step: "error"; error: string; details?: string }
-  | { step: "preview"; result: CSVParseResult; defaultName: string }
+  | PreviewState
   | { step: "done"; count: number; projectId: string; projectName: string };
+
+/** A paste's preview: its rows, split on tabs, and their parse. Throws on oversized text. */
+function pastePreview(text: string): PreviewState {
+  const rows = parseClipboardTable(text);
+  return {
+    step: "preview",
+    result: parseFlatActivityTable(rows, generateId),
+    defaultName: getDefaultScenarioName("clipboard"),
+    rows,
+    source: { kind: "paste" },
+  };
+}
+
+/**
+ * "Treat first row as data": the preview's OWN rows read again, in the template's column order —
+ * never the paste box, which may hold something else by now. A file's rows go through the file
+ * checks again, and keep the file's name; a paste's rows do not need them (they split on tabs).
+ */
+function firstRowAsData(preview: PreviewState): PreviewState {
+  const options = { assumeDefaultColumnOrder: true };
+  const { rows, source } = preview;
+  if (source.kind === "file") {
+    return {
+      ...preview,
+      result: parseCsvFileRows(rows, options),
+      defaultName: getDefaultScenarioName("file", source.name),
+    };
+  }
+  return {
+    ...preview,
+    result: parseFlatActivityTable(rows, generateId, options),
+    defaultName: getDefaultScenarioName("clipboard"),
+  };
+}
 
 // -- Props --------------------------------------------------------------------
 
@@ -79,11 +128,9 @@ export function ActivityImportSection({
     const timer = setTimeout(() => {
       startTransition(() => {
         try {
-          const rows = parseClipboardTable(pasteText);
-          const result = parseFlatActivityTable(rows, generateId);
-          const name = getDefaultScenarioName("clipboard");
-          setImportState({ step: "preview", result, defaultName: name });
-          setScenarioName(name);
+          const preview = pastePreview(pasteText);
+          setImportState(preview);
+          setScenarioName(preview.defaultName);
         } catch (err) {
           setImportState({
             step: "error",
@@ -105,23 +152,21 @@ export function ActivityImportSection({
       setImportState({ step: "idle" }); // clear prior error on new pick (pitfall #79)
 
       try {
-        const result = await importActivitiesFromCSV(file);
+        const rows = await readCsvRows(file);
+        const result = parseCsvFileRows(rows);
         const name = getDefaultScenarioName("file", file.name);
 
-        if (result.errors.length > 0 && result.activities.length === 0 && result.noHeaderDetected) {
-          setImportState({
-            step: "preview",
-            result,
-            defaultName: name,
-          });
-        } else if (result.errors.length > 0 && result.activities.length === 0) {
+        if (result.errors.length > 0 && result.activities.length === 0 && !result.noHeaderDetected) {
           setImportState({
             step: "error",
             error: result.errors[0]!.message,
             details: result.errors.slice(1).map((e) => e.message).join("; "),
           });
         } else {
-          setImportState({ step: "preview", result, defaultName: name });
+          // A preview — "No recognizable header row found" included: its button reads these
+          // same rows again. Each names the scenario from the file, never an earlier preview.
+          const source: PreviewSource = { kind: "file", name: file.name };
+          setImportState({ step: "preview", result, defaultName: name, rows, source });
           setScenarioName(name);
         }
       } catch (err) {
@@ -142,11 +187,9 @@ export function ActivityImportSection({
     if (!pasteText.trim()) return;
     startTransition(() => {
       try {
-        const rows = parseClipboardTable(pasteText);
-        const result = parseFlatActivityTable(rows, generateId);
-        const name = getDefaultScenarioName("clipboard");
-        setImportState({ step: "preview", result, defaultName: name });
-        setScenarioName(name);
+        const preview = pastePreview(pasteText);
+        setImportState(preview);
+        setScenarioName(preview.defaultName);
       } catch (err) {
         setImportState({
           step: "error",
@@ -159,22 +202,13 @@ export function ActivityImportSection({
   // -- "Assume default column order" retry ------------------------------------
 
   const handleAssumeDefaultOrder = useCallback(() => {
+    if (importState.step !== "preview") return;
+    const preview = importState;
     startTransition(() => {
       try {
-        let rows: string[][];
-        if (pasteText.trim()) {
-          rows = parseClipboardTable(pasteText);
-        } else {
-          // Re-parse not possible for file without storing raw rows
-          // This path should only fire for paste
-          return;
-        }
-        const result = parseFlatActivityTable(rows, generateId, {
-          assumeDefaultColumnOrder: true,
-        });
-        const name = getDefaultScenarioName("clipboard");
-        setImportState({ step: "preview", result, defaultName: name });
-        setScenarioName(name);
+        const next = firstRowAsData(preview);
+        setImportState(next);
+        setScenarioName(next.defaultName);
       } catch (err) {
         setImportState({
           step: "error",
@@ -182,14 +216,15 @@ export function ActivityImportSection({
         });
       }
     });
-  }, [pasteText]);
+  }, [importState]);
 
   // -- Commit -----------------------------------------------------------------
 
   const handleCommit = useCallback(() => {
     if (importState.step !== "preview") return;
     const { result } = importState;
-    if (result.errors.length > 0) return;
+    // The Import button's own rule (it shows only then), so ⌘↵ / Ctrl↵ cannot commit an empty import.
+    if (result.errors.length > 0 || result.activities.length === 0) return;
 
     const finalName = scenarioName.trim() || importState.defaultName;
 
@@ -201,6 +236,9 @@ export function ActivityImportSection({
       trialCount: preferences.defaultTrialCount,
       probabilityTarget: preferences.defaultActivityTarget,
       projectProbabilityTarget: preferences.defaultProjectTarget,
+      heuristicEnabled: preferences.defaultHeuristicEnabled,
+      heuristicMinPercent: preferences.defaultHeuristicMinPercent,
+      heuristicMaxPercent: preferences.defaultHeuristicMaxPercent,
       parkinsonsLawEnabled: preferences.defaultParkinsonsLawEnabled ?? true,
       dependencyMode: result.dependencies.length > 0
         ? true
@@ -211,7 +249,7 @@ export function ActivityImportSection({
     const scenario: Scenario = {
       id: generateId(),
       name: finalName,
-      startDate: new Date().toISOString().slice(0, 10),
+      startDate: formatDateISO(new Date()),
       activities: result.activities,
       dependencies: result.dependencies,
       milestones: [],
@@ -248,7 +286,7 @@ export function ActivityImportSection({
       committedProjectId = projectId;
       committedProjectName = finalName;
       toast.success(
-        `Imported ${result.activities.length} activities into new project "${finalName}".`
+        `Imported ${result.activities.length} ${pluralize(result.activities.length, "activity", "activities")} into new project "${finalName}".`
       );
     } else {
       // Add to existing project — check the scenario limit
@@ -267,7 +305,7 @@ export function ActivityImportSection({
       committedProjectId = targetProjectId;
       committedProjectName = target.name;
       toast.success(
-        `Imported ${result.activities.length} activities into "${target.name}".`
+        `Imported ${result.activities.length} ${pluralize(result.activities.length, "activity", "activities")} into "${target.name}".`
       );
     }
 
@@ -440,8 +478,10 @@ export function ActivityImportSection({
               aria-atomic="true"
               className="text-sm text-gray-700 dark:text-gray-300"
             >
-              {previewResult.activities.length} activities ·{" "}
-              {previewResult.dependencies.length} dependencies ·{" "}
+              {previewResult.activities.length}{" "}
+              {pluralize(previewResult.activities.length, "activity", "activities")} ·{" "}
+              {previewResult.dependencies.length}{" "}
+              {pluralize(previewResult.dependencies.length, "dependency", "dependencies")} ·{" "}
               <span
                 className={
                   previewResult.errors.length === 0
@@ -449,9 +489,9 @@ export function ActivityImportSection({
                     : "text-rose-600 dark:text-rose-400"
                 }
               >
-                {previewResult.errors.length} errors
+                {previewResult.errors.length} {pluralize(previewResult.errors.length, "error")}
               </span>{" "}
-              · {previewResult.warnings.length} warnings
+              · {previewResult.warnings.length} {pluralize(previewResult.warnings.length, "warning")}
             </div>
 
             {/* "No header detected" escape hatch */}
@@ -482,7 +522,7 @@ export function ActivityImportSection({
                         Status
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                        Activity
+                        Column
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
                         Issue
@@ -637,7 +677,7 @@ function renderPreviewRows(result: CSVParseResult) {
           )}
         </td>
         <td className="px-3 py-1.5 text-gray-900 dark:text-gray-100">
-          {issues[0]?.column ?? "—"}
+          {columnLabel(issues[0]?.column ?? "—")}
         </td>
         <td className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400">
           {issues.map((i) => i.message).join("; ")}

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.74.0 — 2026-10-01
+
+### Fixed
+
+- **“Treat first row as data and assume default column order” now works on a CSV file with no header row.** It reads the file’s own rows again — the rows its preview was built from. Before, for a file, it read the paste box instead: with nothing pasted it did nothing, and with something pasted it previewed that paste in the file’s place. When the paste, read that way, had no errors, it could then be imported instead of the file, with a message saying the import had succeeded. The new scenario takes the file’s name, as it does for a file with a header row.
+- **An import’s start date, and the date in the name a paste is given (“Imported —” and the date), are now your computer’s date, not the date in UTC.** Before, they could be a day out for part of each day: in New York, from 8 p.m. in summer time until midnight, they were the next day’s date.
+- **An imported scenario now takes your heuristic preferences — Enable Heuristic by Default, Min % and Max % — as a new project’s scenario does.** Before, it always started with the heuristic off, at 75% and 200%.
+- **Ctrl+Enter (Cmd+Enter on a Mac) no longer imports a preview with no activities in it.** It now imports only when the Import Activities button is shown: at least one activity and no errors. Before, a pasted header row with nothing under it could create a project, or add a scenario to one, with no activities.
+- **The preview’s summary line now says “1 activity”, “1 dependency”, “1 error” and “1 warning”, and the message after an import says “Imported 1 activity”** — where they said “1 activities”, “1 dependencies”, “1 errors”, “1 warnings” and “Imported 1 activities”.
+- **The preview table’s third column is now headed “Column”.** It was headed “Activity”, but it shows the column of the first problem in a row. For an estimate out of order, a LogNormal estimate of 0, 0 and 0, or a name over 200 characters, it showed an internal name — “min”, “mostLikely”, “max” or “name”; it now shows the column’s heading — “Optimistic (Min)”, “Most Likely”, “Pessimistic (Max)” or “Activity Name”.
+- **A message about missing columns now names them by their headings** — “Missing required column: Most Likely.”, where it said “mostLikely” — and so does “No recognizable header row found. Missing columns: …”.
+- **The notes at the top of the CSV import template are corrected.** The Distribution note gave normal as the default and left out Beta-PERT: a blank cell imports as Triangular, and so does a value the importer does not recognize, such as “T-Normal” — for T-Normal, type normal. The Confidence note said a level matters only for T-Normal and LogNormal and is ignored on Triangular and Uniform rows: Beta-PERT requires one too, and a value the importer does not recognize is an error on any activity row, Triangular and Uniform included. The Type note now says when “Treat first row as data” is offered and what it does with Section rows. The template’s columns and example rows are unchanged.
+
+### Changed
+
+- **In a CSV file, a row with more cells than the file has column headings is now refused, with a message that says how to fix it.** The usual cause is a cell with a comma in it and no quotes around it — several predecessors typed A3,A4 instead of "A3,A4" — which splits the cell in two and moves every cell after it one column to the right. Before, the cell pushed off the end was dropped without a word, and in the template’s columns the second predecessor was lost. A file read with “Treat first row as data” is held to the template’s ten columns.
+- **A column of your own at the right of a CSV file now needs a heading.** Without one, it makes every row with a cell in it longer than the headings, and each of those rows is refused; the message says to give the column a heading.
+- **In a CSV file, a Type cell that is not Activity, Section or blank is now refused.** In the template’s columns, a split predecessor cell puts its second ID in Type, and when that row’s Type was blank the row is no longer than the headings, so only this check sees it. Before, any Type but Section imported the row as an activity.
+- **Pasted rows are not checked in either way:** a paste is split on tabs only, so a comma cannot move a cell.
+- **Where the checks stop:** they see a split only by one of those two marks. A split that pushes its second half into a column of your own, without making the row longer than the headings — a Notes column after Predecessors, blank on that row, for example — is still not refused. And the preview may still count a refused row among the activities ready to import; nothing can be imported while any row is refused.
+
+### Internal
+
+- The import screen has its first component tests: ten, for the button, the keyboard shortcut, the plurals, the Column heading, the date and the heuristic preferences. Run against the screen as it was before this release, all ten fail.
+- New tests for the CSV reader: the two checks, their row numbers and their limits, the 10 MB limit on a file — which no test had reached, and which now sits in the function that reads every file the screen takes — and the default name’s date, at an hour when the local and UTC dates differ.
+- Four existing assertions that expected internal names in the missing-column messages now expect the headings.
+- A new committed breakage spec breaks the new behaviour fourteen ways, one at a time; each breakage fails exactly the checks it names — between 1 and 6 of them.
+
 ## 0.73.3 — 2026-10-01
 
 ### Fixed
