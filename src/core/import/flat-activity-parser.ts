@@ -106,6 +106,34 @@ export const DEFAULT_COLUMN_ORDER = [
   "predecessors",
 ] as const;
 
+/** A field the template has a column for: the headerless order, then Type. */
+type ColumnField = (typeof DEFAULT_COLUMN_ORDER)[number] | "type";
+
+/**
+ * Each field's column heading in the template — the name a user reads, never the internal key.
+ * A missing or extra field fails `tsc`.
+ */
+export const COLUMN_LABELS: Record<ColumnField, string> = {
+  activityId: "Activity ID",
+  name: "Activity Name",
+  min: "Optimistic (Min)",
+  mostLikely: "Most Likely",
+  max: "Pessimistic (Max)",
+  distribution: "Distribution",
+  confidence: "Confidence Level",
+  status: "Status",
+  predecessors: "Predecessors",
+  type: "Type",
+};
+
+/**
+ * The heading for a row issue's column. A schema failure names an internal key ("mostLikely"),
+ * shown through the table; the parser's own checks already name a heading, returned unchanged.
+ */
+export function columnLabel(column: string): string {
+  return Object.hasOwn(COLUMN_LABELS, column) ? COLUMN_LABELS[column as ColumnField] : column;
+}
+
 interface HeaderMap {
   [field: string]: number; // field name → column index
 }
@@ -125,7 +153,8 @@ export function resolveHeaders(
 
   const missing = REQUIRED_FIELDS.filter((f) => !(f in headers));
   if (missing.length > 0) {
-    return { missingFields: missing };
+    // Headings, not keys: the parser joins these into its missing-column messages.
+    return { missingFields: missing.map((f) => COLUMN_LABELS[f]) };
   }
 
   return { headers };

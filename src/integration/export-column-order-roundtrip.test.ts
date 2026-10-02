@@ -77,7 +77,8 @@ describe("column order and the activity importer", () => {
     const noId = HEADERS_OLD.filter((h) => h !== "Activity ID");
     const r = parse(noId, ROW_OLD.slice(1));
     expect(r.errors.length).toBeGreaterThan(0);
-    expect(JSON.stringify(r.errors)).toContain("activityId");
+    // The column's heading, not its internal key ("activityId"), since v0.74.0 (2026-10-01).
+    expect(JSON.stringify(r.errors)).toContain("Activity ID");
   });
 });
 
@@ -89,13 +90,15 @@ describe("the schedule export is not re-importable, in either order", () => {
   it("is refused for a missing activityId — before column order is ever consulted", () => {
     const r = parse(SCHEDULE_HEADERS, SCHEDULE_ROW);
     expect(r.errors.length).toBeGreaterThan(0);
-    expect(JSON.stringify(r.errors)).toContain("activityId");
+    // The column's heading, not its internal key ("activityId"), since v0.74.0 (2026-10-01).
+    expect(JSON.stringify(r.errors)).toContain("Activity ID");
     expect(r.activities).toHaveLength(0);
   });
 
   it("was refused identically BEFORE the swap, so the swap did not cause this", () => {
     const before = ["#", "Activity Name", "Min", "Most Likely", "Max", "Confidence", "Distribution", "Status"];
     const r = parse(before, ["1", "Design", "3", "5", "10", "Medium", "T-Normal", "Planned"]);
-    expect(JSON.stringify(r.errors)).toContain("activityId");
+    // The column's heading, not its internal key ("activityId"), since v0.74.0 (2026-10-01).
+    expect(JSON.stringify(r.errors)).toContain("Activity ID");
   });
 });
