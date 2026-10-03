@@ -14,7 +14,7 @@ import { isCalendarError } from "@core/calendar/work-calendar";
 import { isDependencyCycleError } from "@core/schedule/dependency-graph";
 import type { ScheduleError } from "@ui/hooks/use-schedule";
 import { savedScenarioFlags, type SavedScenarioFlags } from "@ui/helpers/scenario-flags";
-import { compareRunNote, scheduleErrorKind, type FlagNoteInput } from "@ui/helpers/flag-sentences";
+import { compareCurveNote, compareRunNote, scheduleErrorKind, type FlagNoteInput } from "@ui/helpers/flag-sentences";
 import type { CDFDataset } from "@ui/charts/cdf-comparison-data";
 
 // Color palette for comparison lines
@@ -49,6 +49,18 @@ export interface ComparisonColumn {
   name: string;
   /** How many rows of its SAVED plan are flagged (WI-58): "N flagged" under its name. */
   flaggedCount: number;
+  /**
+   * The screen's table offers a Run under its name: it CAN run (`canRun`, with the screen's gate)
+   * and draws no curve — it has no results, or results whose samples were not stored.
+   *
+   * ⚠️ THE RUN ROW AND THE GREY NOTE AGREE IN EVERY STATE, because both are built from the same
+   * per-scenario predicates (`offersRun`): the columns offered a Run are exactly the runnable
+   * scenarios without results, plus the runnable scenarios whose results have no samples. The
+   * note's first sentence names the first group — or says "all scenarios" when that group is every
+   * compared scenario — and its second sentence names the second. Paper renders no Run row and
+   * ignores this field; it prints the note, built the same way with no gate.
+   */
+  offerRun: boolean;
 }
 
 export interface ComparisonRow {
@@ -85,7 +97,7 @@ export interface ComparisonModel {
   runNote: string | null;
   /** The red note, or null. */
   failNote: string | null;
-  /** The S-curves, or null when fewer than two compared scenarios have results. */
+  /** The S-curves, or null when fewer than two compared scenarios have results WITH samples. */
   cdf: ComparisonCdf | null;
 }
 
@@ -222,13 +234,35 @@ function canRun(e: ComparisonEntry, gate: CompareRunGate | null): boolean {
   return !(gate?.runBlocked && gate.scenarioId === e.scenario.id);
 }
 
+/**
+ * Does it draw an S-curve? Only when its results carry at least one sample. A save to this browser
+ * drops the samples unless "store full simulation data" is on (the default is off), so after a
+ * reload a run scenario can keep its percentiles and have no samples — `[]`, which is truthy, and
+ * which used to draw a flat line along the axis's 0.
+ */
+function drawsCurve(e: ComparisonEntry): boolean {
+  return (e.scenario.simulationResults?.samples.length ?? 0) > 0;
+}
+
+/** A Run is offered under its name: it can run, and draws no curve (see `ComparisonColumn.offerRun`). */
+function offersRun(e: ComparisonEntry, gate: CompareRunGate | null): boolean {
+  return canRun(e, gate) && !drawsCurve(e);
+}
+
+/**
+ * The grey note: the scenarios offered a Run, and nothing else. Those without results are asked for
+ * by name — or as "all scenarios" when that is every compared scenario; those whose results lost
+ * their samples get the curve sentence. One space between the two.
+ */
 function runNoteOf(entries: ComparisonEntry[], gate: CompareRunGate | null): string | null {
-  const runnable = entries.map((e) => canRun(e, gate));
-  const unrun = entries.filter((e, i) => runnable[i] && !e.scenario.simulationResults);
-  return compareRunNote(
-    unrun.map((e) => e.scenario.name),
-    runnable.every(Boolean)
-  );
+  const offered = entries.filter((e) => offersRun(e, gate));
+  const unrun = offered.filter((e) => !e.scenario.simulationResults);
+  const curveless = offered.filter((e) => e.scenario.simulationResults);
+  const sentences = [
+    compareRunNote(unrun.map((e) => e.scenario.name), unrun.length === entries.length),
+    compareCurveNote(curveless.map((e) => e.scenario.name)),
+  ].filter((s): s is string => s !== null);
+  return sentences.length > 0 ? sentences.join(" ") : null;
 }
 
 function rowsOf(entries: ComparisonEntry[], calendar: WorkCalendar | Calendar | undefined, formatDate: (iso: string) => string): ComparisonRow[] {
@@ -348,9 +382,11 @@ function rowsOf(entries: ComparisonEntry[], calendar: WorkCalendar | Calendar | 
  * (owner ruling, 2026-09-28) — one line, one label, true for the scenario it names. Both are judged
  * among the DRAWN curves only: a compared scenario without results draws no curve, so it never owns
  * the line (the target used to come from the first column, curve or not).
+ * Since v0.75.0 "have samples" means AT LEAST ONE (`drawsCurve`): results whose samples were not
+ * stored draw no curve either, where they used to draw a flat line along the axis's 0.
  */
 function cdfOf(entries: ComparisonEntry[]): ComparisonCdf | null {
-  const withSamples = entries.filter((e) => e.scenario.simulationResults?.samples);
+  const withSamples = entries.filter(drawsCurve);
   if (withSamples.length < 2) return null;
   const datasets = withSamples.map((e, idx) => ({
     id: e.scenario.id,
@@ -400,7 +436,12 @@ export function buildComparisonModel({
   const failing = entries.filter((e) => e.error && kindOf(e) !== "estimate");
   const failures = failing.map((e) => `${e.scenario.name} (${e.error!.message})`).join("; ");
   return {
-    columns: entries.map((e) => ({ id: e.scenario.id, name: e.scenario.name, flaggedCount: e.flags.rows.length })),
+    columns: entries.map((e) => ({
+      id: e.scenario.id,
+      name: e.scenario.name,
+      flaggedCount: e.flags.rows.length,
+      offerRun: offersRun(e, runGate),
+    })),
     rows: rowsOf(entries, calendar, formatDate),
     flagNotes,
     runNote: runNoteOf(entries, runGate),

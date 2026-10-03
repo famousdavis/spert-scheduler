@@ -51,6 +51,9 @@ import { nameOrUnnamed } from "@domain/helpers/display-name";
  * Hover-intent delay (ms) before a Gantt tooltip appears. The cursor must rest on a
  * target for this long before its tooltip surfaces; sweeping across the chart cancels
  * each pending timer on mouse-leave, so no tooltip flickers up while the cursor moves.
+ *
+ * Deliberate (owner, 2026-09-05): a shorter delay would flash tooltips as the mouse
+ * crosses a dense chart. Do not shorten it.
  */
 const TOOLTIP_HOVER_DELAY_MS = 1500;
 

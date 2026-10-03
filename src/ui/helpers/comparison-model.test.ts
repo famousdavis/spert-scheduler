@@ -3,9 +3,10 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from "vitest";
-import { buildComparisonModel, type ComparisonModelInput } from "./comparison-model";
+import { buildComparisonModel, type ComparisonModel, type ComparisonModelInput } from "./comparison-model";
 import { mergeCdfDatasets } from "@ui/charts/cdf-comparison-data";
-import { createScenario, createActivity } from "@app/api/project-service";
+import { createProject, createScenario, createActivity } from "@app/api/project-service";
+import { stripSimulationSamples } from "@infrastructure/persistence/local-storage-repository";
 import type { Activity, Scenario, ScenarioSettings, SimulationRun } from "@domain/models/types";
 
 /**
@@ -98,9 +99,10 @@ describe("the grey note follows the Run gate it is given — paper passes none (
     expect(model([baseline, clone], { runGate: gate }).runNote).toBeNull();
   });
 
-  it("paper, no gate: the saved plan can run, so it asks for every scenario", () => {
+  it("paper, no gate: the saved plan can run, so it asks for Plan B", () => {
+    // Named since v0.75.0 (2026-10-03): "all scenarios" needs every compared scenario to need a run, and Baseline has results.
     expect(model([baseline, clone], { runGate: null }).runNote).toBe(
-      "Run simulation on all scenarios for complete comparison data."
+      "Run simulation on Plan B to add its results to the comparison."
     );
   });
 });
@@ -184,6 +186,181 @@ describe("the red note", () => {
     };
     expect(model([base, cyclic]).failNote).toBe(
       "Could not compute a schedule for: Cyclic (Dependency cycle detected — cannot compute topological order)"
+    );
+  });
+});
+
+// ── v0.75.0: the Run row's offer, the grey note, and the curve after a reload ─────────────────
+
+/** A run scenario as a reload returns it: the save path's own stripper keeps the percentiles and
+ *  leaves `samples: []` (unless "store full simulation data" is on, which is off by default). */
+function reloaded(s: Scenario): Scenario {
+  return stripSimulationSamples({ ...createProject("Reload", START), scenarios: [s] }).scenarios[0]!;
+}
+
+/** Two activities that depend on each other: a cycle, which the UI refuses and an import can carry. */
+function cyclicScenario(name: string): Scenario {
+  const loop = scenarioOf(name, [VALID, VALID], { dependencyMode: true });
+  const [x, y] = loop.activities as [Activity, Activity];
+  return {
+    ...loop,
+    dependencies: [
+      { fromActivityId: x.id, toActivityId: y.id, type: "FS", lagDays: 0 },
+      { fromActivityId: y.id, toActivityId: x.id, type: "FS", lagDays: 0 },
+    ],
+  };
+}
+
+const offers = (m: ComparisonModel) => m.columns.map((c) => [c.name, c.offerRun]);
+
+describe("offerRun, column by column — each test holds a true beside its false", () => {
+  it("run → no; unrun and runnable → yes; flagged, empty and cyclic → no", () => {
+    const m = model([
+      run(scenarioOf("Baseline", [VALID]), EARLY),
+      scenarioOf("Plan B", [VALID]),
+      scenarioOf("Fast-track", [VALID, OUT_OF_ORDER_NORMAL]),
+      createScenario("Empty", START),
+      cyclicScenario("Cyclic"),
+    ]);
+    expect(offers(m)).toEqual([
+      ["Baseline", false],
+      ["Plan B", true],
+      ["Fast-track", false],
+      ["Empty", false],
+      ["Cyclic", false],
+    ]);
+  });
+
+  it("the on-screen gate refusing → no Run there; a gate on another scenario changes nothing", () => {
+    const base = run(scenarioOf("Baseline", [VALID]), EARLY);
+    const planB = scenarioOf("Plan B", [VALID]);
+    expect(offers(model([base, planB], { runGate: { scenarioId: planB.id, runBlocked: true } }))).toEqual([
+      ["Baseline", false],
+      ["Plan B", false],
+    ]);
+    expect(offers(model([base, planB], { runGate: { scenarioId: base.id, runBlocked: true } }))).toEqual([
+      ["Baseline", false],
+      ["Plan B", true],
+    ]);
+  });
+
+  it("results without samples: runnable → yes; flagged → no; with samples → no", () => {
+    const m = model([
+      reloaded(run(scenarioOf("Lean", [VALID]), LATE)),
+      reloaded(run(scenarioOf("Fast-track", [VALID, OUT_OF_ORDER_NORMAL]), EARLY)),
+      run(scenarioOf("Baseline", [VALID]), EARLY),
+    ]);
+    expect(offers(m)).toEqual([
+      ["Lean", true],
+      ["Fast-track", false],
+      ["Baseline", false],
+    ]);
+  });
+});
+
+/**
+ * THE PROPERTY, as literals per case: the columns offered a Run are exactly the runnable scenarios
+ * without results plus the runnable ones whose results lost their samples; the note's first sentence
+ * names the former — or says "all scenarios" exactly when they are every compared scenario — and its
+ * second sentence names the latter. Every case pins both, written out, never computed.
+ */
+describe("the Run row and the grey note agree in every state", () => {
+  const ASK_ALL = "Run simulation on all scenarios for complete comparison data.";
+
+  it("one run + one unrun → the unrun one by name (the corrected state: never 'all' beside results)", () => {
+    const m = model([run(scenarioOf("Baseline", [VALID]), EARLY), scenarioOf("Plan B", [VALID])]);
+    expect(offers(m)).toEqual([["Baseline", false], ["Plan B", true]]);
+    expect(m.runNote).toBe("Run simulation on Plan B to add its results to the comparison.");
+  });
+
+  it("two unrun → 'all scenarios', and a Run under each", () => {
+    const m = model([scenarioOf("Baseline", [VALID]), scenarioOf("Plan B", [VALID])]);
+    expect(offers(m)).toEqual([["Baseline", true], ["Plan B", true]]);
+    expect(m.runNote).toBe(ASK_ALL);
+  });
+
+  it("two unrun beside a flagged one → both by name, not 'all': the flagged one needs a fix, not a run", () => {
+    const m = model([
+      scenarioOf("Baseline", [VALID]),
+      scenarioOf("Fast-track", [VALID, OUT_OF_ORDER_NORMAL]),
+      scenarioOf("Plan B", [VALID]),
+    ]);
+    expect(offers(m)).toEqual([["Baseline", true], ["Fast-track", false], ["Plan B", true]]);
+    expect(m.runNote).toBe("Run simulation on Baseline and Plan B to add their results to the comparison.");
+  });
+
+  it("one stripped beside two run → two datasets, a Run under the stripped one, and the curve sentence", () => {
+    const a = run(scenarioOf("Baseline", [VALID]), EARLY);
+    const lean = reloaded(run(scenarioOf("Lean", [VALID]), LATE));
+    const c = run(scenarioOf("Plan C", [VALID]), LATE);
+    const m = model([a, lean, c]);
+    expect(offers(m)).toEqual([["Baseline", false], ["Lean", true], ["Plan C", false]]);
+    expect(m.runNote).toBe(
+      "Lean has no curve because its sample data was not stored. Run simulation on Lean again to restore it."
+    );
+    expect(m.cdf!.datasets.map((d) => d.id)).toEqual([a.id, c.id]);
+  });
+
+  it("one stripped beside one run → no S-curves (a single curve is not a comparison)", () => {
+    const base = run(scenarioOf("Baseline", [VALID]), EARLY);
+    const lean = run(scenarioOf("Lean", [VALID]), LATE);
+    // Control: with its samples, the same pair draws two curves.
+    expect(model([base, lean]).cdf!.datasets).toHaveLength(2);
+    const m = model([base, reloaded(lean)]);
+    expect(m.cdf).toBeNull();
+    expect(offers(m)).toEqual([["Baseline", false], ["Lean", true]]);
+  });
+
+  it("both stripped — the reload → the curve sentence ALONE, no leading space, and no S-curves", () => {
+    const m = model([reloaded(run(scenarioOf("Baseline", [VALID]), EARLY)), reloaded(run(scenarioOf("Plan B", [VALID]), LATE))]);
+    expect(offers(m)).toEqual([["Baseline", true], ["Plan B", true]]);
+    expect(m.runNote).toBe(
+      "Baseline and Plan B have no curves because their sample data was not stored. Run simulation on them again to restore it."
+    );
+    expect(m.cdf).toBeNull();
+  });
+
+  it("three stripped → 'A, B and C'", () => {
+    const m = model(["Baseline", "Plan B", "Fast-track"].map((n) => reloaded(run(scenarioOf(n, [VALID]), EARLY))));
+    expect(offers(m)).toEqual([["Baseline", true], ["Plan B", true], ["Fast-track", true]]);
+    expect(m.runNote).toBe(
+      "Baseline, Plan B and Fast-track have no curves because their sample data was not stored. Run simulation on them again to restore it."
+    );
+  });
+
+  it("an unrun AND a stripped one → both sentences, joined by ONE space", () => {
+    const m = model([
+      scenarioOf("Plan B", [VALID]),
+      reloaded(run(scenarioOf("Lean", [VALID]), LATE)),
+      run(scenarioOf("Baseline", [VALID]), EARLY),
+    ]);
+    expect(offers(m)).toEqual([["Plan B", true], ["Lean", true], ["Baseline", false]]);
+    expect(m.runNote).toBe(
+      "Run simulation on Plan B to add its results to the comparison. Lean has no curve because its sample data was not stored. Run simulation on Lean again to restore it."
+    );
+  });
+
+  it("a stripped scenario that cannot run — flagged, or refused on screen — is neither offered nor named", () => {
+    const leanFlagged = reloaded(run(scenarioOf("Lean", [VALID, OUT_OF_ORDER_NORMAL]), LATE));
+    const stretch = reloaded(run(scenarioOf("Stretch", [VALID]), EARLY));
+    const flaggedBeside = model([leanFlagged, stretch]);
+    expect(offers(flaggedBeside)).toEqual([["Lean", false], ["Stretch", true]]);
+    expect(flaggedBeside.runNote).toBe(
+      "Stretch has no curve because its sample data was not stored. Run simulation on Stretch again to restore it."
+    );
+    const refused = model([stretch, run(scenarioOf("Baseline", [VALID]), EARLY)], {
+      runGate: { scenarioId: stretch.id, runBlocked: true },
+    });
+    expect(offers(refused)).toEqual([["Stretch", false], ["Baseline", false]]);
+    expect(refused.runNote).toBeNull();
+  });
+
+  it("paper passes no gate: a scenario refused on screen is still offered in the model and named", () => {
+    const stretch = reloaded(run(scenarioOf("Stretch", [VALID]), EARLY));
+    const m = model([stretch, run(scenarioOf("Baseline", [VALID]), EARLY)], { runGate: null });
+    expect(offers(m)).toEqual([["Stretch", true], ["Baseline", false]]);
+    expect(m.runNote).toBe(
+      "Stretch has no curve because its sample data was not stored. Run simulation on Stretch again to restore it."
     );
   });
 });

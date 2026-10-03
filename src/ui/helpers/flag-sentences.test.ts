@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  compareCurveNote,
   compareRunNote,
   flagNote,
   scheduleErrorKind,
@@ -184,6 +185,33 @@ describe("the grey run note (W5)", () => {
   it("nothing when no unrun scenario can run", () => {
     expect(compareRunNote([], false)).toBeNull();
     expect(compareRunNote([], true)).toBeNull();
+  });
+  it("and three: 'A, B and C'", () => {
+    expect(compareRunNote(["Baseline", "Plan B", "Fast-track"], false)).toBe(
+      "Run simulation on Baseline, Plan B and Fast-track to add their results to the comparison."
+    );
+  });
+});
+
+describe("the grey note's curve sentence (v0.75.0): results whose sample data was not stored", () => {
+  it("none → null (control: one name → a sentence)", () => {
+    expect(compareCurveNote([])).toBeNull();
+    expect(compareCurveNote(["Baseline"])).not.toBeNull();
+  });
+  it("one name: 'has no curve', 'its', and the name again", () => {
+    expect(compareCurveNote(["Baseline"])).toBe(
+      "Baseline has no curve because its sample data was not stored. Run simulation on Baseline again to restore it."
+    );
+  });
+  it("two names: 'have no curves', 'their', 'them'", () => {
+    expect(compareCurveNote(["Baseline", "Plan B"])).toBe(
+      "Baseline and Plan B have no curves because their sample data was not stored. Run simulation on them again to restore it."
+    );
+  });
+  it("three, listed as the run sentence lists them", () => {
+    expect(compareCurveNote(["Baseline", "Plan B", "Fast-track"])).toBe(
+      "Baseline, Plan B and Fast-track have no curves because their sample data was not stored. Run simulation on them again to restore it."
+    );
   });
 });
 

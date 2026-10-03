@@ -13,6 +13,42 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.75.0",
+    date: "2026-10-03",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "The Compare table can now run a compared scenario for you. A row under the scenario names holds a Run button under each compared scenario that has no results and can be run. The scenario runs where it is — the tab on screen does not change — with its own number of trials and its own seed, so its numbers are the ones its own Run Simulation button gives. While it runs, “Running...” takes the button’s place; when its results arrive, the button goes. Several scenarios can run at once.",
+          "Run is offered only for a scenario that can be run: not for one with validation errors, one with no activities or one whose schedule cannot be calculated, and not for the scenario on screen while one of its estimate cells holds an entry the grid refused.",
+          "The Run row is left out of the copied picture of the table, and it never prints.",
+          "After you press Run, focus moves to that scenario’s name at the top of its column, and a screen reader announces when the run starts and when its results are in.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "After a page reload, the Compare chart no longer draws a flat line for a scenario whose sample data was not stored. Unless Store full simulation data is on (in Settings), a scenario’s sample data is not stored with it, so after a reload it can keep its percentiles and have nothing to draw a curve from. Compare drew its curve flat along the bottom of the chart instead, and with every compared scenario in that state it showed the chart with no lines in it at all. Now such a scenario draws no curve, and the chart is shown only when at least two compared scenarios have one. The printed comparison draws no flat line either.",
+          "The table now offers a Run under such a scenario when it can be run, and the note under the table names it: “Baseline has no curve because its sample data was not stored. Run simulation on Baseline again to restore it.” Running it again restores its sample data; its curve is drawn once at least one other compared scenario has a curve too. The printed comparison prints the sentence too.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "The note under the Compare table says “Run simulation on all scenarios for complete comparison data.” only when none of the compared scenarios has results and every one of them can be run. Otherwise it names the scenarios that can be run and have no results — for example, “Run simulation on Baseline (Copy) to add its results to the comparison.” Before, it asked for all scenarios whenever every compared scenario could be run, even beside one that already had results. The printed comparison follows the same rule.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "44 new tests, in three new files and three existing ones: the Compare run’s state machine over a stand-in for the simulation (12), the table’s Run row (10), the model’s offer and note, case by case (13), the new sentence (4) and a three-name case for the old one (1), what the copied picture leaves out (1), and three page tests on the real simulation — one runs a scenario from Compare and from its own Run Simulation button, and finds the same numbers.",
+          "Two existing tests are updated deliberately: the table’s “all scenarios” test now compares two scenarios without results, and the paper case in the model’s tests now expects the scenario to be named.",
+          "A new committed breakage spec breaks the new behaviour thirteen ways, one at a time; each breakage fails exactly the checks it names — between 1 and 12 of them.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.74.0",
     date: "2026-10-01",
     sections: [

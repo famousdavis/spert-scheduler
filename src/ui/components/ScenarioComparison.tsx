@@ -12,6 +12,7 @@ import { flagNote } from "@ui/helpers/flag-sentences";
 import {
   buildComparisonModel,
   type CompareRunGate,
+  type ComparisonColumn,
   type ComparisonFlagNote,
   type ComparisonModel,
 } from "@ui/helpers/comparison-model";
@@ -23,12 +24,83 @@ function highlightClass(highlight: "best" | "worst" | null | undefined): string 
   return "text-gray-900";
 }
 
+/** No Compare run in flight: one set for every render, so a default never looks like a change. */
+const NOTHING_RUNNING: ReadonlySet<string> = new Set();
+
 interface ScenarioComparisonProps {
   scenarios: Scenario[];
   calendar?: WorkCalendar | Calendar;
   /** The project numbers its activities: a note then leads each row with its `#n` (WI-58). */
   showActivityNumbers?: boolean;
   activeRunGate?: CompareRunGate | null;
+  /**
+   * Runs one compared scenario where it is — the tab on screen does not change. Without it the
+   * table has no Run row.
+   */
+  onRunScenario?: (scenarioId: string) => void;
+  /** The scenarios whose Compare run is in flight: "Running..." in place of their Run. */
+  runningIds?: ReadonlySet<string>;
+  /** What the last Compare run did, for a screen reader — announced outside the captured region. */
+  runStatus?: string;
+}
+
+/**
+ * One column's Run cell: "Running..." while its run is in flight (the panel's own word), a Run
+ * button when the model offers one, and nothing otherwise.
+ */
+function RunCell({ column, running, onRun }: { column: ComparisonColumn; running: boolean; onRun: (id: string) => void }) {
+  if (running) return <span className="text-xs text-gray-600">Running...</span>;
+  if (!column.offerRun) return null;
+  return (
+    <button
+      type="button"
+      aria-label={`Run simulation for ${column.name}`}
+      onClick={() => onRun(column.id)}
+      className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700"
+    >
+      Run
+    </button>
+  );
+}
+
+/**
+ * The Run row: under the scenario names, inside the header band, a Run under each scenario that
+ * can run and draws no curve. Rendered only while some column offers a Run or is running.
+ *
+ * ⚠️ `data-capture-skip` keeps it out of the copied picture (`copyChartAsPng`), and it is never
+ * printed — paper renders its own table. Its cells are `<td>`, not `<th>`, so no column header's
+ * accessible name changes. Inside the captured region: light colours only, NO `dark:` variant —
+ * and the `bg-gray-50` is load-bearing: without it "Running..." sits on white.
+ */
+function RunRow({
+  columns,
+  runningIds,
+  onRunScenario,
+}: {
+  columns: ComparisonColumn[];
+  runningIds: ReadonlySet<string>;
+  onRunScenario: (scenarioId: string) => void;
+}) {
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  if (!columns.some((col) => col.offerRun || runningIds.has(col.id))) return null;
+  // Focus moves to the column's header FIRST: the button is about to be replaced, and focus must
+  // not fall to <body>. The header is matched by its dataset, never by a selector built from the id:
+  // an imported id can hold a `"`, and querySelector would throw before the run starts.
+  const run = (scenarioId: string) => {
+    const headers = rowRef.current?.closest("table")?.querySelectorAll<HTMLElement>("th[data-scenario-id]");
+    Array.from(headers ?? []).find((th) => th.dataset.scenarioId === scenarioId)?.focus();
+    onRunScenario(scenarioId);
+  };
+  return (
+    <tr ref={rowRef} className="bg-gray-50" data-capture-skip="">
+      <td />
+      {columns.map((col) => (
+        <td key={col.id} className="px-4 pb-2 text-right whitespace-nowrap">
+          <RunCell column={col} running={runningIds.has(col.id)} onRun={run} />
+        </td>
+      ))}
+    </tr>
+  );
 }
 
 /**
@@ -88,6 +160,9 @@ export function ScenarioComparisonTable({
   calendar,
   showActivityNumbers = false,
   activeRunGate = null,
+  onRunScenario,
+  runningIds = NOTHING_RUNNING,
+  runStatus = "",
 }: ScenarioComparisonProps) {
   const formatDate = useDateFormat();
   const tableRef = useRef<HTMLDivElement>(null);
@@ -118,6 +193,8 @@ export function ScenarioComparisonTable({
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
           Scenario Comparison
         </h3>
+        {/* The Run row's announcements: always mounted, so a screen reader hears each change. */}
+        <p role="status" className="sr-only">{runStatus}</p>
         <CopyImageButton
           targetRef={tableRef}
           title="Copy comparison table as image"
@@ -135,14 +212,19 @@ export function ScenarioComparisonTable({
           the theme. */}
       <div ref={tableRef} className="inline-block bg-white">
         <table className="text-sm">
+          {/* The names and the Run row read as ONE grey band with ONE rule beneath it: the rule is
+              the first body row's top border (below), not a border on either header row. */}
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
+            <tr className="bg-gray-50">
               <th className="text-left px-4 py-2 text-gray-500 font-medium whitespace-nowrap">
                 Metric
               </th>
               {model.columns.map((col) => (
                 <th
                   key={col.id}
+                  // A Run moves focus here before its button goes (see RunRow).
+                  tabIndex={-1}
+                  data-scenario-id={col.id}
                   className="text-right px-4 py-2 text-gray-900 font-semibold whitespace-nowrap min-w-[120px]"
                 >
                   {col.name}
@@ -156,12 +238,19 @@ export function ScenarioComparisonTable({
                 </th>
               ))}
             </tr>
+            {onRunScenario && (
+              <RunRow columns={model.columns} runningIds={runningIds} onRunScenario={onRunScenario} />
+            )}
           </thead>
           <tbody>
             {model.rows.map((row, i) => (
               <tr
                 key={row.label}
-                className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
+                // The header's rule is the FIRST body row's top border. On screen the collapsed
+                // border falls on the line beneath the whole header band, Run row included. And
+                // html2canvas paints a row's border but not a table section's: on <thead> the rule
+                // was missing from the copied picture (measured), which had always shown it.
+                className={i % 2 === 0 ? "bg-white first:border-t first:border-gray-200" : "bg-gray-50/50"}
               >
                 <td className="px-4 py-1.5 text-gray-600 whitespace-nowrap">
                   {row.label}

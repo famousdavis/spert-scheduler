@@ -2,8 +2,8 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup, screen } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, cleanup, screen, fireEvent, within } from "@testing-library/react";
 
 import { ScenarioComparisonTable } from "./ScenarioComparison";
 import { createScenario, createActivity } from "@app/api/project-service";
@@ -439,7 +439,8 @@ describe("WI-58 — the grey note asks only for a run that can start (C4)", () =
   const grey = () => notes().filter((n) => n.tone === "grey").map((n) => n.text);
 
   it("today's words when EVERY compared scenario can run — in the darker grey", () => {
-    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} />);
+    // Two UNRUN since v0.75.0 (2026-10-03): "all scenarios" now needs every compared scenario to need a run.
+    render(<ScenarioComparisonTable scenarios={[UNRUN, scenarioLasting("Plan B", 100)]} />);
     expect(grey()).toEqual(["Run simulation on all scenarios for complete comparison data."]);
     const p = notesBox()!.lastElementChild!;
     expect(p.className).toContain("text-gray-500");
@@ -499,5 +500,128 @@ describe("WI-58 — the captured region stays light (C7) and the notes cannot wi
     const wrap = notesBox()!;
     expect(wrap.textContent).toContain("validation errors"); // non-vacuity: it holds a note
     expect(wrap.className.split(/\s+/)).toEqual(expect.arrayContaining(["w-0", "min-w-full"]));
+  });
+});
+
+// ── v0.75.0: a Run for each scenario in Compare ───────────────────────────────────────────────
+
+describe("the Run row: a Run under each compared scenario that can run and draws no curve", () => {
+  /** Results as a reload returns them: percentiles kept, samples `[]`. */
+  const withoutSamples = (scenario: Scenario): Scenario => ({
+    ...scenario,
+    simulationResults: { ...scenario.simulationResults!, samples: [] },
+  });
+  const LEAN = withoutSamples(withResults(scenarioLasting("Lean", 90), 130, 190));
+  const PLAN_B = scenarioLasting("Plan B", 110);
+  const noop = () => {};
+
+  /** The Run row, found from its button's side — never by the attribute under test. */
+  const rowOf = (button: HTMLElement) => button.closest("tr")!;
+  const runRows = () => document.querySelectorAll("thead tr[data-capture-skip]");
+  const runButton = (name: string) => screen.queryByRole("button", { name: `Run simulation for ${name}` });
+  /** What each scenario's Run cell holds, in column order: a button's name, the cell's text, or "". */
+  const runCells = () =>
+    Array.from(runRows()[0]!.children)
+      .slice(1)
+      .map((td) => td.querySelector("button")?.getAttribute("aria-label") ?? td.textContent);
+
+  it("no onRunScenario, no Run row — control: the same scenarios WITH it get the row", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} />);
+    expect(runRows()).toHaveLength(0);
+    expect(screen.queryAllByRole("button", { name: /^Run simulation for / })).toHaveLength(0);
+    cleanup();
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} onRunScenario={noop} />);
+    expect(runRows()).toHaveLength(1);
+    expect(runButton("Clone")).not.toBeNull();
+  });
+
+  it("a Run button exactly under the columns offered one: unrun or stripped, never run or flagged", () => {
+    const flagged = withParallelFlag(scenarioLasting("Fast-track", 100));
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN, flagged, LEAN]} onRunScenario={noop} />);
+    // The first cell sits under "Metric" and is empty.
+    expect(runRows()[0]!.children[0]!.textContent).toBe("");
+    expect(runCells()).toEqual(["", "Run simulation for Clone", "", "Run simulation for Lean"]);
+    expect(runButton("Clone")!.textContent).toBe("Run");
+  });
+
+  it("'Running...' for an id in runningIds, and no button there — the other column keeps its Run", () => {
+    render(<ScenarioComparisonTable scenarios={[UNRUN, PLAN_B]} onRunScenario={noop} runningIds={new Set([UNRUN.id])} />);
+    expect(runCells()).toEqual(["Running...", "Run simulation for Plan B"]);
+    expect(runButton("Clone")).toBeNull();
+  });
+
+  it("no row while nothing is offered or running — control: a running id brings it back", () => {
+    const twin = withResults(scenarioLasting("Twin", 100), 140, 200);
+    render(<ScenarioComparisonTable scenarios={[RUN, twin]} onRunScenario={noop} />);
+    expect(runRows()).toHaveLength(0);
+    cleanup();
+    render(<ScenarioComparisonTable scenarios={[RUN, twin]} onRunScenario={noop} runningIds={new Set([twin.id])} />);
+    expect(runCells()).toEqual(["", "Running..."]);
+  });
+
+  it("a click calls onRunScenario with that id, AFTER focus has moved to that column's header", () => {
+    let focusedAtCall: Element | null = null;
+    const onRun = vi.fn(() => {
+      focusedAtCall = document.activeElement;
+    });
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN, PLAN_B]} onRunScenario={onRun} />);
+    fireEvent.click(runButton("Clone")!);
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(onRun).toHaveBeenCalledWith(UNRUN.id);
+    const header = screen.getByRole("columnheader", { name: "Clone" });
+    expect(document.activeElement).toBe(header);
+    expect(focusedAtCall).toBe(header);
+  });
+
+  it("an imported id holding a quote still finds its header: no selector is built from the id", () => {
+    const quoted: Scenario = { ...PLAN_B, id: 'imp"ort]\\ed' };
+    const onRun = vi.fn();
+    render(<ScenarioComparisonTable scenarios={[RUN, quoted]} onRunScenario={onRun} />);
+    fireEvent.click(runButton("Plan B")!);
+    expect(onRun).toHaveBeenCalledWith('imp"ort]\\ed');
+    expect(document.activeElement).toBe(screen.getByRole("columnheader", { name: "Plan B" }));
+  });
+
+  it("the row carries data-capture-skip, so the copied picture leaves it out", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} onRunScenario={noop} />);
+    expect(rowOf(runButton("Clone")!).hasAttribute("data-capture-skip")).toBe(true);
+    // Control: the names' row does not carry it.
+    expect(screen.getByRole("columnheader", { name: "Clone" }).closest("tr")!.hasAttribute("data-capture-skip")).toBe(false);
+  });
+
+  it("no dark: class in the captured region with the Run row rendered — control: the region holds the row itself", () => {
+    render(<ScenarioComparisonTable scenarios={[UNRUN, PLAN_B]} onRunScenario={noop} runningIds={new Set([PLAN_B.id])} />);
+    const region = document.querySelector("table")!.parentElement!;
+    // Non-vacuity, by the row and its button — NEVER by the word "Run", which the grey note carries
+    // whenever a Run is offered, row or no row.
+    const row = region.querySelector<HTMLElement>("tr[data-capture-skip]")!;
+    expect(row).not.toBeNull();
+    expect(within(row).getByRole("button", { name: "Run simulation for Clone" })).toBeDefined();
+    expect(row.textContent).toContain("Running...");
+    expect(region.querySelectorAll('[class*="dark:"]')).toHaveLength(0);
+  });
+
+  it("the column headers' accessible names are unchanged with the row present", () => {
+    const flagged = withParallelFlag(scenarioLasting("Fast-track", 100));
+    render(<ScenarioComparisonTable scenarios={[RUN, flagged, UNRUN]} onRunScenario={noop} />);
+    expect(runButton("Clone")).not.toBeNull(); // the row is there
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Metric",
+      "Baseline",
+      "Fast-track1 flagged",
+      "Clone",
+    ]);
+    expect(screen.getByRole("columnheader", { name: "Fast-track 1 flagged" })).toBeDefined();
+    expect(screen.getByRole("columnheader", { name: "Clone" })).toBeDefined();
+  });
+
+  it("the status line: always mounted, outside the captured region, carrying runStatus", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} onRunScenario={noop} runStatus="Simulation finished for Clone." />);
+    const status = screen.getByRole("status");
+    expect(status.textContent).toBe("Simulation finished for Clone.");
+    expect(document.querySelector("table")!.parentElement!.contains(status)).toBe(false);
+    cleanup();
+    render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} />);
+    expect(screen.getByRole("status").textContent).toBe("");
   });
 });

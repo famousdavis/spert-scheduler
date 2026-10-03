@@ -6,6 +6,11 @@ import { useState } from "react";
 import { useStorage } from "@ui/providers/StorageProvider";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 
+/**
+ * The reminder that this browser holds the only copy of the user's data. Its return every session
+ * is deliberate (owner, 2026-09-05): local storage is not as durable as a database, and the user
+ * must be reminded to back up. Settings → Notifications is the opt-out.
+ */
 export function LocalStorageWarningBanner() {
   const { mode } = useStorage();
   const suppressLocalStorageWarning = usePreferencesStore(

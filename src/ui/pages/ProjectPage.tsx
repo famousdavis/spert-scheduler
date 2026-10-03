@@ -7,6 +7,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useProjectActions } from "@ui/hooks/use-project-actions";
 import { useSimulation } from "@ui/hooks/use-simulation";
+import { useCompareRuns } from "@ui/hooks/use-compare-runs";
 import { useSchedule, type ScheduleError } from "@ui/hooks/use-schedule";
 import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
 import { ScheduleErrorBanner } from "@ui/components/ScheduleErrorBanner";
@@ -729,6 +730,25 @@ export function ProjectPage() {
     [activeScenarioId, validity.runnable]
   );
   const paintedCompareRunGate = useHeldWhilePointerDown(compareRunGate);
+  // The Compare table's Run: each compared scenario runs where it is, the tab on screen unchanged.
+  // Its running set is HELD like the table's other inputs, or a run finishing mid-press could add or
+  // remove the Run row under the pointer.
+  const compareRuns = useCompareRuns(setSimulationResults);
+  const runCompare = compareRuns.run;
+  const paintedCompareRunningIds = useHeldWhilePointerDown(compareRuns.runningIds);
+  const handleCompareRun = useCallback(
+    (scenarioId: string) => {
+      if (!id) return;
+      // The LIVE gate for the scenario on screen: the table is painted from the pre-press one, and a
+      // press's blur can refuse a cell after the Run row was painted.
+      if (scenarioId === activeScenarioId && !validity.runnable) {
+        toast.error(runBlockedMessage(validity.runBlockers));
+        return;
+      }
+      runCompare(id, scenarioId, workCalendar);
+    },
+    [id, activeScenarioId, validity.runnable, validity.runBlockers, runCompare, workCalendar]
+  );
 
   if (!project) {
     return (
@@ -856,6 +876,9 @@ export function ProjectPage() {
           calendar={workCalendar}
           showActivityNumbers={showActivityNumbers}
           activeRunGate={paintedCompareRunGate}
+          onRunScenario={handleCompareRun}
+          runningIds={paintedCompareRunningIds}
+          runStatus={compareRuns.runStatus}
         />
       )}
       {compareMode && paintedCompareScenarios.length < 2 && (
