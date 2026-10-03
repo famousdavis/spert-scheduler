@@ -144,7 +144,10 @@ export function setProportionalNumerals(el: HTMLElement): void {
 
 /**
  * Copy a DOM element as a PNG image to the clipboard.
- * Elements with the `copy-image-button` class are excluded from the capture.
+ * Two kinds of element are left out of the capture: those with the `copy-image-button` class,
+ * and any element carrying the attribute `data-capture-skip` — a control that belongs on the
+ * screen and not in the picture, such as the comparison table's Run row. html2canvas sizes the
+ * canvas from its clone, which never holds a left-out element, so the picture closes up around it.
  * @param element The element to capture
  * @param options See {@link CopyChartOptions}
  */
@@ -155,7 +158,7 @@ export async function copyChartAsPng(
   const canvas = await html2canvas(element, {
     backgroundColor: "#ffffff",
     scale: 2, // Higher resolution
-    ignoreElements: (el) => el.classList.contains("copy-image-button"),
+    ignoreElements: (el) => el.classList.contains("copy-image-button") || el.hasAttribute("data-capture-skip"),
     onclone: (doc, clonedEl) => {
       if (captureFullWidth) expandToFullWidth(clonedEl);
       setProportionalNumerals(clonedEl);

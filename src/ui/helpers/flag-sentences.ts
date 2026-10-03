@@ -122,18 +122,42 @@ export function flagNote(input: FlagNoteInput, surface: FlagSurface): FlagNote {
   };
 }
 
+/** Two or more names as the grey note lists them: `A and B`, `A, B and C`. */
+function joinNames(names: readonly string[]): string {
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 /**
  * The grey note under the Compare table, when some compared scenario has no results and CAN be run.
  * Today's words only when EVERY compared scenario can be run; otherwise the ones that can, by name —
  * a flagged, empty or failing scenario cannot, so "all scenarios" would ask for a run the app refuses
  * (owner ruling, 2026-09-27). `null` when nothing can be run.
+ * Corrected 2026-10-03 (v0.75.0): the "all scenarios" words need every compared scenario to NEED a
+ * run — it can run and has no results — so the note never asks for a run the table's Run row does
+ * not offer. Beside a scenario that already has results, it names the ones that need one.
  */
-export function compareRunNote(runnableUnrun: readonly string[], everyCanRun: boolean): string | null {
+export function compareRunNote(runnableUnrun: readonly string[], everyNeedsRun: boolean): string | null {
   if (runnableUnrun.length === 0) return null;
-  if (everyCanRun) return "Run simulation on all scenarios for complete comparison data.";
+  if (everyNeedsRun) return "Run simulation on all scenarios for complete comparison data.";
   if (runnableUnrun.length === 1) {
     return `Run simulation on ${runnableUnrun[0]} to add its results to the comparison.`;
   }
-  const names = `${runnableUnrun.slice(0, -1).join(", ")} and ${runnableUnrun[runnableUnrun.length - 1]}`;
-  return `Run simulation on ${names} to add their results to the comparison.`;
+  return `Run simulation on ${joinNames(runnableUnrun)} to add their results to the comparison.`;
+}
+
+/**
+ * The grey note's second sentence: the compared scenarios that can run and whose results carry no
+ * sample data, so they draw no curve. A save to this browser drops the samples unless "store full
+ * simulation data" is on, so after a reload a run scenario can keep its percentiles and lose its
+ * curve. `null` when there are none.
+ *
+ * ⚠️ It promises the DATA back, never the curve: with another compared scenario still unrun, a run
+ * restores the samples and the S-curves can still be hidden (they need two curves).
+ */
+export function compareCurveNote(names: readonly string[]): string | null {
+  if (names.length === 0) return null;
+  if (names.length === 1) {
+    return `${names[0]} has no curve because its sample data was not stored. Run simulation on ${names[0]} again to restore it.`;
+  }
+  return `${joinNames(names)} have no curves because their sample data was not stored. Run simulation on them again to restore it.`;
 }

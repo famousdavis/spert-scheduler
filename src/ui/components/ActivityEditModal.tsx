@@ -181,6 +181,8 @@ function estimateInputAria(
  * opens by itself (owner, 2026-09-17; R206.3) — only then, so M18's collapsed default stands for
  * every other activity. It reads the saved activity, never the drafts: `Section` reads
  * `defaultOpen` once, at mount, and the modal mounts per open.
+ * The collapsed default is deliberate (owner, 2026-09-05): estimates are edited in the grid, and
+ * this window is for everything else. Do not open the section by default.
  */
 function savedEstimatesFlagged(activity: Activity | undefined): boolean {
   if (!activity) return false;

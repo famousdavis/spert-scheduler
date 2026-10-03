@@ -159,7 +159,9 @@ const SUB_FLOOR_EXCEPTIONS: Record<string, string> = {
   // ARE fixed: v0.67.14 made the suppression threshold derive from each label's own
   // text and font, and moved the milestone date out of the tick lane, which is what
   // was blocking the raise. They are 12px now.
-  'src/ui/charts/GanttChart.tsx:986': 'dependency lag label — hardcoded, 9px inside an arrow gap',
+  // Re-keyed :986 → :989 in v0.75.0: the same label, byte-identical, moved down by a comment added
+  // above it. Not a new site.
+  'src/ui/charts/GanttChart.tsx:989': 'dependency lag label — hardcoded, 9px inside an arrow gap',
   'src/ui/charts/GanttActivityRow.tsx:222': 'constraint glyph inside an 8px bar icon — non-text, 1.4.11',
   'src/ui/charts/GanttLegend.tsx:163': 'the "C" inside a 12x12 legend swatch — non-text, 1.4.11',
 };
@@ -284,7 +286,8 @@ describe('legibility floor: no numeric font size below 12 outside print', () => 
  * minima govern text, and none of these render informational text.
  */
 const RULED_EXCEPTIONS: Record<string, string> = {
-  'src/ui/charts/GanttChart.tsx:198': 'disabled state, paired with cursor-not-allowed',
+  // Re-keyed :198 → :201 in v0.75.0, as :986 → :989 above. Not a new site.
+  'src/ui/charts/GanttChart.tsx:201': 'disabled state, paired with cursor-not-allowed',
   'src/ui/components/StorageLoginModal.tsx:135': 'the disabled half of a ternary',
   'src/ui/components/UnifiedActivityRow.tsx:546': 'icon-only control, no text node',
   // Re-keyed :117 → :140 in WI-62: the same drag handle, byte-identical, moved down by the
@@ -367,7 +370,8 @@ const BELOW_AA_ON_WHITE = new Set([
 
 /** Non-text under WCAG 1.4.11, which asks 3:1 rather than 4.5:1. Both clear it. */
 const NON_TEXT_EXCEPTIONS: Record<string, string> = {
-  'src/ui/charts/GanttChart.tsx:207': 'checkbox accent colour, amber-600 at 3.20',
+  // Re-keyed :207 → :210 in v0.75.0, as :986 → :989 above. Not a new site.
+  'src/ui/charts/GanttChart.tsx:210': 'checkbox accent colour, amber-600 at 3.20',
   'src/ui/components/WarningsPanel.tsx:23': 'the warning variant glyph, amber-600 at 3.20 on white and 3.09 on its amber-50 ground',
 };
 
