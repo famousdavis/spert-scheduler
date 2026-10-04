@@ -36,6 +36,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { StrictMode } from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 
 // Provider mocks — declared BEFORE the component import so vi.mock hoisting catches them.
@@ -228,6 +229,38 @@ describe("ImportSection — the <input onChange> binding", () => {
       expect(screen.queryByRole("region")).not.toBeNull();
     });
     expect(readyToImportNames()).toEqual([NAME_B]);
+  });
+});
+
+// -- StrictMode, as main.tsx renders the app -----------------------------------
+
+describe("ImportSection — under React's StrictMode, as the dev server renders it", () => {
+  /**
+   * `main.tsx` renders in `<StrictMode>`, which in development mounts, cleans up and mounts
+   * again. The hook's mounted flag was only ever CLEARED, by its effect's cleanup, so under
+   * StrictMode it stayed false: the file was read and then dropped — no preview, no error.
+   * Production does not double-invoke, so the control (no StrictMode) passed all along.
+   */
+  it("a valid export file reaches its preview and imports, with and without StrictMode", async () => {
+    // Control: the same flow without StrictMode.
+    const plain = renderSection();
+    await pickFile(serializeExport([createProject(NAME_A, "2026-04-06")]));
+    expect(readyToImportNames()).toEqual([NAME_A]);
+    plain.unmount();
+
+    render(
+      <StrictMode>
+        <ImportSection projects={[]} />
+      </StrictMode>
+    );
+    await pickFile(serializeExport([createProject(NAME_B, "2026-04-06")]));
+    expect(readyToImportNames()).toEqual([NAME_B]);
+
+    confirmImport();
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent("Import complete: 1 added.");
+    });
+    expect(useProjectStore.getState().projects.map((p) => p.name)).toEqual([NAME_B]);
   });
 });
 

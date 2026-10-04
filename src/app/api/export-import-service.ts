@@ -354,6 +354,42 @@ function describeIssue(issue: { path: PropertyKey[]; message: string }): string 
   return issue.path.length > 0 ? `${issue.path.join(".")}: ${issue.message}` : issue.message;
 }
 
+/**
+ * Refuses an entry of the file's `projects` that is not an object at all — `null`, a number, a
+ * string, a boolean — by its position, before anything reads it. An ARRAY entry is not refused
+ * here: it reaches the schema and is refused there.
+ */
+function refuseNonObjectEntry(entry: unknown, index: number): ImportValidationError | null {
+  if (typeof entry !== "object" || entry === null) {
+    return { success: false, error: `Project #${index + 1} in this file is not a project.` };
+  }
+  return null;
+}
+
+/**
+ * Migrates one project to the current schema version; a project already current comes back
+ * unchanged. A migration that throws on a malformed older project refuses the file, with the
+ * thrown message as the details.
+ */
+function migrateToCurrent(
+  projectData: Record<string, unknown>,
+  projectVersion: number,
+  projectLabel: unknown
+): ImportValidationError | { projectData: Record<string, unknown> } {
+  if (projectVersion >= SCHEMA_VERSION) return { projectData };
+  try {
+    return {
+      projectData: applyMigrations(projectData, projectVersion, SCHEMA_VERSION) as Record<string, unknown>,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: `Project "${projectLabel}" could not be updated to this version of SPERT Scheduler.`,
+      details: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 /** Step 3: Migrate each project to the current schema version and validate with Zod. */
 function migrateAndValidateProjects(
   rawProjects: unknown[]
@@ -361,7 +397,10 @@ function migrateAndValidateProjects(
   const validated: Project[] = [];
 
   for (let i = 0; i < rawProjects.length; i++) {
-    let projectData = rawProjects[i] as Record<string, unknown>;
+    const notAProject = refuseNonObjectEntry(rawProjects[i], i);
+    if (notAProject) return notAProject;
+
+    const projectData = rawProjects[i] as Record<string, unknown>;
 
     const projectVersion =
       typeof projectData === "object" &&
@@ -386,15 +425,10 @@ function migrateAndValidateProjects(
       };
     }
 
-    if (projectVersion < SCHEMA_VERSION) {
-      projectData = applyMigrations(
-        projectData,
-        projectVersion,
-        SCHEMA_VERSION
-      ) as Record<string, unknown>;
-    }
+    const migrated = migrateToCurrent(projectData, projectVersion, projectLabel);
+    if ("success" in migrated) return migrated;
 
-    const result = ProjectSchema.safeParse(projectData);
+    const result = ProjectSchema.safeParse(migrated.projectData);
     if (!result.success) {
       return {
         success: false,

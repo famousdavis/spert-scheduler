@@ -188,13 +188,17 @@ export function useImportState({
    */
   const inFlightRef = useRef(false);
 
-  useEffect(
-    () => () => {
+  // The ref is set on mount, not only cleared on unmount (2026-10-04). React's development
+  // StrictMode mounts, cleans up and mounts again; a cleanup-only effect left the ref FALSE for
+  // the screen's life, so on the dev server `reader.onload` returned early and no import ever
+  // reached its preview. Production does not double-invoke.
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
       isMountedRef.current = false;
       lastFileTextRef.current = null;
-    },
-    []
-  );
+    };
+  }, []);
 
   // Focus management — heading focused on preview entry and on re-pick.
   const prevStepRef = useRef<string>("idle");
