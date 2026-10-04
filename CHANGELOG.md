@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.76.0 — 2026-10-04
+
+### Changed
+
+- **A copy of a scenario now keeps its source’s seed.** That covers every way SPERT Scheduler copies a scenario: Clone on a scenario’s tab; Add Scenario (the + after the tabs), which copies the scenario chosen under “Copy from”; Clone on a project’s tile on the Projects page, for every scenario in the project; and a project imported with “Import as copy”. Before, every copy was given a new seed, so a copy you had not changed could give slightly different results from its source when both were run, and the Compare table could mark either one as the better of the two.
+- **An unchanged copy now gives exactly the same results as its source when both are run**, until one of the two is changed. A copy made with “Drop completed activities (reforecast)” is changed as it is made whenever that removes or resets an activity. When you change a copy, the difference between the two comes from your change, not from a different seed.
+- **The New button beside a scenario’s seed still gives that scenario a fresh seed.**
+- **Scenarios you already have keep the seeds they have**; nothing in a saved project changes.
+- **Loading the sample project now keeps the sample’s own seed.**
+
+### Internal
+
+- Four new tests: a cloned project keeps every scenario’s seed; an unchanged copy’s simulation equals its source’s, in sequential mode and in dependency mode, and a fresh seed changes it; and a loaded sample keeps the sample’s seed. Three existing checks that a copy’s seed differs from its source’s now check that it is the same.
+- A new committed breakage spec breaks the new behaviour two ways, one at a time; each breakage fails exactly the seven checks it names.
+
 ## 0.75.1 — 2026-10-03
 
 ### Fixed

@@ -11,7 +11,9 @@ import {
   updateActivity,
   cloneScenario,
 } from "@app/api/project-service";
-import type { SimulationRun } from "@domain/models/types";
+import { runSimulationSync } from "@app/api/simulation-service";
+import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
+import type { Scenario, SimulationRun } from "@domain/models/types";
 
 describe("Scenario cloning", () => {
   function buildScenario() {
@@ -70,7 +72,8 @@ describe("Scenario cloning", () => {
     const clone = cloneScenario(scenario, "Clone");
 
     expect(clone.id).not.toBe(scenario.id);
-    expect(clone.settings.rngSeed).not.toBe(scenario.settings.rngSeed);
+    // Since v0.76.0 (2026-10-04): a copy keeps its source's seed, so an unchanged copy reproduces its source.
+    expect(clone.settings.rngSeed).toBe(scenario.settings.rngSeed);
 
     for (let i = 0; i < clone.activities.length; i++) {
       expect(clone.activities[i]!.id).not.toBe(activityIds[i]);
@@ -132,5 +135,53 @@ describe("Scenario cloning", () => {
     expect(clone.dependencies).toHaveLength(1);
     expect(clone.dependencies[0]!.fromActivityId).toBe(clone.activities[0]!.id);
     expect(clone.dependencies[0]!.toActivityId).toBe(clone.activities[1]!.id);
+  });
+});
+
+describe("An unchanged copy simulates exactly like its source", () => {
+  function buildSpreadScenario(dependencyMode: boolean): Scenario {
+    let s = createScenario("Source", "2025-01-06", { dependencyMode });
+    // Every estimate has spread: createActivity's default 1/1/1 is a point mass whose every
+    // percentile is 1.0 whatever the seed, and would let the control below pass vacuously.
+    const a1 = { ...createActivity("Design", s.settings), min: 3, mostLikely: 5, max: 9 };
+    const a2 = { ...createActivity("Build", s.settings), min: 8, mostLikely: 12, max: 20 };
+    const a3 = { ...createActivity("Test", s.settings), min: 2, mostLikely: 4, max: 7 };
+    for (const a of [a1, a2, a3]) s = addActivityToScenario(s, a);
+    if (dependencyMode) {
+      s = addDependency(addDependency(s, a1.id, a2.id), a1.id, a3.id);
+    }
+    return s;
+  }
+
+  function simulate(s: Scenario): SimulationRun {
+    const p = buildSimulationParams(
+      s.activities, s.settings.dependencyMode, s.settings.probabilityTarget,
+      s.dependencies, s.milestones, s.startDate, undefined, s.settings.parkinsonsLawEnabled,
+    );
+    return runSimulationSync(
+      s.activities, s.settings.trialCount, s.settings.rngSeed,
+      p.deterministicDurations, p.dependencyParams, p.sequentialConstraints,
+    );
+  }
+
+  it.each([
+    ["sequential", false],
+    ["dependency", true],
+  ])("%s mode: the copy's percentiles and mean equal its source's; a fresh seed changes them", (_mode, dependencyMode) => {
+    const source = buildSpreadScenario(dependencyMode);
+    const copy = cloneScenario(source, "Copy");
+    // The copy has new ids in the same order, and its dependencies follow them.
+    expect(copy.activities.map((a) => a.id)).not.toEqual(source.activities.map((a) => a.id));
+    expect(copy.dependencies).toHaveLength(dependencyMode ? 2 : 0);
+
+    const fromSource = simulate(source);
+    const fromCopy = simulate(copy);
+    expect(fromCopy.percentiles).toEqual(fromSource.percentiles);
+    expect(fromCopy.mean).toBe(fromSource.mean);
+
+    // Control: the same copy given a fresh seed, as the scenario card's New button does.
+    const reseeded = simulate({ ...copy, settings: { ...copy.settings, rngSeed: crypto.randomUUID() } });
+    expect(reseeded.percentiles).not.toEqual(fromSource.percentiles);
+    expect(reseeded.mean).not.toBe(fromSource.mean);
   });
 });

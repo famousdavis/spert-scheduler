@@ -161,7 +161,8 @@ describe("cloneScenario", () => {
     const clone = cloneScenario(original, "Clone");
 
     expect(clone.id).not.toBe(original.id);
-    expect(clone.settings.rngSeed).not.toBe(original.settings.rngSeed);
+    // Since v0.76.0 (2026-10-04): a copy keeps its source's seed, so an unchanged copy reproduces its source.
+    expect(clone.settings.rngSeed).toBe(original.settings.rngSeed);
     for (let i = 0; i < clone.activities.length; i++) {
       expect(clone.activities[i]!.id).not.toBe(original.activities[i]!.id);
     }
@@ -320,6 +321,23 @@ describe("cloneProject", () => {
     expect(sourceIdsAfter).toEqual(sourceIdsBefore);
     expect(source.archived).toBe(true);
     expect(source.scenarios[0]!.simulationResults).toBeDefined();
+  });
+
+  it("keeps every scenario's seed, while every id is new", () => {
+    const base = createProject("Source", "2025-01-06");
+    const source = addScenarioToProject(base, createScenario("Optimistic", "2025-01-06"));
+    const sourceSeeds = source.scenarios.map((s) => s.settings.rngSeed);
+    // Two different seeds, so a shared or swapped seed in the copy would show.
+    expect(sourceSeeds).toHaveLength(2);
+    expect(sourceSeeds[0]).not.toBe(sourceSeeds[1]);
+
+    const clone = cloneProject(source, "Source (Copy)");
+
+    expect(clone.scenarios.map((s) => s.settings.rngSeed)).toEqual(sourceSeeds);
+    // Control: the copy is still a new project of new scenarios.
+    const sourceIds = new Set([source.id, ...source.scenarios.map((s) => s.id)]);
+    expect(sourceIds.has(clone.id)).toBe(false);
+    for (const s of clone.scenarios) expect(sourceIds.has(s.id)).toBe(false);
   });
 });
 

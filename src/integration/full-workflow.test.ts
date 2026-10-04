@@ -101,7 +101,8 @@ describe("Full workflow integration test", () => {
     });
     expect(clone.activities).toHaveLength(2); // Dropped complete activity
     expect(clone.id).not.toBe(activeScenario.id);
-    expect(clone.settings.rngSeed).not.toBe(activeScenario.settings.rngSeed);
+    // Since v0.76.0 (2026-10-04): a copy keeps its source's seed, so an unchanged copy reproduces its source.
+    expect(clone.settings.rngSeed).toBe(activeScenario.settings.rngSeed);
 
     // 8. Persist
     project = {

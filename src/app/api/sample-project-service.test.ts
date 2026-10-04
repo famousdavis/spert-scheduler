@@ -59,6 +59,17 @@ describe("buildSampleProject", () => {
     }
   });
 
+  it("keeps the fixture's own seed on every load", async () => {
+    const a = await buildSampleProject("A", "2026-07-27");
+    const b = await buildSampleProject("B", "2026-07-27");
+
+    for (const p of [a, b]) {
+      expect(p.scenarios.map((s) => s.settings.rngSeed)).toEqual(["sample-cloud-erp"]);
+    }
+    // Control: each load is still a new project.
+    expect(a.id).not.toBe(b.id);
+  });
+
   it("remaps every cross-reference after re-minting", async () => {
     const s = (await buildSampleProject("Sample", "2026-07-27")).scenarios[0]!;
     const activityIds = new Set(s.activities.map((a) => a.id));
