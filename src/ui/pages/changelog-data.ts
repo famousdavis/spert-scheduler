@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.1",
+    date: "2026-10-04",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The published app now shows the validation library’s own messages. SPERT Scheduler checks your data with a validation library. Where a problem is described in that library’s own words, rather than in words SPERT Scheduler supplies, the published app showed “Invalid input” in place of every such message. The difference shows in the details under “Show details” for a project the Projects page could not load, in the errors beside a row when you import activities from a spreadsheet, and in the details when Import Projects refuses a project that fails validation. For example, a project whose first activity’s name is longer than 200 characters now shows “scenarios.0.activities.0.name: Too big: expected string to have <=200 characters” under “Show details”, where it showed “scenarios.0.activities.0.name: Invalid input”. Messages SPERT Scheduler words itself were never affected.",
+          "Import Projects now says what is wrong with two kinds of damaged project. An entry in the file’s list of projects that is not a project at all, such as a number, a piece of text or an empty value, is now reported as “Project #1 in this file is not a project.”, numbered by its place in the list. A project saved by an older version of SPERT Scheduler that fails while being updated to this version is now reported as, for example, “Project \"Harbour Upgrade\" could not be updated to this version of SPERT Scheduler.”, with the error beneath it. Before, both were reported as “The file could not be processed.” with a technical error message. As before, the import reports the first project in the file that fails and refuses the whole file: none of its projects is imported.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "On the development version only, a project file chosen in Import Projects now reaches its preview; before, the file was read and nothing happened. The published app was not affected.",
+          "Six new tests, in one new file and two existing ones: the validation library’s English messages are installed, and installed first (2); a project file reaches its preview and imports when rendered as the development version renders it (1); and the two new refusals, beside a check that a file holding a list where a project belongs is still refused as before (3).",
+          "A new committed breakage spec breaks the new behaviour six ways, one at a time; each breakage fails exactly the checks it names — one or two of them.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.76.0",
     date: "2026-10-04",
     sections: [

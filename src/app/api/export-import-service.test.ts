@@ -597,3 +597,80 @@ describe("validateImport — the validation details name the field", () => {
     expect(fieldIssue.details).toMatch(/^id: /);
   });
 });
+
+describe("validateImport — a malformed project is refused by what is wrong, never thrown", () => {
+  const fileWith = (projects: unknown[]) => JSON.stringify({ ...buildExportEnvelope([]), projects });
+
+  /** A version-1 project; its scenario is the one "applies migrations to older-version projects" imports. */
+  const v1Project = (fields: Record<string, unknown>) => ({
+    id: "legacy-quokka",
+    schemaVersion: 1,
+    createdAt: new Date().toISOString(),
+    scenarios: [
+      {
+        id: "s1",
+        name: "Baseline",
+        startDate: "2025-01-06",
+        activities: [],
+        settings: {
+          defaultConfidenceLevel: "mediumConfidence",
+          defaultDistributionType: "normal",
+          trialCount: 50000,
+          rngSeed: "test-seed",
+          probabilityTarget: 0.5,
+        },
+      },
+    ],
+    ...fields,
+  });
+
+  it("refuses an entry that is not an object by its position, and still refuses the whole file", () => {
+    // Control: the same file with a healthy project imports.
+    const healthy = validateImport(fileWith([makeProject("Healthy Wombat")]), []);
+    expect(healthy.success && healthy.projects.map((p) => p.name)).toEqual(["Healthy Wombat"]);
+
+    for (const entry of [null, 42, "text", true]) {
+      const json = fileWith([entry]);
+      expect(() => validateImport(json, [])).not.toThrow();
+      expect(validateImport(json, [])).toEqual({
+        success: false,
+        error: "Project #1 in this file is not a project.",
+      });
+    }
+
+    const second = fileWith([makeProject("Healthy Wombat"), null]);
+    expect(() => validateImport(second, [])).not.toThrow();
+    expect(validateImport(second, [])).toEqual({
+      success: false,
+      error: "Project #2 in this file is not a project.",
+    });
+  });
+
+  it("refuses a project whose migration throws, naming it, with the thrown message as the details", () => {
+    // Control: the same project with a well-formed scenario migrates and imports.
+    const healthy = validateImport(fileWith([v1Project({ name: "Quokka Legacy Plan" })]), []);
+    expect(healthy.success && healthy.projects.map((p) => p.name)).toEqual(["Quokka Legacy Plan"]);
+
+    const json = fileWith([v1Project({ name: "Quokka Legacy Plan", scenarios: [null] })]);
+    expect(() => validateImport(json, [])).not.toThrow();
+    const result = validateImport(json, []);
+    if (result.success) throw new Error("expected the file to be refused");
+    expect(result.error).toBe(
+      'Project "Quokka Legacy Plan" could not be updated to this version of SPERT Scheduler.'
+    );
+    expect(result.details).toMatch(/\S/);
+
+    // An unnamed project is named by its position, as the other refusals name it.
+    const unnamed = validateImport(fileWith([v1Project({ scenarios: [null] })]), []);
+    expect(!unnamed.success && unnamed.error).toBe(
+      'Project "#1" could not be updated to this version of SPERT Scheduler.'
+    );
+  });
+
+  it("leaves an array entry to the schema, which refuses it as before", () => {
+    const json = fileWith([[]]);
+    expect(() => validateImport(json, [])).not.toThrow();
+    const result = validateImport(json, []);
+    expect(!result.success && result.error).toBe('Project "#1" failed validation.');
+  });
+});
