@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.75.1 — 2026-10-03
+
+### Fixed
+
+- **Export, beside a project that could not be loaded, now saves a file that Import Projects can read.** When a project cannot be loaded, the Projects page lists it in a box headed “1 project could not be loaded” (or “2 projects …”), with Export and Delete beside it unless a newer version of SPERT Scheduler saved it. Export now puts the project’s stored data inside an export file, exactly as it was stored — nothing repaired, nothing removed — whenever that data can be read as a project, even an invalid one. Before, Export saved such data on its own, and Import Projects refused the file straight away: “Not a SPERT Scheduler export file.”
+- **Import Projects checks that file like any other export file.** It refuses the file while the project is still broken, and imports it once what is wrong has been fixed — by hand, in the file, or by a later version of SPERT Scheduler.
+- **A project in that list now leaves it as soon as it is back among your projects**, so the list’s Delete can no longer remove a project you have restored. Before, it could stay listed until the Projects page was opened again, and Delete there removed the restored project from this browser.
+- **Stored data that cannot be read as a project — most often what the list calls “Corrupted data” — still saves exactly as it was stored:** there is nothing to put inside an export file. A project saved by a newer version of SPERT Scheduler is listed without Export or Delete, as before: it is not damaged, and it loads once the app is updated.
+
+### Changed
+
+- **When a project in an import file fails validation, the details now name the field of each problem that belongs to one**, as the Projects page’s “Show details” already did — for example “scenarios.0.activities.0.name”, the name of the first activity in the first scenario, counting from 0. Before, they gave each problem without saying where it was.
+
+### Internal
+
+- Twelve new tests: seven for the export file and the import’s details; two for the Export button on the Projects page — one for data put inside an export file, one for data saved as it is; and three for which projects that list shows.
+- A new committed breakage spec breaks the new behaviour eleven ways, one at a time; each breakage fails exactly the checks it names — between 1 and 7 of them.
+
 ## 0.75.0 — 2026-10-03
 
 ### Added

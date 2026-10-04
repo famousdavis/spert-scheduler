@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   serializeExport,
+  serializeRecoveryExport,
   buildExportEnvelope,
   validateImport,
   normalizeProjectName,
@@ -12,7 +13,8 @@ import {
   MAX_FILE_SIZE_BYTES,
   type ConflictDecision,
 } from "./export-import-service";
-import { createProject } from "./project-service";
+import { createProject, createActivity, addActivityToScenario } from "./project-service";
+import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
 import { SCHEMA_VERSION, DEFAULT_USER_PREFERENCES } from "@domain/models/types";
 import { APP_VERSION } from "@app/constants";
 import type { Project } from "@domain/models/types";
@@ -441,5 +443,157 @@ describe("preferences round-trip", () => {
     const result = validateImport(json, []);
     if (!result.success) throw new Error("expected success");
     expect(result.preferences).toBeUndefined();
+  });
+});
+
+// -- The recovery card's Export (v0.75.1) ------------------------------------
+
+/**
+ * The dashboard's recovery card downloads a project this app could not load. That file used to
+ * be the stored text alone, which the import refuses at its first check ("Not a SPERT Scheduler
+ * export file."), so a backup could never come back in, even once repaired. It is now the stored
+ * project, verbatim, inside the export file's envelope.
+ */
+describe("serializeRecoveryExport", () => {
+  const ACTIVITY_PATH = "scenarios.0.activities.0.name";
+
+  /** A project with one activity, so there is an activity name to break. */
+  function projectWithActivity(name: string): Project {
+    const project = makeProject(name);
+    const scenario = project.scenarios[0]!;
+    project.scenarios[0] = addActivityToScenario(
+      scenario,
+      createActivity("Survey the site", scenario.settings)
+    );
+    return project;
+  }
+
+  /** The project's stored text, written by the repository and read back through its own key. */
+  function storedText(project: Project): string {
+    const repo = new LocalStorageRepository();
+    repo.save(project);
+    const raw = repo.getRawData(project.id);
+    repo.removeById(project.id);
+    if (raw === null) throw new Error("the repository stored nothing");
+    return raw;
+  }
+
+  function wrap(raw: string): string {
+    const file = serializeRecoveryExport(raw);
+    if (file === null) throw new Error("expected the stored text to be wrapped");
+    return file;
+  }
+
+  it("wraps a healthy project's stored text into a file the import accepts; the text alone is refused", () => {
+    const raw = storedText(projectWithActivity("Krikkit Ledger"));
+
+    // Control: what the card used to download.
+    const alone = validateImport(raw, []);
+    if (alone.success) throw new Error("expected the bare stored text to be refused");
+    expect(alone.error).toBe("Not a SPERT Scheduler export file.");
+
+    const wrapped = validateImport(wrap(raw), []);
+    if (!wrapped.success) throw new Error(`expected success: ${wrapped.error}`);
+    expect(wrapped.projects.map((p) => p.name)).toEqual(["Krikkit Ledger"]);
+  });
+
+  it("names the failing field of a broken project, and imports once the file is fixed by hand", () => {
+    const stored = JSON.parse(storedText(projectWithActivity("Krikkit Ledger")));
+    stored.scenarios[0].activities[0].name = "x".repeat(201);
+    const file = wrap(JSON.stringify(stored));
+
+    const broken = validateImport(file, []);
+    if (broken.success) throw new Error("expected a 201-character name to fail validation");
+    expect(broken.error).toBe('Project "Krikkit Ledger" failed validation.');
+    expect(broken.details).toBe(
+      `${ACTIVITY_PATH}: Too big: expected string to have <=200 characters`
+    );
+
+    // The hand fix, made in the downloaded file itself.
+    const fixed = JSON.parse(file);
+    fixed.projects[0].scenarios[0].activities[0].name = "x".repeat(200);
+    const repaired = validateImport(JSON.stringify(fixed), []);
+    if (!repaired.success) throw new Error(`expected the fixed file to import: ${repaired.error}`);
+    expect(repaired.projects[0]!.scenarios[0]!.activities[0]!.name).toBe("x".repeat(200));
+  });
+
+  it("keeps the stored project verbatim, simulation results and samples included", () => {
+    const project = projectWithActivity("Krikkit Ledger");
+    project.scenarios[0]!.simulationResults = {
+      id: "sim1",
+      timestamp: "2025-01-01T00:00:00.000Z",
+      trialCount: 1000,
+      seed: "test",
+      engineVersion: "1.0.0",
+      percentiles: { 50: 10, 95: 20 },
+      histogramBins: [],
+      mean: 10,
+      standardDeviation: 2,
+      minSample: 5,
+      maxSample: 25,
+      samples: [10, 11, 12],
+    };
+    const raw = storedText(project);
+
+    const envelope = JSON.parse(wrap(raw));
+    expect(envelope.projects).toEqual([JSON.parse(raw)]);
+    expect(envelope.projects[0].scenarios[0].simulationResults.samples).toEqual([10, 11, 12]);
+
+    // Control: the ordinary export of the same project drops its results.
+    const ordinary = JSON.parse(serializeExport([project]));
+    expect(ordinary.projects[0].scenarios[0].simulationResults).toBeUndefined();
+  });
+
+  it("carries exactly the export file's envelope fields", () => {
+    const project = projectWithActivity("Krikkit Ledger");
+    const envelope = JSON.parse(wrap(storedText(project)));
+
+    expect(Object.keys(envelope)).toEqual(Object.keys(buildExportEnvelope([project])));
+    expect(envelope).toMatchObject({
+      format: "spert-scheduler-export",
+      appVersion: APP_VERSION,
+      schemaVersion: SCHEMA_VERSION,
+    });
+    expect(Number.isNaN(Date.parse(envelope.exportedAt))).toBe(false);
+  });
+
+  it("returns null for stored text that is not a JSON object, so the card saves it as it is", () => {
+    for (const raw of ["{not json", "[]", "42", "null", '"text"']) {
+      expect(serializeRecoveryExport(raw), raw).toBeNull();
+    }
+    // Control: any object is wrapped, even an empty one.
+    expect(serializeRecoveryExport("{}")).not.toBeNull();
+  });
+
+  it("wraps a project with no schemaVersion as it is, and the import migrates it from version 1", () => {
+    const stored = JSON.parse(storedText(projectWithActivity("Krikkit Ledger")));
+    delete stored.schemaVersion;
+    const file = wrap(JSON.stringify(stored));
+
+    // Control: the wrapper did not supply a version of its own.
+    expect(JSON.parse(file).projects[0]).not.toHaveProperty("schemaVersion");
+
+    const result = validateImport(file, []);
+    if (!result.success) throw new Error(`expected success: ${result.error}`);
+    expect(result.projects[0]!.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+});
+
+describe("validateImport — the validation details name the field", () => {
+  it("prints a root-level issue's message alone, and a field's issue with its path", () => {
+    const rootIssue = validateImport(
+      JSON.stringify({ ...buildExportEnvelope([]), projects: [[]] }),
+      []
+    );
+    if (rootIssue.success) throw new Error("expected an array project to fail validation");
+    expect(rootIssue.details).toBe("Invalid input: expected object, received array");
+
+    // Control: the same file with an object missing its fields names each one.
+    const fieldIssue = validateImport(
+      JSON.stringify({ ...buildExportEnvelope([]), projects: [{ schemaVersion: SCHEMA_VERSION }] }),
+      []
+    );
+    if (fieldIssue.success) throw new Error("expected an empty project to fail validation");
+    expect(fieldIssue.details).toMatch(/^id: /);
   });
 });
