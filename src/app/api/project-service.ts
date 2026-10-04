@@ -206,10 +206,10 @@ export function cloneScenario(
     activities,
     dependencies: clonedDeps,
     milestones: clonedMilestones,
-    settings: {
-      ...scenario.settings,
-      rngSeed: generateId(), // New seed for clone
-    },
+    // The copy keeps its source's seed. A copy exists to compare a change against its source, so
+    // an unchanged copy must reproduce its source exactly, and a changed one must differ by the
+    // change alone, not by a different seed as well. The summary card's New button re-seeds.
+    settings: { ...scenario.settings },
     notes: scenario.notes,
     bands: clonedBands,
     // simulationResults are NOT cloned — stale
