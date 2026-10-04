@@ -30,7 +30,7 @@ import { downloadFile } from "@ui/helpers/download";
 import { buildProjectExportFilename } from "@ui/helpers/export-filename";
 import { canShareProject } from "@ui/helpers/canShareProject";
 import { formatExportTimestamp } from "@core/calendar/calendar";
-import { serializeExport } from "@app/api/export-import-service";
+import { serializeExport, serializeRecoveryExport } from "@app/api/export-import-service";
 import { toast } from "@ui/hooks/use-notification-store";
 
 function getErrorTypeLabel(type: LoadError["type"]): string {
@@ -164,6 +164,18 @@ export function ProjectsPage() {
     [projects]
   );
 
+  // The recovery card lists only the projects that are STILL not loaded — every loaded project
+  // counts, archived ones included — and its heading counts the same list. Importing a project's
+  // recovery file saves the restored project under the same id, but `loadErrors` is refreshed
+  // only when this page mounts (`loadProjects` above). So after an import from this page's own
+  // Import Projects, the card went on listing the restored project, and its Delete
+  // (`removeCorruptedProject` → `repo.removeById`) removed the restored project's stored data:
+  // measured in a production build, where the project was gone after a reload.
+  const unloadedProjectErrors = useMemo(() => {
+    const loaded = new Set(projects.map((p) => p.id));
+    return loadErrors.filter((e) => !loaded.has(e.projectId));
+  }, [projects, loadErrors]);
+
   const filteredProjects = useMemo(() => {
     const source = showArchived ? projects : activeProjects;
     if (!searchQuery.trim()) return source;
@@ -191,7 +203,7 @@ export function ProjectsPage() {
       const raw = getCorruptedProjectRawData(projectId);
       if (raw) {
         const filename = `corrupted-project-${projectId}-${formatExportTimestamp(new Date())}.json`;
-        downloadFile(raw, filename, "application/json");
+        downloadFile(serializeRecoveryExport(raw) ?? raw, filename, "application/json");
       }
     },
     [getCorruptedProjectRawData]
@@ -312,17 +324,17 @@ export function ProjectsPage() {
         </div>
       )}
 
-      {loadError && loadErrors.length > 0 && (
+      {loadError && unloadedProjectErrors.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-amber-200 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/30">
             <h2 className="font-semibold text-amber-800 dark:text-amber-200">
-              {loadErrors.length === 1
+              {unloadedProjectErrors.length === 1
                 ? "1 project could not be loaded"
-                : `${loadErrors.length} projects could not be loaded`}
+                : `${unloadedProjectErrors.length} projects could not be loaded`}
             </h2>
           </div>
           <div className="divide-y divide-amber-200 dark:divide-amber-800">
-            {loadErrors.map((error) => {
+            {unloadedProjectErrors.map((error) => {
               const isExpanded = expandedErrors.has(error.projectId);
               return (
                 <div key={error.projectId} className="px-4 py-3">

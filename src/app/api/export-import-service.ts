@@ -269,6 +269,40 @@ export function serializeExport(
   return JSON.stringify(buildExportEnvelope(projects, options), null, 2);
 }
 
+/**
+ * The backup the dashboard's recovery card downloads for a project this app could not load.
+ *
+ * It wraps the project's stored data in the export file's envelope, so the backup is an export
+ * file like any other: it imports once whatever broke the project is fixed — by hand in the
+ * file, or by a later version of the app.
+ *
+ * The project goes in VERBATIM — no simulation results stripped, no defaults, no migration, no
+ * validation. A recovery copy must keep what was stored, and the data is here precisely because
+ * it is not a valid `Project`; the import migrates and validates each project itself, by the
+ * project's own `schemaVersion`.
+ *
+ * Returns null when the stored text is not a JSON object (not JSON at all, or an array, a
+ * number, `null`): there is nothing to wrap, and the caller downloads the text as it is.
+ */
+export function serializeRecoveryExport(raw: string): string | null {
+  let stored: unknown;
+  try {
+    stored = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof stored !== "object" || stored === null || Array.isArray(stored)) return null;
+
+  const envelope = {
+    format: "spert-scheduler-export",
+    appVersion: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    schemaVersion: SCHEMA_VERSION,
+    projects: [stored],
+  } satisfies Omit<SpertExportEnvelope, "projects" | "preferences"> & { projects: unknown[] };
+  return JSON.stringify(envelope, null, 2);
+}
+
 // -- Import ------------------------------------------------------------------
 
 /** Step 1: Parse raw JSON string. */
@@ -309,6 +343,15 @@ function validateEnvelope(
   const rawPreferences = envelope.preferences;
 
   return { projects: rawProjects, rawPreferences };
+}
+
+/**
+ * One validation issue in the load path's format (`local-storage-repository.ts`), so a hand
+ * fix knows which field to look at: `scenarios.0.activities.0.name: <message>`. An issue at
+ * the project's root has an empty path and prints the message alone, not `": <message>"`.
+ */
+function describeIssue(issue: { path: PropertyKey[]; message: string }): string {
+  return issue.path.length > 0 ? `${issue.path.join(".")}: ${issue.message}` : issue.message;
 }
 
 /** Step 3: Migrate each project to the current schema version and validate with Zod. */
@@ -356,9 +399,7 @@ function migrateAndValidateProjects(
       return {
         success: false,
         error: `Project "${projectLabel}" failed validation.`,
-        details: result.error.issues
-          .map((issue) => issue.message)
-          .join("; "),
+        details: result.error.issues.map(describeIssue).join("; "),
       };
     }
 
