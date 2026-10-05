@@ -33,6 +33,13 @@ function sortFieldBarWidth(
   return coefficientOfVariation * 100;
 }
 
+/** The line under the description when some activities cannot be analysed. */
+function leftOutLine(count: number): string {
+  return count === 1
+    ? "1 activity is left out until its estimates are fixed."
+    : `${count} activities are left out until their estimates are fixed.`;
+}
+
 /**
  * Displays sensitivity analysis results showing which activities
  * contribute most to project uncertainty.
@@ -46,6 +53,7 @@ export function SensitivityPanel({ activities }: SensitivityPanelProps) {
     () => computeSensitivityAnalysis(activities),
     [activities]
   );
+  const leftOut = activities.length - results.length;
 
   const sortedResults = useMemo(() => {
     const sorted = [...results];
@@ -108,6 +116,9 @@ export function SensitivityPanel({ activities }: SensitivityPanelProps) {
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
         Activities ranked by their contribution to project schedule uncertainty.
       </p>
+      {leftOut > 0 && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{leftOutLine(leftOut)}</p>
+      )}
 
       <div className="space-y-2">
         {displayResults.map((result, idx) => (

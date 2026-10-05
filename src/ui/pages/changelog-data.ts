@@ -13,6 +13,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.2",
+    date: "2026-10-04",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The Sensitivity Analysis panel now shows each activity it ranks with its own mean and standard deviation — those of the distribution the simulation draws from for that activity. Before, it showed every activity the figures it would have had as a T-Normal activity: the figures of the distribution the simulation draws from for T-Normal and LogNormal activities, but in general not for Triangular, Uniform or Beta-PERT ones. The panel’s μ (mean), σ (standard deviation), CV and Impact, and its rankings, were all built from those figures. For example, a Triangular activity estimated at 10 / 15 / 30 now shows μ=18.3d and σ=4.2d at every Confidence level; before, its μ read 16.7d.",
+          "A T-Normal or LogNormal activity that is still ranked keeps the mean, SD, CV and Impact it showed before. Under “Variance Contribution” its share can still change: each share is of the total, and the total changes when another activity’s SD changes or another activity is left out.",
+          "An activity whose estimates are out of order — Min above Most Likely, or Most Likely above Max — is now left out of the panel’s ranking, and so is a LogNormal activity whose estimates are all zero or too small to give it a mean. A line under the panel’s description says how many are left out: “1 activity is left out until its estimates are fixed.”, “2 activities are left out until their estimates are fixed.”, and so on. “Show all … activities” counts only the activities ranked. Before, every activity was ranked, and one whose Max was below its Min could show a negative SD.",
+          "As before, the panel does not take account of Parkinson’s Law, of dependencies, or of an activity’s status: a completed activity is ranked from its estimates like any other.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Thirteen new tests, in one new file and one existing one: each distribution type’s own mean and SD, against values worked out by hand (4); agreement with the distribution the simulation builds, for every type at every Confidence level (1); which activities are left out, including every whole-number estimate from 0 to 8 for every type (3); and the panel’s left-out line in the singular and the plural, no line when nothing is left out, a Triangular activity’s own figures, and the panel still showing beside a LogNormal activity too small to have a mean (5). Eleven of them fail on the previous version; the two that pass on both — the T-Normal and LogNormal figures, and no line when nothing is left out — are there to show what must not change.",
+          "A new committed breakage spec breaks the changed code six ways, one at a time; each breakage fails exactly the checks it names — two to five of them.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.76.1",
     date: "2026-10-04",
     sections: [
