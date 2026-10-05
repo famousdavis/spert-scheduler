@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.3",
+    date: "2026-10-05",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The SPERT® Suite Terms of Service and Privacy Policy have new editions, version 1.3 of each, effective October 5, 2026, and the AI Privacy Notice that covers Connect AI is now version 2.2. If you sign in to use cloud storage, Scheduler asks you to accept the new Terms and Privacy Policy again: the acceptance it had recorded was for the April 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use Scheduler without signing in.",
+          "None of the changes alters what Scheduler collects or does. The documents now describe database backups (daily backups kept for up to 98 days, point-in-time recovery for up to 7 days), that data is stored at rest in the United States, and project sharing and invitation emails. The AI Privacy Notice now says that Connect AI relay data expires seven days after your last activity, or sooner when you disconnect, and that the Read Mode snapshot can be read only by the relay server.",
+          "The copies of the Terms and Privacy Policy kept in this project’s repository still held the April 5 editions, three re-issues behind. Both now match the October 5 editions published on spertsuite.com.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.76.2",
     date: "2026-10-04",
     sections: [

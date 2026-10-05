@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.3 — 2026-10-05
+
+### Changed
+
+- **New Terms of Service and Privacy Policy, which you will be asked to accept again.** The SPERT® Suite Terms of Service and Privacy Policy have new editions — version 1.3 of each, effective October 5, 2026 — published at the same spertsuite.com addresses Scheduler already links to, and the AI Privacy Notice that covers Connect AI is now version 2.2. If you sign in to use cloud storage, Scheduler asks you to accept the new Terms and Privacy Policy again: the acceptance it had recorded was for the April 5, 2026 editions (`TOS_VERSION` and `PRIVACY_POLICY_VERSION` were `"04-05-2026"` and had never moved); both are now `"10-05-2026"`, so the record names the edition you actually accept. Nothing changes if you use Scheduler without signing in.
+- None of the changes alters what Scheduler collects or does. The documents now describe database backups (daily backups kept for up to 98 days, point-in-time recovery for up to 7 days), that data is stored at rest in the United States, and project sharing and invitation emails. The AI Privacy Notice now says that Connect AI relay data expires seven days after your last activity, or sooner when you disconnect, and that the Read Mode snapshot can be read only by the relay server.
+- **The copies kept in this repository were out of date.** `legal/TOS.pdf` and `legal/PRIVACY.pdf` still held the April 5 editions, three re-issues behind. Both are now byte-identical to the October 5 editions on spertsuite.com.
+
 ## 0.76.2 — 2026-10-04
 
 ### Fixed
