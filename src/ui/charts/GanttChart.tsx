@@ -502,11 +502,11 @@ export function GanttChart({
     fitToWindow: ra.fitToWindow,
     timelineDensityPx: ra.timelineDensityPx,
     showTargetOnGantt,
-    targetFinishDate,
+    targetFinishDate, showToday,
   });
   const {
     chartWidth, chartHeight, chartAreaWidth, topMargin,
-    minTimestamp, dateRange, finishX, finishDate,
+    minTimestamp, dateRange, finishX, finishLabelX, finishDate,
     todayX, todayStr, allTicks, ticks, rowIndex, barYOffset,
     renderItems, milestoneRows,
   } = layout;
@@ -771,7 +771,7 @@ export function GanttChart({
                 strokeDasharray="6 3"
               />
               <text
-                x={finishX}
+                x={finishLabelX}
                 y={topMargin - 8}
                 textAnchor="middle"
                 fontSize={FINISH_LABEL_FONT_PX}

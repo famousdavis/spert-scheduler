@@ -284,7 +284,24 @@ export function generateTicks(
   const end = new Date(endDate + "T00:00:00");
   const rangeDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
   const level: TickLevel = tickLevel ?? selectAutoTickLevel(rangeDays);
-  return TICK_GENERATORS[level](start, end);
+  return withStartYearTick(TICK_GENERATORS[level](start, end), start, level);
+}
+
+/**
+ * Puts a tick AT the start, labelled with the start year, when the generator's first tick falls
+ * in a LATER year: a chart that starts after its year's last monthly, quarterly or half-yearly
+ * boundary would otherwise name its start year nowhere. Day, week and fortnight labels carry no
+ * year, and the annual level is never chosen by either chart, so those are left as they are.
+ */
+function withStartYearTick(ticks: Tick[], start: Date, level: TickLevel): Tick[] {
+  const period: Partial<Record<TickLevel, string>> = {
+    monthly: MONTH_ABBR[start.getMonth()]!,
+    quarterly: `Q${Math.floor(start.getMonth() / 3) + 1}`,
+    semiannual: `H${start.getMonth() < 6 ? 1 : 2}`,
+  };
+  const p = period[level];
+  if (!p || (ticks[0] && ticks[0].x.slice(0, 4) === String(start.getFullYear()))) return ticks;
+  return [{ x: formatDateISO(start), label: `${p} '${String(start.getFullYear()).slice(2)}` }, ...ticks];
 }
 
 /**
@@ -311,6 +328,14 @@ export function generateTicks(
 export function labelHalfWidth(text: string, fontPx: number): number {
   const advance = /^[A-Za-z]{1,4}$/.test(text) ? 0.66 : 0.57;
   return (text.length * fontPx * advance) / 2;
+}
+
+/**
+ * Where the finish LABEL is centred: on the finish line, unless that would carry its right
+ * end past `rightEdge - edgePx`, when it slides left just far enough. The LINE never moves.
+ */
+export function clampFinishLabelX(finishX: number, halfWidth: number, rightEdge: number, edgePx: number): number {
+  return Math.min(finishX, rightEdge - edgePx - halfWidth);
 }
 
 /** True when a tick label announces a year — "Jan '27", "Q1 '27", "2027". */
@@ -457,6 +482,72 @@ export function suppressOverlappingTicks(
   for (let i = 0; i < allTicks.length; i++) if (!tickHasYear(allTicks[i]!.label)) place(i);
 
   return placed.sort((a, b) => a.index - b.index).map((q) => allTicks[q.index]!);
+}
+
+/** A tick label without its two-digit year: "Jan '27" → "Jan", "Q1 '27" → "Q1". */
+function periodOf(label: string): string {
+  const at = label.indexOf(" '");
+  return at === -1 ? label : label.slice(0, at);
+}
+
+/** The calendar year a tick falls in, as its ISO prefix. */
+function yearOf(tick: Tick): string {
+  return tick.x.slice(0, 4);
+}
+
+/** `allTicks` with each year's suffix on the tick `carrier` assigns it, plain periods elsewhere. */
+function labelYears(allTicks: Tick[], carrier: Map<string, number>): Tick[] {
+  return allTicks.map((t, i) => {
+    const period = periodOf(t.label);
+    if (carrier.get(yearOf(t)) !== i) return { x: t.x, label: period };
+    return { x: t.x, label: `${period} '${yearOf(t).slice(2)}` };
+  });
+}
+
+/**
+ * Moves every carrier the suppression dropped onto the NEXT tick of its own year, or gives
+ * the year up when it has no tick left. Returns whether anything moved.
+ */
+function advanceDroppedCarriers(allTicks: Tick[], carrier: Map<string, number>, kept: Tick[]): boolean {
+  const keptX = new Set(kept.map((t) => t.x));
+  let moved = false;
+  for (const [year, i] of carrier) {
+    if (keptX.has(allTicks[i]!.x)) continue;
+    moved = true;
+    const next = allTicks[i + 1];
+    if (next && yearOf(next) === year) carrier.set(year, i + 1);
+    else carrier.delete(year);
+  }
+  return moved;
+}
+
+/**
+ * `suppressOverlappingTicks`, made to keep each calendar year's label on the axis where it can.
+ *
+ * Each year starts on the tick the generator gave it (the first tick, and every January). When
+ * suppression drops that tick, the year moves to the NEXT tick of the same year and the whole
+ * set is suppressed again; a carrier only ever moves forward, so this ends within one round per
+ * tick. Moving forward, never back, is what makes it end: re-deriving "the first surviving tick"
+ * each round alternates between a wide `Nov '26` the today line evicts and a plain `Nov` it does not.
+ * A year with no tick left is given up. On a very crowded axis a carrier moving forward can crowd
+ * out a LATER year's only tick, so the years named can differ from plain suppression's; the
+ * property test pins that there are never fewer of them.
+ */
+export function suppressTicksNamingEveryYear(allTicks: Tick[], p: TickSuppressionParams): Tick[] {
+  // Daily/weekly/biweekly labels carry no year and annual labels ARE years: nothing to move.
+  if (!allTicks.some((t) => t.label.includes(" '"))) return suppressOverlappingTicks(allTicks, p);
+  const carrier = new Map<string, number>();
+  allTicks.forEach((t, i) => {
+    if (tickHasYear(t.label)) carrier.set(yearOf(t), i);
+  });
+  let kept = suppressOverlappingTicks(allTicks, p);
+  for (let round = 0; round < allTicks.length && advanceDroppedCarriers(allTicks, carrier, kept); round++) {
+    kept = suppressOverlappingTicks(labelYears(allTicks, carrier), p);
+  }
+  // A tick the generator gave a year is never drawn without it: when its year moved on, the
+  // old tick is left out rather than shown as a bare month.
+  const bornWithYear = new Set(allTicks.filter((t) => tickHasYear(t.label)).map((t) => t.x));
+  return kept.filter((t) => tickHasYear(t.label) || !bornWithYear.has(t.x));
 }
 
 /**

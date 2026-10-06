@@ -12,10 +12,10 @@ import {
   TICK_LABEL_FONT_PX, FINISH_LABEL_FONT_PX, TODAY_LABEL_FONT_PX, TODAY_DATE_FONT_PX,
   TARGET_LABEL_FONT_PX, MILESTONE_NAME_FONT_PX, MILESTONE_DATE_FONT_PX,
   MILESTONE_HEADER_PX, MILESTONE_ROW_STEP, MILESTONE_DIAMOND_SIZE,
-  LABEL_GAP_PX, DATE_LABEL_SPECIMEN, TARGET_LABEL_TEXT, TODAY_LABEL_TEXT,
+  LABEL_GAP_PX, DATE_LABEL_SPECIMEN, TARGET_LABEL_TEXT, TODAY_LABEL_TEXT, FINISH_LABEL_EDGE_PX,
 } from "@ui/charts/gantt-constants";
 import {
-  dateToX, generateTicks, suppressOverlappingTicks, computeTodayLine,
+  dateToX, generateTicks, suppressTicksNamingEveryYear, clampFinishLabelX, computeTodayLine,
   labelHalfWidth, longDateLabel, assignMilestoneRows,
 } from "@ui/charts/gantt-utils";
 import type { TickLevel, TickObstacle } from "@ui/charts/gantt-utils";
@@ -31,6 +31,8 @@ export interface GanttLayout {
   minTimestamp: number;
   dateRange: number;
   finishX: number;
+  /** Centre of the finish date LABEL — `finishX`, slid left only to keep it inside the chart. */
+  finishLabelX: number;
   finishDate: string;
   todayStr: string;
   todayInRange: boolean;
@@ -64,6 +66,8 @@ interface UseGanttLayoutArgs {
   timelineDensityPx?: number;
   showTargetOnGantt?: boolean;
   targetFinishDate?: string | null;
+  /** False when the user has hidden the today line: a line that is not drawn evicts no tick. */
+  showToday?: boolean;
 }
 
 /**
@@ -94,6 +98,7 @@ export function useGanttLayout({
   timelineDensityPx,
   showTargetOnGantt,
   targetFinishDate,
+  showToday = true,
 }: UseGanttLayoutArgs): GanttLayout {
   // Measure container width for responsive chart sizing
   const [containerWidth, setContainerWidth] = useState(0);
@@ -154,6 +159,8 @@ export function useGanttLayout({
   const finishX = dateRange > 0
     ? dateToX(finishDate, minTimestamp, dateRange, chartAreaWidth, leftMargin)
     : 0;
+  const finishHalfWidth = labelHalfWidth(longDateLabel(finishDate), FINISH_LABEL_FONT_PX);
+  const finishLabelX = clampFinishLabelX(finishX, finishHalfWidth, chartWidth, FINISH_LABEL_EDGE_PX);
 
   // Milestone X positions — the diamond centres, which are also each label block's centre.
   const milestoneXPositions = useMemo(() => {
@@ -248,9 +255,9 @@ export function useGanttLayout({
    */
   const obstacles = useMemo<TickObstacle[]>(() => {
     const out: TickObstacle[] = [
-      { x: finishX, halfWidth: labelHalfWidth(longDateLabel(finishDate), FINISH_LABEL_FONT_PX) },
+      { x: finishLabelX, halfWidth: finishHalfWidth },
     ];
-    if (todayX !== null) {
+    if (showToday && todayX !== null) {
       out.push({
         x: todayX,
         halfWidth: Math.max(
@@ -264,10 +271,10 @@ export function useGanttLayout({
     }
     for (const mx of milestoneXPositions) out.push({ x: mx, halfWidth: MILESTONE_DIAMOND_SIZE });
     return out;
-  }, [finishX, finishDate, todayX, targetX, milestoneXPositions]);
+  }, [finishLabelX, finishHalfWidth, showToday, todayX, targetX, milestoneXPositions]);
 
   const ticks = useMemo(() =>
-    suppressOverlappingTicks(allTicks, {
+    suppressTicksNamingEveryYear(allTicks, {
       minTimestamp,
       dateRange,
       chartAreaWidth,
@@ -299,6 +306,7 @@ export function useGanttLayout({
     minTimestamp,
     dateRange,
     finishX,
+    finishLabelX,
     finishDate,
     todayStr,
     todayInRange,

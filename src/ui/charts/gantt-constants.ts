@@ -148,6 +148,8 @@ export const MILESTONE_DIAMOND_SIZE = 6;
 export const MILESTONE_ROW_STEP = 18;
 /** Clear space demanded between two header labels, on top of their own extents. */
 export const LABEL_GAP_PX = 4;
+/** Clear space between the finish LABEL and the SVG's right edge; the finish LINE never moves. */
+export const FINISH_LABEL_EDGE_PX = 4;
 /** The marker-line labels, as rendered. Shared so the suppression model measures the
  *  same strings the JSX draws — the drift this whole change exists to close. */
 export const TODAY_LABEL_TEXT = "Today";
@@ -202,6 +204,8 @@ export const PRINT_DIAMOND_SIZE = 4;
 export const PRINT_MILESTONE_ROW_STEP = 10;
 /** Print equivalent of LABEL_GAP_PX, at print's 4–6px type. */
 export const PRINT_LABEL_GAP_PX = 2;
+/** Print equivalent of FINISH_LABEL_EDGE_PX. */
+export const PRINT_FINISH_LABEL_EDGE_PX = 2;
 /** Padding (px) subtracted from the print name column width to get the usable text
  *  budget: reserves the right-anchor offset plus a little left-edge breathing room so
  *  a label neither touches the bars nor clips at the SVG's left edge. */

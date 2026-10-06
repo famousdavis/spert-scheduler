@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.76.4 — 2026-10-05
+
+### Fixed
+
+- **A year label crowded off the Gantt chart’s time axis now moves to a later month (or quarter) of the same year when one has room — on screen and in print.** Before, it was simply left off, and the axis could name that year nowhere.
+- **A project longer than three months that starts in its year’s last month — or, where a long chart’s time axis is labelled by quarter or half-year, in its last quarter or half-year — now has a label at the start of the time axis naming that year, where there is room for one.** Before, the axis’s first label could fall in the following year, and the year the project starts in could be named nowhere on it.
+- **The finish date’s label is kept inside the chart.** Near the right edge it moves a few pixels left; the dashed finish line does not move.
+- **In print, the milestone diamonds sit 2 px lower, so a diamond next to the finish date no longer rises into the date’s letters — as on screen.**
+- **On screen, hiding the today line no longer takes labels off the time axis with it.**
+
+### Internal
+
+- Forty-six new tests, in one new file: the years the time axis names at each of the 104 Monday starts in 2026 and 2027, in twenty-two settings (22); seven charts read whole, on screen and in print (7); properties of the new labelling rule over 2,000 seeded random axes (6); the label at the start of the axis (5); the finish label kept inside the chart (2); the today line hidden and shown (2); and two checks on the new file’s own fixture (2). Forty of them fail on the previous version; the six that pass on both check the fixture and what must not change.
+- The Gantt parity oracle’s three committed baselines were regenerated deliberately. Nine lines change: the finish label’s position where it now moves left (3), a quarter label that now carries its year (2), and print’s milestone diamonds, 2 px lower (4).
+- A new committed breakage spec breaks the change eight ways, one at a time; each breakage fails exactly the checks it names — one to twenty-nine of them.
+
 ## 0.76.3 — 2026-10-05
 
 ### Changed
