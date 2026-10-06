@@ -14,8 +14,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { useIsDarkClass } from "@ui/hooks/use-dark-class";
-
 import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
 import { mergeCdfDatasets, CDF_TARGET_DASH, CDF_TARGET_STROKE, type CDFDataset } from "./cdf-comparison-data";
 // Note: CopyImageButton intentionally NOT imported here. The parent
@@ -43,7 +41,6 @@ export function CDFComparisonChart({
   caption,
   formatDurationAsDate,
 }: CDFComparisonChartProps) {
-  const isDark = useIsDarkClass();
   if (datasets.length === 0) {
     return (
       <div className="text-center py-8 text-gray-400 text-sm">
@@ -60,8 +57,13 @@ export function CDFComparisonChart({
   // which Recharts documents as unstable between renders): a function returning the column index.
   const columnOf = new Map(datasets.map((d, i) => [d.id, i]));
 
+  // ⚠️ LIGHT IN BOTH THEMES, deliberately (WI-101). This chart renders only inside the
+  // comparison's copied region, which stays white so its copy reads on html2canvas's white
+  // backdrop — see the note on `tableRef` in ScenarioComparison. A dark panel here showed a
+  // dark chart inside a white frame, on screen and in the copy. So no `dark:` class, and the
+  // axis ticks take their LIGHT colour whatever the theme.
   return (
-    <div className="bg-white dark:bg-gray-800 p-2">
+    <div className="bg-white p-2">
       <ResponsiveContainer width="100%" height={300}>
           <LineChart
             data={mergedData}
@@ -71,12 +73,12 @@ export function CDFComparisonChart({
             <XAxis
               dataKey="value"
               type="number"
-              tick={axisTick(isDark)}
+              tick={axisTick(false)}
               tickFormatter={(v) => String(Math.round(v))}
               domain={["dataMin", "dataMax"]}
             />
             <YAxis
-              tick={axisTick(isDark)}
+              tick={axisTick(false)}
               label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
               domain={[0, 100]}
             />
@@ -117,7 +119,7 @@ export function CDFComparisonChart({
           </LineChart>
         </ResponsiveContainer>
       {/* Target label */}
-      <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
+      <div className="text-xs text-gray-500 text-center mt-1">
         {caption}
       </div>
     </div>

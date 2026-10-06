@@ -503,6 +503,18 @@ describe("WI-58 — the captured region stays light (C7) and the notes cannot wi
   });
 });
 
+describe("WI-101 — the distribution chart's captured region stays light too", () => {
+  it("carries no dark: variant anywhere inside the chart region the copy button captures", () => {
+    render(<ScenarioComparisonTable scenarios={[RUN, withResults(scenarioLasting("Fast-track", 90), 130, 180)]} />);
+    // The region is the element after the chart's header bar — the one the chart's copy button captures.
+    const region = screen.getByText("Cumulative Distribution Comparison").parentElement!.nextElementSibling!;
+    // Non-vacuity: the region holds the chart's own panel and its caption.
+    expect(region.textContent).toContain("Dashed line");
+    expect(region.querySelectorAll("[class]").length).toBeGreaterThanOrEqual(2);
+    expect(region.querySelectorAll('[class*="dark:"]')).toHaveLength(0);
+  });
+});
+
 // ── v0.75.0: a Run for each scenario in Compare ───────────────────────────────────────────────
 
 describe("the Run row: a Run under each compared scenario that can run and draws no curve", () => {

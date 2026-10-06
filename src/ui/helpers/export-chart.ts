@@ -93,6 +93,20 @@ export interface CopyChartOptions {
    * scroll, and keeps exactly the capture it had.
    */
   captureFullWidth?: boolean;
+  /**
+   * Copy the element in its LIGHT theme, whatever the page's theme (WI-26).
+   *
+   * Called immediately before html2canvas, it switches the element to its light colours and
+   * returns the function that switches it back. That function runs as soon as html2canvas
+   * returns, before the copy is awaited. html2canvas copies the whole page synchronously inside
+   * that call, and its copy of an SVG keeps the colours computed at that moment, so the copy is
+   * light; the page is back in its own theme before the browser paints again, so the screen
+   * never shows the light chart. The `dark` class is also taken off html2canvas's copy of the
+   * document, for everything a stylesheet colours rather than the element itself.
+   *
+   * Opt-in, like `captureFullWidth`: every other copy site keeps exactly the capture it had.
+   */
+  captureLight?: () => () => void;
 }
 
 /**
@@ -143,6 +157,66 @@ export function setProportionalNumerals(el: HTMLElement): void {
 }
 
 /**
+ * Start html2canvas on `element` and return its promise, NOT yet awaited.
+ *
+ * ⚠️ With `captureLight`, the restore runs in `finally`, before anything awaits the promise: the
+ * light theme lasts exactly as long as the html2canvas call, which is when html2canvas takes its
+ * copy of the page, and a throw from that call still puts the page back (WI-26).
+ */
+function startRender(
+  element: HTMLElement,
+  { captureFullWidth = false, captureLight }: CopyChartOptions,
+): Promise<HTMLCanvasElement> {
+  const options: Parameters<typeof html2canvas>[1] = {
+    backgroundColor: "#ffffff",
+    scale: 2, // Higher resolution
+    ignoreElements: (el) => el.classList.contains("copy-image-button") || el.hasAttribute("data-capture-skip"),
+    onclone: (doc, clonedEl) => {
+      // First, so that nothing below computes or pins a colour under the dark theme (WI-26).
+      if (captureLight) doc.documentElement.classList.remove("dark");
+      if (captureFullWidth) expandToFullWidth(clonedEl);
+      setProportionalNumerals(clonedEl);
+      neutralizeUnsupportedColors(doc, clonedEl);
+    },
+  };
+  const restore = captureLight ? enterLight(element, captureLight) : undefined;
+  try {
+    return html2canvas(element, options);
+  } finally {
+    restore?.();
+  }
+}
+
+/** Switch `element` light through `captureLight`, and return the switch back (WI-26). */
+function enterLight(element: HTMLElement, captureLight: () => () => void): () => void {
+  const restore = captureLight();
+  settleTransitions(element);
+  return () => {
+    restore();
+    settleTransitions(element);
+  };
+}
+
+/**
+ * Finish, at their end values, the CSS transitions running inside `el` (WI-26).
+ *
+ * Switching the chart's colours starts a transition on every element that animates its colour
+ * — the Gantt's dependency arrows do — and html2canvas copies such an element at the
+ * transition's FIRST frame, in the old colour: measured in Chrome, a path with a 100 ms colour
+ * transition was copied in its old colour, and the same path without one in its new. Finished, the new
+ * colour lands at once, before the copy and again after the restore, so neither the copy nor the
+ * screen shows a transition between the two themes. Only transitions: `finish()` throws on an
+ * infinite animation. `getAnimations` brings style up to date before it answers; jsdom has no
+ * Web Animations, so there this does nothing.
+ */
+function settleTransitions(el: HTMLElement): void {
+  if (typeof el.getAnimations !== "function") return;
+  for (const animation of el.getAnimations({ subtree: true })) {
+    if (animation instanceof CSSTransition) animation.finish();
+  }
+}
+
+/**
  * Copy a DOM element as a PNG image to the clipboard.
  * Two kinds of element are left out of the capture: those with the `copy-image-button` class,
  * and any element carrying the attribute `data-capture-skip` — a control that belongs on the
@@ -153,18 +227,9 @@ export function setProportionalNumerals(el: HTMLElement): void {
  */
 export async function copyChartAsPng(
   element: HTMLElement,
-  { captureFullWidth = false }: CopyChartOptions = {},
+  options: CopyChartOptions = {},
 ): Promise<void> {
-  const canvas = await html2canvas(element, {
-    backgroundColor: "#ffffff",
-    scale: 2, // Higher resolution
-    ignoreElements: (el) => el.classList.contains("copy-image-button") || el.hasAttribute("data-capture-skip"),
-    onclone: (doc, clonedEl) => {
-      if (captureFullWidth) expandToFullWidth(clonedEl);
-      setProportionalNumerals(clonedEl);
-      neutralizeUnsupportedColors(doc, clonedEl);
-    },
-  });
+  const canvas = await startRender(element, options);
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

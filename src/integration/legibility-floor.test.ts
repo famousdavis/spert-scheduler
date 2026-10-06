@@ -159,9 +159,9 @@ const SUB_FLOOR_EXCEPTIONS: Record<string, string> = {
   // ARE fixed: v0.67.14 made the suppression threshold derive from each label's own
   // text and font, and moved the milestone date out of the tick lane, which is what
   // was blocking the raise. They are 12px now.
-  // Re-keyed :986 → :989 in v0.75.0: the same label, byte-identical, moved down by a comment added
-  // above it. Not a new site.
-  'src/ui/charts/GanttChart.tsx:989': 'dependency lag label — hardcoded, 9px inside an arrow gap',
+  // Re-keyed :986 → :989 in v0.75.0, and :989 → :991 in WI-26: the same label, byte-identical,
+  // moved down first by a comment and then by the `forceLight` prop added above it. Not a new site.
+  'src/ui/charts/GanttChart.tsx:991': 'dependency lag label — hardcoded, 9px inside an arrow gap',
   'src/ui/charts/GanttActivityRow.tsx:222': 'constraint glyph inside an 8px bar icon — non-text, 1.4.11',
   'src/ui/charts/GanttLegend.tsx:163': 'the "C" inside a 12x12 legend swatch — non-text, 1.4.11',
 };
