@@ -68,9 +68,12 @@ export function CopyImageButton({
   const unsupportedTitle =
     "Copy image is not supported in this browser — try Chrome, Edge, or Safari";
 
+  // The icon strokes `currentColor`, and nothing above the button sets a colour, so without
+  // one of its own the icon inherited the page's default black — invisible on the dark
+  // header bars (WI-103). The button therefore names its colour in both themes.
   return (
     <button
-      className={`copy-image-button bg-transparent border-0 p-1 shrink-0 transition-opacity duration-200 ${resolveButtonClass(CLIPBOARD_IMAGE_SUPPORTED, status)}`}
+      className={`copy-image-button bg-transparent border-0 p-1 shrink-0 text-black dark:text-white transition-opacity duration-200 ${resolveButtonClass(CLIPBOARD_IMAGE_SUPPORTED, status)}`}
       onClick={handleCopy}
       disabled={!CLIPBOARD_IMAGE_SUPPORTED || status === "copying"}
       title={CLIPBOARD_IMAGE_SUPPORTED ? title : unsupportedTitle}
@@ -98,7 +101,7 @@ export function CopyImageButton({
           height="18"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#10b981"
+          stroke="#059669"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
