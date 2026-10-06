@@ -47,8 +47,8 @@ export const mutations = [
   {
     id: "S2  CopyImageButton drops the option  [expect 1: G1]",
     file: BUTTON,
-    find: "await copyChartAsPng(targetRef.current, { captureFullWidth });",
-    replace: "await copyChartAsPng(targetRef.current);",
+    find: "await copyChartAsPng(targetRef.current, { captureFullWidth, captureLight });",
+    replace: "await copyChartAsPng(targetRef.current, { captureLight });",
     expectFailing: only(G1),
   },
   {
@@ -80,8 +80,8 @@ export const mutations = [
     find: EXPAND_IN_ONCLONE,
     replace: "",
     also: {
-      find: "  const canvas = await html2canvas(element, {",
-      replace: "  if (captureFullWidth) expandToFullWidth(element);\n  const canvas = await html2canvas(element, {",
+      find: "    return html2canvas(element, options);",
+      replace: "    if (captureFullWidth) expandToFullWidth(element);\n    return html2canvas(element, options);",
     },
     expectFailing: only(H3, G1),
   },

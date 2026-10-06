@@ -14,7 +14,8 @@ import { lastResizeObserver } from "../../test-stubs";
 import type { HistogramBin, CDFPoint } from "@domain/models/types";
 
 /**
- * Recharts axis tick labels follow the theme (WI-10, closes L10).
+ * Recharts axis tick labels follow the theme (WI-10, closes L10) — except CDFComparisonChart's,
+ * which stay light in both themes (WI-101; the last test below).
  *
  * ⚠️ THE NODE COUNT IS ASSERTED BEFORE ANYTHING ELSE, and that is the whole
  * design of this file. The obvious selector for a tick label —
@@ -134,30 +135,41 @@ describe("Recharts axis ticks follow the theme", () => {
   });
 
   /**
-   * ⚠️ Rendered, not source-verified. The pre-flight review reached only two of
-   * the three chart wrappers because this one needs comparison mode, so its two
-   * sites were the only ones in L10 never observed. They are observed here.
+   * ⚠️ The ONE chart whose ticks do NOT follow the theme (WI-101). CDFComparisonChart renders
+   * only inside the comparison's copied region, which stays white in both themes, so its ticks
+   * keep their light colour in dark mode too.
+   *
+   * ⚠️ Dark mode is set BEFORE the render. A chart that read the class without subscribing would
+   * pass a light-then-dark sequence by never re-rendering; rendered in dark, it shows dark ticks
+   * and fails. And the comparison is against CDFChart RENDERED in the same theme — a chart that does
+   * follow it — not only against the constants, which a collapsed pair of constants would satisfy.
    */
-  it("covers CDFComparisonChart too, which the pre-flight could not reach", async () => {
-    const { container } = await renderSized(
+  it("keeps CDFComparisonChart's ticks light in dark mode — it sits in the comparison's white region", async () => {
+    await setDarkClass(true);
+    const comparison = await renderSized(
       <CDFComparisonChart
         datasets={[{ id: "s-base", label: "Base", color: "#2563eb", points: POINTS }]}
         caption="Duration (days) · Dashed line: P95 target"
       />,
     );
-    expect(ticks(container).length).toBeGreaterThan(0);
-    const light = fills(container);
-    expect(light).toEqual([AXIS_TICK_FILL_LIGHT]);
-    await setDarkClass(true);
-    const dark = fills(container);
-    expect(dark).toEqual([AXIS_TICK_FILL_DARK]);
+    expect(ticks(comparison.container).length).toBeGreaterThan(0);
+    const followsTheme = await renderSized(
+      <CDFChart
+        points={POINTS}
+        probabilityTarget={0.95}
+        percentileValue={15}
+        captureRef={createRef<HTMLDivElement>()}
+      />,
+    );
+    expect(ticks(followsTheme.container).length).toBeGreaterThan(0);
 
-    // ⚠️ NOT redundant with the two lines above, and the difference is the whole
-    // point. Those compare the DOM against the constants, so collapsing the two
-    // constants moves BOTH sides together and they keep agreeing — measured: it
-    // passed. This compares the two RENDERED values to each other, which is the
-    // side the defect cannot write to.
-    expect(dark).not.toEqual(light);
+    expect(fills(comparison.container)).toEqual([AXIS_TICK_FILL_LIGHT]);
+    expect(fills(followsTheme.container)).toEqual([AXIS_TICK_FILL_DARK]);
+    expect(fills(comparison.container)).not.toEqual(fills(followsTheme.container));
+
+    // ...and leaving dark mode changes nothing on it.
+    await setDarkClass(false);
+    expect(fills(comparison.container)).toEqual([AXIS_TICK_FILL_LIGHT]);
   });
 
   it("sets the tick font size to the on-screen floor", async () => {

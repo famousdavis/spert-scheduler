@@ -2,7 +2,8 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
+import { flushSync } from "react-dom";
 import type {
   Activity,
   ActivityBand,
@@ -58,13 +59,26 @@ export function GanttSection(props: GanttSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [appearancePanelOpen, setAppearancePanelOpen] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
+  // True only while a copy is being taken: the copy is always light (WI-26, captureLight below).
+  const [forceLight, setForceLight] = useState(false);
 
   // Dark mode, SUBSCRIBED rather than read during render — see use-dark-class.ts. This
   // feeds resolveGanttAppearance, whose only isDark-dependent outputs are the colour
   // preset and the weekend shading tint; every geometry field is independent of it.
-  const isDark = useIsDarkClass();
+  const isDark = useIsDarkClass() && !forceLight;
 
   const resolvedAppearance = resolveGanttAppearance(ganttAppearance, isDark);
+
+  /**
+   * A copy of the Gantt is always light (WI-26). html2canvas copies the page synchronously,
+   * inside its call, so the chart is redrawn light just before that call and redrawn in its own
+   * theme as soon as the call returns. Both redraws happen before the browser can paint, so the
+   * screen never shows the light chart; `flushSync` is what puts each one in the DOM at once.
+   */
+  const captureLight = useCallback(() => {
+    flushSync(() => setForceLight(true));
+    return () => flushSync(() => setForceLight(false));
+  }, []);
 
   return (
     <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -94,7 +108,7 @@ export function GanttSection(props: GanttSectionProps) {
             that looks complete while missing the chart's end, or its start if the chart has
             been scrolled (WI-57). */}
         {!collapsed && (
-          <CopyImageButton targetRef={chartRef} title="Copy Gantt chart as image" captureFullWidth />
+          <CopyImageButton targetRef={chartRef} captureLight={captureLight} title="Copy Gantt chart as image" captureFullWidth />
         )}
       </div>
 
@@ -105,6 +119,7 @@ export function GanttSection(props: GanttSectionProps) {
             {...chartProps}
             svgContainerRef={chartRef}
             resolvedAppearance={resolvedAppearance}
+            forceLight={forceLight}
             appearancePanelOpen={appearancePanelOpen}
             onToggleAppearancePanel={() => setAppearancePanelOpen((o) => !o)}
           />

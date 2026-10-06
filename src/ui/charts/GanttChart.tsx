@@ -264,6 +264,7 @@ interface GanttChartProps {
   resolvedAppearance: ResolvedGanttAppearance;
   appearancePanelOpen: boolean;
   onToggleAppearancePanel: () => void;
+  forceLight?: boolean; // the light palette whatever the theme — set only while a copy is taken (WI-26)
 }
 
 export function GanttChart({
@@ -298,6 +299,7 @@ export function GanttChart({
   resolvedAppearance: ra,
   appearancePanelOpen,
   onToggleAppearancePanel,
+  forceLight,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
   // Bar labels use the SHORT form (no year) — see barLabelText in gantt-utils.
@@ -395,7 +397,7 @@ export function GanttChart({
   // Dark mode, SUBSCRIBED rather than read during render. The class was always correct;
   // nothing told React to look at it again, so the palette survived a theme change until
   // some unrelated re-render happened to refresh it. See use-dark-class.ts.
-  const isDark = useIsDarkClass();
+  const isDark = useIsDarkClass() && !forceLight;
   const c = isDark ? COLORS.dark : COLORS.light;
   const mc = isDark ? MILESTONE_COLORS.dark : MILESTONE_COLORS.light;
   const tc = isDark ? TARGET_COLORS.dark : TARGET_COLORS.light;

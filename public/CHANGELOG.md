@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.76.5 — 2026-10-06
+
+### Fixed
+
+- **“Copy Gantt chart as image” now copies the light chart in dark mode too — the same picture it copies in light mode.** Before, a dark-mode copy was a dark chart with a white band along its foot, where the legend’s grey text was hard to read. The chart on screen stays dark.
+- **In dark mode, the scenario comparison’s distribution chart now stays white, like the comparison table above it — on screen and when copied.** Before, it was a dark chart inside a white frame.
+
+### Internal
+
+- Nine new tests, and one replaced. Six check the light Gantt copy. Two concern html2canvas, which the light copy rests on: one checks, with the real library, that its copy of an SVG element — the colour attribute, and the style html2canvas writes into the copy — is taken inside its call, so a change the page makes after the call does not reach the copy; the other is that check’s control. One checks that no element inside the comparison chart’s copied region carries a dark-mode class. The replaced test checks that the comparison chart’s axis tick labels stay light in dark mode. Five of the nine new tests fail on the previous version, as do the replaced test and the re-keyed legibility check below.
+- The legibility check’s exception for the Gantt’s dependency lag label is re-keyed two lines down, where the same label now sits.
+- Two new committed breakage specs break the change twenty ways, one at a time — sixteen for the light copy, four for the comparison chart — and each breakage fails exactly the checks it names, one to four of them. The full-width copy’s breakage spec is updated for the new code.
+
 ## 0.76.4 — 2026-10-05
 
 ### Fixed
