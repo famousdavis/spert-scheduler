@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- **A year label crowded off the Gantt chart’s time axis now moves to a later month (or quarter) of the same year when one has room — on screen and in print.** Before, it was simply left off, and the axis could name that year nowhere.
+- **A year label crowded off the Gantt chart’s time axis now moves to a later month, quarter or half-year of the same year when one has room — on screen and in print.** Before, it was simply left off, and the axis could name that year nowhere.
 - **A project longer than three months that starts in its year’s last month — or, where a long chart’s time axis is labelled by quarter or half-year, in its last quarter or half-year — now has a label at the start of the time axis naming that year, where there is room for one.** Before, the axis’s first label could fall in the following year, and the year the project starts in could be named nowhere on it.
 - **The finish date’s label is kept inside the chart.** Near the right edge it moves a few pixels left; the dashed finish line does not move.
 - **In print, the milestone diamonds sit 2 px lower, so a diamond next to the finish date no longer rises into the date’s letters — as on screen.**
