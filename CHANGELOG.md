@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.76.6 — 2026-10-06
+
+### Fixed
+
+- **In dark mode, the copy-image buttons — on the Gantt chart, the histogram and the cumulative probability chart, the percentile table, and the scenario comparison’s table and chart — are now visible.** Their icon was drawn in black on the dark header bars.
+- **The green tick shown after a copy is now a deeper green, so it stands out on white as well as on the dark header bars.** In light mode the buttons otherwise look as before.
+
+### Internal
+
+- Three new tests, in one new file. One checks that the button sets its own icon colour in both themes and that the idle icon is drawn in it; one, that the spinner shown during a copy is drawn in the same colour and that the tick shown after a successful copy is the new green; one, that the cross shown after a failed copy is red, as before. The first two fail on the previous version; the third passes on both and is there to show what must not change.
+- A new committed breakage spec breaks the change five ways, one at a time — the dark-mode colour removed, the light-mode colour removed, the tick back to its old green, and a fixed black on the idle icon and on the spinner — and each breakage fails exactly the one check it names.
+
 ## 0.76.5 — 2026-10-06
 
 ### Fixed
