@@ -21,13 +21,13 @@ import {
   PRINT_BAR_RADIUS, PRINT_ARROW_SIZE, PRINT_MIN_TICK_PX,
   PRINT_PROJECT_NAME_H, PRINT_MILESTONE_EXTRA_TOP,
   PRINT_MILESTONE_NAME_DY, PRINT_MILESTONE_DATE_DY, PRINT_TARGET_LABEL_DY,
-  PRINT_MILESTONE_ROW_STEP, PRINT_LABEL_GAP_PX, PRINT_DIAMOND_SIZE,
+  PRINT_MILESTONE_ROW_STEP, PRINT_LABEL_GAP_PX, PRINT_DIAMOND_SIZE, PRINT_FINISH_LABEL_EDGE_PX,
   PRINT_TODAY_LABEL_DY, PRINT_TODAY_DATE_DY,
   TODAY_LABEL_TEXT, TARGET_LABEL_TEXT, DATE_LABEL_SPECIMEN,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressOverlappingTicks, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressTicksNamingEveryYear, clampFinishLabelX, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor } from "./gantt-utils";
 import type { TickLevel, TickObstacle } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -145,6 +145,13 @@ export function PrintGanttChart({
   // Finish line
   const finishDate = bufferedEndDate ?? projectEndDate;
   const finishX = toX(finishDate);
+  // The finish LABEL's centre and half-width. Memoized like every other fs5-derived value
+  // here: computed at the top level, the React Compiler reports `fs5` as "may be modified
+  // later" against the milestone-row and tick memos (measured: +2 findings).
+  const finishLabel = useMemo(() => {
+    const halfWidth = labelHalfWidth(longDateLabel(finishDate), fs5);
+    return { x: clampFinishLabelX(finishX, halfWidth, chartW, PRINT_FINISH_LABEL_EDGE_PX), halfWidth };
+  }, [finishX, finishDate, fs5]);
 
   // Today line — the SAME helper the interactive chart uses, with `now` passed in rather
   // than read inline. Owner decision (2026-08-01): keep the today-line on printed reports.
@@ -232,7 +239,7 @@ export function PrintGanttChart({
    */
   const obstacles = useMemo<TickObstacle[]>(() => {
     const out: TickObstacle[] = [
-      { x: finishX, halfWidth: labelHalfWidth(longDateLabel(finishDate), fs5) },
+      { x: finishLabel.x, halfWidth: finishLabel.halfWidth },
     ];
     if (todayX !== null) {
       out.push({
@@ -249,10 +256,10 @@ export function PrintGanttChart({
     for (const mx of milestoneXPositions) out.push({ x: mx, halfWidth: PRINT_DIAMOND_SIZE });
     return out;
     // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the imported label-width helpers are not provably pure; same trade as the allTicks memo above
-  }, [finishX, finishDate, todayX, targetX, milestoneXPositions, fs5, fs4]);
+  }, [finishLabel, todayX, targetX, milestoneXPositions, fs5, fs4]);
 
   const ticks = useMemo(() =>
-    suppressOverlappingTicks(allTicks, {
+    suppressTicksNamingEveryYear(allTicks, {
       minTimestamp: minTs,
       dateRange: range,
       chartAreaWidth: areaW,
@@ -430,7 +437,7 @@ export function PrintGanttChart({
           <g>
             <line x1={finishX} y1={topMargin} x2={finishX} y2={chartH - 4}
               stroke={c.finishLine} strokeWidth="1" strokeDasharray="4 2" />
-            <text x={finishX} y={topMargin - 4} textAnchor="middle"
+            <text x={finishLabel.x} y={topMargin - 4} textAnchor="middle"
               fontSize={fs5} fontWeight="600" fill={c.finishText}>
               {longDateLabel(finishDate)}
             </text>
@@ -670,7 +677,7 @@ export function PrintGanttChart({
               <line x1={x} y1={topMargin - 2} x2={x} y2={topMargin + totalRows * ra.printRowHeight}
                 stroke={healthColor} strokeWidth="0.5" strokeDasharray="2 2" opacity={0.7} />
               <polygon
-                points={`${x},${topMargin - 2 - ds} ${x + ds},${topMargin - 2} ${x},${topMargin - 2 + ds} ${x - ds},${topMargin - 2}`}
+                points={`${x},${topMargin - ds} ${x + ds},${topMargin} ${x},${topMargin + ds} ${x - ds},${topMargin}`}
                 fill={healthColor}
               />
               <text x={x} y={topMargin - PRINT_MILESTONE_NAME_DY - rowLift} textAnchor="middle"
