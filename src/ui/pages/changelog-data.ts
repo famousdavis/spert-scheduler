@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.7",
+    date: "2026-10-07",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "A section-header name on the Gantt chart whose colour was too pale to read easily on white is now drawn in a darker shade of that colour, just dark enough to meet the usual contrast standard for text — in light mode, in print, and in a copied image of the chart. The line beside each name keeps its colour, and the chart on screen in dark mode is unchanged.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Twenty-six new tests, in one new file: the shade each of the eight colours the colour picker offers for a section header becomes (8), and that one step less dark would not be enough (8); that the tests’ colour table is exactly the picker’s eight colours, and that each is too pale to read easily on white and already reads on the dark chart (2); a colour that already reads, a colour one step short of reading, an upper-case colour, and a string that is not a colour (4); and the names and lines drawn in light mode, in dark mode, in the light render a copy is taken from, and in print (4). Fifteen fail on the previous version; the eleven that pass on both check the colour table, the one-step-less-dark arithmetic, that the eight are too pale on white and read on the dark chart, and dark mode.",
+          "A new committed breakage spec breaks the change twelve ways, one at a time, and each breakage fails exactly the checks it names — one to fourteen of them.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.76.6",
     date: "2026-10-06",
     sections: [

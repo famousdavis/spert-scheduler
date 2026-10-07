@@ -6,6 +6,7 @@ import type { MilestoneBufferInfo, ScheduledActivity } from "@domain/models/type
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { formatDateISO } from "@core/calendar/calendar";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+import { hexToRgb, type RgbColor } from "@ui/helpers/color-utils";
 
 export const MONTH_ABBR = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -365,6 +366,62 @@ export function milestoneMarkerColor(
 ): string {
   if (!info || info.health === "none") return mc.line;
   return mc[info.health];
+}
+
+/** WCAG 2.x contrast for normal-size text (AA). */
+const READABLE_CONTRAST = 4.5;
+
+/** `t`, the share of the way to black, advances in steps of 1/200 = 0.005. */
+const DARKEN_STEPS = 200;
+
+/** One sRGB channel (0–255) as linear light — the WCAG 2.x relative-luminance curve. */
+function linearChannel(v: number): number {
+  const s = v / 255;
+  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+}
+
+/** WCAG 2.x contrast ratio against white, whose relative luminance is 1. */
+function contrastOnWhite({ r, g, b }: RgbColor): number {
+  const luminance = 0.2126 * linearChannel(r) + 0.7152 * linearChannel(g) + 0.0722 * linearChannel(b);
+  return 1.05 / (luminance + 0.05);
+}
+
+/** Each channel scaled toward black by `t` and rounded to 8 bits: c' = round(c × (1 − t)). */
+function towardBlack({ r, g, b }: RgbColor, t: number): RgbColor {
+  return { r: Math.round(r * (1 - t)), g: Math.round(g * (1 - t)), b: Math.round(b * (1 - t)) };
+}
+
+const hexByte = (v: number): string => v.toString(16).padStart(2, "0");
+
+/**
+ * A section header's NAME colour where the chart is WHITE: the Gantt in light mode, the light
+ * render a copy is taken from, and the printed Gantt (WI-100). Band colours are pale — the eight
+ * the picker offers read 1.67–2.56:1 on white — so the colour is scaled toward black,
+ * c' = round(c × (1 − t)), at the smallest `t` in steps of 0.005 whose ROUNDED result reads at
+ * least 4.5:1 (WCAG 2.x). Worked out per colour, so a colour that arrives in an imported project
+ * reads too. A colour that already reads 4.5:1 comes back unchanged, byte for byte — the
+ * no-colour fallback `textMuted` (#6b7280, 4.83:1) among them — and so does a string that
+ * `hexToRgb` cannot read. (`hexToRgb` also reads six hex digits without the `#`, and trims
+ * spaces, so such a string, if pale, comes back darkened as #rrggbb; every band colour the
+ * schema admits carries the `#`.)
+ *
+ * The NAME only: the rule beside it keeps the band's own colour, and dark mode draws both in it
+ * (the eight read 5.72–8.80:1 on the dark chart's #1f2937). ⚠️ A known limit, recorded and not
+ * fixed: the schema accepts any #rrggbb, so an imported project can carry a DARK colour the picker
+ * never offers, and dark mode draws that name as it is (#334155 reads 1.42:1 on #1f2937). One
+ * function for both charts, so they cannot disagree (print parity). The eight results are pinned
+ * in `gantt-band-name-contrast.test.tsx`; each is the smallest step that reads.
+ */
+export function readableOnWhite(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb || contrastOnWhite(rgb) >= READABLE_CONTRAST) return hex;
+  let step = 0;
+  let darker: RgbColor;
+  do {
+    step++;
+    darker = towardBlack(rgb, step / DARKEN_STEPS);
+  } while (contrastOnWhite(darker) < READABLE_CONTRAST);
+  return `#${hexByte(darker.r)}${hexByte(darker.g)}${hexByte(darker.b)}`;
 }
 
 /**
