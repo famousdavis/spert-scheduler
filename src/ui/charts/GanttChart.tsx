@@ -40,7 +40,7 @@ import {
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
   computeBarHitRect, buildActivityTooltip, tickHasYear,
-  barLabelText as computeBarLabelText, milestoneMarkerColor,
+  barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite,
 } from "./gantt-utils";
 import { GanttActivityRow } from "./GanttActivityRow";
 import { GanttSvgDefs } from "./GanttSvgDefs";
@@ -946,7 +946,7 @@ export function GanttChart({
                   dominantBaseline="central"
                   fontSize={ra.nameFontSize}
                   fontWeight="700"
-                  fill={bandColor}
+                  fill={isDark ? bandColor : readableOnWhite(bandColor)}
                   className={canRenameBand ? "cursor-pointer" : "pointer-events-none"}
                   style={isEditingThisBand ? { display: "none" } : undefined}
                   onClick={canRenameBand ? () => {

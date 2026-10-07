@@ -27,7 +27,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressTicksNamingEveryYear, clampFinishLabelX, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressTicksNamingEveryYear, clampFinishLabelX, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite } from "./gantt-utils";
 import type { TickLevel, TickObstacle } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -498,7 +498,7 @@ export function PrintGanttChart({
                 dominantBaseline="central"
                 fontSize={fs7}
                 fontWeight="700"
-                fill={bandColor}
+                fill={readableOnWhite(bandColor)}
               >
                 {truncated}
               </text>
