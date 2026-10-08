@@ -1027,3 +1027,49 @@ describe("v0.71.1 at the page — the summary names the activity the way the gri
     expect(summaryLine().textContent).toBe("Vireo cutover: Min is above Most Likely");
   });
 });
+
+/**
+ * WI-105 — every Run refusal names the activity as the summary does: `#N <name>` when the project
+ * numbers its activities, and exactly today's words when it does not. The line under the Run button
+ * and both summary-card links, at the page, so the page's own map is what is passed.
+ */
+describe("WI-105 at the page — Run's refusals name the activity the way the summary does", () => {
+  function twoRows(showActivityIds: boolean): Project {
+    const p = projectOf((s) => [
+      activityWith("Teal conduit", s),
+      activityWith("Vireo cutover", s, { min: 30, mostLikely: 10, max: 20 }),
+    ]);
+    return { ...p, showActivityIds };
+  }
+
+  /** Both summary-card links, clicked; the toasts they raise. */
+  function clickBothRunLinks(): string[] {
+    const links = screen.getAllByRole("button", { name: /^(Run simulation|run the simulation)$/ });
+    expect(links).toHaveLength(2);
+    for (const link of links) fireEvent.click(link);
+    return errorToasts();
+  }
+
+  it("numbered: the line under Run and both links' toasts say '#2 Vireo cutover'", () => {
+    renderPage(twoRows(true));
+    expect(runReason()!.parentElement!.querySelector("li")!.textContent).toBe(
+      "#2 Vireo cutover: Min is above Most Likely"
+    );
+    expect(clickBothRunLinks()).toEqual([
+      "Simulation not run. Fix this activity first: #2 Vireo cutover (Min is above Most Likely).",
+      "Simulation not run. Fix this activity first: #2 Vireo cutover (Min is above Most Likely).",
+    ]);
+    expect(sim.run).not.toHaveBeenCalled();
+  });
+
+  it("unnumbered: the same three say exactly what they said before WI-105", () => {
+    renderPage(twoRows(false));
+    expect(runReason()!.parentElement!.querySelector("li")!.textContent).toBe(
+      "Vireo cutover: Min is above Most Likely"
+    );
+    expect(clickBothRunLinks()).toEqual([
+      "Simulation not run. Fix this activity first: Vireo cutover (Min is above Most Likely).",
+      "Simulation not run. Fix this activity first: Vireo cutover (Min is above Most Likely).",
+    ]);
+  });
+});

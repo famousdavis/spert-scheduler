@@ -13,6 +13,7 @@ import { CDFChart } from "@ui/charts/CDFChart";
 import { PercentileTable } from "@ui/charts/PercentileTable";
 import { CopyImageButton } from "@ui/components/CopyImageButton";
 import type { ActivityProblem } from "@ui/hooks/use-estimate-validity";
+import { numberedName, type ActivityNumbers } from "@ui/helpers/run-blocked-message";
 
 const NO_BLOCKERS: readonly ActivityProblem[] = [];
 
@@ -25,15 +26,24 @@ const NO_BLOCKERS: readonly ActivityProblem[] = [];
  * It lives HERE, below the grid, and never in the validation summary or the banner above it:
  * those hold back a half-typed row's ordering error, and this line is what explains Run while
  * they do. The amber pair is the summary's: `text-amber-700` alone measured 3.53:1 on dark.
+ *
+ * Since WI-105 each activity is named `#N <name>` when the project numbers its activities — the
+ * summary's own form — and by its name alone, exactly as before, when it does not.
  */
-function RunBlockedReason({ blockers }: { blockers: readonly ActivityProblem[] }) {
+function RunBlockedReason({
+  blockers,
+  activityNumberMap,
+}: {
+  blockers: readonly ActivityProblem[];
+  activityNumberMap?: ActivityNumbers;
+}) {
   return (
     <div className="text-sm text-amber-700 dark:text-amber-300">
       <p>Run needs every activity's estimates to be valid. Fix:</p>
       <ul className="mt-1 space-y-0.5">
         {blockers.map((b) => (
           <li key={b.id}>
-            <span className="font-medium">{b.name}</span>: {b.messages.join("; ")}
+            <span className="font-medium">{numberedName(b, activityNumberMap)}</span>: {b.messages.join("; ")}
           </li>
         ))}
       </ul>
@@ -58,6 +68,12 @@ interface SimulationPanelProps {
   allActivitiesValid: boolean;
   /** Every activity that stops Run, with its reasons — named in the line under the button. */
   runBlockers?: readonly ActivityProblem[];
+  /**
+   * The `#N` each activity carries in the grid, or null when this project does not show activity
+   * numbers (WI-105) — the page's own map, so the line under the button names an activity as the
+   * validation summary above it does.
+   */
+  activityNumberMap?: Map<string, number> | null;
   hasActivities: boolean;
   autoRunEnabled?: boolean;
   deterministicSpan?: number;
@@ -81,6 +97,7 @@ export function SimulationPanel({
   elapsedMs,
   allActivitiesValid,
   runBlockers = NO_BLOCKERS,
+  activityNumberMap,
   hasActivities,
   autoRunEnabled,
   deterministicSpan,
@@ -184,7 +201,9 @@ export function SimulationPanel({
         </p>
       )}
 
-      {!allActivitiesValid && hasActivities && <RunBlockedReason blockers={runBlockers} />}
+      {!allActivitiesValid && hasActivities && (
+        <RunBlockedReason blockers={runBlockers} activityNumberMap={activityNumberMap} />
+      )}
 
       {/* Progress */}
       {isRunning && progress && (

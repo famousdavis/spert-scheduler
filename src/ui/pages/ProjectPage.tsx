@@ -656,7 +656,7 @@ export function ProjectPage() {
     // panel's button stays natively disabled (a disabled button dispatches no click), so this
     // toast is what the links show.
     if (!validity.runnable) {
-      toast.error(runBlockedMessage(validity.runBlockers));
+      toast.error(runBlockedMessage(validity.runBlockers, activityNumberMap));
       return;
     }
 
@@ -692,7 +692,7 @@ export function ProjectPage() {
       params.dependencyParams,
       params.sequentialConstraints,
     );
-  }, [id, scenario, simulation, setSimulationResults, workCalendar, validity.runnable, validity.runBlockers]);
+  }, [id, scenario, simulation, setSimulationResults, workCalendar, validity.runnable, validity.runBlockers, activityNumberMap]);
 
   const handleSettingsChange = useCallback(
     (updates: Partial<ScenarioSettings>) => {
@@ -742,12 +742,12 @@ export function ProjectPage() {
       // The LIVE gate for the scenario on screen: the table is painted from the pre-press one, and a
       // press's blur can refuse a cell after the Run row was painted.
       if (scenarioId === activeScenarioId && !validity.runnable) {
-        toast.error(runBlockedMessage(validity.runBlockers));
+        toast.error(runBlockedMessage(validity.runBlockers, activityNumberMap));
         return;
       }
       runCompare(id, scenarioId, workCalendar);
     },
-    [id, activeScenarioId, validity.runnable, validity.runBlockers, runCompare, workCalendar]
+    [id, activeScenarioId, validity.runnable, validity.runBlockers, activityNumberMap, runCompare, workCalendar]
   );
 
   if (!project) {
@@ -1128,6 +1128,7 @@ export function ProjectPage() {
             elapsedMs={simulation.elapsedMs}
             allActivitiesValid={validity.runnable}
             runBlockers={validity.runBlockers}
+            activityNumberMap={activityNumberMap}
             hasActivities={scenario.activities.length > 0}
             autoRunEnabled={autoRunSimulation}
             deterministicSpan={schedule?.spanDays}
@@ -1143,7 +1144,11 @@ export function ProjectPage() {
 
           {/* Sensitivity Analysis */}
           {scenario.activities.length >= 2 && (
-            <SensitivityPanel activities={scenario.activities} />
+            <SensitivityPanel
+              activities={scenario.activities}
+              dependencyMode={scenario.settings.dependencyMode}
+              activityNumberMap={activityNumberMap}
+            />
           )}
         </div>
       ) : (
@@ -1164,11 +1169,15 @@ export function ProjectPage() {
         scenarios={project.scenarios}
         onCreate={handleAddScenario}
       />
-      {cloneSource && (
+      {/* WI-108: mounted only while open, so each opening proposes a name from the scenarios as they
+          are then. Mounted throughout, it kept the name it was first given: a second clone of the same
+          scenario — or a clone of another one — was offered that stale name. */}
+      {cloneSource && cloneDialogOpen && (
         <CloneScenarioDialog
           open={cloneDialogOpen}
           onOpenChange={setCloneDialogOpen}
           sourceName={cloneSource.name}
+          existingNames={project.scenarios.map((s) => s.name)}
           onClone={handleClone}
         />
       )}

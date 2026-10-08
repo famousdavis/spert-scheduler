@@ -183,4 +183,24 @@ describe("a Run for each scenario in Compare (v0.75.0)", () => {
     expect(runIn(compareBox(), BASE)).toBeNull();
     expect(runIn(compareBox(), REBID)).not.toBeNull(); // the other scenario's Run stands
   });
+
+  it("WI-105: in a project that numbers its activities, the live gate's toast names the row '#1'", async () => {
+    const { p, base } = twoScenarios();
+    renderPage({ ...p, showActivityIds: true });
+    compareBoth();
+    const aid = base.activities[0]!.id;
+    act(() => cell(aid, "min").focus());
+    fireEvent.change(cell(aid, "min"), { target: { value: "-5" } });
+
+    fireEvent.pointerDown(window);
+    act(() => cell(aid, "min").blur()); // the press's blur refuses the entry
+    fireEvent.click(runIn(compareBox(), BASE)!);
+    expect(errorToasts()).toEqual([
+      `Simulation not run. Fix this activity first: #1 ${BASE} task (Min: Enter 0 or more.).`,
+    ]);
+    fireEvent.pointerUp(window);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  });
 });

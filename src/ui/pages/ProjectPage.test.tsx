@@ -955,6 +955,69 @@ describe("ProjectPage — cloning a scenario", () => {
     // The clone still becomes the scenario on screen.
     expectActiveScenario(copy, [SCENARIO_A, SCENARIO_B]);
   });
+
+  /**
+   * WI-108 — the window proposes the first of "(Copy)", "(Copy 2)" … that no scenario has, read when
+   * it opens. ⚠️ THE PAGE KEPT THE WINDOW MOUNTED between openings, so its name was read ONCE: a
+   * second opening showed the first one's name whatever the dialog computed. Only a second opening
+   * on the page can see that, so these two tests open it twice.
+   */
+  const openClone = (name: string) => {
+    fireEvent.click(within(tabRoot(name)).getByRole("button", { name: "Clone scenario" }));
+    return screen.getByRole("dialog", { name: "Clone Scenario" });
+  };
+  const proposed = (dialog: HTMLElement) => (within(dialog).getByLabelText("New Name") as HTMLInputElement).value;
+
+  it("WI-108: a second clone of the same scenario is offered '(Copy 2)', not the first copy's name", () => {
+    renderPage(makeProject(PROJECT_NAME, [SCENARIO_A]));
+    const first = openClone(SCENARIO_A);
+    expect(proposed(first)).toBe(`${SCENARIO_A} (Copy)`);
+    fireEvent.click(within(first).getByRole("button", { name: "Clone" }));
+    expect(tabOrder()).toEqual([SCENARIO_A, `${SCENARIO_A} (Copy)`]);
+
+    expect(proposed(openClone(SCENARIO_A))).toBe(`${SCENARIO_A} (Copy 2)`);
+  });
+
+  it("WI-108: after cloning one scenario, cloning ANOTHER is offered that one's own name", () => {
+    renderPage(makeProject(PROJECT_NAME, [SCENARIO_A, SCENARIO_B]));
+    const first = openClone(SCENARIO_A);
+    fireEvent.click(within(first).getByRole("button", { name: "Clone" }));
+
+    expect(proposed(openClone(SCENARIO_B))).toBe(`${SCENARIO_B} (Copy)`);
+  });
+});
+
+// -- the Sensitivity panel's inputs (WI-104) ----------------------------------
+
+describe("ProjectPage — the Sensitivity panel gets the scenario's mode and the page's numbers (WI-104)", () => {
+  const FIRST = "Quoin plinth survey";
+  const SECOND = "Wicket gate rehang";
+
+  function twoActivityProject(dependencyMode: boolean, showActivityIds: boolean): Project {
+    const scenario = createScenario(SCENARIO_A, "2026-04-06", { dependencyMode });
+    const first: Activity = { ...createActivity(FIRST, scenario.settings), min: 2, mostLikely: 5, max: 10 };
+    const second: Activity = { ...createActivity(SECOND, scenario.settings), min: 4, mostLikely: 8, max: 16 };
+    return {
+      ...createProject(PROJECT_NAME, "2026-04-06"),
+      showActivityIds,
+      scenarios: [{ ...scenario, activities: [first, second] }],
+    };
+  }
+
+  const panel = () => screen.getByText("Sensitivity Analysis").parentElement!.parentElement!;
+
+  it("dependency mode and numbered activities: the note shows, and each name carries its grid number", () => {
+    renderPage(twoActivityProject(true, true));
+    expect(within(panel()).getByRole("note").textContent).toContain("does not account for dependencies");
+    expect(within(panel()).getByText(SECOND).closest("p")!.textContent).toBe(`#2 ${SECOND}`);
+    expect(within(panel()).getByText(FIRST).closest("p")!.textContent).toBe(`#1 ${FIRST}`);
+  });
+
+  it("CONTROL: sequential mode, unnumbered: no note, and each name alone", () => {
+    renderPage(twoActivityProject(false, false));
+    expect(within(panel()).queryByRole("note")).toBeNull();
+    expect(within(panel()).getByText(SECOND).closest("p")!.textContent).toBe(SECOND);
+  });
 });
 
 // -- Connect AI gating --------------------------------------------------------
