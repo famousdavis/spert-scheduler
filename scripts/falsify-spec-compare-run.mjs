@@ -34,6 +34,7 @@ const PG1 =
   "runs the scenario where it is: its column fills, the tab on screen stays, focus is on its header, and the status says so";
 const PG2 = "gives the numbers the scenario's own Run Simulation gives: its trials and its seed";
 const PG3 = "the LIVE gate: a cell the press's blur refuses stops the on-screen scenario's Run in the still-held row";
+const PG4 = "WI-105: in a project that numbers its activities, the live gate's toast names the row '#1'";
 // comparison-model.test.ts — the offer and the note.
 const CM_PER_COLUMN = "run → no; unrun and runnable → yes; flagged, empty and cyclic → no";
 const CM_GATE = "the on-screen gate refusing → no Run there; a gate on another scenario changes nothing";
@@ -72,11 +73,11 @@ export const mutations = [
   {
     // The table never mounts its Run row: every test that clicks, reads or counts a Run fails — the
     // status line, mounted in the chrome bar, does not depend on the row and stays green.
-    id: "S1  the Run row never rendered  [expect 12: SC×9, PG1, PG2, PG3]",
+    id: "S1  the Run row never rendered  [expect 13: SC×9, PG1, PG2, PG3, PG4]",
     file: COMPONENT,
     find: "            {onRunScenario && (\n              <RunRow columns={model.columns} runningIds={runningIds} onRunScenario={onRunScenario} />\n            )}\n",
     replace: "",
-    expectFailing: only(SC_NO_PROP, SC_UNDER, SC_RUNNING, SC_NO_ROW, SC_CLICK, SC_QUOTE, SC_SKIP, SC_DARK, SC_HEADERS, PG1, PG2, PG3),
+    expectFailing: only(SC_NO_PROP, SC_UNDER, SC_RUNNING, SC_NO_ROW, SC_CLICK, SC_QUOTE, SC_SKIP, SC_DARK, SC_HEADERS, PG1, PG2, PG3, PG4),
   },
   {
     // The column's offer forgets `canRun`; the note does not (it is built from `offersRun` itself),
@@ -149,11 +150,11 @@ export const mutations = [
   {
     // The held row's Run reaches the hook, which reads the SAVED plan — valid, because the refused
     // cell was never stored — and runs it.
-    id: "S10 the page's live-gate check removed  [expect 1: PG3]",
+    id: "S10 the page's live-gate check removed  [expect 2: PG3, PG4]",
     file: PAGE,
-    find: "      if (scenarioId === activeScenarioId && !validity.runnable) {\n        toast.error(runBlockedMessage(validity.runBlockers));\n        return;\n      }\n",
+    find: "      if (scenarioId === activeScenarioId && !validity.runnable) {\n        toast.error(runBlockedMessage(validity.runBlockers, activityNumberMap));\n        return;\n      }\n",
     replace: "",
-    expectFailing: only(PG3),
+    expectFailing: only(PG3, PG4),
   },
   {
     // Before v0.75.0: "all scenarios" whenever every compared scenario CAN run, results or not.

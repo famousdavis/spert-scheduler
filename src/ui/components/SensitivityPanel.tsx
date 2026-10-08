@@ -12,9 +12,36 @@ import {
 
 interface SensitivityPanelProps {
   activities: Activity[];
+  /**
+   * The scenario is scheduled by its dependencies (WI-104). Every score below reads an activity's own
+   * estimates and nothing of the network, so in this mode a note says so: an activity with slack can
+   * rank first and move nothing.
+   */
+  dependencyMode: boolean;
+  /**
+   * The `#N` each activity carries in the grid, or null when this project does not show activity
+   * numbers — the page's own map, as the validation summary takes it (WI-104).
+   */
+  activityNumberMap?: Map<string, number> | null;
 }
 
 type SortField = "impact" | "variance" | "cv";
+
+/**
+ * What each sort ranks by, in words (WI-104). All three read the activity's own estimates alone —
+ * `computeSensitivityAnalysis` has no dependency or critical-path term — and the line says so. The
+ * line it replaced claimed a "contribution to project schedule uncertainty" none of them measures.
+ */
+const SORT_DESCRIPTIONS: Record<SortField, string> = {
+  impact:
+    "Ranks each activity by its own estimates: about how many days its 95th-percentile duration grows if its estimates rise 10%.",
+  variance: "Ranks each activity by its own estimates: its share of the variance of every activity ranked here, added together.",
+  cv: "Ranks each activity by its own estimates: its standard deviation as a share of its mean.",
+};
+
+/** Shown in dependency mode only (WI-104), where a ranking that ignores the network misleads most. */
+const DEPENDENCY_NOTE =
+  "This ranking does not account for dependencies, so an activity with slack can rank high here without moving the finish date. To see what changing an activity does to the finish, try it in a copy of this scenario and compare the two.";
 
 function sortFieldBarColor(sortField: SortField): string {
   if (sortField === "impact") return "bg-blue-500";
@@ -41,10 +68,11 @@ function leftOutLine(count: number): string {
 }
 
 /**
- * Displays sensitivity analysis results showing which activities
- * contribute most to project uncertainty.
+ * Ranks the activities by measures of their OWN estimates — impact, variance share, relative
+ * spread — which take no account of dependencies; a dependency-mode scenario shows a note saying
+ * so (WI-104).
  */
-export function SensitivityPanel({ activities }: SensitivityPanelProps) {
+export function SensitivityPanel({ activities, dependencyMode, activityNumberMap }: SensitivityPanelProps) {
   const [sortField, setSortField] = useState<SortField>("impact");
   const [expanded, setExpanded] = useState(false);
   const sortId = useId();
@@ -113,9 +141,17 @@ export function SensitivityPanel({ activities }: SensitivityPanelProps) {
         </div>
       </div>
 
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-        Activities ranked by their contribution to project schedule uncertainty.
-      </p>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{SORT_DESCRIPTIONS[sortField]}</p>
+      {/* The informational note idiom of WorkDayOverrideEditor's confirm banner and the info toast —
+          blue-800 on blue-50, blue-200 on blue-900/30 — at text-sm, with role="note". */}
+      {dependencyMode && (
+        <div
+          role="note"
+          className="mb-3 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 px-3 py-2 text-sm text-blue-800 dark:text-blue-200"
+        >
+          {DEPENDENCY_NOTE}
+        </div>
+      )}
       {leftOut > 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{leftOutLine(leftOut)}</p>
       )}
@@ -126,6 +162,7 @@ export function SensitivityPanel({ activities }: SensitivityPanelProps) {
             key={result.activityId}
             result={result}
             rank={idx + 1}
+            number={activityNumberMap?.get(result.activityId)}
             maxImpact={maxImpact}
             maxVariance={maxVariance}
             sortField={sortField}
@@ -150,6 +187,8 @@ export function SensitivityPanel({ activities }: SensitivityPanelProps) {
 interface SensitivityRowProps {
   result: SensitivityResult;
   rank: number;
+  /** The activity's `#N` in the grid, when the project numbers its activities. */
+  number?: number;
   maxImpact: number;
   maxVariance: number;
   sortField: SortField;
@@ -158,6 +197,7 @@ interface SensitivityRowProps {
 function SensitivityRow({
   result,
   rank,
+  number,
   maxImpact,
   maxVariance,
   sortField,
@@ -172,17 +212,23 @@ function SensitivityRow({
 
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
-      {/* Rank badge */}
+      {/* Rank badge — the rank alone (WI-104): "#N" is an activity's own number everywhere else on
+          the page. A screen reader hears "Rank 1". */}
       <span
         className={`w-6 h-6 flex items-center justify-center text-xs font-bold rounded ${rankColor}`}
       >
-        #{rank}
+        <span className="sr-only">Rank </span>
+        {rank}
       </span>
 
-      {/* Activity name */}
+      {/* Activity name — "#N name" as the grid and the validation summary show it (WI-104). The
+          number sits outside the truncated span, so a long name can never cut it off, and the
+          space is a real text node for a screen reader, as in the summary. */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-          {nameOrUnnamed(result.activityName)}
+        <p className="flex items-baseline gap-1.5 text-sm font-medium text-gray-900 dark:text-gray-100">
+          {number !== undefined && <span className="shrink-0 tabular-nums">#{number}</span>}
+          {number !== undefined && " "}
+          <span className="truncate">{nameOrUnnamed(result.activityName)}</span>
         </p>
         <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
           <span>

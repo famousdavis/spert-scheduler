@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.8",
+    date: "2026-10-08",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The Sensitivity panel now says what its ranking measures — each activity on its own estimates — under each “Sort by” choice. In a scenario that uses dependencies, a note says the ranking does not account for them, so an activity with slack can rank high without moving the finish date, and suggests trying a change in a copy of the scenario. Its ranks now read 1, 2, 3 …, and when the project shows activity numbers each activity carries its number.",
+          "When Run is refused because an activity’s estimates need fixing, the line under the Run Simulation button and the message shown when a summary-card link or Compare’s Run is used now give each activity they name its number, as the list above the grid does — when the project shows activity numbers.",
+          "Copying a scenario again now offers a new name, such as “Baseline (Copy 2)”, and copying a different scenario offers a name based on that one. The window now starts afresh each time it opens: before, it kept whatever its name box last held — the name it first offered, or one typed into it, even a name a scenario already had — and its “Drop completed activities (reforecast)” box kept its last setting, even after Cancel; that box now starts unticked.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Twenty-four new tests across seven files, one of them new: the Sensitivity panel’s line under each sort, its note with dependencies and without them, its ranks, and its names with the page’s activity numbers and without them (8); the refusal message with numbers, with an activity the numbers do not hold, and without numbers (4); Compare’s Run for another scenario in a project that shows activity numbers (1); the page’s Sensitivity panel with dependencies and numbers and without them, a second copy of the same scenario, and a copy of another scenario (4); the line under the Run button and both summary-card links’ messages, with numbers and without them (2); Compare’s Run for the scenario on screen with numbers (1); and the copy window’s proposed name, and a name typed into it (4). The panel’s five existing tests are given the new required setting, their checks unchanged. Seventeen of the twenty-four fail on the previous version; the seven that pass on both check what must not change — no note without dependencies, names alone and the same messages as before without numbers, the first copy’s name, and a typed name sent as typed.",
+          "A new committed breakage spec breaks the change twenty-seven ways, one at a time, and each breakage fails exactly the checks it names — one to six of them. One existing spec’s target is updated for the changed refusal call, and two of its named sets now include the new Compare check.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.76.7",
     date: "2026-10-07",
     sections: [

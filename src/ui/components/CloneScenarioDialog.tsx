@@ -5,11 +5,18 @@
 import { useId, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { NAME_MAX_LENGTH } from "@domain/models/types";
+import { nextCloneName } from "@app/api/project-service";
 
 interface CloneScenarioDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sourceName: string;
+  /**
+   * Every scenario name in the project now (WI-108). The proposed name is the first of
+   * "<source> (Copy)", "(Copy 2)" … that none of them has — the rule a project's own clone follows —
+   * so a second clone of the same scenario is offered a name of its own. The user can still type any.
+   */
+  existingNames: string[];
   onClone: (newName: string, dropCompleted: boolean) => void;
 }
 
@@ -17,9 +24,11 @@ export function CloneScenarioDialog({
   open,
   onOpenChange,
   sourceName,
+  existingNames,
   onClone,
 }: CloneScenarioDialogProps) {
-  const [name, setName] = useState(`${sourceName} (Copy)`);
+  // Read once, when the window opens: the page mounts it only while it is open (WI-108).
+  const [name, setName] = useState(() => nextCloneName(sourceName, existingNames));
   const [dropCompleted, setDropCompleted] = useState(false);
   const nameId = useId();
 

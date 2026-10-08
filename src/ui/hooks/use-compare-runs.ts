@@ -56,13 +56,22 @@ export function useCompareRuns(setSimulationResults: SetSimulationResults): Comp
   const run = useCallback(
     (projectId: string, scenarioId: string, calendar: WorkCalendar | Calendar | undefined) => {
       if (runningRef.current.has(scenarioId)) return;
-      const scenario = useProjectStore.getState().getProject(projectId)?.scenarios.find((s) => s.id === scenarioId);
+      const project = useProjectStore.getState().getProject(projectId);
+      const scenario = project?.scenarios.find((s) => s.id === scenarioId);
       // An empty scenario's run completes with every sample 0 and would be stored as a result; the
       // panel's Run refuses it too.
       if (!scenario || scenario.activities.length === 0) return;
       const flags = savedScenarioFlags(scenario.activities, scenario.settings.probabilityTarget);
       if (flags.rows.length > 0) {
-        toast.error(runBlockedMessage(flags.rows.map((row) => ({ id: row.id, name: row.name, messages: [...row.messages] }))));
+        // WI-105: each row by its `#N` in ITS OWN scenario — the number that scenario's grid and its
+        // printout show — when the project numbers its activities; by its name alone when not.
+        const numbers = project?.showActivityIds ? new Map(flags.rows.map((row) => [row.id, row.position])) : null;
+        toast.error(
+          runBlockedMessage(
+            flags.rows.map((row) => ({ id: row.id, name: row.name, messages: [...row.messages] })),
+            numbers
+          )
+        );
         return;
       }
       let params: SimulationParams;

@@ -219,6 +219,24 @@ describe("useCompareRuns — what it refuses", () => {
     expect(hook.result.current.runStatus).toBe("");
   });
 
+  it("WI-105: a FLAGGED plan in a project that numbers its activities → each row by its #N in ITS scenario", () => {
+    // The flagged row is the SECOND of its scenario, and the only flagged one: its place in its own
+    // grid is 2, its place among the flagged is 1. The other scenario is the one a page would show.
+    const shown = scenarioWith("Gull", {}, [{ min: 3, mostLikely: 5, max: 9 }]);
+    const flagged = scenarioWith("Skua", {}, [
+      { min: 3, mostLikely: 5, max: 9 },
+      { min: 12, mostLikely: 10, max: 20, distributionType: "normal" },
+    ]);
+    const project: Project = { ...createProject("Osprey Culvert", "2026-04-06"), showActivityIds: true, scenarios: [shown, flagged] };
+    useProjectStore.setState({ projects: [project], loadError: false });
+    const { hook } = mount();
+    act(() => hook.result.current.run(project.id, flagged.id, undefined));
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(errorToasts()).toEqual([
+      "Simulation not run. Fix this activity first: #2 Skua row 2 (Min is above Most Likely).",
+    ]);
+  });
+
   it("a second run of an id already in flight → no second dispatch, even in the same task", () => {
     const s = scenarioWith("Smew", {}, [{ min: 3, mostLikely: 5, max: 9 }]);
     const p = storeWith(s);
