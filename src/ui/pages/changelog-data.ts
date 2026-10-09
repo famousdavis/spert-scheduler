@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.9",
+    date: "2026-10-09",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Deleting a project from its Dashboard tile now leaves you on the Dashboard, with the tile gone, and moves the keyboard focus to the project that takes its place — or to the one before it, or, when none is left on the Dashboard, to the New Project button. Before, the Delete button in the confirmation went on to open the deleted project, whose page said “This project is no longer available.”, and its Cancel button, or a click on its text, opened the project too.",
+          "Pressing inside a tile’s delete confirmation and moving the pointer no longer drags the tile behind it, which could change the order of your projects.",
+          "Signed in to cloud storage, the Dashboard no longer says “No projects yet.” while your projects are loading: with nothing yet to show, it says “Loading your projects from cloud storage…” until the load has finished or failed. For a moment while your sign-in is being checked (longer on a slow or offline connection), before the load begins — and, when you sign in just after being invited to someone’s project, until that project arrives — it can still say “No projects yet.”",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Nineteen new tests in three new files: a tile’s confirmation on the real Dashboard — Delete by mouse, Enter and Space, Cancel by mouse and Enter, and a click on its text (6), where the keyboard focus goes after a Delete — to the next tile, to the one before it when the last is deleted, and to New Project when none is left (3), and that the tile’s own name and the tile itself still open the project (1); that a press inside the confirmation does not reach the tile’s drag listener, while a press on the tile does (1); and, with the real sign-in, storage and cloud-sync code, Firebase and the app’s Firestore driver replaced (the sign-in’s profile writes skipped), the Dashboard in local storage, while a remembered sign-in is restored, while the cloud load runs and when it ends with projects, with none, or in failure, after signing out, on switching to local storage and back, and on signing in during the session (8). Sixteen of the nineteen fail on the previous version; the three that pass on both check what must not change — the tile’s name and the tile itself still open the project, an empty Dashboard in local storage says “No projects yet.” at once, and signing out shows no loading message.",
+          "A new committed breakage spec breaks the change, and the line a failed cloud load depends on, nine ways in all, one at a time, and each breakage fails exactly the checks it names — one to nine of them.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.76.8",
     date: "2026-10-08",
     sections: [

@@ -48,9 +48,25 @@ function getErrorTypeLabel(type: LoadError["type"]): string {
   }
 }
 
+/**
+ * After a tile's Delete, focus the tile that takes its place — the next tile in display order — else
+ * the tile before it, else the header's New Project (owner, R447). A tile takes focus on its keyboard
+ * open control, the name button, found by `data-tile-open` inside the grid once the deleted tile has
+ * gone. When the grid is gone too (no tile left on display), `grid` is null and New Project is used.
+ */
+function focusAfterTileDelete(
+  grid: HTMLElement | null,
+  neighbourId: string | undefined,
+  newProject: HTMLElement | null
+): void {
+  const opens = grid ? Array.from(grid.querySelectorAll<HTMLElement>("[data-tile-open]")) : [];
+  const neighbour = opens.find((el) => el.dataset.tileOpen === neighbourId);
+  (neighbour ?? newProject)?.focus();
+}
+
 export function ProjectsPage() {
   const { user } = useAuth();
-  const { mode } = useStorage();
+  const { mode, storageReady } = useStorage();
   // Owner uid for new and cloned projects: the current user's uid in cloud
   // mode, null in local mode. Lesson 38 — explicit at the call site so that
   // mode-switching mid-session doesn't trail stale ownership behind it.
@@ -70,6 +86,7 @@ export function ProjectsPage() {
     updateProjectField,
     getCorruptedProjectRawData,
     removeCorruptedProject,
+    cloudDataLoaded,
   } = useProjectStore(
     useShallow((s) => ({
       projects: s.projects,
@@ -86,8 +103,24 @@ export function ProjectsPage() {
       updateProjectField: s.updateProjectField,
       getCorruptedProjectRawData: s.getCorruptedProjectRawData,
       removeCorruptedProject: s.removeCorruptedProject,
+      cloudDataLoaded: s.cloudDataLoaded,
     }))
   );
+
+  // WI-109: while the user's cloud projects are still on their way, an empty list means "not here
+  // yet", not "none". Two existing signals, no new state: `storageReady` is false while a remembered
+  // cloud sign-in is being restored (StorageProvider), and `cloudDataLoaded` is false from the start
+  // of a cloud load until it ends — on success AND on failure, so a failed load ends this too
+  // (use-cloud-sync). ⚠️ It is ONE flag for every cloud load: the re-fetch after invitations are
+  // claimed sets it false again, but if the first load ends while that re-fetch is still running it
+  // reads true — and an empty Dashboard says "No projects yet." — until the re-fetch lands. Never true
+  // when LOCAL storage is the stored choice: `storageReady` is false only when cloud storage was
+  // chosen, and `mode` is "cloud" only when signed in to it. It replaces only the EMPTY list below:
+  // projects already in the store stay on screen.
+  // ⚠️ One window it cannot see: AuthProvider marks auth resolved BEFORE it publishes the user (the
+  // profile writes and the ToS check sit between), and in that window a cloud user is
+  // indistinguishable from a signed-out one. Closing it needs a new auth-level flag.
+  const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);
 
   const handleChangeTileColor = useCallback(
     (id: string, color: string | undefined) => {
@@ -197,6 +230,8 @@ export function ProjectsPage() {
 
   // Focus destination after a confirmed corrupted-project delete (see below).
   const newProjectRef = useRef<HTMLButtonElement>(null);
+  // The tile grid, where a tile's Delete looks for the neighbour that takes the focus.
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const handleExportCorrupted = useCallback(
     (projectId: string) => {
@@ -233,6 +268,24 @@ export function ProjectsPage() {
       });
     },
     [removeCorruptedProject]
+  );
+
+  // A tile's Delete removes the tile, and with it the trash button that opened the confirmation, so
+  // the dialog's own focus restore reaches a detached node and focus fell to <body> (measured in
+  // Chromium once WI-110 kept the Dashboard on screen). The destination is the neighbour in DISPLAY
+  // order, chosen before the delete changes the list (`focusAfterTileDelete`); in a microtask, for the
+  // reason the recovery card's Delete above gives. Focusing the neighbour rather than New Project also
+  // keeps a long Dashboard where it was: review 24 measured New Project scrolling it to the top.
+  const handleDeleteProject = useCallback(
+    (id: string) => {
+      const at = filteredProjects.findIndex((p) => p.id === id);
+      const neighbourId = (filteredProjects[at + 1] ?? filteredProjects[at - 1])?.id;
+      deleteProject(id);
+      queueMicrotask(() => {
+        focusAfterTileDelete(gridRef.current, neighbourId, newProjectRef.current);
+      });
+    },
+    [deleteProject, filteredProjects]
   );
 
   const handleExportAll = useCallback(() => {
@@ -403,6 +456,19 @@ export function ProjectsPage() {
       )}
 
       {(() => {
+        if (projects.length === 0 && cloudLoadPending) {
+          return (
+            <div role="status" className="flex items-center justify-center gap-3 py-12">
+              <span
+                aria-hidden="true"
+                className="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
+              />
+              <p className="text-gray-500 dark:text-gray-400 text-lg">
+                Loading your projects from cloud storage…
+              </p>
+            </div>
+          );
+        }
         if (projects.length === 0) {
           return (
             <div className="text-center py-12">
@@ -448,13 +514,13 @@ export function ProjectsPage() {
             items={filteredProjects.map((p) => p.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredProjects.map((project) => (
                 <ProjectTile
                   key={project.id}
                   project={project}
                   onNavigate={(id) => navigate(`/project/${id}`)}
-                  onDelete={deleteProject}
+                  onDelete={handleDeleteProject}
                   onClone={handleClone}
                   onArchive={archiveProject}
                   onUnarchive={unarchiveProject}
