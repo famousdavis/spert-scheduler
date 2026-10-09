@@ -34,6 +34,22 @@ function projectTileBorderClass(isDragging: boolean, archived: boolean): string 
   return "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:shadow-md";
 }
 
+/**
+ * Whether an event that reached the tile's root began inside the tile's own DOM.
+ *
+ * ⚠️ WI-110: the delete confirmation is a Radix dialog rendered in a PORTAL. It is a React child of
+ * this tile but not a DOM child, and React bubbles a portal's events up the COMPONENT tree. Without
+ * this test, a click anywhere in that window (Delete, Cancel, or the window's own text; by mouse,
+ * Enter or Space) also reached the root's click and opened a project: the one just deleted ("This
+ * project is no longer available."), or the one the user had just chosen to keep. A press in the
+ * window reached the drag listener too, so dragging there moved this tile behind the window and could
+ * reorder the Dashboard. All measured in Chromium 153 at b45f981. Testing the DOM, rather than
+ * stopping the window's events, also covers any portal this tile renders later.
+ */
+function startedInTile(e: React.SyntheticEvent<HTMLElement>): boolean {
+  return e.target instanceof Node && e.currentTarget.contains(e.target);
+}
+
 // Shared resting style for hover-revealed icon buttons.
 const ICON_BTN = "p-1 text-gray-300 dark:text-gray-600 transition-colors";
 // Reveal on tile hover or when any child has keyboard focus.
@@ -92,6 +108,14 @@ export function ProjectTile({
     onNavigate(project.id);
   };
 
+  // The root's two handlers ignore what began outside the tile's DOM — see `startedInTile`.
+  const handleTileClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (startedInTile(e)) open();
+  };
+  const handleTilePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (startedInTile(e)) listeners?.onPointerDown?.(e);
+  };
+
   const stopDown = (e: React.PointerEvent) => e.stopPropagation();
 
   const handleArchive = (e: React.MouseEvent) => {
@@ -120,7 +144,8 @@ export function ProjectTile({
       ref={setNodeRef}
       style={style}
       {...listeners}
-      onClick={open}
+      onPointerDown={handleTilePointerDown}
+      onClick={handleTileClick}
       className={`group relative bg-white dark:bg-gray-800 border rounded-lg p-4 cursor-pointer transition-all ${projectTileBorderClass(
         isDragging,
         project.archived ?? false
@@ -131,8 +156,11 @@ export function ProjectTile({
         {/* Name row — pr-9 reserves space for the top-right trash on this row only */}
         <div className="flex items-center gap-2 pr-9">
           <h2 className="min-w-0 flex-1 font-semibold text-gray-900 dark:text-gray-100">
+            {/* The tile's keyboard open control. `data-tile-open` is how the Dashboard finds it to put
+                focus here after a neighbouring tile is deleted (ProjectsPage `focusAfterTileDelete`). */}
             <button
               type="button"
+              data-tile-open={project.id}
               onClick={(e) => {
                 e.stopPropagation();
                 open();
