@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.11",
+    date: "2026-10-10",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "When Scheduler signs you out because you haven’t accepted the current Terms of Service and Privacy Policy, the projects and settings this browser keeps for use without signing in are no longer erased. That sign-out happens while a remembered sign-in is being checked — for example, on your first visit since the Terms of Service and Privacy Policy changed on October 5, 2026 — and it erased them. Now they stay on the Dashboard and your settings stay as they were, and the projects and settings this browser keeps for you while you are signed in are kept as well. The message that follows now says why: “You were signed out because you haven’t accepted the current Terms of Service and Privacy Policy. Sign in again to review and accept them — your projects are safe.” Before, it said your session had ended and that locally-cached projects were removed. If your session ends some other way while a remembered sign-in is still being checked, the projects and settings this browser keeps for use without signing in are kept too.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Eleven new tests in one new file, with the real sign-in, storage and cloud-sync code (Firebase and the app’s Firestore driver replaced, the terms acceptance on record set by each test, and a sign-out heard by the app only when it changes the user, as with Firebase): the sign-out for out-of-date terms keeps this browser’s signed-out projects and settings — in storage, in memory and on screen — and the user’s own, says why, and keeps both with Local Storage chosen (4); a session that ends while a sign-in is still being checked keeps both and says the session ended (1); a second account signed out that way while another is shown clears only the account on show (1); and when the terms are found out of date only after the session has ended, a later session’s end still says the session ended (1). Four fail on the previous version. The seven that pass on both check what must not change — the user’s own copy is kept, the account on show is still cleared, a later session’s end keeps its words, an acceptance at the current version clears nothing, an ordinary sign-out (in cloud storage, where the test now checks memory too, and with Local Storage chosen) still clears the signed-in user’s own data and keeps this browser’s signed-out projects, and a session ended from outside the app still says what it said before. An existing sign-in test’s note about this path now points to the new file.",
+          "A new committed breakage spec breaks the change eleven ways, one at a time, and each breakage fails exactly the checks it names — one to four of them — including the tempting wrong designs: skipping the cleanup in that sign-out, switching to the user’s storage around the cleanup, fixing only the words, and clearing the user’s own copy whenever cloud is the stored choice. One more breakage, run once by hand, fails nothing: it removes a reset that another line also makes.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.76.10",
     date: "2026-10-09",
     sections: [

@@ -53,6 +53,11 @@ import { toast } from "@ui/hooks/use-notification-store";
 // notification. The v0.42.6 (M4) hardening wipes the active UID localStorage
 // namespace on every sign-out path; until v0.47.2 this was completely silent.
 // We now toast the user when the wipe was unanticipated.
+// WI-118: only a UID namespace is wiped. Until the app has followed a signed-in
+// user to their storage, the active namespace is this browser's signed-out one
+// ("local"), which is never wiped — so a sign-out before any user is shown (the
+// app's own, from inside a sign-in, or a session that ends during one) wipes
+// nothing (owner ruling, 2026-10-10).
 //
 // expectedSignOut: set to `true` when the app itself initiates sign-out
 //   because the user clicked Sign Out (StorageLoginModal → SignOutConfirmModal
@@ -70,6 +75,23 @@ import { toast } from "@ui/hooks/use-notification-store";
 // inconsistent state during dev; production boots fresh.
 let expectedSignOut = false;
 let wasSignedIn = false;
+// WI-118: set when the app signs the user out because the terms acceptance on record is out of date (Path 2), so
+// the null callback says so instead of the session-ended message. Cleared again when a session opens: if the session
+// had already ended when the terms were found out of date, that sign-out changes no user, Firebase reports no null,
+// and the flag would otherwise reach a later session's end.
+let termsSignOut = false;
+
+/** The message for a session that ended without the user signing out here (Path 3). */
+const SESSION_ENDED_MESSAGE =
+  "Your session ended on this device, and locally-cached projects were removed. Your projects are safe in cloud storage — sign in again to restore them.";
+
+/**
+ * WI-118: the message for Path 2. The sign-out happens before the app has shown the user's projects, and it clears
+ * neither those nor this browser's signed-out projects. Signing in again asks for the acceptance (owner ruling,
+ * 2026-10-10).
+ */
+const TERMS_SIGN_OUT_MESSAGE =
+  "You were signed out because you haven’t accepted the current Terms of Service and Privacy Policy. Sign in again to review and accept them — your projects are safe.";
 
 /** Reset the module-level sign-out classification flags between tests. Never
  *  call from production code. Mirrors the test-only reset pattern of
@@ -80,6 +102,7 @@ let wasSignedIn = false;
 export function _resetSignOutFlagsForTests(): void {
   expectedSignOut = false;
   wasSignedIn = false;
+  termsSignOut = false;
 }
 
 export interface AuthUser {
@@ -305,31 +328,33 @@ function claimPendingInvitationsAndNotify(firebaseUser: FirebaseUser): void {
  *     revocation). The user did not anticipate this. Persistent info toast:
  *     duration: 0 means no auto-dismiss (the default 3 s is too short for a 150+
  *     char message explaining a wiped cache). The user dismisses explicitly.
+ *     WI-118: Path 2 has a message of its own — the terms acceptance on record
+ *     is out of date — rather than one about a wiped cache.
  *   - wasSignedIn === false → Path 4: initial page load with no auth session;
  *     nothing was cached and nothing to explain. No toast, and (v0.47.3) no
  *     cleanup — see guard below.
  */
 async function handleNullAuthState(): Promise<void> {
   if (wasSignedIn && !expectedSignOut) {
-    toast.info(
-      "Your session ended on this device, and locally-cached projects were removed. Your projects are safe in cloud storage — sign in again to restore them.",
-      0,
-    );
+    toast.info(termsSignOut ? TERMS_SIGN_OUT_MESSAGE : SESSION_ENDED_MESSAGE, 0);
   }
   const hadSession = wasSignedIn; // capture before reset — gates cleanup below
   expectedSignOut = false;
   wasSignedIn = false;
+  termsSignOut = false;
   // Path 3 cleanup. Path 1 calls runSignOutCleanup() before firebaseSignOut
   // (one callback — idempotent here). Path 2 calls runSignOutCleanup() before
   // firebaseSignOut in the if-branch, then firebaseSignOut triggers this second
-  // callback (also idempotent — UID-namespaced keys already cleared). The
-  // registry handles its own errors and never re-throws.
+  // callback (also idempotent — the active namespace has not changed, so
+  // nothing more is cleared). The registry handles its own errors and never
+  // re-throws.
   //
   // Guard (v0.47.3): skip when no signed-in session was seen this page load
   // (Path 4: wasSignedIn === false at callback time). activeNamespace is still
   // "local" here — StorageProvider's namespace useEffect guards on authLoading
-  // and has not yet fired — so an unguarded cleanup wipes every
-  // spert:project:local:* key and all user preferences loaded moments earlier.
+  // and has not yet fired — so an unguarded cleanup wiped every
+  // spert:project:local:* key and all user preferences loaded moments earlier
+  // (since WI-118 the cleanup itself never wipes "local"; the guard stays).
   // The else-branch cleanup was added in v0.47.0 (audit finding E1-3) for
   // externally-revoked sessions but was never gated for the initial-load null,
   // making this the root cause of local-mode data loss in v0.47.0–v0.47.2.
@@ -369,6 +394,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // transition (toast eligible) from an initial-page-load-with-no-user
         // (no toast — nothing was cached, nothing to explain).
         wasSignedIn = true;
+        // WI-118: a session opens without the terms flag (see its declaration).
+        termsSignOut = false;
         // Profile dual-write BEFORE the ToS check so the user is discoverable
         // by the bulk-invitation system even if they decline ToS this session
         // (orphan profile is the suite-wide accepted trade-off — see PR body).
@@ -391,11 +418,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!proceed) {
             // Version mismatch — sign out; next onAuthStateChanged(null)
             // will handle setUser(null). Route through the same cleanup
-            // registry as user-initiated sign-out so in-memory state and
-            // per-user localStorage are cleared before Firebase credentials
-            // are revoked.
+            // registry as user-initiated sign-out, before Firebase credentials
+            // are revoked. WI-118: it clears a signed-in user's data only while
+            // that data is on show — this user's is not yet — and never this
+            // browser's signed-out storage (owner ruling, 2026-10-10).
             localStorage.removeItem(LS_TOS_ACCEPTED_VERSION);
             localStorage.removeItem(LS_TOS_WRITE_PENDING);
+            termsSignOut = true;
             await runSignOutCleanup();
             await firebaseSignOut(auth!);
             return;
