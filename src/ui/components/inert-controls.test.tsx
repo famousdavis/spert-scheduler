@@ -201,8 +201,8 @@ describe("Distribution shows in grey text where the estimate carries no uncertai
   });
 
   it("draws no hover sparkline on a greyed cell", () => {
-    // The sparkline draws a curve even for a point estimate, beside a title saying there is
-    // no uncertainty.
+    // A point estimate has no spread, so there is no curve to draw and the card is not rendered
+    // at all (WI-77) — where a curve beside the greyed title would contradict it.
     renderGrid([row(1, 1, 1, "triangular"), row(3, 5, 10, "triangular")]);
     const [point, control] = distribution();
     expect(point!.parentElement!.querySelector("svg")).toBeNull();

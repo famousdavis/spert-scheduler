@@ -676,27 +676,14 @@ export function UnifiedActivityRow({
             tabIndex={-1}
           />
         )}
-        {/* Sparkline tooltip on hover — not on a greyed cell, where it would draw a curve
-            beside a title saying the activity has no uncertainty. */}
-        {!distributionInert && (
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-20 pointer-events-none">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded shadow-lg p-1">
-              <DistributionSparkline
-                min={activity.min}
-                mostLikely={activity.mostLikely}
-                max={activity.max}
-                distributionType={activity.distributionType}
-                confidenceLevel={activity.confidenceLevel}
-                width={80}
-                height={30}
-              />
-            </div>
-          </div>
-        )}
+        {/* The sparkline on hover (WI-77): the distribution the simulation samples from this row's estimate.
+            The card shows nothing where there is nothing to draw — a greyed cell's point estimate,
+            a flagged row — so it needs no guard here. */}
+        <DistributionSparkline activity={activity} scheduledActivity={scheduledActivity} />
       </div>
 
-      {/* Confidence */}
-      <div>
+      {/* Confidence — the same card on hover, where the level reshapes the curve (WI-77) */}
+      <div className="group relative">
         <ConfidenceLevelSelect
           value={activity.confidenceLevel}
           onChange={(level) =>
@@ -709,6 +696,9 @@ export function UnifiedActivityRow({
           tabIndex={heuristicEnabled ? 0 : -1}
           inertReason={confidenceInert}
         />
+        {/* Not where the level cannot change the curve: the dash's title says why. Anchored to the
+            cell's right edge, since the cell is narrower than the card. */}
+        {confidenceIsRelevant && <DistributionSparkline activity={activity} scheduledActivity={scheduledActivity} anchor="right" />}
       </div>
 
       {/* Status */}
