@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.10",
+    date: "2026-10-09",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Signed in to cloud storage, New Project, Load Sample, a project tile’s Clone button and Settings’ Import Activities are now greyed out from the moment your sign-in has been checked, or you switch to cloud storage, until your projects and settings have finished loading from cloud storage — or the loading has failed — with a note saying why. Before, a project created during that time was never saved to cloud storage, and it disappeared — as soon as your projects arrived (after New Project or Load Sample, the page you were on said “This project is no longer available.”), or otherwise at your next visit. A New Project window opened just before the loading began now says so too and keeps the name you typed: press Create again when the loading has ended. If the sample becomes ready while that loading is still under way, it is not added, and a message says so: press Load Sample again when the loading has ended. While New Project is greyed out, a Delete that leaves no project on the Dashboard, or the Delete of a project that could not be loaded, moves the keyboard focus to the note, which says why — and, if it is still there when the loading ends, on to New Project. Import Projects already waited for that loading; when you sign in just after being invited to someone’s project, its Confirm Import is now refused until that loading has ended, with “Cloud data is still loading. Please wait and try again.”; choose the file again after that. For a moment while your sign-in is being checked (longer on a slow or offline connection), before the loading begins, the buttons are not greyed out yet — even while the Dashboard says it is loading your projects — and a project created then is saved only in this browser: if you already have projects in cloud storage, it disappears when they arrive (its page says “This project is no longer available.”), and you see it again only after you sign out and open the Dashboard again.",
+          "The Connect AI panel now has a close button (×) in its title row, as the Share window has, and its Disconnect asks before it ends the AI session. The question says the AI will no longer be able to change the project and the Recent AI activity list will be cleared; Cancel or Esc keeps the session as it was. Closing the panel — with ×, Esc or a click outside it — leaves the AI session running.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Twenty-seven new tests in two new files: with the real sign-in, storage and cloud-sync code (Firebase and the app’s Firestore driver replaced), the controls greyed out while the first cloud load runs and back when it ends — with nothing on screen, with projects on screen before the settings arrive, when an invitation’s re-fetch ends first with projects and with none, when the load fails, and on switching to local storage and back (6); a New Project window and Load Sample already under way when the load begins, and an Import Projects file confirmed after an invitation’s re-fetch but before the load ends (3); Load Sample pressed before a remembered sign-in is recognised, with the Dashboard left before the load begins or during it (2); where the keyboard focus goes, while the controls are greyed out, after a Delete that leaves no project on the Dashboard and after deleting a project that could not be loaded, and where it goes when the loading then ends (2); signing out while a sign-in’s settings are still loading and signing in again, with those settings arriving during the new load, or failing to load then — either way the controls, the loading message and Import’s Choose File stay as they were until the new load ends (2); Settings’ Import Activities into a new project and into an existing one (2); and that nothing is greyed out in local storage, or before a remembered sign-in is recognised (2). On the Connect AI panel, rendered on its own: its close button, Esc and a click outside it (3), the session code it shows (1), and Disconnect’s question with its Cancel, Esc and Disconnect (4). Twenty-two of the twenty-seven fail on the previous version; the five that pass on both check what must not change — local storage, the moment before a remembered sign-in is recognised, closing the panel with Esc or a click outside it, and the session code. The sign-out case needed one guard in the cloud sync: a cloud load abandoned while its settings load can no longer mark the next one as finished.",
+          "A new committed breakage spec breaks the change thirty-four ways, one at a time, and each breakage fails exactly the checks it names — one to fifteen of them. Three more breakages, run once by hand, fail nothing: each removes a check that no click can reach, or one that another line backs up. An existing Dashboard test — that the notice after Load Sample stays up for 8 seconds — now has more time than its 15-second wait for the sample, so when no sample arrives it fails at its own check, instead of timing out and leaving its wait running into the tests after it.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.76.9",
     date: "2026-10-09",
     sections: [

@@ -12,6 +12,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import { describedByWhile, CLOUD_IMPORT_WAIT_NOTE } from "@ui/helpers/cloud-create-gate";
 import { toast } from "@ui/hooks/use-notification-store";
 import {
   readCsvRows,
@@ -89,6 +90,13 @@ interface ActivityImportSectionProps {
   projects: Project[];
   importProjects: (params: ImportApplyParams) => ImportOutcome;
   importScenarioToProject: (projectId: string, scenario: Scenario) => void;
+  /**
+   * WI-112: true while the first cloud load runs, when the cloud sync sends nothing: a new project made
+   * then vanished, and an import into one already on the list could be undone when the load landed
+   * (found in review). Import Activities is then greyed out for every target (owner ruling, 2026-10-09),
+   * with a line saying why, and refused at commit (Ctrl/⌘+Enter included).
+   */
+  importBlocked?: boolean;
 }
 
 function importSuccessMessage(count: number): string {
@@ -102,6 +110,7 @@ export function ActivityImportSection({
   projects,
   importProjects,
   importScenarioToProject,
+  importBlocked = false,
 }: ActivityImportSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importState, setImportState] = useState<ActivityImportState>({
@@ -117,6 +126,7 @@ export function ActivityImportSection({
   const pasteId = `${baseId}-paste`;
   const scenarioId = `${baseId}-scenario`;
   const projectId = `${baseId}-project`;
+  const blockedId = `${baseId}-blocked`;
 
   const preferences = usePreferencesStore((s) => s.preferences);
 
@@ -225,6 +235,8 @@ export function ActivityImportSection({
     const { result } = importState;
     // The Import button's own rule (it shows only then), so ⌘↵ / Ctrl↵ cannot commit an empty import.
     if (result.errors.length > 0 || result.activities.length === 0) return;
+    // WI-112: likewise the greyed-out button's — ⌘↵ / Ctrl↵ reaches here while it is greyed.
+    if (importBlocked) return;
 
     const finalName = scenarioName.trim() || importState.defaultName;
 
@@ -323,6 +335,7 @@ export function ActivityImportSection({
     preferences,
     importProjects,
     importScenarioToProject,
+    importBlocked,
   ]);
 
   // -- Keyboard shortcut: ⌘↵ / Ctrl↵ to commit --------------------------------
@@ -593,7 +606,9 @@ export function ActivityImportSection({
                   <div className="flex items-center gap-2 pt-1">
                     <button
                       onClick={handleCommit}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                      disabled={importBlocked}
+                      {...describedByWhile(importBlocked, blockedId)}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Import Activities
                     </button>
@@ -608,6 +623,11 @@ export function ActivityImportSection({
                       to import
                     </span>
                   </div>
+                  {importBlocked && (
+                    <p id={blockedId} role="note" className="text-xs text-amber-700 dark:text-amber-300">
+                      {CLOUD_IMPORT_WAIT_NOTE}
+                    </p>
+                  )}
                 </div>
               )}
           </div>

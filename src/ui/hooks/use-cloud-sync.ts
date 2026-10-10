@@ -14,7 +14,7 @@
  * When local-only mode is active, this hook is a no-op.
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
 import { useProjectStore } from "@ui/hooks/use-project-store";
@@ -61,6 +61,16 @@ export function useCloudSync(): void {
   const notifiedFutureVersionIdsRef = useRef<Set<string>>(new Set());
 
   const isCloudActive = mode === "cloud" && user !== null;
+
+  // WI-112: the store's copy of isCloudActive — half of the one create gate (`isCloudCreateBlocked`),
+  // which code outside React reads too: the sample's build asks it when it lands, on whatever page the
+  // user is on by then. A LAYOUT effect, so the store changes in the same commit as the storage mode:
+  // no other task — a build landing included — can run in between, and the re-render that greys the
+  // controls comes before the screen is painted. (A passive effect would leave a moment between the
+  // commit and its effects; no test can see that moment, since act() flushes both kinds.)
+  useLayoutEffect(() => {
+    useProjectStore.getState().setCloudSyncActive(isCloudActive);
+  }, [isCloudActive]);
 
   // Get store actions
   const mergeProject = useProjectStore((s) => s.mergeProject);
@@ -194,6 +204,10 @@ export function useCloudSync(): void {
       driverRef.current = driver;
       currentDriver = driver;
       initialLoadDoneRef.current = false;
+      // WI-112: the store's mirror of the ref above, which the UI CAN see — false and true at
+      // exactly the ref's four sites, so the greyed-out create controls track this hook's own
+      // gate (handleSyncEvent drops every change while the ref is false).
+      useProjectStore.getState().setCloudSyncReady(false);
       // Reset the startup grace gate for every (re)initialization of the
       // driver — covers refresh, sign-out/sign-in, and local↔cloud switches.
       errorToastsReadyRef.current = false;
@@ -272,7 +286,13 @@ export function useCloudSync(): void {
             console.error("Failed to load cloud preferences:", e);
           }
 
+          // WI-112: a run cleaned up while its preferences were loading — a sign-out, a switch to local
+          // storage, a new sign-in — must not mark the load done. By now the ref and both flags below
+          // belong to whatever replaced it: flipping them would end a NEW sign-in's first load early.
+          if (cancelled) return;
+
           initialLoadDoneRef.current = true;
+          useProjectStore.getState().setCloudSyncReady(true);
           useProjectStore.getState().setCloudDataLoaded(true);
 
           // Set up real-time listeners for all loaded projects
@@ -287,6 +307,7 @@ export function useCloudSync(): void {
           if (cancelled) return;
           console.error("Failed to load projects from Firestore:", e);
           initialLoadDoneRef.current = true;
+          useProjectStore.getState().setCloudSyncReady(true);
           // Defensive flip-to-true so the UI doesn't wedge on the disabled
           // state after a transient load failure (pitfall #88).
           useProjectStore.getState().setCloudDataLoaded(true);
@@ -333,6 +354,7 @@ export function useCloudSync(): void {
         currentDriver = null;
       }
       initialLoadDoneRef.current = false;
+      useProjectStore.getState().setCloudSyncReady(false);
       useProjectStore.getState().setCloudDataLoaded(false);
       cleanupListeners();
       // v0.50.1: idempotent with the cleanup-function clear above; covers the

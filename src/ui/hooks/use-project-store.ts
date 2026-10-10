@@ -347,8 +347,16 @@ export interface ProjectStore {
    *
    * Async because the ~65 KB fixture is dynamically imported to keep it out of
    * the main bundle.
+   *
+   * WI-112: `isRefused` is asked once the build lands, and when it answers true
+   * nothing is added and the result is null. The build is async, so the first
+   * cloud load can begin after the press — and a project added inside that load
+   * would never reach the cloud. Pass `isCloudCreateBlocked`, which reads this
+   * store: by the time the build lands the Dashboard may have left the screen, and
+   * a copy the Dashboard kept stopped updating then (a review measured a sample
+   * added inside the load that way).
    */
-  loadSampleProject: (owner: string | null) => Promise<Project>;
+  loadSampleProject: (owner: string | null, isRefused?: () => boolean) => Promise<Project | null>;
   deleteProject: (id: string) => void;
   reorderProjects: (fromIndex: number, toIndex: number) => void;
   getProject: (id: string) => Project | undefined;
@@ -516,6 +524,33 @@ export interface ProjectStore {
   // Pitfalls #88, #89.
   cloudDataLoaded: boolean;
   setCloudDataLoaded: (loaded: boolean) => void;
+
+  /**
+   * WI-112 (v0.76.10) — true once the FIRST cloud load of a sign-in has ended, on
+   * success or failure: exactly when `useCloudSync` starts sending store changes
+   * to Firestore. It mirrors that hook's `initialLoadDoneRef` — set false where
+   * the ref is set false (a new cloud driver; local storage or signed out), true
+   * where it is set true (after the preferences load; the load's failure).
+   * While it is false and cloud sync runs (`cloudSyncActive`), a project created
+   * here would never reach the cloud, so the controls that create one are greyed
+   * out (`useCloudCreateBlocked`).
+   * ⚠️ NOT `cloudDataLoaded`: the invitation re-fetch sets that one true while
+   * the first load is still running, and a create then was still dropped.
+   * In-memory only — never persisted, never synced.
+   */
+  cloudSyncReady: boolean;
+  setCloudSyncReady: (ready: boolean) => void;
+
+  /**
+   * WI-112 (v0.76.10) — true while cloud sync runs: in cloud storage, signed in
+   * (`useCloudSync`'s `isCloudActive`). It is written in a LAYOUT effect, so it
+   * changes in the same commit as the storage mode. With `cloudSyncReady` it makes
+   * the one create gate (`use-cloud-create-blocked.ts`), which code outside React
+   * reads too: the sample's build asks it when it lands, on whatever page the user
+   * is on by then. In-memory only — never persisted, never synced.
+   */
+  cloudSyncActive: boolean;
+  setCloudSyncActive: (active: boolean) => void;
 
   // Archive
   archiveProject: (id: string) => void;
@@ -801,6 +836,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   setCloudDataLoaded: (loaded) => set({ cloudDataLoaded: loaded }),
 
+  // In-memory only, like cloudDataLoaded. Driven by use-cloud-sync.ts (WI-112).
+  cloudSyncReady: false,
+
+  setCloudSyncReady: (ready) => set({ cloudSyncReady: ready }),
+
+  // In-memory only. Written by use-cloud-sync.ts in a layout effect (WI-112).
+  cloudSyncActive: false,
+
+  setCloudSyncActive: (active) => set({ cloudSyncActive: active }),
+
   undo: () => {
     // Close any active group before popping so subsequent edits in the same
     // textarea start a fresh group via the defensive onChange wiring.
@@ -946,12 +991,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     return clone;
   },
 
-  loadSampleProject: async (owner) => {
+  loadSampleProject: async (owner, isRefused) => {
     const existingNames = get().projects.map((p) => p.name);
     const name = existingNames.includes(SAMPLE_PROJECT_NAME)
       ? nextCloneName(SAMPLE_PROJECT_NAME, existingNames)
       : SAMPLE_PROJECT_NAME;
     const project = await buildSampleProject(name);
+    // WI-112: the first cloud load may have begun while the build ran.
+    if (isRefused?.()) return null;
     project.owner = owner; // null in local mode, current uid in cloud mode (Lesson 38)
     repo.save(project);
     set((state) => ({ projects: [...state.projects, project] }));

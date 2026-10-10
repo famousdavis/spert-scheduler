@@ -100,7 +100,10 @@ describe("ProjectsPage — Load Sample toast", () => {
       vi.advanceTimersByTime(5000);
     });
     expect(toasts(), "dismissed at 8 s").toHaveLength(0);
-  });
+    // Twice settle()'s 15-s real-clock deadline. Under vitest's default 5 s, a Load Sample that never
+    // lands TIMED OUT here, and settle()'s loop ran on into the next tests, failing up to six;
+    // with room for the deadline, it fails at the toast check above and leaves nothing running.
+  }, 30_000);
 });
 
 // -- WI-6b (v0.67.9): the corrupted-project recovery card's Delete ------------

@@ -8,6 +8,45 @@ import { getGeneratePairingCode } from "@infrastructure/firebase/firebase";
 import { buildCopyPrompt } from "./copyPrompt";
 import { AiActivityFeed, type AiFeedItem } from "./AiActivityFeed";
 import type { AiSessionState } from "@ui/hooks/use-ai-connectivity";
+import { ConfirmDialog } from "../ConfirmDialog";
+
+/**
+ * WI-111: what Disconnect does, said before it does it. Every clause was checked against what the
+ * page and the AI hook were MEASURED doing (v0.76.10): this tab stops listening to the session — so
+ * nothing the AI sends is applied here any more, whatever the server does — the session's project
+ * snapshot is deleted and the server asked to end the session (a failure there is only logged), the
+ * stored session id and consent are forgotten, so the next Connect AI starts a new session, and the
+ * page clears the activity list. True with Read Mode on or off, and whether the AI has connected yet.
+ * ⚠️ It says nothing about READING: with Read Mode off the AI never could, and a snapshot whose
+ * delete fails can still be read until it expires.
+ */
+const DISCONNECT_QUESTION = "End this AI session?";
+const DISCONNECT_CONSEQUENCES =
+  "The AI will no longer be able to change this project, and the Recent AI activity list will be cleared. To use an AI again, press Connect AI to start a new session.";
+
+/**
+ * Close (X) icon — the Share window's (ShareProjectModal), copied as it is. ⚠️ That file says to
+ * extract a shared icon "if a third caller appears", and this is the third — but its two copies
+ * already DIFFER (StorageLoginModal's is 16 px with no aria-hidden), so extracting one would change
+ * another window's icon. Left for its own change.
+ */
+function CloseIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
 
 interface ConnectAiPanelProps {
   open: boolean;
@@ -32,6 +71,8 @@ export function ConnectAiPanel({
   const [copied, setCopied] = useState<"code" | "prompt" | null>(null);
   const [permError, setPermError] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  // WI-111: Disconnect asks first; the question's own Disconnect is what ends the session.
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const sessionId = sessionState.sessionId;
@@ -104,9 +145,21 @@ export function ConnectAiPanel({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
         <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md z-50">
-          <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            AI session active
-          </Dialog.Title>
+          <div className="flex items-start justify-between gap-4">
+            <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              AI session active
+            </Dialog.Title>
+            {/* WI-111: the Share window's close button. It closes the panel; the session stays. */}
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                aria-label="Close"
+                className="shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              >
+                <CloseIcon />
+              </button>
+            </Dialog.Close>
+          </div>
 
           <div className="mt-4 space-y-4 text-sm">
             <div>
@@ -178,7 +231,7 @@ export function ConnectAiPanel({
 
             <div className="pt-2">
               <button
-                onClick={handleDisconnect}
+                onClick={() => setConfirmingDisconnect(true)}
                 disabled={disconnecting}
                 className="w-full px-3 py-2 text-sm font-medium rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
               >
@@ -186,6 +239,17 @@ export function ConnectAiPanel({
               </button>
             </div>
           </div>
+          <ConfirmDialog
+            open={confirmingDisconnect}
+            onOpenChange={setConfirmingDisconnect}
+            title={DISCONNECT_QUESTION}
+            description={DISCONNECT_CONSEQUENCES}
+            confirmLabel="Disconnect"
+            destructive
+            onConfirm={() => {
+              void handleDisconnect();
+            }}
+          />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

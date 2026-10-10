@@ -21,6 +21,11 @@ interface ProjectTileProps {
   onNavigate: (id: string) => void;
   onDelete: (id: string) => void;
   onClone?: (id: string) => void;
+  /**
+   * WI-112: while set, Clone is greyed out and described by the element with this id — the
+   * Dashboard's note saying projects cannot be created until the first cloud load ends.
+   */
+  cloneUnavailableNoteId?: string;
   onArchive?: (id: string) => void;
   onUnarchive?: (id: string) => void;
   onChangeTileColor?: (id: string, color: string | undefined) => void;
@@ -61,6 +66,7 @@ export function ProjectTile({
   onNavigate,
   onDelete,
   onClone,
+  cloneUnavailableNoteId,
   onArchive,
   onUnarchive,
   onChangeTileColor,
@@ -308,7 +314,9 @@ export function ProjectTile({
             type="button"
             onClick={handleClone}
             onPointerDown={stopDown}
-            className={`${ICON_BTN} hover:text-blue-500 dark:hover:text-blue-400`}
+            disabled={cloneUnavailableNoteId !== undefined}
+            aria-describedby={cloneUnavailableNoteId}
+            className={`${ICON_BTN} hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600`}
             title="Clone project"
             aria-label="Clone project"
           >
