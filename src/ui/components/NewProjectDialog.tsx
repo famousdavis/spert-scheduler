@@ -5,24 +5,33 @@
 import { useId, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { NAME_MAX_LENGTH } from "@domain/models/types";
+import { describedByWhile, CLOUD_CREATE_WAIT_NOTE } from "@ui/helpers/cloud-create-gate";
 
 interface NewProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreate: (name: string) => void;
+  /**
+   * WI-112: true while the first cloud load runs. The Dashboard greys out its New Project then, but
+   * a window opened before the load began is still open: its Create creates nothing, the window
+   * stays open with the name, and a line in it says why.
+   */
+  blocked?: boolean;
 }
 
 export function NewProjectDialog({
   open,
   onOpenChange,
   onCreate,
+  blocked = false,
 }: NewProjectDialogProps) {
   const [name, setName] = useState("");
   const nameId = useId();
+  const blockedId = useId();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
+    if (name.trim() && !blocked) {
       onCreate(name.trim());
       setName("");
       onOpenChange(false);
@@ -54,6 +63,11 @@ export function NewProjectDialog({
                 autoFocus
               />
             </div>
+            {blocked && (
+              <p id={blockedId} role="note" className="text-sm text-amber-700 dark:text-amber-300">
+                {CLOUD_CREATE_WAIT_NOTE}
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <Dialog.Close asChild>
                 <button
@@ -66,6 +80,7 @@ export function NewProjectDialog({
               <button
                 type="submit"
                 disabled={!name.trim()}
+                {...describedByWhile(blocked, blockedId)}
                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
                 Create

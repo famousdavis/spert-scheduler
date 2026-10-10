@@ -160,6 +160,8 @@ export function useImportState({
   const owner = mode === "cloud" && user ? user.uid : null;
 
   const cloudDataLoaded = useProjectStore((s) => s.cloudDataLoaded);
+  // WI-112: the cloud sync's own gate, read at confirm. See handleConfirmImport.
+  const cloudSyncReady = useProjectStore((s) => s.cloudSyncReady);
 
   const [importState, setImportState] = useState<ImportState>({ step: "idle" });
   // Default false: applying preferences is destructive (pitfall #90).
@@ -439,7 +441,10 @@ export function useImportState({
     // Ref guard (v7 C-2): closure-stale state guard alone is insufficient
     // because a rapid second click reads the previous render's importState.
     if (inFlightRef.current) return;
-    if (mode === "cloud" && !cloudDataLoaded) {
+    // ⚠️ cloudDataLoaded alone is not enough (WI-112): the invitation re-fetch sets it true while the
+    // first cloud load still runs, and a project imported then never reached the cloud — measured.
+    // cloudSyncReady is the cloud sync's own gate.
+    if (mode === "cloud" && (!cloudDataLoaded || !cloudSyncReady)) {
       setImportState(
         showError("Cloud data is still loading. Please wait and try again.")
       );
@@ -501,7 +506,7 @@ export function useImportState({
     } finally {
       inFlightRef.current = false;
     }
-  }, [importState, owner, mode, cloudDataLoaded, applyPreferences]);
+  }, [importState, owner, mode, cloudDataLoaded, cloudSyncReady, applyPreferences]);
 
   return {
     importState,

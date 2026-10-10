@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, useId } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DndContext,
@@ -32,6 +32,12 @@ import { canShareProject } from "@ui/helpers/canShareProject";
 import { formatExportTimestamp } from "@core/calendar/calendar";
 import { serializeExport, serializeRecoveryExport } from "@app/api/export-import-service";
 import { toast } from "@ui/hooks/use-notification-store";
+import { useCloudCreateBlocked, isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
+import {
+  describedByWhile,
+  CLOUD_CREATE_CONTROLS_NOTE,
+  SAMPLE_NOT_ADDED_MESSAGE,
+} from "@ui/helpers/cloud-create-gate";
 
 function getErrorTypeLabel(type: LoadError["type"]): string {
   switch (type) {
@@ -50,18 +56,32 @@ function getErrorTypeLabel(type: LoadError["type"]): string {
 
 /**
  * After a tile's Delete, focus the tile that takes its place — the next tile in display order — else
- * the tile before it, else the header's New Project (owner, R447). A tile takes focus on its keyboard
- * open control, the name button, found by `data-tile-open` inside the grid once the deleted tile has
- * gone. When the grid is gone too (no tile left on display), `grid` is null and New Project is used.
+ * the tile before it, else `lastResort` (owner, R447; see `lastResortFocus`). A tile takes focus on its
+ * keyboard open control, the name button, found by `data-tile-open` inside the grid once the deleted
+ * tile has gone. When the grid is gone too (no tile left on display), `grid` is null and `lastResort`
+ * is used.
  */
 function focusAfterTileDelete(
   grid: HTMLElement | null,
   neighbourId: string | undefined,
-  newProject: HTMLElement | null
+  lastResort: HTMLElement | null
 ): void {
   const opens = grid ? Array.from(grid.querySelectorAll<HTMLElement>("[data-tile-open]")) : [];
   const neighbour = opens.find((el) => el.dataset.tileOpen === neighbourId);
-  (neighbour ?? newProject)?.focus();
+  (neighbour ?? lastResort)?.focus();
+}
+
+/**
+ * Where focus goes when no tile can take it: the header's New Project (owner, R447) — or, while New
+ * Project is greyed out during the first cloud load (WI-112), the note under the header, which says why
+ * (owner, R467). `focus()` on a disabled button does nothing, and focus fell to <body> (measured by
+ * review 25). Asked inside the focus move's microtask, of the button as it is then.
+ */
+function lastResortFocus(
+  newProject: HTMLButtonElement | null,
+  note: HTMLElement | null
+): HTMLElement | null {
+  return newProject?.disabled && note ? note : newProject;
 }
 
 export function ProjectsPage() {
@@ -122,6 +142,13 @@ export function ProjectsPage() {
   // indistinguishable from a signed-out one. Closing it needs a new auth-level flag.
   const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);
 
+  // WI-112: while the first cloud load runs, a project created here would never reach the cloud, so
+  // every control that creates one is greyed out and described by one note under the header.
+  const createBlocked = useCloudCreateBlocked();
+  const createNoteId = useId();
+  // The note itself, where focus goes after a Delete while New Project is greyed out (owner, R467).
+  const createNoteRef = useRef<HTMLParagraphElement>(null);
+
   const handleChangeTileColor = useCallback(
     (id: string, color: string | undefined) => {
       updateProjectField(id, { tileColor: color });
@@ -131,12 +158,14 @@ export function ProjectsPage() {
 
   const handleClone = useCallback(
     (id: string) => {
+      // WI-112: the commit's own check — the tile's Clone is greyed out while this is true.
+      if (createBlocked) return;
       const clone = cloneProject(id, newProjectOwner);
       if (clone) {
         toast.success(`Cloned to "${clone.name}"`);
       }
     },
-    [cloneProject, newProjectOwner]
+    [cloneProject, newProjectOwner, createBlocked]
   );
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -176,7 +205,14 @@ export function ProjectsPage() {
 
   const handleLoadSample = async () => {
     try {
-      const project = await loadSampleProject(newProjectOwner);
+      // WI-112: a press before the first cloud load began can land inside it — on this page, or by then
+      // on another. The build asks the gate when it lands, from the store, and adds nothing then; the
+      // toast says why on whatever page the user is on (the note is on the Dashboard only).
+      const project = await loadSampleProject(newProjectOwner, isCloudCreateBlocked);
+      if (!project) {
+        toast.error(SAMPLE_NOT_ADDED_MESSAGE);
+        return;
+      }
       // 8 s, not the 3 s default: this one is read by a room from a projector, and it
       // carries an instruction (audit L3). Every other toast keeps the default.
       toast.success(`Loaded "${project.name}" — run the simulation to see the buffer`, 8000);
@@ -232,6 +268,20 @@ export function ProjectsPage() {
   const newProjectRef = useRef<HTMLButtonElement>(null);
   // The tile grid, where a tile's Delete looks for the neighbour that takes the focus.
   const gridRef = useRef<HTMLDivElement>(null);
+  // The note's ref. The note leaves when the gate opens, and if a Delete had sent the focus to it, the
+  // focus left with it, to <body> (measured by review 25, pass 2): New Project takes it instead. React
+  // runs this cleanup before it removes the note, so the note can still be asked whether it has the
+  // focus; the move waits for a microtask because the same commit enables New Project only after it.
+  // Focus anywhere else stays where it is.
+  const attachCreateNote = useCallback((note: HTMLParagraphElement) => {
+    createNoteRef.current = note;
+    return () => {
+      createNoteRef.current = null;
+      if (document.activeElement === note) {
+        queueMicrotask(() => newProjectRef.current?.focus());
+      }
+    };
+  }, []);
 
   const handleExportCorrupted = useCallback(
     (projectId: string) => {
@@ -261,10 +311,11 @@ export function ProjectsPage() {
       // detached node. "New Project" is the destination because it is the one control on this
       // page that is rendered unconditionally — the second "New Project" further down sits
       // inside the `projects.length === 0` empty state. A ref, not a text lookup: the two
-      // buttons share an accessible name. `queueMicrotask` for the reason recorded in
+      // buttons share an accessible name. While it is greyed out (WI-112), the note under the
+      // header instead (`lastResortFocus`). `queueMicrotask` for the reason recorded in
       // `UnifiedActivityGrid.handleDeleteActivity`.
       queueMicrotask(() => {
-        newProjectRef.current?.focus();
+        lastResortFocus(newProjectRef.current, createNoteRef.current)?.focus();
       });
     },
     [removeCorruptedProject]
@@ -282,7 +333,11 @@ export function ProjectsPage() {
       const neighbourId = (filteredProjects[at + 1] ?? filteredProjects[at - 1])?.id;
       deleteProject(id);
       queueMicrotask(() => {
-        focusAfterTileDelete(gridRef.current, neighbourId, newProjectRef.current);
+        focusAfterTileDelete(
+          gridRef.current,
+          neighbourId,
+          lastResortFocus(newProjectRef.current, createNoteRef.current)
+        );
       });
     },
     [deleteProject, filteredProjects]
@@ -332,19 +387,37 @@ export function ProjectsPage() {
           </button>
           <button
             onClick={handleLoadSample}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+            disabled={createBlocked}
+            {...describedByWhile(createBlocked, createNoteId)}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Load Sample
           </button>
           <button
             ref={newProjectRef}
             onClick={() => setDialogOpen(true)}
-            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            disabled={createBlocked}
+            {...describedByWhile(createBlocked, createNoteId)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             New Project
           </button>
         </div>
       </div>
+
+      {createBlocked && (
+        // tabIndex -1: not a Tab stop, but focus can be sent here — after a Delete leaves New Project
+        // as the destination while it is greyed out — and a screen reader then reads why (R467).
+        <p
+          ref={attachCreateNote}
+          id={createNoteId}
+          role="note"
+          tabIndex={-1}
+          className="text-sm text-right text-amber-700 dark:text-amber-300"
+        >
+          {CLOUD_CREATE_CONTROLS_NOTE}
+        </p>
+      )}
 
       {showImport && (
         <ImportSection projects={projects} />
@@ -480,13 +553,17 @@ export function ProjectsPage() {
               <div className="mt-6 flex items-center justify-center gap-3">
                 <button
                   onClick={() => setDialogOpen(true)}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  disabled={createBlocked}
+                  {...describedByWhile(createBlocked, createNoteId)}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   New Project
                 </button>
                 <button
                   onClick={handleLoadSample}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                  disabled={createBlocked}
+                  {...describedByWhile(createBlocked, createNoteId)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Load Sample Project
                 </button>
@@ -522,6 +599,7 @@ export function ProjectsPage() {
                   onNavigate={(id) => navigate(`/project/${id}`)}
                   onDelete={handleDeleteProject}
                   onClone={handleClone}
+                  cloneUnavailableNoteId={createBlocked ? createNoteId : undefined}
                   onArchive={archiveProject}
                   onUnarchive={unarchiveProject}
                   onChangeTileColor={handleChangeTileColor}
@@ -543,6 +621,7 @@ export function ProjectsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onCreate={handleCreate}
+        blocked={createBlocked}
       />
 
       <ShareProjectModal

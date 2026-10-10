@@ -14,6 +14,7 @@ import { LocalStorageSection } from "@ui/components/LocalStorageSection";
 import { StorageModeSection } from "@ui/components/StorageModeSection";
 import { ScheduleExportSection } from "@ui/components/ScheduleExportSection";
 import { NotificationsSection } from "@ui/components/NotificationsSection";
+import { useCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
 
 export function SettingsPage() {
   const { projects, loadProjects, importProjects, importScenarioToProject } = useProjectStore(
@@ -25,6 +26,8 @@ export function SettingsPage() {
     }))
   );
   const loadPrefs = usePreferencesStore((s) => s.loadPreferences);
+  // WI-112: passed down, not read inside the section, so the section's own tests decide it.
+  const createBlocked = useCloudCreateBlocked();
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -47,6 +50,7 @@ export function SettingsPage() {
         projects={projects}
         importProjects={importProjects}
         importScenarioToProject={importScenarioToProject}
+        importBlocked={createBlocked}
       />
     </div>
   );
