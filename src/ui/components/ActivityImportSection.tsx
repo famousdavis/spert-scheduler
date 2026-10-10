@@ -93,8 +93,8 @@ interface ActivityImportSectionProps {
   /**
    * WI-112: true while the first cloud load runs, when the cloud sync sends nothing: a new project made
    * then vanished, and an import into one already on the list could be undone when the load landed
-   * (review 25). Import Activities is then greyed out — for every target (owner, R467) — with a line
-   * saying why, and refused at commit (Ctrl/⌘+Enter included).
+   * (found in review). Import Activities is then greyed out for every target (owner ruling, 2026-10-09),
+   * with a line saying why, and refused at commit (Ctrl/⌘+Enter included).
    */
   importBlocked?: boolean;
 }

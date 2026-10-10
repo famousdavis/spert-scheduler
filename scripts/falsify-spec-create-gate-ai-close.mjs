@@ -12,9 +12,9 @@
 // mode — and S22 and S27 are the wrong designs for the panel (a close that also disconnects).
 // Each straw names EXACTLY the tests it must fail, and no others — read "K failing; named-match K",
 // not merely a non-zero exit: the runner prints ✔ when ANY named test fails. Each expected set was
-// written before the run (PREREG2; S28 and A13's place in S1–S3 and S5–S7 in PREREG3; S29 and A14's
-// place in PREREG3b; S30–S35, and A15–A19's places in the others, in PREREG4; S36, and A17's and A18's
-// place in S7, in PREREG5), never inferred from it.
+// written before the run that first included it — the later straws (S28–S36), and the places of the
+// tests added with them (A13–A19) in the earlier straws' sets, each before its own first run — and
+// never inferred from a run.
 //
 // NOT HERE, on purpose — three straws that cannot fail any test, run once by hand and measured as
 // survivors: removing Clone's own check at commit (the button is natively disabled, so no click
@@ -152,7 +152,7 @@ export const mutations = [
   {
     // The guard (WI-112): without it, a run cleaned up while its preferences loaded marks the NEXT
     // sign-in's load done when its late answer lands, whether that answer arrives or fails — exactly
-    // patch v1's code.
+    // the code before the guard.
     id: "S28 a load abandoned while its preferences load ends the next sign-in's load  [expect 2: A13, A14]",
     file: SYNC,
     find: "          if (cancelled) return;\n\n          initialLoadDoneRef.current = true;",
@@ -257,7 +257,7 @@ export const mutations = [
     expectFailing: only(A12, A19),
   },
   {
-    // Owner, R467 (2): every target. Patch v4 greyed it only for a new project — this puts that back.
+    // Every target (owner ruling, 2026-10-09). An earlier build greyed it only for a new project — this puts that back.
     id: "S34 Import Activities is greyed out only for a new project  [expect 1: A19]",
     file: SECTION,
     find: "  importBlocked = false,\n}: ActivityImportSectionProps) {",
@@ -269,9 +269,9 @@ export const mutations = [
     },
     expectFailing: only(A19),
   },
-  // -- WI-112: the sample, ready on another page (review 25, E-a) ------------------------------
+  // -- WI-112: the sample, ready on another page -----------------------------------------------
   {
-    // Patch v4's design: the landing asks a copy the Dashboard keeps current — which stops updating once
+    // An earlier design: the landing asks a copy the Dashboard keeps current — which stops updating once
     // the Dashboard is left, frozen at whatever it was then: open (A15) or shut (A16).
     id: "S30 WRONG DESIGN: the sample's landing asks a copy the Dashboard keeps  [expect 2: A15, A16]",
     file: PAGE,
@@ -291,9 +291,9 @@ export const mutations = [
     replace: "      if (!project) return;",
     expectFailing: only(A8, A15),
   },
-  // -- WI-112: focus after a Delete while New Project is greyed out (owner, R467 (1)) ------------
+  // -- WI-112: focus after a Delete while New Project is greyed out (owner ruling, 2026-10-09) ---
   {
-    // Patch v4: focus went to New Project however it was — and a greyed-out button takes no focus.
+    // An earlier build: focus went to New Project however it was — and a greyed-out button takes no focus.
     id: "S32 focus goes to New Project even while it is greyed out  [expect 2: A17, A18]",
     file: PAGE,
     find: "return newProject?.disabled && note ? note : newProject;",
@@ -308,7 +308,7 @@ export const mutations = [
     expectFailing: only(A17, A18),
   },
   {
-    // Review 25, pass 2: v5's end state — the note leaves with the gate, and the focus with it.
+    // An earlier build's end state: the note leaves with the gate, and the focus with it.
     id: "S36 when the load ends, focus on the note falls to <body>  [expect 2: A17, A18]",
     file: PAGE,
     find: "      if (document.activeElement === note) {\n        queueMicrotask(() => newProjectRef.current?.focus());\n      }\n",
@@ -316,7 +316,7 @@ export const mutations = [
     expectFailing: only(A17, A18),
   },
   {
-    // Review 25-2 W4: the window's line is a note, like the Dashboard's and Settings'.
+    // The window's line is a note, like the Dashboard's and Settings'.
     id: "S35 the New Project window's line is not a note  [expect 1: A7]",
     file: DIALOG,
     find: '<p id={blockedId} role="note" className="text-sm text-amber-700 dark:text-amber-300">',

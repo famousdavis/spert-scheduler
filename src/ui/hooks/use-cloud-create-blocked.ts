@@ -18,7 +18,7 @@ import { useProjectStore, type ProjectStore } from "@ui/hooks/use-project-store"
  * Two readers, one answer: `useCloudCreateBlocked` for a component, and `isCloudCreateBlocked` for code
  * that runs after the render it began in — the sample's build asks it when it LANDS, by which time the
  * Dashboard may have left the screen. Both read the store, so they answer the same on any page. (A copy
- * the Dashboard kept stopped updating once it was left: review 25 measured a sample, pressed before the
+ * the Dashboard kept stopped updating once it was left: a review measured a sample, pressed before the
  * sign-in was recognised, added inside the load from another page — announced, opened, never uploaded.)
  *
  * ⚠️ `cloudSyncReady` is the sync handler's own gate. NOT `cloudDataLoaded`: the invitation re-fetch sets

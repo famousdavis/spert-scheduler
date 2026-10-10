@@ -27,7 +27,7 @@ import type { ProjectRole } from "@infrastructure/firebase/firestore-driver";
  * still runs (A3, A4, A9). And NOT before the sign-in is recognised: the app is in local storage then,
  * and that moment is left as it was (A11).
  *
- * Review 25 (phases 4 and 5): the sample's check when its build lands reads the gate from the store, so
+ * Added after review: the sample's check when its build lands reads the gate from the store, so
  * it answers the same on any page — A15 leaves the Dashboard before the sign-in is recognised, A16 after
  * the gate is on — and a refusal says why in a toast (A8, A15). While New Project is greyed out, a Delete
  * that would send focus to it sends it to the note, and on to New Project when the load ends (A17, A18);
@@ -813,7 +813,7 @@ describe("WI-112: while New Project is greyed out, a Delete that would send focu
     expect(document.activeElement).toBe(note);
 
     // The settings arrive: the load ends and the note goes with the gate. The focus goes on to New
-    // Project, not to <body> with the note (review 25, pass 2).
+    // Project, not to <body> with the note (found in review).
     await preferencesEnd();
     await settleFocus();
     expect(screen.queryByRole("note")).toBeNull();

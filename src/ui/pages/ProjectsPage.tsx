@@ -56,7 +56,7 @@ function getErrorTypeLabel(type: LoadError["type"]): string {
 
 /**
  * After a tile's Delete, focus the tile that takes its place — the next tile in display order — else
- * the tile before it, else `lastResort` (owner, R447; see `lastResortFocus`). A tile takes focus on its
+ * the tile before it, else `lastResort` (owner ruling, 2026-10-09; see `lastResortFocus`). A tile takes focus on its
  * keyboard open control, the name button, found by `data-tile-open` inside the grid once the deleted
  * tile has gone. When the grid is gone too (no tile left on display), `grid` is null and `lastResort`
  * is used.
@@ -72,10 +72,10 @@ function focusAfterTileDelete(
 }
 
 /**
- * Where focus goes when no tile can take it: the header's New Project (owner, R447) — or, while New
+ * Where focus goes when no tile can take it: the header's New Project (owner ruling, 2026-10-09) — or, while New
  * Project is greyed out during the first cloud load (WI-112), the note under the header, which says why
- * (owner, R467). `focus()` on a disabled button does nothing, and focus fell to <body> (measured by
- * review 25). Asked inside the focus move's microtask, of the button as it is then.
+ * (owner ruling, 2026-10-09). `focus()` on a disabled button does nothing, and focus fell to <body> (measured
+ * in review). Asked inside the focus move's microtask, of the button as it is then.
  */
 function lastResortFocus(
   newProject: HTMLButtonElement | null,
@@ -146,7 +146,7 @@ export function ProjectsPage() {
   // every control that creates one is greyed out and described by one note under the header.
   const createBlocked = useCloudCreateBlocked();
   const createNoteId = useId();
-  // The note itself, where focus goes after a Delete while New Project is greyed out (owner, R467).
+  // The note itself, where focus goes after a Delete while New Project is greyed out (owner ruling, 2026-10-09).
   const createNoteRef = useRef<HTMLParagraphElement>(null);
 
   const handleChangeTileColor = useCallback(
@@ -269,7 +269,7 @@ export function ProjectsPage() {
   // The tile grid, where a tile's Delete looks for the neighbour that takes the focus.
   const gridRef = useRef<HTMLDivElement>(null);
   // The note's ref. The note leaves when the gate opens, and if a Delete had sent the focus to it, the
-  // focus left with it, to <body> (measured by review 25, pass 2): New Project takes it instead. React
+  // focus left with it, to <body> (measured in review): New Project takes it instead. React
   // runs this cleanup before it removes the note, so the note can still be asked whether it has the
   // focus; the move waits for a microtask because the same commit enables New Project only after it.
   // Focus anywhere else stays where it is.
@@ -326,7 +326,7 @@ export function ProjectsPage() {
   // Chromium once WI-110 kept the Dashboard on screen). The destination is the neighbour in DISPLAY
   // order, chosen before the delete changes the list (`focusAfterTileDelete`); in a microtask, for the
   // reason the recovery card's Delete above gives. Focusing the neighbour rather than New Project also
-  // keeps a long Dashboard where it was: review 24 measured New Project scrolling it to the top.
+  // keeps a long Dashboard where it was: a review measured New Project scrolling it to the top.
   const handleDeleteProject = useCallback(
     (id: string) => {
       const at = filteredProjects.findIndex((p) => p.id === id);
@@ -407,7 +407,7 @@ export function ProjectsPage() {
 
       {createBlocked && (
         // tabIndex -1: not a Tab stop, but focus can be sent here — after a Delete leaves New Project
-        // as the destination while it is greyed out — and a screen reader then reads why (R467).
+        // as the destination while it is greyed out — and a screen reader then reads why.
         <p
           ref={attachCreateNote}
           id={createNoteId}

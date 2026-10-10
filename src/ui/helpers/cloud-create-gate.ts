@@ -22,8 +22,8 @@ export const CLOUD_CREATE_WAIT_NOTE = "A new project can’t be created until lo
 
 /**
  * Settings' Import Activities' line, under its greyed-out button — for EVERY project it can import
- * into, a new one or one already on the list (owner, R467): an import into a project already on the
- * list was not sent to the cloud then either, and the load could undo it (review 25).
+ * into, a new one or one already on the list (owner ruling, 2026-10-09): an import into a project
+ * already on the list was not sent to the cloud then either, and the load could undo it (found in review).
  */
 export const CLOUD_IMPORT_WAIT_NOTE = "Activities can’t be imported until loading from cloud storage ends.";
 

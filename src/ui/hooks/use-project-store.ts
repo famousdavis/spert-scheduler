@@ -353,7 +353,7 @@ export interface ProjectStore {
    * cloud load can begin after the press — and a project added inside that load
    * would never reach the cloud. Pass `isCloudCreateBlocked`, which reads this
    * store: by the time the build lands the Dashboard may have left the screen, and
-   * a copy the Dashboard kept stopped updating then (review 25 measured a sample
+   * a copy the Dashboard kept stopped updating then (a review measured a sample
    * added inside the load that way).
    */
   loadSampleProject: (owner: string | null, isRefused?: () => boolean) => Promise<Project | null>;
