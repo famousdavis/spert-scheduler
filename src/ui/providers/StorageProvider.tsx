@@ -23,6 +23,7 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import {
   LocalStorageRepository,
   setStorageNamespace,
+  getActiveStorageNamespace,
 } from "@infrastructure/persistence/local-storage-repository";
 import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memory";
 import { clearAllCollapsedSections } from "@infrastructure/persistence/section-collapse-memory";
@@ -101,6 +102,9 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   //   4. clear per-user localStorage keys (projects, scenario memory, collapsed
   //      sections, prefs)
   //   5. reset the preferences Zustand store (separate store from projects)
+  // WI-118: steps 3-5 act only on what is on show, and only while it is a signed-in user's: this browser's signed-out
+  // storage ("local") — on show until the app has followed a user to their storage — is never cleared, and neither is
+  // the storage of a user the app has not shown (owner ruling, 2026-10-10).
   // Keys intentionally preserved: spert:storage-mode (continuity),
   // spert_firstRun_seen (per-browser), Nager country cache (not user-specific),
   // ToS keys (owned by AuthProvider).
@@ -108,6 +112,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     registerSignOutCleanup(async () => {
       bumpSimulationGeneration();
       getCloudSyncDriver()?.cancelPendingSaves();
+      if (getActiveStorageNamespace() === "local") return;
       useProjectStore.getState().clearAllData();
       new LocalStorageRepository().clearAll();
       clearAllLastScenarios();

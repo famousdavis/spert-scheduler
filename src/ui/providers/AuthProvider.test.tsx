@@ -21,11 +21,10 @@
  * TC-4 — Toast call uses duration: 0 (locks behavior against future
  *        "normalize all toast durations" refactors).
  *
- * Path 2 (ToS version mismatch) shares its toast classification with
- * Path 3 — both leave `expectedSignOut === false` so the null callback
- * branches identically. Driving the ToS branch end-to-end would require
- * mocking `getDoc` + a truthy `db` for a structurally identical outcome,
- * so we cover the classification logic via TC-2.
+ * Path 2 (ToS version mismatch) leaves `expectedSignOut === false` too, but
+ * since WI-118 its null callback has its own message. That path is driven
+ * end to end, with `getDoc` and a truthy `db`, in
+ * AuthProvider.sign-out-namespaces.test.tsx; TC-2 still covers Path 3.
  *
  * TC-5 / TC-6 (v0.47.3) — cleanup gate. Beyond the toast, the else-branch
  * `runSignOutCleanup()` must be gated on whether a session existed this page

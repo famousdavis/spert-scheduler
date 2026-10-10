@@ -17,7 +17,9 @@ import { applyMigrations } from "./migrations";
 // to a new cloud user — different namespace, different key. Removes the
 // "if cleanup is bypassed, cross-user reads are possible" hardening gap from
 // the v0.42.6 security audit. Sign-out cleanup wipes the active namespace
-// (the user's UID); cross-namespace data is preserved.
+// (the user's UID); cross-namespace data is preserved. WI-118: and only a UID
+// namespace — `local`, this browser's signed-out one, is never wiped (owner
+// ruling, 2026-10-10).
 //
 // Legacy unscoped keys (created in v0.42.5 and earlier) are migrated to the
 // `local` namespace at module load — read-then-write-then-delete ordering
