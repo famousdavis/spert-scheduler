@@ -23,8 +23,9 @@ import type { ProjectRole } from "@infrastructure/firebase/firestore-driver";
  * and the sample's build (held, so it can land after the load has begun).
  *
  * ⚠️ The gate is the sync handler's own: in cloud storage, until the first load ends — on success or
- * failure. NOT `cloudDataLoaded`: the invitation re-fetch sets that one true while the first load
- * still runs (A3, A4, A9). And NOT before the sign-in is recognised: the app is in local storage then,
+ * failure. NOT `cloudDataLoaded`: that one waits for the invitation re-fetch too (WI-113), which can still
+ * run after the first load has ended; before WI-113 the re-fetch could set it true while the first load ran.
+ * And NOT before the sign-in is recognised: the app is in local storage then,
  * and that moment is left as it was (A11).
  *
  * Added after review: the sample's check when its build lands reads the gate from the store, so
@@ -200,7 +201,7 @@ const SAMPLE_NOT_ADDED =
 const LOADING = "Loading your projects from cloud storage…";
 const EMPTY = "No projects yet.";
 const IMPORT_REFUSED = "Cloud data is still loading. Please wait and try again.";
-const IMPORT_WAITING = "Cloud projects are still loading. The button above will enable when loading is complete.";
+const IMPORT_WAITING = "Projects can’t be imported until loading from cloud storage ends.";
 const HEART = "Heart of Gold Refit";
 const SAMPLE = "Cloud ERP Solution (Sample)";
 const LOADED = `Loaded "${SAMPLE}" — run the simulation to see the buffer`;
@@ -486,9 +487,9 @@ describe("WI-112: while the first cloud load runs, the controls that create a pr
     await waitFor(() => expect(edges.loads).toHaveLength(2));
     await refetchEnds([heart]);
     await screen.findByRole("button", { name: HEART });
-    // The order this test exists for: the re-fetch has marked the cloud data loaded, and the
-    // Dashboard's loading message has gone, while the first load is still running.
-    expect(useProjectStore.getState().cloudDataLoaded).toBe(true);
+    // The order this test exists for: the re-fetch has ended and its project is on screen while the first load is
+    // still running. The cloud data counts as loaded only when both have ended (WI-113).
+    expect(useProjectStore.getState().cloudDataLoaded).toBe(false);
     expect(edges.loads).toHaveLength(1);
     expect(screen.queryByText(LOADING)).toBeNull();
 
@@ -505,18 +506,20 @@ describe("WI-112: while the first cloud load runs, the controls that create a pr
     expect(screen.queryByText(CONTROLS_NOTE)).toBeNull();
   });
 
-  it("an empty re-fetch ending first: the empty Dashboard's New Project and Load Sample Project are greyed out too", async () => {
+  it("an empty re-fetch ending first: the Dashboard says it is loading, with New Project and Load Sample greyed, until the first load ends", async () => {
     edges.claimEnabled = true;
     renderApp("cloud");
     await authResolves(ARTHUR_INVITED);
     await claimEnds();
     await waitFor(() => expect(edges.loads).toHaveLength(2));
     await refetchEnds([]);
-    await screen.findByText(EMPTY);
     expect(edges.loads).toHaveLength(1);
 
-    expectUnavailable(within(emptyDashboard()).getByRole("button", { name: "New Project" }));
-    expectUnavailable(within(emptyDashboard()).getByRole("button", { name: "Load Sample Project" }));
+    // The first load still runs, so an empty list means "not here yet" (WI-113): no empty Dashboard yet.
+    expect(screen.getByText(LOADING)).toBeInTheDocument();
+    expect(screen.queryByText(EMPTY)).toBeNull();
+    expectUnavailable(headerNewProject());
+    expectUnavailable(loadSample());
     expect(screen.getByText(CONTROLS_NOTE)).toBeInTheDocument();
 
     await cloudLoadEnds([]);
@@ -642,7 +645,7 @@ describe("WI-112: each create is checked again as it commits, and refused while 
     expect(route()).toMatch(/^\/project\//);
   });
 
-  it("Import Projects: a file confirmed after the invitation re-fetch but before the first load ends is refused, and nothing is added", async () => {
+  it("Import Projects: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs", async () => {
     edges.claimEnabled = true;
     const heart = cloudProject(HEART);
     renderApp("cloud");
@@ -650,16 +653,34 @@ describe("WI-112: each create is checked again as it commits, and refused while 
     await claimEnds();
     await waitFor(() => expect(edges.loads).toHaveLength(2));
     await refetchEnds([heart]);
-    await waitFor(() => expect(useProjectStore.getState().cloudDataLoaded).toBe(true));
+    await screen.findByRole("button", { name: HEART });
     expect(edges.loads).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Import Projects" }));
-    await pickImportFile("Probe Imported Project");
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Import" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Confirm Import" })).toBeNull());
-
+    expect(chooseFile()).toBeDisabled();
+    expect(screen.getByText(IMPORT_WAITING)).toBeInTheDocument();
+    // A file reaching the input anyway — from a picker opened before the wait began — is refused as it is picked.
+    const file = new File([serializeExport([createProject("Probe Imported Project", "2026-10-05")])], "probe.json", {
+      type: "application/json",
+    });
+    fireEvent.change(screen.getByLabelText("Project import JSON file"), { target: { files: [file] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(IMPORT_WAITING);
+    expect(screen.queryByRole("button", { name: "Confirm Import" })).toBeNull();
     expect(projectNames()).toEqual([HEART]);
-    expect(screen.getByRole("alert")).toHaveTextContent(IMPORT_REFUSED);
+
+    // The first load ends; a preview is opened; then another invitation is claimed while it is open, and its
+    // re-fetch runs: the confirm is refused until that load ends too.
+    await cloudLoadEnds([heart]);
+    fireEvent.click(screen.getByRole("button", { name: "Try another file" }));
+    await pickImportFile("Probe Imported Project");
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("spert:models-changed", { detail: { claimed: ["proj-later"] } }));
+    });
+    await waitFor(() => expect(edges.loads).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Import" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(IMPORT_REFUSED));
+    expect(projectNames()).toEqual([HEART]);
+    expect(edges.created).toEqual([]);
 
     await cloudLoadEnds([heart]);
     fireEvent.click(screen.getByRole("button", { name: "Try another file" }));

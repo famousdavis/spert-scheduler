@@ -646,7 +646,7 @@ describe("ImportSection — the cloud-pending gate", () => {
 
     expect(screen.getByRole("button", { name: "Choose File" })).toBeDisabled();
     expect(
-      screen.getByText(/Cloud projects are still loading\./)
+      screen.getByText("Projects can’t be imported until loading from cloud storage ends.")
     ).toBeInTheDocument();
   });
 
@@ -672,11 +672,12 @@ describe("ImportSection — the cloud-pending gate", () => {
       mode: "cloud",
       storageReady: true,
     } as unknown as ReturnType<typeof useStorage>);
-    useProjectStore.setState({ cloudDataLoaded: true });
+    // Loaded means both: the projects AND the cloud sync's own gate (the confirm's condition — WI-113).
+    useProjectStore.setState({ cloudDataLoaded: true, cloudSyncReady: true });
     renderSection();
 
     expect(screen.getByRole("button", { name: "Choose File" })).toBeEnabled();
-    expect(screen.queryByText(/Cloud projects are still loading\./)).toBeNull();
+    expect(screen.queryByText("Projects can’t be imported until loading from cloud storage ends.")).toBeNull();
   });
 });
 

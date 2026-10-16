@@ -15,8 +15,11 @@ interface SignOutConfirmModalProps {
 /**
  * Confirmation modal shown before a user-initiated sign-out from cloud
  * storage (Path 1 in AuthProvider). Surfaces the v0.42.6 M4 local-cache
- * wipe to the user so an empty project list after sign-out is not
- * surprising. The wipe itself is unchanged — this modal only informs.
+ * wipe to the user, so that the user's projects leaving this device at
+ * sign-out are not surprising, and says what stays here: the projects and
+ * settings this browser keeps for use without signing in, which come back as
+ * soon as the sign-out is done (WI-113). The wipe itself is unchanged — this
+ * modal only informs.
  *
  * Cancel is default-focused (the non-destructive choice), matching the
  * precedent set by KeepOrDiscardLocalModal.
@@ -65,6 +68,13 @@ export function SignOutConfirmModal({
               </span>{" "}
               Everything in your cloud account. Sign in again on any device
               and all your projects come back.
+            </div>
+            <div>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                What stays here:
+              </span>{" "}
+              Any projects and settings this browser keeps for use without
+              signing in. They come back as soon as you have signed out.
             </div>
           </div>
 

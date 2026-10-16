@@ -54,6 +54,8 @@ interface FirebaseEdges {
   holdProfileWrite: boolean;
   heldWrites: Pending<void>[];
   loads: Pending<CloudLoad>[];
+  /** Called the moment the app tells Firebase to sign out, before Firebase does anything. */
+  atSignOut: (() => void) | null;
 }
 
 const edges = vi.hoisted(() => {
@@ -65,6 +67,7 @@ const edges = vi.hoisted(() => {
     holdProfileWrite: false,
     heldWrites: [],
     loads: [],
+    atSignOut: null,
   };
   return e;
 });
@@ -85,6 +88,7 @@ vi.mock("firebase/auth", () => ({
   // As Firebase does it: the call settles, then the auth listener hears null — and only if a user was signed in,
   // since the listener is told of a change of user, never of a sign-out that changes nothing.
   signOut: () => {
+    edges.atSignOut?.();
     edges.signOutCalls++;
     const userChanges = edges.current !== null;
     edges.current = null;
@@ -327,6 +331,7 @@ beforeEach(() => {
   edges.holdProfileWrite = false;
   edges.heldWrites.length = 0;
   edges.loads.length = 0;
+  edges.atSignOut = null;
   useProjectStore.setState(useProjectStore.getInitialState(), true);
   usePreferencesStore.setState(usePreferencesStore.getInitialState(), true);
   useNotificationStore.setState({ notifications: [] });
@@ -520,12 +525,19 @@ describe("WI-118: controls — what a sign-out clears otherwise", () => {
     await authReports(ARTHUR);
     await cloudLoadEnds([cloudProject("Heart of Gold Refit", ARTHUR.uid)]);
     expect(listedIn(ARTHUR.uid)).toEqual(["Heart of Gold Refit"]);
+    let projectsWhenFirebaseSignsOut: string[] | null = null;
+    edges.atSignOut = () => {
+      projectsWhenFirebaseSignsOut = storeNames();
+    };
 
     fireEvent.click(screen.getByRole("button", { name: "test: sign out" }));
     await signedOut();
 
     expect(listedIn(ARTHUR.uid)).toEqual(["(none)"]);
-    expect(storeNames()).toEqual([]);
+    // The user's projects had left memory by the time Firebase was told; then this browser's signed-out projects came
+    // back on show (WI-113) — never the user's.
+    expect(projectsWhenFirebaseSignsOut).toEqual([]);
+    expect(storeNames()).toEqual(["Local Alpha", "Local Beta"]);
     expect(listedIn("local")).toEqual(["Local Alpha", "Local Beta"]);
     expect(settingsKeptIn("local")).toHaveLength(3);
     expect(toastMessages()).toEqual([]);

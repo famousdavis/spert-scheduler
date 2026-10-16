@@ -131,9 +131,9 @@ export function ProjectsPage() {
   // yet", not "none". Two existing signals, no new state: `storageReady` is false while a remembered
   // cloud sign-in is being restored (StorageProvider), and `cloudDataLoaded` is false from the start
   // of a cloud load until it ends — on success AND on failure, so a failed load ends this too
-  // (use-cloud-sync). ⚠️ It is ONE flag for every cloud load: the re-fetch after invitations are
-  // claimed sets it false again, but if the first load ends while that re-fetch is still running it
-  // reads true — and an empty Dashboard says "No projects yet." — until the re-fetch lands. Never true
+  // (use-cloud-sync). WI-113: it waits for EVERY cloud load of the session — the first load and the
+  // re-fetch after invitations are claimed, counted together — so an empty Dashboard says "No projects
+  // yet." only once all of them have ended, in either order. Never true
   // when LOCAL storage is the stored choice: `storageReady` is false only when cloud storage was
   // chosen, and `mode` is "cloud" only when signed in to it. It replaces only the EMPTY list below:
   // projects already in the store stay on screen.
