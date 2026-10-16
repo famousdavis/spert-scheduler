@@ -6,13 +6,15 @@
  * Smoke tests for SignOutConfirmModal (v0.47.2).
  *
  * The modal interrupts user-initiated sign-out to inform the user that the
- * v0.42.6 M4 local-cache wipe is about to run. These tests lock the four
+ * v0.42.6 M4 local-cache wipe is about to run. These tests lock the five
  * behaviors the modal must guarantee:
  *
  * TC-A — modal renders title + body when open
  * TC-B — Cancel fires onOpenChange(false) and does NOT fire onConfirm
  * TC-C — Sign out fires onConfirm
  * TC-D — Cancel is default-focused (non-destructive choice)
+ * TC-E — it says what stays in this browser: the projects and settings it keeps
+ *        for use without signing in, back as soon as the sign-out is done (WI-113)
  */
 
 import { describe, it, expect, vi } from "vitest";
@@ -80,5 +82,27 @@ describe("SignOutConfirmModal", () => {
         screen.getByRole("button", { name: "Cancel" }),
       );
     });
+  });
+
+  it("TC-E: says what stays here — this browser's own projects and settings, back as soon as the sign-out is done", () => {
+    render(
+      <SignOutConfirmModal
+        open
+        onOpenChange={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    const stays = screen.getByText("What stays here:");
+    const row = stays.parentElement;
+    expect(row?.textContent?.replaceAll(/\s+/g, " ").trim()).toBe(
+      "What stays here: Any projects and settings this browser keeps for use without signing in. They come back as soon as you have signed out.",
+    );
+    // The row after "What stays safe:", in the same markup.
+    const safe = screen.getByText("What stays safe:");
+    expect(safe.parentElement?.nextElementSibling).toBe(row);
+    expect(stays.tagName).toBe(safe.tagName);
+    expect(stays.className).toBe(safe.className);
+    expect(row?.tagName).toBe(safe.parentElement?.tagName);
+    expect(row?.className).toBe(safe.parentElement?.className);
   });
 });

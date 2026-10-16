@@ -9,6 +9,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import type { ReactNode } from "react";
 import { isFirebaseAvailable } from "@infrastructure/firebase/firebase";
@@ -17,7 +18,7 @@ import {
   registerSignOutCleanup,
   clearSignOutCleanup,
 } from "@infrastructure/persistence/sign-out-cleanup-registry";
-import { getCloudSyncDriver } from "@ui/hooks/use-cloud-sync";
+import { getCloudSyncDriver, endCloudSyncForSignOut } from "@ui/hooks/use-cloud-sync";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import {
@@ -82,13 +83,30 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     }
   }, [authLoading, user, persistedMode]);
 
+  // WI-113: the uid this storage last followed — null while nobody is signed in — so a sign-out (a user, then
+  // none) can be told apart from a page load with nobody signed in.
+  const followedUidRef = useRef<string | null>(null);
+
   // v0.42.6 (M4): keep the localStorage namespace synchronized with the
   // current auth user. UID for cloud mode, "local" for signed-out / local
   // mode. Runs after the auth state has resolved (authLoading guard avoids
   // a transient "local" flash during boot when the user is actually cloud).
   useEffect(() => {
     if (authLoading) return;
-    setStorageNamespace(user?.uid ?? "local");
+    const uid = user?.uid ?? null;
+    setStorageNamespace(uid ?? "local");
+    // WI-113: a sign-out leaves the project list empty and the settings at Scheduler's defaults — the cleanup reset
+    // both while the namespace was still the user's, and a page that re-reads them did so then, from the namespace
+    // just wiped. This browser's own projects (owner ruling, 2026-10-10) and settings (owner ruling, 2026-10-15)
+    // come back HERE, where the namespace has just become "local"; an effect inside the cloud sync runs before this
+    // one, while the namespace is still the user's. A late answer from the ended cloud session cannot replace the
+    // list: useCloudSync ignores such answers. And no setting read back here is sent to the cloud: the cleanup ended
+    // the session's preference sync (WI-117), and it has stopped listening before this effect runs.
+    if (followedUidRef.current !== null && uid === null) {
+      useProjectStore.getState().loadProjects();
+      usePreferencesStore.getState().loadPreferences();
+    }
+    followedUidRef.current = uid;
   }, [authLoading, user]);
 
   // Register the sign-out cleanup function. AuthProvider invokes this via
@@ -96,7 +114,11 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   //   1. bump simulation generation — any worker callback in flight will
   //      capture-vs-current mismatch and discard its result before it can
   //      write to the (about-to-be-zeroed) store. v0.42.6 (M2).
-  //   2. cancel pending Firestore saves (credentials still valid)
+  //   2. cancel pending Firestore saves (credentials still valid), and end the
+  //      session's cloud sync (WI-117): its preference sync would otherwise send
+  //      step 5's reset of the preferences to the cloud, over the user's own
+  //      (owner ruling, 2026-10-10). Before the WI-118 guard below, so a
+  //      running session is ended whatever the guard decides.
   //   3. zero in-memory project state (before C2 guard re-evaluates on next
   //      sign-in and before localStorage cleanup wipes the mirror)
   //   4. clear per-user localStorage keys (projects, scenario memory, collapsed
@@ -112,6 +134,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     registerSignOutCleanup(async () => {
       bumpSimulationGeneration();
       getCloudSyncDriver()?.cancelPendingSaves();
+      endCloudSyncForSignOut();
       if (getActiveStorageNamespace() === "local") return;
       useProjectStore.getState().clearAllData();
       new LocalStorageRepository().clearAll();

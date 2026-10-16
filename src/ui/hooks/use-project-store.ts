@@ -519,7 +519,9 @@ export interface ProjectStore {
   importScenarioToProject: (projectId: string, scenario: Scenario) => void;
 
   // Cloud-data readiness (v0.43.0).
-  // True after Firestore's loadAll() completes — distinct from auth-only
+  // True once every cloud load of the session has ended (WI-113: the first
+  // load, with the user's settings, and any invitation re-fetch, counted
+  // together) — distinct from auth-only
   // storageReady. Gates the import file picker and confirm-time check.
   // Pitfalls #88, #89.
   cloudDataLoaded: boolean;
@@ -534,8 +536,9 @@ export interface ProjectStore {
    * While it is false and cloud sync runs (`cloudSyncActive`), a project created
    * here would never reach the cloud, so the controls that create one are greyed
    * out (`useCloudCreateBlocked`).
-   * ⚠️ NOT `cloudDataLoaded`: the invitation re-fetch sets that one true while
-   * the first load is still running, and a create then was still dropped.
+   * ⚠️ NOT `cloudDataLoaded`: that one waits for every cloud load, the
+   * invitation re-fetch included (WI-113), which can still run after the first
+   * load has ended — see use-cloud-create-blocked.ts.
    * In-memory only — never persisted, never synced.
    */
   cloudSyncReady: boolean;

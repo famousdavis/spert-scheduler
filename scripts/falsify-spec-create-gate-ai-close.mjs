@@ -7,19 +7,26 @@
 // preferences load cannot end the next one) and WI-111 (the Connect AI panel's close button, and the
 // question Disconnect asks first).
 //
-// Each straw breaks ONE guarantee. S9 and S10 are the tempting wrong designs — the gate on
-// `cloudDataLoaded` (which the invitation re-fetch sets early) and the gate without the storage
-// mode — and S22 and S27 are the wrong designs for the panel (a close that also disconnects).
+// Each straw breaks ONE guarantee. S10 is the tempting wrong design — the gate without the storage mode —
+// and S22 and S27 are the wrong designs for the panel (a close that also disconnects).
 // Each straw names EXACTLY the tests it must fail, and no others — read "K failing; named-match K",
 // not merely a non-zero exit: the runner prints ✔ when ANY named test fails. Each expected set was
 // written before the run that first included it — the later straws (S28–S36), and the places of the
 // tests added with them (A13–A19) in the earlier straws' sets, each before its own first run — and
 // never inferred from a run.
 //
-// NOT HERE, on purpose — three straws that cannot fail any test, run once by hand and measured as
-// survivors: removing Clone's own check at commit (the button is natively disabled, so no click
+// NOT HERE, on purpose — five straws that cannot fail any test, measured as survivors. Three were run
+// once by hand: removing Clone's own check at commit (the button is natively disabled, so no click
 // reaches it), and removing either one of the two places the flag is set false at the start of a load
-// (each covers for the other; S18 removes both).
+// (each covers for the other; S18 removes both). Two were straws here until WI-113 counted the cloud
+// loads, and each now reads 0 failing; named-match 0:
+// - the empty Dashboard's New Project and Load Sample Project not greyed out — with the count, the empty
+//   Dashboard's "No projects yet." never shows while the create gate is shut, so no state the app
+//   reaches can show this check;
+// - the gate on `cloudDataLoaded`, until then the tempting wrong design (the invitation re-fetch set that
+//   flag early) — it now differs from this gate only while an invitation re-fetch runs after the first
+//   load has ended, where it would grey out New Project in the gap left open for the later sign-in
+//   design; so it is pinned neither as wrong nor as right.
 //
 // testFile is all of src/, so every straw runs against the whole suite.
 const PAGE = new URL("../src/ui/pages/ProjectsPage.tsx", import.meta.url).pathname;
@@ -37,7 +44,8 @@ const PANEL = new URL("../src/ui/components/ConnectAI/ConnectAiPanel.tsx", impor
 const A1 = "New Project and Load Sample are greyed out and a note says why; when the load ends they come back and the note goes";
 const A2 = "with tiles on screen before the load ends, each tile's Clone is greyed out too, and the note shows above them";
 const A3 = "the invitation re-fetch ending first does not end it: the controls stay greyed until the first load ends";
-const A4 = "an empty re-fetch ending first: the empty Dashboard's New Project and Load Sample Project are greyed out too";
+const A4 =
+  "an empty re-fetch ending first: the Dashboard says it is loading, with New Project and Load Sample greyed, until the first load ends";
 const A5 = "a failed first load ends it too";
 const A6 = "switching to local storage and back greys them again until that load ends";
 const A7 =
@@ -45,7 +53,7 @@ const A7 =
 const A8 =
   "Load Sample pressed before the load began and landing inside it adds nothing, and a message says why; pressed after the load, it adds the sample";
 const A9 =
-  "Import Projects: a file confirmed after the invitation re-fetch but before the first load ends is refused, and nothing is added";
+  "Import Projects: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs";
 const A10 = "control: in local storage nothing is greyed and there is no note, signed in or not";
 const A11 =
   "control: while a remembered sign-in is still being restored nothing is greyed — the gate starts when the sign-in is recognised";
@@ -64,6 +72,20 @@ const A18 =
   "while New Project is greyed out, deleting a project that could not be loaded moves focus to the note, and on to New Project when the load ends";
 const A19 =
   "into an existing project too: greyed out with a note while the first cloud load runs, Ctrl+Enter adds nothing, and after the load it imports";
+// ProjectsPage.invitation-refetch.test.tsx (WI-113) — Import Projects
+const I_REFETCH_FIRST =
+  "the invited project on screen from the re-fetch, the first load still running: Choose File is greyed out, and the note says why";
+const I_SETTINGS =
+  "the projects on screen and the user's settings still loading: Choose File is greyed out, and the note says projects can't be imported until loading ends";
+const I_PICKED =
+  "a file reaching Import Projects while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports";
+const I_LATER_REFETCH =
+  "a file confirmed while a later re-fetch runs is refused, with Choose File greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
+const I_CONSTRUCTED =
+  "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Choose File is greyed out with the note, and the confirm refuses";
+// — the Dashboard
+const L_EMPTY_KEPT =
+  "an empty re-fetch answer while this browser's signed-out projects are listed ends its part too: when the first load ends, Choose File comes back";
 // ProjectsPage.test.tsx and ProjectsPage.tile-delete.test.tsx — local storage, where nothing may be greyed
 const PP_TOAST = "keeps the sample-load toast up for 8 seconds, not the 3-second default";
 const PP_FOCUS = "confirming removes it and focus lands on New Project, not <body>";
@@ -86,18 +108,18 @@ export const testFile = "src/";
 export const mutations = [
   // -- WI-112: the greyed-out controls ---------------------------------------------------------
   {
-    id: "S1  the header's New Project is not greyed out  [expect 9: A1, A2, A3, A5, A6, A13, A14, A17, A18]",
+    id: "S1  the header's New Project is not greyed out  [expect 10: A1, A2, A3, A4, A5, A6, A13, A14, A17, A18]",
     file: PAGE,
     find: "ref={newProjectRef}\n            onClick={() => setDialogOpen(true)}\n            disabled={createBlocked}",
     replace: "ref={newProjectRef}\n            onClick={() => setDialogOpen(true)}",
-    expectFailing: only(A1, A2, A3, A5, A6, A13, A14, A17, A18),
+    expectFailing: only(A1, A2, A3, A4, A5, A6, A13, A14, A17, A18),
   },
   {
-    id: "S2  the header's Load Sample is not greyed out  [expect 7: A1, A2, A3, A6, A13, A14, A16]",
+    id: "S2  the header's Load Sample is not greyed out  [expect 8: A1, A2, A3, A4, A6, A13, A14, A16]",
     file: PAGE,
     find: "onClick={handleLoadSample}\n            disabled={createBlocked}",
     replace: "onClick={handleLoadSample}",
-    expectFailing: only(A1, A2, A3, A6, A13, A14, A16),
+    expectFailing: only(A1, A2, A3, A4, A6, A13, A14, A16),
   },
   {
     id: "S3  a tile's Clone is not greyed out  [expect 4: A2, A3, A13, A14]",
@@ -105,18 +127,6 @@ export const mutations = [
     find: "disabled={cloneUnavailableNoteId !== undefined}",
     replace: "disabled={false}",
     expectFailing: only(A2, A3, A13, A14),
-  },
-  {
-    // One guarantee — the empty Dashboard's two buttons — so one paired straw.
-    id: "S4  the empty Dashboard's New Project and Load Sample Project are not greyed out  [expect 1: A4]",
-    file: PAGE,
-    find: "onClick={() => setDialogOpen(true)}\n                  disabled={createBlocked}",
-    replace: "onClick={() => setDialogOpen(true)}",
-    also: {
-      find: "onClick={handleLoadSample}\n                  disabled={createBlocked}",
-      replace: "onClick={handleLoadSample}",
-    },
-    expectFailing: only(A4),
   },
   {
     id: "S5  the Dashboard's note never shows  [expect 12: A1, A2, A3, A4, A5, A6, A8, A13, A14, A16, A17, A18]",
@@ -134,12 +144,15 @@ export const mutations = [
   },
   // -- WI-112: the flag ---------------------------------------------------------------------------
   {
-    id: "S7  a load that succeeds never ends it  [expect 15: A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19]",
+    id: "S7  a load that succeeds never ends it  [expect 20: A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19, I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT]",
     file: SYNC,
     find:
-      "initialLoadDoneRef.current = true;\n          useProjectStore.getState().setCloudSyncReady(true);\n          useProjectStore.getState().setCloudDataLoaded(true);",
-    replace: "initialLoadDoneRef.current = true;\n          useProjectStore.getState().setCloudDataLoaded(true);",
-    expectFailing: only(A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19),
+      "initialLoadDoneRef.current = true;\n          useProjectStore.getState().setCloudSyncReady(true);\n          // WI-113: loaded only if no re-fetch is still running.\n          firstLoadEnded();",
+    replace: "initialLoadDoneRef.current = true;\n          // WI-113: loaded only if no re-fetch is still running.\n          firstLoadEnded();",
+    expectFailing: only(
+      A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19,
+      I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT,
+    ),
   },
   {
     id: "S8  a load that fails never ends it  [expect 1: A5]",
@@ -173,14 +186,6 @@ export const mutations = [
       replace: "          initialLoadDoneRef.current = true;",
     },
     expectFailing: only(A14),
-  },
-  {
-    // The tempting wrong design: the flag the Dashboard's loading message already uses.
-    id: "S9  WRONG DESIGN: the gate on cloudDataLoaded, which the invitation re-fetch sets early  [expect 2: A3, A4]",
-    file: GATE,
-    find: "return s.cloudSyncActive && !s.cloudSyncReady;",
-    replace: "return s.cloudSyncActive && !s.cloudDataLoaded;",
-    expectFailing: only(A3, A4),
   },
   {
     // The other wrong design: the flag alone is false in local storage too, so local storage is greyed.
@@ -228,11 +233,11 @@ export const mutations = [
     expectFailing: only(A8, A15),
   },
   {
-    id: "S17 Import Projects' Confirm checks cloudDataLoaded alone  [expect 1: A9]",
+    id: "S17 Import Projects' Confirm checks cloudDataLoaded alone  [expect 1: I_CONSTRUCTED]",
     file: IMPORT,
-    find: 'if (mode === "cloud" && (!cloudDataLoaded || !cloudSyncReady)) {',
-    replace: 'if (mode === "cloud" && !cloudDataLoaded) {',
-    expectFailing: only(A9),
+    find: "    // importWaitsForCloud: see where it is defined.\n    if (importWaitsForCloud) {",
+    replace: '    // importWaitsForCloud: see where it is defined.\n    if (mode === "cloud" && !cloudDataLoaded) {',
+    expectFailing: only(I_CONSTRUCTED),
   },
   // -- WI-112: Settings' Import Activities -------------------------------------------------------
   {

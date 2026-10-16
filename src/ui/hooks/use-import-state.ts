@@ -15,6 +15,7 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useStorage } from "@ui/providers/StorageProvider";
 import type { StorageMode } from "@ui/providers/StorageProvider";
 import { useAuth } from "@ui/providers/AuthProvider";
+import { CLOUD_PROJECT_IMPORT_WAIT_NOTE, CLOUD_PROJECT_IMPORT_PICK_AGAIN } from "@ui/helpers/cloud-create-gate";
 import {
   validateImport,
   mergeDecisions,
@@ -140,6 +141,11 @@ export interface UseImportStateResult {
   importState: ImportState;
   mode: StorageMode;
   cloudDataLoaded: boolean;
+  /**
+   * WI-113: an import now would be refused — the confirm's own condition. Import Projects greys its Choose
+   * File, with a note, on this same value, so the button, its note and the confirm agree.
+   */
+  importWaitsForCloud: boolean;
   applyPreferences: boolean;
   toggleApplyPreferences: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -162,6 +168,11 @@ export function useImportState({
   const cloudDataLoaded = useProjectStore((s) => s.cloudDataLoaded);
   // WI-112: the cloud sync's own gate, read at confirm. See handleConfirmImport.
   const cloudSyncReady = useProjectStore((s) => s.cloudSyncReady);
+  // ⚠️ Both flags (WI-112): before WI-113 the invitation re-fetch could set cloudDataLoaded true while the
+  // first cloud load still ran, and a project imported then never reached the cloud — measured.
+  // cloudSyncReady is the cloud sync's own gate, so the check holds whatever the re-fetch does.
+  // WI-113: one value for the confirm AND the button.
+  const importWaitsForCloud = mode === "cloud" && (!cloudDataLoaded || !cloudSyncReady);
 
   const [importState, setImportState] = useState<ImportState>({ step: "idle" });
   // Default false: applying preferences is destructive (pitfall #90).
@@ -310,12 +321,7 @@ export function useImportState({
 
       // Cloud gate FIRST so we don't show a transient idle render on a known-failing pick.
       if (mode === "cloud" && !cloudDataLoaded) {
-        setImportState(
-          showError(
-            "Cloud projects are still loading.",
-            "Please wait for sync to complete before importing."
-          )
-        );
+        setImportState(showError(CLOUD_PROJECT_IMPORT_WAIT_NOTE, CLOUD_PROJECT_IMPORT_PICK_AGAIN));
         e.target.value = "";
         return;
       }
@@ -441,10 +447,8 @@ export function useImportState({
     // Ref guard (v7 C-2): closure-stale state guard alone is insufficient
     // because a rapid second click reads the previous render's importState.
     if (inFlightRef.current) return;
-    // ⚠️ cloudDataLoaded alone is not enough (WI-112): the invitation re-fetch sets it true while the
-    // first cloud load still runs, and a project imported then never reached the cloud — measured.
-    // cloudSyncReady is the cloud sync's own gate.
-    if (mode === "cloud" && (!cloudDataLoaded || !cloudSyncReady)) {
+    // importWaitsForCloud: see where it is defined.
+    if (importWaitsForCloud) {
       setImportState(
         showError("Cloud data is still loading. Please wait and try again.")
       );
@@ -506,12 +510,13 @@ export function useImportState({
     } finally {
       inFlightRef.current = false;
     }
-  }, [importState, owner, mode, cloudDataLoaded, cloudSyncReady, applyPreferences]);
+  }, [importState, owner, importWaitsForCloud, applyPreferences]);
 
   return {
     importState,
     mode,
     cloudDataLoaded,
+    importWaitsForCloud,
     applyPreferences,
     toggleApplyPreferences,
     fileInputRef,

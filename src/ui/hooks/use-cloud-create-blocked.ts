@@ -21,8 +21,12 @@ import { useProjectStore, type ProjectStore } from "@ui/hooks/use-project-store"
  * the Dashboard kept stopped updating once it was left: a review measured a sample, pressed before the
  * sign-in was recognised, added inside the load from another page — announced, opened, never uploaded.)
  *
- * ⚠️ `cloudSyncReady` is the sync handler's own gate. NOT `cloudDataLoaded`: the invitation re-fetch sets
- * that one true while the first load still runs, and a create then was still dropped.
+ * ⚠️ `cloudSyncReady` is the sync handler's own gate. NOT `cloudDataLoaded`: that one waits for EVERY cloud
+ * load (WI-113) — the invitation re-fetch too, which can still be running after the first load has ended, when
+ * the sync handler already sends a create to the cloud. (Before WI-113 the re-fetch could set it true while the
+ * first load still ran, and a create then was dropped.) A project created while that re-fetch runs is sent to the
+ * cloud, and the re-fetch's answer then takes it off the list until the projects are next loaded — left, by
+ * owner ruling (2026-10-10), to the sign-in design that follows.
  * ⚠️ Cloud storage only (`cloudSyncActive`). Before a remembered sign-in is recognised the app is in local
  * storage, and a project created then is a local one; that moment is left as it was (WI-113 decides it).
  */

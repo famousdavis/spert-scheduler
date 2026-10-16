@@ -40,6 +40,31 @@ const C_FAILED = "a cloud load that FAILS ends the loading message rather than l
 const C_SIGN_OUT = "signing out after a cloud load: no loading message, and the empty Dashboard says so";
 const C_SWITCH = "switching to local storage ends it; switching back to cloud shows it until that load ends";
 const C_SIGN_IN = "signing in during the session: loading, then the projects";
+// ProjectsPage.cloud-create-gate.test.tsx (WI-112)
+const G_RESTORE =
+  "control: while a remembered sign-in is still being restored nothing is greyed — the gate starts when the sign-in is recognised";
+const G_EMPTY_REFETCH =
+  "an empty re-fetch ending first: the Dashboard says it is loading, with New Project and Load Sample greyed, until the first load ends";
+const G_DELETE_FOCUS =
+  "while New Project is greyed out, deleting the last tile moves focus to the note, which says why, and on to New Project when the load ends";
+const G_LATE_SETTINGS =
+  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+const G_LATE_FAILURE =
+  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+// ProjectsPage.invitation-refetch.test.tsx and StorageProvider.sign-out-cleanup.test.tsx (WI-113)
+const L_FIRST_ENDED =
+  "with the first load ended empty and the invitation re-fetch still running, the Dashboard says the projects are loading, not that there are none";
+const L_REFETCH_ENDED =
+  "with the re-fetch ended empty and the first load still running, the Dashboard says the projects are loading until the first load ends too";
+const L_REFETCH_FAILS =
+  "a re-fetch that fails ends its part: with the first load ended empty, the Dashboard then says there are no projects";
+const L_NO_INVITATION =
+  "control: a sign-in with no invitation says the projects are loading until its one load ends, then shows them, as before";
+const R_FAILS_LATE = "a re-fetch that fails after a sign-out does not end the next sign-in's load";
+const R_ANSWERS_LATE =
+  "a re-fetch that answers after a sign-out neither ends the next sign-in's load nor puts its projects on screen";
+const O_NONE =
+  "control: with no signed-out projects in this browser, the Dashboard says 'No projects yet.' after a sign-out, as before";
 
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
@@ -50,7 +75,7 @@ export const testFile = "src/";
 export const mutations = [
   {
     // The control test (name and tile body open the project) holds: those clicks start in the tile.
-    id: "S1  the tile opens on any click that reaches it  [expect 9: T_DELETE, T_CANCEL, T_TEXT, T_ENTER_DELETE, T_SPACE_DELETE, T_ENTER_CANCEL, T_FOCUS_NEXT, T_FOCUS_PREV, T_FOCUS_NONE]",
+    id: "S1  the tile opens on any click that reaches it  [expect 10: T_DELETE, T_CANCEL, T_TEXT, T_ENTER_DELETE, T_SPACE_DELETE, T_ENTER_CANCEL, T_FOCUS_NEXT, T_FOCUS_PREV, T_FOCUS_NONE, G_DELETE_FOCUS]",
     file: TILE,
     find: "if (startedInTile(e)) open();",
     replace: "open();",
@@ -64,6 +89,7 @@ export const mutations = [
       T_FOCUS_NEXT,
       T_FOCUS_PREV,
       T_FOCUS_NONE,
+      G_DELETE_FOCUS,
     ),
   },
   {
@@ -75,11 +101,12 @@ export const mutations = [
   },
   {
     // The Dashboard still stays; only where focus lands changes (back to <body>).
-    id: "S2  no focus destination after a tile's Delete  [expect 4: T_ENTER_DELETE, T_FOCUS_NEXT, T_FOCUS_PREV, T_FOCUS_NONE]",
+    id: "S2  no focus destination after a tile's Delete  [expect 5: T_ENTER_DELETE, T_FOCUS_NEXT, T_FOCUS_PREV, T_FOCUS_NONE, G_DELETE_FOCUS]",
     file: PAGE,
-    find: "deleteProject(id);\n      queueMicrotask(() => {\n        focusAfterTileDelete(gridRef.current, neighbourId, newProjectRef.current);\n      });",
+    find:
+      "deleteProject(id);\n      queueMicrotask(() => {\n        focusAfterTileDelete(\n          gridRef.current,\n          neighbourId,\n          lastResortFocus(newProjectRef.current, createNoteRef.current)\n        );\n      });",
     replace: "deleteProject(id);",
-    expectFailing: only(T_ENTER_DELETE, T_FOCUS_NEXT, T_FOCUS_PREV, T_FOCUS_NONE),
+    expectFailing: only(T_ENTER_DELETE, T_FOCUS_NEXT, T_FOCUS_PREV, T_FOCUS_NONE, G_DELETE_FOCUS),
   },
   {
     // The wrong neighbour: the tile before, ahead of the one that takes the deleted tile's place. Only
@@ -93,34 +120,43 @@ export const mutations = [
   },
   {
     // C_LOCAL and C_SIGN_OUT never expect the loading message, so they hold.
-    id: "S3  'No projects yet.' whenever the list is empty  [expect 6: C_RESTORE, C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN]",
+    id: "S3  'No projects yet.' whenever the list is empty  [expect 16: C_RESTORE, C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN, G_RESTORE, G_EMPTY_REFETCH, G_LATE_SETTINGS, G_LATE_FAILURE, L_FIRST_ENDED, L_REFETCH_ENDED, L_REFETCH_FAILS, L_NO_INVITATION, R_FAILS_LATE, R_ANSWERS_LATE]",
     file: PAGE,
     find: "if (projects.length === 0 && cloudLoadPending) {",
     replace: "if (projects.length === 0 && false) {",
-    expectFailing: only(C_RESTORE, C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN),
+    expectFailing: only(
+      C_RESTORE, C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN,
+      G_RESTORE, G_EMPTY_REFETCH, G_LATE_SETTINGS, G_LATE_FAILURE,
+      L_FIRST_ENDED, L_REFETCH_ENDED, L_REFETCH_FAILS, L_NO_INVITATION, R_FAILS_LATE, R_ANSWERS_LATE,
+    ),
   },
   {
     // Only C_RESTORE looks at the dashboard before the auth listener has answered.
-    id: "S4  the sign-in restore shows 'No projects yet.'  [expect 1: C_RESTORE]",
+    id: "S4  the sign-in restore shows 'No projects yet.'  [expect 2: C_RESTORE, G_RESTORE]",
     file: PAGE,
     find: 'const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);',
     replace: 'const cloudLoadPending = mode === "cloud" && !cloudDataLoaded;',
-    expectFailing: only(C_RESTORE),
+    expectFailing: only(C_RESTORE, G_RESTORE),
   },
   {
-    id: "S5  the cloud load shows 'No projects yet.'  [expect 5: C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN]",
+    id: "S5  the cloud load shows 'No projects yet.'  [expect 14: C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN, G_EMPTY_REFETCH, G_LATE_SETTINGS, G_LATE_FAILURE, L_FIRST_ENDED, L_REFETCH_ENDED, L_REFETCH_FAILS, L_NO_INVITATION, R_FAILS_LATE, R_ANSWERS_LATE]",
     file: PAGE,
     find: 'const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);',
     replace: "const cloudLoadPending = !storageReady;",
-    expectFailing: only(C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN),
+    expectFailing: only(
+      C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN,
+      G_EMPTY_REFETCH, G_LATE_SETTINGS, G_LATE_FAILURE,
+      L_FIRST_ENDED, L_REFETCH_ENDED, L_REFETCH_FAILS, L_NO_INVITATION, R_FAILS_LATE, R_ANSWERS_LATE,
+    ),
   },
   {
     // A dependency, not an old behaviour: the failed load no longer ends cloud sync's first load,
     // so the message stays up for good. Only C_FAILED fails a load.
     id: "D1  a failed cloud load never marks the load ended  [expect 1: C_FAILED]",
     file: SYNC,
-    find: "state after a transient load failure (pitfall #88).\n          useProjectStore.getState().setCloudDataLoaded(true);",
-    replace: "state after a transient load failure (pitfall #88).",
+    find:
+      "state after a transient load failure (pitfall #88) — once no\n          // re-fetch is still running (WI-113).\n          firstLoadEnded();",
+    replace: "state after a transient load failure (pitfall #88) — once no\n          // re-fetch is still running (WI-113).",
     expectFailing: only(C_FAILED),
   },
   {
@@ -129,10 +165,10 @@ export const mutations = [
     // fails too: its local-storage Dashboard, emptied by the Delete, shows the message instead of the
     // empty state, whose own New Project it counts. (v2's first run measured that sixth failure before
     // this set named it: "6 failing; named-match 5".)
-    id: "W1  the cloud flag without the storage mode  [expect 6: C_LOCAL, C_RESTORE, C_SIGN_OUT, C_SWITCH, C_SIGN_IN, T_FOCUS_NONE]",
+    id: "W1  the cloud flag without the storage mode  [expect 7: C_LOCAL, C_RESTORE, C_SIGN_OUT, C_SWITCH, C_SIGN_IN, T_FOCUS_NONE, O_NONE]",
     file: PAGE,
     find: 'const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);',
     replace: "const cloudLoadPending = !storageReady || !cloudDataLoaded;",
-    expectFailing: only(C_LOCAL, C_RESTORE, C_SIGN_OUT, C_SWITCH, C_SIGN_IN, T_FOCUS_NONE),
+    expectFailing: only(C_LOCAL, C_RESTORE, C_SIGN_OUT, C_SWITCH, C_SIGN_IN, T_FOCUS_NONE, O_NONE),
   },
 ];

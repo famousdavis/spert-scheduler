@@ -107,7 +107,7 @@ describe("useImportState — handleFileChange", () => {
     });
     expect(result.current.importState.step).toBe("error");
     if (result.current.importState.step !== "error") throw new Error();
-    expect(result.current.importState.error).toMatch(/still loading/i);
+    expect(result.current.importState.error).toBe("Projects can’t be imported until loading from cloud storage ends.");
   });
 
   it("no file selected (cancelled picker) → leaves state untouched", () => {

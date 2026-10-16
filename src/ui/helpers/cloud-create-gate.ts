@@ -28,6 +28,21 @@ export const CLOUD_CREATE_WAIT_NOTE = "A new project can’t be created until lo
 export const CLOUD_IMPORT_WAIT_NOTE = "Activities can’t be imported until loading from cloud storage ends.";
 
 /**
+ * Import Projects' line, under its greyed-out Choose File, for as long as an import would be refused: from the
+ * start of a cloud load until every load has ended and the user's settings are in (WI-113). The words it replaces
+ * said the projects were still loading — false once they were on screen and only the settings were still on their
+ * way — and promised that the button would come back (owner ruling, 2026-10-10).
+ */
+export const CLOUD_PROJECT_IMPORT_WAIT_NOTE = "Projects can’t be imported until loading from cloud storage ends.";
+
+/**
+ * The second line when a file is refused AS IT IS PICKED, under the note's own words — a file can reach Import
+ * Projects while Choose File is greyed out only from a file window opened before the loading began (owner ruling,
+ * 2026-10-10). The words it replaces asked the user to wait for "sync".
+ */
+export const CLOUD_PROJECT_IMPORT_PICK_AGAIN = "Choose the file again when loading has ended.";
+
+/**
  * The toast when Load Sample's build lands while the first cloud load runs, and nothing is added. A
  * toast and not the note: the user may have left the Dashboard, and the note, by then.
  */

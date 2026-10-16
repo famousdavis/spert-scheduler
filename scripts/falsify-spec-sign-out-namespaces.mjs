@@ -41,8 +41,6 @@ const C4 =
   "control: a session ended from outside the app clears the user's own data and still says so in the words it used before";
 // AuthProvider.test.tsx
 const TC2 = "TC-2: silent null transition AFTER a signed-in session fires a persistent toast";
-// ProjectsPage.cloud-loading.test.tsx
-const EMPTY_AFTER_SIGN_OUT = "signing out after a cloud load: no loading message, and the empty Dashboard says so";
 
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
@@ -121,12 +119,12 @@ ${GUARD}      new LocalStorageRepository().clearAll();
     expectFailing: only(N1, N5),
   },
   {
-    id: "S21 an ordinary sign-out clears the user's storage but not memory — their projects stay on screen  [expect 2: C2, the Dashboard's empty-after-sign-out test]",
+    id: "S21 an ordinary sign-out clears the user's storage but not memory — their projects still in memory when Firebase is told, the preferences not reset  [expect 1: C2]",
     file: STORAGE,
     find: "      useProjectStore.getState().clearAllData();\n",
     replace: "",
     also: { find: "      usePreferencesStore.getState().clearInMemory();\n", replace: "" },
-    expectFailing: only(C2, EMPTY_AFTER_SIGN_OUT),
+    expectFailing: only(C2),
   },
   // -- the words -------------------------------------------------------------------------------------------
   {

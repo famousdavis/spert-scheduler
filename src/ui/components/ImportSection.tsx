@@ -6,6 +6,7 @@ import type { Project } from "@domain/models/types";
 import type { ConflictInfo } from "@app/api/export-import-service";
 import { useImportState } from "@ui/hooks/use-import-state";
 import { importDoneBanner } from "@ui/helpers/import-banner";
+import { CLOUD_PROJECT_IMPORT_WAIT_NOTE } from "@ui/helpers/cloud-create-gate";
 
 interface ImportSectionProps {
   projects: Project[];
@@ -22,7 +23,7 @@ export function ImportSection({ projects }: ImportSectionProps) {
   const {
     importState,
     mode,
-    cloudDataLoaded,
+    importWaitsForCloud,
     applyPreferences,
     toggleApplyPreferences,
     fileInputRef,
@@ -33,7 +34,8 @@ export function ImportSection({ projects }: ImportSectionProps) {
     cancelImport,
   } = useImportState({ currentProjects: projects });
 
-  const cloudPending = mode === "cloud" && !cloudDataLoaded;
+  // WI-113: the confirm's own condition — greyed exactly while an import would be refused.
+  const cloudPending = importWaitsForCloud;
 
   return (
     <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
@@ -70,8 +72,7 @@ export function ImportSection({ projects }: ImportSectionProps) {
             className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3"
           >
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              Cloud projects are still loading. The button above will enable
-              when loading is complete.
+              {CLOUD_PROJECT_IMPORT_WAIT_NOTE}
             </p>
           </div>
         )}

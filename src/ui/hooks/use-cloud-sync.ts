@@ -31,14 +31,62 @@ import type { Unsubscribe } from "firebase/firestore";
 // created/destroyed; read by the sign-out cleanup registry so it can call
 // cancelPendingSaves() before Firebase credentials are revoked. The handle
 // is safe here because useCloudSync is invoked exactly once from Layout.
+// WI-117: a sign-out lets go of it early (endCloudSyncForSignOut, below).
 let currentDriver: FirestoreDriver | null = null;
 
 /**
  * Returns the current FirestoreDriver instance, or null if cloud mode is
- * inactive. Exposed for the sign-out cleanup registry; do not use from UI.
+ * inactive — or a sign-out has begun (WI-117, endCloudSyncForSignOut).
+ * Exposed for the sign-out cleanup registry; do not use from UI.
  */
 export function getCloudSyncDriver(): FirestoreDriver | null {
   return currentDriver;
+}
+
+/**
+ * WI-117: ends the running session's cloud sync as a sign-out begins. The sign-out cleanup calls it on every
+ * sign-out path, before it resets anything: the cleanup then resets the preferences in memory, and the preference
+ * subscription below wrote whatever it was handed — so signing out of a cloud session sent the DEFAULT preferences
+ * to be saved over the user's own (owner ruling, 2026-10-10). The subscription, and the invitation re-fetch, act
+ * only for the session that still holds this handle. The hook's own teardown still runs when the sign-out lands.
+ */
+export function endCloudSyncForSignOut(): void {
+  currentDriver = null;
+}
+
+/**
+ * WI-113: the cloud loads one session has started and not yet ended — its first load, and a re-fetch each time
+ * an invitation is claimed. The cloud data counts as loaded only when none is left (owner ruling, 2026-10-10):
+ * with one flag for both, whichever ended first said "loaded" while the other still ran, and an empty Dashboard
+ * said "No projects yet." before the invited project arrived. A new object for every session, so a load from a
+ * session that has ended can never change the count of the one that replaced it.
+ */
+interface CloudLoads {
+  running: number;
+}
+
+/** WI-113: counts one more load in, and returns the call that counts it out (cloudLoadEnd). */
+function cloudLoadStarted(loads: CloudLoads): () => void {
+  loads.running += 1;
+  useProjectStore.getState().setCloudDataLoaded(false);
+  return cloudLoadEnd(loads);
+}
+
+/**
+ * WI-113: the call that counts one load out — once, however often it is made. A load can reach two of its ends: its
+ * success callback can throw after counting it out, and its failure callback then counts it out again. The one flag
+ * the count replaced took a second "loaded" with no harm; counted out twice, a load would leave the count one below
+ * the loads still running, so that the data could count as loaded while a load still ran, and a later load that ran
+ * alone would never end the loading.
+ */
+function cloudLoadEnd(loads: CloudLoads): () => void {
+  let ended = false;
+  return () => {
+    if (ended) return;
+    ended = true;
+    loads.running -= 1;
+    if (loads.running === 0) useProjectStore.getState().setCloudDataLoaded(true);
+  };
 }
 
 /**
@@ -59,6 +107,8 @@ export function useCloudSync(): void {
   // handler no-ops — no repeat toasts, no repeat eviction/error churn.
   // Reset alongside the other session refs on driver (re)initialization.
   const notifiedFutureVersionIdsRef = useRef<Set<string>>(new Set());
+  // WI-113: the running session's loads (CloudLoads, above); null while cloud sync is off.
+  const loadsRef = useRef<CloudLoads | null>(null);
 
   const isCloudActive = mode === "cloud" && user !== null;
 
@@ -217,6 +267,10 @@ export function useCloudSync(): void {
       // Mirror initialLoadDoneRef into reactive store state so the UI can
       // gate the file picker on cloud-data hydration (pitfall #88/#89).
       useProjectStore.getState().setCloudDataLoaded(false);
+      // WI-113: this session's loads, its first load counted from the start.
+      const loads: CloudLoads = { running: 1 };
+      loadsRef.current = loads;
+      const firstLoadEnded = cloudLoadEnd(loads);
       let cancelled = false;
       // 2 s after the initial load settles, allow error toasts. Long enough
       // for write-forward migration saves to complete (or fail and be
@@ -293,7 +347,8 @@ export function useCloudSync(): void {
 
           initialLoadDoneRef.current = true;
           useProjectStore.getState().setCloudSyncReady(true);
-          useProjectStore.getState().setCloudDataLoaded(true);
+          // WI-113: loaded only if no re-fetch is still running.
+          firstLoadEnded();
 
           // Set up real-time listeners for all loaded projects
           if (!cancelled) {
@@ -309,8 +364,9 @@ export function useCloudSync(): void {
           initialLoadDoneRef.current = true;
           useProjectStore.getState().setCloudSyncReady(true);
           // Defensive flip-to-true so the UI doesn't wedge on the disabled
-          // state after a transient load failure (pitfall #88).
-          useProjectStore.getState().setCloudDataLoaded(true);
+          // state after a transient load failure (pitfall #88) — once no
+          // re-fetch is still running (WI-113).
+          firstLoadEnded();
           openErrorGate();
         });
 
@@ -333,6 +389,7 @@ export function useCloudSync(): void {
         driver.dispose();
         driverRef.current = null;
         currentDriver = null;
+        loadsRef.current = null;
         cleanupListeners();
         // v0.50.1: cloud-sourced load errors describe state this client can
         // no longer observe once sync stops — clear them so they don't linger
@@ -354,6 +411,7 @@ export function useCloudSync(): void {
         currentDriver = null;
       }
       initialLoadDoneRef.current = false;
+      loadsRef.current = null;
       useProjectStore.getState().setCloudSyncReady(false);
       useProjectStore.getState().setCloudDataLoaded(false);
       cleanupListeners();
@@ -451,8 +509,11 @@ export function useCloudSync(): void {
     if (!isCloudActive) return;
 
     return usePreferencesStore.subscribe((state) => {
-      if (initialLoadDoneRef.current && driverRef.current) {
-        driverRef.current.savePreferences(state.preferences);
+      const driver = driverRef.current;
+      // WI-117: only while this session still holds the shared handle — a sign-out lets go of it before the
+      // cleanup resets the preferences (endCloudSyncForSignOut).
+      if (initialLoadDoneRef.current && driver && driver === currentDriver) {
+        driver.savePreferences(state.preferences);
       }
     });
   }, [isCloudActive]);
@@ -499,15 +560,24 @@ export function useCloudSync(): void {
   // Re-attaches `_owner` as `owner` (same pattern as the initial-load path).
   const handleModelsChanged = useCallback(() => {
     const driver = getCloudSyncDriver();
-    if (!driver || mode !== "cloud") return;
+    const loads = loadsRef.current;
+    if (!driver || !loads || mode !== "cloud") return;
     // Flip cloudDataLoaded false→true around the refresh so an open import
     // preview re-validates against the post-refresh project list (v8 / v7 C-1).
     // Without this, a peer-driven model refresh leaves the preview silently
     // stale because the cloud-invalidation effect is gated on false→true.
-    useProjectStore.getState().setCloudDataLoaded(false);
+    // WI-113: counted with the session's other loads — true again only when none is left.
+    const refetchEnded = cloudLoadStarted(loads);
     driver
       .loadAll()
       .then(({ projects: rawProjects, errors }) => {
+        // WI-113: an answer from a session that has ended — a sign-out, a switch to local storage, a new sign-in —
+        // changes nothing. The first load stops at the hook's teardown (its `cancelled`); this check stops the
+        // re-fetch earlier at a sign-out — at the sign-out cleanup, which lets go of the handle — and at the teardown
+        // otherwise. This session's mark is the handle. Without the check the answer replaced the list of whatever
+        // came next and rewrote that namespace's index: after a sign-out, this browser's own projects vanished from
+        // the Dashboard (owner ruling, 2026-10-10).
+        if (getCloudSyncDriver() !== driver) return;
         const projects = rawProjects.map(({ _owner, _members, ...p }) => ({
           ...p,
           owner: _owner,
@@ -536,7 +606,7 @@ export function useCloudSync(): void {
           );
           // Both exits report errors; setProjects never ran on this one.
           useProjectStore.getState().setCloudLoadErrors(errors);
-          useProjectStore.getState().setCloudDataLoaded(true);
+          refetchEnded();
           return;
         }
         setProjects(projects);
@@ -546,12 +616,15 @@ export function useCloudSync(): void {
           // Idempotent — unsubscribersRef.has() guards re-subscription.
           addProjectListener(project.id);
         }
-        useProjectStore.getState().setCloudDataLoaded(true);
+        refetchEnded();
       })
       .catch((err) => {
+        // WI-113: a failure from an ended session must not mark the NEXT session's data loaded.
+        if (getCloudSyncDriver() !== driver) return;
         console.error("spert:models-changed re-fetch failed:", err);
-        // Defensive flip-to-true so the UI doesn't wedge on the disabled state.
-        useProjectStore.getState().setCloudDataLoaded(true);
+        // Defensive flip-to-true so the UI doesn't wedge on the disabled state
+        // — once no other load is still running (WI-113).
+        refetchEnded();
       });
   }, [mode, addProjectListener, setProjects, removeProjectLocally]);
 
