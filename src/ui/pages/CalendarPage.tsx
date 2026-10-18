@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { CalendarEditor } from "@ui/components/CalendarEditor";
+import { isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
 import { WorkDayOverrideEditor } from "@ui/components/WorkDayOverrideEditor";
 import { WEEKDAY_LABELS } from "@domain/models/types";
 
@@ -17,7 +18,8 @@ export function CalendarPage() {
   const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
 
   useEffect(() => {
-    if (projects.length === 0) {
+    // WI-113: not while a cloud session's first load runs (owner ruling, 2026-10-16).
+    if (projects.length === 0 && !isCloudCreateBlocked()) {
       loadProjects();
     }
   }, [projects.length, loadProjects]);

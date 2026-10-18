@@ -13,7 +13,10 @@
 // not merely a non-zero exit: the runner prints ✔ when ANY named test fails. Each expected set was
 // written before the run that first included it — the later straws (S28–S36), and the places of the
 // tests added with them (A13–A19) in the earlier straws' sets, each before its own first run — and
-// never inferred from a run.
+// never inferred from a run, except S10's: re-derived from its first run once WI-113 held back the
+// pages' loads by the same gate (owner ruling, 2026-10-16), then extended by name with four tests of the
+// project page's states and of the switches of storage while signed in (owner ruling, 2026-10-17), from a
+// run of those tests' file with the straw applied.
 //
 // NOT HERE, on purpose — five straws that cannot fail any test, measured as survivors. Three were run
 // once by hand: removing Clone's own check at commit (the button is natively disabled, so no click
@@ -84,12 +87,40 @@ const I_LATER_REFETCH =
 const I_CONSTRUCTED =
   "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Choose File is greyed out with the note, and the confirm refuses";
 // — the Dashboard
+// ProjectsPage.cloud-sign-in-display.test.tsx (WI-113)
+const E_EMPTY =
+  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Choose File comes back";
 const L_EMPTY_KEPT =
-  "an empty re-fetch answer while this browser's signed-out projects are listed ends its part too: when the first load ends, Choose File comes back";
+  "an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Choose File comes back";
 // ProjectsPage.test.tsx and ProjectsPage.tile-delete.test.tsx — local storage, where nothing may be greyed
 const PP_TOAST = "keeps the sample-load toast up for 8 seconds, not the 3-second default";
 const PP_FOCUS = "confirming removes it and focus lands on New Project, not <body>";
 const TD_FOCUS_NONE = "when no tile is left, focus moves to the New Project button at the top";
+const TD_DELETE = "Delete removes the tile and the Dashboard stays";
+const TD_CANCEL = "Cancel closes the confirmation and the Dashboard stays, the tile with it";
+const TD_TEXT = "a click on the confirmation's own text opens nothing, and the confirmation stays open";
+const TD_ENTER_DELETE =
+  "Enter on Delete removes the tile, the Dashboard stays, and focus moves to the tile that takes its place";
+const TD_SPACE_DELETE = "Space on Delete removes the tile and the Dashboard stays";
+const TD_ENTER_CANCEL =
+  "Enter on Cancel, where the confirmation opens, keeps the Dashboard and the tile, and focus returns to the trash";
+const TD_FOCUS_NEXT = "after a Delete, focus moves to the next tile — the one that takes the deleted tile's place";
+const TD_FOCUS_PREV = "when the last tile is deleted, focus moves to the tile before it";
+const TD_OPEN = "control: the tile's own name, and the tile itself, still open the project";
+// AuthProvider.sign-out-namespaces.test.tsx — this browser's signed-out projects after a sign-out
+const N_KEEPS = "keeps this browser's signed-out projects and preferences, in storage, in memory and on screen";
+const N_DURING =
+  "a session that ends during the sign-in, before the app follows the user, keeps this browser's signed-out projects and the user's own, and says the session ended";
+// ProjectsPage.cloud-sign-in-display.test.tsx, the sign-in display's pin and StorageProvider.change-of-user.test.tsx
+// (WI-113) — a Dashboard that first shows this browser's signed-out projects
+const D_FRESH =
+  "a sign-in from the signed-out state: the signed-out projects leave the Dashboard as the sign-in is recognised";
+const D_C_LOCAL =
+  "control: signed in with local storage chosen, the Dashboard keeps this browser's signed-out projects, as before";
+const K_SIGN_IN_DISPLAY =
+  "while a cloud sign-in's first load runs, the project list holds none of this browser's signed-out projects, nor the user's copy in this browser, and the Dashboard says the projects are loading";
+const U_LOCAL =
+  "with local storage chosen, the Dashboard then shows this browser's signed-out projects, not the first user's";
 // ConnectAiPanel.test.tsx
 const P1 = "the title row's Close button closes the panel, and the AI session stays";
 const P2 = "Disconnect asks first: nothing is ended until the question is answered";
@@ -99,6 +130,16 @@ const P5 = "confirming ends the session once, then closes the panel";
 const P6 = "control: Esc closes the panel, and the AI session stays";
 const P7 = "control: a press outside the panel closes it, and the AI session stays";
 
+// ProjectsPage.cloud-sign-in-display.test.tsx — the project page's states and the switches of storage while signed in
+// (owner ruling, 2026-10-17)
+const N_LOCAL_PAGE =
+  "the page of one of this browser's signed-out projects, open as a cloud sign-in is recognised: the Dashboard's loading line while the load runs — not a line about that project — then today's two lines";
+const N_UNREADABLE =
+  "signed out, the page of a project this browser keeps but cannot read gives the signed-out advice, which holds for it too — not that it may have been deleted";
+const L_SWITCH =
+  "signed in with local storage chosen and this browser's projects on show, a switch to cloud storage empties the list until the first load ends";
+const L_SWITCH_EMPTY =
+  "the same switch, the cloud listing no projects: this browser's projects are not kept on show in cloud storage";
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /** Matches exactly these test titles, as the verbose reporter prints them. */
@@ -144,14 +185,14 @@ export const mutations = [
   },
   // -- WI-112: the flag ---------------------------------------------------------------------------
   {
-    id: "S7  a load that succeeds never ends it  [expect 20: A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19, I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT]",
+    id: "S7  a load that succeeds never ends it  [expect 21: A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19, I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT, E_EMPTY]",
     file: SYNC,
     find:
       "initialLoadDoneRef.current = true;\n          useProjectStore.getState().setCloudSyncReady(true);\n          // WI-113: loaded only if no re-fetch is still running.\n          firstLoadEnded();",
     replace: "initialLoadDoneRef.current = true;\n          // WI-113: loaded only if no re-fetch is still running.\n          firstLoadEnded();",
     expectFailing: only(
       A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19,
-      I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT,
+      I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT, E_EMPTY,
     ),
   },
   {
@@ -188,14 +229,23 @@ export const mutations = [
     expectFailing: only(A14),
   },
   {
+    // Extended by name with tests added later (owner ruling, 2026-10-17): the gate without the storage mode also holds
+    // back a project page's load and the Dashboard's while no cloud session runs, so the projects they read first are
+    // not listed.
     // The other wrong design: the flag alone is false in local storage too, so local storage is greyed.
     // (Until PP_TOAST had a limit longer than its settle()'s 15-s deadline, it TIMED OUT here and its
     // still-running loop failed anywhere from none to six of the tests after it — measured 8, 13, 14.)
-    id: "S10 WRONG DESIGN: the gate without the storage mode  [expect 10: A6, A7, A8, A10, A11, A15, A16, PP_TOAST, PP_FOCUS, TD_FOCUS_NONE]",
+    // Re-derived from its first run once WI-113 held back the pages' loads by this same gate (owner ruling, 2026-10-16):
+    // shut in local storage too, it also stops the Dashboard loading this browser's projects there, so the tests that
+    // wait for that load fail with it. That run read "25 failing; named-match 10" before this set named the other
+    // fifteen.
+    id: "S10 WRONG DESIGN: the gate without the storage mode  [expect 29: A6, A7, A8, A10, A11, A15, A16, PP_TOAST, PP_FOCUS, TD_FOCUS_NONE, TD_DELETE, TD_CANCEL, TD_TEXT, TD_ENTER_DELETE, TD_SPACE_DELETE, TD_ENTER_CANCEL, TD_FOCUS_NEXT, TD_FOCUS_PREV, TD_OPEN, N_KEEPS, N_DURING, D_FRESH, D_C_LOCAL, K_SIGN_IN_DISPLAY, U_LOCAL, N_LOCAL_PAGE, N_UNREADABLE, L_SWITCH, L_SWITCH_EMPTY]",
     file: GATE,
     find: "return s.cloudSyncActive && !s.cloudSyncReady;",
     replace: "return !s.cloudSyncReady;",
-    expectFailing: only(A6, A7, A8, A10, A11, A15, A16, PP_TOAST, PP_FOCUS, TD_FOCUS_NONE),
+        expectFailing: only(
+      A6, A7, A8, A10, A11, A15, A16, PP_TOAST, PP_FOCUS, TD_FOCUS_NONE, TD_DELETE, TD_CANCEL, TD_TEXT, TD_ENTER_DELETE, TD_SPACE_DELETE, TD_ENTER_CANCEL, TD_FOCUS_NEXT, TD_FOCUS_PREV, TD_OPEN, N_KEEPS, N_DURING, D_FRESH, D_C_LOCAL, K_SIGN_IN_DISPLAY, U_LOCAL, N_LOCAL_PAGE, N_UNREADABLE, L_SWITCH, L_SWITCH_EMPTY,
+    ),
   },
   {
     // Either reset alone covers for the other; only together do they decide a second sign-in.

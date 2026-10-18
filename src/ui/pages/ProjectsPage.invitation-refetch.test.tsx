@@ -204,6 +204,7 @@ const EMPTY = "No projects yet.";
 const IMPORT_WAIT_NOTE = "Projects can’t be imported until loading from cloud storage ends.";
 const PICK_AGAIN = "Choose the file again when loading has ended.";
 const IMPORT_REFUSED = "Cloud data is still loading. Please wait and try again.";
+const LOAD_FAILED = "Scheduler couldn’t finish loading from cloud storage, so some projects may be missing here. Reload the page to try again.";
 const ALPHA = "Local Alpha";
 const BETA = "Local Beta";
 const HEART = "Heart of Gold Refit";
@@ -450,7 +451,7 @@ describe("WI-113: the Dashboard waits for every cloud load of the sign-in", () =
     expect(screen.queryByText(LOADING)).toBeNull();
   });
 
-  it("a re-fetch that fails ends its part: with the first load ended empty, the Dashboard then says there are no projects", async () => {
+  it("a re-fetch that fails ends its part: with the first load ended empty, the Dashboard then says the load failed, not that there are no projects", async () => {
     renderApp();
     await invitedSignIn();
     await loadEnds("first", []);
@@ -458,7 +459,9 @@ describe("WI-113: the Dashboard waits for every cloud load of the sign-in", () =
 
     await loadFails("refetch");
 
-    expect(screen.getByText(EMPTY)).toBeInTheDocument();
+    // WI-113: a failed load is said, and "No projects yet." is not (owner ruling, 2026-10-16).
+    expect(screen.getByRole("alert")).toHaveTextContent(LOAD_FAILED);
+    expect(screen.queryByText(EMPTY)).toBeNull();
     expect(screen.queryByText(LOADING)).toBeNull();
   });
 
@@ -476,14 +479,15 @@ describe("WI-113: the Dashboard waits for every cloud load of the sign-in", () =
     expect(useProjectStore.getState().cloudDataLoaded).toBe(true);
   });
 
-  it("an empty re-fetch answer while this browser's signed-out projects are listed ends its part too: when the first load ends, Choose File comes back", async () => {
+  it("an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Choose File comes back", async () => {
     seedSignedOutProjects([ALPHA]);
     renderApp();
     await settle();
     await press("Import Projects");
     await invitedSignIn();
 
-    // The list holds this browser's signed-out project, on show during the sign-in, so the empty answer keeps it.
+    // Since WI-113 this browser's signed-out project is not on show during the sign-in, so the empty answer finds an
+    // empty list; it ends its part all the same. (The guard's own exit is reached in the cloud sign-in display tests.)
     await loadEnds("refetch", []);
     await loadEnds("first", [cloudProject(HEART)]);
 
@@ -725,10 +729,10 @@ describe("WI-113: a re-fetch answer from a session that has ended changes nothin
   });
 });
 
-// -- the sign-in display, which this change leaves as it was -------------------------------------------------
+// -- the sign-in display --------------------------------------------------------------------------------------
 
-describe("WI-113 leaves the cloud sign-in display as it was — a known defect, kept here so a change to it is seen", () => {
-  it("known defect, unchanged: while a cloud sign-in's first load runs, the project list still holds this browser's signed-out projects, not the user's", async () => {
+describe("WI-113: what a cloud sign-in shows while its first load runs — kept here so a change to it is seen", () => {
+  it("while a cloud sign-in's first load runs, the project list holds none of this browser's signed-out projects, nor the user's copy in this browser, and the Dashboard says the projects are loading", async () => {
     seedSignedOutProjects([ALPHA, BETA]);
     new LocalStorageRepository(ARTHUR.uid).save(createProject("Cached Gamma", "2026-10-05"));
     renderApp();
@@ -738,6 +742,8 @@ describe("WI-113 leaves the cloud sign-in display as it was — a known defect, 
     await authReports(ARTHUR);
 
     expect(screen.getByTestId("state").textContent).toBe("signed in, cloud storage");
-    expect(storeNames()).toEqual([ALPHA, BETA]);
+    // Owner ruling, 2026-10-16: from the moment the sign-in is recognised until the first load ends, nothing.
+    expect(storeNames()).toEqual([]);
+    expect(screen.getByText(LOADING)).toBeInTheDocument();
   });
 });

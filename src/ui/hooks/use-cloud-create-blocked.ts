@@ -28,7 +28,8 @@ import { useProjectStore, type ProjectStore } from "@ui/hooks/use-project-store"
  * cloud, and the re-fetch's answer then takes it off the list until the projects are next loaded — left, by
  * owner ruling (2026-10-10), to the sign-in design that follows.
  * ⚠️ Cloud storage only (`cloudSyncActive`). Before a remembered sign-in is recognised the app is in local
- * storage, and a project created then is a local one; that moment is left as it was (WI-113 decides it).
+ * storage, and a project created then is a local one; that moment is left as it is (owner ruling, 2026-10-16).
+ * The same gate keeps the pages from loading the project list while the first load runs (WI-113).
  */
 function cloudCreateBlocked(s: ProjectStore): boolean {
   return s.cloudSyncActive && !s.cloudSyncReady;
