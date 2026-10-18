@@ -187,8 +187,8 @@ import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useNotificationStore } from "@ui/hooks/use-notification-store";
 import { useConfirmStore } from "@ui/hooks/use-confirm-store";
 import { ConfirmHost } from "@ui/components/ConfirmHost";
-import { setStorageNamespace, LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
-import { createProject, createActivity, addActivityToScenario } from "@app/api/project-service";
+import { setStorageNamespace } from "@infrastructure/persistence/local-storage-repository";
+import { createProject } from "@app/api/project-service";
 import { serializeExport } from "@app/api/export-import-service";
 import { ProjectsPage } from "./ProjectsPage";
 import { SettingsPage } from "./SettingsPage";
@@ -219,16 +219,6 @@ const ARTHUR_INVITED: FakeFirebaseUser = { ...ARTHUR, emailVerified: true }; // 
 
 function cloudProject(name: string): CloudProject {
   return { ...createProject(name, "2026-10-05"), _owner: ARTHUR.uid, _members: { [ARTHUR.uid]: "owner" } };
-}
-
-/** A project the app cannot load: its one activity's name is a character over the limit. */
-function unloadableProject(): Project {
-  const project = createProject("Krikkit Ledger", "2026-10-05");
-  const scenario = project.scenarios[0];
-  if (!scenario) throw new Error("a new project has no scenario");
-  const activity = { ...createActivity("Survey the site", scenario.settings), name: "x".repeat(201) };
-  project.scenarios[0] = addActivityToScenario(scenario, activity);
-  return project;
 }
 
 /** Layout's call, without the rest of Layout. */
@@ -300,6 +290,15 @@ async function cloudLoadEnds(projects: CloudProject[]) {
   if (!load) throw new Error("no cloud load is pending");
   await act(async () => {
     load.resolve({ projects, errors: [] });
+  });
+}
+
+/** The FIRST load ends with these projects and these projects it could not read. */
+async function cloudLoadEndsWithErrors(projects: CloudProject[], errors: LoadError[]) {
+  const load = edges.loads.shift();
+  if (!load) throw new Error("no cloud load is pending");
+  await act(async () => {
+    load.resolve({ projects, errors });
   });
 }
 
@@ -843,13 +842,18 @@ describe("WI-112: while New Project is greyed out, a Delete that would send focu
   });
 
   it("while New Project is greyed out, deleting a project that could not be loaded moves focus to the note, and on to New Project when the load ends", async () => {
-    // Stored in this browser's signed-out storage, which the Dashboard reads on its first render: the
-    // recovery card lists it, and stays while the cloud load runs.
-    new LocalStorageRepository().save(unloadableProject());
+    // A project in cloud storage the first load could not read: the recovery card lists it while the user's
+    // settings are still loading, so the load has not ended. (WI-113: this browser's signed-out projects, the
+    // card's former source here, are no longer shown during a cloud load — owner ruling, 2026-10-16.)
+    edges.holdPrefs = true;
     renderApp("cloud");
-    await screen.findByText(UNLOADABLE);
     await authResolves(ARTHUR);
     expect(edges.loads).toHaveLength(1);
+    await cloudLoadEndsWithErrors([], [
+      { projectId: "krikkit-ledger", projectName: "Krikkit Ledger", type: "validation", message: "Invalid data", source: "cloud" },
+    ]);
+    await screen.findByText(UNLOADABLE);
+    expect(edges.prefLoads).toHaveLength(1);
     expectUnavailable(headerNewProject());
 
     fireEvent.click(screen.getByTitle("Delete corrupted project"));
@@ -861,7 +865,7 @@ describe("WI-112: while New Project is greyed out, a Delete that would send focu
     expect(screen.queryByText(UNLOADABLE)).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("note"));
 
-    await cloudLoadEnds([]);
+    await preferencesEnd();
     await settleFocus();
     expect(screen.queryByRole("note")).toBeNull();
     expectAvailable(headerNewProject());

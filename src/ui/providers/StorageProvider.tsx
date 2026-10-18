@@ -50,6 +50,19 @@ const StorageContext = createContext<StorageContextValue | null>(null);
 
 const STORAGE_MODE_KEY = "spert:storage-mode";
 
+/**
+ * What a sign-out clears of the signed-in user's: the project list and settings in memory, and this browser's copy of
+ * their projects, scenario and section memory and settings — the ACTIVE namespace's, which must be that user's.
+ */
+function clearSignedInUserData(): void {
+  useProjectStore.getState().clearAllData();
+  new LocalStorageRepository().clearAll();
+  clearAllLastScenarios();
+  clearAllCollapsedSections();
+  clearPreferences();
+  usePreferencesStore.getState().clearInMemory();
+}
+
 function getPersistedMode(): StorageMode {
   const stored = localStorage.getItem(STORAGE_MODE_KEY);
   return stored === "cloud" ? "cloud" : "local";
@@ -94,6 +107,19 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authLoading) return;
     const uid = user?.uid ?? null;
+    const followed = followedUidRef.current;
+    // WI-113: a different user, with no sign-out between — a tab that wakes to find someone else signed in — is the
+    // first user's sign-out, then the second user's sign-in (owner ruling, 2026-10-16): the first user's data is
+    // cleared HERE, while their storage is still the active one, and this browser's signed-out settings come back, as
+    // at a sign-out — the second user's first cloud load then applies its own (useCloudSync). The second session is
+    // already running when this runs, so it is NOT ended here: the sign-out cleanup would let go of its handle. In local
+    // storage, this browser's signed-out projects come back too; in cloud storage the list stays empty for the load.
+    if (followed !== null && uid !== null && followed !== uid) {
+      clearSignedInUserData();
+      setStorageNamespace("local");
+      usePreferencesStore.getState().loadPreferences();
+      if (persistedMode !== "cloud" || !isFirebaseAvailable) useProjectStore.getState().loadProjects();
+    }
     setStorageNamespace(uid ?? "local");
     // WI-113: a sign-out leaves the project list empty and the settings at Scheduler's defaults — the cleanup reset
     // both while the namespace was still the user's, and a page that re-reads them did so then, from the namespace
@@ -107,7 +133,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       usePreferencesStore.getState().loadPreferences();
     }
     followedUidRef.current = uid;
-  }, [authLoading, user]);
+  }, [authLoading, user, persistedMode]);
 
   // Register the sign-out cleanup function. AuthProvider invokes this via
   // runSignOutCleanup() before firebaseSignOut. Order matters:
@@ -136,12 +162,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       getCloudSyncDriver()?.cancelPendingSaves();
       endCloudSyncForSignOut();
       if (getActiveStorageNamespace() === "local") return;
-      useProjectStore.getState().clearAllData();
-      new LocalStorageRepository().clearAll();
-      clearAllLastScenarios();
-      clearAllCollapsedSections();
-      clearPreferences();
-      usePreferencesStore.getState().clearInMemory();
+      clearSignedInUserData();
     });
     return () => clearSignOutCleanup();
   }, []);

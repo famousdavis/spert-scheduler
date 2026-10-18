@@ -104,26 +104,20 @@ export const mutations = [
   {
     id: "S5  memory cleared even when nothing of a signed-in user's is on show  [expect 2: N1, N5]",
     file: STORAGE,
-    find: `${GUARD}      useProjectStore.getState().clearAllData();
-      new LocalStorageRepository().clearAll();
-      clearAllLastScenarios();
-      clearAllCollapsedSections();
-      clearPreferences();
-      usePreferencesStore.getState().clearInMemory();`,
+    find: `${GUARD}      clearSignedInUserData();
+`,
     replace: `      useProjectStore.getState().clearAllData();
       usePreferencesStore.getState().clearInMemory();
-${GUARD}      new LocalStorageRepository().clearAll();
-      clearAllLastScenarios();
-      clearAllCollapsedSections();
-      clearPreferences();`,
+${GUARD}      clearSignedInUserData();
+`,
     expectFailing: only(N1, N5),
   },
   {
     id: "S21 an ordinary sign-out clears the user's storage but not memory — their projects still in memory when Firebase is told, the preferences not reset  [expect 1: C2]",
     file: STORAGE,
-    find: "      useProjectStore.getState().clearAllData();\n",
+    find: "  useProjectStore.getState().clearAllData();\n",
     replace: "",
-    also: { find: "      usePreferencesStore.getState().clearInMemory();\n", replace: "" },
+    also: { find: "  usePreferencesStore.getState().clearInMemory();\n", replace: "" },
     expectFailing: only(C2),
   },
   // -- the words -------------------------------------------------------------------------------------------

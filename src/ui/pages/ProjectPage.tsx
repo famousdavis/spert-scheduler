@@ -64,6 +64,10 @@ import { ConnectAiPanel } from "@ui/components/ConnectAI/ConnectAiPanel";
 import type { AiFeedItem } from "@ui/components/ConnectAI/AiActivityFeed";
 import { AI_CONSENT_KEY, AI_SESSION_ID_KEY, AI_CONSENT_VERSION } from "@app/ai-connectivity-constants";
 import type { AiOpResult } from "@app/api/ai-batch-service";
+import { isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
+import { useAuth } from "@ui/providers/AuthProvider";
+import { useStorage } from "@ui/providers/StorageProvider";
+import { CLOUD_LOADING_LINE, PROJECT_LOAD_FAILED_LINE, PROJECT_SIGNED_OUT_LINE } from "@ui/helpers/cloud-load-words";
 
 /**
  * ⚠️ ONE empty array for "no schedule", shared across renders. `milestoneBuffers` is held while a
@@ -84,6 +88,60 @@ const NO_SCENARIOS: Scenario[] = [];
 
 /** The region the activity grid's bar shows and hides (v0.71.0). */
 const ACTIVITY_GRID_BODY_ID = "activity-grid-body";
+
+/**
+ * WI-113: what the page says when its project is not in the list, in this order (owner rulings, 2026-10-16 and
+ * 2026-10-17). While a cloud load is pending — the Dashboard's own condition for its loading line — the Dashboard's
+ * loading line, in place of both lines. After a failed cloud load of the session, with none pending — the Dashboard's
+ * own condition for its failure line — that the load failed, in place of both. While no one is signed in, that it is
+ * no longer available, with advice that holds for any project. Otherwise, as before, that it may have been deleted or
+ * is no longer shared.
+ */
+function UnavailableLines() {
+  const { user } = useAuth();
+  const { mode, storageReady } = useStorage();
+  const cloudDataLoaded = useProjectStore((s) => s.cloudDataLoaded);
+  const cloudLoadFailed = useProjectStore((s) => s.cloudLoadFailed);
+  const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);
+  if (cloudLoadPending) {
+    return (
+      <p role="status" className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        {CLOUD_LOADING_LINE}
+      </p>
+    );
+  }
+  if (cloudLoadFailed) {
+    return (
+      <p role="alert" className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        {PROJECT_LOAD_FAILED_LINE}
+      </p>
+    );
+  }
+  return (
+    <>
+      <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        This project is no longer available.
+      </p>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        {user ? "It may have been deleted or is no longer shared with you." : PROJECT_SIGNED_OUT_LINE}
+      </p>
+    </>
+  );
+}
+
+function UnavailableProject({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="text-center py-12">
+      <UnavailableLines />
+      <button
+        onClick={onBack}
+        className="mt-4 text-blue-600 hover:underline text-sm"
+      >
+        Back to projects
+      </button>
+    </div>
+  );
+}
 
 /**
  * Banner copy for a schedule-computation error. isCalendarError (set via the
@@ -164,7 +222,8 @@ export function ProjectPage() {
   const [addingDependencyFromId, setAddingDependencyFromId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (projects.length === 0) {
+    // WI-113: not while a cloud session's first load runs (owner ruling, 2026-10-16).
+    if (projects.length === 0 && !isCloudCreateBlocked()) {
       loadProjects();
     }
   }, [projects.length, loadProjects]);
@@ -751,22 +810,7 @@ export function ProjectPage() {
   );
 
   if (!project) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-          This project is no longer available.
-        </p>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          It may have been deleted or is no longer shared with you.
-        </p>
-        <button
-          onClick={() => navigate("/projects")}
-          className="mt-4 text-blue-600 hover:underline text-sm"
-        >
-          Back to projects
-        </button>
-      </div>
-    );
+    return <UnavailableProject onBack={() => navigate("/projects")} />;
   }
 
   const cloneSource = project.scenarios.find((s) => s.id === cloneSourceId);

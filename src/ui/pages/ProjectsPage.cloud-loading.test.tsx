@@ -120,6 +120,7 @@ import { ProjectsPage } from "./ProjectsPage";
 
 const LOADING = "Loading your projects from cloud storage…";
 const EMPTY = "No projects yet.";
+const LOAD_FAILED = "Scheduler couldn’t finish loading from cloud storage, so some projects may be missing here. Reload the page to try again.";
 
 const ARTHUR: FakeFirebaseUser = {
   uid: "uid-arthur",
@@ -291,7 +292,10 @@ describe("WI-109: the Dashboard says the user's cloud projects are loading, not 
     expectLoading();
 
     await cloudLoadFails();
-    await waitFor(() => expectEmpty());
+    // WI-113: the loading message ends, and the failure is said — not "No projects yet." (owner ruling, 2026-10-16).
+    await waitFor(() => expect(screen.queryByText(LOADING)).toBeNull());
+    expect(screen.getByRole("alert")).toHaveTextContent(LOAD_FAILED);
+    expect(screen.queryByText(EMPTY)).toBeNull();
   });
 
   it("signing out after a cloud load: no loading message, and the empty Dashboard says so", async () => {

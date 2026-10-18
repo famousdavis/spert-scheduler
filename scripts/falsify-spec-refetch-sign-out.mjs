@@ -16,10 +16,13 @@
 // option of the ruling), one count shared by every session, the handle check on the success callback only or on the
 // storage mode, the re-load without the handle check, the re-load where the storage is still the user's, the re-load
 // only after a session in cloud storage, the re-load at every change of user, the note's words without the button's
-// condition, and ending the cloud sync after the preferences are reset. Each straw names
-// EXACTLY the tests it must fail, and no others — read "K failing; named-match K", not merely a non-zero exit: the
-// runner prints ✔ when ANY named test fails. Each expected set was written before the run that first included it,
-// never inferred from a run.
+// condition, and ending the cloud sync after the preferences are reset. Each straw names EXACTLY the tests it must
+// fail, and no others — read "K failing; named-match K", not merely a non-zero exit: the runner prints ✔ when ANY named
+// test fails. Each expected set was written before the run that first included it, never inferred from a run — except
+// four, corrected by name from their first run with WI-113's sign-in display tests (owner ruling, 2026-10-16), each
+// with its reason beside it: S2's, S3's, S6's and S7's. Five — S2's, S3's, S8's, S9's and S20's — were then extended by
+// name with the tests of the project page's states and of the switches of storage while signed in (owner ruling,
+// 2026-10-17), from a run of those tests' file with each straw applied, each with its reason beside it.
 //
 // NOT HERE, on purpose:
 // - Ending the cloud sync AFTER WI-118's guard instead of before it (the other place the call could go). Measured: the
@@ -46,9 +49,9 @@ const L_FIRST_ENDED =
 const L_REFETCH_ENDED =
   "with the re-fetch ended empty and the first load still running, the Dashboard says the projects are loading until the first load ends too";
 const L_REFETCH_FAILS =
-  "a re-fetch that fails ends its part: with the first load ended empty, the Dashboard then says there are no projects";
+  "a re-fetch that fails ends its part: with the first load ended empty, the Dashboard then says the load failed, not that there are no projects";
 const L_EMPTY_KEPT =
-  "an empty re-fetch answer while this browser's signed-out projects are listed ends its part too: when the first load ends, Choose File comes back";
+  "an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Choose File comes back";
 const L_ENDED_TWICE =
   "constructed — the first load's success callback throws after the load has ended, so its failure callback ends it again: a later re-fetch still ends the loading";
 // — Import Projects
@@ -74,9 +77,55 @@ const R_ANSWERS_LATE =
   "a re-fetch that answers after a sign-out neither ends the next sign-in's load nor puts its projects on screen";
 const R_NEXT_SESSION =
   "a re-fetch still running at a sign-out does not hold up the next sign-in: its one load ends the loading";
-// — the cloud sign-in's display, left as it was
+// — what a cloud sign-in shows while its first load runs (WI-113, owner ruling, 2026-10-16)
 const K_SIGN_IN_DISPLAY =
-  "known defect, unchanged: while a cloud sign-in's first load runs, the project list still holds this browser's signed-out projects, not the user's";
+  "while a cloud sign-in's first load runs, the project list holds none of this browser's signed-out projects, nor the user's copy in this browser, and the Dashboard says the projects are loading";
+// ProjectsPage.cloud-sign-in-display.test.tsx
+const E_EMPTY =
+  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Choose File comes back";
+const D_AGAIN =
+  "a sign-in again in the same tab after a sign-out: the signed-out projects brought back by the sign-out leave the Dashboard during the next first load";
+const D_SETTINGS =
+  "Settings, opened while the first load runs, offers none of this browser's projects for export, nor the user's copy here";
+const D_CALENDAR =
+  "the Calendar, opened while the first load runs, does not load the user's copy in this browser into the list";
+const D_DASHBOARD =
+  "the Dashboard, opened again while the first load runs, does not load the user's copy in this browser into the list";
+const D_PAGE =
+  "a project's page open as the sign-in is recognised does not load the user's copy in this browser into the list, and says the projects are loading";
+const D_C_LOCAL =
+  "control: signed in with local storage chosen, the Dashboard keeps this browser's signed-out projects, as before";
+const F_SIGN_OUT =
+  "the line goes when the session ends: after a sign-out the Dashboard shows this browser's signed-out projects, without it";
+const F_ENDED =
+  "a re-fetch from a session that has ended fails without the line: the next session's Dashboard does not say a load failed";
+const F_REFETCH_AFTER =
+  "a failed invitation re-fetch, after the first load ended with projects: the Dashboard says so above them";
+const F_REFETCH_BEFORE =
+  "a failed invitation re-fetch before the first load ends: the Dashboard says the projects are loading until that load ends, then that loading failed — the first load began before the invitation was claimed";
+const P_C_CLOUD = "control: signed in to cloud storage, everything loaded, a project not in the list keeps today's two lines";
+// StorageProvider.change-of-user.test.tsx
+const U_SETTINGS =
+  "the first user's settings are never saved to the second user's account: its next change carries its own cloud settings, and Scheduler's default for what they lack";
+const U_NONE =
+  "a second account with no settings in cloud storage starts from this browser's signed-out settings, as a sign-in after a sign-out does — not from the first user's";
+const U_WHOLE =
+  "control: the second user's session is whole — its own handle, a setting it changes saved by it, a project it creates uploaded by it";
+const U_LOCAL =
+  "with local storage chosen, the Dashboard then shows this browser's signed-out projects, not the first user's";
+// use-cloud-sync.account-settings.test.tsx
+const A_RELOAD =
+  "a reload: a setting the account's cloud settings lack comes from this browser's copy of the account's settings, not from the signed-out settings, and is saved so at the next change";
+const A_AGAIN =
+  "a sign-in again in the same tab after a sign-out: a setting the cloud lacks takes Scheduler's default — the sign-out removed this browser's copy — not the signed-out settings";
+const A_C_RETAINED =
+  "control: a setting the cloud holds in a form this version cannot read is written back as it was, not replaced from this browser's copy";
+const A_C_NONE =
+  "control: a first sign-in with nothing in cloud storage keeps the signed-out settings, and saves them to the account at the next change";
+const A_C_FAILS =
+  "control: a settings read that fails keeps the settings in use, as before";
+const A_C_117 =
+  "control: nothing is sent to the cloud while the first load runs, nor at its end; a change after it is";
 // StorageProvider.sign-out-cleanup.test.tsx
 const O_DASHBOARD =
   "signed out on the Dashboard, the Dashboard shows this browser's signed-out projects, not 'No projects yet.'";
@@ -118,6 +167,29 @@ const H_PICK = "cloud mode + cloudDataLoaded=false → error, no preview";
 const C_STAYS =
   "TC-E: says what stays here — this browser's own projects and settings, back as soon as the sign-out is done";
 
+// ProjectsPage.cloud-sign-in-display.test.tsx — the project page's states and the switches of storage while signed in
+// (owner ruling, 2026-10-17)
+const N_LOCAL_PAGE =
+  "the page of one of this browser's signed-out projects, open as a cloud sign-in is recognised: the Dashboard's loading line while the load runs — not a line about that project — then today's two lines";
+const N_FAILED_PAGE =
+  "a reload of a cloud project's page, the first load failing: the page says the load failed, in place of both lines — not that the project may have been deleted";
+const N_FAILED_PENDING =
+  "a failed first load while the invitation re-fetch still runs: the page says the projects are loading, not that a load failed, until the re-fetch answers — and then, the line gone, today's two lines";
+const M_DURING =
+  "a switch to local storage while the first load runs lists this browser's copy of the user's projects — not 'No projects yet.' — the ended load's late answer does not replace it, and nothing is sent";
+const M_FAILED = "a switch to local storage after a failed first load lists this browser's copy of the user's projects";
+const M_MADE =
+  "a switch to local storage after a failed first load and a project made since lists the whole of this browser's copy, not only the new project";
+const M_PAGE =
+  "a switch to local storage from a project's page while the first load runs shows the project, from this browser's copy";
+const M_C_REFETCH_FAILED =
+  "control: a switch to local storage after a failed invitation re-fetch, the first load having filled the list, leaves it as it was — a run's samples kept";
+const M_C_SIGN_OUT =
+  "control: a sign-out loads the list once, from this browser's signed-out storage — the switch's load does not run";
+const L_SWITCH =
+  "signed in with local storage chosen and this browser's projects on show, a switch to cloud storage empties the list until the first load ends";
+const L_SWITCH_EMPTY =
+  "the same switch, the cloud listing no projects: this browser's projects are not kept on show in cloud storage";
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /** Matches exactly these test titles, as the verbose reporter prints them. */
@@ -145,7 +217,13 @@ export const mutations = [
     expectFailing: only(L_REFETCH_ENDED, G_REFETCH_FIRST, G_REFETCH_EMPTY, G_IMPORT),
   },
   {
-    id: "S2  WRONG DESIGN: one count shared by every session — a load left running when a session ends holds up the next  [expect 3: R_NEXT_SESSION, G_LATE_SETTINGS, G_LATE_FAILURE]",
+    // Extended by name with tests added later (owner ruling, 2026-10-17), through the same earlier test as the first
+    // correction: the shared count never reaches zero, so they wait on a load that has ended.
+    // Corrected after its first run with WI-113's sign-in display tests, which it also fails (owner ruling,
+    // 2026-10-16): the count is module-level here, so it outlives a test. Those tests end any load still running before
+    // they unmount, but a session that ENDS with a load running leaves it counted for good — this straw's wrong design
+    // itself — and two later tests in that file that need the loading to end then fail: E_EMPTY and P_C_CLOUD.
+    id: "S2  WRONG DESIGN: one count shared by every session — a load left running when a session ends holds up the next  [expect 11: R_NEXT_SESSION, G_LATE_SETTINGS, G_LATE_FAILURE, E_EMPTY, P_C_CLOUD, N_LOCAL_PAGE, N_FAILED_PAGE, N_FAILED_PENDING, M_FAILED, M_C_REFETCH_FAILED, L_SWITCH_EMPTY]",
     file: SYNC,
     find: "      const loads: CloudLoads = { running: 1 };\n      loadsRef.current = loads;",
     replace: "      sharedLoads.running += 1;\n      const loads: CloudLoads = sharedLoads;\n      loadsRef.current = loads;",
@@ -153,15 +231,20 @@ export const mutations = [
       find: "interface CloudLoads {\n  running: number;\n}\n",
       replace: "interface CloudLoads {\n  running: number;\n}\nconst sharedLoads: CloudLoads = { running: 0 };\n",
     },
-    expectFailing: only(R_NEXT_SESSION, G_LATE_SETTINGS, G_LATE_FAILURE),
+        expectFailing: only(
+      R_NEXT_SESSION, G_LATE_SETTINGS, G_LATE_FAILURE, E_EMPTY, P_C_CLOUD, N_LOCAL_PAGE, N_FAILED_PAGE, N_FAILED_PENDING, M_FAILED, M_C_REFETCH_FAILED, L_SWITCH_EMPTY,
+    ),
   },
   {
-    id: "S3  a re-fetch that fails is not counted down, so the loading never ends  [expect 1: L_REFETCH_FAILS]",
+    // Extended by name with a test added later (owner ruling, 2026-10-17): it reads the line after a failed re-fetch first.
+    // Corrected after its first run: WI-113's failure line is said once no load is pending, so a failed re-fetch
+    // never counted down also keeps it from F_REFETCH_AFTER and F_REFETCH_BEFORE (owner ruling, 2026-10-16).
+    id: "S3  a re-fetch that fails is not counted down, so the loading never ends  [expect 4: L_REFETCH_FAILS, F_REFETCH_AFTER, F_REFETCH_BEFORE, M_C_REFETCH_FAILED]",
     file: SYNC,
     find:
       '        console.error("spert:models-changed re-fetch failed:", err);\n        // Defensive flip-to-true so the UI doesn\'t wedge on the disabled state\n        // — once no other load is still running (WI-113).\n        refetchEnded();\n',
     replace: '        console.error("spert:models-changed re-fetch failed:", err);\n',
-    expectFailing: only(L_REFETCH_FAILS),
+        expectFailing: only(L_REFETCH_FAILS, F_REFETCH_AFTER, F_REFETCH_BEFORE, M_C_REFETCH_FAILED),
   },
   // -- a re-fetch answer from a session that has ended --------------------------------------------------------
   {
@@ -172,14 +255,16 @@ export const mutations = [
     expectFailing: only(R_SIGN_OUT, R_LOCAL, R_ANSWERS_LATE),
   },
   {
-    id: "S5  WRONG DESIGN: the check in the success callback only — a late FAILURE still marks the next session's data loaded  [expect 1: R_FAILS_LATE]",
+    id: "S5  WRONG DESIGN: the check in the success callback only — a late FAILURE still marks the next session's data loaded  [expect 2: R_FAILS_LATE, F_ENDED]",
     file: SYNC,
     find: REFETCH_FAILURE_CHECK,
     replace: "",
-    expectFailing: only(R_FAILS_LATE),
+    expectFailing: only(R_FAILS_LATE, F_ENDED),
   },
   {
-    id: "S6  WRONG DESIGN: the check keyed on the storage mode, not the session's handle — a new sign-in to cloud storage passes it  [expect 2: R_FAILS_LATE, R_ANSWERS_LATE]",
+    // Corrected after its first run: its failure-path check, keyed on the mode, also lets an ended session's late
+    // failure say the load failed in the next session (F_ENDED, WI-113 — owner ruling, 2026-10-16).
+    id: "S6  WRONG DESIGN: the check keyed on the storage mode, not the session's handle — a new sign-in to cloud storage passes it  [expect 3: R_FAILS_LATE, R_ANSWERS_LATE, F_ENDED]",
     file: SYNC,
     find: REFETCH_SUCCESS_CHECK,
     replace:
@@ -189,31 +274,38 @@ export const mutations = [
       replace:
         "        // WI-113: a failure from an ended session must not mark the NEXT session's data loaded.\n        if (!useProjectStore.getState().cloudSyncActive) return;\n",
     },
-    expectFailing: only(R_FAILS_LATE, R_ANSWERS_LATE),
+    expectFailing: only(R_FAILS_LATE, R_ANSWERS_LATE, F_ENDED),
   },
   // -- the list after a sign-out -----------------------------------------------------------------------------
   {
-    id: "S7  WRONG DESIGN: the re-load without the handle check — a late answer replaces the list it brought back  [expect 4: R_SIGN_OUT, R_LOCAL, R_FAILS_LATE, R_ANSWERS_LATE]",
+    // Corrected after its first run, as S6: without the failure-path check, F_ENDED fails too.
+    id: "S7  WRONG DESIGN: the re-load without the handle check — a late answer replaces the list it brought back  [expect 5: R_SIGN_OUT, R_LOCAL, R_FAILS_LATE, R_ANSWERS_LATE, F_ENDED]",
     file: SYNC,
     find: REFETCH_SUCCESS_CHECK,
     replace: "        const projects = rawProjects.map(",
     also: { find: REFETCH_FAILURE_CHECK, replace: "" },
-    expectFailing: only(R_SIGN_OUT, R_LOCAL, R_FAILS_LATE, R_ANSWERS_LATE),
+    expectFailing: only(R_SIGN_OUT, R_LOCAL, R_FAILS_LATE, R_ANSWERS_LATE, F_ENDED),
   },
   {
-    id: "S8  WRONG DESIGN: no re-load at the sign-out — the Dashboard's own load on mount is left to bring the list back  [expect 8: O_DASHBOARD, O_SETTINGS, O_LOCAL, PREF_DASHBOARD, PREF_SETTINGS, R_SIGN_OUT, R_SIGN_OUT_EMPTY, W_ORDINARY]",
+    // Extended by name with a test added later (owner ruling, 2026-10-17): the sign-out's one load is missing.
+    id: "S8  WRONG DESIGN: no re-load at the sign-out — the Dashboard's own load on mount is left to bring the list back  [expect 11: O_DASHBOARD, O_SETTINGS, O_LOCAL, PREF_DASHBOARD, PREF_SETTINGS, R_SIGN_OUT, R_SIGN_OUT_EMPTY, W_ORDINARY, D_AGAIN, F_SIGN_OUT, M_C_SIGN_OUT]",
     file: STORAGE,
     find: RELOAD,
     replace: "",
-    expectFailing: only(O_DASHBOARD, O_SETTINGS, O_LOCAL, PREF_DASHBOARD, PREF_SETTINGS, R_SIGN_OUT, R_SIGN_OUT_EMPTY, W_ORDINARY),
+        expectFailing: only(
+      O_DASHBOARD, O_SETTINGS, O_LOCAL, PREF_DASHBOARD, PREF_SETTINGS, R_SIGN_OUT, R_SIGN_OUT_EMPTY, W_ORDINARY, D_AGAIN, F_SIGN_OUT, M_C_SIGN_OUT,
+    ),
   },
   {
-    id: "S9  WRONG DESIGN: the list and settings re-loaded while the storage is still the user's, as an effect inside the cloud sync would  [expect 8: O_DASHBOARD, O_SETTINGS, O_LOCAL, PREF_DASHBOARD, PREF_SETTINGS, R_SIGN_OUT, R_SIGN_OUT_EMPTY, W_ORDINARY]",
+    // Extended by name with a test added later (owner ruling, 2026-10-17): the sign-out's load reads the user's storage.
+    id: "S9  WRONG DESIGN: the list and settings re-loaded while the storage is still the user's, as an effect inside the cloud sync would  [expect 11: O_DASHBOARD, O_SETTINGS, O_LOCAL, PREF_DASHBOARD, PREF_SETTINGS, R_SIGN_OUT, R_SIGN_OUT_EMPTY, W_ORDINARY, D_AGAIN, F_SIGN_OUT, M_C_SIGN_OUT]",
     file: STORAGE,
     find: '    setStorageNamespace(uid ?? "local");\n',
     replace: `${RELOAD}    setStorageNamespace(uid ?? "local");\n`,
     also: { find: `${RELOAD_COMMENT_END}${RELOAD}`, replace: RELOAD_COMMENT_END },
-    expectFailing: only(O_DASHBOARD, O_SETTINGS, O_LOCAL, PREF_DASHBOARD, PREF_SETTINGS, R_SIGN_OUT, R_SIGN_OUT_EMPTY, W_ORDINARY),
+        expectFailing: only(
+      O_DASHBOARD, O_SETTINGS, O_LOCAL, PREF_DASHBOARD, PREF_SETTINGS, R_SIGN_OUT, R_SIGN_OUT_EMPTY, W_ORDINARY, D_AGAIN, F_SIGN_OUT, M_C_SIGN_OUT,
+    ),
   },
   // -- Import Projects -----------------------------------------------------------------------------------------
   {
@@ -275,8 +367,8 @@ export const mutations = [
     find: END_SYNC_AND_GUARD,
     replace: '      if (getActiveStorageNamespace() === "local") return;\n',
     also: {
-      find: "      usePreferencesStore.getState().clearInMemory();\n    });",
-      replace: "      usePreferencesStore.getState().clearInMemory();\n      endCloudSyncForSignOut();\n    });",
+      find: "      clearSignedInUserData();\n    });",
+      replace: "      clearSignedInUserData();\n      endCloudSyncForSignOut();\n    });",
     },
     expectFailing: only(P_SIGN_OUT, P_TERMS, P_ENDED, PREF_DASHBOARD, PREF_SETTINGS),
   },
@@ -288,11 +380,11 @@ export const mutations = [
     expectFailing: only(P_SIGN_OUT, P_TERMS, P_ENDED, PREF_DASHBOARD, PREF_SETTINGS),
   },
   {
-    id: "S17 WRONG DESIGN: the preference sync removed — nothing the user changes reaches the cloud  [expect 3: P_CHANGE, P_RESET, P_AGAIN]",
+    id: "S17 WRONG DESIGN: the preference sync removed — nothing the user changes reaches the cloud  [expect 10: P_CHANGE, P_RESET, P_AGAIN, U_SETTINGS, U_WHOLE, A_RELOAD, A_AGAIN, A_C_RETAINED, A_C_NONE, A_C_117]",
     file: SYNC,
     find: "        driver.savePreferences(state.preferences);",
     replace: "        void state;",
-    expectFailing: only(P_CHANGE, P_RESET, P_AGAIN),
+    expectFailing: only(P_CHANGE, P_RESET, P_AGAIN, U_SETTINGS, U_WHOLE, A_RELOAD, A_AGAIN, A_C_RETAINED, A_C_NONE, A_C_117),
   },
   // -- the re-load at the sign-out, the count's ends, and the sign-out window ------------------------------------
   {
@@ -303,18 +395,22 @@ export const mutations = [
     expectFailing: only(O_LOCAL),
   },
   {
-    id: "S19 the re-fetch's empty-answer exit is not counted down, so the loading never ends  [expect 1: L_EMPTY_KEPT]",
+    id: "S19 the re-fetch's empty-answer exit is not counted down, so the loading never ends  [expect 1: E_EMPTY]",
     file: SYNC,
     find: "          useProjectStore.getState().setCloudLoadErrors(errors);\n          refetchEnded();\n          return;\n",
     replace: "          useProjectStore.getState().setCloudLoadErrors(errors);\n          return;\n",
-    expectFailing: only(L_EMPTY_KEPT),
+    expectFailing: only(E_EMPTY),
   },
   {
-    id: "S20 WRONG DESIGN: the re-load at every change of user, a sign-in included — the sign-in shows the user's copy in this browser  [expect 2: K_SIGN_IN_DISPLAY, G_DELETE_UNLOADED]",
+    // Extended by name with tests added later (owner ruling, 2026-10-17): the sign-in's load lists the user's copy, which
+    // replaces the loading line or the list each of them reads before its switch.
+    id: "S20 WRONG DESIGN: the re-load at every change of user, a sign-in included — the sign-in shows the user's copy in this browser  [expect 15: K_SIGN_IN_DISPLAY, D_SETTINGS, D_CALENDAR, D_DASHBOARD, D_PAGE, D_C_LOCAL, A_C_NONE, A_C_FAILS, U_NONE, U_LOCAL, M_DURING, M_MADE, M_PAGE, L_SWITCH, L_SWITCH_EMPTY]",
     file: STORAGE,
     find: RELOAD_IF,
     replace: "    if (followedUidRef.current !== uid) {\n",
-    expectFailing: only(K_SIGN_IN_DISPLAY, G_DELETE_UNLOADED),
+        expectFailing: only(
+      K_SIGN_IN_DISPLAY, D_SETTINGS, D_CALENDAR, D_DASHBOARD, D_PAGE, D_C_LOCAL, A_C_NONE, A_C_FAILS, U_NONE, U_LOCAL, M_DURING, M_MADE, M_PAGE, L_SWITCH, L_SWITCH_EMPTY,
+    ),
   },
   {
     id: "S21 a load's end counts it out every time it is called, so a load that reaches two ends is counted out twice  [expect 1: L_ENDED_TWICE]",
@@ -326,8 +422,8 @@ export const mutations = [
   {
     id: "S22 the sign-out brings back the projects only — the settings stay at the defaults  [expect 2: PREF_DASHBOARD, PREF_SETTINGS]",
     file: STORAGE,
-    find: "      usePreferencesStore.getState().loadPreferences();\n",
-    replace: "",
+    find: "      useProjectStore.getState().loadProjects();\n      usePreferencesStore.getState().loadPreferences();\n",
+    replace: "      useProjectStore.getState().loadProjects();\n",
     expectFailing: only(PREF_DASHBOARD, PREF_SETTINGS),
   },
   {

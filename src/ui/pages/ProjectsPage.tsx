@@ -33,6 +33,7 @@ import { formatExportTimestamp } from "@core/calendar/calendar";
 import { serializeExport, serializeRecoveryExport } from "@app/api/export-import-service";
 import { toast } from "@ui/hooks/use-notification-store";
 import { useCloudCreateBlocked, isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
+import { CLOUD_LOADING_LINE, CLOUD_LOAD_FAILED_LINE } from "@ui/helpers/cloud-load-words";
 import {
   describedByWhile,
   CLOUD_CREATE_CONTROLS_NOTE,
@@ -107,6 +108,7 @@ export function ProjectsPage() {
     getCorruptedProjectRawData,
     removeCorruptedProject,
     cloudDataLoaded,
+    cloudLoadFailed,
   } = useProjectStore(
     useShallow((s) => ({
       projects: s.projects,
@@ -124,6 +126,7 @@ export function ProjectsPage() {
       getCorruptedProjectRawData: s.getCorruptedProjectRawData,
       removeCorruptedProject: s.removeCorruptedProject,
       cloudDataLoaded: s.cloudDataLoaded,
+      cloudLoadFailed: s.cloudLoadFailed,
     }))
   );
 
@@ -135,11 +138,12 @@ export function ProjectsPage() {
   // re-fetch after invitations are claimed, counted together — so an empty Dashboard says "No projects
   // yet." only once all of them have ended, in either order. Never true
   // when LOCAL storage is the stored choice: `storageReady` is false only when cloud storage was
-  // chosen, and `mode` is "cloud" only when signed in to it. It replaces only the EMPTY list below:
-  // projects already in the store stay on screen.
+  // chosen, and `mode` is "cloud" only when signed in to it. It replaces only the EMPTY list below —
+  // and since WI-113 the list IS empty from the moment a cloud session starts until its first load
+  // ends (use-cloud-sync), so in cloud storage the user sees this line, not this browser's projects.
   // ⚠️ One window it cannot see: AuthProvider marks auth resolved BEFORE it publishes the user (the
   // profile writes and the ToS check sit between), and in that window a cloud user is
-  // indistinguishable from a signed-out one. Closing it needs a new auth-level flag.
+  // indistinguishable from a signed-out one. That window is left as it is (owner ruling, 2026-10-16).
   const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);
 
   // WI-112: while the first cloud load runs, a project created here would never reach the cloud, so
@@ -175,7 +179,10 @@ export function ProjectsPage() {
   const [showImport, setShowImport] = useState(false);
   const [sharingProject, setSharingProject] = useState<Project | null>(null);
 
+  // WI-113: not while a cloud session's first load runs — the list stays empty until that load fills it, and
+  // this browser's signed-out projects (or another user's) are not shown in the meantime (owner ruling, 2026-10-16).
   useEffect(() => {
+    if (isCloudCreateBlocked()) return;
     loadProjects();
   }, [loadProjects]);
 
@@ -419,6 +426,15 @@ export function ProjectsPage() {
         </p>
       )}
 
+      {cloudLoadFailed && !cloudLoadPending && (
+        // WI-113: a load of this session failed (owner ruling, 2026-10-16) — said once no cloud load is pending, so
+        // that it never stands beside the loading line. With it, an empty list says nothing more — not "No projects
+        // yet." (below).
+        <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">
+          {CLOUD_LOAD_FAILED_LINE}
+        </p>
+      )}
+
       {showImport && (
         <ImportSection projects={projects} />
       )}
@@ -537,11 +553,12 @@ export function ProjectsPage() {
                 className="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
               />
               <p className="text-gray-500 dark:text-gray-400 text-lg">
-                Loading your projects from cloud storage…
+                {CLOUD_LOADING_LINE}
               </p>
             </div>
           );
         }
+        if (projects.length === 0 && cloudLoadFailed) return null;
         if (projects.length === 0) {
           return (
             <div className="text-center py-12">

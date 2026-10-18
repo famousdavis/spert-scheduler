@@ -555,6 +555,15 @@ export interface ProjectStore {
   cloudSyncActive: boolean;
   setCloudSyncActive: (active: boolean) => void;
 
+  /**
+   * WI-113 — true from the moment a cloud load of the running session fails (its first load, or a re-fetch after an
+   * invitation is claimed) until a later re-fetch of the session answers, or the session ends; the Dashboard then
+   * says so (owner ruling, 2026-10-16). Written only by `useCloudSync`, for the session it is running.
+   * In-memory only — never persisted, never synced.
+   */
+  cloudLoadFailed: boolean;
+  setCloudLoadFailed: (failed: boolean) => void;
+
   // Archive
   archiveProject: (id: string) => void;
   unarchiveProject: (id: string) => void;
@@ -849,6 +858,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
   setCloudSyncActive: (active) => set({ cloudSyncActive: active }),
 
+  // In-memory only. Written by use-cloud-sync.ts (WI-113).
+  cloudLoadFailed: false,
+
+  setCloudLoadFailed: (failed) => set({ cloudLoadFailed: failed }),
+
   undo: () => {
     // Close any active group before popping so subsequent edits in the same
     // textarea start a fresh group via the defensive onChange wiring.
@@ -951,8 +965,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
 
     // Replace only the local-sourced error subset. Cloud-sourced entries (set
     // by useCloudSync's loadAll/subscription paths) must survive this call:
-    // ProjectsPage runs loadProjects() on every mount, in BOTH storage modes,
-    // and nothing re-runs the cloud loadAll to restore a wiped entry. (v0.50.1)
+    // ProjectsPage runs loadProjects() on every mount, in BOTH storage modes —
+    // except while a cloud session's first load runs (WI-113) — and nothing
+    // re-runs the cloud loadAll to restore a wiped entry. (v0.50.1)
     set((state) => {
       const cloudOnly = state.loadErrors.filter((e) => e.source === "cloud");
       const merged = [...cloudOnly, ...errors];
@@ -1701,11 +1716,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       // mergeProject since v0.46.4 — per project, falling back to the Firestore-delivered
       // version for projects not yet in memory.
       //
-      // At initial cloud load, state.projects already contains localStorage-restored projects
-      // (loadProjects() runs from page-mount useEffects before driver.loadAll() resolves).
-      // The merge also preserves any session-cached simulation results from those restored
-      // projects, which is desirable. The spert:models-changed re-fetch path benefits most
-      // in practice, as it can fire while freshly-computed (in-session) results are live.
+      // A session's first cloud load begins with the list empty (WI-113: it is cleared when
+      // the session starts, and the pages do not load it while that load runs), so there is
+      // nothing to preserve there unless an invitation re-fetch answered first. The
+      // spert:models-changed re-fetch path is the one that benefits, as it can fire while
+      // freshly-computed (in-session) results are live.
       const inMemoryById = new Map(state.projects.map((p) => [p.id, p]));
       const merged = projects.map((p) => {
         const existing = inMemoryById.get(p.id);

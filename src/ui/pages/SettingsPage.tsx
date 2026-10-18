@@ -14,7 +14,7 @@ import { LocalStorageSection } from "@ui/components/LocalStorageSection";
 import { StorageModeSection } from "@ui/components/StorageModeSection";
 import { ScheduleExportSection } from "@ui/components/ScheduleExportSection";
 import { NotificationsSection } from "@ui/components/NotificationsSection";
-import { useCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
+import { useCloudCreateBlocked, isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
 
 export function SettingsPage() {
   const { projects, loadProjects, importProjects, importScenarioToProject } = useProjectStore(
@@ -30,7 +30,8 @@ export function SettingsPage() {
   const createBlocked = useCloudCreateBlocked();
 
   useEffect(() => {
-    if (projects.length === 0) {
+    // WI-113: not while a cloud session's first load runs (owner ruling, 2026-10-16).
+    if (projects.length === 0 && !isCloudCreateBlocked()) {
       loadProjects();
     }
     loadPrefs();

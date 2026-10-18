@@ -26,6 +26,9 @@ import { FirestoreDriver } from "@infrastructure/firebase/firestore-driver";
 import { bumpSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 import { INVITATIONS_ENABLED } from "@app/featureFlags";
 import type { Unsubscribe } from "firebase/firestore";
+import { DEFAULT_USER_PREFERENCES } from "@domain/models/types";
+import type { UserPreferences } from "@domain/models/types";
+import { readStoredPreferences, getRetainedPreferences } from "@infrastructure/persistence/preferences-repository";
 
 // Module-level driver handle. Written by useCloudSync when the driver is
 // created/destroyed; read by the sign-out cleanup registry so it can call
@@ -90,6 +93,32 @@ function cloudLoadEnd(loads: CloudLoads): () => void {
 }
 
 /**
+ * WI-113: what the cloud's answer to a session's first settings read sets (owner ruling, 2026-10-16). An account with
+ * settings in cloud storage takes them — cloud wins, as before — and every setting they lack comes from this browser's
+ * copy of that account's own settings, read when the session started, else from Scheduler's default; never from the
+ * settings in use, which after a reload or a sign-in are this browser's signed-out settings. An account with no settings
+ * in cloud storage changes nothing: the settings in use stay, as before. A setting the cloud holds in a form this
+ * version cannot read (WI-68's retained values) is left as it is, so that its value is written back, not lost; a
+ * setting no source holds is dropped (undefined), not left at the signed-out value.
+ */
+function accountSettings(
+  cloud: Partial<UserPreferences>,
+  uid: string,
+  accountCopy: UserPreferences | null
+): Partial<UserPreferences> {
+  if (Object.keys(cloud).length === 0) return cloud;
+  const inUse: Record<string, unknown> = { ...usePreferencesStore.getState().preferences };
+  const lacking: Record<string, unknown> = { ...(accountCopy ?? DEFAULT_USER_PREFERENCES) };
+  const retained = getRetainedPreferences(uid);
+  const update: Record<string, unknown> = {};
+  for (const key of new Set([...Object.keys(inUse), ...Object.keys(lacking)])) {
+    if (key in cloud || key in retained) continue;
+    if (JSON.stringify(lacking[key]) !== JSON.stringify(inUse[key])) update[key] = lacking[key];
+  }
+  return { ...(update as Partial<UserPreferences>), ...cloud };
+}
+
+/**
  * Initialize and manage cloud sync. Call once in the Layout component.
  */
 export function useCloudSync(): void {
@@ -109,6 +138,10 @@ export function useCloudSync(): void {
   const notifiedFutureVersionIdsRef = useRef<Set<string>>(new Set());
   // WI-113: the running session's loads (CloudLoads, above); null while cloud sync is off.
   const loadsRef = useRef<CloudLoads | null>(null);
+  // WI-113: the user whose cloud session is running — null while none is — and whether an answer of that session, its
+  // first load's or a re-fetch's, has filled the project list. Both are read when the session ends (below).
+  const sessionUidRef = useRef<string | null>(null);
+  const listAnsweredRef = useRef(false);
 
   const isCloudActive = mode === "cloud" && user !== null;
 
@@ -121,6 +154,17 @@ export function useCloudSync(): void {
   useLayoutEffect(() => {
     useProjectStore.getState().setCloudSyncActive(isCloudActive);
   }, [isCloudActive]);
+
+  // WI-113: no project is on show from the commit that starts a cloud session until its first load ends — not this
+  // browser's signed-out projects, nor another user's (owner ruling, 2026-10-16). Before, the list held whatever a page
+  // had loaded from this browser, and the first load replaced it — or, when the cloud listed none or the load failed,
+  // kept it. Keyed on the session's user, not on cloud sync alone, so that a change of user in this tab clears the
+  // first user's projects too. A LAYOUT effect, as the one above: the list is emptied in the commit that starts the
+  // session, before any passive effect of that commit reads it. The pages' own loads wait for the first load meanwhile.
+  const sessionUid = isCloudActive && user ? user.uid : null;
+  useLayoutEffect(() => {
+    if (sessionUid !== null) useProjectStore.getState().clearAllData();
+  }, [sessionUid]);
 
   // Get store actions
   const mergeProject = useProjectStore((s) => s.mergeProject);
@@ -246,7 +290,15 @@ export function useCloudSync(): void {
   // Create/dispose driver when cloud mode or user changes
   useEffect(() => {
     if (isCloudActive && user) {
-      const driver = new FirestoreDriver(user.uid);
+      const uid = user.uid;
+      sessionUidRef.current = uid;
+      listAnsweredRef.current = false;
+      const driver = new FirestoreDriver(uid);
+      // WI-113: no load of this session has failed yet.
+      useProjectStore.getState().setCloudLoadFailed(false);
+      // WI-113: this browser's copy of this account's settings, read by key NOW — at a sign-in the active storage is
+      // still this browser's signed-out one, and a setting changed during the load would write over the copy.
+      const accountCopy = readStoredPreferences(uid);
       driver.onSaveError((e) => {
         console.error("Firestore write failed:", e);
         reportCloudSyncError();
@@ -315,9 +367,10 @@ export function useCloudSync(): void {
             }
           }
 
-          // Data-loss guard: if cloud is empty but local has projects, skip
-          // replacement to protect un-migrated local data. Reads the
-          // POST-eviction list — the eviction above may have shrunk it.
+          // Data-loss guard: if the cloud answers with no projects while the list holds some, keep the list. Since
+          // WI-113 the list is empty when a session's first load begins (cleared when the session starts; the pages
+          // wait), so here it keeps only what has filled the list since — an invitation re-fetch's answer that came
+          // first, for one. Reads the POST-eviction list — the eviction above may have shrunk it.
           const localProjects = useProjectStore.getState().projects;
           if (projects.length === 0 && localProjects.length > 0) {
             console.warn(
@@ -326,13 +379,15 @@ export function useCloudSync(): void {
           } else {
             setProjects(projects);
           }
+          listAnsweredRef.current = true;
           // LAST store write for error state on this path: setProjects resets
           // loadErrors wholesale as a side effect, so reporting must follow it.
           useProjectStore.getState().setCloudLoadErrors(errors);
 
-          // Load and merge cloud preferences (cloud wins for existing fields)
+          // Load and merge cloud preferences (cloud wins for existing fields; what an account's cloud settings lack
+          // comes from this account's copy here, else the default — WI-113, owner ruling, 2026-10-16)
           try {
-            const cloudPrefs = await driver.loadPreferences();
+            const cloudPrefs = accountSettings(await driver.loadPreferences(), uid, accountCopy);
             if (!cancelled && Object.keys(cloudPrefs).length > 0) {
               usePreferencesStore.getState().updatePreferences(cloudPrefs);
             }
@@ -367,6 +422,8 @@ export function useCloudSync(): void {
           // state after a transient load failure (pitfall #88) — once no
           // re-fetch is still running (WI-113).
           firstLoadEnded();
+          // WI-113: the Dashboard says the load failed (owner ruling, 2026-10-16).
+          useProjectStore.getState().setCloudLoadFailed(true);
           openErrorGate();
         });
 
@@ -400,6 +457,21 @@ export function useCloudSync(): void {
       };
     } else {
       // Switching to local mode or signing out
+      // WI-113: a session that ends while its user is still signed in — a switch to local storage, by "Keep local
+      // copy" or "Discard" — loads the list again from the storage now in use, as a sign-out does (StorageProvider). The
+      // session emptied the list when it started, and the pages did not load it meanwhile, so without this the
+      // Dashboard says "No projects yet." over this browser's copy of the user's projects. Unless an answer of the
+      // session filled the list and it still holds projects: that list is the cloud's and this browser's copy of it,
+      // and reading it again would drop what lives only in memory — a simulation run's samples, for one. Not at a
+      // sign-out (no user here), nor at a change of user (the next session starts instead); a late answer of the ended
+      // session is ignored (its `cancelled`, and the re-fetch's handle check), and cloud sync has stopped, so nothing
+      // is sent.
+      const endedUid = sessionUidRef.current;
+      sessionUidRef.current = null;
+      const loadAgain =
+        endedUid !== null &&
+        endedUid === user?.uid &&
+        (!listAnsweredRef.current || useProjectStore.getState().projects.length === 0);
       if (driverRef.current) {
         // v0.45.3: see ordering rationale above. Bump before cancelling so
         // an in-flight worker result is dropped before it can write to the
@@ -418,6 +490,9 @@ export function useCloudSync(): void {
       // v0.50.1: idempotent with the cleanup-function clear above; covers the
       // second, distinct point where cloud sync genuinely stops.
       useProjectStore.getState().setCloudLoadErrors([]);
+      // WI-113: the session's end ends what its failed loads said.
+      useProjectStore.getState().setCloudLoadFailed(false);
+      if (loadAgain) useProjectStore.getState().loadProjects();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.uid is the only relevant identity; full user object would cause unnecessary re-runs
   }, [isCloudActive, user?.uid, setProjects, addProjectListener, cleanupListeners, removeProjectLocally]);
@@ -600,6 +675,10 @@ export function useCloudSync(): void {
         // do not wipe the in-memory project list the user is actively working
         // with. Reads the POST-eviction list.
         const localProjects = useProjectStore.getState().projects;
+        // WI-113: this re-fetch began after its invitation was claimed, so its answer is the cloud's whole list and no
+        // earlier failure of this session stands. (The first load's answer clears nothing: it began before any claim.)
+        useProjectStore.getState().setCloudLoadFailed(false);
+        listAnsweredRef.current = true;
         if (projects.length === 0 && localProjects.length > 0) {
           console.warn(
             `spert:models-changed returned 0 projects but local has ${localProjects.length} — skipping replacement to protect in-memory data`
@@ -625,6 +704,8 @@ export function useCloudSync(): void {
         // Defensive flip-to-true so the UI doesn't wedge on the disabled state
         // — once no other load is still running (WI-113).
         refetchEnded();
+        // WI-113: the Dashboard says the load failed (owner ruling, 2026-10-16).
+        useProjectStore.getState().setCloudLoadFailed(true);
       });
   }, [mode, addProjectListener, setProjects, removeProjectLocally]);
 

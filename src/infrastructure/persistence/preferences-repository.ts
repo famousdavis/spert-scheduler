@@ -186,6 +186,19 @@ export function activePreferencesNamespace(): string {
   return getActiveStorageNamespace();
 }
 
+/** WI-113: the settings this browser keeps under `namespace` — a signed-in user's uid, or "local" — or null when
+ *  it keeps none, read by key whatever the active namespace is, and without touching the values WI-68 retains
+ *  (owner ruling, 2026-10-16). */
+export function readStoredPreferences(namespace: string): UserPreferences | null {
+  const raw = localStorage.getItem(`${KEY_BASE}:${namespace}`);
+  if (!raw) return null;
+  try {
+    return { ...DEFAULT_USER_PREFERENCES, ...readPreferencesPerField(JSON.parse(raw)).valid };
+  } catch {
+    return null;
+  }
+}
+
 export function loadPreferences(): UserPreferences {
   const namespace = getActiveStorageNamespace();
   const raw = localStorage.getItem(keyForActiveNamespace());
