@@ -19,6 +19,19 @@ import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
 import type { CDFPoint } from "@domain/models/types";
 
+/**
+ * Where the label of the "Finish by" lookup's line goes (WI-127). The CDF climbs from the plot's bottom-left to its
+ * top-right, so those two corners are where the curve is and the other two are empty. The x-axis runs
+ * `dataMin…dataMax`; a line before the middle of that range takes its label at the top, to the line's
+ * right, and a line at the middle or after it, at the bottom, to the line's left — so the label never
+ * reaches the chart's nearer edge. Min and max are computed, not read from the ends: no order is assumed.
+ */
+function targetLabelPosition(targetDuration: number, data: { value: number }[]) {
+  const lo = data.reduce((m, d) => Math.min(m, d.value), Infinity);
+  const hi = data.reduce((m, d) => Math.max(m, d.value), -Infinity);
+  return targetDuration < (lo + hi) / 2 ? "insideTopLeft" : "insideBottomRight";
+}
+
 interface CDFChartProps {
   points: CDFPoint[];
   probabilityTarget: number;
@@ -98,7 +111,9 @@ export function CDFChart({
             strokeDasharray="5 5"
             label={{
               value: `P${Math.round(probabilityTarget * 100)} = ${percentileValue.toFixed(1)} days`,
-              position: "right",
+              // Inside the plot at the line's right end (WI-127): below a line in the top half, above one in
+              // the bottom half — the side away from the curve. "right" drew it in the 30 px margin.
+              position: probabilityTarget >= 0.5 ? "insideTopRight" : "insideBottomRight",
               fontSize: AXIS_TICK_FONT_SIZE,
             }}
           />
@@ -109,7 +124,7 @@ export function CDFChart({
               strokeDasharray="5 5"
               label={{
                 value: targetLabel ?? `${Math.round(targetProbability)}%`,
-                position: "insideTopRight",
+                position: targetLabelPosition(targetDuration, data),
                 fontSize: AXIS_TICK_FONT_SIZE,
                 fill: targetColor,
               }}
