@@ -255,6 +255,7 @@ export const ScenarioSchema = z.object({
   locked: z.boolean().optional(), // default false
   notes: z.string().max(2000).optional(),
   bands: z.array(ActivityBandSchema).max(50).optional(),
+  targetFinishDate: ISODateString.nullable().optional(), // per scenario since schema v25 (WI-124)
 });
 
 // -- Gantt Appearance Settings ------------------------------------------------
@@ -300,7 +301,6 @@ export const ProjectSchema = z.object({
   globalCalendarOverride: CalendarSchema.optional(),
   convertedWorkDays: z.array(ISODateString).max(500).optional(),
   forcedWorkDays: z.array(ISODateString).max(500).optional(),
-  targetFinishDate: ISODateString.nullable().optional(),
   showTargetOnGantt: z.boolean().optional(),
   showActivityIds: z.boolean().optional(),
   ganttAppearance: GanttAppearanceSettingsSchema.optional(),

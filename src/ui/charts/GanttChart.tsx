@@ -94,7 +94,7 @@ function GanttToolbar({
   showProjectName, setShowProjectName,
   projectName,
   showActivityNumbers, onToggleActivityNumbers,
-  showTargetOnGantt, onToggleShowTarget, hasTargetDate,
+  showTargetOnGantt, onToggleShowTarget, hasTargetDate, isLocked,
   appearancePanelOpen, onToggleAppearancePanel,
 }: {
   viewMode: string;
@@ -114,7 +114,7 @@ function GanttToolbar({
   onToggleActivityNumbers?: (v: boolean) => void;
   showTargetOnGantt?: boolean;
   onToggleShowTarget?: (v: boolean) => void;
-  hasTargetDate?: boolean;
+  hasTargetDate?: boolean; isLocked?: boolean;
   appearancePanelOpen: boolean;
   onToggleAppearancePanel: () => void;
 }) {
@@ -199,7 +199,7 @@ function GanttToolbar({
       {onToggleShowTarget && (
         <label
           className={`flex items-center gap-1.5 text-sm cursor-pointer select-none ${hasTargetDate ? "text-gray-600 dark:text-gray-300" : "text-gray-400 dark:text-gray-500 cursor-not-allowed"}`}
-          title={hasTargetDate ? undefined : "Set a Finish Target date in the project summary to enable this option"}
+          title={targetBoxTitle(hasTargetDate, isLocked)}
         >
           <input
             type="checkbox"
@@ -661,7 +661,7 @@ export function GanttChart({
         showProjectName={showProjectName} setShowProjectName={setShowProjectName}
         projectName={projectName}
         showActivityNumbers={showActivityNumbers} onToggleActivityNumbers={onToggleActivityNumbers}
-        showTargetOnGantt={showTargetOnGantt} onToggleShowTarget={onToggleShowTarget} hasTargetDate={hasTargetDate}
+        showTargetOnGantt={showTargetOnGantt} onToggleShowTarget={onToggleShowTarget} hasTargetDate={hasTargetDate} isLocked={isLocked}
         appearancePanelOpen={appearancePanelOpen} onToggleAppearancePanel={onToggleAppearancePanel}
       />
 
@@ -1262,4 +1262,17 @@ export function GanttChart({
       )}
     </div>
   );
+}
+
+/**
+ * The Finish Target box's tooltip in the toolbar above, where the active scenario has no date and the box is greyed:
+ * where that scenario's date is set — or, in a locked scenario, whose date field is greyed too, that it must be
+ * unlocked first. None where the scenario has a date (WI-124, owner ruling, 2026-10-18). Declared here, below the
+ * chart, so that adding it moved none of the lines `legibility-floor.test.ts` pins by number.
+ */
+function targetBoxTitle(hasTargetDate: boolean | undefined, isLocked: boolean | undefined): string | undefined {
+  if (hasTargetDate) return undefined;
+  return isLocked
+    ? "Unlock this scenario to set its Finish Target date and enable this option"
+    : "Set this scenario’s Finish Target date in the summary card to enable this option";
 }

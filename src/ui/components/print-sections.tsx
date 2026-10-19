@@ -330,6 +330,7 @@ export function PrintComparisonSection({
 // -- Project Summary ---------------------------------------------------------
 
 export interface PrintSummarySectionProps {
+  /** Read for nothing since the Finish Target moved to the scenario (WI-124); its callers still pass it. */
   project: Project;
   scenario: Scenario;
   schedule: DeterministicSchedule | null;
@@ -339,7 +340,6 @@ export interface PrintSummarySectionProps {
 }
 
 export function PrintSummarySection({
-  project,
   scenario,
   schedule,
   buffer,
@@ -374,7 +374,7 @@ export function PrintSummarySection({
               <tr>
                 <td className="py-0.5 text-gray-600">Finish Target:</td>
                 <td className="py-0.5 font-medium">
-                  {project.targetFinishDate ? formatDate(project.targetFinishDate) : "—"}
+                  {scenario.targetFinishDate ? formatDate(scenario.targetFinishDate) : "—"}
                 </td>
               </tr>
               <tr>

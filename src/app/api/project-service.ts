@@ -212,6 +212,8 @@ export function cloneScenario(
     settings: { ...scenario.settings },
     notes: scenario.notes,
     bands: clonedBands,
+    // The copy starts with its source's Finish Target date (WI-124): each scenario keeps its own.
+    targetFinishDate: scenario.targetFinishDate,
     // simulationResults are NOT cloned — stale
   };
 }
@@ -257,7 +259,7 @@ export function cloneProject(source: Project, newName: string): Project {
     forcedWorkDays: source.forcedWorkDays
       ? [...source.forcedWorkDays]
       : undefined,
-    targetFinishDate: source.targetFinishDate,
+    // Each scenario's Finish Target date comes with it, through cloneScenario (WI-124).
     showTargetOnGantt: source.showTargetOnGantt,
     showActivityIds: source.showActivityIds,
     ganttAppearance: source.ganttAppearance
@@ -573,9 +575,27 @@ export function renameScenario(
 
 export function updateProjectFields(
   project: Project,
-  updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt" | "showActivityIds" | "tileColor">>
+  updates: Partial<Pick<Project, "showTargetOnGantt" | "showActivityIds" | "tileColor">>
 ): Project {
   return { ...project, ...updates };
+}
+
+/**
+ * Set one scenario's Finish Target date; `null` clears it. Every other scenario keeps its own
+ * (WI-124; owner ruling, 2026-10-16).
+ *
+ * "Show target on Gantt" stays one choice for the whole project, and a cleared date turns it off
+ * only when no scenario of the project has a date left — so a one-scenario project behaves as it
+ * did, and clearing one scenario's date never hides the line another scenario shows.
+ */
+export function setScenarioTargetFinishDate(
+  project: Project,
+  scenarioId: string,
+  targetFinishDate: string | null
+): Project {
+  const updated = updateScenario(project, scenarioId, (s) => ({ ...s, targetFinishDate }));
+  const dateLeft = updated.scenarios.some((s) => !!s.targetFinishDate);
+  return dateLeft ? updated : { ...updated, showTargetOnGantt: false };
 }
 
 // -- Calendar ----------------------------------------------------------------

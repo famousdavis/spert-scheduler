@@ -198,7 +198,6 @@ describe("cloneProject", () => {
     return {
       ...base,
       tileColor: "#94a3b8",
-      targetFinishDate: "2025-12-31",
       showTargetOnGantt: true,
       showActivityIds: true,
       archived: true,
@@ -228,6 +227,7 @@ describe("cloneProject", () => {
       scenarios: [
         {
           ...scenario,
+          targetFinishDate: "2025-12-31",
           activities: [
             { ...a1, status: "complete", actualDuration: 5 },
             { ...a2 },
@@ -282,7 +282,7 @@ describe("cloneProject", () => {
     const source = makeProject();
     const clone = cloneProject(source, "Source (Copy)");
     expect(clone.tileColor).toBe(source.tileColor);
-    expect(clone.targetFinishDate).toBe(source.targetFinishDate);
+    expect(clone.scenarios[0]!.targetFinishDate).toBe(source.scenarios[0]!.targetFinishDate);
     expect(clone.showTargetOnGantt).toBe(source.showTargetOnGantt);
     expect(clone.showActivityIds).toBe(source.showActivityIds);
     expect(clone.ganttAppearance).toEqual(source.ganttAppearance);
