@@ -11,12 +11,15 @@ import { lastResizeObserver } from "../../test-stubs";
 import type { CDFPoint } from "@domain/models/types";
 
 /**
- * Where the Cumulative Distribution chart draws its two reference-line labels (WI-127, v0.78.1).
+ * Where the Cumulative Distribution chart draws its two reference-line labels (WI-127, v0.78.1 and v0.78.2).
  *
  * Before v0.78.1 the project-target label ("P95 = … days") was drawn to the RIGHT of the plot, in the
  * 30 px margin of an `overflow: hidden` svg, so only "P95" showed; and the Finish-by label ended
- * just left of its line, so a line near the left edge lost the label's first characters. Each label
- * now sits in one of the plot's two empty corners — the CDF climbs from bottom-left to top-right.
+ * just left of its line, so a line near the left edge lost the label's first characters. The
+ * project-target label now sits inside the plot's right end. The Finish-by label of a line before the
+ * middle of the range sits at the top, to the line's right; of a line at or past the middle, at the top,
+ * to the line's left — unless the project target is P96 or higher, when it sits at the bottom, to the
+ * line's left (from P96 the target line's label rises into the top label's strip).
  *
  * Every expectation below is a relation read off the rendered svg (the label's anchor and coordinates
  * against its own line's), never a value computed by calling the chart's code. The x-axis domain is
@@ -108,22 +111,22 @@ describe("CDFChart draws each reference-line label inside the plot, beside its l
     expect(r.y).toBeLessThan((r.y1 + r.y2) / 2);
   });
 
-  it("T2 a Finish-by line after the middle: label at the bottom, to the line's left", async () => {
+  it("T2 a Finish-by line after the middle, target P95: label at the top, to the line's left", async () => {
     const { container } = await renderChart({ probabilityTarget: 0.95, targetDuration: 155 });
     const r = labelAndLine(container, TARGET_LABEL, "vertical");
     expectFinite(r);
     expect(r.anchor).toBe("end");
     expect(r.x).toBeLessThan(r.x1);
-    expect(r.y).toBeGreaterThan((r.y1 + r.y2) / 2);
+    expect(r.y).toBeLessThan((r.y1 + r.y2) / 2);
   });
 
-  it("T3 a Finish-by line at the exact middle (130 of 100…160): as after the middle", async () => {
+  it("T3 a Finish-by line at the exact middle (130 of 100…160), target P95: as after the middle", async () => {
     const { container } = await renderChart({ probabilityTarget: 0.95, targetDuration: 130 });
     const r = labelAndLine(container, TARGET_LABEL, "vertical");
     expectFinite(r);
     expect(r.anchor).toBe("end");
     expect(r.x).toBeLessThan(r.x1);
-    expect(r.y).toBeGreaterThan((r.y1 + r.y2) / 2);
+    expect(r.y).toBeLessThan((r.y1 + r.y2) / 2);
   });
 
   it("T4 the project-target label at P95: inside the plot's right end, just below its line", async () => {
@@ -141,5 +144,32 @@ describe("CDFChart draws each reference-line label inside the plot, beside its l
     expectFinite(r);
     expect(r.x).toBeLessThanOrEqual(Math.max(r.x1, r.x2));
     expect(r.y).toBeLessThan(r.y1);
+  });
+
+  it("T6 a Finish-by line after the middle, target P96: label at the bottom, to the line's left", async () => {
+    const { container } = await renderChart({ probabilityTarget: 0.96, targetDuration: 155 });
+    const r = labelAndLine(container, TARGET_LABEL, "vertical");
+    expectFinite(r);
+    expect(r.anchor).toBe("end");
+    expect(r.x).toBeLessThan(r.x1);
+    expect(r.y).toBeGreaterThan((r.y1 + r.y2) / 2);
+  });
+
+  it("T7 a Finish-by line at the exact middle (130 of 100…160), target P99: as after the middle", async () => {
+    const { container } = await renderChart({ probabilityTarget: 0.99, targetDuration: 130 });
+    const r = labelAndLine(container, TARGET_LABEL, "vertical");
+    expectFinite(r);
+    expect(r.anchor).toBe("end");
+    expect(r.x).toBeLessThan(r.x1);
+    expect(r.y).toBeGreaterThan((r.y1 + r.y2) / 2);
+  });
+
+  it("T8 a Finish-by line before the middle, target P99: label at the top, to the line's right", async () => {
+    const { container } = await renderChart({ probabilityTarget: 0.99, targetDuration: 105 });
+    const r = labelAndLine(container, TARGET_LABEL, "vertical");
+    expectFinite(r);
+    expect(r.anchor).toBe("start");
+    expect(r.x).toBeGreaterThan(r.x1);
+    expect(r.y).toBeLessThan((r.y1 + r.y2) / 2);
   });
 });

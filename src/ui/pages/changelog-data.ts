@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.78.2",
+    date: "2026-10-19",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "A “Finish by” date’s label on the Cumulative Distribution chart stays at the top of the chart, unless the date is at or past the middle of the chart’s range and the scenario’s Project target is P96 or higher. In 0.78.1, the label of every date at or past the middle moved to the bottom of the chart, just above the x-axis. It now stays at the top, to the left of its line, where it was before 0.78.1. It still moves to the bottom when the Project target is P96 or higher, where at the top it could sit on the project target line’s label.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Two tests now expect the label at the top for a Project target of P95, and three more pin its place at P96 and P99.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.78.1",
     date: "2026-10-19",
     sections: [
