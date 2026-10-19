@@ -16,7 +16,8 @@
 // never inferred from a run, except S10's: re-derived from its first run once WI-113 held back the
 // pages' loads by the same gate (owner ruling, 2026-10-16), then extended by name with four tests of the
 // project page's states and of the switches of storage while signed in (owner ruling, 2026-10-17), from a
-// run of those tests' file with the straw applied.
+// run of those tests' file with the straw applied, and again with one test of WI-124's (owner ruling, 2026-10-16) —
+// a scenario's own Finish Target date through a reload of the page — from that straw's run against the whole suite.
 //
 // NOT HERE, on purpose — five straws that cannot fail any test, measured as survivors. Three were run
 // once by hand: removing Clone's own check at commit (the button is natively disabled, so no click
@@ -140,6 +141,9 @@ const L_SWITCH =
   "signed in with local storage chosen and this browser's projects on show, a switch to cloud storage empties the list until the first load ends";
 const L_SWITCH_EMPTY =
   "the same switch, the cloud listing no projects: this browser's projects are not kept on show in cloud storage";
+
+// ProjectPage.scenario-target.test.tsx — WI-124 (owner ruling, 2026-10-16)
+const V_RELOAD = "keeps its own through a reload of the page";
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /** Matches exactly these test titles, as the verbose reporter prints them. */
@@ -229,6 +233,9 @@ export const mutations = [
     expectFailing: only(A14),
   },
   {
+    // Extended by name with a test added later (WI-124; owner ruling, 2026-10-16): a project page reloaded on an empty
+    // list finds its project through that same held-back load, so the test of a scenario's own date through a reload
+    // fails too.
     // Extended by name with tests added later (owner ruling, 2026-10-17): the gate without the storage mode also holds
     // back a project page's load and the Dashboard's while no cloud session runs, so the projects they read first are
     // not listed.
@@ -239,12 +246,12 @@ export const mutations = [
     // shut in local storage too, it also stops the Dashboard loading this browser's projects there, so the tests that
     // wait for that load fail with it. That run read "25 failing; named-match 10" before this set named the other
     // fifteen.
-    id: "S10 WRONG DESIGN: the gate without the storage mode  [expect 29: A6, A7, A8, A10, A11, A15, A16, PP_TOAST, PP_FOCUS, TD_FOCUS_NONE, TD_DELETE, TD_CANCEL, TD_TEXT, TD_ENTER_DELETE, TD_SPACE_DELETE, TD_ENTER_CANCEL, TD_FOCUS_NEXT, TD_FOCUS_PREV, TD_OPEN, N_KEEPS, N_DURING, D_FRESH, D_C_LOCAL, K_SIGN_IN_DISPLAY, U_LOCAL, N_LOCAL_PAGE, N_UNREADABLE, L_SWITCH, L_SWITCH_EMPTY]",
+    id: "S10 WRONG DESIGN: the gate without the storage mode  [expect 30: A6, A7, A8, A10, A11, A15, A16, PP_TOAST, PP_FOCUS, TD_FOCUS_NONE, TD_DELETE, TD_CANCEL, TD_TEXT, TD_ENTER_DELETE, TD_SPACE_DELETE, TD_ENTER_CANCEL, TD_FOCUS_NEXT, TD_FOCUS_PREV, TD_OPEN, N_KEEPS, N_DURING, D_FRESH, D_C_LOCAL, K_SIGN_IN_DISPLAY, U_LOCAL, N_LOCAL_PAGE, N_UNREADABLE, L_SWITCH, L_SWITCH_EMPTY, V_RELOAD]",
     file: GATE,
     find: "return s.cloudSyncActive && !s.cloudSyncReady;",
     replace: "return !s.cloudSyncReady;",
         expectFailing: only(
-      A6, A7, A8, A10, A11, A15, A16, PP_TOAST, PP_FOCUS, TD_FOCUS_NONE, TD_DELETE, TD_CANCEL, TD_TEXT, TD_ENTER_DELETE, TD_SPACE_DELETE, TD_ENTER_CANCEL, TD_FOCUS_NEXT, TD_FOCUS_PREV, TD_OPEN, N_KEEPS, N_DURING, D_FRESH, D_C_LOCAL, K_SIGN_IN_DISPLAY, U_LOCAL, N_LOCAL_PAGE, N_UNREADABLE, L_SWITCH, L_SWITCH_EMPTY,
+      A6, A7, A8, A10, A11, A15, A16, PP_TOAST, PP_FOCUS, TD_FOCUS_NONE, TD_DELETE, TD_CANCEL, TD_TEXT, TD_ENTER_DELETE, TD_SPACE_DELETE, TD_ENTER_CANCEL, TD_FOCUS_NEXT, TD_FOCUS_PREV, TD_OPEN, N_KEEPS, N_DURING, D_FRESH, D_C_LOCAL, K_SIGN_IN_DISPLAY, U_LOCAL, N_LOCAL_PAGE, N_UNREADABLE, L_SWITCH, L_SWITCH_EMPTY, V_RELOAD,
     ),
   },
   {

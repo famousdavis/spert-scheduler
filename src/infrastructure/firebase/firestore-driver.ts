@@ -203,12 +203,11 @@ export class FirestoreDriver {
     project._members = raw.members as Record<string, ProjectRole>;
 
     if (wasMigrated) {
-      try {
-        await this.doSave(project);
-      } catch (e) {
-        console.error("Write-forward migration save failed for project:", docSnap.id);
-        this.onSaveErrorCb?.(e);
-      }
+      // The upgrade's own save: logged if refused, never reported (WI-128). It carries no change of the user's, and it
+      // names the `_owner` and `_members` attached above, which cloud storage refuses unless the document already holds
+      // both with the same values — no document created since May 2026 does — so a report showed "Cloud sync error"
+      // when nothing was lost.
+      await this.doSave(project, false);
     }
 
     return { kind: "ok", project };
@@ -267,15 +266,10 @@ export class FirestoreDriver {
     };
 
     // Write-forward: persist migrated schema immediately to prevent
-    // multi-device race where a v0.19.x client overwrites patched fields
+    // multi-device race where a v0.19.x client overwrites patched fields.
+    // Logged if refused, never reported (WI-128): like loadAll's, this save carries no change of the user's.
     if (wasMigrated) {
-      try {
-        await this.doSave(project);
-      } catch (e) {
-        // Non-blocking: log but don't prevent the user from using the app
-        console.error("Write-forward migration save failed for project:", id);
-        this.onSaveErrorCb?.(e);
-      }
+      await this.doSave(project, false);
     }
 
     return project;
@@ -405,7 +399,11 @@ export class FirestoreDriver {
     await this.doSave(project);
   }
 
-  private async doSave(project: Project): Promise<void> {
+  /**
+   * Write one project. It catches its own errors: each is logged, and reported to `onSaveError` unless `report` is
+   * false — as for the save a load makes to upgrade a project, which carries no change of the user's (WI-128).
+   */
+  private async doSave(project: Project, report = true): Promise<void> {
     if (!db) return;
 
     try {
@@ -462,7 +460,7 @@ export class FirestoreDriver {
       await setDoc(ref, data, { mergeFields });
     } catch (e) {
       console.error("Firestore write error:", e);
-      this.onSaveErrorCb?.(e);
+      if (report) this.onSaveErrorCb?.(e);
     }
   }
 

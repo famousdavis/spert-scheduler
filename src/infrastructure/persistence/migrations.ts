@@ -423,6 +423,36 @@ function migrateV23toV24(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v24 → v25: the Finish Target date moves from the project to each scenario (WI-124; owner ruling,
+ * 2026-10-16). Before, a project held one date shared by all its scenarios.
+ *
+ * Every scenario takes the date the project held, so nothing on screen moves at the upgrade. A
+ * project holding null (the v14 → v15 default, or a cleared date) or no key at all gives its
+ * scenarios none — the key stays ABSENT, the shape every new scenario has — and never today's date.
+ * The project-level key is then removed; "Show target on Gantt" stays on the project.
+ *
+ * Add-if-missing, per the invariant at the top of this file: a scenario already holding the key
+ * keeps it. ⚠️ A project an older build saved — a tab still running it writes its whole project,
+ * stamped 24 — holds that build's one date at the top level and scenarios without the key, so this
+ * step gives every scenario that one date again.
+ */
+function migrateV24toV25(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  const projectDate = project.targetFinishDate;
+  const scenarios = project.scenarios as Array<Record<string, unknown>> | undefined;
+  if (typeof projectDate === "string" && scenarios) {
+    for (const scenario of scenarios) {
+      if (scenario.targetFinishDate === undefined) {
+        scenario.targetFinishDate = projectDate;
+      }
+    }
+  }
+  delete project.targetFinishDate;
+  project.schemaVersion = 25;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -447,6 +477,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   21: migrateV21toV22,
   22: migrateV22toV23,
   23: migrateV23toV24,
+  24: migrateV24toV25,
 };
 
 /**

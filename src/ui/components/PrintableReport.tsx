@@ -174,7 +174,7 @@ export function PrintableReport({
           milestoneBuffers={milestoneBuffers}
           criticalPathIds={criticalPathIds}
           projectName={project.name}
-          targetFinishDate={project.targetFinishDate ?? null}
+          targetFinishDate={scenario.targetFinishDate ?? null}
           showTargetOnGantt={project.showTargetOnGantt ?? false}
           targetRAGColor={targetRAGColor}
           ganttAppearance={project.ganttAppearance}

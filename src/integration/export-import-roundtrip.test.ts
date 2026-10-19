@@ -73,7 +73,7 @@ describe("Export/Import integration", () => {
     };
 
     const json = serializeExport([fullProject]);
-    expect(JSON.parse(json).projects[0].schemaVersion).toBe(24);
+    expect(JSON.parse(json).projects[0].schemaVersion).toBe(25);
     const result = validateImport(json, []);
 
     expect(result.success).toBe(true);

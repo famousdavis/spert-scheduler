@@ -19,7 +19,7 @@ import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
 import { getLastScenarioId, setLastScenarioId } from "@infrastructure/persistence/scenario-memory";
-import type { Activity, Scenario, ScenarioSettings, DeterministicSchedule, ScheduledActivity } from "@domain/models/types";
+import type { Activity, Project, Scenario, ScenarioSettings, DeterministicSchedule, ScheduledActivity } from "@domain/models/types";
 import { BASELINE_SCENARIO_NAME, DEFAULT_GANTT_APPEARANCE, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import { formatDateISO, parseDateISO, countWorkingDays, durationToFinishDateISO } from "@core/calendar/calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
@@ -88,6 +88,15 @@ const NO_SCENARIOS: Scenario[] = [];
 
 /** The region the activity grid's bar shows and hides (v0.71.0). */
 const ACTIVITY_GRID_BODY_ID = "activity-grid-body";
+
+/**
+ * Does the Gantt show the Finish Target in this scenario? The project's one choice, AND a date in
+ * this scenario (WI-124). In a scenario with no date the toolbar's checkbox is disabled, and it
+ * shows unchecked there rather than the project's choice; the line needs the date either way.
+ */
+function showsTargetHere(project: Project, scenario: Scenario): boolean {
+  return (project.showTargetOnGantt ?? false) && !!scenario.targetFinishDate;
+}
 
 /**
  * WI-113: what the page says when its project is not in the list, in this order (owner rulings, 2026-10-16 and
@@ -196,6 +205,8 @@ export function ProjectPage() {
     beginUndoGroup,
     endUndoGroup,
   } = useProjectActions();
+  // The Finish Target date is per scenario (WI-124). Selected directly, as the AI actions below are.
+  const updateScenarioTargetFinishDate = useProjectStore((s) => s.updateScenarioTargetFinishDate);
 
   const simulation = useSimulation();
 
@@ -549,18 +560,18 @@ export function ProjectPage() {
   const targetFinishGreenPct = usePreferencesStore((s) => s.preferences.targetFinishGreenPct ?? 80);
   const targetFinishAmberPct = usePreferencesStore((s) => s.preferences.targetFinishAmberPct ?? 50);
 
-  // Compute Finish Target RAG color
+  // Compute Finish Target RAG color — the active scenario's own date (WI-124)
   const targetRAGColor = useMemo(
     () =>
       computeTargetRAGColor({
-        targetFinishDate: project?.targetFinishDate,
+        targetFinishDate: scenario?.targetFinishDate,
         percentiles: scenario?.simulationResults?.percentiles,
         startDate: scenario?.startDate,
         greenPct: targetFinishGreenPct,
         amberPct: targetFinishAmberPct,
         calendar: workCalendar,
       }),
-    [project?.targetFinishDate, scenario?.simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],
+    [scenario?.targetFinishDate, scenario?.simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],
   );
 
   // Format a simulation duration (days) as a projected finish date for CDF tooltips
@@ -980,11 +991,9 @@ export function ProjectPage() {
             dependencies={scenario.dependencies}
             milestones={scenario.milestones}
             onRunSimulation={handleRunSimulation}
-            targetFinishDate={project.targetFinishDate ?? null}
+            targetFinishDate={scenario.targetFinishDate ?? null}
             onTargetFinishDateChange={(date) =>
-              updateProjectField(id!, {
-                targetFinishDate: date,
-              })
+              updateScenarioTargetFinishDate(id!, scenario.id, date)
             }
             targetRAGColor={targetRAGColor}
             scenarioNotes={scenario.notes}
@@ -1149,12 +1158,12 @@ export function ProjectPage() {
               onToggleActivityNumbers={(v) =>
                 updateProjectField(id!, { showActivityIds: v })
               }
-              showTargetOnGantt={project.showTargetOnGantt ?? false}
+              showTargetOnGantt={showsTargetHere(project, scenario)}
               onToggleShowTarget={(v) =>
                 updateProjectField(id!, { showTargetOnGantt: v })
               }
-              hasTargetDate={!!project.targetFinishDate}
-              targetFinishDate={project.targetFinishDate ?? null}
+              hasTargetDate={!!scenario.targetFinishDate}
+              targetFinishDate={scenario.targetFinishDate ?? null}
               targetRAGColor={targetRAGColor}
               ganttAppearance={project.ganttAppearance ?? DEFAULT_GANTT_APPEARANCE}
               onAppearanceChange={(a) => updateGanttAppearance(id!, a)}

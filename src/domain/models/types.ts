@@ -12,7 +12,7 @@
 export const ENGINE_VERSION = "1.1.1";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 // -- Schema Limits -----------------------------------------------------------
 
@@ -256,6 +256,12 @@ export interface Scenario {
   locked?: boolean; // default false - prevents modifications when true
   notes?: string; // free-text scenario notes, max 2000 chars
   bands?: ActivityBand[]; // absence treated as [] throughout the app
+  /**
+   * This scenario's Finish Target date, ISO "YYYY-MM-DD"; null or absent = none set. Each scenario keeps its own
+   * (WI-124, schema v25; owner ruling, 2026-10-16) — before v25 a project held one date for all its scenarios.
+   * Whether the Gantt shows it stays ONE choice per project: `Project.showTargetOnGantt`.
+   */
+  targetFinishDate?: string | null;
 }
 
 // -- Gantt Appearance Settings ------------------------------------------------
@@ -304,8 +310,7 @@ export interface Project {
   globalCalendarOverride?: Calendar;
   convertedWorkDays?: string[]; // ISO date strings for non-work days converted to work days
   forcedWorkDays?: string[]; // ISO date strings for global holidays overridden to work days at project level
-  targetFinishDate?: string | null; // ISO "YYYY-MM-DD", null/undefined = unset
-  showTargetOnGantt?: boolean; // default false
+  showTargetOnGantt?: boolean; // default false — one choice for the whole project; each scenario has its own date
   showActivityIds?: boolean; // default false — persist "Show Activity IDs" toggle
   ganttAppearance?: GanttAppearanceSettings;
   scenarios: Scenario[];

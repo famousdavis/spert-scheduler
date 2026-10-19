@@ -39,6 +39,7 @@ import {
   reorderScenarios,
   setGlobalCalendar,
   updateProjectFields as updateProjectFieldsFn,
+  setScenarioTargetFinishDate as setScenarioTargetFinishDateFn,
   renameProject as renameProjectFn,
   renameScenario as renameScenarioFn,
   addDependency as addDependencyFn,
@@ -364,7 +365,7 @@ export interface ProjectStore {
   // Project fields
   updateProjectField: (
     projectId: string,
-    updates: Partial<Pick<Project, "targetFinishDate" | "showTargetOnGantt" | "showActivityIds" | "tileColor">>
+    updates: Partial<Pick<Project, "showTargetOnGantt" | "showActivityIds" | "tileColor">>
   ) => void;
   updateGanttAppearance: (projectId: string, appearance: GanttAppearanceSettings) => void;
 
@@ -408,6 +409,11 @@ export interface ProjectStore {
     projectId: string,
     scenarioId: string,
     startDate: string
+  ) => void;
+  updateScenarioTargetFinishDate: (
+    projectId: string,
+    scenarioId: string,
+    targetFinishDate: string | null
   ) => void;
   updateScenarioSettings: (
     projectId: string,
@@ -1117,6 +1123,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       simulationResults: undefined,
     })),
 
+  /**
+   * One scenario's Finish Target date (WI-124; owner ruling, 2026-10-16). Not through
+   * `mutateScenario`, which edits one scenario only: clearing the project's last date also turns
+   * the project's "Show target on Gantt" off, in the same step and the same undo entry.
+   */
+  updateScenarioTargetFinishDate: (projectId, scenarioId, targetFinishDate) => {
+    if (isLocked(get().projects, projectId, scenarioId)) return;
+    pushUndo(projectId);
+    set((state) => {
+      const projects = updateProjectInList(state.projects, projectId, (p) =>
+        setScenarioTargetFinishDateFn(p, scenarioId, targetFinishDate)
+      );
+      // NOTE: simulationResults NOT cleared — the target date is not a simulation input.
+      return { projects: persist(projects, projectId, "results-unaffected") };
+    });
+  },
+
   updateScenarioSettings: (projectId, scenarioId, settings) =>
     mutateScenario(projectId, scenarioId, "already-invalidated", (s) => ({
       ...s,
@@ -1484,15 +1507,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   updateProjectField: (projectId, updates) => {
     pushUndo(projectId);
     set((state) => {
-      const resolved = { ...updates };
-      // Auto-disable Gantt toggle when target date is cleared
-      if (resolved.targetFinishDate === null || resolved.targetFinishDate === undefined) {
-        if ("targetFinishDate" in resolved) {
-          resolved.showTargetOnGantt = false;
-        }
-      }
+      // The Finish Target date is per scenario since WI-124: updateScenarioTargetFinishDate.
       const projects = state.projects.map((p) =>
-        p.id === projectId ? updateProjectFieldsFn(p, resolved) : p
+        p.id === projectId ? updateProjectFieldsFn(p, updates) : p
       );
       return { projects: persist(projects, projectId, "results-unaffected") };
     });
