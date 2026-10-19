@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.78.1",
+    date: "2026-10-19",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The Cumulative Distribution chart no longer cuts off its labels at its edges. The label on the project target line — for example “P95 = 145.3 days” — ran past the chart’s right edge, so only “P95” showed; it now ends at the right end of its line, inside the chart. The label for a “Finish by” date was drawn to the left of its line, so an early date lost its first characters — “3% by …” for “23% by …”; it is now drawn on the side of the line nearer the middle of the chart, at the top for a date in the first half of the chart’s range and at the bottom for a later one. On a very narrow chart a label can still be cut.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "A test renders the chart and pins where each label is drawn beside its line.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.78.0",
     date: "2026-10-19",
     sections: [
