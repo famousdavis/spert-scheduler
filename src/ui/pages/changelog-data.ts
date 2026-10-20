@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.78.4",
+    date: "2026-10-20",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Compare’s Finish Target row now comes right after Start Date, as on the summary card, on screen and in the printed comparison. In 0.78.3 it sat between “End Date (w/buffer)” and “Duration w/Buffer”, which belong together.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The three tests that pin the row’s place, and its breakage spec, now expect it after Start Date.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.78.3",
     date: "2026-10-20",
     sections: [

@@ -308,6 +308,13 @@ function rowsOf(entries: ComparisonEntry[], calendar: WorkCalendar | Calendar | 
       values: entries.map((e) => formatDate(e.scenario.startDate)),
     },
     {
+      // Each scenario's own Finish Target date (WI-132; per scenario since v0.78.0), in the summary
+      // card's words and in its order: right after Start Date (v0.78.4). An INPUT, not a result, so it
+      // never competes for "best": no `highlights`.
+      label: "Finish Target",
+      values: entries.map((e) => (e.scenario.targetFinishDate ? formatDate(e.scenario.targetFinishDate) : null)),
+    },
+    {
       label: "End Date (no buffer)",
       values: entries.map((e) => (e.schedule ? formatDate(e.schedule.projectEndDate) : null)),
     },
@@ -343,12 +350,6 @@ function rowsOf(entries: ComparisonEntry[], calendar: WorkCalendar | Calendar | 
         );
         return buffered ? formatDate(buffered) : null;
       }),
-    },
-    {
-      // Each scenario's own Finish Target date (WI-132; per scenario since v0.78.0), in the summary
-      // card's words. An INPUT, not a result, so it never competes for "best": no `highlights`.
-      label: "Finish Target",
-      values: entries.map((e) => (e.scenario.targetFinishDate ? formatDate(e.scenario.targetFinishDate) : null)),
     },
     {
       label: "Duration w/Buffer",

@@ -81,9 +81,9 @@ describe("the Finish Target row (WI-132): each scenario's own date, an input tha
       withTarget(run(scenarioOf("C", [VALID]), LATE), null),
     ]);
 
-  it("sits directly after \"End Date (w/buffer)\"", () => {
+  it("sits directly after \"Start Date\", in the summary card's order", () => {
     const labels = compared().rows.map((r) => r.label);
-    expect(labels.indexOf("Finish Target")).toBe(labels.indexOf("End Date (w/buffer)") + 1);
+    expect(labels.indexOf("Finish Target")).toBe(labels.indexOf("Start Date") + 1);
     expect(labels.filter((l) => l === "Finish Target")).toHaveLength(1);
   });
 
