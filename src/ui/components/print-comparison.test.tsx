@@ -165,13 +165,13 @@ describe("the printed table and notes", () => {
     }
   });
 
-  it("prints each scenario's Finish Target date in the row after \"End Date (w/buffer)\", a dash for none (WI-132)", () => {
+  it("prints each scenario's Finish Target date in the row after \"Start Date\", a dash for none (WI-132)", () => {
     const fast = { ...run(scenarioOf("Fast-track", [VALID]), EARLY), targetFinishDate: "2026-05-29" };
     const base = { ...run(scenarioOf("Baseline", [VALID]), LATE), targetFinishDate: null };
     const s = section(renderReport(base, [fast, base]))!;
     const rows = Array.from(s.querySelectorAll("tbody tr")).map((tr) => Array.from(tr.children).map((td) => td.textContent));
     const at = rows.findIndex((r) => r[0] === "Finish Target");
-    expect(rows[at - 1]![0]).toBe("End Date (w/buffer)");
+    expect(rows[at - 1]![0]).toBe("Start Date");
     // The default date format (MM/DD/YYYY); the empty cell prints the table's dash.
     expect(rows[at]).toEqual(["Finish Target", "05/29/2026", "—"]);
   });

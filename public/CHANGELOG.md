@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.78.4 — 2026-10-20
+
+### Changed
+
+- **Compare’s Finish Target row now comes right after Start Date,** as on the summary card, on screen and in the printed comparison. In 0.78.3 it sat between “End Date (w/buffer)” and “Duration w/Buffer”, which belong together.
+
+### Internal
+
+- The three tests that pin the row’s place, and its breakage spec, now expect it after Start Date.
+
 ## 0.78.3 — 2026-10-20
 
 ### Added
