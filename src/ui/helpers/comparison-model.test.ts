@@ -72,6 +72,32 @@ describe("the columns and rows", () => {
   });
 });
 
+describe("the Finish Target row (WI-132): each scenario's own date, an input that never competes", () => {
+  const withTarget = (s: Scenario, date: string | null | undefined): Scenario => ({ ...s, targetFinishDate: date });
+  const compared = () =>
+    model([
+      withTarget(run(scenarioOf("A", [VALID]), EARLY), "2026-03-02"),
+      withTarget(run(scenarioOf("B", [VALID]), LATE), "2026-04-15"),
+      withTarget(run(scenarioOf("C", [VALID]), LATE), null),
+    ]);
+
+  it("sits directly after \"End Date (w/buffer)\"", () => {
+    const labels = compared().rows.map((r) => r.label);
+    expect(labels.indexOf("Finish Target")).toBe(labels.indexOf("End Date (w/buffer)") + 1);
+    expect(labels.filter((l) => l === "Finish Target")).toHaveLength(1);
+  });
+
+  it("shows each scenario's own date through the formatter, null for one without a date, and no highlight", () => {
+    const row = compared().rows.find((r) => r.label === "Finish Target");
+    expect(row).toEqual({ label: "Finish Target", values: ["D:2026-03-02", "D:2026-04-15", null] });
+  });
+
+  it("is null for a scenario whose date was never set (the key absent)", () => {
+    const m = model([scenarioOf("A", [VALID]), withTarget(scenarioOf("B", [VALID]), "2026-05-01")]);
+    expect(m.rows.find((r) => r.label === "Finish Target")?.values).toEqual([null, "D:2026-05-01"]);
+  });
+});
+
 describe("a flagged scenario's note carries EVERY row, for each renderer to cap or not", () => {
   const rows = [OUT_OF_ORDER_NORMAL, VALID, OUT_OF_ORDER_NORMAL, OUT_OF_ORDER_NORMAL, OUT_OF_ORDER_NORMAL];
 

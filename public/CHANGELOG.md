@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.78.3 — 2026-10-20
+
+### Added
+
+- **Compare shows each scenario’s Finish Target date,** in a row below “End Date (w/buffer)”, on screen and in the printed comparison.
+
+### Internal
+
+- Tests pin the new row on screen, in print and in the comparison model.
+
 ## 0.78.2 — 2026-10-19
 
 ### Changed

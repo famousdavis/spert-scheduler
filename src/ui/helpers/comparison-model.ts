@@ -345,6 +345,12 @@ function rowsOf(entries: ComparisonEntry[], calendar: WorkCalendar | Calendar | 
       }),
     },
     {
+      // Each scenario's own Finish Target date (WI-132; per scenario since v0.78.0), in the summary
+      // card's words. An INPUT, not a result, so it never competes for "best": no `highlights`.
+      label: "Finish Target",
+      values: entries.map((e) => (e.scenario.targetFinishDate ? formatDate(e.scenario.targetFinishDate) : null)),
+    },
+    {
       label: "Duration w/Buffer",
       values: totalDurationValues,
       highlights: highlightBestDisplayed(totalDurationValues, "min", contenders),
