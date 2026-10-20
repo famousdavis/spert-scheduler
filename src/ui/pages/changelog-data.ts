@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.78.3",
+    date: "2026-10-20",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Compare shows each scenario’s Finish Target date, in a row below “End Date (w/buffer)”, on screen and in the printed comparison.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin the new row on screen, in print and in the comparison model.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.78.2",
     date: "2026-10-19",
     sections: [

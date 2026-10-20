@@ -637,3 +637,17 @@ describe("the Run row: a Run under each compared scenario that can run and draws
     expect(screen.getByRole("status").textContent).toBe("");
   });
 });
+
+describe("ScenarioComparisonTable — each scenario's Finish Target date (WI-132)", () => {
+  it("shows the row right after \"End Date (w/buffer)\", each cell its own date, a dash for none, never best", () => {
+    const early = { ...withResults(scenarioLasting("Baseline", 100), 140, 200), targetFinishDate: "2026-07-31" };
+    const late = { ...withResults(scenarioLasting("Clone", 120), 160, 220), targetFinishDate: "2026-09-04" };
+    const none = { ...scenarioLasting("Stretch", 90), targetFinishDate: null };
+    render(<ScenarioComparisonTable scenarios={[early, late, none]} />);
+    const labels = rowElements().map(labelOf);
+    expect(labels[labels.indexOf("Finish Target") - 1]).toBe("End Date (w/buffer)");
+    // The default date format (MM/DD/YYYY), written out — not computed by the app's formatter.
+    expect(textsOf("Finish Target")).toEqual(["07/31/2026", "09/04/2026", BLANK]);
+    expect(highlightsOf("Finish Target")).toEqual([false, false, false]);
+  });
+});
