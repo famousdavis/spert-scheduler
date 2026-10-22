@@ -122,6 +122,20 @@ export const MILESTONE_DATE_DY = 25;
  *  legibility raise would have put it INSIDE the tick lane. */
 export const TARGET_LABEL_DY = 25;
 /**
+ * The highest the "Target" label's baseline may sit (WI-133, v0.79.1). With no milestones and
+ * "Project name" unticked, `topMargin` is 32, so `topMargin − TARGET_LABEL_DY` put the baseline at
+ * y = 7 and the label's top above the svg's edge, where the tops of its letters were cut off.
+ *
+ * ⚠️ MEASURED in the browser (Chrome, macOS, the app's 11px `ui-sans-serif` at weight 500): the
+ * text's `getBBox()` reaches 10.5px above its baseline — box top −3.5 at y = 7, 1.0 at y = 11.5,
+ * 1.5 at y = 12. 11.5 is the least that keeps the box's top at y ≥ 1; 12 keeps the baseline on a
+ * whole pixel, like every other label here, and leaves half a pixel for a font with a taller ascent.
+ *
+ * It only ever LOWERS the label, and only where it was cut: a milestone row or the project name
+ * gives `topMargin − TARGET_LABEL_DY` ≥ 33, so every other layout keeps its y exactly.
+ */
+export const TARGET_LABEL_MIN_BASELINE = 12;
+/**
  * Vertical space the milestone block claims above `topMargin` for its FIRST row.
  * Unchanged at 26 since the header was introduced; the lanes above now fit inside it
  * with 4.5px of headroom rather than overlapping each other and the ticks.
