@@ -380,37 +380,10 @@ function linearChannel(v: number): number {
   return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
 
-/** WCAG 2.x relative luminance of an sRGB colour. */
-function relativeLuminance({ r, g, b }: RgbColor): number {
-  return 0.2126 * linearChannel(r) + 0.7152 * linearChannel(g) + 0.0722 * linearChannel(b);
-}
-
 /** WCAG 2.x contrast ratio against white, whose relative luminance is 1. */
-function contrastOnWhite(rgb: RgbColor): number {
-  return 1.05 / (relativeLuminance(rgb) + 0.05);
-}
-
-/** The two colours a bar label can take (WI-102). */
-export const BAR_LABEL_WHITE = "#ffffff";
-export const BAR_LABEL_BLACK = "#000000";
-
-/**
- * The colour of the text drawn INSIDE an activity bar — its duration or date label (WI-102): white, or
- * black where black contrasts more with the bar's fill. Until then every label was white, which reads
- * below 4.5:1 (WCAG 2.x AA) on 37 of the 60 preset fills (ten presets × three statuses × two themes):
- * 3.68:1 on the default planned blue, 2.54:1 on its dark-mode blue.
- *
- * The better of white and black never reads below 4.58:1 on ANY fill, so a bar colour of the user's own
- * (the appearance panel's Planned, In Progress and Completed pickers take any #rrggbb, in both themes) is
- * covered too. A softer near-black would not be: #111827's worst fill reads 4.21:1, and one of the
- * picker's own swatches, #0284c7, 4.33:1. Ties go to white, the old label, and so does a string `hexToRgb`
- * cannot read. One function for both charts, so they cannot disagree (print parity).
- */
-export function barLabelColor(fill: string): string {
-  const rgb = hexToRgb(fill);
-  if (!rgb) return BAR_LABEL_WHITE;
-  const onBlack = (relativeLuminance(rgb) + 0.05) / 0.05;
-  return onBlack > contrastOnWhite(rgb) ? BAR_LABEL_BLACK : BAR_LABEL_WHITE;
+function contrastOnWhite({ r, g, b }: RgbColor): number {
+  const luminance = 0.2126 * linearChannel(r) + 0.7152 * linearChannel(g) + 0.0722 * linearChannel(b);
+  return 1.05 / (luminance + 0.05);
 }
 
 /** Each channel scaled toward black by `t` and rounded to 8 bits: c' = round(c × (1 − t)). */
@@ -759,8 +732,6 @@ export interface ActivityRowGeometry {
   /** Floored at 4px so a zero-duration activity is still visible. */
   barWidth: number;
   barColor: string;
-  /** The bar label's colour on `barColor`: white or black, whichever reads better (WI-102). */
-  labelColor: string;
   showHatch: boolean;
   /** Right edge of the uncertainty hatching; equals barEndX when not hatching. */
   hatchEndX: number;
@@ -821,7 +792,6 @@ export function computeActivityRowGeometry(args: {
     barEndX,
     barWidth: Math.max(4, barEndX - barX),
     barColor,
-    labelColor: barLabelColor(barColor),
     showHatch,
     hatchEndX: showHatch && args.extEndDate ? toX(args.extEndDate) : barEndX,
     hatchStrokeColor: args.status === "inProgress" ? args.barInProgress : args.barPlanned,

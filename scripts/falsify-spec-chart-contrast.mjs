@@ -2,15 +2,16 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-// Falsification spec for the chart text WI-102 made readable (v0.79.3).
+// Falsification spec for the chart text WI-102 made readable (v0.79.3; bar labels v0.79.4).
 //
-// A Gantt bar's label is black or white, whichever contrasts more with that bar's fill, on screen, in copies and in
-// print; the Gantt's milestone names, dates and "Target" are a readable shade of their marker's colour where the
-// chart is white and their own colour on the dark chart; the histogram's Mean, Buffer and P95 labels, the cumulative
-// distribution chart's axis titles, P95 label and "Finish by" readout, the comparison chart's scenario names and axis
-// title, and the printed legend's "Date prepared" each read at least 4.5:1 on their ground. Each straw below restores
-// one old colour, or a plausible half-fix, and names the tests that must go red — observed one straw at a time
-// against the whole suite before this file was written (2026-10-22: every straw red, 1–80 tests each).
+// A Gantt bar's label is white on every bar, on screen, in copies and in print, and every colour preset's bars are dark
+// enough for white to read at least 4.5:1 on them (v0.79.4, the owner's option B — v0.79.3's black-or-white label was
+// reversed, and its six straws on it replaced by S1–S4); the Gantt's milestone names, dates and "Target" are a readable
+// shade of their marker's colour where the chart is white and their own colour on the dark chart; the histogram's
+// Mean, Buffer and P95 labels, the cumulative distribution chart's axis titles, P95 label and "Finish by" readout, the
+// comparison chart's scenario names and axis title, and the printed legend's "Date prepared" each read at least 4.5:1
+// on their ground. Each straw below restores one old colour, or a plausible half-fix, and names the tests that must go
+// red — observed one straw at a time against the whole suite before this file was written (2026-10-22).
 //
 // Usage: node scripts/falsify.mjs scripts/falsify-spec-chart-contrast.mjs
 const src = (p) => new URL(`../src/${p}`, import.meta.url).pathname;
@@ -21,53 +22,46 @@ const HISTOGRAM = src("ui/charts/HistogramChart.tsx");
 const CDF = src("ui/charts/CDFChart.tsx");
 const COMPARE = src("ui/charts/CDFComparisonChart.tsx");
 const PRINT_SECTIONS = src("ui/components/print-sections.tsx");
+const CONSTANTS = src("ui/charts/gantt-constants.ts");
 const PANEL = src("ui/components/SimulationPanel.tsx");
+
+/** The screen's bar label fill — the glyph "C" below it is also #ffffff, so the needle carries the line above. */
+const BAR_LABEL_FILL = 'fontSize={ra.barLabelFontSize}\n' + " ".repeat(22) + 'fill="#ffffff"';
 
 export const testFile = "src/";
 export const mutations = [
   {
-    id: "S1  the Gantt's bar label is drawn white again",
+    id: "S1  the Gantt's bar label is drawn black again",
     file: ROW,
-    find: "fill={geo.labelColor}",
-    replace: 'fill="#ffffff"',
-    expectFailing: /> G3 |> G4 /,
+    find: BAR_LABEL_FILL,
+    replace: 'fontSize={ra.barLabelFontSize}\n' + " ".repeat(22) + 'fill="#000000"',
+    expectFailing: /> G2 |> G3 |> G4 /,
   },
   {
-    id: "S2  the bar label colour is always white",
-    file: UTILS,
-    find: "return onBlack > contrastOnWhite(rgb) ? BAR_LABEL_BLACK : BAR_LABEL_WHITE;",
-    replace: "return BAR_LABEL_WHITE;",
-    expectFailing: /> G1 |> G2 |> G3 |> G4 /,
+    // v0.79.3's rule, inline: black where black contrasts more with the bar's fill (WCAG 2.x), else white.
+    id: "S2  the Gantt's bar label is chosen by contrast again",
+    file: ROW,
+    find: BAR_LABEL_FILL,
+    replace:
+      'fontSize={ra.barLabelFontSize}\n' + " ".repeat(22) +
+      "fill={((l) => ((l + 0.05) / 0.05 > 1.05 / (l + 0.05) ? \"#000000\" : \"#ffffff\"))([1, 3, 5].reduce((sum, at, i) => " +
+      "{ const s = parseInt(geo.barColor.slice(at, at + 2), 16) / 255; " +
+      "return sum + [0.2126, 0.7152, 0.0722][i] * (s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4); }, 0))}",
+    expectFailing: /> G2 |> G3 |> G4 /,
   },
   {
-    id: "S3  the bar label colour is always black",
-    file: UTILS,
-    find: "return onBlack > contrastOnWhite(rgb) ? BAR_LABEL_BLACK : BAR_LABEL_WHITE;",
-    replace: "return BAR_LABEL_BLACK;",
-    expectFailing: /> G1 |> G2 |> G3 |> G4 /,
-  },
-  {
-    // A softer near-black: #0284c7, one of the picker's own swatches, reads 4.33:1 under it.
-    id: "S4  the black label is #111827",
-    file: UTILS,
-    find: 'export const BAR_LABEL_BLACK = "#000000";',
-    replace: 'export const BAR_LABEL_BLACK = "#111827";',
-    expectFailing: /> G1 |> G2 |> G3 |> G4 /,
-  },
-  {
-    id: "S5  the label colour is chosen from the planned colour, not the bar's own",
-    file: UTILS,
-    find: "labelColor: barLabelColor(barColor),",
-    replace: "labelColor: barLabelColor(args.barPlanned),",
-    // Not G2: a custom colour is one colour for every status, so the planned colour IS the bar's.
-    expectFailing: /> G1 |> G3 |> G4 /,
-  },
-  {
-    id: "S6  the printed Gantt's bar label is drawn white again",
+    id: "S3  the printed Gantt's bar label is not white",
     file: PRINT,
-    find: "fill={barLabelColor(barColor)}",
-    replace: 'fill="#fff"',
+    find: 'fontSize={ra.printBarLabelFontSize} fill="#fff"',
+    replace: 'fontSize={ra.printBarLabelFontSize} fill="#000"',
     expectFailing: /> G4 /,
+  },
+  {
+    id: "S4  Classic's light planned bar is its v0.79.3 blue again",
+    file: CONSTANTS,
+    find: 'light: { barPlanned: "#3473da",',
+    replace: 'light: { barPlanned: "#3b82f6",',
+    expectFailing: /> G1 /,
   },
   {
     id: "S7  milestone and Target text is not darkened on white",
