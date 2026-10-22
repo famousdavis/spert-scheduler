@@ -169,7 +169,7 @@ function PrintCdfChart({ cdf }: { cdf: ComparisonCdf }) {
       />
       <YAxis
         tick={axisTick(false)}
-        label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
+        label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12, fill: axisTick(false).fill }}
         domain={[0, 100]}
       />
       {cdf.datasets.map((d, i) => (

@@ -66,6 +66,9 @@ export function CDFChart({
   captureRef,
 }: CDFChartProps) {
   const isDark = useIsDarkClass();
+  // The axis titles and the P95 label take the tick text colour (WI-102): Recharts drew them in its default #808080,
+  // 3.95:1 on white and 3.71:1 on the dark chart — now 7.56:1 and 5.64:1, as the ticks beside them.
+  const labelFill = axisTick(isDark).fill;
   // Filter out any points with non-finite values (defensive check)
   const data = points
     .filter(
@@ -89,12 +92,12 @@ export function CDFChart({
             type="number"
             tick={axisTick(isDark)}
             tickFormatter={(v) => String(Math.round(v))}
-            label={{ value: "Duration (days)", position: "insideBottom", offset: -5, fontSize: 12 }}
+            label={{ value: "Duration (days)", position: "insideBottom", offset: -5, fontSize: 12, fill: labelFill }}
             domain={["dataMin", "dataMax"]}
           />
           <YAxis
             tick={axisTick(isDark)}
-            label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
+            label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12, fill: labelFill }}
             domain={[0, 100]}
           />
           <Tooltip
@@ -124,6 +127,7 @@ export function CDFChart({
               // the bottom half — the side away from the curve. "right" drew it in the 30 px margin.
               position: probabilityTarget >= 0.5 ? "insideTopRight" : "insideBottomRight",
               fontSize: AXIS_TICK_FONT_SIZE,
+              fill: labelFill,
             }}
           />
           {targetDuration != null && targetProbability != null && (
