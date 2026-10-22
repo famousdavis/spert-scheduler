@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { axisTick, AXIS_TICK_FONT_SIZE } from "./axis-theme";
+import { axisTick, AXIS_TICK_FONT_SIZE, AXIS_TICK_FILL_LIGHT } from "./axis-theme";
 import { mergeCdfDatasets, CDF_TARGET_DASH, CDF_TARGET_STROKE, type CDFDataset } from "./cdf-comparison-data";
 // Note: CopyImageButton intentionally NOT imported here. The parent
 // (ScenarioComparison) provides its own copy button in the chrome header.
@@ -31,6 +31,15 @@ interface CDFComparisonChartProps {
 
 // Color palette for comparison lines
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+/**
+ * A legend entry's NAME in the chart's text colour (WI-102). Recharts colours the name like its line — 3.68:1 on
+ * white for the first scenario, 2.54:1 and 2.15:1 for the next two — so the name now reads 7.56:1, as the axis
+ * ticks do, and the line swatch beside it keeps the scenario's colour, as the printed key does.
+ */
+function legendName(value: string) {
+  return <span style={{ color: AXIS_TICK_FILL_LIGHT }}>{value}</span>;
+}
 
 /**
  * Displays multiple CDF curves overlaid for scenario comparison.
@@ -79,7 +88,7 @@ export function CDFComparisonChart({
             />
             <YAxis
               tick={axisTick(false)}
-              label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12 }}
+              label={{ value: "Probability (%)", angle: -90, position: "insideLeft", fontSize: 12, fill: AXIS_TICK_FILL_LIGHT }}
               domain={[0, 100]}
             />
             <Tooltip
@@ -95,6 +104,7 @@ export function CDFComparisonChart({
             <Legend
               wrapperStyle={{ fontSize: AXIS_TICK_FONT_SIZE }}
               iconType="line"
+              formatter={legendName}
               itemSorter={(item) => columnOf.get(String(item.dataKey)) ?? 0}
             />
             {datasets.map((dataset, idx) => (

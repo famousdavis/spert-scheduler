@@ -8,6 +8,7 @@ import { render, renderHook } from "@testing-library/react";
 import { GanttChart } from "./GanttChart";
 import { PrintGanttChart } from "./PrintGanttChart";
 import { MILESTONE_COLORS, resolveGanttAppearance } from "./gantt-constants";
+import { readableOnWhite } from "./gantt-utils";
 import { buildSampleProject } from "@app/api/sample-project-service";
 import { computeDependencySchedule } from "@core/schedule/deterministic";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
@@ -140,6 +141,10 @@ function renderPrint(buffers: Map<string, MilestoneBufferInfo>) {
 const COLOR_KEY: Record<string, string> = Object.fromEntries(
   Object.entries(MILESTONE_COLORS.light).map(([key, hex]) => [hex, key]),
 );
+/** The NAME is drawn in its marker's colour darkened for the white chart by `readableOnWhite` (WI-102); the diamond keeps the colour. */
+const LABEL_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries(MILESTONE_COLORS.light).map(([key, hex]) => [readableOnWhite(hex), key]),
+);
 
 /**
  * Each milestone's marker colours, by name: the fills of its name label and its diamond, as the
@@ -153,7 +158,7 @@ function markerColors(container: HTMLElement): string[] {
     );
     if (!label) return `${m.name}: NO MARKER`;
     const diamond = label.parentElement!.querySelector("polygon");
-    const labelKey = COLOR_KEY[label.getAttribute("fill") ?? ""] ?? label.getAttribute("fill");
+    const labelKey = LABEL_KEY[label.getAttribute("fill") ?? ""] ?? label.getAttribute("fill");
     const diamondKey = COLOR_KEY[diamond?.getAttribute("fill") ?? ""] ?? diamond?.getAttribute("fill");
     return labelKey === diamondKey ? `${m.name}: ${labelKey}` : `${m.name}: label ${labelKey}, diamond ${diamondKey}`;
   });

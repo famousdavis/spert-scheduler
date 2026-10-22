@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.79.3 — 2026-10-22
+
+### Fixed
+
+- **A Gantt bar’s label is now black or white, whichever stands out more against that bar’s colour** — in every colour preset and in colours you choose, on screen, in copies and in print.
+- **Other chart text that was too faint is now darker on white charts and lighter on dark ones:** the Gantt chart’s milestone labels and, on a white chart, its Finish Target label; the histogram’s Mean, Buffer and P95 labels; the cumulative distribution chart’s axis titles, P95 label and “Finish by” readout; and the comparison chart’s scenario names, now in grey beside each scenario’s colour.
+
+### Internal
+
+- Tests check each label’s contrast with an independent calculation, across every colour preset and the colour picker’s swatches.
+
 ## 0.79.2 — 2026-10-22
 
 ### Fixed

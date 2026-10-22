@@ -40,7 +40,7 @@ import {
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
   computeBarHitRect, buildActivityTooltip, tickHasYear,
-  barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite,
+  barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite, markerTextFill,
 } from "./gantt-utils";
 import { GanttActivityRow } from "./GanttActivityRow";
 import { GanttSvgDefs } from "./GanttSvgDefs";
@@ -858,7 +858,7 @@ export function GanttChart({
                   textAnchor="middle"
                   fontSize={TARGET_LABEL_FONT_PX}
                   fontWeight="500"
-                  fill={color}
+                  fill={markerTextFill(color, isDark)}
                 >
                   {TARGET_LABEL_TEXT}
                 </text>
@@ -902,7 +902,7 @@ export function GanttChart({
                   y={topMargin - MILESTONE_NAME_DY - rowLift}
                   textAnchor="middle"
                   fontSize={MILESTONE_NAME_FONT_PX}
-                  fill={healthColor}
+                  fill={markerTextFill(healthColor, isDark)}
                   fontWeight="600"
                   className="pointer-events-none"
                 >
@@ -914,7 +914,7 @@ export function GanttChart({
                   y={topMargin - MILESTONE_DATE_DY}
                   textAnchor="middle"
                   fontSize={MILESTONE_DATE_FONT_PX}
-                  fill={healthColor}
+                  fill={markerTextFill(healthColor, isDark)}
                   className="pointer-events-none"
                 >
                   {formatDate(m.targetDate)}

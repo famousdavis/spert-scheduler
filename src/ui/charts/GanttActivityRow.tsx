@@ -186,7 +186,7 @@ export function GanttActivityRow({
                       textAnchor={ra.barLabel === "dates" ? "end" : "middle"}
                       dominantBaseline="central"
                       fontSize={ra.barLabelFontSize}
-                      fill="#ffffff"
+                      fill={geo.labelColor}
                       fontWeight="600"
                       className="pointer-events-none"
                     >

@@ -27,7 +27,7 @@ import {
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressTicksNamingEveryYear, clampFinishLabelX, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressTicksNamingEveryYear, clampFinishLabelX, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite, barLabelColor } from "./gantt-utils";
 import type { TickLevel, TickObstacle } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -471,7 +471,7 @@ export function PrintGanttChart({
               <line x1={targetX} y1={topMargin} x2={targetX} y2={chartH - 4}
                 stroke={color} strokeWidth="0.75" strokeDasharray={dash} />
               <text x={targetX} y={topMargin - PRINT_TARGET_LABEL_DY} textAnchor="middle"
-                fontSize={fs5} fontWeight="500" fill={color}>
+                fontSize={fs5} fontWeight="500" fill={readableOnWhite(color)}>
                 {TARGET_LABEL_TEXT}
               </text>
             </g>
@@ -610,7 +610,7 @@ export function PrintGanttChart({
                 return (
                   <text x={ra.barLabel === "dates" ? x1 + w - 3 : x1 + w / 2} y={barY + ra.printBarHeight / 2}
                     textAnchor={ra.barLabel === "dates" ? "end" : "middle"}
-                    dominantBaseline="central" fontSize={ra.printBarLabelFontSize} fill="#fff" fontWeight="600">
+                    dominantBaseline="central" fontSize={ra.printBarLabelFontSize} fill={barLabelColor(barColor)} fontWeight="600">
                     {label}
                   </text>
                 );
@@ -681,11 +681,11 @@ export function PrintGanttChart({
                 fill={healthColor}
               />
               <text x={x} y={topMargin - PRINT_MILESTONE_NAME_DY - rowLift} textAnchor="middle"
-                fontSize={fs5} fill={healthColor} fontWeight="600">
+                fontSize={fs5} fill={readableOnWhite(healthColor)} fontWeight="600">
                 {nameOrUnnamed(ms.name)}
               </text>
               <text x={x} y={topMargin - PRINT_MILESTONE_DATE_DY} textAnchor="middle"
-                fontSize={fs4} fill={healthColor}>
+                fontSize={fs4} fill={readableOnWhite(healthColor)}>
                 {formatDate(ms.targetDate)}
               </text>
             </g>
@@ -763,7 +763,7 @@ export function PrintGanttChart({
             Non-work day
           </span>
         )}
-        <span className="ml-auto text-gray-400">
+        <span className="ml-auto text-gray-500">
           Date prepared: {formatDate(formatDateISO(new Date()))}
         </span>
       </div>

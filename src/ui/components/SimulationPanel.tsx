@@ -12,6 +12,7 @@ import { HistogramChart } from "@ui/charts/HistogramChart";
 import { CDFChart } from "@ui/charts/CDFChart";
 import { PercentileTable } from "@ui/charts/PercentileTable";
 import { CopyImageButton } from "@ui/components/CopyImageButton";
+import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 import type { ActivityProblem } from "@ui/hooks/use-estimate-validity";
 import { numberedName, type ActivityNumbers } from "@ui/helpers/run-blocked-message";
 
@@ -51,10 +52,23 @@ function RunBlockedReason({
   );
 }
 
-function healthColor(pct: number, greenPct: number, amberPct: number): string {
-  if (pct >= greenPct) return "#16a34a";
-  if (pct >= amberPct) return "#f59e0b";
-  return "#dc2626";
+/**
+ * The "Finish by" lookup's colour for its health (WI-102): the "% probability" line beside the date field, and the
+ * lookup's line and label in the Cumulative Distribution chart. One shade per theme, each at least 4.5:1 (WCAG AA) on
+ * its own ground: on white green #15803d 5.02, amber #b45309 5.02, red #dc2626 4.83; on the dark chart green #4ade80
+ * 8.42, amber #f59e0b 6.83, red #f87171 5.30. It was #16a34a / #f59e0b / #dc2626 in both themes: 3.30 and 2.15 on
+ * white, 4.45 and 3.04 on the dark chart.
+ */
+const HEALTH_COLORS = {
+  light: { green: "#15803d", amber: "#b45309", red: "#dc2626" },
+  dark: { green: "#4ade80", amber: "#f59e0b", red: "#f87171" },
+} as const;
+
+function healthColor(pct: number, greenPct: number, amberPct: number, isDark: boolean): string {
+  const c = isDark ? HEALTH_COLORS.dark : HEALTH_COLORS.light;
+  if (pct >= greenPct) return c.green;
+  if (pct >= amberPct) return c.amber;
+  return c.red;
 }
 
 interface SimulationPanelProps {
@@ -140,6 +154,7 @@ export function SimulationPanel({
   const cdfCaptureRef = useRef<HTMLDivElement>(null);
 
   // Date probability lookup state
+  const isDark = useIsDarkClass();
   const [targetDate, setTargetDate] = useState("");
   const targetDateId = useId();
   const targetLookup = useMemo(() => {
@@ -149,10 +164,10 @@ export function SimulationPanel({
     const probability = lookupProbability(simulationResults.samples, days);
     const pct = probability * 100;
     const dateLabel = formatDurationAsDate?.(days) ?? "";
-    const color = healthColor(pct, targetFinishGreenPct, targetFinishAmberPct);
+    const color = healthColor(pct, targetFinishGreenPct, targetFinishAmberPct, isDark);
     const suffix = dateLabel ? ` by ${dateLabel}` : "";
     return { days, probability: pct, label: `${Math.round(pct)}%${suffix}`, color };
-  }, [targetDate, dateToWorkingDays, simulationResults, formatDurationAsDate, targetFinishGreenPct, targetFinishAmberPct]);
+  }, [targetDate, dateToWorkingDays, simulationResults, formatDurationAsDate, targetFinishGreenPct, targetFinishAmberPct, isDark]);
 
   return (
     <div className="space-y-4">
