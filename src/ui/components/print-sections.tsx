@@ -309,6 +309,8 @@ export function PrintComparisonSection({
         Scenario Comparison
       </h2>
       <PrintComparisonTable model={model} />
+      {/* WI-125: how to read the buffer-use rows — printed, as on screen, first under the table. */}
+      {model.bufferNote && <p className="mt-1 text-xs text-gray-600">{model.bufferNote}</p>}
       {model.flagNotes.map((f) => (
         <PrintFlagNote key={f.scenarioId} flag={f} />
       ))}

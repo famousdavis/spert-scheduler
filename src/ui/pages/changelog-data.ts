@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.0",
+    date: "2026-10-22",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Compare shows how much of the first scenario’s schedule buffer a later status update has used. When a later scenario has more activities In Progress or Complete than the first, or more days in their Actual cells, three rows after “Duration w/Buffer” give the buffer days used, the days left and the percent used, on screen and in print; a note under the table names the scenario they are measured against, or says why a cell is blank.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin the three rows and their note in the comparison model, on screen and in print.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.78.4",
     date: "2026-10-20",
     sections: [

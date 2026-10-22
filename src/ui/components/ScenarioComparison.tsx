@@ -131,17 +131,22 @@ function FlagNoteView({ flag }: { flag: ComparisonFlagNote }) {
 }
 
 /**
- * The notes under the table, in this order: one amber note per flagged scenario (column order), the
- * grey run note, the red note. ⚠️ The wrapper is `w-0 min-w-full` so the notes WRAP AT THE TABLE'S
+ * The notes under the table, in this order: the buffer-use note (WI-125 — how to read three of the
+ * table's rows, so it comes first), one amber note per flagged scenario (column order), the grey run
+ * note, the red note. ⚠️ The wrapper is `w-0 min-w-full` so the notes WRAP AT THE TABLE'S
  * WIDTH and never widen the box — or the copied image — around it: a note contributes nothing to the
  * captured region's width, then stretches to it (WI-58; measured: the engine's error note had widened
- * the box from 404 to 1,216 px, and the copied image with it).
+ * the box from 404 to 1,216 px, and the copied image with it). That is also why the first column's name
+ * — up to 200 characters — goes in the buffer note and never in a row's label.
  * ⚠️ Inside the captured region: light colours only, NO `dark:` variant (see the note on tableRef).
  */
 function ComparisonNotes({ model }: { model: ComparisonModel }) {
-  if (model.flagNotes.length === 0 && !model.runNote && !model.failNote) return null;
+  if (!model.bufferNote && model.flagNotes.length === 0 && !model.runNote && !model.failNote) return null;
   return (
     <div className="w-0 min-w-full">
+      {model.bufferNote && (
+        <p className="px-4 py-2 text-xs text-gray-600 border-t border-gray-100">{model.bufferNote}</p>
+      )}
       {model.flagNotes.map((f) => (
         <FlagNoteView key={f.scenarioId} flag={f} />
       ))}
