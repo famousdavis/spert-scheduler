@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.2 — 2026-10-22
+
+### Fixed
+
+- **Typing a Finish Target date no longer clears it partway through.** Deleting part of the date to retype it used to clear the whole date and could switch off the Gantt chart’s Finish Target line; now the date you type is saved when you leave the field, and a date left half-typed is not saved — the field goes back to what it held before.
+
+### Internal
+
+- Tests pin the field’s typing, clearing and leaving.
+
 ## 0.79.1 — 2026-10-22
 
 ### Fixed

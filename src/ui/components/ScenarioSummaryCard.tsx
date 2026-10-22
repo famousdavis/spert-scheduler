@@ -16,6 +16,7 @@ import {
   PROJECT_PERCENTILE_OPTIONS,
 } from "@ui/helpers/percentile-options";
 import { useDateFormat } from "@ui/hooks/use-date-format";
+import { useBufferedField, type BufferedFieldControls } from "@ui/hooks/use-buffered-field";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { toast } from "@ui/hooks/use-notification-store";
 import {
@@ -238,6 +239,22 @@ export function ScenarioSummaryCard({
       setLocalNotes(scenarioNotes ?? "");
     }
   }, [scenarioNotes]);
+  // WI-129 (v0.79.2): the Finish Target date is buffered and saved when the field is left,
+  // never per keystroke. A half-typed date reads "" with validity.badInput true — it goes
+  // back to the stored date and nothing is saved; an emptied field reads "" with badInput
+  // false — a clear. Read at blur, before handleBlur runs the commit.
+  const targetFinishBadInputRef = useRef(false);
+  const commitTargetFinish = useCallback(
+    (value: string, controls: BufferedFieldControls) => {
+      if (value === "" && targetFinishBadInputRef.current) {
+        controls.reset();
+        return;
+      }
+      onTargetFinishDateChange?.(value || null);
+    },
+    [onTargetFinishDateChange],
+  );
+  const targetFinish = useBufferedField(targetFinishDate ?? "", commitTargetFinish);
   const baseId = useId();
   const startDateId = `${baseId}-start`;
   const targetFinishId = `${baseId}-target`;
@@ -326,9 +343,15 @@ export function ScenarioSummaryCard({
               id={targetFinishId}
               name="targetFinishDate"
               type="date"
-              value={targetFinishDate ?? ""}
-              onChange={(e) => {
-                onTargetFinishDateChange?.(e.target.value || null);
+              value={targetFinish.localValue}
+              onChange={(e) => targetFinish.setLocalValue(e.target.value)}
+              onFocus={targetFinish.handleFocus}
+              onBlur={(e) => {
+                const badInput = e.target.validity.badInput;
+                targetFinishBadInputRef.current = badInput;
+                // The half-typed parts clear even when React has no re-render to make (no stored date: "" stays "").
+                if (badInput) e.target.value = targetFinishDate ?? "";
+                targetFinish.handleBlur();
               }}
               disabled={isLocked}
               className={`text-lg tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-400 dark:focus:border-blue-400 rounded px-1 -ml-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent ${targetFinishColorClass(targetRAGColor, Boolean(targetFinishDate))}`}

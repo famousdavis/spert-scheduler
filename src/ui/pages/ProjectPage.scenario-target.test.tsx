@@ -89,7 +89,7 @@ function renderRoute(projectId: string) {
 }
 
 const card = () => document.querySelector('input[name="targetFinishDate"]') as HTMLInputElement;
-const setDate = (value: string) => fireEvent.change(card(), { target: { value } });
+const setDate = (value: string) => { fireEvent.focus(card()); fireEvent.change(card(), { target: { value } }); fireEvent.blur(card()); };
 const box = () => document.querySelector('input[name="ganttShowTargetDate"]') as HTMLInputElement;
 const switchTo = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
 const screenGantt = () => document.querySelector('svg[data-gantt-chart="interactive"]');
