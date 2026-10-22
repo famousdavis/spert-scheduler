@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.4 — 2026-10-22
+
+### Changed
+
+- **Gantt bars whose white labels were hard to read are now a shade darker, in every colour preset, and the labels are white again on every bar**, on screen, in copies and in print — 0.79.3 had turned many of them black. The other chart text made easier to read in 0.79.3 stays as it is.
+
+### Internal
+
+- Tests pin each bar label white and check it against every preset’s bar colours with an independent contrast calculation.
+
 ## 0.79.3 — 2026-10-22
 
 ### Fixed

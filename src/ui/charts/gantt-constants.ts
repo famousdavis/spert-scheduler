@@ -332,44 +332,44 @@ export interface GanttPresetColors {
 
 export const GANTT_COLOR_PRESETS: Record<string, { light: GanttPresetColors; dark: GanttPresetColors }> = {
   classic: {
-    light: { barPlanned: "#3b82f6", barInProgress: "#f97316", barComplete: "#9ca3af", criticalPath: "#dc2626" },
-    dark:  { barPlanned: "#60a5fa", barInProgress: "#fb923c", barComplete: "#6b7280", criticalPath: "#f87171" },
+    light: { barPlanned: "#3473da", barInProgress: "#be5811", barComplete: "#727780", criticalPath: "#dc2626" },
+    dark:  { barPlanned: "#4678b7", barInProgress: "#ac6429", barComplete: "#6b7280", criticalPath: "#f87171" },
   },
   professional: {
     light: { barPlanned: "#1e40af", barInProgress: "#b45309", barComplete: "#6b7280", criticalPath: "#991b1b" },
-    dark:  { barPlanned: "#93c5fd", barInProgress: "#fbbf24", barComplete: "#9ca3af", criticalPath: "#fca5a5" },
+    dark:  { barPlanned: "#5a799c", barInProgress: "#947115", barComplete: "#727780", criticalPath: "#fca5a5" },
   },
   colorful: {
-    light: { barPlanned: "#7c3aed", barInProgress: "#0891b2", barComplete: "#9ca3af", criticalPath: "#e11d48" },
-    dark:  { barPlanned: "#a78bfa", barInProgress: "#22d3ee", barComplete: "#6b7280", criticalPath: "#fb7185" },
+    light: { barPlanned: "#7c3aed", barInProgress: "#07819e", barComplete: "#727780", criticalPath: "#e11d48" },
+    dark:  { barPlanned: "#7e69bd", barInProgress: "#158292", barComplete: "#6b7280", criticalPath: "#fb7185" },
   },
   grayscale: {
-    light: { barPlanned: "#475569", barInProgress: "#64748b", barComplete: "#94a3b8", criticalPath: "#1e293b" },
-    dark:  { barPlanned: "#94a3b8", barInProgress: "#cbd5e1", barComplete: "#64748b", criticalPath: "#e2e8f0" },
+    light: { barPlanned: "#475569", barInProgress: "#64748b", barComplete: "#6c7786", criticalPath: "#1e293b" },
+    dark:  { barPlanned: "#6c7786", barInProgress: "#72777e", barComplete: "#64748b", criticalPath: "#e2e8f0" },
   },
   contrast: {
-    light: { barPlanned: "#1d4ed8", barInProgress: "#ea580c", barComplete: "#6b7280", criticalPath: "#dc2626" },
-    dark:  { barPlanned: "#60a5fa", barInProgress: "#fb923c", barComplete: "#9ca3af", criticalPath: "#f87171" },
+    light: { barPlanned: "#1d4ed8", barInProgress: "#cd4d0b", barComplete: "#6b7280", criticalPath: "#dc2626" },
+    dark:  { barPlanned: "#4678b7", barInProgress: "#ac6429", barComplete: "#727780", criticalPath: "#f87171" },
   },
   forest: {
-    light: { barPlanned: "#15803d", barInProgress: "#a16207", barComplete: "#9ca3af", criticalPath: "#b91c1c" },
-    dark:  { barPlanned: "#4ade80", barInProgress: "#facc15", barComplete: "#6b7280", criticalPath: "#f87171" },
+    light: { barPlanned: "#15803d", barInProgress: "#a16207", barComplete: "#727780", criticalPath: "#b91c1c" },
+    dark:  { barPlanned: "#2d864d", barInProgress: "#8d730c", barComplete: "#6b7280", criticalPath: "#f87171" },
   },
   ocean: {
-    light: { barPlanned: "#0891b2", barInProgress: "#0d9488", barComplete: "#94a3b8", criticalPath: "#be123c" },
-    dark:  { barPlanned: "#22d3ee", barInProgress: "#2dd4bf", barComplete: "#64748b", criticalPath: "#fb7185" },
+    light: { barPlanned: "#07819e", barInProgress: "#0c857a", barComplete: "#6c7786", criticalPath: "#be123c" },
+    dark:  { barPlanned: "#158292", barInProgress: "#1c8376", barComplete: "#64748b", criticalPath: "#fb7185" },
   },
   sunset: {
-    light: { barPlanned: "#d97706", barInProgress: "#dc2626", barComplete: "#9ca3af", criticalPath: "#7c2d12" },
-    dark:  { barPlanned: "#fbbf24", barInProgress: "#f87171", barComplete: "#6b7280", criticalPath: "#fca5a5" },
+    light: { barPlanned: "#b36205", barInProgress: "#dc2626", barComplete: "#727780", criticalPath: "#7c2d12" },
+    dark:  { barPlanned: "#947115", barInProgress: "#be5656", barComplete: "#6b7280", criticalPath: "#fca5a5" },
   },
   lavender: {
-    light: { barPlanned: "#7e22ce", barInProgress: "#c026d3", barComplete: "#a1a1aa", criticalPath: "#9f1239" },
-    dark:  { barPlanned: "#c084fc", barInProgress: "#e879f9", barComplete: "#71717a", criticalPath: "#fb7185" },
+    light: { barPlanned: "#7e22ce", barInProgress: "#c026d3", barComplete: "#76767d", criticalPath: "#9f1239" },
+    dark:  { barPlanned: "#8f62bc", barInProgress: "#a757b3", barComplete: "#71717a", criticalPath: "#fb7185" },
   },
   earth: {
-    light: { barPlanned: "#92400e", barInProgress: "#b45309", barComplete: "#a8a29e", criticalPath: "#7c2d12" },
-    dark:  { barPlanned: "#fbbf24", barInProgress: "#fb923c", barComplete: "#78716c", criticalPath: "#fca5a5" },
+    light: { barPlanned: "#92400e", barInProgress: "#b45309", barComplete: "#7a7573", criticalPath: "#7c2d12" },
+    dark:  { barPlanned: "#947115", barInProgress: "#ac6429", barComplete: "#78716c", criticalPath: "#fca5a5" },
   },
 };
 

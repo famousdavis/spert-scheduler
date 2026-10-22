@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.4",
+    date: "2026-10-22",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Gantt bars whose white labels were hard to read are now a shade darker, in every colour preset, and the labels are white again on every bar, on screen, in copies and in print — 0.79.3 had turned many of them black. The other chart text made easier to read in 0.79.3 stays as it is.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin each bar label white and check it against every preset’s bar colours with an independent contrast calculation.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.3",
     date: "2026-10-22",
     sections: [
