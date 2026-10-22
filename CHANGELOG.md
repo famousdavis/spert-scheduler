@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.0 — 2026-10-22
+
+### Added
+
+- **Compare shows how much of the first scenario’s schedule buffer a later status update has used.** When a later scenario has more activities In Progress or Complete than the first, or more days in their Actual cells, three rows after “Duration w/Buffer” give the buffer days used, the days left and the percent used, on screen and in print; a note under the table names the scenario they are measured against, or says why a cell is blank.
+
+### Internal
+
+- Tests pin the three rows and their note in the comparison model, on screen and in print.
+
 ## 0.78.4 — 2026-10-20
 
 ### Changed

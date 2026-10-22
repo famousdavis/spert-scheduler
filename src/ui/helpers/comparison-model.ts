@@ -9,8 +9,9 @@ import { computeScheduleBuffer } from "@core/schedule/buffer";
 import { computeSchedule } from "@app/api/schedule-service";
 import { computeDependencySchedule } from "@core/schedule/deterministic";
 import { cdf } from "@core/analytics/analytics";
-import { durationToFinishDateISO } from "@core/calendar/calendar";
+import { countWorkingDays, durationToFinishDateISO, parseDateISO } from "@core/calendar/calendar";
 import { isCalendarError } from "@core/calendar/work-calendar";
+import { pluralize } from "@domain/helpers/format-labels";
 import { isDependencyCycleError } from "@core/schedule/dependency-graph";
 import type { ScheduleError } from "@ui/hooks/use-schedule";
 import { savedScenarioFlags, type SavedScenarioFlags } from "@ui/helpers/scenario-flags";
@@ -93,6 +94,12 @@ export interface ComparisonModel {
   columns: ComparisonColumn[];
   rows: ComparisonRow[];
   flagNotes: ComparisonFlagNote[];
+  /**
+   * How to read the buffer-use rows (WI-125): which column they are measured against, and why a cell has
+   * no number. Null when the rows are not shown — except, with the rows hidden, the line saying how to show
+   * them when the first column records more progress than a later one (a later status update sits first).
+   */
+  bufferNote: string | null;
   /** The grey note, or null. */
   runNote: string | null;
   /** The red note, or null. */
@@ -265,7 +272,172 @@ function runNoteOf(entries: ComparisonEntry[], gate: CompareRunGate | null): str
   return sentences.length > 0 ? sentences.join(" ") : null;
 }
 
-function rowsOf(entries: ComparisonEntry[], calendar: WorkCalendar | Calendar | undefined, formatDate: (iso: string) => string): ComparisonRow[] {
+// -- Buffer use, measured against the first column (WI-125) ---------------------------------------
+
+/** The project's work calendar, as the model is given it. */
+type CompareCalendar = WorkCalendar | Calendar;
+
+/**
+ * What a scenario records as done: its activities In Progress or Complete, and the working days the
+ * grid's Actual cell holds for them (the elapsed days, or the actual duration).
+ */
+function progressOf(scenario: Scenario): { started: number; days: number } {
+  const done = scenario.activities.filter((a) => a.status !== "planned");
+  return { started: done.length, days: done.reduce((sum, a) => sum + (a.actualDuration ?? 0), 0) };
+}
+
+/**
+ * A later column reads as a STATUS UPDATE of the first — the one comparison in which "buffer used"
+ * means something — when it records progress the first does not: more activities In Progress or
+ * Complete, or more working days entered on them. An alternative plan copied from the same scenario
+ * records no more than its source, so it shows no buffer use (WI-125's D4; the rule's one false
+ * negative is a status update that only re-estimates, its one false positive an alternative plan placed
+ * FIRST with a status update of another plan after it).
+ */
+function recordsProgressBeyond(later: Scenario, first: Scenario): boolean {
+  const l = progressOf(later);
+  const f = progressOf(first);
+  return l.started > f.started || l.days > f.days;
+}
+
+/** Working days from `fromISO` to `toISO` on the work calendar (start counted, end not); below 0 when `toISO` is earlier. */
+function workingDaysFrom(fromISO: string, toISO: string, calendar?: CompareCalendar): number {
+  if (toISO >= fromISO) return countWorkingDays(parseDateISO(fromISO), parseDateISO(toISO), calendar);
+  return -countWorkingDays(parseDateISO(toISO), parseDateISO(fromISO), calendar);
+}
+
+/** The first column as the reference: its End Date (no buffer), and its Buffer (days) if it has one. */
+interface BufferReference {
+  name: string;
+  endDate: string;
+  buffer: number | null;
+}
+
+interface BufferCells {
+  used: string | null;
+  left: string | null;
+  pct: string | null;
+}
+
+const NO_CELLS: BufferCells = { used: null, left: null, pct: null };
+
+/**
+ * One column's three cells. Left is the first column's buffer less the days used — so used + left is
+ * the first column's displayed Buffer (days) in every column, by construction (WI-41's lesson: the table
+ * never contradicts itself) — and it is also the working days from this column's End Date (no buffer) to
+ * the first column's End Date (w/buffer). With no buffer above 0 there is nothing to be left of.
+ */
+function bufferCellsOf(used: number, buffer: number | null): BufferCells {
+  if (buffer === null || buffer <= 0) return { used: String(used), left: null, pct: null };
+  return { used: String(used), left: String(buffer - used), pct: `${Math.round((used / buffer) * 100)}%` };
+}
+
+const onOff = (on: boolean) => (on ? "on" : "off");
+const targetOf = (s: Scenario) => `P${Math.round(s.settings.probabilityTarget * 100)}`;
+
+/** Why nothing can be measured against the first column, or null when it can be the reference. */
+function firstColumnReason(first: ComparisonEntry): string | null {
+  const lead = `Buffer use is measured against the first column, ${first.scenario.name},`;
+  if (first.flags.rows.length > 0) {
+    return `${lead} which has validation errors: fix them, then run simulation on ${first.scenario.name}.`;
+  }
+  if (first.scenario.activities.length === 0) return `${lead} which has no activities.`;
+  if (!first.schedule) return `${lead} whose schedule cannot be calculated.`;
+  return null;
+}
+
+/**
+ * Why a later column shows no number, or null when it can. A setting that moves the planned finish — the
+ * Activity Target (every planned duration) or Dependencies (how the dates are worked out) — makes the two
+ * End Dates (no buffer) different plans, not a slip. The Project Target and Parkinson's Law move only the
+ * simulation, so only the first column's own buffer: they need no reason.
+ */
+function laterColumnReason(later: ComparisonEntry, first: ComparisonEntry): string | null {
+  const l = later.scenario;
+  const f = first.scenario;
+  if (!recordsProgressBeyond(l, f)) {
+    return `${l.name} records no more progress than ${f.name} (activities In Progress or Complete), so it is read as another plan, not a status update, and shows no buffer use.`;
+  }
+  if (later.flags.rows.length > 0) return `Fix ${l.name}'s validation errors to see its buffer use.`;
+  if (!later.schedule) return `${l.name}'s schedule cannot be calculated, so its buffer use cannot be shown.`;
+  if (targetOf(l) !== targetOf(f)) {
+    return `${l.name}'s Activity Target is ${targetOf(l)} and ${f.name}'s is ${targetOf(f)}, which moves every planned duration: set them the same to see ${l.name}'s buffer use.`;
+  }
+  if (l.settings.dependencyMode !== f.settings.dependencyMode) {
+    return `Dependencies is ${onOff(l.settings.dependencyMode)} for ${l.name} and ${onOff(f.settings.dependencyMode)} for ${f.name}, which changes how the End Date (no buffer) is worked out: set it the same for both to see ${l.name}'s buffer use.`;
+  }
+  return null;
+}
+
+/** The note's first sentences: what the rows are measured against, and what the first column's buffer allows. */
+function referenceSentence(ref: BufferReference): string {
+  const used = `the working days a column's End Date (no buffer) has moved past ${ref.name}'s — below 0, days were recovered.`;
+  if (ref.buffer === null) {
+    return `Buffer used is measured against the first column, ${ref.name}: ${used} Buffer left and Buffer used (%) need ${ref.name}'s buffer: run simulation on ${ref.name} to calculate it.`;
+  }
+  if (ref.buffer <= 0) {
+    return `Buffer used is measured against the first column, ${ref.name}: ${used} ${ref.name}'s Buffer (days) is ${ref.buffer === 0 ? "0" : "below 0"}, so it has no buffer for a column to use.`;
+  }
+  return `Buffer used and Buffer left are measured against the first column, ${ref.name}, and its ${ref.buffer} buffer ${pluralize(ref.buffer, "day")}. Used: ${used} Left: ${ref.buffer} less used. A column's own Buffer (days) is recalculated from the work still ahead, so it is not its buffer left.`;
+}
+
+/** The column that records the least progress — the likeliest baseline among those given. */
+function leastProgress(entries: ComparisonEntry[]): ComparisonEntry {
+  return entries.reduce((least, e) => (recordsProgressBeyond(least.scenario, e.scenario) && !recordsProgressBeyond(e.scenario, least.scenario) ? e : least));
+}
+
+/**
+ * With the rows hidden: when the first column records progress a later one lacks, a later status update
+ * probably sits first (its tab was dragged before its source's) — say how to see its buffer use, naming the
+ * column that records the least progress as the one to move.
+ */
+function reorderHint(first: ComparisonEntry, later: ComparisonEntry[]): string | null {
+  const behind = later.filter((e) => recordsProgressBeyond(first.scenario, e.scenario));
+  if (behind.length === 0) return null;
+  const f = first.scenario.name;
+  const b = leastProgress(behind).scenario.name;
+  return `Buffer use is measured against the first column. To see ${f}'s use of ${b}'s buffer, drag ${b}'s tab to the left of ${f}'s.`;
+}
+
+interface BufferUseModel {
+  rows: ComparisonRow[];
+  note: string | null;
+}
+
+/** The three buffer-use rows and their note, or none — see `recordsProgressBeyond` for when they show. */
+function bufferUseOf(entries: ComparisonEntry[], calendar?: CompareCalendar): BufferUseModel {
+  const [first, ...later] = entries;
+  if (!first || later.length === 0) return { rows: [], note: null };
+  if (!later.some((e) => recordsProgressBeyond(e.scenario, first.scenario))) {
+    return { rows: [], note: reorderHint(first, later) };
+  }
+  const blocked = firstColumnReason(first);
+  const ref: BufferReference | null = blocked
+    ? null
+    : { name: first.scenario.name, endDate: first.schedule!.projectEndDate, buffer: first.buffer?.bufferDays ?? null };
+  const reasons: string[] = [];
+  const cells = entries.map((e, i) => {
+    if (!ref) return NO_CELLS;
+    if (i === 0) return bufferCellsOf(0, ref.buffer);
+    const reason = laterColumnReason(e, first);
+    if (reason) {
+      reasons.push(reason);
+      return NO_CELLS;
+    }
+    return bufferCellsOf(workingDaysFrom(ref.endDate, e.schedule!.projectEndDate, calendar), ref.buffer);
+  });
+  const lead = ref ? referenceSentence(ref) : blocked!;
+  return {
+    rows: [
+      { label: "Buffer used (days)", values: cells.map((c) => c.used) },
+      { label: "Buffer left (days)", values: cells.map((c) => c.left) },
+      { label: "Buffer used (%)", values: cells.map((c) => c.pct) },
+    ],
+    note: [lead, ...reasons].join(" "),
+  };
+}
+
+function rowsOf(entries: ComparisonEntry[], calendar: WorkCalendar | Calendar | undefined, formatDate: (iso: string) => string, bufferRows: ComparisonRow[]): ComparisonRow[] {
   // A flagged scenario displays its values but does not compete for "best" (WI-58).
   const contenders = entries.map((e) => e.flags.rows.length === 0);
   const durations = entries.map((e) => e.schedule?.totalDurationDays ?? null);
@@ -356,6 +528,9 @@ function rowsOf(entries: ComparisonEntry[], calendar: WorkCalendar | Calendar | 
       values: totalDurationValues,
       highlights: highlightBestDisplayed(totalDurationValues, "min", contenders),
     },
+    // WI-125: how much of the FIRST column's buffer a later status update has used — right after the
+    // buffer it counts against. Never highlighted: less used is not a better plan, only a later reading.
+    ...bufferRows,
     {
       label: "Activity Target",
       values: entries.map((e) => `P${Math.round(e.scenario.settings.probabilityTarget * 100)}`),
@@ -442,6 +617,7 @@ export function buildComparisonModel({
   // scenario's amber note already states in the summary's words (and without the engine's jargon).
   const failing = entries.filter((e) => e.error && kindOf(e) !== "estimate");
   const failures = failing.map((e) => `${e.scenario.name} (${e.error!.message})`).join("; ");
+  const bufferUse = bufferUseOf(entries, calendar);
   return {
     columns: entries.map((e) => ({
       id: e.scenario.id,
@@ -449,8 +625,9 @@ export function buildComparisonModel({
       flaggedCount: e.flags.rows.length,
       offerRun: offersRun(e, runGate),
     })),
-    rows: rowsOf(entries, calendar, formatDate),
+    rows: rowsOf(entries, calendar, formatDate, bufferUse.rows),
     flagNotes,
+    bufferNote: bufferUse.note,
     runNote: runNoteOf(entries, runGate),
     failNote: failing.length > 0 ? `Could not compute a schedule for: ${failures}` : null,
     cdf: cdfOf(entries),
