@@ -35,7 +35,7 @@ import {
   TARGET_LABEL_FONT_PX, MILESTONE_NAME_FONT_PX, MILESTONE_DATE_FONT_PX,
   MILESTONE_NAME_DY, MILESTONE_DATE_DY, TARGET_LABEL_DY, TODAY_LABEL_DY, TODAY_DATE_DY,
   MILESTONE_ROW_STEP, MILESTONE_DIAMOND_SIZE,
-  TODAY_LABEL_TEXT, TARGET_LABEL_TEXT,
+  TODAY_LABEL_TEXT, TARGET_LABEL_TEXT, TARGET_LABEL_MIN_BASELINE,
 } from "./gantt-constants";
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
@@ -854,7 +854,7 @@ export function GanttChart({
                 />
                 <text
                   x={targetX}
-                  y={topMargin - TARGET_LABEL_DY}
+                  y={Math.max(topMargin - TARGET_LABEL_DY, TARGET_LABEL_MIN_BASELINE)}
                   textAnchor="middle"
                   fontSize={TARGET_LABEL_FONT_PX}
                   fontWeight="500"

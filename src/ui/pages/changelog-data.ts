@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.1",
+    date: "2026-10-22",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The Gantt chart’s “Target” label is no longer cut off at the top when “Project name” is unticked and the project has no milestones.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "A test pins the label inside the chart in that case, and in its usual place when the chart has room above it.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.0",
     date: "2026-10-22",
     sections: [
