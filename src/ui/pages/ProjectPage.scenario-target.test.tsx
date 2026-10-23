@@ -117,9 +117,14 @@ function xOfText(svg: Element | null, text: string): string | null {
 /** The Finish Target line's label — "Target" — and its x; null when no line is drawn. */
 const lineX = (svg: Element | null) => xOfText(svg, "Target");
 
-/** The line stands exactly where the milestone named `anchor` stands — and that milestone is drawn. */
+/**
+ * The line stands exactly where the milestone named `anchor` stands — its own dashed line's `x1`, the
+ * `line` in the `<g>` that holds its name — and that milestone is drawn. Not the name's `x`: since
+ * v0.79.5 (WI-99) a name that would run past the chart's right edge slides left off its diamond.
+ */
 function expectLineAt(svg: Element | null, anchor: string): void {
-  const at = xOfText(svg, anchor);
+  const name = [...(svg?.querySelectorAll("text") ?? [])].find((t) => t.textContent === anchor);
+  const at = name?.parentElement?.querySelector("line")?.getAttribute("x1") ?? null;
   expect(at, `${anchor} is drawn`).not.toBeNull();
   expect(lineX(svg), `the Finish Target line at ${anchor}`).toBe(at);
 }

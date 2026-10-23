@@ -40,6 +40,11 @@ export interface GanttLayout {
   allTicks: { x: string; label: string }[];
   ticks: { x: string; label: string }[];
   milestoneXPositions: number[];
+  /**
+   * Centre of each milestone's NAME, in `milestones` order — its diamond's x, slid left only to
+   * keep the name inside the chart (the finish label's rule). The date stays on the diamond.
+   */
+  milestoneNameXs: number[];
   /** Header row for each milestone's name/date block, in `milestones` order. */
   milestoneRows: number[];
   rowIndex: Map<string, number>;
@@ -162,7 +167,7 @@ export function useGanttLayout({
   const finishHalfWidth = labelHalfWidth(longDateLabel(finishDate), FINISH_LABEL_FONT_PX);
   const finishLabelX = clampFinishLabelX(finishX, finishHalfWidth, chartWidth, FINISH_LABEL_EDGE_PX);
 
-  // Milestone X positions — the diamond centres, which are also each label block's centre.
+  // Milestone X positions — the diamond centres, which are also each DATE label's centre.
   const milestoneXPositions = useMemo(() => {
     if (dateRange === 0) return [];
     return milestones.map((m) =>
@@ -170,12 +175,30 @@ export function useGanttLayout({
     );
   }, [milestones, minTimestamp, dateRange, chartAreaWidth, leftMargin]);
 
-  // Which header row each milestone's labels sit on. All zeros unless names crowd.
+  // Each milestone NAME's centre: its diamond's, slid left only as far as keeps the name inside
+  // the chart (WI-99, v0.79.5). This is the finish label's rule, `clampFinishLabelX`, reused
+  // as it stands — the diamond, its line and its date never move.
+  const milestoneNameXs = useMemo(
+    () =>
+      milestoneXPositions.map((x, i) =>
+        clampFinishLabelX(
+          x,
+          labelHalfWidth(nameOrUnnamed(milestones[i]?.name), MILESTONE_NAME_FONT_PX),
+          chartWidth,
+          FINISH_LABEL_EDGE_PX,
+        ),
+      ),
+    [milestones, milestoneXPositions, chartWidth],
+  );
+
+  // Which header row each milestone's labels sit on. All zeros unless names crowd. Each block
+  // is placed where its NAME is drawn: a name slides only when it is wider than its date, so
+  // the slid name's span is the whole block's.
   const milestoneRows = useMemo(
     () =>
       assignMilestoneRows(
         milestones.map((m, i) => ({
-          x: milestoneXPositions[i] ?? 0,
+          x: milestoneNameXs[i] ?? 0,
           halfWidth: Math.max(
             labelHalfWidth(nameOrUnnamed(m.name), MILESTONE_NAME_FONT_PX),
             labelHalfWidth(DATE_LABEL_SPECIMEN, MILESTONE_DATE_FONT_PX),
@@ -183,7 +206,7 @@ export function useGanttLayout({
         })),
         LABEL_GAP_PX,
       ),
-    [milestones, milestoneXPositions],
+    [milestones, milestoneNameXs],
   );
 
   // Header height. The milestone block claims one extra row only when it uses one, so a
@@ -314,6 +337,7 @@ export function useGanttLayout({
     allTicks,
     ticks,
     milestoneXPositions,
+    milestoneNameXs,
     milestoneRows,
     rowIndex,
     barYOffset,

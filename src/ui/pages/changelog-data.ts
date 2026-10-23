@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.5",
+    date: "2026-10-23",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "A milestone name that ran past the right edge of the Gantt chart is no longer cut off — on screen and in print it now ends just inside the chart.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin a long name at the chart’s end inside the chart on screen and in print, at the default and the largest print font; a name that fits left on its diamond; the diamond and the date left where they were; and a neighbouring name put on the next row when the slid name would overlap it.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.4",
     date: "2026-10-22",
     sections: [

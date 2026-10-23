@@ -168,20 +168,37 @@ export function PrintGanttChart({
     ? toX(targetFinishDate)
     : null;
 
-  // Milestone X positions — diamond centres, and each label block's centre.
+  // Milestone X positions — diamond centres, and each DATE label's centre.
   const milestoneXPositions = useMemo(
     () => milestones.map((m) => toX(m.targetDate)),
     [milestones, toX],
   );
 
+  // Each milestone NAME's centre: its diamond's, slid left only as far as keeps the name inside
+  // the chart (WI-99, v0.79.5) — the finish label's rule, `clampFinishLabelX`, at print's edge
+  // and `fs5`. ⚠️ PRINT PARITY with `milestoneNameXs` in use-gantt-layout.ts.
+  const milestoneNameXs = useMemo(
+    () =>
+      milestones.map((m, i) =>
+        clampFinishLabelX(
+          milestoneXPositions[i] ?? 0,
+          labelHalfWidth(nameOrUnnamed(m.name), fs5),
+          chartW,
+          PRINT_FINISH_LABEL_EDGE_PX,
+        ),
+      ),
+    [milestones, milestoneXPositions, fs5],
+  );
+
   // Header row per milestone. ⚠️ PRINT PARITY: same helper, same rule as the interactive
   // chart, at print's font sizes — a stagger that happened on screen and not on paper
-  // would be exactly the divergence the parity oracle exists to catch.
+  // would be exactly the divergence the parity oracle exists to catch. Each block is placed
+  // where its NAME is drawn, as on screen.
   const milestoneRows = useMemo(
     () =>
       assignMilestoneRows(
         milestones.map((m, i) => ({
-          x: milestoneXPositions[i] ?? 0,
+          x: milestoneNameXs[i] ?? 0,
           halfWidth: Math.max(
             labelHalfWidth(nameOrUnnamed(m.name), fs5),
             labelHalfWidth(DATE_LABEL_SPECIMEN, fs4),
@@ -189,7 +206,7 @@ export function PrintGanttChart({
         })),
         PRINT_LABEL_GAP_PX,
       ),
-    [milestones, milestoneXPositions, fs5, fs4],
+    [milestones, milestoneNameXs, fs5, fs4],
   );
   const milestoneRowCount = milestoneRows.length > 0 ? Math.max(...milestoneRows) + 1 : 0;
 
@@ -680,7 +697,7 @@ export function PrintGanttChart({
                 points={`${x},${topMargin - ds} ${x + ds},${topMargin} ${x},${topMargin + ds} ${x - ds},${topMargin}`}
                 fill={healthColor}
               />
-              <text x={x} y={topMargin - PRINT_MILESTONE_NAME_DY - rowLift} textAnchor="middle"
+              <text x={milestoneNameXs[msIndex] ?? x} y={topMargin - PRINT_MILESTONE_NAME_DY - rowLift} textAnchor="middle"
                 fontSize={fs5} fill={readableOnWhite(healthColor)} fontWeight="600">
                 {nameOrUnnamed(ms.name)}
               </text>
