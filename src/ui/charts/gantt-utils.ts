@@ -455,8 +455,10 @@ export function markerTextFill(color: string, isDark: boolean): string {
  * touch; they then sit exactly where they sit today, so this never makes a chart
  * worse than the one it replaced.
  *
- * `halfWidth` should be the wider of the milestone's name and its date, since the two
- * share a centre — `Go-Live` is narrower than `01/21/2028` at their respective sizes.
+ * `halfWidth` should be the wider of the milestone's name and its date, and `x` the name's
+ * DRAWN centre — `Go-Live` is narrower than `01/21/2028` at their respective sizes. The two
+ * share a centre unless the name slides left to stay inside the chart (WI-99, v0.79.5), and a
+ * name slides only when it is wider than its date, so its span is then the whole block's.
  */
 export function assignMilestoneRows(
   labels: { x: number; halfWidth: number }[],

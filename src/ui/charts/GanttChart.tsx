@@ -510,7 +510,7 @@ export function GanttChart({
     chartWidth, chartHeight, chartAreaWidth, topMargin,
     minTimestamp, dateRange, finishX, finishLabelX, finishDate,
     todayX, todayStr, allTicks, ticks, rowIndex, barYOffset,
-    renderItems, milestoneRows,
+    renderItems, milestoneRows, milestoneNameXs,
   } = layout;
 
   // In non-dependency mode, synthesize FS-0 dependencies between adjacent activities
@@ -898,7 +898,7 @@ export function GanttChart({
                 />
                 {/* Milestone name, in the top header lane */}
                 <text
-                  x={mx}
+                  x={milestoneNameXs[msIndex] ?? mx}
                   y={topMargin - MILESTONE_NAME_DY - rowLift}
                   textAnchor="middle"
                   fontSize={MILESTONE_NAME_FONT_PX}
