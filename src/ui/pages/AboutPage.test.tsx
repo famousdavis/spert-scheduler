@@ -82,6 +82,26 @@ describe("AboutPage", () => {
     expect(text).not.toContain("(with automatic suggestions)");
   });
 
+  /**
+   * v0.79.8: the P6 & MS Project Import Guide opens from the About page, as the very next link
+   * after the Connect AI Guide's. Asserted by role, name and destination; that the PDF exists in
+   * public/ is static-assets.test.ts's job.
+   */
+  it("opens the P6 & MS Project Import Guide, the next link after the Connect AI Guide", () => {
+    render(
+      <MemoryRouter>
+        <AboutPage />
+      </MemoryRouter>
+    );
+    const links = screen.getAllByRole("link");
+    const connectAi = screen.getByRole("link", { name: "Open Connect AI Guide (PDF)" });
+    const importGuide = screen.getByRole("link", { name: "Open P6 & MS Project Import Guide (PDF)" });
+    expect(importGuide).toHaveAttribute("href", "/SPERTScheduler_P6_MSProject_Import_Guide.pdf");
+    expect(importGuide).toHaveAttribute("target", "_blank");
+    expect(importGuide).toHaveAttribute("rel", "noopener noreferrer");
+    expect(links.indexOf(importGuide)).toBe(links.indexOf(connectAi) + 1);
+  });
+
   it("no longer cites Section 7(b) alone", () => {
     const { container } = render(
       <MemoryRouter>
