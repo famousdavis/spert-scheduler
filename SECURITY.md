@@ -65,7 +65,7 @@ against it reports all four absent, which is a false negative, not a finding. Me
 origin `200` with all four; alias `301` with zero.
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com; font-src 'self'; worker-src 'self' blob:; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com https://date.nager.at; object-src 'none'; base-uri 'self'; form-action 'self'
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; worker-src 'self'; frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com; connect-src 'self' https://*.googleapis.com https://*.cloudfunctions.net https://*.run.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com https://date.nager.at; object-src 'none'; base-uri 'self'; form-action 'self'
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
