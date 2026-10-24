@@ -17,7 +17,9 @@ import type {
   ScenarioSettings,
   SimulationRun,
 } from "@domain/models/types";
-import { MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
+import { MAX_SCENARIOS_PER_PROJECT, SCHEMA_VERSION } from "@domain/models/types";
+import { ProjectSchema } from "@domain/schemas/project.schema";
+import { toast } from "@ui/hooks/use-notification-store";
 import { SAMPLE_PROJECT_NAME } from "@domain/data/sample-project-meta";
 import { buildSampleProject } from "@app/api/sample-project-service";
 import {
@@ -732,6 +734,28 @@ type ResultsIntent =
  */
 type ScenarioResultsIntent = Exclude<ResultsIntent, "invalidate-all-scenarios">;
 
+/**
+ * CI-6 (v0.79.x audit): validate the save-shaped project against ProjectSchema.
+ * On failure it queues a toast and returns false so persist() skips the write,
+ * keeping a value the loader would reject out of localStorage and the cloud.
+ * schemaVersion is supplied as it is at save time; ProjectSchema strips the
+ * in-memory _owner/_members extras, so valid projects (cloud ones included) pass.
+ * Extracted from persist() to keep that function under the complexity baseline.
+ */
+function persistableOrWarn(project: Project): boolean {
+  const check = ProjectSchema.safeParse({ ...project, schemaVersion: SCHEMA_VERSION });
+  if (check.success) return true;
+  const issue = check.error.issues[0];
+  const where = issue && issue.path.length > 0 ? issue.path.join(".") : "project";
+  const detail = issue?.message ?? "invalid value";
+  queueMicrotask(() =>
+    toast.error(
+      `Couldn't save your last change (${where}: ${detail}). It will be undone when you reload.`
+    )
+  );
+  return false;
+}
+
 function persist(
   projects: Project[],
   projectId: string | undefined,
@@ -749,6 +773,17 @@ function persist(
       if (!prefs.storeFullSimulationData) {
         project = stripSimulationSamples(project);
       }
+      // CI-6 (v0.79.x audit): validate before persisting. A mutation can leave a
+      // value in memory that the schema rejects on the NEXT load (a cleared date,
+      // an out-of-range estimate) — "persist then fail to load", which in cloud
+      // mode makes the project silently vanish for every member. Validate the
+      // exact shape that will be written (schemaVersion is added at save time;
+      // ProjectSchema strips the in-memory _owner/_members extras) and refuse the
+      // write on failure, so the bad value never reaches localStorage or the
+      // cloud. It stays in memory (the user keeps seeing their edit) and a toast
+      // warns it was not saved — gone on reload, not a brick. (Validating each
+      // field at input is the fuller fix and a larger follow-up.)
+      if (!persistableOrWarn(project)) return next;
       repo.save(project);
       // Defer the cloud emit until after the surrounding Zustand `set()`
       // updater returns and commits state. This is load-bearing: the bus
