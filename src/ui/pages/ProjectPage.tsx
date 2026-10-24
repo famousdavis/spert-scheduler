@@ -1324,6 +1324,7 @@ export function ProjectPage() {
         open={showAiConsent}
         onClose={() => setShowAiConsent(false)}
         onConnect={handleAiConsentConnect}
+        projectName={project.name}
       />
       <ConnectAiPanel
         open={showAiPanel}

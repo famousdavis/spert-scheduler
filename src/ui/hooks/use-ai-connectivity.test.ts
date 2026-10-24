@@ -109,7 +109,7 @@ describe("resumeSession consent-write-failure handling (A4)", () => {
     expect(fs.setDoc).not.toHaveBeenCalled();
   });
 
-  it("aborts and reverts local consent when a consent DOWNGRADE (Read → off) fails transiently", async () => {
+  it("AI-6: aborts but KEEPS the user's Read-off choice when a consent DOWNGRADE fails transiently", async () => {
     localStorage.setItem(AI_SESSION_ID_KEY, "sess-down");
     fs.getDoc.mockResolvedValue(existingSession(true)); // server currently read:true
     fs.updateDoc.mockRejectedValue({ code: "unavailable" });
@@ -118,13 +118,14 @@ describe("resumeSession consent-write-failure handling (A4)", () => {
 
     let ret: boolean | undefined;
     await act(async () => {
-      ret = await result.current.startSession(false); // request downgrade
+      ret = await result.current.startSession(false); // request downgrade (Read off)
     });
 
     expect(ret).toBe(false);
     expect(result.current.sessionState.sessionActive).toBe(false);
-    // Local consent reverted to the server's actual state (still read:true).
-    expect(readConsent()?.read).toBe(true);
+    // AI-6 (v0.79.x audit): local consent keeps the user's CHOICE (read:false), NOT the server's
+    // stale read:true. Pre-fix it wrote read:true, so the next Connect silently resumed Read on.
+    expect(readConsent()?.read).toBe(false);
   });
 });
 

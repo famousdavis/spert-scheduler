@@ -12,6 +12,8 @@ interface ConnectAiConsentModalProps {
   /** Calls startSession; resolves true on success. Parent opens the panel. */
   onConnect: (consentRead: boolean) => Promise<boolean>;
   initialConsentRead?: boolean;
+  /** AI-7 (v0.79.x audit): the project the consent is for, named in the text. */
+  projectName: string;
 }
 
 export function ConnectAiConsentModal({
@@ -19,6 +21,7 @@ export function ConnectAiConsentModal({
   onClose,
   onConnect,
   initialConsentRead = false,
+  projectName,
 }: ConnectAiConsentModalProps) {
   const [consentRead, setConsentRead] = useState(initialConsentRead);
   const [connecting, setConnecting] = useState(false);
@@ -46,9 +49,10 @@ export function ConnectAiConsentModal({
             Connect an AI assistant
           </Dialog.Title>
           <Dialog.Description className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-            Connecting lets your AI chatbot build and edit this project. You stay
-            in control: the AI asks what to build before doing anything, and you
-            choose what it can access.
+            Connecting lets your AI chatbot build and edit{" "}
+            <span className="font-medium text-gray-900 dark:text-gray-100">{projectName}</span>. You
+            stay in control: the AI asks what to build before doing anything, and you choose what it
+            can access.
           </Dialog.Description>
 
           <div className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300">
@@ -85,9 +89,11 @@ export function ConnectAiConsentModal({
                 <span className="font-medium text-gray-900 dark:text-gray-100">Read Mode</span>{" "}
                 (optional)
                 <span className="block text-xs text-gray-500 dark:text-gray-400">
-                  Let the AI read the current schedule, including activity notes,
-                  descriptions, and checklist/deliverable items, so it can make
-                  context-aware edits. Required for dependency edits.
+                  Let the AI read this project's full schedule — every scenario
+                  (including locked ones), their activities, estimates, milestones,
+                  dependencies, and computed dates, plus activity notes, descriptions,
+                  and checklist/deliverable items — so it can make context-aware edits.
+                  Required for dependency edits.
                 </span>
               </span>
             </label>
