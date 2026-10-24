@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.21",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Tightened the app's Content Security Policy (the browser allow-list of where the app may load and send data) by dropping three entries it never uses — an unused database endpoint, external profile-photo images, and a worker type the app doesn't create. A defense-in-depth cleanup from the security review; no change to how the app works and no action needed. Further tightening of the sign-in and cloud-function entries is deferred pending a live cross-browser check.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.20",
     date: "2026-10-24",
     sections: [
