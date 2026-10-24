@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.12",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "CSV-export hardening from the security review: every field in an exported CSV (simulation results and schedule grids) now passes through one shared escaper, so a value that could be read as a spreadsheet formula — such as a user-set random-number seed — is neutralized, and a stray carriage return inside a value can no longer split a row. Your data is unchanged and no action is needed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.11",
     date: "2026-10-24",
     sections: [

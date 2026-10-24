@@ -11,18 +11,7 @@ import {
 } from "./schedule-export-service";
 import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
 import { buildRenderList } from "@ui/helpers/band-utils";
-
-function csvEscape(value: string | number): string {
-  let str = String(value);
-  // Guard against CSV formula injection (OWASP): prefix cells starting with =, +, @, -, \t, or \r
-  if (/^[=+@\-\t\r]/.test(str)) {
-    str = "'" + str;
-  }
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
+import { escapeCsvField } from "./csv-escape";
 
 // One activity's cell values, aligned with buildScheduleHeaders (the CSV twin
 // of the XLSX formatter's buildActivityCells — CSV keeps "; "-joined details).
@@ -76,26 +65,26 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
 
   // Summary block
   for (const { key, value } of summary) {
-    lines.push(`${csvEscape(key)},${csvEscape(value)}`);
+    lines.push(`${escapeCsvField(key)},${escapeCsvField(value)}`);
   }
   lines.push("");
 
   // Column headers (shared with the XLSX formatter — keep byte-identical)
   const headers = buildScheduleHeaders(hasDeps, pctLabel, hasConstraints);
-  lines.push(headers.map(csvEscape).join(","));
+  lines.push(headers.map(escapeCsvField).join(","));
 
   // Data rows — iterate render list (activities + bands interleaved)
   for (const item of renderItems) {
     if (item.kind === "activity") {
       const row = rowMap.get(item.activity.id);
       if (!row) continue; // safety: should never fire — renderItems built from params.activities
-      lines.push(buildCsvActivityCells(row, hasDeps, hasConstraints).map(csvEscape).join(","));
+      lines.push(buildCsvActivityCells(row, hasDeps, hasConstraints).map(escapeCsvField).join(","));
     } else {
       // Band row: blank cells except Activity Name (col 1) and Type (last col)
       const cells = headers.map(() => "");
       cells[1] = item.band.name;
       cells[cells.length - 1] = "Section";
-      lines.push(cells.map(csvEscape).join(","));
+      lines.push(cells.map(escapeCsvField).join(","));
     }
   }
 
@@ -127,7 +116,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
   totalCells.push("", "", "", ""); // Tasks / Task Details / Deliverables / Deliverable Details
   totalCells.push(""); // Description column
   totalCells.push(""); // Type column
-  lines.push(totalCells.map(csvEscape).join(","));
+  lines.push(totalCells.map(escapeCsvField).join(","));
 
   return lines.join("\n");
 }
