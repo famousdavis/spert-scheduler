@@ -645,5 +645,115 @@ describe("FirestoreDriver.loadAll – future-version classification (v0.50.1)", 
     });
     expect(setDocSpy).not.toHaveBeenCalled();
   });
+
+  it("CI-3: a schema-invalid doc surfaces as a validation error instead of vanishing", async () => {
+    setDocSpy.mockClear();
+    const docs = [
+      {
+        id: "p-good",
+        data: () => ({
+          id: "p-good",
+          name: "Current Project",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          schemaVersion: SCHEMA_VERSION,
+          scenarios: [],
+          owner: "uid-owner",
+          members: { "uid-owner": "owner" },
+        }),
+      },
+      {
+        // scenarios as a string fails ProjectSchema. Pre-CI-3 this returned a
+        // bare { kind: "skip" } and the project vanished with no error at all.
+        id: "p-bad",
+        data: () => ({
+          id: "p-bad",
+          name: "Broken Project",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          schemaVersion: SCHEMA_VERSION,
+          scenarios: "not-an-array",
+          owner: "uid-owner",
+          members: { "uid-owner": "owner" },
+        }),
+      },
+      {
+        // A non-positive schema version (the CI-1 backstop) also surfaces now.
+        id: "p-badver",
+        data: () => ({
+          id: "p-badver",
+          name: "Bad Version",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          schemaVersion: -1,
+          scenarios: [],
+          owner: "uid-owner",
+          members: { "uid-owner": "owner" },
+        }),
+      },
+    ];
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs } as never);
+
+    const driver = new FirestoreDriver("uid-owner");
+    const { projects, errors } = await driver.loadAll();
+
+    expect(projects.map((p) => p.id)).toEqual(["p-good"]);
+    expect(errors).toHaveLength(2);
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          projectId: "p-bad",
+          projectName: "Broken Project",
+          type: "validation",
+          source: "cloud",
+        }),
+        expect.objectContaining({
+          projectId: "p-badver",
+          projectName: "Bad Version",
+          type: "validation",
+          source: "cloud",
+        }),
+      ]),
+    );
+    // Invalid docs are never written back (no silent re-save of bad data).
+    expect(setDocSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("FirestoreDriver.loadRawProjectDoc (CI-3 recovery export)", () => {
+  it("returns the raw doc JSON by id, Firestore fields stripped, id included", async () => {
+    vi.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: "p-newer",
+      data: () => ({
+        name: "Newer Project",
+        scenarios: [],
+        schemaVersion: SCHEMA_VERSION + 5,
+        owner: "uid-owner",
+        members: { "uid-owner": "owner" },
+        updatedAt: "__ts__",
+      }),
+    } as never);
+
+    const driver = new FirestoreDriver("uid-owner");
+    const raw = await driver.loadRawProjectDoc("p-newer");
+
+    expect(raw).not.toBeNull();
+    const parsed = JSON.parse(raw!);
+    // Data preserved verbatim — including the newer schemaVersion, which is the
+    // whole point of a recovery export the owner can open in a newer build.
+    expect(parsed).toMatchObject({
+      id: "p-newer",
+      name: "Newer Project",
+      schemaVersion: SCHEMA_VERSION + 5,
+    });
+    // Firestore-internal fields are not part of the export.
+    expect(parsed.owner).toBeUndefined();
+    expect(parsed.members).toBeUndefined();
+    expect(parsed.updatedAt).toBeUndefined();
+  });
+
+  it("returns null when the document does not exist", async () => {
+    vi.mocked(getDoc).mockResolvedValueOnce({ exists: () => false } as never);
+    const driver = new FirestoreDriver("uid-owner");
+    expect(await driver.loadRawProjectDoc("missing")).toBeNull();
+  });
 });
 
