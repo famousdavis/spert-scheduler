@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.6 — 2026-10-23
+
+### Fixed
+
+- **Import Activities now points to the row your spreadsheet shows, and says what is wrong in plain words.** For pasted rows, the first row you paste is row 1; and while an error blocks the import, the list no longer says the rows are ready to import.
+
+### Internal
+
+- Tests pin each row number — a file's notes, blank rows and header counted, and a paste's rows — and every new message; ten existing tests now expect the new words and row numbers.
+
 ## 0.79.5 — 2026-10-23
 
 ### Fixed

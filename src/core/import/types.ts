@@ -28,10 +28,28 @@ export interface FlatActivityRow {
 // -- Error / warning ----------------------------------------------------------
 
 export interface CSVImportError {
-  row: number; // 0 = global/graph-level error; >0 = specific row
+  /**
+   * 0 = global/graph-level error; >0 = the row's number as the user sees it: its row in their
+   * spreadsheet for a file (notes, blank rows and the header counted); for a paste, its row in what
+   * was pasted (its line in the pasted text, blank lines counted), the first being 1.
+   */
+  row: number;
   column?: string;
   message: string;
   severity: "error" | "warning";
+}
+
+// -- Parse options --------------------------------------------------------------
+
+export interface ParseTableOptions {
+  /** Read every row as data, in the template's column order ("Treat first row as data"). */
+  assumeDefaultColumnOrder?: boolean;
+  /**
+   * The number the user sees for each row — `rowNumbers[i]` for `rows[i]` — when rows were left
+   * out before parsing (notes, blank rows). Every message that names a row takes it from here.
+   * Without it, a row's number is its index + 1.
+   */
+  rowNumbers?: readonly number[];
 }
 
 // -- Parse result -------------------------------------------------------------

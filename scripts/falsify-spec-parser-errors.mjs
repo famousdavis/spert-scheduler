@@ -79,8 +79,10 @@ export const mutations = [
   {
     id: "P8  row numbers become 0-based (the classic off-by-one)",
     file: P,
-    find: `    const rowNum = i + 1; // 1-based for user display`,
-    replace: `    const rowNum = i; // 1-based for user display`,
+    // Re-pointed by WI-95: the number now comes from rowNumbers when a caller gives them, and the
+    // fallback — the test's case, no rowNumbers — is the line this straw breaks.
+    find: `    const rowNum = options?.rowNumbers?.[i] ?? i + 1; // the row number the user sees`,
+    replace: `    const rowNum = options?.rowNumbers?.[i] ?? i; // the row number the user sees`,
     expectFailing: /numbers rows against the raw sheet/,
   },
   {

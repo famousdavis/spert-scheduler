@@ -83,6 +83,13 @@ const LONG_ROW_HEADERLESS =
 
 const TREAT_FIRST_ROW = "Treat first row as data and assume default column order";
 
+/**
+ * The no-header box's words: the parser's message, shown once since WI-95 — until then the box said
+ * "No recognizable header row found." and this whole message followed below it.
+ */
+const NO_HEADER =
+  "No recognizable header row found. Missing columns: Activity ID, Activity Name, Optimistic (Min), Most Likely, Pessimistic (Max), Confidence Level.";
+
 /** A CSV line as a spreadsheet copies it: its cells (a quoted cell kept whole), joined by tabs. */
 function asPasted(line: string): string {
   const cells: string[] = [];
@@ -208,7 +215,7 @@ describe("Treat first row as data reads the rows its preview was built from", ()
   it("a headerless FILE, then the button: the file's own rows, named for the file", async () => {
     const { importProjects } = renderSection();
     pickFile(HEADERLESS_CSV, "no-header.csv");
-    await screen.findByText("No recognizable header row found.");
+    await screen.findByText(NO_HEADER);
     // Control: the file was read, and found to have no header row.
     expect(counts()).toEqual({ activities: 0, dependencies: 0, errors: 1, warnings: 0 });
 
@@ -226,7 +233,7 @@ describe("Treat first row as data reads the rows its preview was built from", ()
     await waitForCounts(3, 2, 0, 0);
 
     pickFile(HEADERLESS_CSV, "no-header.csv");
-    await screen.findByText("No recognizable header row found.");
+    await screen.findByText(NO_HEADER);
     await treatFirstRowAsData();
     await waitForCounts(10, 13, 0, 0);
     // The box keeps what was pasted: the button no longer reads it, so nothing clears it.
@@ -238,13 +245,13 @@ describe("Treat first row as data reads the rows its preview was built from", ()
   it("a headerless paste previewed first, then a headerless FILE and the button: the FILE's rows are imported, not the paste's", async () => {
     const { importProjects } = renderSection();
     paste(PASTE_HEADERLESS);
-    await screen.findByText("No recognizable header row found.");
+    await screen.findByText(NO_HEADER);
     await treatFirstRowAsData();
     // Control: the paste's own button works — its three rows, valid, ready to import.
     await waitForCounts(3, 2, 0, 0);
 
     pickFile(HEADERLESS_CSV, "no-header.csv");
-    await screen.findByText("No recognizable header row found.");
+    await screen.findByText(NO_HEADER);
     await treatFirstRowAsData();
     await waitForCounts(10, 13, 0, 0);
     commit();
@@ -258,14 +265,14 @@ describe("Treat first row as data reads the rows its preview was built from", ()
     const eleven = HEADERLESS_ROWS.map((r, i) => (i === 5 ? `${r},extra` : r));
     renderSection();
     pickFile(eleven.join("\n"), "eleven.csv");
-    await screen.findByText("No recognizable header row found.");
+    await screen.findByText(NO_HEADER);
     await treatFirstRowAsData();
     await waitFor(() => expect(previewRow(6)?.[3]).toHaveTextContent(LONG_ROW_HEADERLESS));
     expect(counts()).toEqual({ activities: 10, dependencies: 13, errors: 1, warnings: 0 });
 
     // Control: the same rows pasted. A paste splits on tabs only, so its re-read is not checked.
     paste(eleven.map(asPasted).join("\n"));
-    await screen.findByText("No recognizable header row found.");
+    await screen.findByText(NO_HEADER);
     await treatFirstRowAsData();
     await waitForCounts(10, 13, 0, 0);
   });

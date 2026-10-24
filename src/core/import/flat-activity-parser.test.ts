@@ -288,14 +288,16 @@ describe("Data validation", () => {
     const rows = [HEADER_ROW, validRow("A1", "Task", "10", "4", "15", "Medium")];
     const result = parseFlatActivityTable(rows, makeIdGen());
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors.some((e) => e.message.includes("Min is above Most Likely"))).toBe(true);
+    // WI-95: the template's column names, as a sentence (the schema's own words were "Min is above Most Likely").
+    expect(result.errors.some((e) => e.message === "Optimistic (Min) is above Most Likely.")).toBe(true);
   });
 
   it("errors on mostLikely > max", () => {
     const rows = [HEADER_ROW, validRow("A1", "Task", "2", "10", "5", "Medium")];
     const result = parseFlatActivityTable(rows, makeIdGen());
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors.some((e) => e.message.includes("Most Likely is above Max"))).toBe(true);
+    // WI-95: the template's column names, as a sentence (the schema's own words were "Most Likely is above Max").
+    expect(result.errors.some((e) => e.message === "Most Likely is above Pessimistic (Max).")).toBe(true);
   });
 
   it("errors on non-integer duration", () => {

@@ -9,11 +9,16 @@ import type {
   DistributionType,
   ActivityStatus,
 } from "@domain/models/types";
-import { DEFAULT_SCENARIO_SETTINGS } from "@domain/models/types";
+import { DEFAULT_SCENARIO_SETTINGS, NAME_MAX_LENGTH, RSM_LABELS, RSM_LEVELS } from "@domain/models/types";
 import { ActivitySchema } from "@domain/schemas/project.schema";
-import { distributionLabel } from "@domain/helpers/format-labels";
+import {
+  LOGNORMAL_NEEDS_ESTIMATE_ABOVE_ZERO,
+  MIN_ABOVE_MOST_LIKELY,
+  MOST_LIKELY_ABOVE_MAX,
+} from "@domain/helpers/estimate-rules";
+import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { detectCycle } from "@core/schedule/dependency-graph";
-import type { FlatActivityRow, CSVImportError, CSVParseResult } from "./types";
+import type { FlatActivityRow, CSVImportError, CSVParseResult, ParseTableOptions } from "./types";
 
 // -- Normalization helpers ----------------------------------------------------
 
@@ -36,7 +41,11 @@ const CONFIDENCE_MAP: Record<string, RSMLevel> = {
   guesstimate: "guesstimate",
 };
 
-const CONFIDENCE_ACCEPTED = Object.keys(CONFIDENCE_MAP).join(", ");
+/**
+ * The Confidence levels as the app shows them ("Medium-high"), in the app's order — the order the
+ * template's note lists them in. Never the map's keys, which are squashed for matching ("mediumhigh").
+ */
+const CONFIDENCE_ACCEPTED = RSM_LEVELS.map((level) => RSM_LABELS[level]).join(", ");
 
 const DISTRIBUTION_MAP: Record<string, DistributionType> = {
   normal: "normal",
@@ -138,6 +147,37 @@ interface HeaderMap {
   [field: string]: number; // field name → column index
 }
 
+// -- Schema failures, in words -------------------------------------------------
+
+/**
+ * A sentence for each `ActivitySchema` check an imported row can fail, naming the template's
+ * columns, keyed by the schema's own message (`estimate-rules.ts`). The fourth check — a name over
+ * NAME_MAX_LENGTH — is Zod's own and is matched by its code, in `schemaIssueMessage`.
+ *
+ * ⚠️ These four are ALL an imported row can reach: the parser refuses an empty name and a missing,
+ * negative or fractional estimate before the schema runs, and maps Confidence, Distribution and
+ * Status onto valid values or refuses the row. `import-row-numbers-and-messages.test.tsx` sweeps
+ * rows for any other schema message reaching the screen.
+ */
+const SCHEMA_RULE_SENTENCES = new Map<string, string>([
+  [MIN_ABOVE_MOST_LIKELY, "Optimistic (Min) is above Most Likely."],
+  [MOST_LIKELY_ABOVE_MAX, "Most Likely is above Pessimistic (Max)."],
+  [
+    LOGNORMAL_NEEDS_ESTIMATE_ABOVE_ZERO,
+    "A LogNormal activity needs an estimate above zero: Optimistic (Min), Most Likely and Pessimistic (Max) are all 0.",
+  ],
+]);
+
+/** A row's schema failure as a sentence that names its column — never Zod's own words ("Too big: …"). */
+function schemaIssueMessage(issue: { code: string; path: readonly PropertyKey[]; message: string }): string {
+  const field = String(issue.path[0] ?? "");
+  if (field === "name" && issue.code === "too_big") {
+    return `${COLUMN_LABELS.name} is longer than ${NAME_MAX_LENGTH} characters.`;
+  }
+  // Unreachable today (see SCHEMA_RULE_SENTENCES): a check added later still names its column.
+  return SCHEMA_RULE_SENTENCES.get(issue.message) ?? `${columnLabel(field)} is not valid: ${issue.message}.`;
+}
+
 export function resolveHeaders(
   headerRow: string[]
 ): { headers: HeaderMap } | { missingFields: string[] } {
@@ -177,7 +217,7 @@ const FULL_DATE_PATTERN = /^\d{1,2}\/\d{1,2}\/\d{4}$/; // "1/15/2026"
 export function parseFlatActivityTable(
   rows: string[][],
   idGen: () => string = () => crypto.randomUUID(),
-  options?: { assumeDefaultColumnOrder?: boolean }
+  options?: ParseTableOptions
 ): CSVParseResult {
   const errors: CSVImportError[] = [];
   const warnings: CSVImportError[] = [];
@@ -244,7 +284,7 @@ export function parseFlatActivityTable(
 
   for (let i = dataStartIndex; i < rows.length; i++) {
     const row = rows[i]!;
-    const rowNum = i + 1; // 1-based for user display
+    const rowNum = options?.rowNumbers?.[i] ?? i + 1; // the row number the user sees
 
     // Skip comment rows
     const firstCell = row[0]?.trim() ?? "";
@@ -376,7 +416,7 @@ export function parseFlatActivityTable(
         warnings.push({
           row: rowNum,
           column: "Distribution",
-          message: `Unrecognized distribution "${truncate(rawDistribution)}". Defaulting to "${distributionType}".`,
+          message: `Unrecognized distribution "${truncate(rawDistribution)}". ${distributionLabel(distributionType)} will be used instead.`,
           severity: "warning",
         });
       }
@@ -423,7 +463,7 @@ export function parseFlatActivityTable(
         warnings.push({
           row: rowNum,
           column: "Status",
-          message: `Unrecognized status "${truncate(rawStatus)}". Defaulting to "planned".`,
+          message: `Unrecognized status "${truncate(rawStatus)}". ${statusLabel(status)} will be used instead.`,
           severity: "warning",
         });
       }
@@ -450,7 +490,7 @@ export function parseFlatActivityTable(
         errors.push({
           row: rowNum,
           column: issue.path.length > 0 ? String(issue.path[0]) : undefined,
-          message: issue.message,
+          message: schemaIssueMessage(issue),
           severity: "error",
         });
       }
