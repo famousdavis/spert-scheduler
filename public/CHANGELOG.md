@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.13 — 2026-10-24
+
+### Internal
+
+- Robustness hardening from the security review: a project or activity assigned an unusual internal id — a reserved word such as "constructor", or one containing a double-quote character — can no longer crash the project page. Such ids are now handled safely. Your data is unchanged and no action is needed.
+
 ## 0.79.12 — 2026-10-24
 
 ### Internal

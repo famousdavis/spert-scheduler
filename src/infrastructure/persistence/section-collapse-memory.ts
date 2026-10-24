@@ -33,12 +33,19 @@ function isSection(value: unknown): value is CollapsibleSection {
 }
 
 function loadMap(): Record<string, CollapsibleSection[]> {
+  // BR-4 (v0.79.x audit): a NULL-PROTOTYPE map, returned on every path. A project id that is an
+  // inherited Object property name — "constructor", "toString", "__proto__", "hasOwnProperty" —
+  // then reads as undefined here, not as a function. With a plain `{}`, `isSectionCollapsed(
+  // "constructor", …)` reached `Object.prototype.constructor` and threw `.includes is not a function`
+  // during render, crashing the project page — so a project whose id was such a word could never be
+  // opened. The empty/invalid returns are covered too, which is the common case (a project nobody has
+  // collapsed has no stored map at all).
+  const map: Record<string, CollapsibleSection[]> = Object.create(null);
   try {
     const raw = localStorage.getItem(keyForActiveNamespace());
-    if (!raw) return {};
+    if (!raw) return map;
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
-    const map: Record<string, CollapsibleSection[]> = {};
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return map;
     for (const [projectId, sections] of Object.entries(parsed)) {
       if (!Array.isArray(sections)) continue;
       const known = sections.filter(isSection);
@@ -46,7 +53,7 @@ function loadMap(): Record<string, CollapsibleSection[]> {
     }
     return map;
   } catch {
-    return {};
+    return map;
   }
 }
 

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { commitEstimateGroup, refusedDraftsOnly, NO_DRAFTS } from "./activity-row-helpers";
+import { commitEstimateGroup, focusField, refusedDraftsOnly, NO_DRAFTS } from "./activity-row-helpers";
 
 const STORED = { min: 5, mostLikely: 10, max: 20 };
 const HEURISTIC = { minPercent: 75, maxPercent: 200 };
@@ -89,5 +89,14 @@ describe("refusedDraftsOnly", () => {
 
   it("returns NO_DRAFTS itself when nothing is refused, so an ordinary exit sets no new state", () => {
     expect(refusedDraftsOnly({ min: "6" })).toBe(NO_DRAFTS);
+  });
+});
+
+describe("focusField (BR-4: a row id containing a quote)", () => {
+  // Pre-fix the id was interpolated into `[data-row-id="${rowId}"]` raw, so a `"` made querySelector
+  // throw a SyntaxError. CSS.escape makes the selector valid for any id (no match here → false).
+  it("does not throw on an id with a double quote, and returns false when no row matches", () => {
+    expect(() => focusField('a"b', "name")).not.toThrow();
+    expect(focusField('a"b', "name")).toBe(false);
   });
 });
