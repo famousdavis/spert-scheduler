@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.11",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Switching from Cloud to Local storage and clicking Discard now removes this browser's copy of your cloud projects — as the dialog promises — instead of deleting the browser's separate signed-out projects and keeping the cloud copies.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "More shared-computer hardening from the security review: signing out (or a different account signing in) now clears any Connect AI session from this browser, so the next person can't inherit a live AI connection or bypass its consent prompt; and some sign-in errors no longer print your email address or sign-in tokens to the browser console.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.10",
     date: "2026-10-24",
     sections: [

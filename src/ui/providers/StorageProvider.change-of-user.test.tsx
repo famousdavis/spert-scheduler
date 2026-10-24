@@ -395,6 +395,23 @@ describe("WI-113: a change of user with no sign-out between is the first user's 
     ]);
   });
 
+  it("AI-2: a change of user clears the first user's Connect AI session from this browser", async () => {
+    renderApp("cloud");
+    await settle();
+    await authReports(ARTHUR);
+    await loadEnds([cloudProject("Heart of Gold Refit", ARTHUR.uid)]);
+    // ARTHUR paired an AI this session.
+    localStorage.setItem("spert_scheduler_ai_session_id", "sess-arthur");
+    localStorage.setItem("spert_scheduler_ai_consent", JSON.stringify({ version: 1, read: true, write: true }));
+    localStorage.setItem("spert_scheduler_ai_last_seq:sess-arthur", "9");
+
+    await authReports(FORD);
+
+    expect(localStorage.getItem("spert_scheduler_ai_session_id")).toBeNull();
+    expect(localStorage.getItem("spert_scheduler_ai_consent")).toBeNull();
+    expect(localStorage.getItem("spert_scheduler_ai_last_seq:sess-arthur")).toBeNull();
+  });
+
   it("a second account with no settings in cloud storage starts from this browser's signed-out settings, as a sign-in after a sign-out does — not from the first user's", async () => {
     seedSettings("local", { defaultTrialCount: 4321, globalCalendar: { holidays: [holiday("Signed-out Day")] } });
     edges.cloudPreferences = { [ARTHUR.uid]: { defaultTrialCount: 12345 } };

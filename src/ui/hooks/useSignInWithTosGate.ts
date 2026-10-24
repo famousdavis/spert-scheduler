@@ -59,7 +59,10 @@ export function useSignInWithTosGate(): UseSignInWithTosGateResult {
         if (code === SIGN_IN_POPUP_BLOCKED) {
           toast.info("Your browser blocked the sign-in popup. Redirecting…");
         } else {
-          console.error("Sign-in error:", err);
+          // SD-7 (v0.79.x audit): log the error CODE only. A raw FirebaseError for
+          // account-exists-with-different-credential carries the user's email and the provider's
+          // OAuth tokens, which would otherwise print to the console / a screen share.
+          console.error("Sign-in error:", (err as { code?: string } | undefined)?.code ?? "unknown");
           toast.error("Sign-in failed. Please try again.");
         }
       }

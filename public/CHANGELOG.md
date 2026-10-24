@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.11 — 2026-10-24
+
+### Fixed
+
+- Switching from Cloud to Local storage and clicking Discard now removes this browser's copy of your cloud projects — as the dialog promises — instead of deleting the browser's separate signed-out projects and keeping the cloud copies.
+
+### Internal
+
+- More shared-computer hardening from the security review: signing out (or a different account signing in) now clears any Connect AI session from this browser, so the next person can't inherit a live AI connection or bypass its consent prompt; and some sign-in errors no longer print your email address or sign-in tokens to the browser console.
+
 ## 0.79.10 — 2026-10-24
 
 ### Internal
