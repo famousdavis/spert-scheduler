@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.17 — 2026-10-24
+
+### Fixed
+
+- A member of a shared project can now leave it: open the project's Sharing section and click "Leave project". Owners don't see this option, because an owner leaving would lock everyone out of the project.
+
 ## 0.79.16 — 2026-10-24
 
 ### Internal

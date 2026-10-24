@@ -7,6 +7,8 @@ import { useAuth } from "@ui/providers/AuthProvider";
 import { useStorage } from "@ui/providers/StorageProvider";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { getCloudSyncDriver } from "@ui/hooks/use-cloud-sync";
+import { useNavigate } from "react-router-dom";
+import { toast } from "@ui/hooks/use-notification-store";
 import { getFirstName } from "@ui/helpers/format-user";
 import {
   getProjectMembers,
@@ -331,6 +333,8 @@ function BulkSharingSection({ projectId, embedded }: SharingSectionProps) {
   const { user } = useAuth();
   const { mode } = useStorage();
   const driver = getCloudSyncDriver();
+  const navigate = useNavigate();
+  const removeProjectLocally = useProjectStore((s) => s.removeProjectLocally);
   const textareaId = useId();
   const roleSelectId = useId();
 
@@ -506,6 +510,20 @@ function BulkSharingSection({ projectId, embedded }: SharingSectionProps) {
     }
   };
 
+  // CI-2 (v0.79.x audit): a non-owner member leaves the project — the exact deleteField
+  // write the canonical Leave rule expects. Remove it locally and leave the page; the user
+  // no longer has access, so the project route would otherwise error on the next render.
+  const handleLeave = async () => {
+    try {
+      await driver?.leaveProject(projectId);
+      removeProjectLocally(projectId);
+      toast.success("You've left the project.");
+      navigate("/projects");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't leave the project. Try again.");
+    }
+  };
+
   return (
     <section className={embedded ? "" : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"}>
       {!embedded && (
@@ -581,6 +599,28 @@ function BulkSharingSection({ projectId, embedded }: SharingSectionProps) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* CI-2 (v0.79.x audit): a non-owner member can leave. Not offered to the owner —
+              the rules can't stop an owner self-removing, which would orphan the project. */}
+          {!isOwner && (
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+              <ConfirmDialog
+                trigger={
+                  <button
+                    type="button"
+                    className="text-sm text-red-600 dark:text-red-400 hover:text-red-800"
+                  >
+                    Leave project
+                  </button>
+                }
+                title="Leave this project?"
+                description="You'll lose access to this shared project. The owner can invite you again later."
+                onConfirm={handleLeave}
+                confirmLabel="Leave"
+                destructive
+              />
             </div>
           )}
 

@@ -23,6 +23,7 @@ import {
   where,
   onSnapshot,
   runTransaction,
+  updateDoc,
 } from "firebase/firestore";
 import type { Unsubscribe, QueryDocumentSnapshot } from "firebase/firestore";
 import {
@@ -625,6 +626,20 @@ export class FirestoreDriver {
       }
       tx.update(ref, { [`members.${userId}`]: deleteField() });
     });
+  }
+
+  /**
+   * CI-2 (v0.79.x audit): the current user LEAVES a project they are a member
+   * but NOT the owner of — deletes only their own `members` entry. This is the
+   * exact write the canonical "Leave" update rule expects (set-equality on the
+   * single members key): a plain updateDoc, nothing else in the payload, no
+   * updatedAt. The owner must never call this — it would orphan the project; the
+   * rule rejects an owner, and the UI only offers Leave to non-owner members.
+   */
+  async leaveProject(projectId: string): Promise<void> {
+    if (!db) return;
+    const ref = doc(db, PROJECTS_COL, projectId);
+    await updateDoc(ref, { [`members.${this.uid}`]: deleteField() });
   }
 
   /**

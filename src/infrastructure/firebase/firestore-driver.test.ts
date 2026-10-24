@@ -46,6 +46,7 @@ import {
   getDocs,
   onSnapshot,
   runTransaction,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { FirestoreDriver } from "./firestore-driver";
@@ -116,6 +117,22 @@ function expectIso(value: unknown) {
   // And is emphatically not the sentinel this mock still returns.
   expect(value).not.toBe("__ts__");
 }
+
+describe("FirestoreDriver.leaveProject (CI-2)", () => {
+  beforeEach(() => {
+    vi.mocked(updateDoc).mockClear();
+  });
+
+  it("writes exactly the caller's own members key as a delete — no updatedAt, no other fields", async () => {
+    // The exact write the canonical Leave rule expects (set-equality on the single members key).
+    const driver = new FirestoreDriver("uid-leaver");
+    await driver.leaveProject("proj-1");
+    expect(updateDoc).toHaveBeenCalledTimes(1);
+    const [ref, payload] = vi.mocked(updateDoc).mock.calls[0]!;
+    expect(ref).toEqual({ id: "proj-1" });
+    expect(payload).toEqual({ "members.uid-leaver": "__delete__" }); // deleteField() sentinel
+  });
+});
 
 describe("project writes emit ISO 8601 updatedAt (PC-2)", () => {
   beforeEach(() => {
