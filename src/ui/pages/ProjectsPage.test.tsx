@@ -114,15 +114,16 @@ describe("ProjectsPage — Load Sample toast", () => {
  * `removeCorruptedProject` calls `repo.removeById` with no `pushUndo` — so "This cannot be
  * undone" is TRUE here and false at the three activity/scenario sites migrated alongside it.
  *
- * ⚠️ `future_version` errors deliberately render no Export/Delete pair, so the fixture uses
- * `json_parse` — the type a real unparseable project actually produces, confirmed by injecting
- * broken JSON into localStorage in a browser. A `future_version` fixture would find no button
- * and the test would fail for the wrong reason.
+ * ⚠️ Until CI-3 (v0.79.8) `future_version` errors rendered no Export/Delete pair; now EVERY
+ * un-loadable project offers them (cloud recovery exists — see ProjectsPage.unloadable-recovery).
+ * This fixture uses `json_parse` — the type a real unparseable LOCAL project produces, confirmed
+ * by injecting broken JSON into localStorage in a browser. With no `source` it drives the LOCAL
+ * recovery path, where Export/Delete read and clear local storage, not Firestore.
  *
  * ⚠️ The first draft of this fixture said `type: "corrupt"`, which is NOT in `LoadErrorType`.
- * All three tests passed anyway — nothing in the card branches on the type except the
- * `future_version` check — and only `tsc` in the ship gate caught it. `vitest` does not
- * typecheck; that is the whole reason the gate runs `build` as well.
+ * All three tests passed anyway — the card's buttons no longer branch on the type (only the
+ * delete-confirm wording does, in describeUnloadableDelete) — and only `tsc` in the ship gate
+ * caught it. `vitest` does not typecheck; that is the whole reason the gate runs `build` as well.
  */
 const CORRUPT: LoadError = {
   projectId: "vogon-7",

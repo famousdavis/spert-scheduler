@@ -73,8 +73,10 @@ const DOC_SIZE_WARNING_BYTES = 800_000;
  *   SCHEMA_VERSION) — must not be loaded, migrated, or resaved; Zod would
  *   silently strip the unknown fields and a later save would write the
  *   stripped object back over the newer document
- * - "skip": corrupted/invalid — silently excluded, matching pre-existing
- *   behavior (deliberately unchanged by the future-version guard)
+ * - "invalid": corrupted/unreadable (bad schema version, failed migration, or
+ *   failed Zod parse). CI-3 (v0.79.8 audit): previously "skip" — silently
+ *   excluded. Now surfaced as a LoadError so the owner gets a recovery/export
+ *   and delete path for a project that would otherwise vanish without a trace.
  */
 type ProcessDocResult =
   | {
@@ -82,7 +84,31 @@ type ProcessDocResult =
       project: Project & { _owner: string; _members: Record<string, ProjectRole> };
     }
   | { kind: "future_version"; error: LoadError }
-  | { kind: "skip" };
+  | { kind: "invalid"; error: LoadError };
+
+/**
+ * CI-3: build the "invalid" result for a cloud document the load path rejects.
+ * Re-derives id/name from the snapshot so each call site stays a one-liner.
+ */
+function invalidDocResult(
+  docSnap: QueryDocumentSnapshot,
+  type: LoadError["type"],
+  message: string,
+  details: string,
+): ProcessDocResult {
+  const stripped = stripFirestoreFields(docSnap.data());
+  return {
+    kind: "invalid",
+    error: {
+      projectId: docSnap.id,
+      projectName: typeof stripped.name === "string" ? stripped.name : undefined,
+      type,
+      source: "cloud",
+      message,
+      details,
+    },
+  };
+}
 
 /**
  * Firestore project storage driver.
@@ -138,10 +164,11 @@ export class FirestoreDriver {
 
     for (const docSnap of snap.docs) {
       const result = await this.processProjectDoc(docSnap);
+      // CI-3: both non-ok outcomes carry a LoadError now (future-version AND
+      // invalid), so an un-loadable project always surfaces for recovery
+      // instead of a schema-invalid one vanishing without a trace.
       if (result.kind === "ok") projects.push(result.project);
-      else if (result.kind === "future_version") errors.push(result.error);
-      // "skip" → no-op: corrupted/invalid docs keep their pre-existing
-      // silent-exclusion behavior.
+      else errors.push(result.error);
     }
 
     return { projects, errors };
@@ -150,10 +177,10 @@ export class FirestoreDriver {
   /**
    * Processes a single Firestore document snapshot into a typed Project.
    * May write back to Firestore if schema migration was applied (write-forward pattern).
-   * Returns a discriminated ProcessDocResult: "skip" for corrupted/invalid
-   * documents (pre-existing behavior), "future_version" for documents written
-   * by a newer app build (v0.50.1 guard — mirrors local storage's
-   * validateSchemaVersion).
+   * Returns a discriminated ProcessDocResult: "invalid" for corrupted/unreadable
+   * documents (CI-3: surfaced as a LoadError, was silently skipped),
+   * "future_version" for documents written by a newer app build (v0.50.1 guard —
+   * mirrors local storage's validateSchemaVersion).
    */
   private async processProjectDoc(
     docSnap: QueryDocumentSnapshot,
@@ -188,7 +215,12 @@ export class FirestoreDriver {
     // and freeze the browser on load. Mirrors validateSchemaVersion in the
     // local repo; an invalid cloud doc is skipped like any other.
     if (!Number.isSafeInteger(schemaVersion) || schemaVersion < 1) {
-      return { kind: "skip" };
+      return invalidDocResult(
+        docSnap,
+        "validation",
+        "Project data is invalid and could not be loaded",
+        "The project's version number is not valid.",
+      );
     }
 
     let data: unknown = projectData;
@@ -197,12 +229,24 @@ export class FirestoreDriver {
       try {
         data = applyMigrations(data, schemaVersion, SCHEMA_VERSION);
       } catch {
-        return { kind: "skip" }; // skip corrupted project
+        return invalidDocResult(
+          docSnap,
+          "migration",
+          "Project could not be upgraded and was not loaded",
+          "An error occurred while updating the project to the current version.",
+        );
       }
     }
 
     const result = ProjectSchema.safeParse(data);
-    if (!result.success) return { kind: "skip" };
+    if (!result.success) {
+      return invalidDocResult(
+        docSnap,
+        "validation",
+        "Project data is invalid and could not be loaded",
+        "The project's data did not match the expected format.",
+      );
+    }
 
     const project = result.data as Project & {
       _owner: string;
@@ -507,6 +551,26 @@ export class FirestoreDriver {
   async remove(id: string): Promise<void> {
     if (!db) throw new Error("Firestore not initialized");
     await deleteDoc(doc(db, PROJECTS_COL, id));
+  }
+
+  /**
+   * CI-3: read one project document's raw data by id, bypassing schema
+   * validation, so the owner can EXPORT a project the normal load path rejects
+   * (future-version or invalid). Owner/member read is rule-permitted regardless
+   * of schemaVersion. Firestore-internal fields are stripped and the id is
+   * included so the export round-trips. Returns null if absent or on error.
+   */
+  async loadRawProjectDoc(id: string): Promise<string | null> {
+    if (!db) return null;
+    try {
+      const snap = await getDoc(doc(db, PROJECTS_COL, id));
+      if (!snap.exists()) return null;
+      const stripped = stripFirestoreFields(snap.data());
+      return JSON.stringify({ id: snap.id, ...stripped });
+    } catch (e) {
+      console.error("[cloud] loadRawProjectDoc failed:", e);
+      return null;
+    }
   }
 
   // -- Real-time subscriptions ------------------------------------------------

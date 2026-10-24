@@ -118,11 +118,11 @@ describe("FirestoreDriver.loadAll with an unnamed activity", () => {
     expect(result.projects[0]!.scenarios[0]!.activities[0]!.name).toBe("Design");
   });
 
-  it("control: a genuinely invalid doc is still skipped silently", async () => {
-    // The relaxation must not turn `skip` into "load anything". A project whose
-    // activity has a non-numeric estimate is still refused — and still without
-    // an error, which is the pre-existing cloud behaviour this change leaves
-    // alone.
+  it("a genuinely invalid doc is refused and surfaced as a recovery error (CI-3)", async () => {
+    // The relaxation must not turn `skip` into "load anything": a project whose
+    // activity has a non-numeric estimate is still refused. Since CI-3 (v0.79.8)
+    // it is SURFACED as a LoadError (was a silent skip) so the owner gets a
+    // recovery/export + delete path instead of the project vanishing.
     const project = projectWithActivityNamed("Design");
     const broken = {
       ...project,
@@ -138,7 +138,8 @@ describe("FirestoreDriver.loadAll with an unnamed activity", () => {
     const result = await new FirestoreDriver(UID).loadAll();
 
     expect(result.projects).toHaveLength(0);
-    expect(result.errors).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({ type: "validation", source: "cloud" });
   });
 
   it("one unnamed activity no longer hides the other projects in the account", async () => {

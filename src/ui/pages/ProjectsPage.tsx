@@ -33,6 +33,8 @@ import { formatExportTimestamp } from "@core/calendar/calendar";
 import { serializeExport, serializeRecoveryExport } from "@app/api/export-import-service";
 import { toast } from "@ui/hooks/use-notification-store";
 import { useCloudCreateBlocked, isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
+import { getCloudSyncDriver } from "@ui/hooks/use-cloud-sync";
+import { describeUnloadableDelete } from "@ui/helpers/unloadable-recovery";
 import { CLOUD_LOADING_LINE, CLOUD_LOAD_FAILED_LINE } from "@ui/helpers/cloud-load-words";
 import {
   describedByWhile,
@@ -290,28 +292,50 @@ export function ProjectsPage() {
     };
   }, []);
 
+  // CI-3 (v0.79.8 audit): recovery/export for a project the loader could not
+  // load. A cloud-sourced error reads its raw data back from Firestore (the
+  // owner's rules permit the read regardless of schemaVersion); a local one
+  // reads the stored copy. Either way the raw JSON is wrapped verbatim so the
+  // owner can keep a copy before deleting.
   const handleExportCorrupted = useCallback(
-    (projectId: string) => {
-      const raw = getCorruptedProjectRawData(projectId);
-      if (raw) {
-        const filename = `corrupted-project-${projectId}-${formatExportTimestamp(new Date())}.json`;
-        downloadFile(serializeRecoveryExport(raw) ?? raw, filename, "application/json");
+    async (error: LoadError) => {
+      const raw =
+        error.source === "cloud"
+          ? (await getCloudSyncDriver()?.loadRawProjectDoc(error.projectId)) ?? null
+          : getCorruptedProjectRawData(error.projectId);
+      if (!raw) {
+        toast.error("Couldn't read the project data to export.");
+        return;
       }
+      const filename = `corrupted-project-${error.projectId}-${formatExportTimestamp(new Date())}.json`;
+      downloadFile(serializeRecoveryExport(raw) ?? raw, filename, "application/json");
     },
     [getCorruptedProjectRawData]
   );
 
   const handleDeleteCorrupted = useCallback(
-    async (projectId: string, projectName?: string) => {
+    async (error: LoadError) => {
+      const { projectId, projectName, source } = error;
       const displayName = projectName || projectId;
+      // A cloud delete removes the document for EVERY member, permanently; the
+      // dialog body (describeUnloadableDelete) states that blast radius, and
+      // flags a future-version project as newer-not-damaged before removal.
       const ok = await confirmDialog.ask({
         title: `Delete "${displayName}"?`,
-        description:
-          "The unreadable project data is removed from this browser. This cannot be undone — use Export first if you want a copy to recover from.",
+        description: describeUnloadableDelete(error),
         confirmLabel: "Delete",
         destructive: true,
       });
       if (!ok) return;
+      if (source === "cloud") {
+        try {
+          await getCloudSyncDriver()?.remove(projectId);
+        } catch (e) {
+          console.error("[cloud] delete of unloadable project failed:", e);
+          toast.error("Couldn't delete the project from the cloud. Please try again.");
+          return;
+        }
+      }
       removeCorruptedProject(projectId);
       // This card's Delete button goes with the card, and the whole recovery panel goes with
       // the last error, so `ConfirmDialog`'s captured-`activeElement` restore reaches a
@@ -508,33 +532,28 @@ export function ProjectsPage() {
                           {isExpanded ? "Hide details" : "Show details"}
                         </button>
                       )}
-                      {/* Export/Delete are recovery actions for DAMAGED data.
-                          A future_version project isn't damaged — it's newer
-                          than this app build (and for cloud-sourced errors,
-                          both buttons would operate on local storage anyway).
-                          Offering "Delete" next to a perfectly good, possibly
-                          shared project is a footgun; the error resolves
-                          itself once the app is updated. (v0.50.1) */}
-                      {error.type !== "future_version" && (
-                        <>
-                          <button
-                            onClick={() => handleExportCorrupted(error.projectId)}
-                            className="px-2 py-1 text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 hover:bg-amber-300 dark:hover:bg-amber-700 rounded"
-                            title="Export raw data for recovery"
-                          >
-                            Export
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteCorrupted(error.projectId, error.projectName)
-                            }
-                            className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 rounded"
-                            title="Delete corrupted project"
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
+                      {/* CI-3 (v0.79.8 audit): Export + Delete for EVERY
+                          un-loadable project — future-version and cloud-sourced
+                          included. Export reads the raw data back (locally or
+                          from Firestore) so the owner keeps a copy; Delete clears
+                          it — from the cloud for every member, when cloud-sourced
+                          — behind a confirm whose wording states that blast
+                          radius. Was suppressed for future_version while cloud
+                          recovery did not exist (v0.50.1). */}
+                      <button
+                        onClick={() => handleExportCorrupted(error)}
+                        className="px-2 py-1 text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 hover:bg-amber-300 dark:hover:bg-amber-700 rounded"
+                        title="Export raw data for recovery"
+                      >
+                        Export
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCorrupted(error)}
+                        className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 rounded"
+                        title="Delete corrupted project"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                 </div>
