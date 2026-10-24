@@ -249,8 +249,10 @@ describe("migrateLocalToCloud — the uploaded document", () => {
 
 describe("migrateLocalToCloud — failures are per project", () => {
   it("counts an unreadable local project as skipped/corrupt and continues", async () => {
-    // "ghost" is in the index but has no payload — the repository returns null.
+    // "ghost" is in the index with a payload that does not parse — the repository returns null. (WI-130: an id with
+    // no payload at all is dropped from the list at the read, so it never reaches the upload.)
     seed([localProject("good", "Eta")], ["ghost"]);
+    localStorage.setItem(KEY("ghost"), "not json{");
 
     const result = await migrateLocalToCloud(UID);
 

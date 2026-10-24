@@ -13,5 +13,8 @@ export interface ProjectRepository {
   load(id: string): Project | null;
   save(project: Project): void;
   remove(id: string): void;
+  /** Orders the given projects; each stored project not given keeps its place (WI-130). */
   reorderIndex(ids: string[]): void;
+  /** Replaces the whole list with the given ids (WI-130: the cloud's answer). */
+  replaceIndex(ids: string[]): void;
 }

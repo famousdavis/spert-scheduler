@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.7 — 2026-10-23
+
+### Fixed
+
+- **Rearranging the Dashboard in one browser tab no longer hides projects made in another tab.** Projects a drag already hid in this browser while you were signed out come back at the end of the Dashboard the next time it loads — beside the copy, if you made one again.
+
+### Internal
+
+- Tests pin a drag in one tab keeping the projects only another tab shows, the hidden projects returning (only those saved by version 0.45.0 or later), and a project list this version cannot read never being rewritten.
+
 ## 0.79.6 — 2026-10-23
 
 ### Fixed
