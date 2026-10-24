@@ -3,26 +3,29 @@
 // See LICENSE file in the project root for full license text.
 
 /**
- * `shareProject` and `updateMemberRole` — the two transaction paths (§3.9, 2026-08-03).
+ * `updateMemberRole` — the transaction path (§3.9, 2026-08-03).
  *
  * ⚠️ WHY A SECOND FILE RATHER THAN CASES IN `firestore-sharing.test.ts`. That file mocks
  * `runTransaction` as a bare `vi.fn()`, which returns undefined and NEVER INVOKES ITS
- * CALLBACK — so both functions below showed 0 executions while the file read as covered.
- * The mock silently prevented the code from running and nothing flagged it. Implementing
- * the transaction there would change what its six existing tests exercise; a separate
- * file with a working `runTransaction` leaves them untouched.
+ * CALLBACK — so this function showed 0 executions while the file read as covered. The mock
+ * silently prevented the code from running and nothing flagged it. Implementing the
+ * transaction there would change what its existing tests exercise; a separate file with a
+ * working `runTransaction` leaves them untouched.
  *
- * ⚠️ WHY THESE TWO AND NOT THE REST OF `src/infrastructure`. §3.9 was recorded as a
+ * (v0.79.18 removed the companion `shareProject` path — the dead legacy share-by-email
+ * flow — with its client-only self-share guard and this file's `shareProject` cases.)
+ *
+ * ⚠️ WHY THIS ONE AND NOT THE REST OF `src/infrastructure`. §3.9 was recorded as a
  * directory percentage. Re-measured, most of what looks uncovered is a SECOND expression
  * of a server-authoritative rule — `firestore-driver.ts` even says so in a comment:
  * "Firestore rule enforces; redundant by design". Covering those would produce a
  * percentage and nothing else.
  *
- * These two guards are the exception. `firestore.rules` gates `members` changes on the
- * caller being owner — so "only the owner can share / change roles" IS expressed
- * server-side. But nothing server-side stops an owner from demoting THEMSELVES: the rule
- * permits an owner to modify `members`, and the owner passes it. The self-demotion and
- * self-share guards are CLIENT-ONLY, and they were unexecuted.
+ * This guard is the exception. `firestore.rules` gates `members` changes on the caller
+ * being owner — so "only the owner can change roles" IS expressed server-side. But nothing
+ * server-side stops an owner from demoting THEMSELVES: the rule permits an owner to modify
+ * `members`, and the owner passes it. The self-demotion guard is CLIENT-ONLY, and it was
+ * unexecuted.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -31,8 +34,6 @@ import { resolve } from "node:path";
 
 let docs: Record<string, Record<string, unknown>> = {};
 let updates: Array<Record<string, unknown>> = [];
-/** uid → email, consulted by the getDocs mock so findUserByEmail actually resolves. */
-let profiles: Record<string, string> = {};
 
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn((_db: unknown, col: string, id: string) => ({ path: `${col}/${id}` })),
@@ -40,25 +41,6 @@ vi.mock("firebase/firestore", () => ({
     const data = docs[ref.path];
     return { exists: () => data !== undefined, data: () => data };
   }),
-  // ⚠️ `where` must CAPTURE its predicate and `getDocs` must honour it. The first version
-  // of this mock returned `{ empty: true }` unconditionally, so `findUserByEmail` resolved
-  // to null and three tests failed against a lookup that had never run — the harness
-  // failing, not the code. A mock that ignores the query is the same class of defect as
-  // the bare `runTransaction` this file exists to work around.
-  getDocs: vi.fn(async (q: { __email?: string }) => {
-    const uid = Object.keys(profiles).find((u) => profiles[u] === q.__email);
-    if (!uid) return { empty: true, docs: [] };
-    return {
-      empty: false,
-      docs: [{ id: uid, data: () => ({ email: profiles[uid], displayName: uid }) }],
-    };
-  }),
-  collection: vi.fn(() => ({ __c: true })),
-  query: vi.fn((_c: unknown, w: { __email?: string }) => ({ __email: w?.__email })),
-  where: vi.fn((field: string, _op: string, value: string) =>
-    field === "email" ? { __email: value } : {},
-  ),
-  limit: vi.fn(),
   // ⚠️ THE POINT OF THIS FILE: a runTransaction that actually runs the callback, and
   // propagates a throw from inside it the way Firestore does.
   runTransaction: vi.fn(async (_db: unknown, fn: (t: unknown) => Promise<void>) => {
@@ -77,22 +59,15 @@ vi.mock("firebase/firestore", () => ({
 
 vi.mock("./firebase", () => ({ db: { __mockDb: true } }));
 
-import { shareProject, updateMemberRole } from "./firestore-sharing";
+import { updateMemberRole } from "./firestore-sharing";
 
 const OWNER = "owner-uid";
 const OTHER = "other-uid";
-const THIRD = "third-uid";
 const PROJECT = "spertscheduler_projects/p1";
-
-/** findUserByEmail resolves through the profiles collection; seed it per test. */
-function seedProfile(uid: string, email: string) {
-  profiles[uid] = email.toLowerCase().trim();
-}
 
 beforeEach(() => {
   docs = {};
   updates = [];
-  profiles = {};
   docs[PROJECT] = { owner: OWNER, members: { [OWNER]: "owner" } };
 });
 
@@ -127,53 +102,6 @@ describe("updateMemberRole — the guards, and which of them the server also enf
     expect(r.success).toBe(false);
     expect(r.error).toBe("Project not found.");
     expect(updates).toEqual([]);
-  });
-});
-
-describe("shareProject — the guards, and which of them the server also enforces", () => {
-  it("adds the target at the requested role", async () => {
-    seedProfile(OTHER, "other@example.com");
-    const r = await shareProject(OWNER, "p1", "other@example.com", "viewer");
-    expect(r).toEqual({ success: true });
-    expect(updates).toEqual([{ [`members.${OTHER}`]: "viewer" }]);
-  });
-
-  it("refuses an email that matches no profile", async () => {
-    const r = await shareProject(OWNER, "p1", "nobody@example.com", "editor");
-    expect(r.success).toBe(false);
-    expect(r.error).toBe("Unable to share. Verify the email and try again.");
-    expect(updates).toEqual([]);
-  });
-
-  // ⚠️ ALSO CLIENT-ONLY, and it closes the same door as the guard above: only the owner
-  // reaches the transaction, so "share with yourself" IS "demote the owner". Pinned
-  // separately because it is a different function and a different message — a future
-  // change to one would not fail the other's test.
-  it("refuses sharing with yourself, which is how the owner would reach the same state", async () => {
-    seedProfile(OWNER, "owner@example.com");
-    const r = await shareProject(OWNER, "p1", "owner@example.com", "editor");
-    expect(r.success).toBe(false);
-    expect(r.error).toBe("Cannot share with yourself.");
-    expect(updates).toEqual([]);
-  });
-
-  it("refuses a non-owner caller — a guard the Firestore rules ALSO enforce", async () => {
-    // ⚠️ The target must be a THIRD user. The self-share guard runs BEFORE the owner
-    // check, so calling with caller === target returns "Cannot share with yourself." and
-    // the owner guard is never reached — the first version of this test did exactly that
-    // and asserted the wrong message.
-    seedProfile(THIRD, "third@example.com");
-    const r = await shareProject(OTHER, "p1", "third@example.com", "editor");
-    expect(r.success).toBe(false);
-    expect(r.error).toBe("Only the project owner can share.");
-    expect(updates).toEqual([]);
-  });
-
-  it("checks self-share BEFORE ownership — a non-owner sharing with themselves is told the former", async () => {
-    // Pins the ordering the test above depends on, so it cannot silently change.
-    seedProfile(OTHER, "other@example.com");
-    const r = await shareProject(OTHER, "p1", "other@example.com", "editor");
-    expect(r.error).toBe("Cannot share with yourself.");
   });
 });
 

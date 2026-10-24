@@ -4,10 +4,6 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Capture the query() args so we can assert that limit(1) is included.
-const queryCalls: unknown[][] = [];
-const limitCalls: unknown[] = [];
-
 // Docs keyed by "collection/id"; an absent key means snapshot.exists() === false.
 // Every getDoc path is recorded so we can assert read behaviour.
 let docs: Record<string, Record<string, unknown>> = {};
@@ -21,17 +17,6 @@ vi.mock("firebase/firestore", () => ({
     const data = docs[ref.path];
     return { exists: () => data !== undefined, data: () => data };
   }),
-  getDocs: vi.fn(async () => ({ empty: true, docs: [] })),
-  collection: vi.fn(),
-  query: vi.fn((...args: unknown[]) => {
-    queryCalls.push(args);
-    return { __mockQuery: true };
-  }),
-  where: vi.fn((field: string, op: string, value: unknown) => ({ __where: [field, op, value] })),
-  limit: vi.fn((n: number) => {
-    limitCalls.push(n);
-    return { __limit: n };
-  }),
   runTransaction: vi.fn(),
 }));
 
@@ -39,36 +24,7 @@ vi.mock("./firebase", () => ({
   db: { __mockDb: true },
 }));
 
-import { findUserByEmail, getProjectMembers } from "./firestore-sharing";
-
-describe("findUserByEmail (v0.42.6 H3 code-side)", () => {
-  beforeEach(() => {
-    queryCalls.length = 0;
-    limitCalls.length = 0;
-  });
-
-  it("includes limit(1) in the Firestore query", async () => {
-    await findUserByEmail("alice@example.com");
-    expect(limitCalls).toContain(1);
-    expect(queryCalls.length).toBeGreaterThan(0);
-    const lastArgs = queryCalls.at(-1);
-    expect(lastArgs).toBeDefined();
-    const hasLimit = lastArgs!.some(
-      (a) => typeof a === "object" && a !== null && "__limit" in a,
-    );
-    expect(hasLimit).toBe(true);
-  });
-
-  it("normalizes email to lowercase + trim before query", async () => {
-    await findUserByEmail("  ALICE@Example.com  ");
-    const lastArgs = queryCalls.at(-1);
-    expect(lastArgs).toBeDefined();
-    const whereArg = lastArgs!.find(
-      (a) => typeof a === "object" && a !== null && "__where" in a,
-    ) as { __where: [string, string, string] } | undefined;
-    expect(whereArg?.__where[2]).toBe("alice@example.com");
-  });
-});
+import { getProjectMembers } from "./firestore-sharing";
 
 // Regression: the Share panel rendered a raw 28-char Firebase Auth UID where a
 // name or email belonged. getProjectMembers resolved profiles against

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.18 — 2026-10-24
+
+### Internal
+
+- Removed an unused, disabled code path left over from an earlier sharing design — the share-by-email user lookup and its hidden interface variant, both switched off and never run. Deleting it is housekeeping from the security review; sharing works exactly as before and no action is needed.
+
 ## 0.79.17 — 2026-10-24
 
 ### Fixed
