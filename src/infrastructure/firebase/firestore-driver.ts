@@ -182,6 +182,14 @@ export class FirestoreDriver {
       };
     }
 
+    // CI-1 backstop (v0.79.x audit): reject a non-positive-integer version
+    // (e.g. -1e20) before applyMigrations, which would otherwise loop forever
+    // and freeze the browser on load. Mirrors validateSchemaVersion in the
+    // local repo; an invalid cloud doc is skipped like any other.
+    if (!Number.isSafeInteger(schemaVersion) || schemaVersion < 1) {
+      return { kind: "skip" };
+    }
+
     let data: unknown = projectData;
     const wasMigrated = schemaVersion < SCHEMA_VERSION;
     if (wasMigrated) {

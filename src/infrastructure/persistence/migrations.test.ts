@@ -1392,4 +1392,30 @@ describe("applyMigrations", () => {
     expect(result.schemaVersion).toBe(24);
     expect({ ...result, schemaVersion: 23 }).toEqual(before);
   });
+
+  // -- CI-1 backstop: refuse loop-inducing version bounds (v0.79.x audit) ------
+
+  it("CI-1: throws on a negative huge-magnitude fromVersion instead of hanging", () => {
+    // -1e20 is a whole number (Number.isInteger === true) but not a safe integer,
+    // so pre-fix this hung forever (v++ cannot advance past 2^53 while v < 25).
+    expect(() => applyMigrations({}, -1e20, 25)).toThrow(/Unsupported schemaVersion/);
+  });
+
+  it("CI-1: throws on a fractional, zero, negative or non-finite fromVersion", () => {
+    for (const bad of [1.5, 0, -1, Number.NaN, Infinity, -Infinity]) {
+      expect(() => applyMigrations({}, bad, 25)).toThrow();
+    }
+  });
+
+  it("CI-1: throws on a non-finite toVersion (Infinity would loop forever)", () => {
+    expect(() => applyMigrations({}, 1, Infinity)).toThrow(/Invalid target schema version/);
+  });
+
+  it("CI-1 control: still accepts every real in-range version (1..24 → 25)", () => {
+    for (let from = 1; from < 25; from++) {
+      expect(() =>
+        applyMigrations({ schemaVersion: from, name: "P", scenarios: [] }, from, 25)
+      ).not.toThrow();
+    }
+  });
 });
