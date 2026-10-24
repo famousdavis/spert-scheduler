@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.20",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "A project the app can't load from the cloud — because it was saved by a newer version of SPERT Scheduler, or its data is invalid — no longer disappears without a trace. It now appears in the dashboard's \"could not be loaded\" list with two actions: Export downloads a copy of its raw data so you can recover it, and Delete permanently removes it from the cloud for everyone it's shared with (after a confirmation that says exactly that). Previously an invalid project vanished silently, and a newer-version one was listed with no way to recover or clear it.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.19",
     date: "2026-10-24",
     sections: [
