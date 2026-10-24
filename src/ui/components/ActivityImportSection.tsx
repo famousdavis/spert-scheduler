@@ -18,9 +18,10 @@ import {
   readCsvRows,
   parseCsvFileRows,
   parseClipboardTable,
+  parsePastedRows,
   getDefaultScenarioName,
 } from "@app/api/csv-import-service";
-import { parseFlatActivityTable, columnLabel } from "@core/import/flat-activity-parser";
+import { columnLabel } from "@core/import/flat-activity-parser";
 import type { CSVParseResult, CSVImportError } from "@core/import/types";
 import { formatDateISO } from "@core/calendar/calendar";
 import { generateId } from "@app/api/id";
@@ -55,7 +56,7 @@ function pastePreview(text: string): PreviewState {
   const rows = parseClipboardTable(text);
   return {
     step: "preview",
-    result: parseFlatActivityTable(rows, generateId),
+    result: parsePastedRows(rows),
     defaultName: getDefaultScenarioName("clipboard"),
     rows,
     source: { kind: "paste" },
@@ -79,7 +80,7 @@ function firstRowAsData(preview: PreviewState): PreviewState {
   }
   return {
     ...preview,
-    result: parseFlatActivityTable(rows, generateId, options),
+    result: parsePastedRows(rows, options),
     defaultName: getDefaultScenarioName("clipboard"),
   };
 }
@@ -102,6 +103,37 @@ interface ActivityImportSectionProps {
 function importSuccessMessage(count: number): string {
   if (count === 0) return "No activities were imported.";
   return `Successfully imported ${count} ${count === 1 ? "activity" : "activities"}.`;
+}
+
+/** The preview table's first row while an error blocks the import: what to do, by where the rows came from. */
+const FIX_BEFORE_IMPORT: Record<PreviewSource["kind"], string> = {
+  file: "Nothing can be imported until every error is fixed. Correct your file, then choose it again.",
+  paste: "Nothing can be imported until every error is fixed. Correct your spreadsheet, then paste the rows again.",
+};
+
+/**
+ * Under a paste's preview table: what its row numbers count. A file's rows are its spreadsheet's.
+ * "Rows", not "lines": the box wraps a long row onto a second line on screen.
+ */
+const PASTE_ROW_NUMBERS_NOTE = "Row numbers count the rows you pasted — the first row is row 1.";
+
+/**
+ * The preview table's first row, or null when it has none. "Ready to import" only when the Import
+ * button can import (the Commit Settings rule, and not greyed out); while an error blocks the import,
+ * what to do instead — never a count of "valid" rows, some of which are listed as errors (an
+ * unresolved predecessor, the first copy of a duplicate ID). No header row: its own box says what to do.
+ */
+function previewSummary(
+  result: CSVParseResult,
+  source: PreviewSource,
+  importBlocked: boolean
+): { blocked: boolean; text: string } | null {
+  if (result.noHeaderDetected) return null;
+  if (result.errors.length > 0) return { blocked: true, text: FIX_BEFORE_IMPORT[source.kind] };
+  const count = result.activities.length;
+  if (count === 0) return null;
+  const valid = `${count} valid ${pluralize(count, "activity", "activities")}`;
+  return { blocked: false, text: importBlocked ? valid : `${valid} ready to import` };
 }
 
 // -- Component ----------------------------------------------------------------
@@ -368,6 +400,8 @@ export function ActivityImportSection({
         (a, b) => a.row - b.row
       )
     : [];
+  // Row 0: the whole import's errors. With no header row found, its box shows them instead.
+  const globalErrors = previewResult ? previewResult.errors.filter((e) => e.row === 0) : [];
 
   const nonArchivedProjects = projects.filter((p) => !p.archived);
 
@@ -510,9 +544,12 @@ export function ActivityImportSection({
             {/* "No header detected" escape hatch */}
             {previewResult.noHeaderDetected && (
               <div className="border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 rounded-md p-3">
-                <p className="text-sm text-amber-800 dark:text-amber-300">
-                  No recognizable header row found.
-                </p>
+                {/* The parser's own message, shown here only — it once showed here AND below. */}
+                {globalErrors.map((e, i) => (
+                  <p key={`no-header-${i}`} className="text-sm text-amber-800 dark:text-amber-300">
+                    {e.message}
+                  </p>
+                ))}
                 <button
                   onClick={handleAssumeDefaultOrder}
                   className="mt-2 text-sm text-amber-700 dark:text-amber-400 hover:underline"
@@ -543,16 +580,19 @@ export function ActivityImportSection({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {renderPreviewRows(previewResult)}
+                    {renderPreviewRows(previewResult, importState.source, importBlocked)}
                   </tbody>
                 </table>
               </div>
             )}
 
-            {/* Global errors (row 0) */}
-            {previewResult.errors
-              .filter((e) => e.row === 0)
-              .map((e, i) => (
+            {importState.source.kind === "paste" && allErrors.some((e) => e.row > 0) && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">{PASTE_ROW_NUMBERS_NOTE}</p>
+            )}
+
+            {/* Global errors (row 0) — in the box above instead when no header row was found */}
+            {!previewResult.noHeaderDetected &&
+              globalErrors.map((e, i) => (
                 <div
                   key={`global-err-${i}`}
                   className="text-sm text-rose-600 dark:text-rose-400"
@@ -662,7 +702,7 @@ export function ActivityImportSection({
 
 // -- Preview table row builder ------------------------------------------------
 
-function renderPreviewRows(result: CSVParseResult) {
+function renderPreviewRows(result: CSVParseResult, source: PreviewSource, importBlocked: boolean) {
   // Build a map of row → errors/warnings
   const rowIssues = new Map<number, CSVImportError[]>();
   for (const e of [...result.errors, ...result.warnings]) {
@@ -700,29 +740,34 @@ function renderPreviewRows(result: CSVParseResult) {
           {columnLabel(issues[0]?.column ?? "—")}
         </td>
         <td className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400">
-          {issues.map((i) => i.message).join("; ")}
+          {issues.map((i) => i.message).join(" ")}
         </td>
       </tr>
     );
   }
 
-  // Show valid activity count as a summary row
-  if (result.activities.length > 0) {
+  // The summary row: ready to import, or what to do first
+  const summary = previewSummary(result, source, importBlocked);
+  if (summary) {
     issueRows.unshift(
       <tr key="valid-summary">
         <td className="px-3 py-1.5 text-gray-500 dark:text-gray-400">—</td>
         <td className="px-3 py-1.5">
-          <span className="text-emerald-500" title="Valid">
-            ✓
-          </span>
+          {summary.blocked ? (
+            <span className="text-rose-500" title="Not ready to import">
+              ✗
+            </span>
+          ) : (
+            <span className="text-emerald-500" title="Valid">
+              ✓
+            </span>
+          )}
         </td>
         <td
           className="px-3 py-1.5 text-gray-900 dark:text-gray-100"
           colSpan={2}
         >
-          {result.activities.length} valid{" "}
-          {result.activities.length === 1 ? "activity" : "activities"} ready
-          to import
+          {summary.text}
         </td>
       </tr>
     );

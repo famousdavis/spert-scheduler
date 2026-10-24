@@ -188,7 +188,7 @@ export const mutations = [
     // paste's eleventh column, which loses nothing.
     id: "I14 a paste's re-read sent through the file checks  [expect 1: REREAD_CHECKED]",
     file: SECTION,
-    find: "    result: parseFlatActivityTable(rows, generateId, options),",
+    find: "    result: parsePastedRows(rows, options),", // re-pointed by WI-95 (was parseFlatActivityTable)
     replace: "    result: parseCsvFileRows(rows, options),",
     expectFailing: only(REREAD_CHECKED),
   },

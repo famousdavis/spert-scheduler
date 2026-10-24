@@ -21,8 +21,9 @@ const MAX_CLIPBOARD_LENGTH = 5_000_000; // 5 MB of text
 // -- Clipboard parsing --------------------------------------------------------
 
 /**
- * Parse tab-separated text (from spreadsheet clipboard paste) into a string[][].
- * Throws on oversized input.
+ * Parse tab-separated text (from spreadsheet clipboard paste) into its lines' cells — EVERY line,
+ * a blank one included (as no cells), so a row's index + 1 is its line in the paste: the number a
+ * paste's messages give it ({@link parsePastedRows}). Throws on oversized input.
  */
 export function parseClipboardTable(text: string): string[][] {
   if (text.length > MAX_CLIPBOARD_LENGTH) {
@@ -30,23 +31,30 @@ export function parseClipboardTable(text: string): string[][] {
       "Pasted content is too large. Please use CSV file upload for large datasets."
     );
   }
-  return text
-    .split(/\r?\n/)
-    .map((row) => {
-      const cells = row.split("\t").map((cell) => cell.trim());
-      // Trim trailing ghost columns (Excel/Sheets phantom tab stops)
-      while (cells.length > 0 && cells[cells.length - 1] === "") cells.pop();
-      return cells;
-    })
-    .filter((row) => row.length > 0 && row.some((cell) => cell !== ""));
+  return text.split(/\r?\n/).map((row) => trimCells(row.split("\t")));
+}
+
+/**
+ * Parse a paste's lines (from {@link parseClipboardTable}): blank lines are left out, and every
+ * other row keeps its line number, the first line being 1 — so a header pasted first is row 1.
+ * A paste has no spreadsheet rows to number by; its lines are what the user can count.
+ */
+export function parsePastedRows(
+  lines: string[][],
+  options?: { assumeDefaultColumnOrder?: boolean }
+): CSVParseResult {
+  const { rows, rowNumbers } = numberedRows(lines, (row) => !isBlankRow(row));
+  return parseFlatActivityTable(rows, generateId, { ...options, rowNumbers });
 }
 
 // -- CSV file import ----------------------------------------------------------
 
 /**
- * Read a CSV file into its rows: parsed with papaparse, then comment rows, empty rows and each
- * row's trailing empty cells removed. The import screen keeps these rows, so "Treat first row as
- * data" can read the same file again. Throws when the file is over 10 MB, before reading it.
+ * Read a CSV file into its records — EVERY row of the spreadsheet, a note or a blank row included,
+ * each with its trailing empty cells removed — so a record's index + 1 is its row number in the
+ * user's spreadsheet. A cell in quotes that spans lines is one record, as it is one row there.
+ * The import screen keeps these records, so "Treat first row as data" can read the same file
+ * again. Throws when the file is over 10 MB, before reading it.
  */
 export async function readCsvRows(file: File): Promise<string[][]> {
   // Size guard before reading
@@ -59,46 +67,29 @@ export async function readCsvRows(file: File): Promise<string[][]> {
   // Read file as UTF-8 text
   const text = await readFileAsText(file);
 
-  // Parse CSV with papaparse (quote-safe, handles CRLF, BOM, etc.)
+  // Parse CSV with papaparse (quote-safe, handles CRLF, BOM, etc.). Empty lines are KEPT: each is
+  // a row of the user's spreadsheet, and skipping them here would renumber every row below them.
   const parsed = Papa.parse(text, {
     header: false,
-    skipEmptyLines: true,
+    skipEmptyLines: false,
     delimiter: ",",
     quoteChar: '"',
   });
 
-  let rows = parsed.data as string[][];
-
-  // Strip comment rows (first non-empty cell starts with #)
-  rows = rows.filter((row) => {
-    const first = row[0]?.trim() ?? "";
-    return !first.startsWith("#");
-  });
-
-  // Filter empty rows
-  rows = rows.filter(
-    (row) => row.length > 0 && row.some((cell) => (cell ?? "").trim() !== "")
-  );
-
-  // Trim ghost columns from each row
-  rows = rows.map((row) => {
-    const cells = row.map((cell) => (cell ?? "").trim());
-    while (cells.length > 0 && cells[cells.length - 1] === "") cells.pop();
-    return cells;
-  });
-
-  return rows;
+  return (parsed.data as string[][]).map(trimCells);
 }
 
 /**
- * Parse a CSV FILE's rows (from {@link readCsvRows}) and refuse the rows a comma has split.
+ * Parse a CSV FILE's records (from {@link readCsvRows}) and refuse the rows a comma has split.
+ * Notes (a first cell starting with #) and blank rows are left out, and every other row keeps its
+ * row number in the user's spreadsheet — the header, the notes and the blank rows above it counted.
  *
  * In a file, an unquoted comma inside a cell — "A3,A4" typed without its quotes — splits it in
  * two, and every cell after it moves one column right. The activity parser cannot see that: it
  * reads each column it knows and ignores the rest, so in the template's layout the second
  * predecessor lands in Type and nothing says so. These checks run outside the parser, on the
- * reader's own rows, and their errors join the parse result. Row numbers are the parser's own
- * (index + 1 over the same array), so they match the preview.
+ * reader's own rows, and their errors join the parse result. They number rows as the parser does,
+ * from the same row numbers, so a row's errors all name one row.
  *
  * ⚠️ They see a split only when it leaves a mark: a row longer than its limit, or a Type cell that
  * is not Activity, Section or blank. A refused row stays in `activities`.
@@ -106,11 +97,12 @@ export async function readCsvRows(file: File): Promise<string[][]> {
  * A paste's rows never come here: they split on tabs only, so no cell spills into the next.
  */
 export function parseCsvFileRows(
-  rows: string[][],
+  records: string[][],
   options?: { assumeDefaultColumnOrder?: boolean }
 ): CSVParseResult {
-  const result = parseFlatActivityTable(rows, generateId, options);
-  const layout = fileLayout(rows, options?.assumeDefaultColumnOrder ?? false);
+  const { rows, rowNumbers } = numberedRows(records, (row) => !isBlankRow(row) && !isNoteRow(row));
+  const result = parseFlatActivityTable(rows, generateId, { ...options, rowNumbers });
+  const layout = fileLayout(rows, rowNumbers, options?.assumeDefaultColumnOrder ?? false);
   if (!layout) return result;
   const refused = [...refuseLongRows(rows, layout), ...refuseTypeCells(rows, layout)];
   return refused.length === 0 ? result : { ...result, errors: [...result.errors, ...refused] };
@@ -137,8 +129,10 @@ const LONG_ROW_HEADERLESS =
 const TYPE_NOT_RECOGNIZED =
   'The Type column takes Activity, Section or nothing. If a cell before it contains a comma — for example several predecessors, "A3,A4" — it must be in quotes.';
 
-/** What a FILE's data rows are checked against. */
+/** What a FILE's data rows are checked against, and the numbers they are reported under. */
 interface FileLayout {
+  /** Each row's number in the user's spreadsheet: `rowNumbers[i]` for `rows[i]`. */
+  rowNumbers: readonly number[];
   /** The first data row's index: 1 below a header row, 0 when the first row is data. */
   firstDataIndex: number;
   /** The most cells a data row may hold. */
@@ -152,10 +146,15 @@ interface FileLayout {
  * A file's layout, or null when its first row is not a header row the parser could read — the
  * parser's own error stands alone then, and "Treat first row as data" is the way on.
  */
-function fileLayout(rows: string[][], firstRowIsData: boolean): FileLayout | null {
+function fileLayout(
+  rows: string[][],
+  rowNumbers: readonly number[],
+  firstRowIsData: boolean
+): FileLayout | null {
   if (firstRowIsData) {
     // The template's ten columns: the headerless order, then Type.
     return {
+      rowNumbers,
       firstDataIndex: 0,
       cellLimit: DEFAULT_COLUMN_ORDER.length + 1,
       longRowMessage: LONG_ROW_HEADERLESS,
@@ -167,6 +166,7 @@ function fileLayout(rows: string[][], firstRowIsData: boolean): FileLayout | nul
   const resolved = resolveHeaders(header);
   if ("missingFields" in resolved) return null;
   return {
+    rowNumbers,
     firstDataIndex: 1,
     cellLimit: header.length, // the reader has already trimmed its trailing empty cells
     longRowMessage: LONG_ROW_HEADED,
@@ -179,7 +179,7 @@ function refuseLongRows(rows: string[][], layout: FileLayout): CSVImportError[] 
   const refused: CSVImportError[] = [];
   for (let i = layout.firstDataIndex; i < rows.length; i++) {
     if (rows[i]!.length > layout.cellLimit) {
-      refused.push({ row: i + 1, message: layout.longRowMessage, severity: "error" });
+      refused.push({ row: layout.rowNumbers[i]!, message: layout.longRowMessage, severity: "error" });
     }
   }
   return refused;
@@ -194,7 +194,7 @@ function refuseTypeCells(rows: string[][], layout: FileLayout): CSVImportError[]
     const type = (rows[i]![typeIndex] ?? "").trim().toLowerCase();
     if (type !== "" && type !== "activity" && type !== "section") {
       refused.push({
-        row: i + 1,
+        row: layout.rowNumbers[i]!,
         column: COLUMN_LABELS.type,
         message: TYPE_NOT_RECOGNIZED,
         severity: "error",
@@ -222,6 +222,41 @@ export function getDefaultScenarioName(
 }
 
 // -- Internal helpers ---------------------------------------------------------
+
+/** A row's cells, each trimmed, without the trailing empty ones (Excel/Sheets phantom columns). */
+function trimCells(row: string[]): string[] {
+  const cells = row.map((cell) => (cell ?? "").trim());
+  while (cells.length > 0 && cells[cells.length - 1] === "") cells.pop();
+  return cells;
+}
+
+/** A row with no cell holding anything — a blank line in a paste, a blank row in a file. */
+function isBlankRow(row: string[]): boolean {
+  return row.every((cell) => cell === "");
+}
+
+/** A file's note row: its first cell starts with #, as the template's notes do. */
+function isNoteRow(row: string[]): boolean {
+  return (row[0] ?? "").startsWith("#");
+}
+
+/**
+ * The rows `keep` keeps, each with its number as the user sees it — its index + 1 among ALL the
+ * rows, the left-out ones counted — for {@link parseFlatActivityTable}'s `rowNumbers`.
+ */
+function numberedRows(
+  all: string[][],
+  keep: (row: string[]) => boolean
+): { rows: string[][]; rowNumbers: number[] } {
+  const rows: string[][] = [];
+  const rowNumbers: number[] = [];
+  all.forEach((row, i) => {
+    if (!keep(row)) return;
+    rows.push(row);
+    rowNumbers.push(i + 1);
+  });
+  return { rows, rowNumbers };
+}
 
 function readFileAsText(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

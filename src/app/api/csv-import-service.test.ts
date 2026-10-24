@@ -56,11 +56,11 @@ describe("a FILE row that a comma has split", () => {
     // A6 written as the user meant it, without its quotes: A3 lands in Predecessors, A4 in Type,
     // and "Activity" in an eleventh cell. Before v0.74.0 this imported, without A4, and silently.
     const split = await importActivitiesFromCSV(csvFile(templateWithA6("A6,Testing,3,5,10,triangular,,planned,A3,A4,Activity")));
-    // Row 7: the reader drops the template's eight # lines, so A6 — line 15 of the file — is the
-    // seventh row the parser numbers, the header being row 1.
+    // Row 15: A6 is line 15 of the file — the row a spreadsheet shows it on, the template's eight
+    // # notes and its header counted. (Until WI-95 it was "row 7": the notes were dropped first.)
     expect(rowMessages(split)).toEqual([
-      [7, LONG_ROW_HEADED],
-      [7, TYPE_NOT_RECOGNIZED],
+      [15, LONG_ROW_HEADED],
+      [15, TYPE_NOT_RECOGNIZED],
     ]);
 
     // Control: the template as shipped, the same cell quoted — nothing refused, all 13 dependencies.
@@ -75,20 +75,20 @@ describe("a FILE row that a comma has split", () => {
     const r = await importActivitiesFromCSV(csvFile(templateWithA6("A6,Testing,x,5,10,triangular,,planned,A3,A4,Activity")));
     const parsers = r.errors.find((e) => e.column === "Optimistic (Min)");
     const readers = r.errors.find((e) => e.message === LONG_ROW_HEADED);
-    expect(parsers?.row).toBe(7);
-    expect(readers?.row).toBe(7);
+    expect(parsers?.row).toBe(15);
+    expect(readers?.row).toBe(15);
   });
 
   it("is refused when the split fills a blank or absent Type cell instead — the row is then no longer than the header", async () => {
     // Type blank: the reader trims the trailing empty cell, so the row has ten cells, as many as
     // the header — too short to be refused for its length. A4 is in Type.
     const blankType = await importActivitiesFromCSV(csvFile(templateWithA6("A6,Testing,3,5,10,triangular,,planned,A3,A4,")));
-    expect(rowMessages(blankType)).toEqual([[7, TYPE_NOT_RECOGNIZED]]);
+    expect(rowMessages(blankType)).toEqual([[15, TYPE_NOT_RECOGNIZED]]);
     expect(blankType.errors[0]?.column).toBe("Type");
 
     // Type absent altogether: the same.
     const absentType = await importActivitiesFromCSV(csvFile(templateWithA6("A6,Testing,3,5,10,triangular,,planned,A3,A4")));
-    expect(rowMessages(absentType)).toEqual([[7, TYPE_NOT_RECOGNIZED]]);
+    expect(rowMessages(absentType)).toEqual([[15, TYPE_NOT_RECOGNIZED]]);
 
     // Control: every Type the importer takes — Activity, Section, blank — in any capitals.
     let takes = templateWithA6('A6,Testing,3,5,10,triangular,,planned,"A3,A4",ACTIVITY');

@@ -114,7 +114,8 @@ describe("CSV import keeps refusing what the strict schema refuses", () => {
   it("still reports an out-of-order row", () => {
     const result = parseFlatActivityTable([HEADER, row("A1", "14", "13", "22", "triangular")]);
     expect(result.activities).toHaveLength(0);
-    expect(result.errors.some((e) => e.message.includes("Min is above Most Likely"))).toBe(true);
+    // WI-95: the import names the template's columns ("Optimistic (Min)"), where the grid says "Min".
+    expect(result.errors.some((e) => e.message === "Optimistic (Min) is above Most Likely.")).toBe(true);
   });
 
   it("now refuses a LogNormal 0/0/0 row on Max, and still imports a Triangular 0/0/0 and a LogNormal 0/0/1", () => {
