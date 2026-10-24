@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.19 — 2026-10-24
+
+### Internal
+
+- Connect AI session hardening from the security review: a connected assistant's edits are now bound to the project the session was opened for. If you switch to a different project, edits meant for the first one are no longer applied to the project you're now viewing — the session starts fresh for the new one instead. No action is needed.
+
 ## 0.79.18 — 2026-10-24
 
 ### Internal
