@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.16 — 2026-10-24
+
+### Internal
+
+- Updated this repository's reference copy of the Firestore security rules to match the canonical suite-wide ruleset (v2.6.5). This copy is a test fixture and is never deployed — the deployed rules come from the shared rules repository. No user-facing change and no action needed.
+
 ## 0.79.15 — 2026-10-24
 
 ### Internal
