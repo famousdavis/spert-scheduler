@@ -49,6 +49,16 @@ const SIGNED_OUT_NAMESPACE = "local";
  */
 const RECOVERABLE_SCHEMA_VERSION = 21;
 
+/**
+ * CI-5 (v0.79.x audit): the largest a single cloud-delivered project may be and still be mirrored to
+ * localStorage. A legitimate project serialises well under Firestore's 1 MB document limit (simulation
+ * samples are stripped on save); a crafted ~1 MB document of control characters serialises to ~5 M JSON
+ * characters (each control char becomes `\uXXXX`). Skipping anything beyond this stops one hostile shared
+ * document from exhausting the localStorage budget. The project still shows in memory (the cloud is the
+ * source of truth; an un-mirrored project is simply re-fetched next load) — only its local cache is skipped.
+ */
+const CLOUD_MIRROR_MAX_CHARS = 2_000_000;
+
 /** WI-130: whether a stored value the index leaves out is listed again — it parses, and its schema is 21 or higher. */
 function isRecoverable(raw: string | null): boolean {
   if (raw === null) return false;
@@ -539,6 +549,35 @@ export class LocalStorageRepository implements ProjectRepository {
     }
   }
 
+  /**
+   * CI-5/SD-3 (v0.79.x audit): best-effort mirror of a cloud-delivered project to this browser's cache.
+   * Unlike `save`, it NEVER throws and never aborts a cloud load — an oversized document is skipped and a
+   * quota (or any other) write failure is swallowed. Returns whether the data was cached; callers in the
+   * cloud-load paths (`setProjects`, `mergeProject`) stay resilient and the in-memory store still shows
+   * every project regardless. Uses `readIndex` (not the signed-out-aware `list`) because the cloud paths
+   * run only in a UID namespace; a lone `mergeProject` relies on the index add, while `setProjects`
+   * overwrites the index with `replaceIndex` straight after.
+   */
+  saveCloudMirror(project: Project): boolean {
+    const json = JSON.stringify({ ...project, schemaVersion: SCHEMA_VERSION });
+    if (json.length > CLOUD_MIRROR_MAX_CHARS) return false;
+    try {
+      localStorage.setItem(this.keyOf(project.id), json);
+    } catch {
+      return false;
+    }
+    try {
+      const ids = this.readIndex();
+      if (!ids.includes(project.id)) {
+        ids.push(project.id);
+        localStorage.setItem(this.indexKey, JSON.stringify(ids));
+      }
+    } catch {
+      // A failed index write is recovered by the next full cloud answer's replaceIndex.
+    }
+    return true;
+  }
+
   remove(id: string): void {
     localStorage.removeItem(this.keyOf(id));
 
@@ -561,21 +600,43 @@ export class LocalStorageRepository implements ProjectRepository {
   /**
    * Store `ids` as the whole list, as given. WI-130: for the cloud's answer (`setProjects`) — this browser's copy of
    * the signed-in user's list, from which a project the cloud no longer names must go, as before.
+   *
+   * SD-3 (v0.79.x audit): in a signed-in (UID) namespace the cloud's answer is authoritative, so a data key it no
+   * longer names is an orphan — a project deleted elsewhere or no longer shared — and is swept, so a revoked
+   * collaborator's plaintext copy does not linger on the device. NEVER swept in the signed-out namespace, where an
+   * unlisted key may be a recoverable project (WI-130). A drag (`reorderIndex`) is NOT authoritative and never sweeps.
    */
   replaceIndex(ids: string[]): void {
     localStorage.setItem(this.indexKey, JSON.stringify(ids));
+    if (this.namespace !== SIGNED_OUT_NAMESPACE) this.sweepOrphans(ids);
   }
 
   /**
-   * Remove every indexed project and the index itself for the current
-   * namespace — in this browser's signed-out namespace, every project `list`
-   * names there, the ones it lists again included (WI-130). Idempotent. Does not touch
-   * non-project keys (preferences, scenario memory, etc.) or other namespaces' data.
+   * SD-3 (v0.79.x audit): remove this namespace's project data keys whose id is not in `keep`. `Object.keys`, not
+   * `localStorage.key(i)`, for the Firefox quadratic-scan reason noted on `unlistedIds`; `Object.keys` returns a
+   * snapshot, so removing during the walk is safe.
+   */
+  private sweepOrphans(keep: readonly string[]): void {
+    const prefix = `${KEY_PREFIX_BASE}:${this.namespace}:`;
+    const keepSet = new Set(keep.map(String));
+    for (const key of Object.keys(localStorage)) {
+      if (!key.startsWith(prefix)) continue;
+      const id = key.slice(prefix.length);
+      if (id !== "" && !keepSet.has(id)) localStorage.removeItem(key);
+    }
+  }
+
+  /**
+   * Remove every project key in the current namespace and the index itself. SD-3 (v0.79.x audit): sweeps by key
+   * PREFIX, not just the indexed ids, so an orphaned cloud-mirror copy the index no longer names cannot outlive a
+   * sign-out or a Discard (the sign-out cleanup and the Cloud→Local Discard both clear the signed-in UID namespace).
+   * Was: only `this.list()`'s ids, which left UID-namespace orphans behind. Idempotent. Touches only this namespace's
+   * `spert:project:{ns}:*` keys — never non-project keys (preferences, scenario memory, etc.) or other namespaces.
    */
   clearAll(): void {
-    const ids = this.list();
-    for (const id of ids) {
-      localStorage.removeItem(this.keyOf(id));
+    const prefix = `${KEY_PREFIX_BASE}:${this.namespace}:`;
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(prefix)) localStorage.removeItem(key);
     }
     localStorage.removeItem(this.indexKey);
   }

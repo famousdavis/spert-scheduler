@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   LocalStorageRepository,
   stripSimulationSamples,
@@ -195,6 +195,80 @@ describe("LocalStorageRepository", () => {
       expect(localStorage.getItem("spert:storage-mode")).toBe("cloud");
       expect(localStorage.getItem("spert_firstRun_seen")).toBe("1");
     });
+  });
+});
+
+describe("CI-5/SD-3 — resilient cloud mirror and orphan sweep (v0.79.x audit)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("saveCloudMirror caches a normal project, indexes it, and returns true", () => {
+    const repo = new LocalStorageRepository("uid-X");
+    expect(repo.saveCloudMirror(makeProject({ id: "m" }))).toBe(true);
+    expect(repo.load("m")).not.toBeNull();
+    expect(localStorage.getItem("spert:project-index:uid-X")).toBe(JSON.stringify(["m"]));
+  });
+
+  it("CI-5: saveCloudMirror skips an oversized document — returns false and writes nothing", () => {
+    const repo = new LocalStorageRepository("uid-X");
+    const huge = makeProject({ id: "big", name: "x".repeat(2_000_001) });
+    expect(repo.saveCloudMirror(huge)).toBe(false);
+    expect(localStorage.getItem("spert:project:uid-X:big")).toBeNull();
+    expect(localStorage.getItem("spert:project-index:uid-X")).toBeNull();
+  });
+
+  it("CI-5: saveCloudMirror swallows a quota error — returns false and does not throw", () => {
+    const repo = new LocalStorageRepository("uid-X");
+    const realSet = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key.startsWith("spert:project:uid-X:")) throw new DOMException("full", "QuotaExceededError");
+      realSet.call(this, key, value);
+    });
+    let result: boolean | undefined;
+    expect(() => {
+      result = repo.saveCloudMirror(makeProject({ id: "q" }));
+    }).not.toThrow();
+    expect(result).toBe(false);
+  });
+
+  it("SD-3: replaceIndex sweeps a UID-namespace data key the cloud no longer names — indexed or orphaned", () => {
+    const repo = new LocalStorageRepository("uid-X");
+    repo.save(makeProject({ id: "a" }));
+    repo.save(makeProject({ id: "b", name: "B" }));
+    // An orphan the index never named — a stale mirror copy from an earlier cloud answer.
+    localStorage.setItem("spert:project:uid-X:orphan", JSON.stringify(makeProject({ id: "orphan" })));
+
+    repo.replaceIndex(["a"]);
+
+    expect(localStorage.getItem("spert:project:uid-X:a")).not.toBeNull();
+    expect(localStorage.getItem("spert:project:uid-X:b")).toBeNull();
+    expect(localStorage.getItem("spert:project:uid-X:orphan")).toBeNull();
+    expect(localStorage.getItem("spert:project-index:uid-X")).toBe(JSON.stringify(["a"]));
+  });
+
+  it("SD-3: replaceIndex never sweeps the signed-out namespace — an unlisted key there may be recoverable (WI-130)", () => {
+    const repo = new LocalStorageRepository("local");
+    localStorage.setItem("spert:project:local:x", JSON.stringify(makeProject({ id: "x" })));
+
+    repo.replaceIndex(["y"]); // y is not stored; x is unlisted but must survive
+
+    expect(localStorage.getItem("spert:project:local:x")).not.toBeNull();
+  });
+
+  it("SD-3: clearAll sweeps an unindexed orphan in a UID namespace", () => {
+    const repo = new LocalStorageRepository("uid-X");
+    repo.save(makeProject({ id: "a" }));
+    localStorage.setItem("spert:project:uid-X:orphan", JSON.stringify(makeProject({ id: "orphan" })));
+
+    repo.clearAll();
+
+    expect(localStorage.getItem("spert:project:uid-X:a")).toBeNull();
+    expect(localStorage.getItem("spert:project:uid-X:orphan")).toBeNull();
+    expect(localStorage.getItem("spert:project-index:uid-X")).toBeNull();
   });
 });
 

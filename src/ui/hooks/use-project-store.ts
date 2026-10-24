@@ -1780,8 +1780,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     // can violate, and a crafted percentiles map crashes render — so strip here,
     // at the cloud->store boundary, before results reach localStorage or memory.
     const incoming = projects.map(dropCloudSimulationResults);
+    // CI-5 (v0.79.x audit): mirror each cloud project best-effort — one oversized or over-quota document
+    // must not throw out of this loop and abort the whole cloud load (that surfaced as "load failed" and
+    // left the Dashboard empty). The in-memory list below still holds every project regardless.
     for (const project of incoming) {
-      repo.save(project);
+      repo.saveCloudMirror(project);
     }
     // WI-130: the cloud's list REPLACES this copy's — a project it no longer names leaves it. A drag only orders.
     repo.replaceIndex(incoming.map((p) => p.id));
@@ -1825,12 +1828,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         : [...state.projects, merged];
       return { projects };
     });
-    // Update localStorage cache. Note: pass the original `project`, not the
-    // sim-results-preserved version — localStorage reflects the snapshot as
-    // delivered (the preservation above is a UI-state concern, not a
-    // persistence one — `repo.save` already respects storeFullSimulationData
-    // for its own strip).
-    repo.save(incoming);
+    // Update the localStorage mirror with the stripped `incoming` (the sim-results
+    // preservation above is UI state, not persistence). CI-5 (v0.79.x audit):
+    // best-effort — a crafted oversized document from a hostile collaborator's
+    // direct Firestore write must not throw out of this subscription callback.
+    repo.saveCloudMirror(incoming);
   },
 
   // v0.45.3 — strictly analogous to deleteProject minus the

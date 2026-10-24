@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.10",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "More hardening from the security review of on-device storage: a single oversized or malformed shared project can no longer stop your other cloud projects from loading, and a project's cached copy is now cleared from this browser when you sign out or when the project is deleted or unshared, rather than being left behind. Your data is unchanged and no action is needed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.9",
     date: "2026-10-24",
     sections: [

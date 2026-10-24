@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.10 — 2026-10-24
+
+### Internal
+
+- More hardening from the security review of on-device storage: a single oversized or malformed shared project can no longer stop your other cloud projects from loading, and a project's cached copy is now cleared from this browser when you sign out or when the project is deleted or unshared, rather than being left behind. Your data is unchanged and no action is needed.
+
 ## 0.79.9 — 2026-10-24
 
 ### Fixed

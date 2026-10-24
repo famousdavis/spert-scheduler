@@ -383,9 +383,10 @@ describe("WI-130 — a load lists every project stored in this browser's signed-
     expect(new LocalStorageRepository("local").list()).toEqual([]);
   });
 
-  it("C2 unchanged: clearing a signed-in user's storage (the sign-out cleanup) removes its listed projects and its index, and leaves a key its list does not name", () => {
+  it("C2 SD-3: clearing a signed-in user's storage (sign-out cleanup / Discard) now removes a key its list does not name too — an orphaned cloud-mirror copy must not outlive the wipe; other namespaces stay untouched", () => {
     const user = new LocalStorageRepository("uid-A");
     user.save(project("q1", "Quebec"));
+    // q2: a stale cloud-mirror copy the index never named (deleted elsewhere / no longer shared).
     storeRaw("uid-A", "q2", JSON.stringify(project("q2", "Romeo")));
     tabA.save(project("p1", "Alpha"));
     setStorageNamespace("uid-A");
@@ -394,7 +395,9 @@ describe("WI-130 — a load lists every project stored in this browser's signed-
 
     expect(localStorage.getItem(keyOf("uid-A", "q1"))).toBeNull();
     expect(localStorage.getItem(indexKeyOf("uid-A"))).toBeNull();
-    expect(localStorage.getItem(keyOf("uid-A", "q2"))).not.toBeNull();
+    // SD-3: was `.not.toBeNull()` (the orphan lingered) before clearAll swept by prefix.
+    expect(localStorage.getItem(keyOf("uid-A", "q2"))).toBeNull();
+    // Another namespace's data is still untouched.
     expect(localStorage.getItem(keyOf("local", "p1"))).not.toBeNull();
     expect(storedIndex("local")).toEqual(["p1"]);
   });

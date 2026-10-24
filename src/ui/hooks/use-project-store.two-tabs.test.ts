@@ -107,7 +107,7 @@ describe("WI-130 — a Dashboard drag in one tab, another tab's project, this br
     expect(reloaded.store.getState().loadErrors.map((e) => [e.projectId, e.type])).toEqual([["zulu", "future_version"]]);
   });
 
-  it("T4 unchanged: the cloud's answer replaces this browser's copy of the signed-in user's list, and a project it no longer names is not listed again", async () => {
+  it("T4 SD-3: the cloud's answer replaces this browser's copy of the signed-in user's list, and a project it no longer names is swept from the device, not merely unlisted", async () => {
     const tab = await openTab("uid-A");
     const one = createProject("Cloud One", "2026-11-02");
     const two = createProject("Cloud Two", "2026-11-02");
@@ -117,7 +117,8 @@ describe("WI-130 — a Dashboard drag in one tab, another tab's project, this br
     // The next answer no longer names Cloud Two — deleted on another device, or no longer shared.
     tab.store.getState().setProjects([one]);
     expect(storedIndex("uid-A")).toEqual([one.id]);
-    expect(localStorage.getItem(keyOf("uid-A", two.id))).not.toBeNull();
+    // SD-3: was `.not.toBeNull()` — the stale mirror copy lingered. replaceIndex now sweeps it.
+    expect(localStorage.getItem(keyOf("uid-A", two.id))).toBeNull();
 
     tab.store.getState().loadProjects();
     expect(tab.names()).toEqual(["Cloud One"]);
