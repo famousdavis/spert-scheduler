@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.17",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "A member of a shared project can now leave it: open the project's Sharing section and click \"Leave project\". Owners don't see this option, because an owner leaving would lock everyone out of the project.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.16",
     date: "2026-10-24",
     sections: [
