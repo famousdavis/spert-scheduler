@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.14 — 2026-10-24
+
+### Internal
+
+- Dependency hardening from the security review: react-router-dom updated to 7.18.2, which closes an open-redirect advisory class (the app was not exposed, as it builds its own navigation paths). A pending zod advisory is deferred until its fix clears the project's 60-day dependency-soak window. No action is needed.
+
 ## 0.79.13 — 2026-10-24
 
 ### Internal
