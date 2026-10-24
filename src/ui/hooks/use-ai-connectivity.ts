@@ -46,6 +46,8 @@ import {
   clearLastSeq,
   safeParseConsent,
   buildOpsQuery,
+  storedSessionMatchesProject,
+  opsTargetWrongProject,
 } from "./ai-connectivity-utils";
 
 // ── Public types ────────────────────────────────────────────────────────────
@@ -115,21 +117,25 @@ function writeConsentLocal(read: boolean): void {
 async function resolveSessionId(
   database: Firestore,
   storedId: string | null
-): Promise<{ sessionId: string; prevConsentRead: boolean | null } | null> {
-  if (!storedId) return { sessionId: crypto.randomUUID(), prevConsentRead: null };
+): Promise<{ sessionId: string; prevConsentRead: boolean | null; openProductId: string | null } | null> {
+  if (!storedId) return { sessionId: crypto.randomUUID(), prevConsentRead: null, openProductId: null };
   try {
     const snap = await getDoc(doc(database, AI_SESSIONS_COL, storedId));
     if (!snap.exists()) {
       clearLastSeq(storedId);
-      return { sessionId: crypto.randomUUID(), prevConsentRead: null };
+      return { sessionId: crypto.randomUUID(), prevConsentRead: null, openProductId: null };
     }
     const d = snap.data();
     const storedExp = (d.expiresAt as { toDate?: () => Date } | undefined)?.toDate?.();
     if (storedExp && storedExp < new Date()) {
       clearLastSeq(storedId);
-      return { sessionId: crypto.randomUUID(), prevConsentRead: null };
+      return { sessionId: crypto.randomUUID(), prevConsentRead: null, openProductId: null };
     }
-    return { sessionId: storedId, prevConsentRead: (d.consentRead as boolean) ?? false };
+    return {
+      sessionId: storedId,
+      prevConsentRead: (d.consentRead as boolean) ?? false,
+      openProductId: (d.openProductId as string) ?? null,
+    };
   } catch (err) {
     console.error("[AI] Session check failed:", err);
     return null;
@@ -268,6 +274,9 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
   const consentReadRef = useRef(false);
   const lastAppliedSeqRef = useRef(0);
   const cacheRef = useRef<ScenarioScheduleCache | null>(null);
+  // AI-4: the project this session's op-listener is bound to. Set when a session
+  // is established; the drain guard rejects ops once the open project diverges.
+  const boundProjectIdRef = useRef<string | null>(null);
 
   // Firestore listener + timer handles.
   const opsUnsubRef = useRef<(() => void) | null>(null);
@@ -305,6 +314,7 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
     const pid = productRef.current?.id;
     if (pid) clearAiUndoFrameRef.current?.(pid);
     activeSessionIdRef.current = null;
+    boundProjectIdRef.current = null;
     opRetryCountRef.current = 0;
     sessionRetryCountRef.current = 0;
   }, []);
@@ -362,6 +372,17 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
       const candidates = readOpDocs(snapshot.docChanges());
       const current = productRef.current;
       if (!current || !candidates.length) return;
+      // AI-4: reject a batch whose open project no longer matches the project this
+      // session was bound to — the queued edits were authored for the bound
+      // project and must not drain into whatever is open now. Left unconsumed (no
+      // floor advance), so a correct re-subscribe on the bound project can still
+      // apply them.
+      if (opsTargetWrongProject(boundProjectIdRef.current, current.id)) {
+        console.warn(
+          `[AI] Ignored ${candidates.length} op(s): session bound to ${boundProjectIdRef.current}, open project is ${current.id}.`,
+        );
+        return;
+      }
       const floor = getLastSeq(sessionId);
       const toProcess = candidates.filter((o) => o.seq > floor);
       if (!toProcess.length) return;
@@ -501,6 +522,19 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
       writeConsentLocal(consentRead);
       activeSessionIdRef.current = sessionId;
 
+      // AI-4: a stored session may only resume into the project it was opened for.
+      // If it was opened for a different project, recreate instead — otherwise its
+      // queued edits would drain into whatever is open now (the documented "on
+      // resume" path). The fresh-session branch below re-binds openProductId here.
+      if (prevConsentRead !== null && !storedSessionMatchesProject(resolved.openProductId, project.id)) {
+        clearLastSeq(sessionId);
+        sessionId = crypto.randomUUID();
+        localStorage.setItem(AI_SESSION_ID_KEY, sessionId);
+        writeConsentLocal(consentRead);
+        activeSessionIdRef.current = sessionId;
+        prevConsentRead = null;
+      }
+
       if (prevConsentRead !== null) {
         // Resuming a live session (e.g. after a page reload): seed asOfSeq from
         // the persisted per-session cursor so the first snapshot written doesn't
@@ -523,6 +557,8 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
         if (!created) { activeSessionIdRef.current = null; return false; }
       }
 
+      // AI-4: bind this session's op-listener to the current project.
+      boundProjectIdRef.current = project.id;
       resubscribeOps(sessionId);
       resubscribeSession(sessionId);
       startHeartbeat(sessionId);
