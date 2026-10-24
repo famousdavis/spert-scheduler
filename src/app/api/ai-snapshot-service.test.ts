@@ -18,7 +18,14 @@ import {
   addActivityToScenario,
 } from "./project-service";
 import { buildWorkCalendar } from "@core/calendar/work-calendar";
-import type { Activity, Scenario, ActivityDependency } from "@domain/models/types";
+import type {
+  Activity,
+  Scenario,
+  ActivityDependency,
+  Milestone,
+  ChecklistItem,
+  DeliverableItem,
+} from "@domain/models/types";
 
 const monFri = () => buildWorkCalendar([1, 2, 3, 4, 5], [], []);
 const zeroCal = () => buildWorkCalendar([], [], []); // no working days at all
@@ -213,6 +220,40 @@ describe("buildScenarioSnapshot", () => {
 // ---------------------------------------------------------------------------
 // ScenarioScheduleCache
 // ---------------------------------------------------------------------------
+
+describe("AI-7: nested objects are copied field-by-field (a later schema field cannot leak)", () => {
+  it("drops unknown fields on milestones, dependencies, checklist and deliverable items", () => {
+    const { scenario, ids } = makeScenario({ count: 1 });
+    const aid = ids[0]!;
+    // Each nested object carries a bogus field a future schema might add; it must not reach the AI.
+    const withExtras: Scenario = {
+      ...scenario,
+      milestones: [{ id: "m1", name: "MS", targetDate: "2025-02-01", secret: "leak" } as unknown as Milestone],
+      dependencies: [
+        { fromActivityId: aid, toActivityId: aid, type: "FS", lagDays: 0, secret: "leak" } as unknown as ActivityDependency,
+      ],
+      activities: scenario.activities.map((a) => ({
+        ...a,
+        checklist: [{ id: "c1", text: "do", completed: false, secret: "leak" } as unknown as ChecklistItem],
+        deliverables: [{ id: "d1", text: "ship", completed: true, secret: "leak" } as unknown as DeliverableItem],
+      })),
+    };
+
+    const snap = buildScenarioSnapshot(withExtras, classifyAndComputeScenario(withExtras, monFri()));
+
+    expect(Object.keys(snap.milestones[0]!).sort()).toEqual(["id", "name", "targetDate"]);
+    expect(Object.keys(snap.dependencies[0]!).sort()).toEqual([
+      "fromActivityId",
+      "lagDays",
+      "toActivityId",
+      "type",
+    ]);
+    expect(snap.activities[0]!.checklist).toEqual([{ id: "c1", text: "do", completed: false }]);
+    expect(snap.activities[0]!.deliverables).toEqual([{ id: "d1", text: "ship", completed: true }]);
+    // The bogus field appears nowhere in the serialized snapshot (pre-fix the whole objects were copied).
+    expect(JSON.stringify(snap)).not.toContain("leak");
+  });
+});
 
 describe("ScenarioScheduleCache", () => {
   it("reuses the computation when both scenario and workCalendar references match", () => {

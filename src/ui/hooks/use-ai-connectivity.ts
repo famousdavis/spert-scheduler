@@ -205,11 +205,15 @@ async function resumeSession(
       return "recreate";
     }
     if (prevConsentRead && !consentRead) {
-      // Privilege downgrade (Read → off) failed transiently. Revert local
-      // consent to the server's actual state (still read:true) and abort.
-      writeConsentLocal(true);
+      // AI-6 (v0.79.x audit): a Read → off downgrade failed transiently. Keep the user's CHOICE
+      // locally (read:false). The pre-fix code wrote read:TRUE (the server's stale state), so the
+      // next Connect silently resumed with Read ON, skipping the consent window — fail-OPEN, the
+      // opposite of the user's last choice. The snapshot is deleted here, so even if the server's
+      // consentRead lingers true until the session self-heals on the next resume, the AI has nothing
+      // to read.
+      writeConsentLocal(false);
       deleteDoc(snapshotRef).catch(() => {});
-      console.error("[AI] Consent downgrade write failed; aborting resume:", err);
+      console.error("[AI] Consent downgrade write failed; kept Read off and aborted resume:", err);
       return "abort";
     }
     if (!prevConsentRead && consentRead) {

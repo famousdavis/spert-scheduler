@@ -201,6 +201,24 @@ export class ScenarioScheduleCache {
 // Snapshot assembly
 // ---------------------------------------------------------------------------
 
+// AI-7 (v0.79.x audit): the snapshot copies these nested objects FIELD BY FIELD, not whole, so a
+// field added to the domain type later cannot reach the paired AI unnoticed. A new REQUIRED field
+// breaks these mappers at compile time (forcing a deliberate include/exclude decision); a new
+// OPTIONAL field is omitted by default (not shared). Pre-fix the whole arrays were copied by
+// reference, so any future field flowed to the AI silently.
+function milestoneForSnapshot(m: Milestone): Milestone {
+  return { id: m.id, name: m.name, targetDate: m.targetDate };
+}
+function dependencyForSnapshot(d: ActivityDependency): ActivityDependency {
+  return { fromActivityId: d.fromActivityId, toActivityId: d.toActivityId, type: d.type, lagDays: d.lagDays };
+}
+function checklistItemForSnapshot(c: ChecklistItem): ChecklistItem {
+  return { id: c.id, text: c.text, completed: c.completed };
+}
+function deliverableItemForSnapshot(d: DeliverableItem): DeliverableItem {
+  return { id: d.id, text: d.text, completed: d.completed };
+}
+
 function buildActivitySnapshot(activity: Activity, scheduled?: ScheduledActivity): ActivitySnapshot {
   const snap: ActivitySnapshot = {
     id: activity.id,
@@ -220,8 +238,8 @@ function buildActivitySnapshot(activity: Activity, scheduled?: ScheduledActivity
     if (scheduled.totalFloat !== undefined) snap.isCritical = scheduled.totalFloat === 0;
   }
   if (activity.notes !== undefined) snap.notes = activity.notes;
-  if (activity.checklist !== undefined) snap.checklist = activity.checklist;
-  if (activity.deliverables !== undefined) snap.deliverables = activity.deliverables;
+  if (activity.checklist !== undefined) snap.checklist = activity.checklist.map(checklistItemForSnapshot);
+  if (activity.deliverables !== undefined) snap.deliverables = activity.deliverables.map(deliverableItemForSnapshot);
   if (activity.description !== undefined) snap.description = activity.description;
   return snap;
 }
@@ -254,8 +272,8 @@ export function buildScenarioSnapshot(
     startDate: scenario.startDate,
     simulationStatus: scenario.simulationResults ? "present" : "absent",
     activities,
-    milestones: scenario.milestones,
-    dependencies: scenario.dependencies,
+    milestones: scenario.milestones.map(milestoneForSnapshot),
+    dependencies: scenario.dependencies.map(dependencyForSnapshot),
     dependencyValidationErrors,
   };
   if (computed.schedule) {

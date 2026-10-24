@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.15 — 2026-10-24
+
+### Internal
+
+- Connect AI consent hardening from the security review: if turning off the AI's Read access ever fails momentarily, the app now keeps your choice (Read stays off) rather than quietly turning it back on next time you connect; the consent dialog now names the project it applies to and states exactly what Read access shares; and the information sent to a connected AI is assembled field-by-field, so a field added in a future update can't be shared without a deliberate change. No action is needed.
+
 ## 0.79.14 — 2026-10-24
 
 ### Internal
