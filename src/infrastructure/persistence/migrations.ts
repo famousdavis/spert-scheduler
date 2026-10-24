@@ -488,6 +488,22 @@ export function applyMigrations(
   fromVersion: number,
   toVersion: number
 ): unknown {
+  // CI-1 backstop (v0.79.x audit): refuse a version that cannot drive a
+  // terminating loop. Note `Number.isInteger(-1e20)` is TRUE (it is a whole
+  // number), so the guard uses isSafeInteger, which rejects magnitudes >= 2^53
+  // as well as non-integers, NaN and ±Infinity. Without this, a stored
+  // schemaVersion of -1e20 left `v++` unable to advance while `v < toVersion`
+  // stayed true — an infinite loop that froze the browser on load. Both callers
+  // (local migrateProjectData, cloud processProjectDoc) wrap this in try/catch,
+  // so the throw surfaces as a load error instead of a freeze.
+  if (!Number.isSafeInteger(fromVersion) || fromVersion < 1) {
+    throw new Error(
+      `Unsupported schemaVersion ${fromVersion}: expected an integer >= 1`
+    );
+  }
+  if (!Number.isSafeInteger(toVersion)) {
+    throw new Error(`Invalid target schema version ${toVersion}`);
+  }
   let current = data;
   for (let v = fromVersion; v < toVersion; v++) {
     const migration = MIGRATIONS[v];

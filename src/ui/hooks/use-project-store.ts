@@ -17,7 +17,9 @@ import type {
   ScenarioSettings,
   SimulationRun,
 } from "@domain/models/types";
-import { MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
+import { MAX_SCENARIOS_PER_PROJECT, SCHEMA_VERSION } from "@domain/models/types";
+import { ProjectSchema } from "@domain/schemas/project.schema";
+import { toast } from "@ui/hooks/use-notification-store";
 import { SAMPLE_PROJECT_NAME } from "@domain/data/sample-project-meta";
 import { buildSampleProject } from "@app/api/sample-project-service";
 import {
@@ -259,6 +261,24 @@ function mergeWithLocalSimulationResults(
         ? { ...s, simulationResults: prior.simulationResults }
         : s;
     }),
+  };
+}
+
+/**
+ * CI-4 (v0.79.x audit): strip simulation results from a cloud-delivered project.
+ * Results are local-only — stripped before every cloud save — so any present on
+ * an incoming Firestore doc are anomalous (a collaborator writing the doc
+ * directly through the API), and a crafted/oversized percentiles map crashes the
+ * project page on render and bloats the localStorage mirror. The cloud is never
+ * trusted to have stripped them; local values are re-applied by
+ * mergeWithLocalSimulationResults.
+ */
+function dropCloudSimulationResults(project: Project): Project {
+  return {
+    ...project,
+    scenarios: project.scenarios.map((s) =>
+      s.simulationResults === undefined ? s : { ...s, simulationResults: undefined }
+    ),
   };
 }
 
@@ -714,6 +734,28 @@ type ResultsIntent =
  */
 type ScenarioResultsIntent = Exclude<ResultsIntent, "invalidate-all-scenarios">;
 
+/**
+ * CI-6 (v0.79.x audit): validate the save-shaped project against ProjectSchema.
+ * On failure it queues a toast and returns false so persist() skips the write,
+ * keeping a value the loader would reject out of localStorage and the cloud.
+ * schemaVersion is supplied as it is at save time; ProjectSchema strips the
+ * in-memory _owner/_members extras, so valid projects (cloud ones included) pass.
+ * Extracted from persist() to keep that function under the complexity baseline.
+ */
+function persistableOrWarn(project: Project): boolean {
+  const check = ProjectSchema.safeParse({ ...project, schemaVersion: SCHEMA_VERSION });
+  if (check.success) return true;
+  const issue = check.error.issues[0];
+  const where = issue && issue.path.length > 0 ? issue.path.join(".") : "project";
+  const detail = issue?.message ?? "invalid value";
+  queueMicrotask(() =>
+    toast.error(
+      `Couldn't save your last change (${where}: ${detail}). It will be undone when you reload.`
+    )
+  );
+  return false;
+}
+
 function persist(
   projects: Project[],
   projectId: string | undefined,
@@ -731,6 +773,17 @@ function persist(
       if (!prefs.storeFullSimulationData) {
         project = stripSimulationSamples(project);
       }
+      // CI-6 (v0.79.x audit): validate before persisting. A mutation can leave a
+      // value in memory that the schema rejects on the NEXT load (a cleared date,
+      // an out-of-range estimate) — "persist then fail to load", which in cloud
+      // mode makes the project silently vanish for every member. Validate the
+      // exact shape that will be written (schemaVersion is added at save time;
+      // ProjectSchema strips the in-memory _owner/_members extras) and refuse the
+      // write on failure, so the bad value never reaches localStorage or the
+      // cloud. It stays in memory (the user keeps seeing their edit) and a toast
+      // warns it was not saved — gone on reload, not a brick. (Validating each
+      // field at input is the fuller fix and a larger follow-up.)
+      if (!persistableOrWarn(project)) return next;
       repo.save(project);
       // Defer the cloud emit until after the surrounding Zustand `set()`
       // updater returns and commits state. This is load-bearing: the bus
@@ -1722,11 +1775,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     // Sync to localStorage. Intentionally uses the Firestore-delivered `projects`
     // (simulationResults stripped), not the in-memory-merged version built below —
     // localStorage mirrors Firestore state, not UI-ephemeral computation results.
-    for (const project of projects) {
+    // CI-4 (v0.79.x audit): never trust cloud-delivered simulation results. The
+    // save-strip is a CLIENT invariant a collaborator writing Firestore directly
+    // can violate, and a crafted percentiles map crashes render — so strip here,
+    // at the cloud->store boundary, before results reach localStorage or memory.
+    const incoming = projects.map(dropCloudSimulationResults);
+    for (const project of incoming) {
       repo.save(project);
     }
     // WI-130: the cloud's list REPLACES this copy's — a project it no longer names leaves it. A drag only orders.
-    repo.replaceIndex(projects.map((p) => p.id));
+    repo.replaceIndex(incoming.map((p) => p.id));
     set((state) => {
       // Preserve in-memory simulationResults for projects already in the store (v0.47.0 SC1-1).
       // Firestore delivers projects with simulationResults stripped; a spert:models-changed
@@ -1741,7 +1799,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       // spert:models-changed re-fetch path is the one that benefits, as it can fire while
       // freshly-computed (in-session) results are live.
       const inMemoryById = new Map(state.projects.map((p) => [p.id, p]));
-      const merged = projects.map((p) => {
+      const merged = incoming.map((p) => {
         const existing = inMemoryById.get(p.id);
         return existing ? mergeWithLocalSimulationResults(p, existing) : p;
       });
@@ -1750,18 +1808,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   mergeProject: (project: Project) => {
+    // CI-4 (v0.79.x audit): never trust cloud-delivered simulation results. The
+    // save-strip is a CLIENT invariant a direct Firestore write can violate, and
+    // a crafted percentiles map crashes render — so strip the incoming project
+    // here (in scope for both the merge and the repo.save below) rather than
+    // trusting it. Local in-memory values are then preserved by the merge to
+    // avoid wiping a freshly-computed run.
+    const incoming = dropCloudSimulationResults(project);
     set((state) => {
-      // Simulation results are local-only ephemeral state — we never accept
-      // them from a Firestore snapshot. The strip on write
-      // (stripSimulationResultsForCloud) means every cloud echo reports
-      // undefined; preserve in-memory values to avoid wiping a freshly-
-      // computed run. See mergeWithLocalSimulationResults helper above.
-      const existing = state.projects.find((p) => p.id === project.id);
+      const existing = state.projects.find((p) => p.id === incoming.id);
       const merged = existing
-        ? mergeWithLocalSimulationResults(project, existing)
-        : project;
+        ? mergeWithLocalSimulationResults(incoming, existing)
+        : incoming;
       const projects = existing
-        ? state.projects.map((p) => (p.id === project.id ? merged : p))
+        ? state.projects.map((p) => (p.id === incoming.id ? merged : p))
         : [...state.projects, merged];
       return { projects };
     });
@@ -1770,7 +1830,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     // delivered (the preservation above is a UI-state concern, not a
     // persistence one — `repo.save` already respects storeFullSimulationData
     // for its own strip).
-    repo.save(project);
+    repo.save(incoming);
   },
 
   // v0.45.3 — strictly analogous to deleteProject minus the

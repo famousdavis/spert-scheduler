@@ -241,6 +241,24 @@ function validateSchemaVersion(
     };
   }
 
+  // CI-1 backstop (v0.79.x audit): a negative, fractional or huge-magnitude
+  // version (e.g. -1e20) is a number <= SCHEMA_VERSION, so it passes the checks
+  // above and would then drive applyMigrations into a non-terminating loop.
+  // Reject it here as a load error rather than freezing the browser.
+  if (!Number.isSafeInteger(schemaVersion) || schemaVersion < 1) {
+    return {
+      ok: false,
+      error: {
+        projectId: id,
+        projectName,
+        type: "validation",
+        message: "Invalid schema version (not a positive integer)",
+        details: `schemaVersion value: ${JSON.stringify(schemaVersion)}`,
+        rawPreview,
+      },
+    };
+  }
+
   return { ok: true, value: schemaVersion };
 }
 
