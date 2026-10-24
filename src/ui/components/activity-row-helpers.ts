@@ -12,8 +12,10 @@ import { computeHeuristic } from "@core/estimation/heuristic";
  * Focus a field in a specific activity row by data attributes.
  */
 export function focusField(rowId: string, field: string): boolean {
+  // BR-4 (v0.79.x audit): CSS.escape the interpolated id — an activity id can hold a `"` (an AI
+  // `create_activity` takes `p.id`), which would otherwise make this selector throw a SyntaxError.
   const el = document.querySelector<HTMLElement>(
-    `[data-row-id="${rowId}"][data-field="${field}"]`
+    `[data-row-id=${CSS.escape(rowId)}][data-field=${CSS.escape(field)}]`
   );
   if (el) {
     el.focus();

@@ -131,3 +131,25 @@ describe("section collapse memory — storage that refuses", () => {
     expect(() => setSectionCollapsed("p1", "grid", true)).not.toThrow();
   });
 });
+
+describe("BR-4: a project id that is an inherited Object property name", () => {
+  // Pre-fix `loadMap()` returned a plain `{}`, so `isSectionCollapsed("constructor", …)` reached
+  // `Object.prototype.constructor` (a function) and threw `.includes is not a function` during
+  // render, crashing the project page — so a project with such an id could never be opened.
+  const HAZARDS = ["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"];
+
+  it("does not throw and starts expanded, for each such id", () => {
+    for (const id of HAZARDS) {
+      expect(() => isSectionCollapsed(id, "grid")).not.toThrow();
+      expect(isSectionCollapsed(id, "grid")).toBe(false);
+    }
+  });
+
+  it("remembers and forgets a collapse for such an id, like any other", () => {
+    setSectionCollapsed("constructor", "grid", true);
+    expect(isSectionCollapsed("constructor", "grid")).toBe(true);
+    expect(isSectionCollapsed("constructor", "milestones")).toBe(false);
+    setSectionCollapsed("constructor", "grid", false);
+    expect(isSectionCollapsed("constructor", "grid")).toBe(false);
+  });
+});

@@ -24,8 +24,10 @@ import { flushSync } from "react-dom";
  */
 export function scrollToActivity(activityId: string, revealGrid: () => void): void {
   flushSync(revealGrid);
+  // BR-4 (v0.79.x audit): CSS.escape the id — an activity id can hold a `"` (AI `create_activity`),
+  // which would otherwise throw a SyntaxError from querySelector before the scroll ran.
   const el = document.querySelector<HTMLElement>(
-    `[data-row-id="${activityId}"][data-field="name"]`
+    `[data-row-id=${CSS.escape(activityId)}][data-field="name"]`
   );
   if (el) {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
