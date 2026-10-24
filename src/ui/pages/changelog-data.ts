@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.9",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "If a project's page ever runs into an error while displaying, you now see a short message with a link back to your projects, instead of the whole app going blank. Your other projects are unaffected.",
+          "A change that can't be saved — for example a date left blank, or a value outside the allowed range — is now caught and reported with an on-screen notice, instead of being lost silently or leaving the project unable to open the next time.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Hardening from a security review: cloud projects are no longer trusted to supply saved simulation results (these are always recomputed on your own device), and a project whose stored version number is invalid is now reported when it loads rather than causing the app to hang. Your data is unchanged and no action is needed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.8",
     date: "2026-10-23",
     sections: [
