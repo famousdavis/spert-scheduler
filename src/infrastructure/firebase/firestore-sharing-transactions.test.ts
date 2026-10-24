@@ -248,4 +248,17 @@ describe("firestore.rules — what it does and does not enforce about members", 
     // caught nothing the line below does not — the falsification fired on this one.
     expect(projectsBlock).not.toContain("members[request.resource.data.owner]");
   });
+
+  it("CI-2: a non-owner member can Leave — a separate allow-update that deletes only their own entry", () => {
+    // Mirrored from canonical (v2.6.5). A member who is NOT the owner may remove exactly their
+    // own `members` key and nothing else — keyed on `!= 'owner'` so it never lets the owner
+    // orphan the project, and set-equality (not hasOnly) pins the exact keys changed. This is the
+    // server side of the Scheduler "Leave project" action. If the rule is dropped from the mirror,
+    // this fails (the landing check-scheduler-mirror is the authoritative drift guard; this is the
+    // readable Scheduler-side pin).
+    expect(projectsBlock).toContain("resource.data.members[request.auth.uid] != 'owner'");
+    expect(projectsBlock).toContain("affectedKeys() == ['members'].toSet()");
+    expect(projectsBlock).toContain("affectedKeys() == [request.auth.uid].toSet()");
+    expect(projectsBlock).toContain("!(request.auth.uid in request.resource.data.members)");
+  });
 });

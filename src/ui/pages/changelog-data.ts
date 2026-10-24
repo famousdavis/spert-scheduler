@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.16",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Updated this repository's reference copy of the Firestore security rules to match the canonical suite-wide ruleset (v2.6.5). This copy is a test fixture and is never deployed — the deployed rules come from the shared rules repository. No user-facing change and no action needed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.15",
     date: "2026-10-24",
     sections: [
