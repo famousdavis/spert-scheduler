@@ -70,7 +70,9 @@ describe("exportSimulationCSV", () => {
       { input: "@IMPORT(url)", expected: "'@IMPORT(url)" },
       { input: "-2+3", expected: "'-2+3" },
       { input: "\tmalicious", expected: "'\tmalicious" },
-      { input: "\rmalicious", expected: "'\rmalicious" },
+      // BR-2 (v0.79.x audit): a leading \r is now prefixed AND quoted — the \r itself makes the
+      // cell quote, so a CR can never split the row. Was `'\rmalicious` (unquoted) before the fix.
+      { input: "\rmalicious", expected: '"\'\rmalicious"' },
     ];
     for (const { input, expected } of cases) {
       const csv = exportSimulationCSV(makeResults(), input, "Project");
@@ -94,5 +96,17 @@ describe("exportSimulationCSV", () => {
     expect(lines.length).toBeGreaterThan(15);
     // No trailing empty lines (just ends with last percentile)
     expect(lines[lines.length - 1]).not.toBe("");
+  });
+
+  it("BR-1: escapes a formula-injection seed (settings.rngSeed is user-controlled)", () => {
+    const csv = exportSimulationCSV(makeResults({ seed: '=HYPERLINK("http://evil","go")' }), "S", "P");
+    // Neutralized: prefixed with ' and quoted (it contains a comma). Pre-fix the seed was interpolated raw.
+    expect(csv).toContain(`# Seed,"'=HYPERLINK`);
+    expect(csv).not.toContain("# Seed,=HYPERLINK");
+  });
+
+  it("BR-2: quotes a metadata cell with a mid-value carriage return so it cannot split the row", () => {
+    const csv = exportSimulationCSV(makeResults(), "line1\rline2", "P");
+    expect(csv).toContain('# Scenario,"line1\rline2"');
   });
 });

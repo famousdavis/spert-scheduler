@@ -4,6 +4,7 @@
 
 import type { SimulationRun } from "@domain/models/types";
 import { STANDARD_PERCENTILES } from "@domain/models/types";
+import { escapeCsvField } from "./csv-escape";
 
 export function exportSimulationCSV(
   results: SimulationRun,
@@ -14,12 +15,15 @@ export function exportSimulationCSV(
 
   // Metadata header
   lines.push("# SPERT Scheduler — Simulation Results");
-  lines.push(`# Project,${csvEscape(projectName)}`);
-  lines.push(`# Scenario,${csvEscape(scenarioName)}`);
-  lines.push(`# Timestamp,${results.timestamp}`);
-  lines.push(`# Engine Version,${results.engineVersion}`);
-  lines.push(`# Trial Count,${results.trialCount}`);
-  lines.push(`# Seed,${results.seed}`);
+  lines.push(`# Project,${escapeCsvField(projectName)}`);
+  lines.push(`# Scenario,${escapeCsvField(scenarioName)}`);
+  // BR-1 (v0.79.x audit): escape every interpolated metadata cell. The seed is user-set
+  // (settings.rngSeed), so a `=HYPERLINK(...)` seed would otherwise execute when a member opens
+  // this CSV; timestamp/engineVersion are engine-set but escaped too, for uniformity.
+  lines.push(`# Timestamp,${escapeCsvField(results.timestamp)}`);
+  lines.push(`# Engine Version,${escapeCsvField(results.engineVersion)}`);
+  lines.push(`# Trial Count,${escapeCsvField(results.trialCount)}`);
+  lines.push(`# Seed,${escapeCsvField(results.seed)}`);
   lines.push("");
 
   // Summary statistics
@@ -40,16 +44,4 @@ export function exportSimulationCSV(
   }
 
   return lines.join("\n");
-}
-
-function csvEscape(value: string): string {
-  let str = value;
-  // Guard against CSV formula injection (OWASP): prefix cells starting with =, +, @, -, \t, or \r
-  if (/^[=+@\-\t\r]/.test(str)) {
-    str = "'" + str;
-  }
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
 }
