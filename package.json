@@ -1,7 +1,7 @@
 {
   "name": "spert-scheduler",
   "private": true,
-  "version": "0.79.13",
+  "version": "0.79.14",
   "type": "module",
   "license": "GPL-3.0",
   "engines": {
@@ -34,7 +34,7 @@
     "papaparse": "^5.5.3",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "react-router-dom": "7.15.1",
+    "react-router-dom": "7.18.2",
     "recharts": "^3.8.1",
     "seedrandom": "^3.0.5",
     "zod": "^4.4.3",
@@ -74,6 +74,7 @@
     },
     "vite": {
       "esbuild": "0.28.1"
-    }
+    },
+    "set-cookie-parser": "2.7.2"
   }
 }
