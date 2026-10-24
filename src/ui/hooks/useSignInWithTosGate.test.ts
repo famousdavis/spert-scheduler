@@ -202,5 +202,28 @@ describe("useSignInWithTosGate", () => {
       expect(() => act(() => result.current.handleGoogleClick())).not.toThrow();
       await waitFor(() => expect(toast.error).toHaveBeenCalled());
     });
+
+    it("SD-7: logs the error CODE only — never the email or OAuth tokens a FirebaseError can carry", async () => {
+      // account-exists-with-different-credential attaches the victim's email and the provider's
+      // OAuth tokens. The pre-fix `console.error("Sign-in error:", err)` printed the whole object.
+      const sensitive = {
+        code: "auth/account-exists-with-different-credential",
+        email: "victim@example.com",
+        customData: { email: "victim@example.com", _tokenResponse: { oauthAccessToken: "ya29.SECRET" } },
+      };
+      signInWithGoogle.mockRejectedValue(sensitive);
+      localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const { result } = setup();
+      act(() => result.current.handleGoogleClick());
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+
+      expect(errorSpy).toHaveBeenCalledWith("Sign-in error:", "auth/account-exists-with-different-credential");
+      const logged = JSON.stringify(errorSpy.mock.calls);
+      expect(logged).not.toContain("victim@example.com");
+      expect(logged).not.toContain("ya29.SECRET");
+      errorSpy.mockRestore();
+    });
   });
 });

@@ -33,15 +33,16 @@ vi.mock("@infrastructure/firebase/firestore-migration", () => ({
  *      you in local mode with the failure surfaced, rather than switching optimistically
  *   2. the migration branch reads `persistedMode` while the discard branch reads `mode`
  *      — two different reads, trivially conflated
- *   3. discard explicitly targets the "local" namespace, because the ACTIVE namespace at
- *      that moment is the user's UID (v0.42.6 / M4)
+ *   3. discard clears the ACTIVE (signed-in UID) namespace — the cloud mirror the dialog
+ *      promises to remove — and leaves the signed-out "local" copy alone (SD-1, v0.79.x audit;
+ *      pre-fix it wrongly cleared "local" and kept the UID mirror)
  *   4. `reMigrate` deliberately does NOT switch mode, even on success
  *
  * Only three things are mocked, not six. LocalStorageRepository, scenario-memory and the
  * project store are exercised FOR REAL against jsdom's localStorage, which turns decision
- * 3 from a wiring assertion ("was it constructed with 'local'?") into a behavioural one
- * ("did the local namespace get cleared and the UID namespace survive?"). That assertion
- * survives decomposition; the wiring one would not.
+ * 3 from a wiring assertion ("which namespace was it constructed with?") into a behavioural one
+ * ("did the UID namespace — the cloud mirror — get cleared and the signed-out local copy survive?").
+ * That assertion survives decomposition; the wiring one would not.
  */
 
 const switchMode = vi.fn();
@@ -171,11 +172,12 @@ describe("useStorageModeSwitch", () => {
       expect(localStorage.getItem("spert:project:local:p1")).not.toBeNull();
     });
 
-    it("Discard clears the LOCAL namespace even while the UID namespace is active", () => {
-      // Decision 3, asserted behaviourally. At this call site the active namespace is
-      // still the user's UID, because the mode switch happens before sign-out. A plain
-      // `new LocalStorageRepository()` would clear the UID's data and leave the local
-      // copy the user just asked to discard.
+    it("SD-1: Discard clears the signed-in (UID) namespace — the cloud mirror — and leaves the signed-out 'local' copy alone", () => {
+      // Decision 3, re-asserted for SD-1 (v0.79.x audit). At this call site the active namespace is
+      // the user's UID, and the cloud mirror the dialog promises to remove lives THERE. The pre-fix
+      // code cleared "local" (this browser's signed-out projects — possibly another person's) and
+      // kept the UID mirror, which loadProjects then reloaded — removing the wrong data. Discard must
+      // clear the active UID namespace and leave "local" untouched.
       seedNamespace("local", "p-local");
       seedNamespace("user-123", "p-cloud");
       setStorageNamespace("user-123");
@@ -185,10 +187,11 @@ describe("useStorageModeSwitch", () => {
       act(() => { result.current.handleModeChange("local"); });
       act(() => result.current.handleDiscardLocalCopy());
 
-      expect(localStorage.getItem("spert:project:local:p-local")).toBeNull();
-      expect(localStorage.getItem("spert:project-index:local")).toBeNull();
-      // ...and the namespace that was merely ACTIVE is untouched.
-      expect(localStorage.getItem("spert:project:user-123:p-cloud")).not.toBeNull();
+      // SD-1: the signed-in UID namespace (the cloud mirror) is cleared...
+      expect(localStorage.getItem("spert:project:user-123:p-cloud")).toBeNull();
+      expect(localStorage.getItem("spert:project-index:user-123")).toBeNull();
+      // ...and this browser's separate signed-out "local" projects are left alone (was: wrongly cleared).
+      expect(localStorage.getItem("spert:project:local:p-local")).not.toBeNull();
     });
 
     it("Discard also empties the in-memory project store and switches mode", () => {

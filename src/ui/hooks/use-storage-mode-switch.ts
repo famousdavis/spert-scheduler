@@ -81,15 +81,18 @@ export function useStorageModeSwitch(): UseStorageModeSwitchResult {
   }, [switchMode]);
 
   const handleDiscardLocalCopy = useCallback(() => {
-    // v0.42.6 (M4): explicitly target the "local" namespace. The active
-    // namespace at this call site may be the user's UID (cloud mode) since
-    // mode-switch happens before sign-out; clearing must hit local data.
-    new LocalStorageRepository("local").clearAll();
+    // SD-1 (v0.79.x audit): "Discard" promises to remove the cloud data FROM THIS BROWSER. While the
+    // user is signed in — true here, since the mode switch happens before any sign-out — the active
+    // namespace IS their UID, and the cloud mirror lives there (spert:project:{uid}:*), NOT in the
+    // signed-out "local" namespace. The pre-fix code cleared "local" (this browser's signed-out
+    // projects — possibly another person's) and left the UID mirror, which loadProjects then
+    // reloaded: Discard deleted the wrong data and kept the data it promised to remove. Clear the
+    // ACTIVE (UID) namespace instead and leave "local" alone; clearAll (SD-3) sweeps it by prefix,
+    // orphaned mirror copies included.
+    new LocalStorageRepository().clearAll();
+    // These already clear the ACTIVE (signed-in UID) namespace — now consistent with the line above:
+    // the UID's scenario memory and collapsed-section state go with its discarded projects.
     clearAllLastScenarios();
-    // ⚠️ Like the line above, this clears the ACTIVE namespace — the signed-in user's uid, not
-    // "local" — so it forgets that user's collapsed sections and leaves the discarded local
-    // projects' entries behind. Harmless for view state: a leftover entry can only make a project
-    // with that same id open collapsed (v0.71.0).
     clearAllCollapsedSections();
     useProjectStore.getState().clearAllData();
     setConfirmDiscardOpen(false);

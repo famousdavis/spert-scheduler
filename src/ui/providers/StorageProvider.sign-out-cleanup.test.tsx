@@ -582,3 +582,26 @@ describe("WI-117: a sign-out sends no preferences to the cloud, on any of the th
     expect(edges.preferenceSaves).toEqual([]);
   });
 });
+
+// -- AI-2: the Connect AI session leaves this browser on sign-out ---------------------------------------
+
+describe("AI-2: a sign-out clears the Connect AI session from this browser", () => {
+  function seedAiSession() {
+    localStorage.setItem("spert_scheduler_ai_session_id", "sess-xyz");
+    localStorage.setItem("spert_scheduler_ai_consent", JSON.stringify({ version: 1, read: true, write: true }));
+    localStorage.setItem("spert_scheduler_ai_last_seq:sess-xyz", "4");
+  }
+
+  it("the user's Sign out clears the AI session id, consent and op cursor, so the next person can't inherit them", async () => {
+    renderApp("cloud");
+    await settle();
+    await signedInWithHeart();
+    seedAiSession();
+
+    await signOut();
+
+    expect(localStorage.getItem("spert_scheduler_ai_session_id")).toBeNull();
+    expect(localStorage.getItem("spert_scheduler_ai_consent")).toBeNull();
+    expect(localStorage.getItem("spert_scheduler_ai_last_seq:sess-xyz")).toBeNull();
+  });
+});

@@ -379,7 +379,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Check for redirect result on page load
     getRedirectResult(auth).catch((e) => {
-      console.error("Redirect sign-in error:", e);
+      // SD-7 (v0.79.x audit): log the error CODE only — a redirect-result FirebaseError for
+      // account-exists-with-different-credential carries the email and the provider's OAuth tokens.
+      console.error("Redirect sign-in error:", (e as { code?: string } | undefined)?.code ?? "unknown");
     });
 
     return onAuthStateChanged(auth, async (firebaseUser) => {

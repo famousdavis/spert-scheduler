@@ -27,3 +27,24 @@ export const AI_SESSIONS_COL = "anonymous_sessions";
 
 /** This app's identifier, written to the shared session doc (§2.3). */
 export const SCHEDULER_APP_ID = "scheduler";
+
+/**
+ * AI-2 (v0.79.x audit): remove every Connect-AI localStorage key — the session id, the stored
+ * consent, and every per-session op cursor (`AI_LAST_SEQ_PREFIX` + sessionId). Called on sign-out
+ * and on a change of user so the next person on a shared browser cannot inherit the previous user's
+ * AI session or skip the consent window. These keys are NOT namespaced (an AI session can exist even
+ * in local mode — creation needs no sign-in), so they are cleared regardless of the active namespace.
+ * Wrapped in try/catch because localStorage can throw in private/blocked contexts. Does not touch the
+ * server session doc — it TTL-expires, or Disconnect tears it down.
+ */
+export function clearAiConnectivityKeys(): void {
+  try {
+    localStorage.removeItem(AI_SESSION_ID_KEY);
+    localStorage.removeItem(AI_CONSENT_KEY);
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(AI_LAST_SEQ_PREFIX)) localStorage.removeItem(key);
+    }
+  } catch {
+    // localStorage unavailable (private mode / blocked) — nothing to clear.
+  }
+}
