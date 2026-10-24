@@ -1044,6 +1044,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       const [moved] = projects.splice(fromIndex, 1);
       if (!moved) return state;
       projects.splice(toIndex, 0, moved);
+      // WI-130: orders this tab's projects; each stored project it does not show keeps its place in the list.
       repo.reorderIndex(projects.map((p) => p.id));
       return { projects };
     });
@@ -1724,7 +1725,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     for (const project of projects) {
       repo.save(project);
     }
-    repo.reorderIndex(projects.map((p) => p.id));
+    // WI-130: the cloud's list REPLACES this copy's — a project it no longer names leaves it. A drag only orders.
+    repo.replaceIndex(projects.map((p) => p.id));
     set((state) => {
       // Preserve in-memory simulationResults for projects already in the store (v0.47.0 SC1-1).
       // Firestore delivers projects with simulationResults stripped; a spert:models-changed

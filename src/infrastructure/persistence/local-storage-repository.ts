@@ -30,6 +30,38 @@ const INDEX_KEY_BASE = "spert:project-index";
 const LEGACY_KEY_PATTERN = /^spert:project:([^:]+)$/;
 const LEGACY_INDEX_KEY = "spert:project-index";
 
+/**
+ * WI-130: the one namespace whose projects are what its keys hold — this browser's signed-out storage. There the index
+ * gives the projects' ORDER, and `list` names a stored project the index leaves out after the others. Never in a
+ * signed-in user's namespace, for two reasons. In cloud storage it holds this browser's copy of the user's cloud list,
+ * whose index the cloud's answer replaces whole (`replaceIndex`) without removing the keys of projects it no longer
+ * names — deleted elsewhere, or no longer shared — so an unlisted key there is not a project to show. In signed-in
+ * local storage the same namespace is the user's own store, but it also keeps those copies from any earlier cloud
+ * session, and nothing tells one from the other; a signed-in user's storage gets only the drag's half (`reorderIndex`).
+ */
+const SIGNED_OUT_NAMESPACE = "local";
+
+/**
+ * WI-130: the oldest schema a stored project the index leaves out may carry and be listed again — 21, from v0.45.0.
+ * From v0.12.0 to v0.42.5 the cloud copy shared its keys with local storage and kept the keys of projects the cloud
+ * stopped naming, possibly another user's; v0.42.6 moved every one of them, listed or not, into this namespace. Those
+ * were saved at schema 20 or lower, and an unlisted key is never saved again, so the floor keeps them hidden, as before.
+ */
+const RECOVERABLE_SCHEMA_VERSION = 21;
+
+/** WI-130: whether a stored value the index leaves out is listed again — it parses, and its schema is 21 or higher. */
+function isRecoverable(raw: string | null): boolean {
+  if (raw === null) return false;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    const schemaVersion =
+      typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>).schemaVersion : undefined;
+    return typeof schemaVersion === "number" && schemaVersion >= RECOVERABLE_SCHEMA_VERSION;
+  } catch {
+    return false;
+  }
+}
+
 /** Module-level active namespace. Defaults to "local"; flipped to UID by
  *  StorageProvider on sign-in via `setStorageNamespace`, back to "local" on
  *  sign-out. Methods on `LocalStorageRepository` read this dynamically per
@@ -256,6 +288,27 @@ export function stripSimulationSamples(project: Project): Project {
 }
 
 /**
+ * WI-130: the list `reorderIndex` stores. `stored` is the namespace's list; `ordered` is a tab's list in its new order,
+ * which may be out of date. Each id of `stored` that `ordered` does not name keeps its own place. The ids `ordered`
+ * names — those in `stored`, and those `stored` lacks that are still stored (`isStored`) — fill the places of the ones
+ * in `stored`, in `ordered`'s order, and any left over go at the end; an id no longer stored — deleted in another
+ * tab — is dropped. Each id appears once.
+ */
+function orderWithin(
+  stored: readonly string[],
+  ordered: readonly string[],
+  isStored: (id: string) => boolean,
+): string[] {
+  const listed = [...new Set(stored)];
+  const inList = new Set(listed);
+  const named = [...new Set(ordered)].filter((id) => inList.has(id) || isStored(id));
+  const isNamed = new Set(named);
+  let next = 0;
+  const placed = listed.map((id) => (isNamed.has(id) ? named[next++]! : id));
+  return [...placed, ...named.slice(next)];
+}
+
+/**
  * localStorage-backed ProjectRepository with schema versioning.
  *
  * Storage scheme (v0.42.6 — UID-namespaced):
@@ -289,7 +342,33 @@ export class LocalStorageRepository implements ProjectRepository {
     return `${INDEX_KEY_BASE}:${this.namespace}`;
   }
 
+  /**
+   * This namespace's project ids, in the stored order. WI-130: in this browser's signed-out namespace, without the ids
+   * whose data is gone, and followed by every project stored there that the index leaves out and a version since 0.45.0
+   * saved (`isRecoverable`), in ascending order of id. Before WI-130 a tab's drag stored that tab's own list as the
+   * index, so each project the tab did not show — one another tab had made since it loaded, or one a newer version had
+   * saved, which an older version cannot open — left this browser's list while its data stayed. The index is stored
+   * again so, only when something changed, so a project made next goes after them; if that write fails (storage full),
+   * they are found again at the next read. An index this version cannot read is never written over: the projects are
+   * listed, the index left as it is. Never in a signed-in user's namespace (`SIGNED_OUT_NAMESPACE`).
+   */
   list(): string[] {
+    const ids = this.readIndex();
+    if (this.namespace !== SIGNED_OUT_NAMESPACE) return ids;
+    const kept = ids.filter((id) => this.isStored(id));
+    const unlisted = this.unlistedIds(ids);
+    if (kept.length === ids.length && unlisted.length === 0) return ids;
+    const all = [...kept, ...unlisted];
+    if (!this.indexIsReadable()) return all;
+    try {
+      localStorage.setItem(this.indexKey, JSON.stringify(all));
+    } catch {
+      // Storage full: the same projects are found again at the next read.
+    }
+    return all;
+  }
+
+  private readIndex(): string[] {
     const raw = localStorage.getItem(this.indexKey);
     if (!raw) return [];
     try {
@@ -298,6 +377,42 @@ export class LocalStorageRepository implements ProjectRepository {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * WI-130: whether this version can read the stored index — there is none, or it is a list of ids. One it cannot read
+   * (a newer version's shape, or damaged) is never written over by a read.
+   */
+  private indexIsReadable(): boolean {
+    const raw = localStorage.getItem(this.indexKey);
+    if (!raw) return true;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.every((id) => typeof id === "string");
+    } catch {
+      return false;
+    }
+  }
+
+  private isStored(id: string): boolean {
+    return localStorage.getItem(this.keyOf(id)) !== null;
+  }
+
+  /**
+   * WI-130: the ids of this namespace's stored projects that `listed` does not name and `isRecoverable` lets back, in
+   * ascending order. Only those values are parsed. `Object.keys`, not `localStorage.key(i)`: Firefox takes time growing
+   * with the square of the number of keys for the second (measured, review 31).
+   */
+  private unlistedIds(listed: readonly unknown[]): string[] {
+    const prefix = `${KEY_PREFIX_BASE}:${this.namespace}:`;
+    const named = new Set(listed.map(String));
+    const unlisted: string[] = [];
+    for (const key of Object.keys(localStorage)) {
+      if (!key.startsWith(prefix)) continue;
+      const id = key.slice(prefix.length);
+      if (id !== "" && !named.has(id) && isRecoverable(localStorage.getItem(key))) unlisted.push(id);
+    }
+    return unlisted.sort((a, b) => (a < b ? -1 : 1));
   }
 
   load(id: string): Project | null {
@@ -380,6 +495,9 @@ export class LocalStorageRepository implements ProjectRepository {
   save(project: Project): void {
     const data = { ...project, schemaVersion: SCHEMA_VERSION };
     const json = JSON.stringify(data);
+    // WI-130: the list is read before this project's key is written, so `list` never names a NEW project as one the
+    // index left out — `save` adds it to the list itself, and a failed write of the list throws, as before.
+    const ids = this.list();
 
     try {
       localStorage.setItem(this.keyOf(project.id), json);
@@ -397,7 +515,6 @@ export class LocalStorageRepository implements ProjectRepository {
     }
 
     // Update index
-    const ids = this.list();
     if (!ids.includes(project.id)) {
       ids.push(project.id);
       localStorage.setItem(this.indexKey, JSON.stringify(ids));
@@ -411,14 +528,31 @@ export class LocalStorageRepository implements ProjectRepository {
     localStorage.setItem(this.indexKey, JSON.stringify(ids));
   }
 
+  /**
+   * Store a tab's order for the projects it shows. WI-130: that list can be out of date — another tab may have made a
+   * project since this one loaded, or this one could not open a project (a newer version's, or a damaged one) — so each
+   * stored project the list does not name keeps its own place, and the ones it names take the other places, in its
+   * order (`orderWithin`). Before WI-130 the list was stored as given: each project it did not name left this
+   * browser's list, its data left stored.
+   */
   reorderIndex(ids: string[]): void {
+    const order = orderWithin(this.list(), ids, (id) => this.isStored(id));
+    localStorage.setItem(this.indexKey, JSON.stringify(order));
+  }
+
+  /**
+   * Store `ids` as the whole list, as given. WI-130: for the cloud's answer (`setProjects`) — this browser's copy of
+   * the signed-in user's list, from which a project the cloud no longer names must go, as before.
+   */
+  replaceIndex(ids: string[]): void {
     localStorage.setItem(this.indexKey, JSON.stringify(ids));
   }
 
   /**
    * Remove every indexed project and the index itself for the current
-   * namespace. Idempotent. Does not touch non-project keys (preferences,
-   * scenario memory, etc.) or other namespaces' data.
+   * namespace — in this browser's signed-out namespace, every project `list`
+   * names there, the ones it lists again included (WI-130). Idempotent. Does not touch
+   * non-project keys (preferences, scenario memory, etc.) or other namespaces' data.
    */
   clearAll(): void {
     const ids = this.list();

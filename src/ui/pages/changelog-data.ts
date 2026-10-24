@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.7",
+    date: "2026-10-23",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Rearranging the Dashboard in one browser tab no longer hides projects made in another tab. Projects a drag already hid in this browser while you were signed out come back at the end of the Dashboard the next time it loads — beside the copy, if you made one again.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin a drag in one tab keeping the projects only another tab shows, the hidden projects returning (only those saved by version 0.45.0 or later), and a project list this version cannot read never being rewritten.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.6",
     date: "2026-10-23",
     sections: [
