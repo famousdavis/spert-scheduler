@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.8 — 2026-10-23
+
+### Added
+
+- **A new guide on the About page: bringing a Primavera P6 or Microsoft Project schedule into SPERT® Scheduler.** Open P6 & MS Project Import Guide (PDF) shows how to copy a schedule into Excel, shape it for Import Activities from Spreadsheet, add Min and Max, and import a summary of a schedule with thousands of activities.
+
+### Internal
+
+- A test pins the About page's link to the new guide, right after the Connect AI Guide's; the PDF sits in the repository root and in public/, as the Quick Reference Guide does.
+
 ## 0.79.7 — 2026-10-23
 
 ### Fixed

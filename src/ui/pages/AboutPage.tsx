@@ -81,6 +81,25 @@ export function AboutPage() {
         </section>
 
         <section>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+            P6 &amp; MS Project Import Guide
+          </h2>
+          <p className="mt-2">
+            Bring a schedule from Primavera P6 or Microsoft Project into SPERT®
+            Scheduler through Excel, or a summary of one with thousands of
+            activities. Download the import guide for the steps.
+          </p>
+          <a
+            href="/SPERTScheduler_P6_MSProject_Import_Guide.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block rounded bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Open P6 &amp; MS Project Import Guide (PDF)
+          </a>
+        </section>
+
+        <section>
           <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">How It Works</h2>
           <ul className="mt-2 list-disc space-y-1 pl-6">
             <li>
