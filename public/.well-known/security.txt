@@ -1,0 +1,9 @@
+# Security contact information for SPERT Scheduler (https://scheduler.spertsuite.com)
+# Please report security vulnerabilities privately — do not open a public issue.
+# Full policy: https://github.com/famousdavis/spert-scheduler/blob/main/SECURITY.md
+
+Contact: https://github.com/famousdavis/spert-scheduler/security/advisories/new
+Policy: https://github.com/famousdavis/spert-scheduler/blob/main/SECURITY.md
+Canonical: https://scheduler.spertsuite.com/.well-known/security.txt
+Preferred-Languages: en
+Expires: 2027-10-24T00:00:00.000Z
