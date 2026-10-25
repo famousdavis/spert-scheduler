@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.23 — 2026-10-24
+
+### Fixed
+
+- Two shared-computer safety fixes from the security review: switching to Cloud Storage now shows you which local projects it will upload and asks you to confirm first — because projects in local mode belong to the browser, not to a person — and opening an invitation link no longer silently switches storage mode for someone who is already signed in.
+
 ## 0.79.22 — 2026-10-24
 
 ### Internal

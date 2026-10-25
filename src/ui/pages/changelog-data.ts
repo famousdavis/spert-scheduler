@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.23",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "Two shared-computer safety fixes from the security review: switching to Cloud Storage now shows you which local projects it will upload and asks you to confirm first — because projects in local mode belong to the browser, not to a person — and opening an invitation link no longer silently switches storage mode for someone who is already signed in.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.22",
     date: "2026-10-24",
     sections: [

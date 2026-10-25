@@ -84,15 +84,18 @@ export function useInvitationLanding(): UseInvitationLandingResult {
 
   // Effect 2 — Auto-flip to cloud mode when entering pre_auth, but only if the
   // user has no local projects (Lesson 28: never wipe local data on invite-link
-  // arrival). Imperative read — does NOT re-fire on subsequent project-count
-  // changes by design.
+  // arrival). SD-6 (v0.79.8 audit): only for a SIGNED-OUT user — a crafted invite
+  // link on an empty-list page (/about, /changelog) must not silently switch a
+  // signed-in user's storage mode and skip the migration confirmation.
+  // Imperative project-count read — does NOT re-fire on count changes by design.
   useEffect(() => {
     if (state !== "pre_auth") return;
     if (!firebaseAvailable) return;
+    if (user !== null) return;
     const localProjectCount = useProjectStore.getState().projects.length;
     if (localProjectCount > 0) return;
     switchMode("cloud");
-  }, [state, firebaseAvailable, switchMode]);
+  }, [state, firebaseAvailable, user, switchMode]);
 
   // Effect 3 — Claims listener. Gated on the SESSION_KEY so a normal sign-in
   // (not via invite link) won't flash the banner even if the user has pending

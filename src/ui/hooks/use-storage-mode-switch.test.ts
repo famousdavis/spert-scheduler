@@ -11,11 +11,15 @@ import { useStorage } from "@ui/providers/StorageProvider";
 import { migrateLocalToCloud } from "@infrastructure/firebase/firestore-migration";
 import { setStorageNamespace } from "@infrastructure/persistence/local-storage-repository";
 import { useProjectStore } from "./use-project-store";
+import { confirmDialog } from "@ui/hooks/use-confirm-store";
 
 vi.mock("@ui/providers/AuthProvider", () => ({ useAuth: vi.fn() }));
 vi.mock("@ui/providers/StorageProvider", () => ({ useStorage: vi.fn() }));
 vi.mock("@infrastructure/firebase/firestore-migration", () => ({
   migrateLocalToCloud: vi.fn(),
+}));
+vi.mock("@ui/hooks/use-confirm-store", () => ({
+  confirmDialog: { ask: vi.fn() },
 }));
 
 /**
@@ -101,6 +105,37 @@ describe("useStorageModeSwitch", () => {
       expect(switchMode).toHaveBeenCalledWith("cloud");
       expect(result.current.migrationResult).toEqual({ migrated: 1, failed: 0 });
       expect(result.current.migrating).toBe(false);
+    });
+
+    it("SD-5: confirms before uploading when local projects exist, then migrates on confirm", async () => {
+      seedNamespace("local", "p-local");
+      vi.mocked(confirmDialog.ask).mockResolvedValue(true);
+      const { result } = setup();
+      await act(async () => await result.current.handleModeChange("cloud"));
+
+      expect(confirmDialog.ask).toHaveBeenCalled();
+      expect(migrateLocalToCloud).toHaveBeenCalledWith("user-123");
+      expect(switchMode).toHaveBeenCalledWith("cloud");
+    });
+
+    it("SD-5: cancelling the upload confirmation abandons the switch — no migrate, no mode change", async () => {
+      seedNamespace("local", "p-local");
+      vi.mocked(confirmDialog.ask).mockResolvedValue(false);
+      const { result } = setup();
+      await act(async () => await result.current.handleModeChange("cloud"));
+
+      expect(confirmDialog.ask).toHaveBeenCalled();
+      expect(migrateLocalToCloud).not.toHaveBeenCalled();
+      expect(switchMode).not.toHaveBeenCalled();
+    });
+
+    it("SD-5: skips the confirmation when there are no local projects to upload", async () => {
+      vi.mocked(confirmDialog.ask).mockResolvedValue(true);
+      const { result } = setup();
+      await act(async () => await result.current.handleModeChange("cloud"));
+
+      expect(confirmDialog.ask).not.toHaveBeenCalled();
+      expect(migrateLocalToCloud).toHaveBeenCalledWith("user-123");
     });
 
     it("does NOT switch when any project failed to migrate", async () => {

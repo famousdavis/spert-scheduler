@@ -116,6 +116,15 @@ describe("useInvitationLanding", () => {
       expect(switchMode).toHaveBeenCalledWith("cloud");
     });
 
+    it("does NOT switch when the user is already signed in (SD-6: auto-switch is for signed-out users)", async () => {
+      // A crafted ?invite= link on an empty-list page must not silently flip a
+      // signed-in user to cloud and skip the migration confirmation.
+      setAuth({ uid: "u1" }, true);
+      const { hook } = await loadWithUrl("?invite=tok-123");
+      renderHook(() => hook());
+      expect(switchMode).not.toHaveBeenCalled();
+    });
+
     it("does NOT switch when local projects exist", async () => {
       // Lesson 28 — never wipe local data on invite-link arrival. The user gets a
       // Settings hint instead, and this is the guard that makes that true.
