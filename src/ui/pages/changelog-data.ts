@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.26",
+    date: "2026-10-25",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The SPERT® Suite Terms of Service and Privacy Policy have new editions, version 1.4 of each, effective October 26, 2026, and the AI Privacy Notice that covers Connect AI is now version 2.3. If you sign in to use cloud storage, Scheduler asks you to accept the new Terms and Privacy Policy the next time you sign in; if you are already signed in, it signs you out first and says why. The acceptance it had recorded was for the October 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use Scheduler without signing in.",
+          "The new editions replace a personal contact address with the SPERT® Suite’s own addresses (privacy@, security@ and contact@spertsuite.com), name Microsoft as the provider for email to those addresses, and clarify several disclosures. The Privacy Policy now also names Nager.Date, the public-holiday service Scheduler’s Calendar page calls from your browser.",
+          "The copies of the Terms and Privacy Policy kept in this project’s repository now match the October 26 editions.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Five new tests run the real sign-in against a stored acceptance: one that names the October 5 editions is signed out to accept again, whether it is cached in this browser or only on record; one that names the October 26 editions is let through, both ways; and accepting over an October 5 record writes the October 26 Terms and Privacy Policy versions. All five fail on the previous version.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.25",
     date: "2026-10-25",
     sections: [

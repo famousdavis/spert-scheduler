@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.79.26 — 2026-10-25
+
+### Changed
+
+- **New Terms of Service and Privacy Policy, which you will be asked to accept again.** The SPERT® Suite Terms of Service and Privacy Policy have new editions — version 1.4 of each, effective October 26, 2026 — published at the same spertsuite.com addresses Scheduler already links to, and the AI Privacy Notice that covers Connect AI is now version 2.3. If you sign in to use cloud storage, Scheduler asks you to accept the new Terms and Privacy Policy the next time you sign in; if you are already signed in, it signs you out first and says why. The acceptance it had recorded was for the October 5, 2026 editions (`TOS_VERSION` and `PRIVACY_POLICY_VERSION` were `"10-05-2026"`); both are now `"10-26-2026"`, so the record names the edition you actually accept. Nothing changes if you use Scheduler without signing in.
+- The new editions replace a personal contact address with the SPERT® Suite’s own addresses (privacy@, security@ and contact@spertsuite.com), name Microsoft as the provider for email to those addresses, and clarify several disclosures. The Privacy Policy now also names Nager.Date, the public-holiday service Scheduler’s Calendar page calls from your browser.
+- The copies kept in this repository, `legal/TOS.pdf` and `legal/PRIVACY.pdf`, are now byte-identical to the October 26 editions.
+
+### Internal
+
+- Five new tests run the real sign-in against a stored acceptance: one that names the October 5 editions is signed out to accept again, whether it is cached in this browser or only on record (2); one that names the October 26 editions is let through, both ways (2); and accepting over an October 5 record writes the October 26 Terms and Privacy Policy versions (1). All five fail on the previous version.
+
 ## 0.79.25 — 2026-10-25
 
 ### Security
