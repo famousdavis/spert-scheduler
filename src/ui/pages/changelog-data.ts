@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.22",
+    date: "2026-10-24",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Added a machine-readable security contact (/.well-known/security.txt) and updated the security policy (SECURITY.md) to ask that vulnerabilities be reported privately through GitHub rather than in a public issue. Also brought several statements in that document back in line with the current code (the list of browser storage keys, the Content Security Policy notes, and the sharing and Connect AI behaviour). A documentation and process cleanup from the security review; no change to the app itself.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.21",
     date: "2026-10-24",
     sections: [

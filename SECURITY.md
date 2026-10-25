@@ -13,15 +13,21 @@ SPERT Scheduler is a **client-side** application. All computation runs in the br
 
 ### Local Mode (default)
 
-All data is stored in browser `localStorage`:
+Most data is stored in browser `localStorage`. Project keys are **namespaced** by the signed-in
+user's UID (or `local` when signed out), so one person's projects are never served to another on a
+shared browser:
 
-- `spert:project:{id}` — Individual project data
-- `spert:project-index` — List of project IDs
-- `spert:user-preferences` — User settings
-- `spert:storage-mode` — Current storage mode (local/cloud)
-- `spert_firstRun_seen` — First-run banner dismissal
-- `spert_tos_accepted_version` — Cached ToS acceptance version
-- `spert_tos_write_pending` — Pending Firestore acceptance write flag
+- `spert:project:{ns}:{id}` / `spert:project-index:{ns}` — project data and index (`{ns}` is the UID, or `local`)
+- `spert:user-preferences`, `spert:storage-mode` — settings and current storage mode
+- `spert-scheduler:active-scenarios:{ns}` — last-active scenario per project
+- `spert-scheduler:collapsed-sections:{ns}` — collapsed-section memory
+- `spert-scheduler:nager-countries` — cached Nager.Date country list
+- `spert_scheduler_ai_session_id`, `spert_scheduler_ai_consent`, `spert_scheduler_ai_last_seq:{sessionId}` — Connect AI session/consent state
+- `spert_firstRun_seen` — first-run banner dismissal
+- `spert_tos_accepted_version`, `spert_tos_write_pending` — cached ToS acceptance / pending write flag
+
+An invitation token is held in `sessionStorage` while an invite link is processed. In cloud mode the
+Firebase SDK also keeps auth state and an offline cache in IndexedDB.
 
 **Note:** localStorage is accessible to any JavaScript running on the same origin. This application does not execute untrusted scripts.
 
@@ -39,9 +45,9 @@ When the user signs in and switches to cloud mode, data is stored in Firestore:
 - Only project members can read projects
 - Only owners and editors can write
 - Editors cannot modify `owner` or `members` fields (privilege escalation prevention)
-- Profiles are readable by authenticated users under a `limit(1)` constraint (share-by-email lookup without bulk enumeration)
+- Profiles are readable by authenticated users under a `limit(1)` constraint, for the share-by-email lookup. This blocks a single *bulk* read of the collection, but not repeated single lookups — an authenticated caller can still probe one email at a time (enumeration one record at a time). Denying profile `list` outright is a landing-side rules change tracked separately (SH-2).
 - Settings are private (owner-only read/write)
-- **Collection `list` is membership-constrained.** As of **LIST-1 (2026-08-19)**, `allow list` requires `resource.data.members[request.auth.uid] in ['owner','editor','viewer']` — see the `match /spertscheduler_projects/` block in `spert-landing-page/firestore.rules`, marked `LIST-1`. The dashboard's `where('members.<uid>', 'in', [...])` query (`src/infrastructure/firebase/firestore-driver.ts:125`) mirrors that predicate, which is what makes the query satisfiable — it is not a workaround. An unfiltered collection read is denied. **If this file and the canonical ruleset ever disagree, the ruleset is right and this line has rotted.**
+- **Collection `list` is membership-constrained.** As of **LIST-1 (2026-08-19)**, `allow list` requires `resource.data.members[request.auth.uid] in ['owner','editor','viewer']` — see the `match /spertscheduler_projects/` block in `spert-landing-page/firestore.rules`, marked `LIST-1`. The dashboard's `where('members.<uid>', 'in', [...])` query (`src/infrastructure/firebase/firestore-driver.ts:156`) mirrors that predicate, which is what makes the query satisfiable — it is not a workaround. An unfiltered collection read is denied. **If this file and the canonical ruleset ever disagree, the ruleset is right and this line has rotted.**
 
 **Canonical ruleset location:** the deployed rules are SPERT-suite-wide (all apps share one Firestore project and one Auth tenant). The canonical file lives in the Landing Page repo (`spert-landing-page/firestore.rules`). **As of 2026-08-19 it is deployed by CI on merge to `main`, not by Console paste-replace** — the repository is the source of truth and production follows it. A scheduled job compares the deployed ruleset against the file every six hours and fails on any divergence, so an out-of-band Console edit is detected rather than persisting silently. This repo's local `firestore.rules` is a **reference-only verbatim mirror** of that file's body (never deployed from here); `preferences-firestore-sync.test.ts` reads it at runtime as a drift guard on the settings allowlist.
 
@@ -73,12 +79,12 @@ Permissions-Policy: geolocation=(), microphone=(), camera=()
 ```
 
 This matches the `Content-Security-Policy` meta tag shipped in `index.html`. Two grants warrant a note:
-- **`script-src 'unsafe-eval'`**: not used by any first-party code. It is required by one vendored dependency — ExcelJS, used for XLSX schedule export — whose bundled `setImmediate` polyfill contains a `new Function("")` branch. A production-bundle audit (v0.57.4) confirmed this is the *only* `new Function`/`eval` occurrence in the entire shipped build (zero from html2canvas, zero first-party). Removing the grant is likely safe but must be verified empirically in both Chromium and Firefox against XLSX export **and** chart copy-to-clipboard (html2canvas) before it can be dropped; treated as a deferred hardening item, not a release blocker.
+- **`script-src 'unsafe-eval'`**: not used by any first-party code. It is required by one vendored dependency — ExcelJS, used for XLSX schedule export — whose bundled `setImmediate` polyfill contains a `new Function("")` branch. A production-bundle audit found ExcelJS to be the sole source of dynamic code in the shipped build — a `new Function` in its `setImmediate` polyfill plus seven `Function("return this")` global-object fallbacks (all branch-skipped in a browser); html2canvas and first-party code contribute none. Removing the grant is likely safe but must be verified empirically in both Chromium and Firefox against XLSX export **and** chart copy-to-clipboard (html2canvas) before it can be dropped; treated as a deferred hardening item, not a release blocker.
 - **`connect-src https://*.run.app`**: the Connect AI feature's Cloud Run MCP server endpoint.
 
 ### Header Explanations
 
-- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-eval'` is required only by the ExcelJS `setImmediate` polyfill (see note above), not by any first-party code. `'unsafe-inline'` for styles is required by Tailwind CSS. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `font-src 'self'` restricts fonts to same-origin. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore, auth API calls, the Connect AI Cloud Run MCP endpoint (`*.run.app`), and the Nager.Date holiday API. `object-src 'none'` blocks plugins. `base-uri 'self'` prevents base tag hijacking. `form-action 'self'` restricts form submissions to same-origin.
+- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-eval'` is required only by the ExcelJS `setImmediate` polyfill (see note above), not by any first-party code. `'unsafe-inline'` for styles is required by `react-style-singleton` (used by Radix UI) and html2canvas, not by Tailwind. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `font-src 'self'` restricts fonts to same-origin. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore, auth API calls, the Connect AI Cloud Run MCP endpoint (`*.run.app`), and the Nager.Date holiday API. `object-src 'none'` blocks plugins. `base-uri 'self'` prevents base tag hijacking. `form-action 'self'` restricts form submissions to same-origin.
 - **X-Content-Type-Options**: Prevents MIME-type sniffing attacks.
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.
@@ -155,10 +161,10 @@ Connect AI is an opt-in feature that lets an external AI assistant (via a Cloud 
 **Session/consent lifecycle:**
 - A session is started only after an explicit consent modal. **Write consent** (the AI may submit edits) is always required to start; **Read Mode** (the AI may read a project snapshot) is a separate, optional, per-session toggle.
 - Sessions live in Firestore under `anonymous_sessions/{sessionId}` with a short pairing code and a 7-day TTL; the browser refreshes `browserConnectedAt`/`lastActiveAt` via heartbeat and tears the session down on disconnect.
-- Consent transitions are reconciled fail-closed: if a Read-Mode upgrade or downgrade write to the session doc fails transiently, local state reverts to the server's actual value and the session start aborts rather than optimistically claiming a permission the server didn't record (v0.57.4, finding A4).
+- Consent transitions are reconciled fail-closed: a Read-Mode write that fails transiently aborts the session start rather than optimistically claiming a permission the server didn't record. A failed *upgrade* (off → Read) reverts local consent to off; a failed *downgrade* (Read → off) keeps the user's choice of off and deletes the snapshot, rather than reverting to the server's stale `read:true` (v0.57.4 finding A4; the downgrade behaviour was corrected in the v0.79.8 audit, AI-6).
 
 **Read-Mode snapshot — what it includes and excludes:**
-- **Includes** (single open project only): the schedule and activity ids, plus free-text fields — activity notes, descriptions, and checklist/deliverable item text — so the AI can make context-aware edits. The consent copy names these fields explicitly (v0.57.4, finding A5).
+- **Includes** (only the project the session was opened for — a session is bound to its project and is recreated rather than resumed into a different one, v0.79.8 audit AI-4): the schedule and activity ids, plus free-text fields — activity notes, descriptions, and checklist/deliverable item text — so the AI can make context-aware edits. The consent copy names these fields explicitly (v0.57.4, finding A5).
 - **Excludes**: owner uid, members/sharing, email, any other project, and calendar/holiday data. Snapshots are size-budgeted and never written when Read Mode is off.
 
 **Write-op validation (defense-in-depth):** AI ops are authored exclusively by the MCP server's Admin SDK (`anonymous_sessions/.../ops` is `allow write: if false` at the rules layer — a client, including a malicious pairing-code holder, cannot inject ops). The browser re-validates every op at the application boundary before persisting: activity estimates are bounded (finite, ≤ 3650 days), dependency `type`/`lagDays` are validated against the domain enum/range, note text is type-checked, and per-op array lengths are capped (v0.57.4, findings A1–A3, A6). Op-handler exceptions log the op type/seq only, never the payload, which carries the user's own free text (finding A7).
@@ -181,7 +187,7 @@ Targeted audit of the Connect AI feature (v0.51.0–v0.57.3) and its consent/ses
 
 ## Defensive Measures
 
-- **No first-party `eval()` or `Function()`** — no first-party dynamic code execution. One vendored dependency (ExcelJS) ships a `setImmediate` polyfill with a rarely-hit `new Function("")` branch, the sole reason `'unsafe-eval'` remains in the CSP (see Deployment Headers); removal pending a cross-browser export/chart-copy verification
+- **No first-party `eval()` or `Function()`** — no first-party dynamic code execution. One vendored dependency (ExcelJS) is the sole reason `'unsafe-eval'` remains in the CSP — a `new Function` in its `setImmediate` polyfill plus seven `Function("return this")` global-object fallbacks (all branch-skipped in a browser), see Deployment Headers; removal pending a cross-browser export/chart-copy verification
 - **No `dangerouslySetInnerHTML`** — all content rendered as text
 - **No inline scripts** — all JavaScript loaded via ES modules
 - **Error boundaries** — graceful recovery from unexpected errors
@@ -191,16 +197,24 @@ Targeted audit of the Connect AI feature (v0.51.0–v0.57.3) and its consent/ses
 
 ## Known Limitations
 
-- **Firestore field validation:** Firestore security rules validate document-level access control (ownership, membership, roles) but do not replicate the full Zod schema validation performed client-side. Field-level validation (e.g., string length limits, numeric ranges) is enforced only by the client. This is a pragmatic tradeoff — duplicating the complete Zod schema in Firestore rules is impractical for marginal security gain, since a malicious client could only corrupt their own project data. Specific enum fields validated client-side only:
+- **Firestore field validation:** Firestore security rules validate document-level access control (ownership, membership, roles) but do not replicate the full Zod schema validation performed client-side. Field-level validation (e.g., string length limits, numeric ranges) is enforced only by the client. This is a pragmatic tradeoff — duplicating the complete Zod schema in Firestore rules is impractical. ⚠️ It is **not** true that a malicious client can only affect their own data: on a *shared* project an editor can write field values the loader later rejects, which can make the project fail to load — or, in cloud mode, vanish — for every member. The v0.79.8 audit added client-side mitigations (CI-1 migration backstop, CI-3 recovery/export for un-loadable projects, CI-4 project-route error boundary with cloud results dropped on load, CI-6 validate-before-save); bounding `schemaVersion` in the rules is a landing-side change tracked separately. Specific enum fields validated client-side only:
   - `ActivityDependency.type` — restricted to `"FS"`, `"SS"`, `"FF"` via `z.enum(DEPENDENCY_TYPES)`
   - `Activity.constraintType` — restricted to `"MSO"`, `"MFO"`, `"SNET"`, `"SNLT"`, `"FNET"`, `"FNLT"` via `z.enum()`
   - `Activity.constraintMode` — restricted to `"hard"`, `"soft"` via `z.enum()`
-- **Email enumeration:** The sharing UI reveals whether an email is registered when attempting to share a project. This is mitigated by requiring authentication and using a uniform error message that does not distinguish between "user not found" and other failure modes.
+- **Email enumeration:** The sharing UI reveals whether an email is registered when attempting to share a project. This is partly mitigated by requiring authentication. ⚠️ The error is **not** uniform across paths: the bulk-sharing path returns separate `added` / `invited` result arrays (`invitation-types.ts`), which distinguishes a registered recipient from one invited by email. Closing this fully is tied to the landing-side sharing changes (SH-1/SH-2).
 
 ## Reporting Vulnerabilities
 
-If you discover a security vulnerability, please report it by opening an issue at:
-https://github.com/famousdavis/spert-scheduler/issues
+Please report security vulnerabilities **privately** — do not open a public issue, which would
+disclose the vulnerability before a fix is available.
+
+Use GitHub's **private vulnerability reporting**: on the repository's **Security** tab, choose
+**"Report a vulnerability"** (https://github.com/famousdavis/spert-scheduler/security/advisories/new).
+A machine-readable contact is also published at
+`https://scheduler.spertsuite.com/.well-known/security.txt` (RFC 9116).
+
+(Private vulnerability reporting must be enabled for the repository — Settings → Code security and
+analysis → Private vulnerability reporting — for the link above to work.)
 
 Please include:
 - Description of the vulnerability
