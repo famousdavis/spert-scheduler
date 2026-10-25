@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.79.24 — 2026-10-25
+
+### Internal
+
+- The automated check that runs on every proposed change now declares that it only needs to read the repository, keeping it least-privilege and clearing a routine security-scanner advisory. A CI configuration change from the security review; no change to the app itself.
+
 ## 0.79.23 — 2026-10-24
 
 ### Fixed
