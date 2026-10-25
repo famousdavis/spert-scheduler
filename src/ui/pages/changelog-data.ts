@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.24",
+    date: "2026-10-25",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "The automated check that runs on every proposed change now declares that it only needs to read the repository, keeping it least-privilege and clearing a routine security-scanner advisory. A CI configuration change from the security review; no change to the app itself.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.23",
     date: "2026-10-24",
     sections: [
