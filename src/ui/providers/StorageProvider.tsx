@@ -30,7 +30,7 @@ import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memo
 import { clearAllCollapsedSections } from "@infrastructure/persistence/section-collapse-memory";
 import { clearPreferences } from "@infrastructure/persistence/preferences-repository";
 import { bumpSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
-import { clearAiConnectivityKeys } from "@app/ai-connectivity-constants";
+import { endAiSessionForSignOut } from "@app/ai-session-teardown";
 
 export type StorageMode = "local" | "cloud";
 
@@ -117,9 +117,12 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     // storage, this browser's signed-out projects come back too; in cloud storage the list stays empty for the load.
     if (followed !== null && uid !== null && followed !== uid) {
       clearSignedInUserData();
-      // AI-2 (v0.79.x audit): a different user with no sign-out between (a tab that wakes to find
-      // someone else signed in) must not inherit the first user's Connect AI session.
-      clearAiConnectivityKeys();
+      // AI-2 + B-04: a different user with no sign-out between (a tab that wakes to find someone
+      // else signed in) must not inherit the first user's Connect AI session. End it on the server
+      // too, not just the local keys, so the paired AI loses access at once rather than keeping it
+      // until the relay's 7-day TTL. Fire-and-forget here (sync effect): the local key clear inside
+      // endAiSessionForSignOut runs synchronously; the server call + any failure marker resolve async.
+      void endAiSessionForSignOut();
       setStorageNamespace("local");
       usePreferencesStore.getState().loadPreferences();
       if (persistedMode !== "cloud" || !isFirebaseAvailable) useProjectStore.getState().loadProjects();
@@ -165,10 +168,14 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       bumpSimulationGeneration();
       getCloudSyncDriver()?.cancelPendingSaves();
       endCloudSyncForSignOut();
-      // AI-2 (v0.79.x audit): the Connect AI session (id + consent + op cursors) lives in
-      // non-namespaced localStorage, so clear it on EVERY sign-out — before the WI-118 namespace
-      // guard — so the next person on this browser cannot inherit the session or skip consent.
-      clearAiConnectivityKeys();
+      // AI-2 + B-04: end the Connect AI session on EVERY sign-out — before the WI-118 namespace
+      // guard. The local keys (id + consent + op cursors) live in non-namespaced localStorage and
+      // are always cleared so the next person on this browser cannot inherit the session or skip
+      // consent; the server session is also ended (teardownAiSession) so a paired AI loses access
+      // at once instead of keeping it until the relay's 7-day TTL. Awaited (bounded by an internal
+      // timeout) so a reachable server is revoked before sign-out proceeds; a failure is parked for
+      // retry and surfaced by AiTeardownBanner, never thrown.
+      await endAiSessionForSignOut();
       if (getActiveStorageNamespace() === "local") return;
       clearSignedInUserData();
     });

@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.25",
+    date: "2026-10-25",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Signing out now also ends any Connect AI session. If you had connected an AI assistant with Connect AI, signing out now disconnects it on the server, not just in this browser: the assistant loses access to your project right away, and the copy of your schedule that was shared with it is deleted. Before, signing out cleared the session from this browser but left it running on the server, so a connected assistant could keep reading and changing your last-open project for up to seven days — a real concern on a shared computer. This applies to every way of signing out, including when a session ends from outside the app.",
+          "If signing out cannot reach the server to end the session (for example, you are offline), Scheduler now tells you instead of failing silently, keeps trying on its own whenever you are back online, and lets you retry. Otherwise the session ends on its own within seven days.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.24",
     date: "2026-10-25",
     sections: [

@@ -29,6 +29,15 @@ export const AI_SESSIONS_COL = "anonymous_sessions";
 export const SCHEDULER_APP_ID = "scheduler";
 
 /**
+ * When sign-out cannot reach the server to end the Connect AI session (e.g.
+ * offline), the session id is parked here so the teardown can be retried on the
+ * next load / when the browser is back online, and so the user can be told the
+ * AI may still have access until then. Holds the session id string.
+ * Scheduler-namespaced, like the keys above.
+ */
+export const AI_TEARDOWN_PENDING_KEY = "spert_scheduler_ai_teardown_pending";
+
+/**
  * AI-2 (v0.79.x audit): remove every Connect-AI localStorage key — the session id, the stored
  * consent, and every per-session op cursor (`AI_LAST_SEQ_PREFIX` + sessionId). Called on sign-out
  * and on a change of user so the next person on a shared browser cannot inherit the previous user's
