@@ -12,6 +12,28 @@ import { LocalStorageRepository } from "@infrastructure/persistence/local-storag
 import { clearAllLastScenarios } from "@infrastructure/persistence/scenario-memory";
 import { clearAllCollapsedSections } from "@infrastructure/persistence/section-collapse-memory";
 import { useProjectStore } from "@ui/hooks/use-project-store";
+import { confirmDialog } from "@ui/hooks/use-confirm-store";
+
+/**
+ * SD-5 (v0.79.8 audit): list the signed-out ("local") projects and confirm
+ * before uploading them to cloud. On a shared browser the local store may hold
+ * someone else's projects, and a one-click switch would copy all of them into
+ * this account. Returns true to proceed — nothing to upload, or the user
+ * confirmed; false if they cancelled.
+ */
+async function confirmLocalUpload(): Promise<boolean> {
+  const localRepo = new LocalStorageRepository("local");
+  const localIds = localRepo.list();
+  if (localIds.length === 0) return true;
+  const names = localIds.map((id) => localRepo.load(id)?.name ?? id);
+  return confirmDialog.ask({
+    title: `Upload ${localIds.length} project${localIds.length === 1 ? "" : "s"} to your account?`,
+    description:
+      `These projects are stored in this browser and will be copied to your cloud account: ${names.join(", ")}. ` +
+      "⚠️ Local projects belong to the browser, not to a person — on a shared computer they may be someone else's. Upload only if these are yours.",
+    confirmLabel: "Upload",
+  });
+}
 
 export interface UseStorageModeSwitchResult {
   migrating: boolean;
@@ -47,6 +69,9 @@ export function useStorageModeSwitch(): UseStorageModeSwitchResult {
       if (newMode === "cloud" && !user) return;
 
       if (newMode === "cloud" && persistedMode !== "cloud" && user) {
+        // SD-5 (v0.79.8 audit): list the signed-out projects and confirm before
+        // uploading them (confirmLocalUpload). Cancel abandons the switch.
+        if (!(await confirmLocalUpload())) return;
         setMigrating(true);
         setMigrationError(null);
         try {
