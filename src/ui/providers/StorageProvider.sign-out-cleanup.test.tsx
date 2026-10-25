@@ -65,6 +65,8 @@ interface FirebaseEdges {
   preferenceSaves: PreferenceSave[];
   /** The user's settings in the cloud, which a session's first load reads. */
   cloudPreferences: Partial<UserPreferences>;
+  /** B-04: session ids the server teardownAiSession callable was asked to end. */
+  teardownSessionIds: string[];
 }
 
 const edges = vi.hoisted(() => {
@@ -76,6 +78,7 @@ const edges = vi.hoisted(() => {
     loads: [],
     preferenceSaves: [],
     cloudPreferences: {},
+    teardownSessionIds: [],
   };
   return e;
 });
@@ -117,6 +120,7 @@ vi.mock("firebase/firestore", async (importOriginal) => {
     setDoc: () => Promise.resolve(),
     getDoc: () => Promise.resolve({ exists: () => true, data: () => ({ tosVersion: edges.acceptedOnRecord }) }),
     serverTimestamp: () => ({ serverTimestamp: true }),
+    deleteDoc: () => Promise.resolve(),
   };
 });
 
@@ -128,7 +132,11 @@ vi.mock("@infrastructure/firebase/firebase", () => ({
   getSendInvitationEmail: () => null,
   getRevokeInvite: () => null,
   getResendInvite: () => null,
-  getTeardownAiSession: () => null,
+  // B-04: a teardown callable that records which session it was asked to end.
+  getTeardownAiSession: () => (arg: { sessionId: string }) => {
+    edges.teardownSessionIds.push(arg.sessionId);
+    return Promise.resolve({ data: { success: true } });
+  },
   getGeneratePairingCode: () => null,
 }));
 
@@ -338,6 +346,7 @@ beforeEach(() => {
   edges.loads.length = 0;
   edges.preferenceSaves.length = 0;
   edges.cloudPreferences = {};
+  edges.teardownSessionIds.length = 0;
   // A returning user whose current acceptance is cached in this browser: the sign-in reads no terms record.
   localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
   useProjectStore.setState(useProjectStore.getInitialState(), true);
@@ -585,7 +594,7 @@ describe("WI-117: a sign-out sends no preferences to the cloud, on any of the th
 
 // -- AI-2: the Connect AI session leaves this browser on sign-out ---------------------------------------
 
-describe("AI-2: a sign-out clears the Connect AI session from this browser", () => {
+describe("AI-2 + B-04: a sign-out ends the Connect AI session, locally AND on the server", () => {
   function seedAiSession() {
     localStorage.setItem("spert_scheduler_ai_session_id", "sess-xyz");
     localStorage.setItem("spert_scheduler_ai_consent", JSON.stringify({ version: 1, read: true, write: true }));
@@ -603,5 +612,30 @@ describe("AI-2: a sign-out clears the Connect AI session from this browser", () 
     expect(localStorage.getItem("spert_scheduler_ai_session_id")).toBeNull();
     expect(localStorage.getItem("spert_scheduler_ai_consent")).toBeNull();
     expect(localStorage.getItem("spert_scheduler_ai_last_seq:sess-xyz")).toBeNull();
+  });
+
+  it("B-04: the user's Sign out also calls teardownAiSession with the active session id", async () => {
+    renderApp("cloud");
+    await settle();
+    await signedInWithHeart();
+    seedAiSession();
+
+    await signOut();
+
+    // The server session is ended, not just the local keys. (The second,
+    // id-less cleanup after firebaseSignOut makes no further call.)
+    expect(edges.teardownSessionIds).toEqual(["sess-xyz"]);
+  });
+
+  it("B-04: a session ended from outside the app (onAuthStateChanged null) also ends it on the server", async () => {
+    renderApp("cloud");
+    await settle();
+    await signedInWithHeart();
+    seedAiSession();
+
+    await authReports(null);
+    await signedOut();
+
+    expect(edges.teardownSessionIds).toEqual(["sess-xyz"]);
   });
 });

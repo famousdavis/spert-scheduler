@@ -18,6 +18,7 @@ import { ThemeToggleButton } from "./ThemeToggleButton";
 import { FirstRunBanner } from "./FirstRunBanner";
 import { LocalStorageWarningBanner } from "./LocalStorageWarningBanner";
 import { InvitationBanner } from "./InvitationBanner";
+import { AiTeardownBanner } from "./AiTeardownBanner";
 import { useCloudSync } from "@ui/hooks/use-cloud-sync";
 import { useInvitationLanding } from "@ui/hooks/useInvitationLanding";
 
@@ -119,6 +120,9 @@ export function Layout() {
           claimedNames={invite.claimedNames}
           dismiss={invite.dismiss}
         />
+        {/* B-04: shown regardless of invite state — a failed AI-session teardown is a
+            security warning the user needs to see; self-hides when nothing is pending. */}
+        <AiTeardownBanner />
         {invite.state === "idle" && <FirstRunBanner />}
         {invite.state === "idle" && <LocalStorageWarningBanner />}
         <Outlet />
