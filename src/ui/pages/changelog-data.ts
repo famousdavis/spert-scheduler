@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.27",
+    date: "2026-10-25",
+    sections: [
+      {
+        title: "Security",
+        items: [
+          "Security reports can now go to security@spertsuite.com as well as through GitHub. Scheduler’s security.txt (https://scheduler.spertsuite.com/.well-known/security.txt) names that mailbox first and GitHub’s private vulnerability reporting second, points its Policy at the SPERT® Suite’s security page (https://spertsuite.com/security), expires on September 25, 2027 so that it renews together with spertsuite.com’s, and is now plain ASCII.",
+          "The security notes in this project’s repository (SECURITY.md) name the same mailbox and point to the SPERT® Suite’s security page for what to include in a report, how soon to expect an acknowledgement, and what is in scope. They now describe accurately how Connect AI connects: your AI assistant talks to the SPERT® Suite’s server, and Scheduler in your browser talks only to Firebase. The note on the Content Security Policy’s https://*.run.app entry now says what it is for, and that no request uses it today. Nothing in the app changes.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "A new test checks security.txt on every run: it exists and is tracked by git; it is ASCII with a final newline; every field is written as Field: value; it has exactly one ISO 8601 Expires, more than 30 and no more than 366 days ahead (so it turns red a month before the file expires, as the renewal reminder); its first Contact is security@spertsuite.com and its second is this repository’s private vulnerability reporting page; and its Canonical and Policy are the right addresses. Every check in it was shown failing against a broken copy, and passing on the real file.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.26",
     date: "2026-10-25",
     sections: [
