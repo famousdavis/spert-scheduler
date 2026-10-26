@@ -89,6 +89,16 @@ export default tseslint.config(
     },
   },
   {
+    // The security.txt guard shells out to `git ls-files` (a fixed executable and a
+    // fixed argument list, no user input) to prove the file is tracked and not
+    // ignored. Same sonarjs security *hotspot* as the copyright-header guard above,
+    // scoped here for the same cross-repo reason.
+    files: ["src/integration/security-txt.test.ts"],
+    rules: {
+      "sonarjs/no-os-command-from-path": "off",
+    },
+  },
+  {
     // The falsification runner shells out to `npx vitest` (a fixed executable and a fixed
     // argument list; the only variable is a test path from a committed spec file, never
     // user input or the network) and parses vitest's own summary lines with two small

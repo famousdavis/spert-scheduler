@@ -80,11 +80,11 @@ Permissions-Policy: geolocation=(), microphone=(), camera=()
 
 This matches the `Content-Security-Policy` meta tag shipped in `index.html`. Two grants warrant a note:
 - **`script-src 'unsafe-eval'`**: not used by any first-party code. It is required by one vendored dependency — ExcelJS, used for XLSX schedule export — whose bundled `setImmediate` polyfill contains a `new Function("")` branch. A production-bundle audit found ExcelJS to be the sole source of dynamic code in the shipped build — a `new Function` in its `setImmediate` polyfill plus seven `Function("return this")` global-object fallbacks (all branch-skipped in a browser); html2canvas and first-party code contribute none. Removing the grant is likely safe but must be verified empirically in both Chromium and Firefox against XLSX export **and** chart copy-to-clipboard (html2canvas) before it can be dropped; treated as a deferred hardening item, not a release blocker.
-- **`connect-src https://*.run.app`**: the Connect AI feature's Cloud Run MCP server endpoint.
+- **`connect-src https://*.run.app`**: allowed for Firebase Cloud Functions (2nd gen), which run on Cloud Run. The app currently reaches its functions at `*.cloudfunctions.net`, so no request uses this entry today.
 
 ### Header Explanations
 
-- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-eval'` is required only by the ExcelJS `setImmediate` polyfill (see note above), not by any first-party code. `'unsafe-inline'` for styles is required by `react-style-singleton` (used by Radix UI) and html2canvas, not by Tailwind. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `font-src 'self'` restricts fonts to same-origin. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore, auth API calls, the Connect AI Cloud Run MCP endpoint (`*.run.app`), and the Nager.Date holiday API. `object-src 'none'` blocks plugins. `base-uri 'self'` prevents base tag hijacking. `form-action 'self'` restricts form submissions to same-origin.
+- **Content-Security-Policy**: Restricts script sources to same-origin plus Google APIs (for Firebase Auth). `'unsafe-eval'` is required only by the ExcelJS `setImmediate` polyfill (see note above), not by any first-party code. `'unsafe-inline'` for styles is required by `react-style-singleton` (used by Radix UI) and html2canvas, not by Tailwind. `img-src blob: data:` allows chart copy-to-clipboard and inline images. `font-src 'self'` restricts fonts to same-origin. `worker-src` allows Web Workers. `frame-src` allows Firebase Auth popups. `connect-src` allows Firestore, auth API calls, the suite's Firebase Cloud Functions (`*.cloudfunctions.net`, and `*.run.app` as noted above), and the Nager.Date holiday API. `object-src 'none'` blocks plugins. `base-uri 'self'` prevents base tag hijacking. `form-action 'self'` restricts form submissions to same-origin.
 - **X-Content-Type-Options**: Prevents MIME-type sniffing attacks.
 - **X-Frame-Options**: Prevents clickjacking by disallowing iframe embedding.
 - **Referrer-Policy**: Limits referrer information sent to external sites.
@@ -156,7 +156,7 @@ Targeted audit of the v0.21.0 SS/FF dependency type additions, Firestore rules, 
 
 ## AI Connectivity (Connect AI)
 
-Connect AI is an opt-in feature that lets an external AI assistant (via a Cloud Run MCP server) read a snapshot of the currently-open project and submit structured edit operations, applied in the user's browser.
+Connect AI is an opt-in feature that lets an external AI assistant read a snapshot of the currently-open project and submit structured edit operations, applied in the user's browser. The AI assistant connects to the SPERT® Suite's MCP server; the browser never contacts that server. The browser uses only Firebase: two callable functions (one creates the pairing code, one ends the session) and Firestore documents for the session, the project snapshot and the queued edit operations.
 
 **Session/consent lifecycle:**
 - A session is started only after an explicit consent modal. **Write consent** (the AI may submit edits) is always required to start; **Read Mode** (the AI may read a project snapshot) is a separate, optional, per-session toggle.
@@ -208,15 +208,11 @@ Targeted audit of the Connect AI feature (v0.51.0–v0.57.3) and its consent/ses
 Please report security vulnerabilities **privately** — do not open a public issue, which would
 disclose the vulnerability before a fix is available.
 
-Use GitHub's **private vulnerability reporting**: on the repository's **Security** tab, choose
-**"Report a vulnerability"** (https://github.com/famousdavis/spert-scheduler/security/advisories/new).
+Email **security@spertsuite.com**, or use GitHub's **private vulnerability reporting**: on the
+repository's **Security** tab, choose **"Report a vulnerability"**
+(https://github.com/famousdavis/spert-scheduler/security/advisories/new).
 A machine-readable contact is also published at
 `https://scheduler.spertsuite.com/.well-known/security.txt` (RFC 9116).
 
-(Private vulnerability reporting must be enabled for the repository — Settings → Code security and
-analysis → Private vulnerability reporting — for the link above to work.)
-
-Please include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
+What to include in a report, how soon to expect an acknowledgement, and what is in scope are set
+out in the SPERT® Suite security policy: https://spertsuite.com/security.
