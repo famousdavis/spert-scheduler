@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.28 — 2026-10-29
+
+### Fixed
+
+- **A task or deliverable you have typed but not yet added is no longer lost when you click Save** in the Edit Activity window: Save adds it, as Add would. Cancel and Escape now count it as an unsaved change and ask before discarding it.
+
+### Internal
+
+- Tests pin the typed text being added on Save, ignored when blank, and asked about on Cancel and Escape, and Add and Enter still adding it; a falsify spec breaks the change six ways, and each break fails exactly the tests it names.
+
 ## 0.79.27 — 2026-10-25
 
 ### Security

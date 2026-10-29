@@ -925,3 +925,181 @@ describe("ActivityEditModal — the title and the footer stay outside the scroll
     expect(missing).toEqual([]);
   });
 });
+
+/**
+ * WI-138 (v0.79.28) — a task or deliverable typed in its box but not added.
+ *
+ * The owner's report: Save is the prominent button, so a deliverable typed and never added with
+ * "Add" was lost on Save. Ruled (R600): Save — and the save Escape offers — adds the typed text as
+ * Add would, trimmed, nothing when blank; and the text counts as an unsaved change, so Cancel and
+ * Escape ask before it is lost.
+ *
+ * The two store actions are wrapped, not replaced: each spy calls the real action, so a row can
+ * read what Save sent AND see it land. Restored after every row, because the store is a module
+ * singleton and a wrapper left installed would be wrapped again by the next row.
+ */
+describe("ActivityEditModal — a task or deliverable typed but not added (WI-138)", () => {
+  const saveChecklist = vi.fn();
+  const saveDeliverables = vi.fn();
+  const saveFields = vi.fn();
+
+  beforeEach(() => {
+    const project = baseProject();
+    const activity = project.scenarios[0]!.activities[0]!;
+    activity.checklist = [{ id: "t1", text: "Book the room", completed: true }];
+    activity.deliverables = [{ id: "d1", text: "Kickoff deck", completed: false }];
+    useProjectStore.setState({ projects: [project] });
+
+    const real = useProjectStore.getState();
+    saveChecklist.mockReset().mockImplementation(real.updateActivityChecklist);
+    saveDeliverables.mockReset().mockImplementation(real.updateActivityDeliverables);
+    saveFields.mockReset().mockImplementation(real.updateActivityField);
+    useProjectStore.setState({
+      updateActivityChecklist: saveChecklist,
+      updateActivityDeliverables: saveDeliverables,
+      updateActivityField: saveFields,
+    });
+    return () =>
+      useProjectStore.setState({
+        updateActivityChecklist: real.updateActivityChecklist,
+        updateActivityDeliverables: real.updateActivityDeliverables,
+        updateActivityField: real.updateActivityField,
+      });
+  });
+
+  const storedActivity = () => useProjectStore.getState().projects[0]!.scenarios[0]!.activities[0]!;
+  // The section's button reads "Tasks(1/1)" once the list has items, so the title is matched as a
+  // prefix.
+  const openSection = (title: "Tasks" | "Deliverables") =>
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${title}`) }));
+  const taskBox = () => document.querySelector('input[name="newTaskText"]') as HTMLInputElement;
+  const deliverableBox = () =>
+    document.querySelector('input[name="newDeliverableText"]') as HTMLInputElement;
+  const typeInto = (box: HTMLInputElement, value: string) =>
+    fireEvent.change(box, { target: { value } });
+  const rowTexts = (name: "taskText" | "deliverableText") =>
+    Array.from(document.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)).map(
+      (i) => i.value,
+    );
+
+  it("T1 Save adds a typed deliverable to the existing ones, trimmed, once", () => {
+    const { onClose } = open();
+    openSection("Deliverables");
+    typeInto(deliverableBox(), "  Sign-off memo  ");
+    fireEvent.click(saveButton());
+
+    expect(saveDeliverables).toHaveBeenCalledTimes(1);
+    expect(saveDeliverables).toHaveBeenCalledWith("p1", "s1", "a1", [
+      { id: "d1", text: "Kickoff deck", completed: false },
+      { id: expect.any(String), text: "Sign-off memo", completed: false },
+    ]);
+    expect(storedActivity().deliverables!.map((d) => d.text)).toEqual(["Kickoff deck", "Sign-off memo"]);
+    // The split path only: the tasks were not touched, and no field update (the path that clears
+    // simulation results) was sent.
+    expect(saveChecklist).not.toHaveBeenCalled();
+    expect(saveFields).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("T2 Save adds a typed task to the existing ones, trimmed, once", () => {
+    const { onClose } = open();
+    openSection("Tasks");
+    typeInto(taskBox(), "  Draft the plan  ");
+    fireEvent.click(saveButton());
+
+    expect(saveChecklist).toHaveBeenCalledTimes(1);
+    expect(saveChecklist).toHaveBeenCalledWith("p1", "s1", "a1", [
+      { id: "t1", text: "Book the room", completed: true },
+      { id: expect.any(String), text: "Draft the plan", completed: false },
+    ]);
+    expect(storedActivity().checklist!.map((t) => t.text)).toEqual(["Book the room", "Draft the plan"]);
+    expect(saveDeliverables).not.toHaveBeenCalled();
+    expect(saveFields).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("T3 only spaces in both boxes: Save sends no task or deliverable update at all", () => {
+    const { onClose } = open();
+    openSection("Tasks");
+    openSection("Deliverables");
+    typeInto(taskBox(), "   ");
+    typeInto(deliverableBox(), "   ");
+    fireEvent.click(saveButton());
+
+    expect(saveChecklist).not.toHaveBeenCalled();
+    expect(saveDeliverables).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // The LIVE harness, so "the text is still in the box" is evidence: with a bare spy the editor
+  // would stay mounted even if Cancel had closed it.
+  it("T4 typed text alone: Cancel asks to discard, and Keep editing keeps the text in the box", async () => {
+    const { onClose } = openLive();
+    openSection("Deliverables");
+    typeInto(deliverableBox(), "Sign-off memo");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    clickIn(await askedDialog(DISCARD_UNSAVED_TITLE), "Keep editing");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: DISCARD_UNSAVED_TITLE })).toBeNull(),
+    );
+    expect(deliverableBox().value).toBe("Sign-off memo");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(saveDeliverables).not.toHaveBeenCalled();
+  });
+
+  it("T5 typed text alone: Escape asks the three-way question, and its Save adds the task", async () => {
+    const { onClose } = open();
+    openSection("Tasks");
+    typeInto(taskBox(), "Draft the plan");
+    fireEvent.keyDown(document, { key: "Escape" });
+    clickIn(await askedDialog(UNSAVED_TITLE), "Save");
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(saveChecklist).toHaveBeenCalledTimes(1);
+    expect(saveChecklist).toHaveBeenCalledWith("p1", "s1", "a1", [
+      { id: "t1", text: "Book the room", completed: true },
+      { id: expect.any(String), text: "Draft the plan", completed: false },
+    ]);
+  });
+
+  it("T6 deliverables: Add and Enter still add and clear the box, and Save then adds nothing more", async () => {
+    open();
+    openSection("Deliverables");
+
+    typeInto(deliverableBox(), "Alpha");
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(rowTexts("deliverableText")).toEqual(["Kickoff deck", "Alpha"]);
+    expect(deliverableBox().value).toBe("");
+    await waitFor(() => expect(document.activeElement).toBe(deliverableBox()));
+
+    typeInto(deliverableBox(), "Beta");
+    fireEvent.keyDown(deliverableBox(), { key: "Enter" });
+    expect(rowTexts("deliverableText")).toEqual(["Kickoff deck", "Alpha", "Beta"]);
+    expect(deliverableBox().value).toBe("");
+
+    fireEvent.click(saveButton());
+    expect(saveDeliverables).toHaveBeenCalledTimes(1);
+    expect(storedActivity().deliverables!.map((d) => d.text)).toEqual(["Kickoff deck", "Alpha", "Beta"]);
+  });
+
+  it("T6 tasks: Add and Enter still add and clear the box, and Save then adds nothing more", async () => {
+    open();
+    openSection("Tasks");
+
+    typeInto(taskBox(), "Alpha");
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(rowTexts("taskText")).toEqual(["Book the room", "Alpha"]);
+    expect(taskBox().value).toBe("");
+    await waitFor(() => expect(document.activeElement).toBe(taskBox()));
+
+    typeInto(taskBox(), "Beta");
+    fireEvent.keyDown(taskBox(), { key: "Enter" });
+    expect(rowTexts("taskText")).toEqual(["Book the room", "Alpha", "Beta"]);
+    expect(taskBox().value).toBe("");
+
+    fireEvent.click(saveButton());
+    expect(saveChecklist).toHaveBeenCalledTimes(1);
+    expect(storedActivity().checklist!.map((t) => t.text)).toEqual(["Book the room", "Alpha", "Beta"]);
+  });
+});

@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useRef, useCallback, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -105,10 +105,21 @@ function SortableDeliverableRow({
 interface DeliverablesSectionProps {
   deliverables: DeliverableItem[];
   onChange: (items: DeliverableItem[]) => void;
+  /**
+   * The "Add a deliverable…" box's text. Held by the Edit Activity window since v0.79.28
+   * (WI-138), so its Save can add a deliverable typed but not added, and its unsaved-changes check
+   * can count it.
+   */
+  newText: string;
+  onNewTextChange: (text: string) => void;
 }
 
-export function DeliverablesSection({ deliverables, onChange }: DeliverablesSectionProps) {
-  const [newText, setNewText] = useState("");
+export function DeliverablesSection({
+  deliverables,
+  onChange,
+  newText,
+  onNewTextChange,
+}: DeliverablesSectionProps) {
   const newInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -121,9 +132,9 @@ export function DeliverablesSection({ deliverables, onChange }: DeliverablesSect
     if (!text) return;
     if (deliverables.length >= MAX_DELIVERABLE_ITEMS) return;
     onChange([...deliverables, { id: generateId(), text, completed: false }]);
-    setNewText("");
+    onNewTextChange("");
     requestAnimationFrame(() => newInputRef.current?.focus());
-  }, [newText, deliverables, onChange]);
+  }, [newText, deliverables, onChange, onNewTextChange]);
 
   const handleToggle = useCallback((id: string) => {
     onChange(
@@ -198,7 +209,7 @@ export function DeliverablesSection({ deliverables, onChange }: DeliverablesSect
             name="newDeliverableText"
             aria-label="Add a deliverable"
             value={newText}
-            onChange={(e) => setNewText(e.target.value)}
+            onChange={(e) => onNewTextChange(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }}
             maxLength={200}
             placeholder="Add a deliverable…"
