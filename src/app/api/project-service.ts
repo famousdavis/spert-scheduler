@@ -9,6 +9,7 @@ import type {
   ActivityBand,
   Calendar,
   ChecklistItem,
+  DateFormatPreference,
   DeliverableItem,
   ScenarioSettings,
 } from "@domain/models/types";
@@ -17,7 +18,7 @@ import {
   DEFAULT_SCENARIO_SETTINGS,
   BASELINE_SCENARIO_NAME,
 } from "@domain/models/types";
-import { formatDateISO } from "@core/calendar/calendar";
+import { formatDateISO, formatDateShort } from "@core/calendar/calendar";
 import { computeHeuristic } from "@core/estimation/heuristic";
 import { generateId } from "./id";
 import { reanchorBandsAfterRemovals } from "./band-service";
@@ -109,6 +110,29 @@ export function updateScenario(
 
 export interface CloneOptions {
   dropCompleted?: boolean;
+  /**
+   * A reforecast's Start Date, `YYYY-MM-DD` (WI-139): the copy is replanned from it. Read only
+   * with `dropCompleted`; a plain copy keeps its source's Start Date, as before.
+   */
+  reforecastFrom?: string;
+}
+
+/**
+ * An In Progress activity carried into a reforecast copy as its remaining work (WI-139; owner,
+ * R605): each estimate reduced by the days in its Actual cell (`t`), and kept in order — Min never
+ * below 1, Most Likely never below Min, Max never below Most Likely. With nothing in its Actual cell
+ * (`t` unset or 0) its estimates are carried over exactly as they were, a flagged one included
+ * (owner, R608). Either way it stays In Progress with its Actual cell emptied: the count restarts on
+ * the copy's Start Date, and until then the engine reads its estimate as work still to do
+ * (`resolveActivityDuration` and `buildMcDistribution` both need an Actual to condition).
+ */
+function asRemainingWork(a: Activity): Activity {
+  const t = a.actualDuration;
+  if (!t) return { ...a, actualDuration: undefined };
+  const min = Math.max(1, a.min - t);
+  const mostLikely = Math.max(min, a.mostLikely - t);
+  const max = Math.max(mostLikely, a.max - t);
+  return { ...a, min, mostLikely, max, actualDuration: undefined };
 }
 
 /**
@@ -154,13 +178,12 @@ export function cloneScenario(
     for (const [oldId, newId] of oldToNewId) {
       if (removed.has(newId)) oldToNewId.delete(oldId);
     }
+    // Planned activities as before; an In Progress one carries over its remaining work (WI-139).
     activities = activities
       .filter((a) => a.status !== "complete")
-      .map((a) => ({
-        ...a,
-        status: "planned" as const,
-        actualDuration: undefined,
-      }));
+      .map((a) =>
+        a.status === "inProgress" ? asRemainingWork(a) : { ...a, actualDuration: undefined }
+      );
   }
 
   // Filter out deps referencing removed activities (when dropCompleted is true)
@@ -202,7 +225,8 @@ export function cloneScenario(
   return {
     id: generateId(),
     name: newName,
-    startDate: scenario.startDate,
+    // A reforecast is replanned from its own date (WI-139); any other copy starts with its source.
+    startDate: (options.dropCompleted && options.reforecastFrom) || scenario.startDate,
     activities,
     dependencies: clonedDeps,
     milestones: clonedMilestones,
@@ -236,6 +260,28 @@ export function nextCloneName(base: string, existing: string[]): string {
     if (!existing.includes(c)) return c;
   }
   return `${base} (Copy ${Date.now()})`;
+}
+
+/**
+ * The name a reforecast copy is offered (WI-139): "<base> (Reforecast Oct 30)" — the day and month
+ * of the date it is replanned from in the user's Date Format ("30 Oct" for DD/MM/YYYY; owner, R608),
+ * read from the `YYYY-MM-DD` text, so no time zone moves it. A name already taken is numbered as
+ * `nextCloneName` numbers copies: "(Reforecast Oct 30 2)" …
+ */
+export function reforecastCloneName(
+  base: string,
+  reforecastFrom: string,
+  existing: string[],
+  dateFormat: DateFormatPreference
+): string {
+  const label = `Reforecast ${formatDateShort(reforecastFrom, dateFormat)}`;
+  const candidate = `${base} (${label})`;
+  if (!existing.includes(candidate)) return candidate;
+  for (let i = 2; i <= 99; i++) {
+    const c = `${base} (${label} ${i})`;
+    if (!existing.includes(c)) return c;
+  }
+  return `${base} (${label} ${Date.now()})`;
 }
 
 export function cloneProject(source: Project, newName: string): Project {
