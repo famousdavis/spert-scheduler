@@ -387,12 +387,19 @@ export const mutations = [
   },
   // -- WI-111 ----------------------------------------------------------------------------------
   {
-    id: "S21 the panel has no Close button  [expect 1: P1]",
+    id: "S21 the panel has no Close button  [expect 6: P1, the × census row, Connect AI's four contrast rows]",
     file: PANEL,
     find:
-      '            <Dialog.Close asChild>\n              <button\n                type="button"\n                aria-label="Close"\n                className="shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"\n              >\n                <CloseIcon />\n              </button>\n            </Dialog.Close>\n',
+      '            <Dialog.Close asChild>\n              <button\n                type="button"\n                aria-label="Close"\n                className="shrink-0 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"\n              >\n                <CloseIcon />\n              </button>\n            </Dialog.Close>\n',
     replace: "",
-    expectFailing: only(P1),
+    expectFailing: only(
+      P1,
+      "the buttons labelled Close in a window are exactly the three checked below",
+      "ConnectAiPanel.tsx — light, at rest",
+      "ConnectAiPanel.tsx — light, on hover",
+      "ConnectAiPanel.tsx — dark, at rest",
+      "ConnectAiPanel.tsx — dark, on hover",
+    ),
   },
   {
     id: "S22 WRONG DESIGN: the Close button also ends the session  [expect 1: P1]",

@@ -154,7 +154,7 @@ export function ConnectAiPanel({
               <button
                 type="button"
                 aria-label="Close"
-                className="shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                className="shrink-0 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
               >
                 <CloseIcon />
               </button>

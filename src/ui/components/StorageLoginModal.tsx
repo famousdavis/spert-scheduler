@@ -347,7 +347,7 @@ export function StorageLoginModal({
                 <button
                   type="button"
                   aria-label="Close"
-                  className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 -mr-1 -mt-1 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 -mr-1 -mt-1 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   <CloseIcon />
                 </button>
