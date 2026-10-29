@@ -2,8 +2,12 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect } from "vitest";
-import { buildSampleProject, nextMondayISO } from "@app/api/sample-project-service";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  buildSampleProject,
+  nextMondayISO,
+  sampleStartISO,
+} from "@app/api/sample-project-service";
 import { createSampleProject } from "@domain/data/sample-project";
 import { ProjectSchema } from "@domain/schemas/project.schema";
 import { SCHEMA_VERSION } from "@domain/models/types";
@@ -108,5 +112,55 @@ describe("buildSampleProject", () => {
   it("defaults the start date to a Monday when none is supplied", async () => {
     const start = (await buildSampleProject("Sample")).scenarios[0]!.startDate;
     expect(new Date(`${start}T00:00:00`).getDay()).toBe(1);
+  });
+});
+
+// WI-106: a sample loaded in a week whose next Monday is one of its own US holidays started
+// on that holiday, so its first activity began on the Tuesday while the scenario's Start Date
+// read the Monday — the summary card and the exported schedule disagreed. Dates written out.
+describe("sampleStartISO — the default start skips the sample's own holidays", () => {
+  it("in the week of 2026-10-05, it skips Columbus Day (2026-10-12) to 2026-10-19", () => {
+    // Control: the plain next Monday is the holiday.
+    expect(nextMondayISO(new Date(2026, 9, 6))).toBe("2026-10-12");
+    expect(sampleStartISO(new Date(2026, 9, 6))).toBe("2026-10-19"); // Tue
+    expect(sampleStartISO(new Date(2026, 9, 11))).toBe("2026-10-19"); // Sun
+  });
+
+  it("from Columbus Day itself (2026-10-12, a Monday holiday), it starts on 2026-10-19", () => {
+    expect(sampleStartISO(new Date(2026, 9, 12))).toBe("2026-10-19");
+  });
+
+  it("in an ordinary week it keeps the next Monday, and a Monday that is no holiday", () => {
+    expect(sampleStartISO(new Date(2026, 9, 29))).toBe("2026-11-02"); // Thu
+    expect(sampleStartISO(new Date(2026, 9, 5))).toBe("2026-10-05"); // a Monday, no holiday
+  });
+
+  it("a fixed-date holiday on a Monday moves it too: Independence Day 2033 (2033-07-04) to 2033-07-11", () => {
+    expect(nextMondayISO(new Date(2033, 5, 29))).toBe("2033-07-04"); // control: Wed → the holiday
+    expect(sampleStartISO(new Date(2033, 5, 29))).toBe("2033-07-11");
+  });
+
+  it("Christmas Day 2028 and New Year's Day 2029, both Mondays, move it two weeks, to 2029-01-08", () => {
+    expect(sampleStartISO(new Date(2028, 11, 20))).toBe("2029-01-08"); // Wed
+  });
+});
+
+describe("buildSampleProject — the start date (WI-106)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("uses an explicit startDate exactly as given, even on one of its holidays (2026-10-12)", async () => {
+    const p = await buildSampleProject("Sample", "2026-10-12");
+    expect(p.scenarios[0]!.startDate).toBe("2026-10-12");
+    // Control: that date IS one of the sample's holidays.
+    expect(p.globalCalendarOverride!.holidays.some((h) => h.startDate === "2026-10-12")).toBe(true);
+  });
+
+  it("with no startDate, a load on 2026-10-07 starts on 2026-10-19, not Columbus Day", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 7, 12)); // Wed in the week of 2026-10-05
+    const p = await buildSampleProject("Sample");
+    expect(p.scenarios[0]!.startDate).toBe("2026-10-19");
   });
 });

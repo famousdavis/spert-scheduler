@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.29",
+    date: "2026-10-29",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The sample project no longer starts on a holiday. Loaded in a week whose next Monday is one of its own US holidays, such as Columbus Day, it now starts on the next Monday that is not one of its holidays, so the summary card and the exported schedule show the same Start Date.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin the sample’s default start: a Monday that is one of its own holidays moves it a week (Columbus Day 2026, from that week and from the day itself; Independence Day 2033), and two weeks when the next Monday is a holiday too (Christmas Day 2028, then New Year’s Day 2029); an ordinary week keeps its next Monday, and a Monday that is no holiday is kept; an explicit start date is used as given, even on a holiday; and a load with no start date on 2026-10-07 starts on 2026-10-19. A falsify spec breaks the change three ways — the holiday check removed, a one-day skip instead of a week, the default not using the new rule — and each break fails exactly the tests it names: five, five and one.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.28",
     date: "2026-10-29",
     sections: [
