@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.30",
+    date: "2026-10-29",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "A reforecast copy now starts from a date you choose and keeps the work already done. In the Clone Scenario window, ticking \"Drop completed activities (reforecast)\" shows a \"Reforecast from\" date — the copy’s Start Date, the next working day by default — and names the copy for it. Each In Progress activity stays In Progress in the copy, its estimates reduced by the days in its Actual cell (never below 1) and its Actual cell empty, to be counted again in the copy. Before, the copy kept its source’s Start Date and reset every In Progress activity to Planned with its whole estimate.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin the reforecast copy: its default date, the first working day after today by the page’s calendar (Thursday 2026-10-29 gives Friday 10-30; Friday 10-30 and Saturday 10-31 give Monday 11-02; Wednesday 11-25, before a holiday, gives Friday 11-27; the project’s own holiday moves the page’s default; a calendar with no working day ahead gives today); the name’s date in each Date Format; an In Progress row’s estimates less the days in its Actual cell, held in order with Min at least 1 (20–30–40 less 10 is 10–20–30, less 25 is 1–5–15, less 45 is 1–1–1 for every distribution type), and kept exactly as they were when its Actual is empty or 0 (0–2–5 and 30–20–40); the copy’s Start Date taken only with the box ticked; and the window’s note. A falsify spec breaks the change 26 ways, and each break fails exactly the tests it names.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.29",
     date: "2026-10-29",
     sections: [

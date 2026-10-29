@@ -1318,3 +1318,46 @@ describe("ProjectPage — the Gantt through a press that commits an estimate", (
     expect(panelShowsBuffer()).toBe(false);
   });
 });
+
+// -- a reforecast clone (WI-139) ------------------------------------------------
+
+/**
+ * WI-139 — the window's date reaches the copy: through `handleClone` and the store's
+ * `duplicateScenario` to `cloneScenario`. Its default is the next working day by the PAGE's calendar:
+ * the project's own holiday on Friday 30 October moves it from Thursday the 29th to Monday 2 November.
+ * The clock is faked; every expected value is a literal.
+ */
+describe("ProjectPage — a reforecast clone (WI-139)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("ticked, Clone makes a copy that starts on the reforecast date and carries an In Progress row's remaining work", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 29, 9, 30));
+    const base = makeProject(PROJECT_NAME, [SCENARIO_A]);
+    const s = base.scenarios[0]!;
+    const row: Activity = { ...s.activities[0]!, min: 10, mostLikely: 15, max: 20, status: "inProgress", actualDuration: 7 };
+    const p: Project = {
+      ...base,
+      scenarios: [{ ...s, activities: [row] }],
+      globalCalendarOverride: { holidays: [{ id: "h1", name: "Bridge day", startDate: "2026-10-30", endDate: "2026-10-30" }] },
+    };
+    renderPage(p);
+
+    fireEvent.click(within(tabRoot(SCENARIO_A)).getByRole("button", { name: "Clone scenario" }));
+    const dialog = screen.getByRole("dialog", { name: "Clone Scenario" });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Drop completed activities (reforecast)" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clone" }));
+
+    const scenarios = useProjectStore.getState().getProject(p.id)!.scenarios;
+    expect(scenarios.map((x) => x.name)).toEqual([SCENARIO_A, `${SCENARIO_A} (Reforecast Nov 2)`]);
+    expect(scenarios[1]!.startDate).toBe("2026-11-02");
+    expect(scenarios[1]!.activities.map((a) => [a.min, a.mostLikely, a.max, a.status, a.actualDuration])).toEqual([
+      [3, 8, 13, "inProgress", undefined],
+    ]);
+    // The source is as it was.
+    expect(scenarios[0]!.startDate).toBe("2026-04-06");
+    expect(scenarios[0]!.activities.map((a) => [a.min, a.mostLikely, a.max, a.status, a.actualDuration])).toEqual([
+      [10, 15, 20, "inProgress", 7],
+    ]);
+  });
+});

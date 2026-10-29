@@ -704,7 +704,7 @@ export function ProjectPage() {
   }, []);
 
   const handleClone = useCallback(
-    (newName: string, dropCompleted: boolean) => {
+    (newName: string, dropCompleted: boolean, reforecastFrom?: string) => {
       if (!id || !cloneSourceId) return;
       if (project && project.scenarios.length >= MAX_SCENARIOS_PER_PROJECT) {
         toast.error(
@@ -712,7 +712,7 @@ export function ProjectPage() {
         );
         return;
       }
-      const newId = duplicateScenario(id, cloneSourceId, newName, { dropCompleted });
+      const newId = duplicateScenario(id, cloneSourceId, newName, { dropCompleted, reforecastFrom });
       if (newId) setActiveScenarioId(newId);
     },
     [id, project, cloneSourceId, duplicateScenario, setActiveScenarioId]
@@ -1232,6 +1232,7 @@ export function ProjectPage() {
           sourceName={cloneSource.name}
           existingNames={project.scenarios.map((s) => s.name)}
           onClone={handleClone}
+          workCalendar={workCalendar}
         />
       )}
 

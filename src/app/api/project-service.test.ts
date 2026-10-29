@@ -17,8 +17,13 @@ import {
   insertActivityAfter,
   insertActivityAfterBand,
   patchActivityQualitative,
+  reforecastCloneName,
+  type CloneOptions,
 } from "./project-service";
-import type { Project, Scenario, SimulationRun } from "@domain/models/types";
+import type { Activity, Project, Scenario, SimulationRun } from "@domain/models/types";
+import { createDistributionForActivity } from "@core/distributions/factory";
+import { estimateOrderIssues, logNormalHasNoMean } from "@domain/helpers/estimate-rules";
+import * as fc from "fast-check";
 import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION } from "@domain/models/types";
 
 describe("createProject", () => {
@@ -876,5 +881,163 @@ describe("removeActivityFromScenario with bands", () => {
     };
     const updated = removeActivityFromScenario(withResults, a2.id);
     expect(updated.simulationResults).toBeUndefined();
+  });
+});
+
+// -- A reforecast copy (WI-139) -----------------------------------------------
+
+/**
+ * WI-139 (owner, R601, R605 and R608): Clone Scenario's "Drop completed activities (reforecast)"
+ * replans the copy from a "Reforecast from" date, and carries each In Progress activity over as its
+ * remaining work — its estimates reduced by the days in its Actual cell (Min never below 1, kept in
+ * order), still In Progress, its Actual emptied so the count restarts on the copy's Start Date. With
+ * nothing in its Actual cell, its estimates are carried over exactly as they were (R608).
+ * Every expected value is written out by hand.
+ */
+describe("cloneScenario — a reforecast carries In Progress work over as what remains (WI-139)", () => {
+  const REFORECAST: CloneOptions = { dropCompleted: true, reforecastFrom: "2026-10-29" };
+
+  /** One scenario starting 2026-09-14; each row 20–30–40 Triangular unless the patch says otherwise. */
+  function source(...rows: Partial<Activity>[]): Scenario {
+    const s = createScenario("Source", "2026-09-14");
+    return {
+      ...s,
+      activities: rows.map((patch, i) => ({
+        ...createActivity(`Row ${i + 1}`, s.settings),
+        min: 20, mostLikely: 30, max: 40, ...patch,
+      })),
+    };
+  }
+  const inProgress = (done: number | undefined, more: Partial<Activity> = {}): Partial<Activity> => ({
+    status: "inProgress", actualDuration: done, ...more,
+  });
+  const estimate = (a: Activity) => [a.min, a.mostLikely, a.max];
+  const firstOf = (s: Scenario) => s.activities[0]!;
+
+  it("case A — 20–30–40 with 10 days done: 10–20–30, still In Progress, its Actual emptied", () => {
+    const copy = firstOf(cloneScenario(source(inProgress(10)), "Copy", REFORECAST));
+    expect(estimate(copy)).toEqual([10, 20, 30]);
+    expect(copy.status).toBe("inProgress");
+    expect(copy.actualDuration).toBeUndefined();
+  });
+
+  it("case B — 25 days done: 1–5–15, Min held at 1", () => {
+    const copy = firstOf(cloneScenario(source(inProgress(25)), "Copy", REFORECAST));
+    expect(estimate(copy)).toEqual([1, 5, 15]);
+    expect(copy.status).toBe("inProgress");
+    expect(copy.actualDuration).toBeUndefined();
+  });
+
+  it("case C — 35 days done: 1–1–5, Min held at 1 and Most Likely at Min", () => {
+    const copy = firstOf(cloneScenario(source(inProgress(35)), "Copy", REFORECAST));
+    expect(estimate(copy)).toEqual([1, 1, 5]);
+    expect(copy.status).toBe("inProgress");
+  });
+
+  it("an empty Actual cell: nothing to take off, so 20–30–40 is carried over unchanged, still In Progress", () => {
+    const copy = firstOf(cloneScenario(source(inProgress(undefined)), "Copy", REFORECAST));
+    expect(estimate(copy)).toEqual([20, 30, 40]);
+    expect(copy.status).toBe("inProgress");
+    expect(copy.actualDuration).toBeUndefined();
+  });
+
+  it("an Actual unset or 0: 0–2–5 stays 0–2–5 and an out-of-order 30–20–40 stays 30–20–40 — no clamp acts (R608)", () => {
+    for (const done of [undefined, 0]) {
+      const s = source(inProgress(done, { min: 0, mostLikely: 2, max: 5 }), inProgress(done, { min: 30, mostLikely: 20, max: 40 }));
+      const copy = cloneScenario(s, "Copy", REFORECAST);
+      expect(copy.activities.map((a) => [...estimate(a), a.status, a.actualDuration]), String(done)).toEqual([
+        [0, 2, 5, "inProgress", undefined],
+        [30, 20, 40, "inProgress", undefined],
+      ]);
+    }
+  });
+
+  it("an Actual of 1 on the same two rows: the clamps act — 1–1–4 and 29–29–39", () => {
+    const s = source(inProgress(1, { min: 0, mostLikely: 2, max: 5 }), inProgress(1, { min: 30, mostLikely: 20, max: 40 }));
+    expect(cloneScenario(s, "Copy", REFORECAST).activities.map(estimate)).toEqual([
+      [1, 1, 4],
+      [29, 29, 39],
+    ]);
+  });
+
+  it("done past Max (45 of 20–30–40): 1–1–1, a point mass at 1 for every distribution type, Beta-PERT's Min = Max included", () => {
+    for (const distributionType of ["normal", "logNormal", "betaPert", "triangular", "uniform"] as const) {
+      const copy = firstOf(cloneScenario(source(inProgress(45, { distributionType })), "Copy", REFORECAST));
+      expect(estimate(copy), distributionType).toEqual([1, 1, 1]);
+      const dist = createDistributionForActivity(copy);
+      expect([dist.inverseCDF(0.05), dist.inverseCDF(0.5), dist.inverseCDF(0.95)], distributionType).toEqual([1, 1, 1]);
+    }
+  });
+
+  it("Uniform — 25 days done: 1–5–15, and its distribution runs from 1 to 15 (median 8)", () => {
+    const copy = firstOf(cloneScenario(source(inProgress(25, { distributionType: "uniform" })), "Copy", REFORECAST));
+    expect(estimate(copy)).toEqual([1, 5, 15]);
+    const dist = createDistributionForActivity(copy);
+    expect([dist.inverseCDF(0), dist.inverseCDF(0.5), dist.inverseCDF(1)]).toEqual([1, 8, 15]);
+  });
+
+  it("an sdOverride is carried over as it was (owner, R608: kept)", () => {
+    const copy = firstOf(cloneScenario(source(inProgress(25, { distributionType: "normal", sdOverride: 6 })), "Copy", REFORECAST));
+    expect(estimate(copy)).toEqual([1, 5, 15]);
+    expect(copy.sdOverride).toBe(6);
+  });
+
+  it("fractions pass through: 22.5–30–60 with 7 days done is 15.5–23–53", () => {
+    const copy = firstOf(cloneScenario(source(inProgress(7, { min: 22.5, mostLikely: 30, max: 60 })), "Copy", REFORECAST));
+    expect(estimate(copy)).toEqual([15.5, 23, 53]);
+  });
+
+  it("no converted estimate is flagged — in order, Min at least 1, and a LogNormal above zero — and every type takes it", () => {
+    const point = fc.integer({ min: 0, max: 200 });
+    fc.assert(
+      // An Actual of at least 1: with none, the estimate is carried over as it was, flags included (R608).
+      fc.property(point, point, point, fc.integer({ min: 1, max: 400 }),
+        fc.constantFrom("normal", "logNormal", "betaPert", "triangular", "uniform"),
+        (p, q, r, done, distributionType) => {
+          const [min, mostLikely, max] = [p, q, r].sort((x, y) => x - y) as [number, number, number];
+          const row = inProgress(done, { min, mostLikely, max, distributionType });
+          const copy = firstOf(cloneScenario(source(row), "Copy", REFORECAST));
+          expect(estimateOrderIssues(copy.min, copy.mostLikely, copy.max)).toEqual([]);
+          expect(logNormalHasNoMean(copy.distributionType, copy.min, copy.mostLikely, copy.max)).toBe(false);
+          expect(copy.min).toBeGreaterThanOrEqual(1);
+          expect(() => createDistributionForActivity(copy)).not.toThrow();
+        }),
+    );
+  });
+
+  it("the copy starts on the reforecast date only with dropCompleted; otherwise, or with no date, on its source's", () => {
+    const s = source(inProgress(10));
+    expect(cloneScenario(s, "Copy", REFORECAST).startDate).toBe("2026-10-29");
+    expect(cloneScenario(s, "Copy", { reforecastFrom: "2026-10-29" }).startDate).toBe("2026-09-14");
+    expect(cloneScenario(s, "Copy", { dropCompleted: true }).startDate).toBe("2026-09-14");
+    expect(cloneScenario(s, "Copy").startDate).toBe("2026-09-14");
+  });
+
+  it("without dropCompleted a copy is exactly as before: an In Progress row keeps its estimate, status and Actual", () => {
+    const copy = firstOf(cloneScenario(source(inProgress(25)), "Copy", { reforecastFrom: "2026-10-29" }));
+    expect(estimate(copy)).toEqual([20, 30, 40]);
+    expect(copy.status).toBe("inProgress");
+    expect(copy.actualDuration).toBe(25);
+  });
+
+  it("a Complete row is still dropped, and a Planned row keeps its estimate, Planned, with its Actual emptied", () => {
+    const s = source({ status: "complete", actualDuration: 12 }, { status: "planned", actualDuration: 3 }, inProgress(10));
+    const copy = cloneScenario(s, "Copy", REFORECAST);
+    expect(copy.activities.map((a) => a.name)).toEqual(["Row 2", "Row 3"]);
+    expect(estimate(copy.activities[0]!)).toEqual([20, 30, 40]);
+    expect(copy.activities[0]!.status).toBe("planned");
+    expect(copy.activities[0]!.actualDuration).toBeUndefined();
+    expect(estimate(copy.activities[1]!)).toEqual([10, 20, 30]);
+  });
+
+  it("the proposed name: the day and month of the date in each Date Format, numbered when taken (R608)", () => {
+    expect(reforecastCloneName("Baseline", "2026-10-30", ["Baseline"], "MM/DD/YYYY")).toBe("Baseline (Reforecast Oct 30)");
+    expect(reforecastCloneName("Baseline", "2026-10-30", ["Baseline"], "DD/MM/YYYY")).toBe("Baseline (Reforecast 30 Oct)");
+    expect(reforecastCloneName("Baseline", "2026-10-30", ["Baseline"], "YYYY/MM/DD")).toBe("Baseline (Reforecast Oct 30)");
+    expect(reforecastCloneName("Baseline", "2026-11-03", [], "MM/DD/YYYY")).toBe("Baseline (Reforecast Nov 3)");
+    expect(reforecastCloneName("Baseline", "2027-01-01", [], "DD/MM/YYYY")).toBe("Baseline (Reforecast 1 Jan)");
+    expect(reforecastCloneName("Baseline", "2026-10-30", ["Baseline (Reforecast Oct 30)"], "MM/DD/YYYY")).toBe(
+      "Baseline (Reforecast Oct 30 2)"
+    );
   });
 });
