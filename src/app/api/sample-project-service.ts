@@ -71,6 +71,25 @@ function sampleHolidays(startISO: string): Holiday[] {
 }
 
 /**
+ * The sample's default start: the first Monday on or after `from` that is not one
+ * of the sample's own holidays (the same `sampleHolidays` set it will carry).
+ *
+ * A holiday Monday — Columbus Day, say — moves the start a whole week, to the
+ * Monday after, so the start stays on a week boundary. Starting ON a holiday would
+ * put the first activity on the Tuesday while the scenario's Start Date still read
+ * the Monday, and the summary card and the exported schedule would disagree.
+ */
+export function sampleStartISO(from: Date): string {
+  let start = nextMondayISO(from);
+  while (sampleHolidays(start).some((h) => h.startDate === start)) {
+    const d = new Date(`${start}T00:00:00`);
+    d.setDate(d.getDate() + 7);
+    start = toISO(d);
+  }
+  return start;
+}
+
+/**
  * Build a loadable copy of the sample project.
  *
  * Every call returns fresh ids: the canonical fixture is passed through
@@ -89,14 +108,15 @@ function sampleHolidays(startISO: string): Holiday[] {
  * static and data-free.
  *
  * @param name - Project name to use (callers resolve collisions first).
- * @param startDate - Optional ISO `YYYY-MM-DD` scenario start. Defaults to the
- *   next Monday, so the sample always reads as a current, forward-looking plan.
+ * @param startDate - Optional ISO `YYYY-MM-DD` scenario start, used exactly as
+ *   given. Defaults to the next Monday that is not one of the sample's holidays
+ *   (`sampleStartISO`), so the sample always reads as a current, forward-looking plan.
  */
 export async function buildSampleProject(
   name: string,
   startDate?: string
 ): Promise<Project> {
   const { createSampleProject } = await import("@domain/data/sample-project");
-  const start = startDate ?? nextMondayISO(new Date());
+  const start = startDate ?? sampleStartISO(new Date());
   return cloneProject(createSampleProject(start, sampleHolidays(start)), name);
 }
