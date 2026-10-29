@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useRef, useCallback, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -105,10 +105,20 @@ function SortableChecklistRow({
 interface ChecklistSectionProps {
   checklist: ChecklistItem[];
   onChange: (items: ChecklistItem[]) => void;
+  /**
+   * The "Add a task…" box's text. Held by the Edit Activity window since v0.79.28 (WI-138), so its
+   * Save can add a task typed but not added, and its unsaved-changes check can count it.
+   */
+  newTaskText: string;
+  onNewTaskTextChange: (text: string) => void;
 }
 
-export function ChecklistSection({ checklist, onChange }: ChecklistSectionProps) {
-  const [newTaskText, setNewTaskText] = useState("");
+export function ChecklistSection({
+  checklist,
+  onChange,
+  newTaskText,
+  onNewTaskTextChange,
+}: ChecklistSectionProps) {
   const newTaskInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -122,9 +132,9 @@ export function ChecklistSection({ checklist, onChange }: ChecklistSectionProps)
     // Guard against max items using current prop value (avoids stale closure)
     if (checklist.length >= MAX_CHECKLIST_ITEMS) return;
     onChange([...checklist, { id: generateId(), text, completed: false }]);
-    setNewTaskText("");
+    onNewTaskTextChange("");
     requestAnimationFrame(() => newTaskInputRef.current?.focus());
-  }, [newTaskText, checklist, onChange]);
+  }, [newTaskText, checklist, onChange, onNewTaskTextChange]);
 
   const handleToggleTask = useCallback((id: string) => {
     onChange(
@@ -199,7 +209,7 @@ export function ChecklistSection({ checklist, onChange }: ChecklistSectionProps)
             name="newTaskText"
             aria-label="Add a task"
             value={newTaskText}
-            onChange={(e) => setNewTaskText(e.target.value)}
+            onChange={(e) => onNewTaskTextChange(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTask(); } }}
             maxLength={200}
             placeholder="Add a task…"

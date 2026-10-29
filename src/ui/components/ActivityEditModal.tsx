@@ -66,6 +66,7 @@ import {
   type UnsaveableCause,
 } from "@ui/helpers/unsaveable-cause";
 import { computeElapsedDays } from "./activity-row-helpers";
+import { generateId } from "@app/api/id";
 
 interface ActivityEditModalProps {
   activityId: string;
@@ -82,6 +83,32 @@ interface ActivityEditModalProps {
   activityNumberMap?: Map<string, number> | null;
 }
 
+/**
+ * WI-138 (v0.79.28) — the cap each list's Add keeps to (`MAX_CHECKLIST_ITEMS`,
+ * `MAX_DELIVERABLE_ITEMS`), and the schema's `.max(50)` for both lists. The box is not shown at the
+ * cap and only Add grows a list in this window, so typed text never meets a full list; the check
+ * keeps Save's add exactly Add's.
+ */
+const MAX_LIST_ITEMS = 50;
+
+/**
+ * WI-138 (v0.79.28) — what Save adds from a Tasks or Deliverables box: its text, trimmed, or null
+ * when it adds nothing (a blank box, or a full list). The ONE trim, read both by Save and by the
+ * unsaved-changes check, so the two cannot disagree about whether there is something to add.
+ */
+function typedItemText(count: number, typed: string): string | null {
+  const text = typed.trim();
+  return text && count < MAX_LIST_ITEMS ? text : null;
+}
+
+/**
+ * The list as Save writes it: the box's text appended as Add appends it, or the list unchanged. One
+ * function for both lists — a task and a deliverable are the same shape (`types.ts`).
+ */
+function withTypedItem(items: ChecklistItem[] | DeliverableItem[], typed: string): ChecklistItem[] {
+  const text = typedItemText(items.length, typed);
+  return text === null ? items : [...items, { id: generateId(), text, completed: false }];
+}
 
 /**
  * The Distribution control's look: grey text, with a title saying why, where the drafts carry no
@@ -304,9 +331,14 @@ export function ActivityEditModal({
 
   // -- Local draft state: Checklist --
   const [checklist, setChecklist] = useState<ChecklistItem[]>(activity?.checklist ?? []);
+  // WI-138 (v0.79.28): the "Add a task…" box's text, held here rather than in the section so Save
+  // can add a task typed but not added, and `hasChanges` can count it.
+  const [newTaskText, setNewTaskText] = useState("");
 
   // -- Local draft state: Deliverables --
   const [deliverables, setDeliverables] = useState<DeliverableItem[]>(activity?.deliverables ?? []);
+  // WI-138 (v0.79.28): the "Add a deliverable…" box's text, held here for the same reason.
+  const [newDeliverableText, setNewDeliverableText] = useState("");
 
   // -- Local draft state: Notes --
   const [notes, setNotes] = useState<string>(activity?.notes ?? "");
@@ -558,18 +590,24 @@ export function ActivityEditModal({
       updateActivityField(projectId, scenarioId, activityId, updates);
     }
 
+    // WI-138 (v0.79.28): a task or deliverable typed in its box but not added is added here, as
+    // Add would add it. Computed into locals, not set into state: state set here could not be
+    // read back before the two saves below.
+    const finalChecklist = withTypedItem(checklist, newTaskText);
+    const finalDeliverables = withTypedItem(deliverables, newDeliverableText);
+
     // Checklist — separate save path to avoid simulation invalidation
     const origChecklist = activity.checklist ?? [];
-    const checklistChanged = JSON.stringify(checklist) !== JSON.stringify(origChecklist);
+    const checklistChanged = JSON.stringify(finalChecklist) !== JSON.stringify(origChecklist);
     if (checklistChanged) {
-      updateActivityChecklist(projectId, scenarioId, activityId, checklist.length > 0 ? checklist : undefined);
+      updateActivityChecklist(projectId, scenarioId, activityId, finalChecklist.length > 0 ? finalChecklist : undefined);
     }
 
     // Deliverables — same split-save pattern as checklist
     const origDeliverables = activity.deliverables ?? [];
-    const deliverablesChanged = JSON.stringify(deliverables) !== JSON.stringify(origDeliverables);
+    const deliverablesChanged = JSON.stringify(finalDeliverables) !== JSON.stringify(origDeliverables);
     if (deliverablesChanged) {
-      updateActivityDeliverables(projectId, scenarioId, activityId, deliverables.length > 0 ? deliverables : undefined);
+      updateActivityDeliverables(projectId, scenarioId, activityId, finalDeliverables.length > 0 ? finalDeliverables : undefined);
     }
 
     // Notes — same split-save pattern
@@ -584,6 +622,8 @@ export function ActivityEditModal({
     buildFieldUpdates,
     checklist,
     deliverables,
+    newTaskText,
+    newDeliverableText,
     notes,
     updateActivityField,
     updateActivityChecklist,
@@ -646,9 +686,13 @@ export function ActivityEditModal({
     // Qualitative paths
     if (JSON.stringify(checklist) !== JSON.stringify(activity.checklist ?? [])) return true;
     if (JSON.stringify(deliverables) !== JSON.stringify(activity.deliverables ?? [])) return true;
+    // WI-138 (v0.79.28): text in a Tasks or Deliverables box that Save would add is a change too,
+    // so Cancel and Escape ask before it is lost.
+    if (typedItemText(checklist.length, newTaskText) !== null) return true;
+    if (typedItemText(deliverables.length, newDeliverableText) !== null) return true;
     if (notes !== (activity.notes ?? "")) return true;
     return false;
-  }, [activity, buildFieldUpdates, checklist, deliverables, notes]);
+  }, [activity, buildFieldUpdates, checklist, deliverables, newTaskText, newDeliverableText, notes]);
 
   /**
    * Escape and overlay-click. Asks through the app's own dialog host rather than the browser's
@@ -1186,7 +1230,12 @@ export function ActivityEditModal({
               subtitle={checklist.length > 0 ? `(${checklistDoneCount}/${checklist.length})` : undefined}
               defaultOpen={false}
             >
-              <ChecklistSection checklist={checklist} onChange={setChecklist} />
+              <ChecklistSection
+                checklist={checklist}
+                onChange={setChecklist}
+                newTaskText={newTaskText}
+                onNewTaskTextChange={setNewTaskText}
+              />
             </Section>
 
             {/* ── Section 6: Deliverables ── */}
@@ -1195,7 +1244,12 @@ export function ActivityEditModal({
               subtitle={deliverables.length > 0 ? `(${deliverablesDoneCount}/${deliverables.length})` : undefined}
               defaultOpen={false}
             >
-              <DeliverablesSection deliverables={deliverables} onChange={setDeliverables} />
+              <DeliverablesSection
+                deliverables={deliverables}
+                onChange={setDeliverables}
+                newText={newDeliverableText}
+                onNewTextChange={setNewDeliverableText}
+              />
             </Section>
 
             {/* ── Section 7: Notes ── */}
