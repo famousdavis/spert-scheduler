@@ -287,9 +287,12 @@ export function ScenarioComparisonTable({
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Cumulative Distribution Comparison
             </h3>
+            {/* copyWholePage: this chart takes its width from the table above it, in the
+                inline-block box they share, so its copy keeps the table (WI-143). */}
             <CopyImageButton
               targetRef={cdfRef}
               title="Copy distribution comparison as image"
+              copyWholePage
             />
           </div>
           {/* Captured by html2canvas — stays light in both themes; see the note on

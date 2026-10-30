@@ -134,7 +134,12 @@ describe("a Run for each scenario in Compare (v0.75.0)", () => {
     expect(tab(REBID)).not.toHaveAttribute("aria-current");
     const box = compareBox();
     expect(document.activeElement).toBe(within(box).getByRole("columnheader", { name: REBID }));
-    expect(within(box).getByRole("status").textContent).toBe(`Simulation finished for ${REBID}.`);
+    // The Run row's status: since WI-143 each copy button has a status of its own beside it.
+    const runStatus = within(box)
+      .getAllByRole("status")
+      .filter((line) => !line.previousElementSibling?.classList.contains("copy-image-button"));
+    expect(runStatus).toHaveLength(1);
+    expect(runStatus[0]!.textContent).toBe(`Simulation finished for ${REBID}.`);
     // Its Run is gone; the other scenario's is still offered.
     expect(runIn(box, REBID)).toBeNull();
     expect(runIn(box, BASE)).not.toBeNull();

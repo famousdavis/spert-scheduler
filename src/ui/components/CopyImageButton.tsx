@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useCallback, type RefObject } from "react";
+import { useState, useCallback, useRef, type RefObject } from "react";
 import { toast } from "@ui/hooks/use-notification-store";
 import { copyChartAsPng } from "@ui/helpers/export-chart";
 
@@ -21,6 +21,36 @@ const CLIPBOARD_IMAGE_SUPPORTED =
 
 type CopyStatus = "idle" | "copying" | "success" | "error";
 
+/**
+ * What the button's status says to a screen reader (WI-143). The icons carry no words, so without
+ * it a copy that worked was silent. A failure says nothing here: the error toast announces it.
+ */
+const STATUS_TEXT: Record<CopyStatus, string> = {
+  idle: "",
+  copying: "Copying image to clipboard…",
+  success: "Image copied to clipboard",
+  error: "",
+};
+
+/** The longest the copy waits for a frame: a hidden tab runs no `requestAnimationFrame` (WI-143). */
+const PAINT_WAIT_LIMIT_MS = 100;
+
+/**
+ * Resolve once the browser has painted what was just rendered: after the next frame, or after
+ * {@link PAINT_WAIT_LIMIT_MS} if no frame comes (WI-143).
+ *
+ * html2canvas copies the page synchronously inside its call, and nothing paints until that is done,
+ * so a busy state set in the same task first showed when the copy was mostly over — over a second
+ * later on the sample project, longer on a bigger one. The `setTimeout` after the frame callback
+ * runs once that frame's rendering is done.
+ */
+function afterNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, PAINT_WAIT_LIMIT_MS);
+    requestAnimationFrame(() => setTimeout(resolve, 0));
+  });
+}
+
 function resolveButtonClass(supported: boolean, status: CopyStatus): string {
   if (!supported) return "opacity-30 cursor-not-allowed";
   if (status === "copying") return "cursor-wait opacity-100";
@@ -35,6 +65,8 @@ interface CopyImageButtonProps {
   captureFullWidth?: boolean;
   /** Capture the target in its light theme — see `CopyChartOptions.captureLight` (WI-26). */
   captureLight?: () => () => void;
+  /** Let html2canvas copy the whole page — see `CopyChartOptions.copyWholePage` (WI-143). */
+  copyWholePage?: boolean;
 }
 
 export function CopyImageButton({
@@ -42,28 +74,40 @@ export function CopyImageButton({
   title = "Copy as image",
   captureFullWidth = false,
   captureLight,
+  copyWholePage = false,
 }: CopyImageButtonProps) {
   const [status, setStatus] = useState<CopyStatus>("idle");
+  // While a copy runs the button is `aria-disabled`, not `disabled`: a disabled button loses focus
+  // (measured in Chrome: it fell to the page's <body> and never came back), so a keyboard or
+  // screen-reader user lost their place. A click during a copy therefore reaches this handler, and
+  // is ignored here (WI-143).
+  const busy = useRef(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleCopy = useCallback(async () => {
-    if (!CLIPBOARD_IMAGE_SUPPORTED || !targetRef.current) {
-      return;
-    }
+    const target = targetRef.current;
+    if (!CLIPBOARD_IMAGE_SUPPORTED || !target || busy.current) return;
+    busy.current = true;
+    clearTimeout(resetTimer.current); // an earlier copy's tick must not end this copy's spinner
 
     setStatus("copying");
+    // Let the busy state paint before html2canvas starts (WI-143). The wait is BEFORE the copy, not
+    // inside it: the Gantt's light theme and html2canvas still share one task (WI-26).
+    await afterNextPaint();
     try {
-      await copyChartAsPng(targetRef.current, { captureFullWidth, captureLight });
+      await copyChartAsPng(target, { captureFullWidth, captureLight, copyWholePage });
       setStatus("success");
-      setTimeout(() => setStatus("idle"), 2000);
     } catch (err) {
       // Log the underlying cause so future copy failures can be diagnosed from
       // the browser console (the toast alone hides the html2canvas/clipboard error).
       console.error("CopyImageButton: copy failed", err);
       toast.error("Failed to copy image to clipboard");
       setStatus("error");
-      setTimeout(() => setStatus("idle"), 2000);
+    } finally {
+      busy.current = false;
+      resetTimer.current = setTimeout(() => setStatus("idle"), 2000);
     }
-  }, [targetRef, captureFullWidth, captureLight]);
+  }, [targetRef, captureFullWidth, captureLight, copyWholePage]);
 
   const unsupportedTitle =
     "Copy image is not supported in this browser — try Chrome, Edge, or Safari";
@@ -71,11 +115,12 @@ export function CopyImageButton({
   // The icon strokes `currentColor`, and nothing above the button sets a colour, so without
   // one of its own the icon inherited the page's default black — invisible on the dark
   // header bars (WI-103). The button therefore names its colour in both themes.
-  return (
+  const button = (
     <button
       className={`copy-image-button bg-transparent border-0 p-1 shrink-0 text-black dark:text-white transition-opacity duration-200 ${resolveButtonClass(CLIPBOARD_IMAGE_SUPPORTED, status)}`}
       onClick={handleCopy}
-      disabled={!CLIPBOARD_IMAGE_SUPPORTED || status === "copying"}
+      disabled={!CLIPBOARD_IMAGE_SUPPORTED}
+      aria-disabled={status === "copying" ? true : undefined}
       title={CLIPBOARD_IMAGE_SUPPORTED ? title : unsupportedTitle}
       aria-label={CLIPBOARD_IMAGE_SUPPORTED ? title : unsupportedTitle}
     >
@@ -140,5 +185,16 @@ export function CopyImageButton({
         </svg>
       )}
     </button>
+  );
+
+  // The status follows the button, always mounted so a screen reader hears each change, and
+  // outside it: a button's content is presentational, so a status inside it would go unheard. It
+  // is absolutely positioned (`sr-only`), so it takes no place in its parent's layout, and it is
+  // kept out of any picture (WI-143).
+  return (
+    <>
+      {button}
+      <span role="status" aria-live="polite" className="sr-only" data-capture-skip="">{STATUS_TEXT[status]}</span>
+    </>
   );
 }

@@ -3,8 +3,8 @@
 // See LICENSE file in the project root for full license text.
 
 import { useRef } from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 // CopyImageButton decides at MODULE LOAD whether this browser can copy images, from
 // ClipboardItem and navigator.clipboard.write. jsdom has neither, so both must exist
@@ -102,5 +102,116 @@ describe("CopyImageButton — its icon can be seen in both themes (WI-103)", () 
     } finally {
       errorLog.mockRestore();
     }
+  });
+});
+
+/**
+ * The busy state comes first, and is heard (WI-143).
+ *
+ * html2canvas copies the page synchronously inside its call, and nothing paints until it is done,
+ * so a spinner set in the same task showed only when the copy was mostly over — over a second
+ * after the click on the sample project. The button now sets its busy state, lets a frame paint
+ * it, and only then copies; it stays focusable while busy (`aria-disabled`, not `disabled`, which
+ * dropped focus to the page); and a status beside it says the copy started and finished.
+ */
+describe("CopyImageButton — the busy state comes first, and is heard (WI-143)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Hold every animation frame until the test runs it, as a page does between two frames. */
+  function holdFrames(): () => void {
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((frame) => {
+      frames.push(frame);
+      return frames.length;
+    });
+    return () => act(() => frames.splice(0).forEach((frame) => frame(performance.now())));
+  }
+
+  const status = () => screen.getByRole("status");
+
+  it("shows the busy state, and lets a frame paint it, before html2canvas starts", async () => {
+    const runFrame = holdFrames();
+    const seenAtStart: string[] = [];
+    html2canvasMock.mockImplementation(() => {
+      seenAtStart.push(`spinner ${icon().classList.contains("animate-spin")}, aria-disabled ${button().getAttribute("aria-disabled")}`);
+      return Promise.resolve(fakeCanvas());
+    });
+    render(<CopySite />);
+
+    fireEvent.click(button());
+
+    // The busy state is on the page, and nothing has been copied: the copy waits for the frame.
+    expect(icon()).toHaveClass("animate-spin");
+    expect(html2canvasMock).not.toHaveBeenCalled();
+
+    runFrame();
+    // Well inside the wait's own limit, so it is the frame that let the copy start.
+    await act(() => new Promise((done) => setTimeout(done, 20)));
+    expect(html2canvasMock).toHaveBeenCalledTimes(1);
+    expect(seenAtStart).toEqual(["spinner true, aria-disabled true"]);
+  });
+
+  it("still copies when no frame comes, as in a hidden tab", async () => {
+    holdFrames(); // and never run them
+    html2canvasMock.mockResolvedValue(fakeCanvas());
+    render(<CopySite />);
+
+    fireEvent.click(button());
+
+    expect(html2canvasMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(icon().querySelector("polyline")).not.toBeNull());
+    expect(html2canvasMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps focus while busy, and a second click starts no second copy", async () => {
+    const rendering = pendingRender();
+    html2canvasMock.mockImplementation(() => rendering.promise);
+    render(<CopySite />);
+    button().focus();
+
+    fireEvent.click(button());
+    fireEvent.click(button()); // before the copy has started
+    await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(button()); // while it renders
+
+    expect(button()).toHaveAttribute("aria-disabled", "true");
+    expect(button()).not.toBeDisabled(); // a disabled button would lose focus
+    expect(button()).toHaveFocus();
+
+    rendering.settle(fakeCanvas());
+    await waitFor(() => expect(icon().querySelector("polyline")).not.toBeNull());
+    expect(html2canvasMock).toHaveBeenCalledTimes(1);
+    expect(clipboardWrite).toHaveBeenCalledTimes(1);
+    expect(button()).not.toHaveAttribute("aria-disabled");
+    expect(button()).toHaveFocus();
+  });
+
+  it("says the copy started and that it finished, in a status the eye does not see, beside the button", async () => {
+    const rendering = pendingRender();
+    html2canvasMock.mockImplementation(() => rendering.promise);
+    render(<CopySite />);
+
+    expect(status()).toHaveClass("sr-only");
+    expect(button()).not.toContainElement(status()); // a button's content is not read out
+    expect(status()).toHaveTextContent(/^$/);
+
+    fireEvent.click(button());
+    expect(status()).toHaveTextContent("Copying image to clipboard…");
+
+    rendering.settle(fakeCanvas());
+    await waitFor(() => expect(status()).toHaveTextContent("Image copied to clipboard"));
+  });
+
+  it("leaves a failure to the error toast: the status says nothing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    html2canvasMock.mockRejectedValue(new Error("html2canvas failed"));
+    render(<CopySite />);
+
+    fireEvent.click(button());
+
+    await waitFor(() => expect(icon().querySelectorAll("line")).toHaveLength(2));
+    expect(status()).toHaveTextContent(/^$/);
   });
 });

@@ -33,6 +33,12 @@ import {
  *  2. Fix any remaining unsupported color functions in computed standard
  *     properties on all elements (both HTML and SVG — SVG elements inherit
  *     color from parent HTML).
+ *
+ * ⚠️ Each pass reads every value before it writes one (WI-143). A read that follows a write makes
+ * the browser restyle the copy before it can answer, and pass 1 used to write each colour variable
+ * as soon as it had read it: 67 restyles of the whole copy, about two seconds of every copy on the
+ * sample project. Read first and write after, and each pass restyles once. Pass 2 still reads after
+ * pass 1 has written, so it sees the variables already fixed.
  */
 function neutralizeUnsupportedColors(doc: Document, clonedEl: HTMLElement): void {
   // Single reusable canvas to convert any modern color function → rgb/rgba
@@ -50,35 +56,36 @@ function neutralizeUnsupportedColors(doc: Document, clonedEl: HTMLElement): void
     return formatPixelColor(d[0]!, d[1]!, d[2]!, d[3]!);
   };
 
-  // Pass 1: Fix CSS custom properties (--color-*) on the cloned :root.
+  // Pass 1: Fix CSS custom properties (--color-*) on the cloned :root — every read, then every write.
   const root = doc.documentElement;
   const rootStyles = getComputedStyle(root);
+  const rootFixes: [prop: string, val: string][] = [];
   for (let i = 0; i < rootStyles.length; i++) {
     const prop = rootStyles[i]!;
     if (prop.startsWith("--")) {
       const val = rootStyles.getPropertyValue(prop);
-      if (hasUnsupportedColorFunction(val)) {
-        root.style.setProperty(prop, resolve(val.trim()));
-      }
+      if (hasUnsupportedColorFunction(val)) rootFixes.push([prop, val.trim()]);
     }
   }
+  for (const [prop, val] of rootFixes) root.style.setProperty(prop, resolve(val));
 
-  // Pass 2: Fix remaining unsupported color functions in standard properties.
-  const fix = (el: HTMLElement | SVGElement) => {
+  // Pass 2: Fix remaining unsupported color functions in standard properties — every read, then
+  // every write.
+  const fixes: [el: HTMLElement | SVGElement, prop: string, val: string][] = [];
+  const collect = (el: HTMLElement | SVGElement) => {
     const s = getComputedStyle(el);
     for (let i = 0; i < s.length; i++) {
       const prop = s[i]!;
       if (prop.startsWith("--")) continue; // already handled on :root
       const val = s.getPropertyValue(prop);
-      if (hasUnsupportedColorFunction(val)) {
-        el.style.setProperty(prop, resolve(val));
-      }
+      if (hasUnsupportedColorFunction(val)) fixes.push([el, prop, val]);
     }
   };
-  fix(clonedEl);
+  collect(clonedEl);
   clonedEl.querySelectorAll("*").forEach((node) => {
-    if (node instanceof HTMLElement || node instanceof SVGElement) fix(node);
+    if (node instanceof HTMLElement || node instanceof SVGElement) collect(node);
   });
+  for (const [el, prop, val] of fixes) el.style.setProperty(prop, resolve(val));
 }
 
 /** Options for {@link copyChartAsPng}. */
@@ -107,6 +114,16 @@ export interface CopyChartOptions {
    * Opt-in, like `captureFullWidth`: every other copy site keeps exactly the capture it had.
    */
   captureLight?: () => () => void;
+  /**
+   * Let html2canvas copy the whole page, not only the element and its ancestors (WI-143).
+   *
+   * For an element whose width is set by something beside it. The scenario comparison's
+   * distribution chart is the one: it fills an inline-block box whose width comes from the
+   * comparison table above it, and a copy that left the table out drew the chart 279 px wide
+   * instead of 423 — the one copy site whose picture changed. Opt-in: every other site copies only
+   * its element and its ancestors, which is several times faster.
+   */
+  copyWholePage?: boolean;
 }
 
 /**
@@ -157,6 +174,23 @@ export function setProportionalNumerals(el: HTMLElement): void {
 }
 
 /**
+ * Is `el` a part of the page that html2canvas's copy of `chart` can leave out (WI-143)?
+ *
+ * html2canvas copies the WHOLE page before it draws one element of it — every element, and every
+ * computed property of every SVG element — inside its call, so nothing paints meanwhile. On the
+ * sample project that was ~9,000 elements and about a second, and the colour fix then restyled all
+ * of them. It asks `ignoreElements` about each element it is about to copy, and skips an ignored
+ * element with everything inside it. So everything in <body> is skipped except the chart, what is
+ * inside it, and its ancestors, which give it the width and the styles it has on the page. <head>
+ * is kept: it holds the stylesheets. The picture is the same, because html2canvas draws only the
+ * chart's own elements — measured pixel for pixel at every copy site but one, whose width comes
+ * from beside it and which therefore copies the whole page (`copyWholePage`).
+ */
+function liesOutsideChart(el: Element, chart: Element): boolean {
+  return chart.ownerDocument.body.contains(el) && !el.contains(chart) && !chart.contains(el);
+}
+
+/**
  * Start html2canvas on `element` and return its promise, NOT yet awaited.
  *
  * ⚠️ With `captureLight`, the restore runs in `finally`, before anything awaits the promise: the
@@ -165,15 +199,23 @@ export function setProportionalNumerals(el: HTMLElement): void {
  */
 function startRender(
   element: HTMLElement,
-  { captureFullWidth = false, captureLight }: CopyChartOptions,
+  { captureFullWidth = false, captureLight, copyWholePage = false }: CopyChartOptions,
 ): Promise<HTMLCanvasElement> {
+  // The page's height, read from the page itself: the copy holds only the chart and its ancestors.
+  const pageHeight = element.ownerDocument.documentElement.scrollHeight;
   const options: Parameters<typeof html2canvas>[1] = {
     backgroundColor: "#ffffff",
     scale: 2, // Higher resolution
-    ignoreElements: (el) => el.classList.contains("copy-image-button") || el.hasAttribute("data-capture-skip"),
+    ignoreElements: (el) =>
+      el.classList.contains("copy-image-button") ||
+      el.hasAttribute("data-capture-skip") ||
+      (!copyWholePage && liesOutsideChart(el, element)),
     onclone: (doc, clonedEl) => {
       // First, so that nothing below computes or pins a colour under the dark theme (WI-26).
       if (captureLight) doc.documentElement.classList.remove("dark");
+      // The copy keeps the page's height, so it scrolls as the page does and shows the same
+      // scrollbar, though most of the page was left out of it (WI-143).
+      if (!copyWholePage) doc.body.style.minHeight = `${pageHeight}px`;
       if (captureFullWidth) expandToFullWidth(clonedEl);
       setProportionalNumerals(clonedEl);
       neutralizeUnsupportedColors(doc, clonedEl);
@@ -222,6 +264,8 @@ function settleTransitions(el: HTMLElement): void {
  * and any element carrying the attribute `data-capture-skip` — a control that belongs on the
  * screen and not in the picture, such as the comparison table's Run row. html2canvas sizes the
  * canvas from its clone, which never holds a left-out element, so the picture closes up around it.
+ * html2canvas's copy of the page also leaves out everything that is neither the element, inside it,
+ * nor one of its ancestors — never part of the picture, only of the work (WI-143, `liesOutsideChart`).
  * @param element The element to capture
  * @param options See {@link CopyChartOptions}
  */
