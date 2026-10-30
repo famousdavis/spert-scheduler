@@ -487,8 +487,9 @@ export interface TickSuppressionParams {
   leftMargin: number;
   /**
    * Everything in or near the tick lane that is NOT a tick — the finish label, the
-   * today pair, the target label, each milestone diamond — each with the half-width
-   * of whatever it actually draws. Before v0.67.14 this was three separate fields
+   * today pair, the target label — each with the half-width of whatever it actually
+   * draws. A milestone is not one since WI-107 (v0.79.34): its diamond sits below the
+   * tick labels' baseline, so it no longer shares the lane. Before v0.67.14 this was three separate fields
    * tested against one hardcoded 40px, which encoded NEITHER label's width: a
    * `MM/DD/YYYY` date needs ~50px against a three-letter month, and the finish label
    * ~65px. Both overlapped in the shipped chart.

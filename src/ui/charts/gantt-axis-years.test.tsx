@@ -476,17 +476,15 @@ const CONDITIONS: Condition[] = [
 /**
  * ⚠️ PINNED BOTH WAYS. Before the first run the finish label reads the UNBUFFERED end date, and
  * the chart still runs on to the Go-Live milestone; for starts from late August to late October
- * that milestone is the only thing in the next year, and no tick there has room for a label.
+ * that milestone is the only thing in the next year.
+ *
+ * ⚠️ THE RECORDED LIMIT NARROWED IN WI-107 (v0.79.34). The milestone's diamond was a tick obstacle,
+ * and it held off every tick of that year: the year was named nowhere at 7 / 10 / 7 / 18 / 10 / 5 / 5
+ * starts in the seven conditions, in order. With the diamond lowered clear of the labels and no
+ * longer an obstacle, six of the seven name that year on a tick; only 853 with Fit on still misses
+ * it, at the same 18 starts.
  */
-const UNSIMULATED_END_YEAR_ONLY_A_MILESTONE_REACHES: Record<string, number> = {
-  "interactive 1280 (container 1180), fit OFF": 7,
-  "interactive 1280 (container 1180), fit ON": 10,
-  "interactive 853 (container 769), fit OFF": 7,
-  "interactive 853 (container 769), fit ON": 18,
-  "interactive 1280, fit ON, today inside the span": 10,
-  print: 5,
-  "print, today inside the span": 5,
-};
+const END_YEAR_STILL_HELD_OFF = "interactive 853 (container 769), fit ON";
 
 const NARROW: Condition = {
   name: "interactive, container 640, fit ON, today inside the span",
@@ -550,13 +548,25 @@ describe("gantt axis years — after a simulation run, every Monday start in 202
 });
 
 describe("gantt axis years — before the first simulation run, every Monday start", () => {
-  for (const c of CONDITIONS) {
-    it(`${c.name} — names every year but an end year only a milestone reaches`, () => {
+  for (const c of CONDITIONS.filter((x) => x.name !== END_YEAR_STILL_HELD_OFF)) {
+    it(`${c.name} — names every year it spans, an end year only a milestone reaches included`, () => {
       const { counts, unexplained } = sweep(c, unsimulatedAt);
-      expect(unexplained, "years named nowhere, of no recorded kind").toEqual([]);
-      expect(counts).toEqual({ "end year only a milestone reaches": UNSIMULATED_END_YEAR_ONLY_A_MILESTONE_REACHES[c.name] });
+      expect(unexplained, "years named nowhere").toEqual([]);
+      expect(counts, "no miss of any kind is expected here").toEqual({});
     }, SWEEP_TIMEOUT_MS);
   }
+
+  it(`${END_YEAR_STILL_HELD_OFF} — names every year but an end year only a milestone reaches`, () => {
+    // What still holds that year off here is the FINISH label, not the milestone. On the 469px
+    // timeline the label, clamped inside the right edge, sits so close to the end year's ticks
+    // that none has room for a year label beside it. Measured 2026-10-30 at all 18 starts: the
+    // year's first tick lies 1.9-59.8px from the label's centre, where a year label needs
+    // 61.5-64.9px (the finish label's half-width, 37.6-41.0px, plus `Jan 'YY`'s 23.9px).
+    const c = CONDITIONS.find((x) => x.name === END_YEAR_STILL_HELD_OFF)!;
+    const { counts, unexplained } = sweep(c, unsimulatedAt);
+    expect(unexplained, "years named nowhere, of no recorded kind").toEqual([]);
+    expect(counts).toEqual({ "end year only a milestone reaches": 18 });
+  }, SWEEP_TIMEOUT_MS);
 });
 
 describe("gantt axis years — a narrow chart, today inside the span, every Monday start", () => {
@@ -568,12 +578,14 @@ describe("gantt axis years — a narrow chart, today inside the span, every Mond
     expect(counts).toEqual({ "year before today's": 14 });
   }, SWEEP_TIMEOUT_MS);
 
-  it(`${NARROWEST.name} — and, with no room for a year label, a middle year`, () => {
-    // A 240 px timeline: every tick of the middle year sits too close to a milestone diamond, the
-    // today line or the finish label for a year label, though a plain month still fits between them.
+  it(`${NARROWEST.name} — names every year but the one before today's, under the today line`, () => {
+    // A 240 px timeline. Until WI-107 (v0.79.34) it also left a middle year with no tick that had
+    // room for a year label, at 28 starts: every one sat too close to a milestone diamond, the
+    // today line or the finish label. With the diamond no longer an obstacle, every middle year
+    // is named, and the only miss left is the 640 px chart's: the year before today's.
     const { counts, unexplained } = sweep(NARROWEST, simulatedAt);
     expect(unexplained, "years named nowhere, of no recorded kind").toEqual([]);
-    expect(counts).toEqual({ "year before today's": 14, "middle year with no room": 28 });
+    expect(counts).toEqual({ "year before today's": 14 });
   }, SWEEP_TIMEOUT_MS);
 });
 
@@ -628,25 +640,25 @@ function axisText(start: string, today: string, c: Condition): string[] {
 describe("gantt axis years — named charts, full renders", () => {
   it("print, start 2026-10-05, today the day before: 2027 is named on a tick", () => {
     expect(axisText("2026-10-05", "2026-10-04", PRINT)).toEqual(
-      ["Nov '26", "Feb '27", "Jun", "Sep", "Jan '28", "Mar 2, 2028"],
+      ["Nov '26", "Feb '27", "May", "Aug", "Jan '28", "Mar 2, 2028"],
     );
   });
 
   it("853 fit ON, start 2026-11-02, today the day before: 2027 is named on a tick", () => {
     expect(axisText("2026-11-02", "2026-11-01", NARROW_FIT)).toEqual(
-      ["Dec '26", "Feb '27", "Apr", "Jul", "Oct", "Dec", "Mar 29, 2028"],
+      ["Dec '26", "Feb '27", "Apr", "Jun", "Aug", "Oct", "Jan '28", "Mar 29, 2028"],
     );
   });
 
   it("1280 fit ON, start 2026-09-07, today 2026-10-05: 2026 settles on December, not on the tick beside today", () => {
     expect(axisText("2026-09-07", "2026-10-05", WIDE_FIT)).toEqual(
-      ["Nov", "Dec '26", "Jan '27", "Feb", "Mar", "May", "Jun", "Aug", "Sep", "Oct", "Dec", "Feb 3, 2028"],
+      ["Nov", "Dec '26", "Jan '27", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Feb 3, 2028"],
     );
   });
 
   it("print, start 2026-08-17, today 2026-09-14: 2026 is named on a tick the today line leaves clear", () => {
     expect(axisText("2026-08-17", "2026-09-14", PRINT)).toEqual(
-      ["Nov '26", "Feb '27", "May", "Aug", "Dec", "Jan 12, 2028"],
+      ["Nov '26", "Feb '27", "May", "Aug", "Nov", "Jan 12, 2028"],
     );
   });
 
@@ -658,7 +670,7 @@ describe("gantt axis years — named charts, full renders", () => {
 
   it("1280 fit ON, start 2026-12-07, today the day before: the first tick is the start, Dec '26", () => {
     expect(axisText("2026-12-07", "2026-12-06", WIDE_FIT)).toEqual(
-      ["Dec '26", "Feb '27", "Mar", "Apr", "May", "Jun", "Aug", "Sep", "Nov", "Dec", "Jan '28", "Mar", "Apr 28, 2028"],
+      ["Dec '26", "Feb '27", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan '28", "Feb", "Mar", "Apr 28, 2028"],
     );
   });
 

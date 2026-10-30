@@ -141,9 +141,19 @@ export const TARGET_LABEL_MIN_BASELINE = 12;
  * with 4.5px of headroom rather than overlapping each other and the ticks.
  */
 export const MILESTONE_HEADER_PX = 26;
-/** Half-diagonal of the milestone diamond, and the only part of a milestone that still
- *  reaches the tick band (by 2.8px) now that its date label has its own lane. */
+/** Half-diagonal of the milestone diamond. Since WI-107 (v0.79.34) no part of a milestone
+ *  reaches the tick band: its date label has its own lane and the diamond sits
+ *  `MILESTONE_DIAMOND_DROP_PX` lower, so a milestone is no longer a tick obstacle. */
 export const MILESTONE_DIAMOND_SIZE = 6;
+/**
+ * How far the diamond's centre sits below where it used to (`topMargin − 2`), WI-107
+ * (v0.79.34). It was centred at `topMargin − 2`, so its top point lay exactly ON the tick
+ * labels' baseline (`topMargin − 8`) and a 12px label's box, which reaches 2.5px below its
+ * baseline in Chrome, overlapped the tip — and the milestone, an obstacle to the ticks,
+ * kept the month beside it off the axis. 3 = that 2.5px descent plus 0.5: the diamond's
+ * top now sits 3px below the baseline, clear of every label, and the obstacle is gone.
+ */
+export const MILESTONE_DIAMOND_DROP_PX = 3;
 /**
  * Vertical step between the two milestone NAME rows when names would collide.
  *
@@ -211,9 +221,20 @@ export const PRINT_TARGET_LABEL_DY = 14;
  *  today-in-span print case. 12 buys 4.0px, and 2.8px at the largest scale. */
 export const PRINT_TODAY_LABEL_DY = 12;
 export const PRINT_TODAY_DATE_DY = 3;
-/** Half-diagonal of the print milestone diamond — the only part of a print milestone
- *  that reaches the tick band. */
+/** Half-diagonal of the print milestone diamond. Since WI-107 (v0.79.34) it sits
+ *  `PRINT_DIAMOND_DROP_PER_FONT_PX × fs5` lower, clear of the tick band, so a print
+ *  milestone is no longer a tick obstacle. */
 export const PRINT_DIAMOND_SIZE = 4;
+/**
+ * How far the print diamond's centre sits below `topMargin`, per pixel of the print tick
+ * font (`fs5`), WI-107 (v0.79.34). Centred at `topMargin`, its top point lay ON the tick
+ * labels' baseline (`topMargin − 4`), and a 5px label's box reaches 1.0px below it. 0.3 ×
+ * fs5 is 1.5px at fs5 = 5 (that descent plus 0.5) and scales with the font — 1.8px at 6,
+ * 2.1px at 7 — so the clearance holds at every activity font size, not only the default.
+ * The milestone's dashed line starts at `topMargin`, as on screen, so it begins under the
+ * diamond at every size: from `topMargin − 2` it showed 0.1px above the tip at fs5 = 7.
+ */
+export const PRINT_DIAMOND_DROP_PER_FONT_PX = 0.3;
 /** Print equivalent of MILESTONE_ROW_STEP — one milestone-name row at print scale. */
 export const PRINT_MILESTONE_ROW_STEP = 10;
 /** Print equivalent of LABEL_GAP_PX, at print's 4–6px type. */

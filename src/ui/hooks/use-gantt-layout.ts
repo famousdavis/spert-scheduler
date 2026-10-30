@@ -11,7 +11,7 @@ import {
   MIN_CHART_WIDTH, MIN_TICK_SPACING_PX, TICK_LABEL_PITCH_PX, PROJECT_NAME_HEIGHT,
   TICK_LABEL_FONT_PX, FINISH_LABEL_FONT_PX, TODAY_LABEL_FONT_PX, TODAY_DATE_FONT_PX,
   TARGET_LABEL_FONT_PX, MILESTONE_NAME_FONT_PX, MILESTONE_DATE_FONT_PX,
-  MILESTONE_HEADER_PX, MILESTONE_ROW_STEP, MILESTONE_DIAMOND_SIZE,
+  MILESTONE_HEADER_PX, MILESTONE_ROW_STEP,
   LABEL_GAP_PX, DATE_LABEL_SPECIMEN, TARGET_LABEL_TEXT, TODAY_LABEL_TEXT, FINISH_LABEL_EDGE_PX,
 } from "@ui/charts/gantt-constants";
 import {
@@ -264,11 +264,11 @@ export function useGanttLayout({
    * Everything a tick label has to share the header band with, each carrying the
    * half-width of what it actually draws.
    *
-   * ⚠️ THE MILESTONE OBSTACLE IS THE DIAMOND, NOT THE DATE LABEL, and that is the
-   * whole point of the lane change. The date used to sit 3px above the tick baseline,
-   * inside the tick band, so a tick had to clear the date's ~28px half-width; it now
-   * sits in its own lane and only the 6px diamond still reaches the tick band. That is
-   * why raising this from a blanket 40px did NOT cost the chart its tick labels.
+   * ⚠️ A MILESTONE IS NOT AN OBSTACLE (WI-107, v0.79.34). Its date label has its own
+   * lane, above the tick band, and its diamond now sits `MILESTONE_DIAMOND_DROP_PX`
+   * lower, its top 3px below the tick labels' baseline. The diamond's tip used to sit ON
+   * that baseline, so it was an obstacle, and the month beside a milestone was left off
+   * the axis for a 2.5px overlap; nothing of a milestone shares the band any more.
    *
    * ⚠️ The target label stays an obstacle even though its band clears the tick band —
    * by 3.0px, which is a margin and not a proof. Its recorded rationale (that it stops
@@ -292,9 +292,8 @@ export function useGanttLayout({
     if (targetX != null) {
       out.push({ x: targetX, halfWidth: labelHalfWidth(TARGET_LABEL_TEXT, TARGET_LABEL_FONT_PX) });
     }
-    for (const mx of milestoneXPositions) out.push({ x: mx, halfWidth: MILESTONE_DIAMOND_SIZE });
     return out;
-  }, [finishLabelX, finishHalfWidth, showToday, todayX, targetX, milestoneXPositions]);
+  }, [finishLabelX, finishHalfWidth, showToday, todayX, targetX]);
 
   const ticks = useMemo(() =>
     suppressTicksNamingEveryYear(allTicks, {

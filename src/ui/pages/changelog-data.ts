@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.34",
+    date: "2026-10-30",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "A milestone no longer keeps a label off the Gantt chart’s time axis. Its diamond reached into the row of month labels, so a month beside it was left out — on screen, in the copied image and in print. The diamond now sits a little lower, clear of the labels. Where the axis is crowded, a different set of months may now fit.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin both sides of the rule on rendered charts — on screen at 1280 with Fit to window off and at 853 with it on, and in print: the month beside a milestone (Apr, two days before it) is drawn, and Aug, four days before the finish, is still left out under the finish label — and the geometry as literals: the diamond’s top 3 px below the tick labels’ baseline on screen, and 1.5 / 1.5 / 1.8 / 2.1 px below it in print at Small / Normal / Large / XL. Print’s dashed line now starts at the chart’s top edge, as on screen, 2.5 / 2.5 / 2.2 / 1.9 px below the diamond’s top; from 2 px higher, its first dash would have shown 0.1 px above the lowered tip at XL. The recorded limit “end year only a milestone reaches” narrowed: before a simulation run that year was named nowhere at 7 / 10 / 7 / 18 / 10 / 5 / 5 starts (1280 Fit off, 1280 Fit on, 853 Fit off, 853 Fit on, 1280 with today inside the span, print, print with today inside the span) and is now at 0 / 0 / 0 / 18 / 0 / 0 / 0 — at 853 with Fit on the finish label still holds it off. The 240-px sweep’s “middle year with no room” fell from 28 to 0. Five named charts draw a different set of months: print, an October start, Jun and Sep → May and Aug; 853, a November start, Jul and Dec → Jun, Aug and Jan ’28; 1280, a September start, Apr, Jul and Nov added; print, an August start, Dec → Nov; 1280, a December start, Jul, Oct and Feb added. The parity oracle changed in three ways only: each diamond 3 px lower on screen and 1.5 px lower in print, its x unchanged; each print milestone line starting 2 px lower; and the crowded charts drawing three labels the obstacle had held off (Apr 20 on screen, Apr 13 and Apr 20 in print). The long-span chart is unchanged. A falsify spec of seven straws, each run alone against the whole suite first: the screen obstacle restored fails 11 tests, the print obstacle 6, the screen diamond back on the baseline or lowered only 2 px 3 each, the print diamond back on the baseline 10, lowered a fixed 1.5 px 4 (Large and XL), print’s line back 2 px higher 6. The axis-years spec was re-measured: its print-diamond straw points at the new line and fails 10 (was 2); plain suppression fails 30 (was 29, the 240-px sweep added); the finish-label clamp straw fails 10, not the 5 it named — stale since v0.79.5 reused the clamp for milestone names. On screen the diamond now reaches 2 px into a first-row bar that spans a milestone date, and in print 2.5 px (was 1); none does in the sample.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.33",
     date: "2026-10-29",
     sections: [
