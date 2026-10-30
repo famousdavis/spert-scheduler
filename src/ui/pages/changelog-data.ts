@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.35",
+    date: "2026-10-30",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The P6 & MS Project Import Guide on the About page has a new edition. It now says that a milestone takes one working day in Scheduler, and that zero-length milestones are on the roadmap. It also covers which rows to leave out before you estimate, how other calendars and lags convert, sorting rows so the Gantt’s links point down, a stronger conversion check, and handing the conversion to an AI assistant.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "The PDF is replaced in the repository root and in public/, byte-identical; every app label and import message it quotes was checked against the source at 0.79.34.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.34",
     date: "2026-10-30",
     sections: [
