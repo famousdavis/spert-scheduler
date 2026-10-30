@@ -3,7 +3,17 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, cleanup, screen, fireEvent, within } from "@testing-library/react";
+import { render, cleanup, screen, fireEvent, within, waitFor } from "@testing-library/react";
+
+// The copy buttons decide at MODULE LOAD whether this browser can copy images, so the clipboard
+// exists before they load; html2canvas cannot run under jsdom, and its mock records what each
+// copy hands it (WI-143's block at the end of this file).
+const { html2canvasMock } = vi.hoisted(() => {
+  vi.stubGlobal("ClipboardItem", class { constructor(readonly items: Record<string, Blob>) {} });
+  Object.defineProperty(navigator, "clipboard", { value: { write: vi.fn() }, configurable: true });
+  return { html2canvasMock: vi.fn() };
+});
+vi.mock("html2canvas", () => ({ default: html2canvasMock }));
 
 import { ScenarioComparisonTable } from "./ScenarioComparison";
 import { createScenario, createActivity } from "@app/api/project-service";
@@ -627,14 +637,23 @@ describe("the Run row: a Run under each compared scenario that can run and draws
     expect(screen.getByRole("columnheader", { name: "Clone" })).toBeDefined();
   });
 
+  /** The Run row's status line. Since WI-143 each copy button has a status of its own beside it. */
+  const runStatusLine = () => {
+    const lines = screen
+      .getAllByRole("status")
+      .filter((line) => !line.previousElementSibling?.classList.contains("copy-image-button"));
+    expect(lines).toHaveLength(1);
+    return lines[0]!;
+  };
+
   it("the status line: always mounted, outside the captured region, carrying runStatus", () => {
     render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} onRunScenario={noop} runStatus="Simulation finished for Clone." />);
-    const status = screen.getByRole("status");
+    const status = runStatusLine();
     expect(status.textContent).toBe("Simulation finished for Clone.");
     expect(document.querySelector("table")!.parentElement!.contains(status)).toBe(false);
     cleanup();
     render(<ScenarioComparisonTable scenarios={[RUN, UNRUN]} />);
-    expect(screen.getByRole("status").textContent).toBe("");
+    expect(runStatusLine().textContent).toBe("");
   });
 });
 
@@ -649,5 +668,32 @@ describe("ScenarioComparisonTable — each scenario's Finish Target date (WI-132
     // The default date format (MM/DD/YYYY), written out — not computed by the app's formatter.
     expect(textsOf("Finish Target")).toEqual(["07/31/2026", "09/04/2026", BLANK]);
     expect(highlightsOf("Finish Target")).toEqual([false, false, false]);
+  });
+});
+
+/**
+ * WI-143: a copy has html2canvas copy only its chart and the chart's ancestors — except the
+ * distribution chart here, which fills the inline-block box whose width the table above it sets.
+ * A copy without the table drew the chart 279 px wide instead of 423 (measured in the browser), so
+ * that one copy keeps the whole page; the table's own copy does not need the chart.
+ */
+describe("WI-143 — the comparison's two copies", () => {
+  it("the distribution chart's copy keeps the table that sets its width; the table's copy leaves the chart out", async () => {
+    html2canvasMock.mockReset();
+    html2canvasMock.mockResolvedValue({
+      toBlob: (done: BlobCallback) => done(new Blob(["png"], { type: "image/png" })),
+    });
+    render(<ScenarioComparisonTable scenarios={[RUN, withResults(scenarioLasting("Alternative", 110), 150, 210)]} />);
+    const table = document.querySelector("table")!;
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy distribution comparison as image" }));
+    await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(1));
+    const [chart, chartCopy] = html2canvasMock.mock.calls[0]!;
+    expect(chartCopy.ignoreElements(table)).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy comparison table as image" }));
+    await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(2));
+    const [, tableCopy] = html2canvasMock.mock.calls[1]!;
+    expect(tableCopy.ignoreElements(chart)).toBe(true);
   });
 });

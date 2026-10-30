@@ -110,8 +110,8 @@ export const mutations = [
   {
     id: "L10 CopyImageButton drops the option  [expect 4: T1, T2, T4, T6]",
     file: BUTTON,
-    find: "await copyChartAsPng(targetRef.current, { captureFullWidth, captureLight });",
-    replace: "await copyChartAsPng(targetRef.current, { captureFullWidth });",
+    find: "await copyChartAsPng(target, { captureFullWidth, captureLight, copyWholePage });",
+    replace: "await copyChartAsPng(target, { captureFullWidth, copyWholePage });",
     expectFailing: only(T1, T2, T4, T6),
   },
   {

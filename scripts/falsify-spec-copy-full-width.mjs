@@ -47,8 +47,8 @@ export const mutations = [
   {
     id: "S2  CopyImageButton drops the option  [expect 1: G1]",
     file: BUTTON,
-    find: "await copyChartAsPng(targetRef.current, { captureFullWidth, captureLight });",
-    replace: "await copyChartAsPng(targetRef.current, { captureLight });",
+    find: "await copyChartAsPng(target, { captureFullWidth, captureLight, copyWholePage });",
+    replace: "await copyChartAsPng(target, { captureLight, copyWholePage });",
     expectFailing: only(G1),
   },
   {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.79.36 — 2026-10-30
+
+### Fixed
+
+- **Copying a chart now shows its spinner at once and finishes much faster.** The copy button showed nothing for about a second, then the spinner, then took a few more seconds, and the bigger the project, the longer it took. A screen reader now hears that the image is being copied and that it was copied, and keyboard focus stays on the button.
+
+### Internal
+
+- The copy made html2canvas clone the whole page inside the click, so nothing could paint; then the colour fix wrote 67 colour variables into that clone one at a time, each restyling all of it. Now the busy state paints first (the next frame, or 100 ms), the colour fix reads every value before it writes one, and html2canvas clones only the chart and its ancestors — except the scenario comparison’s distribution chart, whose width comes from the table above it. On the sample project the spinner appears in 15–20 ms, where it took 1.2–1.3 s, and copies end in 0.15–0.83 s, where they took 3.3–3.8 s (the distribution chart 1.46 s). Every copied picture was compared pixel for pixel with v0.79.34’s at all six copy sites, in both themes, and matched, but for a faint variance (at most 3/255, on two gridline segments) in 3 of 29 dark-theme Gantt copies whose drawing input was byte-identical. Tests pin each part, and a falsify spec moves each of five pieces; each fails exactly the tests it names.
+
 ## 0.79.35 — 2026-10-30
 
 ### Changed

@@ -61,7 +61,7 @@ const HK_GENERATION =
 const HK_IN_FLIGHT = "a second run of an id already in flight → no second dispatch, even in the same task";
 const HK_EMPTY = "a scenario with NO activities → no dispatch (control: one with an activity → a dispatch)";
 // export-chart.capture-skip.test.ts — the copy helper.
-const CP_SKIP = "an element carrying data-capture-skip, as it leaves out a copy button; never a plain element";
+const CP_SKIP = "an element carrying data-capture-skip, as it leaves out a copy button; never a plain element of the chart";
 
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
@@ -119,8 +119,8 @@ export const mutations = [
   {
     id: "S6  data-capture-skip dropped from ignoreElements  [expect 1: CP_SKIP]",
     file: COPY,
-    find: '    ignoreElements: (el) => el.classList.contains("copy-image-button") || el.hasAttribute("data-capture-skip"),',
-    replace: '    ignoreElements: (el) => el.classList.contains("copy-image-button"),',
+    find: '      el.hasAttribute("data-capture-skip") ||',
+    replace: "",
     expectFailing: only(CP_SKIP),
   },
   {

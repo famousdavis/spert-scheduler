@@ -158,7 +158,8 @@ describe("Copy Gantt chart as image — the copy is always light (WI-26)", () =>
 
     copyGantt();
 
-    expect(html2canvasMock).toHaveBeenCalledTimes(1);
+    // Since WI-143 the copy starts once the button's busy state has painted, not in the click.
+    await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(1));
     expect(atCall).toEqual(LIGHT);
     // The call has returned, and its promise is still pending — nothing has settled it — yet
     // the page is dark again: the light chart does not outlive the synchronous call.
@@ -225,6 +226,7 @@ describe("Copy Gantt chart as image — the copy is always light (WI-26)", () =>
 
       copyGantt();
 
+      await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(1)); // after the busy state paints (WI-143)
       expect(atThrow).toEqual(LIGHT); // the chart really was light when the call threw...
       expect(paint()).toEqual(DARK); // ...and the throw did not leave it there
       await waitFor(() => expect(errorLog).toHaveBeenCalledWith("CopyImageButton: copy failed", expect.any(Error)));
@@ -288,7 +290,7 @@ describe("Copy Gantt chart as image — the copy is always light (WI-26)", () =>
 
     copyGantt();
 
-    expect(html2canvasMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(1)); // after the busy state paints (WI-143)
     expect(atCall).toBe(before);
     expect(chart.outerHTML).toBe(before);
     rendering.settle(fakeCanvas());
