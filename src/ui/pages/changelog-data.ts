@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.31",
+    date: "2026-10-29",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The × that closes the Share, Connect AI and Storage & Sign In windows is easier to see. Its light grey measured 2.6:1 against the white window, under the 3:1 a control needs; it is now a darker grey at 4.8:1, and 5.6:1 in dark mode.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "A test reads the three × buttons’ classes from the source and checks each, with colours measured in the browser, against the window behind it or its hover background, in light and dark, at rest and on hover: none may fall below 3:1, and the lowest is now the light × at rest, at 4.8:1; a button labelled Close added to another window fails it until it is checked too. A falsify spec puts each button’s old light grey back in turn, and each break fails exactly the one test it names. WI-111’s falsify spec now follows the Connect AI ×’s new classes; its straw that removes that × now fails six tests, five of them in the new test.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.30",
     date: "2026-10-29",
     sections: [
