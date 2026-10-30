@@ -406,15 +406,70 @@ describe("The distribution sparkline: its two dashed lines", () => {
     expect(duration!.getAttribute("class")).toBe("stroke-green-700 dark:stroke-green-400");
     expect(duration!.getAttribute("opacity")).toBeNull();
     cleanup();
-    // Where the two coincide, the green is drawn over the blue (owner ruling, 2026-10-10): the duration line is the
-    // card's LAST <line>. T-Normal 10 / 20 / 30 at P50: its median is the PERT mean, (10 + 80 + 30) ÷ 6 = 20, so the
-    // Duration is ⌈20⌉ = 20 — Most Likely — and both lines sit at x = 2 + 76 × 10 ÷ 20 = 40.
+    // Where the two coincide, both show: one line whose dashes alternate blue and green, the green's offset by 2 into
+    // the blue's gaps, so the order they are drawn in no longer matters (owner ruling, 2026-10-29: it replaces
+    // 2026-10-10's "the green is drawn over the blue"). T-Normal 10 / 20 / 30 at P50: its median is the PERT mean,
+    // (10 + 80 + 30) ÷ 6 = 20, so the Duration is ⌈20⌉ = 20 — Most Likely — and both lines sit at x = 2 + 76 × 10 ÷ 20 = 40.
     const both = renderRow(activity(10, 20, 30, "normal"), 0.5, true);
     expect(both.durationText).toBe("20d");
-    const lines = [...both.distribution.querySelectorAll("svg line")];
-    expect(lines.map((l) => [l.getAttribute("data-mark"), Number(l.getAttribute("x1"))])).toEqual([
-      ["most-likely", 40],
-      ["duration", 40],
-    ]);
+    expect(both.distribution.querySelectorAll("svg line")).toHaveLength(2);
+    expect(dashedLine(both.distribution, "most-likely")).toEqual({ x1: 40, x2: 40, dashes: "2 2", offset: null });
+    expect(dashedLine(both.distribution, "duration")).toEqual({ x1: 40, x2: 40, dashes: "2 2", offset: "2" });
+  });
+
+  it("where they meet, within 1 px, are one line of alternating blue and green dashes at their midpoint; apart, or with no green line, each is as before", () => {
+    // Each row's Duration and x positions are worked out from Triangular's closed form, x = 2 + 76 (v − Min) ÷ (Max − Min).
+    // Today's dashes: the blue "2 1", the green "3 1", neither offset.
+    const blue = (x: number): DrawnLine => ({ x1: x, x2: x, dashes: "2 1", offset: null });
+    const green = (x: number): DrawnLine => ({ x1: x, x2: x, dashes: "3 1", offset: null });
+    const cases: Array<[string, Activity, number, string, DrawnLine, DrawnLine | null]> = [
+      // 8 / 12 / 18 at P30: F(12) = 0.4, so 8 + √(0.3 × 10 × 4) = 11.464, ⌈⌉ = 12 — Most Likely: both at 32.4.
+      ["meet, at one x", activity(8, 12, 18, "triangular"), 0.3, "12d",
+        { x1: 32.4, x2: 32.4, dashes: "2 2", offset: null }, { x1: 32.4, x2: 32.4, dashes: "2 2", offset: "2" }],
+      // 10 / 60 / 110 at P51: 110 − √(0.49 × 100 × 50) = 60.503, ⌈⌉ = 61; the blue at 40, the green at 40.76 —
+      // 0.76 px apart, so both are drawn at the midpoint, 40.38.
+      ["meet, 0.76 px apart", activity(10, 60, 110, "triangular"), 0.51, "61d",
+        { x1: 40.38, x2: 40.38, dashes: "2 2", offset: null }, { x1: 40.38, x2: 40.38, dashes: "2 2", offset: "2" }],
+      // 10 / 50 / 85 at P55: 85 − √(0.45 × 75 × 35) = 50.631, ⌈⌉ = 51; the blue at 42.533, the green at 43.547 —
+      // 1.013 px apart, so each keeps its own x and dashes.
+      ["apart, by 1.013 px", activity(10, 50, 85, "triangular"), 0.55, "51d", blue(42.533), green(43.547)],
+      // 8 / 10 / 18 at P30: F(10) = 0.2, so 18 − √(0.7 × 10 × 8) = 10.517, ⌈⌉ = 11; the blue at 17.2, the green at 24.8.
+      ["apart, by 7.6 px", activity(8, 10, 18, "triangular"), 0.3, "11d", blue(17.2), green(24.8)],
+      // The meeting row in progress: no green line, so the blue is as before, at 32.4.
+      ["no green line", activity(8, 12, 18, "triangular", "mediumConfidence", { status: "inProgress" }), 0.3, "12d",
+        blue(32.4), null],
+    ];
+    for (const [label, a, target, shown, mostLikely, duration] of cases) {
+      const row = renderRow(a, target, true);
+      expect(row.durationText, label).toBe(shown);
+      expect(roundedLine(dashedLine(row.distribution, "most-likely")), label).toEqual(mostLikely);
+      expect(roundedLine(dashedLine(row.distribution, "duration")), label).toEqual(duration);
+      cleanup();
+    }
   });
 });
+
+/** A dashed line as drawn: its two x positions, its dash pattern and its offset. */
+interface DrawnLine {
+  x1: number;
+  x2: number;
+  dashes: string | null;
+  offset: string | null;
+}
+
+/** A dashed line of the card in `cell`, as drawn; `null` if absent. */
+function dashedLine(cell: Element, mark: "duration" | "most-likely"): DrawnLine | null {
+  const line = cell.querySelector(`svg line[data-mark="${mark}"]`);
+  if (!line) return null;
+  return {
+    x1: Number(line.getAttribute("x1")),
+    x2: Number(line.getAttribute("x2")),
+    dashes: line.getAttribute("stroke-dasharray"),
+    offset: line.getAttribute("stroke-dashoffset"),
+  };
+}
+
+/** The line with its x positions rounded to 3 decimals, so a worked-out literal can be compared exactly. */
+function roundedLine(line: DrawnLine | null): DrawnLine | null {
+  return line && { ...line, x1: Math.round(line.x1 * 1000) / 1000, x2: Math.round(line.x2 * 1000) / 1000 };
+}

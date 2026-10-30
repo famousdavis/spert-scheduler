@@ -59,7 +59,8 @@ const HEIGHT = 30;
  * distribution shows why that number moved (owner ruling, 2026-10-10). Not on an in-progress or a
  * complete row, whatever its days worked or actual duration (owner ruling, 2026-10-10): the chart is
  * the estimate as planned, while the simulation conditions a row in progress on the days it has
- * already worked and uses a complete row's actual duration — where those are entered.
+ * already worked and uses a complete row's actual duration — where those are entered. Where the two
+ * lines meet, they are drawn as one line whose dashes alternate blue and green (`dashedLines`).
  */
 export function DistributionSparkline({ activity, scheduledActivity, anchor = "centre" }: DistributionSparklineProps) {
   const curve = useMemo(() => sparklineCurve(activity, WIDTH, HEIGHT), [activity]);
@@ -77,7 +78,40 @@ export function DistributionSparkline({ activity, scheduledActivity, anchor = "c
   );
 }
 
+/** How close, in px, the two dashed lines' x positions must be for the lines to meet. */
+const MEET_PX = 1;
+
+/** One dashed line as drawn: its x, its dash pattern, and the offset of that pattern, if any. */
+interface DashedLine {
+  x: number;
+  dashes: string;
+  offset?: string;
+}
+
+/**
+ * The two dashed lines as drawn. Apart, or with no green line, each keeps its own x and dashes: the blue
+ * Most Likely line "2 1", the green duration line "3 1". Where they MEET — their x positions within 1 px
+ * of each other — both are drawn at one x, the midpoint of the two, with dashes "2 2", the green's
+ * pattern offset by 2 so its dashes fall in the blue's gaps: one straight line whose dashes alternate
+ * blue and green (owner ruling, 2026-10-29). Drawn with their own dashes, the green covered the blue and
+ * only the green showed; one line where two are expected says the two values coincide, even where the
+ * colours cannot be told apart, and one x keeps it straight where two sub-pixel apart looked jagged.
+ */
+function dashedLines(
+  mostLikelyX: number | null,
+  durationX: number | null
+): { mostLikely: DashedLine | null; duration: DashedLine | null } {
+  const mostLikely = mostLikelyX === null ? null : { x: mostLikelyX, dashes: "2 1" };
+  const duration = durationX === null ? null : { x: durationX, dashes: "3 1" };
+  if (mostLikelyX === null || durationX === null || Math.abs(mostLikelyX - durationX) > MEET_PX) {
+    return { mostLikely, duration };
+  }
+  const x = (mostLikelyX + durationX) / 2;
+  return { mostLikely: { x, dashes: "2 2" }, duration: { x, dashes: "2 2", offset: "2" } };
+}
+
 function SparklineSvg({ curve, durationX }: { curve: SparklineCurve; durationX: number | null }) {
+  const { mostLikely, duration } = dashedLines(curve.mostLikelyX, durationX);
   return (
     <svg
       width={WIDTH}
@@ -99,29 +133,32 @@ function SparklineSvg({ curve, durationX }: { curve: SparklineCurve; durationX: 
       {/* Most Likely (blue dashes), where the curve depends on it. OPAQUE (owner ruling, 2026-10-10): at
           the 0.6 opacity it had, it read under 3:1 against the card and the fill in light mode; opaque,
           these two colours clear 3:1 on both, in both themes. */}
-      {curve.mostLikelyX !== null && (
+      {mostLikely && (
         <line
           data-mark="most-likely"
-          x1={curve.mostLikelyX}
+          x1={mostLikely.x}
           y1={HEIGHT - 2}
-          x2={curve.mostLikelyX}
+          x2={mostLikely.x}
           y2={2}
           className="stroke-blue-600 dark:stroke-blue-300"
           strokeWidth="1"
-          strokeDasharray="2 1"
+          strokeDasharray={mostLikely.dashes}
         />
       )}
-      {/* The scheduled duration (green dashes), drawn last so it is never hidden */}
-      {durationX !== null && (
+      {/* The scheduled duration (green dashes). Where it meets the Most Likely line, its dashes fall in the
+          blue's gaps, so neither hides the other and the order they are drawn in no longer matters (owner
+          ruling, 2026-10-29: it replaces 2026-10-10's "the green is drawn over the blue"). */}
+      {duration && (
         <line
           data-mark="duration"
-          x1={durationX}
+          x1={duration.x}
           y1={HEIGHT - 2}
-          x2={durationX}
+          x2={duration.x}
           y2={2}
           className="stroke-green-700 dark:stroke-green-400"
           strokeWidth="1"
-          strokeDasharray="3 1"
+          strokeDasharray={duration.dashes}
+          strokeDashoffset={duration.offset}
         />
       )}
     </svg>

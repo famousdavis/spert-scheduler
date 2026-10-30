@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.32",
+    date: "2026-10-29",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "On the small chart that appears when you hover over an activity’s Distribution, the blue and green dashed lines now both show where they meet. The blue line marks Most Likely, and on a planned activity the green one marks the scheduled duration. Where the two fell in the same place, the green was drawn over the blue and only the green showed; there the one line now alternates blue and green dashes. Lines apart are drawn as before.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "A test pins the two lines on five rows, each worked out from Triangular’s closed form: 8 / 12 / 18 at P30 (12d, both lines at x = 32.4) and 10 / 60 / 110 at P51 (61d, the lines 0.76 px apart) are drawn as one line at their midpoint, the blue and the green each in 2-px dashes with 2-px gaps, the green’s offset by 2 px; 10 / 50 / 85 at P55 (51d, 1.013 px apart) and 8 / 10 / 18 at P30 (11d, 7.6 px apart) keep their own x and dashes; and 8 / 12 / 18 in progress, with no green line, keeps its blue line as before. The test of the two lines’ colours now pins where they meet instead of the order they are drawn in. In the sparkline’s falsify spec, the straw that drew the green line first now failed no test, so it was replaced: dropping the green’s offset and removing the meet test each fail two tests, widening the meet to 2 px and drawing each line at its own x instead of the midpoint each fail one, and each fails exactly the tests it names; the Most Likely line’s opacity straw follows the line’s new code and still fails its one test, and five straws that misplace the green line, or draw it on a row in progress, now fail the new test too and name it. In the browser, the 8 / 12 / 18 card shows blue and green dashes in light and dark mode, and the 8 / 10 / 18 card is unchanged, pixel for pixel in light mode.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.31",
     date: "2026-10-29",
     sections: [
