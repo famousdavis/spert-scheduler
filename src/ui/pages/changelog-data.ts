@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.33",
+    date: "2026-10-29",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "With Dependencies on, a hard Must Start On or Must Finish On conflict now shows once in Scheduling Warnings. It was counted and listed twice, so one conflict read as “2 conflicts”.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "A test pins one report where there were two: with Dependencies on, a hard Must Start On and a hard Must Finish On, each conflicting with its predecessor, are each reported once, as an error naming the activity; two controls are reported once as before — the same hard Must Start On in the schedule without Dependencies, and a hard Start No Later Than conflict with Dependencies on, which only the later check reports. The deterministic oracle loses the second, identical copy in three cases — “constraint MFO hard”, “hard MSO on successor forces an FS violation” and “hard MFO on successor forces an FF violation” — and nothing else in it changes. A falsify spec moves the new skip three ways, and each fails exactly the tests it names: removing it fails five (the Must Start On and Must Finish On rows and the oracle’s three cases), widening it to every hard constraint fails two (the Start No Later Than row and the oracle’s “constraint FNLT hard”), and narrowing it to Must Start On fails three (the Must Finish On row and the oracle’s two Must Finish On cases).",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.79.32",
     date: "2026-10-29",
     sections: [

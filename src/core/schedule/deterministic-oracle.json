@@ -850,18 +850,6 @@
         "deltaWorkingDays": 1,
         "severity": "error",
         "message": "B2: Must Finish On 2025-01-09 conflicts with predecessor logic (network-driven EF: 2025-01-10, delta: 1 working days). Constraint date held."
-      },
-      {
-        "type": "constraint-conflict",
-        "activityId": "b2",
-        "activityName": "B2",
-        "constraintType": "MFO",
-        "constraintDate": "2025-01-09",
-        "constraintMode": "hard",
-        "computedDate": "2025-01-10",
-        "deltaWorkingDays": 1,
-        "severity": "error",
-        "message": "B2: Must Finish On 2025-01-09 conflicts with predecessor logic (network-driven EF: 2025-01-10, delta: 1 working days). Constraint date held."
       }
     ],
     "dependencyConflicts": [
@@ -1421,18 +1409,6 @@
         "deltaWorkingDays": 5,
         "severity": "error",
         "message": "V2: Must Start On 2025-01-06 conflicts with predecessor logic (network-driven ES: 2025-01-13, delta: 5 working days). Constraint date held; downstream activities may be affected."
-      },
-      {
-        "type": "constraint-conflict",
-        "activityId": "v2",
-        "activityName": "V2",
-        "constraintType": "MSO",
-        "constraintDate": "2025-01-06",
-        "constraintMode": "hard",
-        "computedDate": "2025-01-13",
-        "deltaWorkingDays": 5,
-        "severity": "error",
-        "message": "V2: Must Start On 2025-01-06 conflicts with predecessor logic (network-driven ES: 2025-01-13, delta: 5 working days). Constraint date held; downstream activities may be affected."
       }
     ],
     "dependencyConflicts": [
@@ -1484,18 +1460,6 @@
     "spanDays": 5,
     "projectEndDate": "2025-01-10",
     "constraintConflicts": [
-      {
-        "type": "constraint-conflict",
-        "activityId": "v4",
-        "activityName": "V4",
-        "constraintType": "MFO",
-        "constraintDate": "2025-01-07",
-        "constraintMode": "hard",
-        "computedDate": "2025-01-10",
-        "deltaWorkingDays": 3,
-        "severity": "error",
-        "message": "V4: Must Finish On 2025-01-07 conflicts with predecessor logic (network-driven EF: 2025-01-10, delta: 3 working days). Constraint date held."
-      },
       {
         "type": "constraint-conflict",
         "activityId": "v4",

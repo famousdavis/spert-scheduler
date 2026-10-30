@@ -1746,6 +1746,58 @@ describe("C1b — post-pass constraint conflict detection", () => {
   });
 });
 
+// ===========================================================================
+// WI-140 — each constraint conflict is reported ONCE. With Dependencies on, the
+// forward pass reported a hard Must Start On / Must Finish On conflict and the
+// post-pass sweep reported the same conflict again: one conflict read as "2
+// conflicts". A(5d) FS→ B(2d) from Mon Jan 6: A runs Jan 6–10, so B's network
+// dates are Mon Jan 13 – Tue Jan 14, past every constraint date below. The
+// sequential row and the SNLT row are controls: once before the fix, and after.
+// ===========================================================================
+
+describe("a constraint conflict is reported once (WI-140)", () => {
+  const start = "2025-01-06"; // Monday
+  const a = fixedActivity("a", "A", 5);
+  const hardOnB = (constraintType: "MSO" | "MFO" | "SNLT", constraintDate: string): Activity => ({
+    ...fixedActivity("b", "B", 2),
+    constraintType,
+    constraintDate,
+    constraintMode: "hard",
+  });
+  const rows = [
+    {
+      title: "dependency schedule, hard Must Start On conflicting with its predecessor",
+      run: () => computeDependencySchedule([a, hardOnB("MSO", "2025-01-08")], [fsDep("a", "b")], start, 0.5),
+      expected: { activityId: "b", type: "constraint-conflict", constraintType: "MSO", constraintMode: "hard", severity: "error" },
+    },
+    {
+      title: "dependency schedule, hard Must Finish On conflicting with its predecessor",
+      run: () => computeDependencySchedule([a, hardOnB("MFO", "2025-01-09")], [fsDep("a", "b")], start, 0.5),
+      expected: { activityId: "b", type: "constraint-conflict", constraintType: "MFO", constraintMode: "hard", severity: "error" },
+    },
+    {
+      title: "sequential schedule, hard Must Start On conflicting with the activity before it (control)",
+      run: () => computeDeterministicSchedule([a, hardOnB("MSO", "2025-01-08")], start, 0.5),
+      expected: { activityId: "b", type: "constraint-conflict", constraintType: "MSO", constraintMode: "hard", severity: "error" },
+    },
+    {
+      title: "dependency schedule, hard Start No Later Than conflicting with its predecessor (control: the post-pass's own)",
+      run: () => computeDependencySchedule([a, hardOnB("SNLT", "2025-01-07")], [fsDep("a", "b")], start, 0.5),
+      expected: { activityId: "b", type: "constraint-conflict", constraintType: "SNLT", constraintMode: "hard", severity: "error" },
+    },
+  ];
+
+  // A loop, not it.each: it.each's "$title" truncates a long title, and the falsify
+  // spec matches these titles whole.
+  for (const { title, run, expected } of rows) {
+    it(title, () => {
+      const conflicts = run().constraintConflicts;
+      expect(conflicts).toHaveLength(1);
+      expect(conflicts![0]).toMatchObject(expected);
+    });
+  }
+});
+
 describe("DeterministicSchedule.spanDays (0.54.1)", () => {
   const startDate = "2025-01-06"; // Monday
 
