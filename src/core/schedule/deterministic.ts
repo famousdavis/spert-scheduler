@@ -634,6 +634,10 @@ function detectSoftConflicts(args: {
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
     if (!activity.constraintType || !activity.constraintDate || !activity.constraintMode) continue;
+    // A hard Must Start On or Must Finish On conflict is already reported by the forward pass
+    // (applyLocalConstraint); reporting it here as well listed it twice (WI-140).
+    const forwardPassReports = activity.constraintType === "MSO" || activity.constraintType === "MFO";
+    if (activity.constraintMode === "hard" && forwardPassReports) continue;
 
     const conflict = detectConstraintConflict(
       networkStart.get(id)!, networkEnd.get(id)!,
