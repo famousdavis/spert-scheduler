@@ -37,8 +37,17 @@ const CONDITIONS = [
   "print, today inside the span",
 ];
 const SIMULATED = CONDITIONS.map((c) => `${c} — names every year it spans`);
-const UNSIMULATED = CONDITIONS.map((c) => `${c} — names every year but an end year only a milestone reaches`);
+// Before a simulation run, since WI-107 (v0.79.34): six conditions name every year, an end year only a milestone
+// reaches included; 853 with Fit on still leaves that year to the finish label, under the old title.
+const END_YEAR_STILL_HELD_OFF = "interactive 853 (container 769), fit ON";
+const UNSIMULATED = CONDITIONS.map((c) =>
+  c === END_YEAR_STILL_HELD_OFF
+    ? `${c} — names every year but an end year only a milestone reaches`
+    : `${c} — names every year it spans, an end year only a milestone reaches included`,
+);
 const NARROW = "interactive, container 640, fit ON, today inside the span — names every year but the one before today's, under the today line";
+// Renamed in WI-107 (v0.79.34): its "middle year with no room" (28 starts) went with the milestone obstacle.
+const NARROWEST = "interactive, container 640, wide name column, fit ON, today inside the span — names every year but the one before today's, under the today line";
 const DECEMBER_IN_JANUARY = [
   "interactive 1280 (container 1180), fit OFF, today 20 days in — names every year but a December start's, under the today line",
   "print, today 20 days in — names every year but a December start's, under the today line",
@@ -63,32 +72,50 @@ const TICK_DECEMBER = "monthly, a December start: the first tick is the start, D
 const TICK_OCTOBER = "quarterly, an October start: the first tick is the start, Q4 '26";
 const TICK_JULY = "half-yearly, a July start: the first tick is the start, H2 '26";
 
+// gantt-milestone-name-edge.test.tsx (WI-99, v0.79.5) — a milestone name slides inside the edge by the same clamp.
+const NAME_EDGE = [
+  "E1 a long name on the furthest date ends 4px inside: 900 − 4 − 92.34; its diamond, line and date stay at 860",
+  "E4 a neighbour the slid name would overlap goes on the other row, 18px apart",
+  "P1 default font: a long name on the furthest date at 700 − 2 − 38.475; its diamond and date at 680",
+  "P2 the \"xl\" activity font (7px): at 700 − 2 − 53.865",
+  "P3 a neighbour the slid name would overlap goes on the other row, 10px apart",
+];
+
+// gantt-label-beside-milestone.test.tsx (WI-107) — print's diamond and dashed line at each activity font size.
+const PRINT_GEOMETRY_ROWS = [
+  ["small", "1.5", "2.5"], ["normal", "1.5", "2.5"], ["large", "1.8", "2.2"], ["xl", "2.1", "1.9"],
+].flatMap(([size, top, line]) => [
+  `print, ${size} activity font: the diamond's top point is ${top}px below the tick labels' baseline`,
+  `print, ${size} activity font: the dashed line starts ${line}px below the diamond's top`,
+]);
+
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /** Matches exactly these test titles, as the verbose reporter prints them. */
 const only = (...titles) => new RegExp(`> (?:${titles.map(escape).join("|")})$`);
 
 /**
- * Plain suppression: every sweep but the narrowest, both long-span oracle charts, six named charts.
+ * Plain suppression: every sweep, both long-span oracle charts, six named charts.
  * The two December-in-January sweeps fail too, though not on December: today in December takes a
  * November or early-December start's `Jan 'YY`, and plain suppression cannot move that year on.
+ * The narrowest sweep joined in WI-107 (v0.79.34), when it stopped expecting a middle year missed.
  */
 const PLAIN_SUPPRESSION = only(
-  ORACLE_LONG_INTERACTIVE, ORACLE_LONG_PRINT, ...SIMULATED, ...UNSIMULATED, NARROW, ...DECEMBER_IN_JANUARY, ...LONG,
+  ORACLE_LONG_INTERACTIVE, ORACLE_LONG_PRINT, ...SIMULATED, ...UNSIMULATED, NARROW, NARROWEST, ...DECEMBER_IN_JANUARY, ...LONG,
   NAMED_PRINT_OCT, NAMED_853_NOV, NAMED_1280_SEP, NAMED_PRINT_AUG, NAMED_PRINT_DEC, NAMED_1280_DEC,
 );
 
 export const testFile = "src/";
 export const mutations = [
   {
-    id: "G9  suppressTicksNamingEveryYear returns plain suppression at once  [expect 29: 2 oracle, 7 + 7 sweeps, narrow, 2 December-in-January, 4 long, 6 named]",
+    id: "G9  suppressTicksNamingEveryYear returns plain suppression at once  [expect 30: 2 oracle, 7 + 7 sweeps, narrow, narrowest, 2 December-in-January, 4 long, 6 named]",
     file: GU,
     find: `  if (!allTicks.some((t) => t.label.includes(" '"))) return suppressOverlappingTicks(allTicks, p);\n`,
     replace: "  return suppressOverlappingTicks(allTicks, p);\n",
     expectFailing: PLAIN_SUPPRESSION,
   },
   {
-    id: "G10 advanceDroppedCarriers never moves a year  [expect 29: G9's set]",
+    id: "G10 advanceDroppedCarriers never moves a year  [expect 30: G9's set]",
     file: GU,
     find: "  const keptX = new Set(kept.map((t) => t.x));\n",
     replace: "  return false;\n  const keptX = new Set(kept.map((t) => t.x));\n",
@@ -96,19 +123,22 @@ export const mutations = [
   },
   {
     // The label is centred on its line again. Print's clamp only engages at the largest font.
-    id: "G11 clampFinishLabelX returns finishX  [expect 5: 3 INTERACTIVE oracle, the clamp past the edge, print XL]",
+    // ⚠️ Its set went stale at v0.79.5: WI-99 slides a milestone name inside the edge with this same clamp, and its five
+    // edge tests fail too. Re-measured alone at WI-107 (v0.79.34), which changes nothing the clamp reaches.
+    id: "G11 clampFinishLabelX returns finishX  [expect 10: 3 INTERACTIVE oracle, the clamp past the edge, print XL, 5 milestone-name edge tests]",
     file: GU,
     find: "  return Math.min(finishX, rightEdge - edgePx - halfWidth);",
     replace: "  return finishX;",
-    expectFailing: only(ORACLE_INTERACTIVE, ORACLE_LONG_INTERACTIVE, ORACLE_CROWDED_INTERACTIVE, CLAMP_PAST_EDGE, NAMED_PRINT_XL),
+    expectFailing: only(ORACLE_INTERACTIVE, ORACLE_LONG_INTERACTIVE, ORACLE_CROWDED_INTERACTIVE, CLAMP_PAST_EDGE, NAMED_PRINT_XL, ...NAME_EDGE),
   },
   {
-    // Nothing in the axis tests reads the diamond; only the oracle's two milestone-bearing print charts do.
-    id: "G12 print's milestone diamond back at topMargin - 2  [expect 2: PRINT, crowded PRINT oracle]",
+    // Nothing in the axis tests reads the diamond; the oracle's two milestone-bearing print charts do, and since
+    // WI-107 (v0.79.34) the eight print geometry rows of gantt-label-beside-milestone.test.tsx.
+    id: "G12 print's milestone diamond back at topMargin - 2  [expect 10: PRINT, crowded PRINT oracle, 8 print geometry rows]",
     file: PRINT,
-    find: "points={`${x},${topMargin - ds} ${x + ds},${topMargin} ${x},${topMargin + ds} ${x - ds},${topMargin}`}",
+    find: "points={`${x},${cy - ds} ${x + ds},${cy} ${x},${cy + ds} ${x - ds},${cy}`}",
     replace: "points={`${x},${topMargin - 2 - ds} ${x + ds},${topMargin - 2} ${x},${topMargin - 2 + ds} ${x - ds},${topMargin - 2}`}",
-    expectFailing: only(ORACLE_PRINT, ORACLE_CROWDED_PRINT),
+    expectFailing: only(ORACLE_PRINT, ORACLE_CROWDED_PRINT, ...PRINT_GEOMETRY_ROWS),
   },
   {
     // A hidden today line evicts ticks again. Every sweep draws the line, so only the hidden case sees it.

@@ -21,7 +21,7 @@ import {
   PRINT_BAR_RADIUS, PRINT_ARROW_SIZE, PRINT_MIN_TICK_PX,
   PRINT_PROJECT_NAME_H, PRINT_MILESTONE_EXTRA_TOP,
   PRINT_MILESTONE_NAME_DY, PRINT_MILESTONE_DATE_DY, PRINT_TARGET_LABEL_DY,
-  PRINT_MILESTONE_ROW_STEP, PRINT_LABEL_GAP_PX, PRINT_DIAMOND_SIZE, PRINT_FINISH_LABEL_EDGE_PX,
+  PRINT_MILESTONE_ROW_STEP, PRINT_LABEL_GAP_PX, PRINT_DIAMOND_SIZE, PRINT_DIAMOND_DROP_PER_FONT_PX, PRINT_FINISH_LABEL_EDGE_PX,
   PRINT_TODAY_LABEL_DY, PRINT_TODAY_DATE_DY,
   TODAY_LABEL_TEXT, TARGET_LABEL_TEXT, DATE_LABEL_SPECIMEN,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
@@ -243,7 +243,10 @@ export function PrintGanttChart({
     [projectStartDate, endDate, tickLevel],
   );
   /**
-   * Print's obstacle set, built from the sizes this chart actually draws at.
+   * Print's obstacle set, built from the sizes this chart actually draws at. A milestone
+   * is not in it (WI-107, v0.79.34): its diamond sits `PRINT_DIAMOND_DROP_PER_FONT_PX × fs5`
+   * below `topMargin`, its top clear of the tick labels' baseline, so nothing of it shares
+   * the tick band — its tip used to sit ON that baseline and kept the month beside it off.
    *
    * ⚠️ `minSpacingPx` KEEPS the density preference here, and that is a deliberate
    * decline rather than an oversight. `feedback_collision_suppression_architecture`
@@ -270,10 +273,9 @@ export function PrintGanttChart({
     if (targetX != null) {
       out.push({ x: targetX, halfWidth: labelHalfWidth(TARGET_LABEL_TEXT, fs5) });
     }
-    for (const mx of milestoneXPositions) out.push({ x: mx, halfWidth: PRINT_DIAMOND_SIZE });
     return out;
     // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the imported label-width helpers are not provably pure; same trade as the allTicks memo above
-  }, [finishLabel, todayX, targetX, milestoneXPositions, fs5, fs4]);
+  }, [finishLabel, todayX, targetX, fs5, fs4]);
 
   const ticks = useMemo(() =>
     suppressTicksNamingEveryYear(allTicks, {
@@ -688,13 +690,14 @@ export function PrintGanttChart({
           const x = toX(ms.targetDate);
           const healthColor = milestoneMarkerColor(mc, info);
           const ds = PRINT_DIAMOND_SIZE;
+          const cy = topMargin + PRINT_DIAMOND_DROP_PER_FONT_PX * fs5;
           const rowLift = (milestoneRows[msIndex] ?? 0) * PRINT_MILESTONE_ROW_STEP;
           return (
             <g key={`ms-${ms.id}`}>
-              <line x1={x} y1={topMargin - 2} x2={x} y2={topMargin + totalRows * ra.printRowHeight}
+              <line x1={x} y1={topMargin} x2={x} y2={topMargin + totalRows * ra.printRowHeight}
                 stroke={healthColor} strokeWidth="0.5" strokeDasharray="2 2" opacity={0.7} />
               <polygon
-                points={`${x},${topMargin - ds} ${x + ds},${topMargin} ${x},${topMargin + ds} ${x - ds},${topMargin}`}
+                points={`${x},${cy - ds} ${x + ds},${cy} ${x},${cy + ds} ${x - ds},${cy}`}
                 fill={healthColor}
               />
               <text x={milestoneNameXs[msIndex] ?? x} y={topMargin - PRINT_MILESTONE_NAME_DY - rowLift} textAnchor="middle"

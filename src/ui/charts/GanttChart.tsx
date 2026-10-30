@@ -34,7 +34,7 @@ import {
   TICK_LABEL_FONT_PX, FINISH_LABEL_FONT_PX, TODAY_LABEL_FONT_PX, TODAY_DATE_FONT_PX,
   TARGET_LABEL_FONT_PX, MILESTONE_NAME_FONT_PX, MILESTONE_DATE_FONT_PX,
   MILESTONE_NAME_DY, MILESTONE_DATE_DY, TARGET_LABEL_DY, TODAY_LABEL_DY, TODAY_DATE_DY,
-  MILESTONE_ROW_STEP, MILESTONE_DIAMOND_SIZE,
+  MILESTONE_ROW_STEP, MILESTONE_DIAMOND_SIZE, MILESTONE_DIAMOND_DROP_PX,
   TODAY_LABEL_TEXT, TARGET_LABEL_TEXT, TARGET_LABEL_MIN_BASELINE,
 } from "./gantt-constants";
 import {
@@ -874,7 +874,7 @@ export function GanttChart({
             // Health colour, or the chart's own milestone colour with no result (v0.70.3).
             const healthColor =
               milestoneMarkerColor(mc, bufferInfo);
-            const diamondSize = MILESTONE_DIAMOND_SIZE;
+            const diamondSize = MILESTONE_DIAMOND_SIZE, diamondCy = topMargin - 2 + MILESTONE_DIAMOND_DROP_PX;
             // Row 0 sits nearest the timeline; a crowded neighbour is lifted one step.
             const rowLift = (milestoneRows[msIndex] ?? 0) * MILESTONE_ROW_STEP;
 
@@ -893,7 +893,7 @@ export function GanttChart({
                 />
                 {/* Diamond marker at top */}
                 <polygon
-                  points={`${mx},${topMargin - 2 - diamondSize} ${mx + diamondSize},${topMargin - 2} ${mx},${topMargin - 2 + diamondSize} ${mx - diamondSize},${topMargin - 2}`}
+                  points={`${mx},${diamondCy - diamondSize} ${mx + diamondSize},${diamondCy} ${mx},${diamondCy + diamondSize} ${mx - diamondSize},${diamondCy}`}
                   fill={healthColor}
                 />
                 {/* Milestone name, in the top header lane */}
