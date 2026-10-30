@@ -17,14 +17,23 @@
 // whole suite — the Confidence card gated on the distribution type alone (S23), the marker gated on a
 // missing actual duration rather than the status (S24), a Most Likely line on Uniform (S25), a Confidence
 // cell that is not a hover group (S26), a card never hidden (S27), a fill left open under an open tail
-// (S28) — and the Confidence card centred on its narrow cell, as it first was (S29). S30 draws the green duration
-// line before the blue Most Likely line, so where the two coincide the blue is drawn over the green (owner ruling,
-// 2026-10-10: the green is drawn over the blue).
+// (S28) — and the Confidence card centred on its narrow cell, as it first was (S29). S30–S33 break where the two
+// dashed lines meet, within 1 px, and are drawn as one line of alternating blue and green dashes at their midpoint
+// (owner ruling, 2026-10-29): the green's offset dropped, so its dashes land on the blue's (S30); the meet test
+// removed, so the green covers the blue as before (S31); meeting widened to 2 px (S32); and no midpoint, so the two
+// stay a fraction of a pixel apart (S33). S30 used to swap the order the two lines are drawn in, under 2026-10-10's
+// "the green is drawn over the blue"; with alternating dashes the order hides nothing, and that straw failed no
+// test, so it was replaced.
 // Each straw names EXACTLY the tests it must fail, and no others — read "K failing; named-match K", not
 // merely a non-zero exit: the runner prints ✔ when ANY named test fails. Every expected set was written
 // before the run that first included it, with one exception, corrected after the first run and said at
 // the straw: S12's. S20's straw was rebuilt after that run too — its edit had moved a line another test
-// pins by number, and that third failure belonged to the edit, not to the wrong design.
+// pins by number, and that third failure belonged to the edit, not to the wrong design. S30–S33's sets are
+// the other way round, by design: each was written from what that straw failed when first run alone
+// (2026-10-29), as was S21's after its needle moved with the line it edits (still L1 alone). The same day,
+// S16, S17, S18, S20 and S24 each failed one test more than their sets named, in the whole-spec run: L2, the
+// test of where the two lines meet, whose rows mark the duration too. Each was then run alone to name it,
+// and L2 was added to its set.
 //
 // NOT HERE, on purpose: "Beta-PERT's curve is its own, not T-Normal's, on the same estimate" and "never
 // draws a NaN, at any level, for any in-order Beta-PERT estimate" are controls with no single wrong design
@@ -69,6 +78,8 @@ const M6 = "past Max is drawn on Max's edge, and below Min on Min's";
 // DistributionSparkline.test.tsx — the two dashed lines
 const L1 =
   "are drawn opaque, in the colours measured at 3:1 or more against the card and the fill, in both themes";
+const L2 =
+  "where they meet, within 1 px, are one line of alternating blue and green dashes at their midpoint; apart, or with no green line, each is as before";
 // inert-controls.test.tsx
 const I1 = "draws a Beta-PERT row's hover sparkline at that row's own Confidence";
 const I2 = "draws no hover sparkline on a greyed cell";
@@ -83,37 +94,6 @@ const FACTORY_IMPORT = 'import { createDistributionForActivity } from "@core/dis
 const NORMAL_IMPORT = `${FACTORY_IMPORT}\nimport { NormalDistribution } from "@core/distributions/normal";`;
 const DISTRIBUTION_CARD =
   "        <DistributionSparkline activity={activity} scheduledActivity={scheduledActivity} />\n      </div>\n\n      {/* Confidence";
-// The card's two dashed lines, as written: Most Likely first, the duration line last.
-const MOST_LIKELY_LINE = `      {/* Most Likely (blue dashes), where the curve depends on it. OPAQUE (owner ruling, 2026-10-10): at
-          the 0.6 opacity it had, it read under 3:1 against the card and the fill in light mode; opaque,
-          these two colours clear 3:1 on both, in both themes. */}
-      {curve.mostLikelyX !== null && (
-        <line
-          data-mark="most-likely"
-          x1={curve.mostLikelyX}
-          y1={HEIGHT - 2}
-          x2={curve.mostLikelyX}
-          y2={2}
-          className="stroke-blue-600 dark:stroke-blue-300"
-          strokeWidth="1"
-          strokeDasharray="2 1"
-        />
-      )}
-`;
-const DURATION_LINE = `      {/* The scheduled duration (green dashes), drawn last so it is never hidden */}
-      {durationX !== null && (
-        <line
-          data-mark="duration"
-          x1={durationX}
-          y1={HEIGHT - 2}
-          x2={durationX}
-          y2={2}
-          className="stroke-green-700 dark:stroke-green-400"
-          strokeWidth="1"
-          strokeDasharray="3 1"
-        />
-      )}
-`;
 const CONFIDENCE_CARD =
   '{confidenceIsRelevant && <DistributionSparkline activity={activity} scheduledActivity={scheduledActivity} anchor="right" />}';
 
@@ -250,25 +230,25 @@ export const mutations = [
   },
   // -- The scheduled duration ----------------------------------------------------------------------
   {
-    id: "S16 the marker at Most Likely  [expect 4: M1, M2, M3, M6]",
+    id: "S16 the marker at Most Likely  [expect 5: M1, M2, M3, M6, L2]",
     file: CARD,
     find: "sparklineX(curve, scheduledActivity.duration)",
     replace: "sparklineX(curve, activity.mostLikely)",
-    expectFailing: only(M1, M2, M3, M6),
+    expectFailing: only(M1, M2, M3, M6, L2),
   },
   {
-    id: "S17 the marker at the mean  [expect 4: M1, M2, M3, M6]",
+    id: "S17 the marker at the mean  [expect 5: M1, M2, M3, M6, L2]",
     file: CARD,
     find: "sparklineX(curve, scheduledActivity.duration)",
     replace: "sparklineX(curve, (activity.min + 4 * activity.mostLikely + activity.max) / 6)",
-    expectFailing: only(M1, M2, M3, M6),
+    expectFailing: only(M1, M2, M3, M6, L2),
   },
   {
-    id: "S18 the marker on in-progress and complete rows too  [expect 1: M4]",
+    id: "S18 the marker on in-progress and complete rows too  [expect 2: M4, L2]",
     file: CARD,
     find: 'activity.status === "planned" && scheduledActivity',
     replace: "scheduledActivity",
-    expectFailing: only(M4),
+    expectFailing: only(M4, L2),
   },
   {
     id: "S19 the marker missing on the Confidence cell's card  [expect 1: M3]",
@@ -278,7 +258,7 @@ export const mutations = [
     expectFailing: only(M3),
   },
   {
-    id: "S20 the marker at the unrounded quantile, not the number the grid shows  [expect 2: M1, M2]",
+    id: "S20 the marker at the unrounded quantile, not the number the grid shows  [expect 3: M1, M2, L2]",
     file: ROW,
     find: DISTRIBUTION_CARD,
     replace:
@@ -290,14 +270,14 @@ export const mutations = [
       replace:
         'import { DistributionSparkline } from "./DistributionSparkline"; import { createDistributionForActivity } from "@core/distributions/factory";',
     },
-    expectFailing: only(M1, M2),
+    expectFailing: only(M1, M2, L2),
   },
   // -- The two dashed lines' colours (owner ruling, 2026-10-10) -------------------------------------
   {
     id: "S21 the Most Likely line back at its former 0.6 opacity, under 3:1 in light mode  [expect 1: L1]",
     file: CARD,
-    find: '          strokeDasharray="2 1"\n        />',
-    replace: '          strokeDasharray="2 1"\n          opacity="0.6"\n        />',
+    find: "          strokeDasharray={mostLikely.dashes}\n        />",
+    replace: '          strokeDasharray={mostLikely.dashes}\n          opacity="0.6"\n        />',
     expectFailing: only(L1),
   },
   {
@@ -323,12 +303,12 @@ export const mutations = [
     expectFailing: only(K2),
   },
   {
-    id: "S24 the marker gated on a missing actual duration, not on the status  [expect 1: M4]",
+    id: "S24 the marker gated on a missing actual duration, not on the status  [expect 2: M4, L2]",
     file: CARD,
     find: 'activity.status === "planned" && scheduledActivity',
     replace: "activity.actualDuration == null && scheduledActivity",
     also: { find: 'Pick<Activity, "status">', replace: 'Pick<Activity, "status" | "actualDuration">' },
-    expectFailing: only(M4),
+    expectFailing: only(M4, L2),
   },
   {
     id: "S25 a Most Likely line on Uniform, whose curve does not use it  [expect 1: C7]",
@@ -367,10 +347,31 @@ export const mutations = [
     expectFailing: only(K2),
   },
   {
-    id: "S30 the duration line drawn before the Most Likely line  [expect 1: L1]",
+    id: "S30 the green's dash offset dropped, so where the lines meet its dashes land on the blue's  [expect 2: L1, L2]",
     file: CARD,
-    find: MOST_LIKELY_LINE + DURATION_LINE,
-    replace: DURATION_LINE + MOST_LIKELY_LINE,
-    expectFailing: only(L1),
+    find: 'duration: { x, dashes: "2 2", offset: "2" } };',
+    replace: 'duration: { x, dashes: "2 2" } };',
+    expectFailing: only(L1, L2),
+  },
+  {
+    id: "S31 the meet test removed: lines that meet keep their own dashes, and only the green shows  [expect 2: L1, L2]",
+    file: CARD,
+    find: "Math.abs(mostLikelyX - durationX) > MEET_PX) {",
+    replace: "true) {",
+    expectFailing: only(L1, L2),
+  },
+  {
+    id: "S32 meeting widened from 1 px to 2  [expect 1: L2]",
+    file: CARD,
+    find: "const MEET_PX = 1;",
+    replace: "const MEET_PX = 2;",
+    expectFailing: only(L2),
+  },
+  {
+    id: "S33 no midpoint: where the lines meet, each keeps its own x, a fraction of a pixel apart  [expect 1: L2]",
+    file: CARD,
+    find: '  const x = (mostLikelyX + durationX) / 2;\n  return { mostLikely: { x, dashes: "2 2" }, duration: { x, dashes: "2 2", offset: "2" } };',
+    replace: '  return { mostLikely: { x: mostLikelyX, dashes: "2 2" }, duration: { x: durationX, dashes: "2 2", offset: "2" } };',
+    expectFailing: only(L2),
   },
 ];
