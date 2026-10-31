@@ -119,6 +119,7 @@ export function useCompareRuns(setSimulationResults: SetSimulationResults): Comp
         },
         params.dependencyParams,
         params.sequentialConstraints,
+        params.sequentialRecords,
       );
     },
     [setSimulationResults, settle],

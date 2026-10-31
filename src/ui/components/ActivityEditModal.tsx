@@ -15,6 +15,8 @@ import type {
   ActivityStatus,
   ChecklistItem,
   DeliverableItem,
+  ProgressNote,
+  ScheduledActivity,
 } from "@domain/models/types";
 import {
   CONSTRAINT_TYPES,
@@ -29,7 +31,8 @@ import { confirmDialog } from "@ui/hooks/use-confirm-store";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { parseDateISO, isWorkingDay, formatDateISO, countWorkingDays, activityEndDate, MAX_CALENDAR_ITERATIONS } from "@core/calendar/calendar";
+import { parseDateISO, isWorkingDay, formatDateISO, activityEndDate } from "@core/calendar/calendar";
+import { computeDependencyDurations } from "@core/schedule/deterministic";
 import { detectConstraintConflict } from "@core/schedule/constraint-utils";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
 import { CONSTRAINT_LABELS } from "@domain/helpers/constraint-labels";
@@ -65,7 +68,15 @@ import {
   unsaveableDescription,
   type UnsaveableCause,
 } from "@ui/helpers/unsaveable-cause";
-import { computeElapsedDays } from "./activity-row-helpers";
+import { todayISO } from "./activity-row-helpers";
+import {
+  statusChangeUpdates,
+  snapRecordedDate,
+  elapsedWorkingDays,
+  recordedDuration,
+} from "@core/schedule/recorded-progress";
+import { actualDatesFault } from "@ui/helpers/actual-dates-fault";
+import { progressNoteKey, progressNoteSentence } from "@ui/helpers/progress-note-words";
 import { generateId } from "@app/api/id";
 
 interface ActivityEditModalProps {
@@ -228,6 +239,59 @@ function constraintDateAria(
   return constraintDate ? {} : { "aria-invalid": true, "aria-describedby": errorId };
 }
 
+/** The window's progress drafts: the two dates and the count, as the inputs hold them. */
+interface ProgressDrafts {
+  actualStartDate: string;
+  actualFinishDate: string;
+  actualDuration: number | "";
+}
+
+/**
+ * WI-137: the window's Status change, by THE rule (`statusChangeUpdates`) applied to its drafts.
+ * A field the rule leaves out keeps its draft — a row started before v0.80.0 set to Complete keeps
+ * its count and gets no dates — so only the keys the rule returns are taken. Module level, so the
+ * component's complexity does not move.
+ */
+function statusChangeDrafts(
+  activity: Activity,
+  status: ActivityStatus,
+  newStatus: ActivityStatus,
+  drafts: ProgressDrafts,
+  sa: ScheduledActivity | undefined,
+  calendar: Parameters<typeof statusChangeUpdates>[2]["calendar"],
+): ProgressDrafts {
+  const draft: Activity = {
+    ...activity,
+    status,
+    actualStartDate: drafts.actualStartDate || undefined,
+    actualFinishDate: drafts.actualFinishDate || undefined,
+    actualDuration: drafts.actualDuration === "" ? undefined : drafts.actualDuration,
+  };
+  const u = statusChangeUpdates(draft, newStatus, {
+    today: todayISO(),
+    scheduledStart: sa?.startDate,
+    scheduledFinish: sa?.endDate,
+    scheduledDuration: sa?.duration,
+    calendar,
+  });
+  return {
+    actualStartDate: "actualStartDate" in u ? (u.actualStartDate ?? "") : drafts.actualStartDate,
+    actualFinishDate: "actualFinishDate" in u ? (u.actualFinishDate ?? "") : drafts.actualFinishDate,
+    actualDuration: "actualDuration" in u ? (u.actualDuration ?? "") : drafts.actualDuration,
+  };
+}
+
+/** This activity's neutral notes, as the window shows them. */
+function activityNoteSentences(
+  notes: ProgressNote[] | undefined,
+  activityId: string,
+  formatDate: (iso: string) => string,
+): { key: string; sentence: string }[] {
+  return (notes ?? [])
+    .filter((n) => n.activityId === activityId)
+    .map((n) => ({ key: progressNoteKey(n), sentence: progressNoteSentence(n, formatDate) }));
+}
+
 /** Save's `aria-describedby`, naming the line beside it while Save is off (v0.73.3). Spread, as above. */
 function saveBlockedAria(saveBlocked: UnsaveableCause | null, reasonId: string): { "aria-describedby"?: string } {
   return saveBlocked ? { "aria-describedby": reasonId } : {};
@@ -266,6 +330,17 @@ export function ActivityEditModal({
     return scenario?.dependencies ?? [];
   });
 
+  const activityTarget = useProjectStore((s) => {
+    const project = s.projects.find((p) => p.id === projectId);
+    return project?.scenarios.find((sc) => sc.id === scenarioId)?.settings.probabilityTarget ?? 0.5;
+  });
+
+  // WI-137: an Actual Start before the scenario's Start Date is refused here (the schedule could only clamp it).
+  const scenarioStartDate = useProjectStore((s) => {
+    const project = s.projects.find((p) => p.id === projectId);
+    return project?.scenarios.find((sc) => sc.id === scenarioId)?.startDate;
+  });
+
   const updateActivityField = useProjectStore((s) => s.updateActivityField);
   const updateActivityChecklist = useProjectStore((s) => s.updateActivityChecklist);
   const updateActivityDeliverables = useProjectStore((s) => s.updateActivityDeliverables);
@@ -283,25 +358,35 @@ export function ActivityEditModal({
   const [status, setStatus] = useState<ActivityStatus>(activity?.status ?? "planned");
   const [actualDuration, setActualDuration] = useState<number | "">(activity?.actualDuration ?? "");
 
-  // Actual finish date — ephemeral UI state only, never persisted.
-  // Back-calculated from actualDuration on mount when all prerequisites are present.
-  // Two pieces of state: `actualFinishDate` is the raw input value (updates on every keystroke),
-  // `committedFinishDate` is the post-blur validated value (used for error display).
-  const [actualFinishDate, setActualFinishDate] = useState<string>(() => {
-    if (
-      activity?.status !== "complete" ||
-      activity?.actualDuration == null ||
-      !scheduledStartDate
-    ) {
-      return "";
-    }
-    // activityEndDate(start, duration) = addWorkingDays(start, duration - 1)
-    // The PM convention (start day = day 1) is encapsulated inside activityEndDate.
-    return formatDateISO(
-      activityEndDate(parseDateISO(scheduledStartDate), activity.actualDuration, calendar)
-    );
-  });
-  const [committedFinishDate, setCommittedFinishDate] = useState(actualFinishDate);
+  // WI-137: the Actual Start and Actual Finish are STORED now. A row a v25 build wrote has neither,
+  // and its drafts start EMPTY — never back-calculated from the scheduled start (that would save the
+  // old rule's output as a recorded date the first time the window is saved for any reason).
+  // `actualFinishDate` is the input's value; its blur snaps it to a working day and recounts.
+  const [actualStartDate, setActualStartDate] = useState<string>(activity?.actualStartDate ?? "");
+  const [actualFinishDate, setActualFinishDate] = useState<string>(activity?.actualFinishDate ?? "");
+  // The start as last committed — on open, at a Status change, at a blur. Elapsed days are recounted
+  // only when a blur brings a DIFFERENT start (Review 32, R3): tabbing through the window on a later
+  // day must not replace a count the user typed.
+  const [committedStartDate, setCommittedStartDate] = useState(actualStartDate);
+  // Which date was typed last, so an out-of-order pair marks the field just edited.
+  const [lastEditedDate, setLastEditedDate] = useState<"start" | "finish">("finish");
+
+  /**
+   * SCHED. FINISH, on every row that shows it (WI-137; owner, 2026-10-30): the working day the row's
+   * SCHEDULED duration ends on, counted on the scenario's calendar from its Actual Start — or, with
+   * none recorded (a v25 row), from its scheduled start. An In Progress row's schedule already puts
+   * it there: its Sched. Finish is `sa.endDate`, Actual Start + Sched. Dur. A Complete row's schedule
+   * finish IS its Actual Finish, so for that row the window counts it here, from the estimate at the
+   * Activity Target — what `resolveActivityDuration` gives the same row as Planned — never from the
+   * actual count. The engine is not asked for anything new.
+   */
+  const completeRowSchedFinish = useMemo(() => {
+    if (!activity || status !== "complete") return undefined;
+    const start = /^\d{4}-\d{2}-\d{2}$/.test(actualStartDate) ? actualStartDate : sa?.startDate;
+    if (!start) return undefined;
+    const planned = computeDependencyDurations([{ ...activity, status: "planned" }], activityTarget).get(activity.id) ?? 1;
+    return formatDateISO(activityEndDate(parseDateISO(start), planned, calendar));
+  }, [activity, sa, status, actualStartDate, activityTarget, calendar]);
 
   // -- Local draft state: Estimates --
   const [min, setMin] = useState<number | "">(activity?.min ?? "");
@@ -475,40 +560,48 @@ export function ActivityEditModal({
     []
   );
 
+  // WI-137: the count is taken from the ACTUAL START draft only — never the scheduled start, which
+  // would store a finish worked out from a start that may have moved (Review 32, §1.5). With no
+  // Actual Start the finish is kept as typed and refused, "Enter the Actual Start first."
   const handleActualFinishDateBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
       const raw = e.target.value;
+      setLastEditedDate("finish");
       // <input type="date"> produces YYYY-MM-DD or empty; guard against
       // malformed strings that would cause parseDateISO to produce NaN dates.
-      if (!raw || !scheduledStartDate || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
         setActualFinishDate("");
-        setCommittedFinishDate("");
         return;
       }
-
-      // Snap non-working days forward — same pattern as constraint date handler
-      const date = parseDateISO(raw);
-      let guard = 0;
-      while (!isWorkingDay(date, calendar) && guard < MAX_CALENDAR_ITERATIONS) {
-        date.setDate(date.getDate() + 1);
-        guard++;
-      }
-      const snapped = formatDateISO(date);
+      // A finish on a non-working day moves BACK to the last working day (it was done by then).
+      const snapped = snapRecordedDate(raw, "finish", calendar);
       setActualFinishDate(snapped);
-      setCommittedFinishDate(snapped);
-
-      // Validate: finish must not precede scheduled start
-      if (snapped < scheduledStartDate) return;
-
-      // The + 1 corrects for countWorkingDays being exclusive of the end date,
-      // combined with the PM convention that the start day counts as day 1.
-      // Example: start=Monday, finish=Friday → countWorkingDays=4 → duration=5. ✓
-      // Round-trip: activityEndDate(Monday, 5) = addWorkingDays(Monday, 4) = Friday. ✓
-      const computed =
-        countWorkingDays(parseDateISO(scheduledStartDate), date, calendar) + 1;
-      setActualDuration(Math.max(1, computed));
+      if (!actualStartDate || snapped < actualStartDate) return; // refused: the red line says why
+      setActualDuration(recordedDuration(actualStartDate, snapped, calendar));
     },
-    [scheduledStartDate, calendar]
+    [actualStartDate, calendar]
+  );
+
+  // WI-137: the Actual Start. A non-working day moves FORWARD; the count follows it — but only when
+  // the start's VALUE changed, never on a blur alone.
+  const handleActualStartDateBlur = useCallback(
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      setLastEditedDate("start");
+      if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        setActualStartDate(committedStartDate);
+        return;
+      }
+      const snapped = snapRecordedDate(raw, "start", calendar);
+      setActualStartDate(snapped);
+      if (snapped === committedStartDate) return;
+      setCommittedStartDate(snapped);
+      if (status === "inProgress") setActualDuration(elapsedWorkingDays(snapped, todayISO(), calendar));
+      if (status === "complete" && actualFinishDate && actualFinishDate >= snapped) {
+        setActualDuration(recordedDuration(snapped, actualFinishDate, calendar));
+      }
+    },
+    [committedStartDate, status, actualFinishDate, calendar]
   );
 
   // -- Actual duration → finish date (bidirectional sync) --
@@ -518,26 +611,19 @@ export function ActivityEditModal({
       if (raw === "") {
         setActualDuration("");
         setActualFinishDate("");
-        setCommittedFinishDate("");
         return;
       }
       const parsed = Number(raw);
       if (isNaN(parsed)) return;
       const val = Math.max(1, Math.floor(parsed));
       setActualDuration(val);
-      if (!scheduledStartDate) {
-        setActualFinishDate("");
-        setCommittedFinishDate("");
-        return;
-      }
+      // WI-137: the finish follows the count only from a recorded Actual Start. With none (a row from
+      // before v0.80.0), the count is written alone, as v0.79.36 stored it.
+      if (!actualStartDate) return;
       // activityEndDate encapsulates the PM convention; no adjustment needed here.
-      const computed = formatDateISO(
-        activityEndDate(parseDateISO(scheduledStartDate), val, calendar)
-      );
-      setActualFinishDate(computed);
-      setCommittedFinishDate(computed);
+      setActualFinishDate(formatDateISO(activityEndDate(parseDateISO(actualStartDate), val, calendar)));
     },
-    [scheduledStartDate, calendar]
+    [actualStartDate, calendar]
   );
 
   // -- Type change: auto-set mode to "hard" if first selection --
@@ -572,12 +658,12 @@ export function ActivityEditModal({
     // preserves those own-properties, which is what save and dismiss-detection count.
     return Object.assign(
       {} as Partial<Activity>,
-      computeGeneralUpdates(activity, name, status, actualDuration),
+      computeGeneralUpdates(activity, name, status, actualDuration, actualStartDate, actualFinishDate),
       computeEstimateUpdates(activity, min, mostLikely, max, confidenceLevel, distributionType),
       computeConstraintUpdates(activity, constraintType, constraintDate, constraintMode, constraintNote),
       computeDescriptionUpdate(activity, description),
     );
-  }, [activity, name, status, actualDuration, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, description]);
+  }, [activity, name, status, actualDuration, actualStartDate, actualFinishDate, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, description]);
 
   // -- Save: only send changed fields --
   const handleSave = useCallback(() => {
@@ -675,7 +761,14 @@ export function ActivityEditModal({
 
   // v0.73.3 — the first reason Save is off, or null; `isValid` is derived from it, so Save's state
   // and the line beside it cannot disagree. Here, beside the old `isValid`, for the note above.
-  const saveBlocked = unsaveableCause(nameMissing, negativeEstimate, constraintType, constraintDate, constraintMode);
+  // WI-137: the two recorded dates, judged as the window would save them.
+  const dateFault = actualDatesFault({
+    status, start: actualStartDate, finish: actualFinishDate, today: todayISO(),
+    scenarioStart: scenarioStartDate, lastEdited: lastEditedDate,
+  });
+  const saveBlocked = unsaveableCause(
+    nameMissing, negativeEstimate, constraintType, constraintDate, constraintMode, dateFault !== null,
+  );
   const isValid = saveBlocked === null;
 
   // -- Dirty check: detect any unsaved changes --
@@ -807,7 +900,7 @@ export function ActivityEditModal({
         <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
         {/*
           ⚠️ ONLY THE SECTIONS SCROLL. The title and the Save/Cancel row sit OUTSIDE the scroller,
-          in a flex column capped at 85vh (v0.70.1). Until then this whole box was the scroller,
+          in a flex column capped at 85vh (v0.70.1; 88vh since v0.80.0, for the Actual dates). Until then this whole box was the scroller,
           footer included: at 1280×720 it is 612 px tall, and with only the sections that open by
           default its content measured 659–684 px, flagged or not (684 for every activity in the
           sample project). So Save and Cancel sat cut off by the box's bottom edge or wholly below
@@ -826,7 +919,7 @@ export function ActivityEditModal({
           when the attribute came first.
         */}
         <Dialog.Content
-          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xl z-50 max-h-[85vh] flex flex-col"
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xl z-50 max-h-[88vh] flex flex-col"
           aria-describedby={undefined}
         >
           <Dialog.Title className="shrink-0 px-6 pt-6 pb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -872,24 +965,16 @@ export function ActivityEditModal({
                     name="activityStatus"
                     value={status}
                     onChange={(e) => {
+                      // WI-137: the grid's rule, applied to this window's drafts.
                       const newStatus = e.target.value as ActivityStatus;
+                      const next = statusChangeDrafts(
+                        activity, status, newStatus, { actualStartDate, actualFinishDate, actualDuration }, sa, calendar ?? undefined,
+                      );
                       setStatus(newStatus);
-                      if (newStatus === "inProgress" && scheduledStartDate && actualDuration === "") {
-                        // Mirror grid behavior: compute elapsed on transition to inProgress
-                        setActualDuration(
-                          computeElapsedDays(scheduledStartDate, calendar ?? undefined)
-                        );
-                      }
-                      if (newStatus === "complete" && actualDuration === "" && sa) {
-                        // Mirror the bulk Mark-complete path: default to the scheduled
-                        // deterministic duration so the activity carries a fixed value.
-                        setActualDuration(sa.duration);
-                      }
-                      if (newStatus === "planned") {
-                        setActualDuration("");
-                        setActualFinishDate("");
-                        setCommittedFinishDate("");
-                      }
+                      setActualStartDate(next.actualStartDate);
+                      setCommittedStartDate(next.actualStartDate);
+                      setActualFinishDate(next.actualFinishDate);
+                      setActualDuration(next.actualDuration);
                     }}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
@@ -922,22 +1007,27 @@ export function ActivityEditModal({
                   {description.length}/2000
                 </p>
               </div>
-              {/* Schedule context + Actual Duration/Finish (visible when schedule exists) */}
-              {scheduledStartDate && sa && (
-                <ScheduleContextRow
-                  status={status}
-                  sa={sa}
-                  scheduledStartDate={scheduledStartDate}
-                  actualDuration={actualDuration}
-                  actualFinishDate={actualFinishDate}
-                  committedFinishDate={committedFinishDate}
-                  formatDate={formatDate}
-                  handleActualDurationChange={handleActualDurationChange}
-                  handleActualFinishDateChange={handleActualFinishDateChange}
-                  handleActualFinishDateBlur={handleActualFinishDateBlur}
-                  setActualDuration={setActualDuration}
-                />
-              )}
+              {/* Schedule context + the Actual dates and count — shown with or without a schedule (WI-137) */}
+              <ScheduleContextRow
+                status={status}
+                sa={sa}
+                scheduledStartDate={scheduledStartDate}
+                actualDuration={actualDuration}
+                actualStartDate={actualStartDate}
+                setActualStartDate={setActualStartDate}
+                handleActualStartDateBlur={handleActualStartDateBlur}
+                today={todayISO()}
+                progressNotes={activityNoteSentences(schedule?.progressNotes, activityId, formatDate)}
+                completeSchedFinish={completeRowSchedFinish}
+                dateFault={dateFault}
+                dependencyMode={!!dependencyMode}
+                actualFinishDate={actualFinishDate}
+                formatDate={formatDate}
+                handleActualDurationChange={handleActualDurationChange}
+                handleActualFinishDateChange={handleActualFinishDateChange}
+                handleActualFinishDateBlur={handleActualFinishDateBlur}
+                setActualDuration={setActualDuration}
+              />
             </Section>
 
             {/* ── Section 2: Estimates ── */}

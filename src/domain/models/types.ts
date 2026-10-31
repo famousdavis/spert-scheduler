@@ -12,7 +12,7 @@
 export const ENGINE_VERSION = "1.1.1";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 25;
+export const SCHEMA_VERSION = 26;
 
 // -- Schema Limits -----------------------------------------------------------
 
@@ -161,6 +161,8 @@ export interface Activity {
   distributionType: DistributionType;
   status: ActivityStatus;
   actualDuration?: number; // filled when status is "complete"
+  actualStartDate?: string; // ISO "YYYY-MM-DD" — WI-137: the day it really started (In Progress / Complete)
+  actualFinishDate?: string; // ISO "YYYY-MM-DD" — WI-137: the day it really finished (Complete)
   milestoneId?: string; // which milestone this activity must finish before
   startsAtMilestoneId?: string; // activity starts on this milestone's target date
   constraintType?: ConstraintType | null; // scheduling constraint type
@@ -340,6 +342,8 @@ export interface ScheduledActivity {
   startDate: string; // "YYYY-MM-DD"
   endDate: string; // "YYYY-MM-DD"
   isActual: boolean; // true if from actualDuration
+  recordedStart?: true; // WI-137: startDate is the recorded Actual Start (absent otherwise)
+  recordedFinish?: true; // WI-137: endDate is the recorded Actual Finish (absent otherwise)
   lateStart?: string; // constraint-adjusted late start (display only)
   lateFinish?: string; // constraint-adjusted late finish (display only)
   lateStartNet?: string; // network-driven late start (for SNLT/FNLT eval)
@@ -373,6 +377,53 @@ export interface DependencyConflict {
   message: string;
 }
 
+/**
+ * WI-137: a NEUTRAL note — a recorded date the schedule keeps although a link, a constraint or the
+ * scenario's Start Date would not have allowed it. A fact, not a conflict (owner, R599), so it is
+ * not a ScheduleConflict and has no severity. It carries fields, not a sentence: the window and the
+ * project page compose the words, so a date inside an activity's name is never reformatted.
+ */
+export type ProgressNote = LinkProgressNote | ConstraintProgressNote | StartDateProgressNote;
+
+interface ProgressNoteBase {
+  activityId: string;
+  activityName: string; // as stored; the words show "(unnamed)" for a blank name
+  /** The recorded date the note is about, "YYYY-MM-DD". */
+  date: string;
+}
+
+/** A recorded start (FS, SS) or a Complete row's finish (FF) earlier than a link allowed. */
+export interface LinkProgressNote extends ProgressNoteBase {
+  kind: "link";
+  event: "start" | "finish";
+  predecessorId: string;
+  predecessorName: string;
+  predecessorComplete: boolean;
+  dependencyType: DependencyType;
+  lagDays: number;
+  /** The predecessor's finish (FS, FF) or start (SS) as scheduled. */
+  predecessorDate: string;
+  /** The earliest date the link allowed, its lag or lead counted. */
+  allowedDate: string;
+  /** Dependencies off: the predecessor is the row above. */
+  sequential: boolean;
+}
+
+/** A recorded start that breaks its start constraint, or a Complete row's finish that missed its finish constraint. */
+export interface ConstraintProgressNote extends ProgressNoteBase {
+  kind: "constraint";
+  event: "start" | "finish";
+  constraintType: ConstraintType;
+  constraintDate: string;
+}
+
+/** A recorded start before the scenario's Start Date: the schedule draws the row from the Start Date. */
+export interface StartDateProgressNote extends ProgressNoteBase {
+  kind: "before-start-date";
+  /** The scenario's Start Date, where the schedule starts the row. */
+  startDate: string;
+}
+
 export interface DeterministicSchedule {
   activities: ScheduledActivity[];
   totalDurationDays: number;
@@ -387,6 +438,7 @@ export interface DeterministicSchedule {
   projectEndDate: string; // "YYYY-MM-DD"
   constraintConflicts?: ConstraintConflict[];
   dependencyConflicts?: DependencyConflict[];
+  progressNotes?: ProgressNote[]; // WI-137: absent when there are none
 }
 
 /** A health a milestone has been MEASURED to have: its slack, after a simulation. */

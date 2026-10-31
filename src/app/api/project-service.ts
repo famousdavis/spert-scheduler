@@ -136,6 +136,15 @@ function asRemainingWork(a: Activity): Activity {
 }
 
 /**
+ * WI-137: a reforecast copy carries no recorded date. Its rows are replanned from the copy's Start
+ * Date (WI-139 step 1, unchanged): an In Progress row's start and a stale finish go with its count,
+ * and a Planned row holds none to keep. Step 2 may keep the start, now that it is stored.
+ */
+function withoutRecordedDates(a: Activity): Activity {
+  return { ...a, actualStartDate: undefined, actualFinishDate: undefined };
+}
+
+/**
  * Clone a list of `{ id: string, ... }` items with freshly-generated IDs,
  * returning the cloned list plus the old→new ID map. The `cloneItem` callback
  * receives the original item and the new ID and is responsible for producing
@@ -183,7 +192,8 @@ export function cloneScenario(
       .filter((a) => a.status !== "complete")
       .map((a) =>
         a.status === "inProgress" ? asRemainingWork(a) : { ...a, actualDuration: undefined }
-      );
+      )
+      .map(withoutRecordedDates);
   }
 
   // Filter out deps referencing removed activities (when dropCompleted is true)

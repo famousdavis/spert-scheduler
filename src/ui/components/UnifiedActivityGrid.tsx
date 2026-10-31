@@ -39,7 +39,7 @@ import {
   NAME_COLUMN_MIN_WITH_IDS_PX,
   gridMinWidthPx,
 } from "./grid-columns";
-import { shouldShowConstraintColumn, planBulkApply } from "./unified-activity-helpers";
+import { shouldShowConstraintColumn, planBulkApply, dispatchBulkPlan } from "./unified-activity-helpers";
 import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
 import { useGridFocus, useGridSelection } from "@ui/hooks/use-grid-state";
 import { confirmDialog } from "@ui/hooks/use-confirm-store";
@@ -70,6 +70,8 @@ interface UnifiedActivityGridProps {
   /** Per activity, the estimate cells to paint red — derived by the page from saved data. */
   cellIssues?: ReadonlyMap<string, CellIssues>;
   onBulkUpdate?: (activityIds: string[], updates: Partial<Activity>) => void;
+  /** WI-137: a whole bulk Apply as one store write — one update per row, one undo step. */
+  onBulkUpdateEach?: (updatesById: Map<string, Partial<Activity>>) => void;
   onBulkDelete?: (activityIds: string[]) => void;
   isScenarioLocked?: boolean;
   heuristicEnabled?: boolean;
@@ -105,6 +107,7 @@ export function UnifiedActivityGrid({
   onValidityChange,
   cellIssues,
   onBulkUpdate,
+  onBulkUpdateEach,
   onBulkDelete,
   isScenarioLocked,
   heuristicEnabled,
@@ -180,13 +183,10 @@ export function UnifiedActivityGrid({
           maxPercent: heuristicMaxPercent,
         },
         computeHeuristic,
+        calendar,
       );
 
-      if (plan.sharedUpdates) {
-        if (onBulkUpdate) onBulkUpdate(ids, plan.sharedUpdates);
-        else for (const id of ids) onUpdate(id, plan.sharedUpdates);
-      }
-      for (const { id, updates } of plan.perActivity) onUpdate(id, updates);
+      dispatchBulkPlan(ids, plan, { onBulkUpdateEach, onBulkUpdate, onUpdate });
 
       clearSelection();
       // WI-6c — the toolbar that hosts the Apply button unmounts with the selection, exactly
@@ -219,8 +219,8 @@ export function UnifiedActivityGrid({
         selectAllRef.current?.focus();
       });
     },
-    [selectedIds, scheduledActivities, activities, onBulkUpdate, onUpdate,
-     heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, clearSelection],
+    [selectedIds, scheduledActivities, activities, onBulkUpdate, onBulkUpdateEach, onUpdate,
+     heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, clearSelection, calendar],
   );
 
   // Build a lookup map from activityId to ScheduledActivity
@@ -445,8 +445,15 @@ export function UnifiedActivityGrid({
             <div className="text-right px-1 text-gray-500 dark:text-gray-400">
               P{targetPct}
             </div>
-            <div className="px-1 text-gray-500 dark:text-gray-400">Scheduled</div>
-            <div className="px-1 text-gray-500 dark:text-gray-400">Scheduled</div>
+            {/* WI-137 (owner, 2026-10-30): a Start or End date is scheduled, or recorded in green. The
+                columns keep v0.79.36's 90 px, where the words measured 85 px of the 82 inside the padding
+                and wrapped; slightly tighter letter-spacing keeps them on one line, the dates aligned. */}
+            <div className="px-1 text-gray-500 dark:text-gray-400 whitespace-nowrap tracking-tight">
+              Sched. / <span className="text-green-800 dark:text-green-400">Actual</span>
+            </div>
+            <div className="px-1 text-gray-500 dark:text-gray-400 whitespace-nowrap tracking-tight">
+              Sched. / <span className="text-green-800 dark:text-green-400">Actual</span>
+            </div>
             {showConstraintColumn && <div />}
             <div />
             <div />

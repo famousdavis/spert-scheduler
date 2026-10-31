@@ -8,6 +8,8 @@ import type { DependencySimulationParams } from "@core/simulation/worker-client"
 import { computeDeterministicDurations, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
 import { parseDateISO, countWorkingDays } from "@core/calendar/calendar";
+import { resolveRecordedProgress } from "@core/schedule/recorded-progress";
+import type { SequentialRecordEntry } from "@core/simulation/monte-carlo";
 
 /** Per-activity constraint info for sequential MC (parallel to activities array). */
 export type SequentialConstraintEntry = { type: string; offsetFromStart: number; mode: string } | null;
@@ -16,6 +18,34 @@ export interface SimulationParams {
   deterministicDurations: number[] | undefined;
   dependencyParams: DependencySimulationParams | undefined;
   sequentialConstraints: SequentialConstraintEntry[] | undefined;
+  /** WI-137: dependencies off, only when a row has a record (parallel to activities). */
+  sequentialRecords?: SeqRecord[];
+}
+
+type SeqRecord = SequentialRecordEntry | null;
+
+/**
+ * WI-137: the recorded rows as the simulation needs them — keyed by id (dependencies on) — or
+ * nothing at all when no row has a record, so every v25 project's parameters are unchanged.
+ */
+function recordedProgressParams(
+  activities: Activity[],
+  startDate: string,
+  calendar: Parameters<typeof resolveRecordedProgress>[2],
+): { recordedStarts?: Record<string, number>; recordedDurations?: Record<string, number>; seq?: SeqRecord[] } {
+  const records = resolveRecordedProgress(activities, startDate, calendar);
+  if (records.size === 0) return {};
+  const recordedStarts: Record<string, number> = {};
+  const recordedDurations: Record<string, number> = {};
+  for (const [id, rec] of records) {
+    recordedStarts[id] = rec.startOffset;
+    if (rec.duration !== undefined) recordedDurations[id] = rec.duration;
+  }
+  const seq = activities.map((a) => {
+    const rec = records.get(a.id);
+    return rec ? { startOffset: rec.startOffset, duration: rec.duration } : null;
+  });
+  return { recordedStarts, recordedDurations, seq };
 }
 
 type ConstraintOffsetEntry = { type: string; offsetFromStart: number; mode: string };
@@ -71,6 +101,7 @@ export function buildSimulationParams(
 
     const msParams = buildMilestoneSimParams(activities, milestones, startDate, calendar);
     const constraintMap = resolveConstraintOffsets(activities, startDate, calendar);
+    const { recordedStarts, recordedDurations } = recordedProgressParams(activities, startDate, calendar);
 
     return {
       deterministicDurations: undefined,
@@ -80,6 +111,7 @@ export function buildSimulationParams(
         deterministicDurationMap: parkinsonsLawEnabled ? durMapRecord : undefined,
         ...msParams,
         constraintMap,
+        ...(recordedStarts ? { recordedStarts, recordedDurations } : {}),
       },
       sequentialConstraints: undefined,
     };
@@ -90,9 +122,11 @@ export function buildSimulationParams(
     ? activities.map((a) => constraintOffsets[a.id] ?? null)
     : undefined;
 
+  const { seq } = recordedProgressParams(activities, startDate, calendar);
   return {
     deterministicDurations: parkinsonsLawEnabled ? computeDeterministicDurations(activities, probabilityTarget) : undefined,
     dependencyParams: undefined,
     sequentialConstraints,
+    ...(seq ? { sequentialRecords: seq } : {}),
   };
 }

@@ -30,6 +30,7 @@ import { isCalendarError } from "@core/calendar/work-calendar";
 import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
 import { isDependencyCycleError } from "@core/schedule/dependency-graph";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
+import { hasAnyRecord, zeroFloatIds } from "@core/schedule/recorded-progress";
 import { buildSimulationParams, type SimulationParams } from "@ui/helpers/build-simulation-params";
 import { currentSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 import { toast } from "@ui/hooks/use-notification-store";
@@ -57,6 +58,7 @@ import { SharingSection } from "@ui/components/SharingSection";
 import { ActivityEditModal } from "@ui/components/ActivityEditModal";
 import { DependencyEditModal } from "@ui/components/DependencyEditModal";
 import { WarningsPanel } from "@ui/components/WarningsPanel";
+import { ProgressNotesPanel } from "@ui/components/ProgressNotesPanel";
 import { isFirebaseAvailable } from "@infrastructure/firebase/firebase";
 import { useAiConnectivity } from "@ui/hooks/use-ai-connectivity";
 import { ConnectAiConsentModal } from "@ui/components/ConnectAI/ConnectAiConsentModal";
@@ -207,6 +209,9 @@ export function ProjectPage() {
   } = useProjectActions();
   // The Finish Target date is per scenario (WI-124). Selected directly, as the AI actions below are.
   const updateScenarioTargetFinishDate = useProjectStore((s) => s.updateScenarioTargetFinishDate);
+  // A bulk Apply as one write, one undo step (WI-137). Selected directly, like the one above, so the
+  // pinned action bundle is unchanged.
+  const bulkUpdateActivitiesEach = useProjectStore((s) => s.bulkUpdateActivitiesEach);
 
   const simulation = useSimulation();
 
@@ -460,6 +465,10 @@ export function ProjectPage() {
   // Critical path activity IDs (only in dependency mode)
   const criticalPathIds = useMemo(() => {
     if (!depMode || !activities || activities.length === 0 || !dependencies || probTarget == null) return null;
+    // WI-137: with a recorded start the highlight is the schedule's own zero-float rows — on screen
+    // and in print — since the plan's durations alone would mark the chain the record moved off.
+    // With none, as before.
+    if (dependencySchedule && hasAnyRecord(activities)) return zeroFloatIds(dependencySchedule);
     try {
       const graph = buildDependencyGraph(
         activities.map((a) => a.id),
@@ -485,7 +494,7 @@ export function ProjectPage() {
       // an oversight.
       return null;
     }
-  }, [depMode, activities, dependencies, probTarget]);
+  }, [depMode, activities, dependencies, probTarget, dependencySchedule]);
 
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
   // The warnings panel also sits above the grid and reads `schedule`, which is null whenever
@@ -761,6 +770,7 @@ export function ProjectPage() {
       },
       params.dependencyParams,
       params.sequentialConstraints,
+      params.sequentialRecords,
     );
   }, [id, scenario, simulation, setSimulationResults, workCalendar, validity.runnable, validity.runBlockers, activityNumberMap]);
 
@@ -963,6 +973,8 @@ export function ProjectPage() {
           activityNumberMap={activityNumberMap}
         />
       )}
+      {/* WI-137: neutral notes — a recorded start earlier than a relationship allows */}
+      <ProgressNotesPanel notes={paintedSchedule?.progressNotes} />
 
       {/* Active scenario content */}
       {scenario ? (
@@ -1049,6 +1061,9 @@ export function ProjectPage() {
             cellIssues={validity.cellIssues}
             onBulkUpdate={(activityIds, updates) =>
               bulkUpdateActivities(id!, scenario.id, activityIds, updates)
+            }
+            onBulkUpdateEach={(updatesById) =>
+              bulkUpdateActivitiesEach(id!, scenario.id, updatesById)
             }
             onBulkDelete={(activityIds) =>
               bulkDeleteActivities(id!, scenario.id, activityIds)

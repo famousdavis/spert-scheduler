@@ -7,6 +7,7 @@ import type {
   SimulationRequest,
   WorkerOutgoingMessage,
 } from "./worker-protocol";
+import type { SequentialRecordEntry } from "./monte-carlo";
 
 export interface SimulationCallbacks {
   onProgress?: (completedTrials: number, totalTrials: number) => void;
@@ -25,6 +26,9 @@ export interface DependencySimulationParams {
   milestoneActivityIds?: Record<string, string[]>;
   activityEarliestStart?: Record<string, number>;
   constraintMap?: Record<string, { type: string; offsetFromStart: number; mode: string }>;
+  /** WI-137: activityId → recorded start's offset; a Complete row's day count from its dates. */
+  recordedStarts?: Record<string, number>;
+  recordedDurations?: Record<string, number>;
 }
 
 /**
@@ -39,6 +43,7 @@ export function runSimulationInWorker(
   callbacks: SimulationCallbacks,
   dependencyParams?: DependencySimulationParams,
   sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
+  sequentialRecords?: (SequentialRecordEntry | null)[],
 ): SimulationHandle {
   const worker = new Worker(
     new URL("../../workers/simulation.worker.ts", import.meta.url),
@@ -95,6 +100,8 @@ export function runSimulationInWorker(
       rngSeed,
       deterministicDurations,
       sequentialConstraints: sequentialConstraints ?? undefined,
+      // WI-137: sent only when a row has a record, so every other request is as before.
+      ...(sequentialRecords && { sequentialRecords }),
       ...(dependencyParams && {
         dependencyMode: dependencyParams.dependencyMode,
         dependencies: dependencyParams.dependencies,
@@ -102,6 +109,10 @@ export function runSimulationInWorker(
         milestoneActivityIds: dependencyParams.milestoneActivityIds,
         activityEarliestStart: dependencyParams.activityEarliestStart,
         constraintMap: dependencyParams.constraintMap,
+        ...(dependencyParams.recordedStarts && {
+          recordedStarts: dependencyParams.recordedStarts,
+          recordedDurations: dependencyParams.recordedDurations,
+        }),
       }),
     },
   };

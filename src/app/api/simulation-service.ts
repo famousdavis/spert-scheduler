@@ -8,7 +8,7 @@ import {
   type SimulationHandle,
   type DependencySimulationParams,
 } from "@core/simulation/worker-client";
-import { runMonteCarloSimulation, runDependencyTrials, computeSimulationStats, computeMilestoneStats } from "@core/simulation/monte-carlo";
+import { runMonteCarloSimulation, runDependencyTrials, computeSimulationStats, computeMilestoneStats, type SequentialRecordEntry } from "@core/simulation/monte-carlo";
 import { generateId } from "./id";
 import { toMcConstraintMap } from "@core/schedule/constraint-utils";
 
@@ -33,6 +33,7 @@ export function runSimulationSync(
   deterministicDurations: number[] | undefined,
   dependencyParams?: DependencySimulationParams,
   sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
+  sequentialRecords?: (SequentialRecordEntry | null)[],
 ): SimulationRun {
   if (dependencyParams?.dependencyMode) {
     const durMap = dependencyParams.deterministicDurationMap
@@ -64,6 +65,8 @@ export function runSimulationSync(
       milestoneActivityIds,
       activityEarliestStart,
       constraintMap,
+      recordedStartMap: dependencyParams.recordedStarts ? new Map(Object.entries(dependencyParams.recordedStarts)) : undefined,
+      recordedDurationMap: dependencyParams.recordedDurations ? new Map(Object.entries(dependencyParams.recordedDurations)) : undefined,
     });
     const result = computeSimulationStats(depResult.samples, trialCount, rngSeed, depResult.exhaustedIds);
     if (depResult.milestoneSamples) {
@@ -78,6 +81,7 @@ export function runSimulationSync(
     rngSeed,
     deterministicDurations,
     sequentialConstraints: sequentialConstraints ?? undefined,
+    sequentialRecords,
   });
 }
 
@@ -93,6 +97,7 @@ export function runSimulation(
   callbacks: SimulationServiceCallbacks,
   dependencyParams?: DependencySimulationParams,
   sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
+  sequentialRecords?: (SequentialRecordEntry | null)[],
 ): SimulationHandle {
   const simulationId = generateId();
 
@@ -103,12 +108,12 @@ export function runSimulation(
         callbacks.onComplete({ ...result, id: simulationId }, elapsedMs);
       },
       onError: callbacks.onError,
-    }, dependencyParams, sequentialConstraints);
+    }, dependencyParams, sequentialConstraints, sequentialRecords);
   } catch {
     // Worker creation failed — synchronous fallback
     try {
       const startTime = performance.now();
-      const result = runSimulationSync(activities, trialCount, rngSeed, deterministicDurations, dependencyParams, sequentialConstraints);
+      const result = runSimulationSync(activities, trialCount, rngSeed, deterministicDurations, dependencyParams, sequentialConstraints, sequentialRecords);
       const elapsedMs = performance.now() - startTime;
       callbacks.onComplete({ ...result, id: simulationId }, elapsedMs);
     } catch (err) {

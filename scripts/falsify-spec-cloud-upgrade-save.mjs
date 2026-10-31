@@ -20,11 +20,11 @@ const DRIVER = new URL("../src/infrastructure/firebase/firestore-driver.ts", imp
 const D_LOADALL =
   "loadAll: each project's upgrade save is tried and refused, logged, and reported to no one; the documents stay at 24";
 const D_VIEWER = "load: a viewer's upgrade save is refused and reported to no one; the document stays at 24";
-const D_OWNER = "load: its upgrade save names neither internal field, so an owner's is stored as 25";
+const D_OWNER = "load: its upgrade save names neither internal field, so an owner's is stored at the current schema";
 const D_HELD =
-  "loadAll: a document that already holds `_owner` and `_members` with the same values is stored as 25 as it loads";
+  "loadAll: a document that already holds `_owner` and `_members` with the same values is stored at the current schema as it loads";
 const D_REPORTED = "control: a change's refused save is reported, immediate or debounced";
-const D_CHANGE = "a change's save is let through, and stores the project as 25 with each scenario's date";
+const D_CHANGE = "a change's save is let through, and stores the project at the current schema with each scenario's date";
 const D_REFETCH =
   "a second loadAll on the same driver, as at an invitation's re-fetch: each upgrade save is tried and refused again, and still reported to no one";
 // scenario-target-upgrade.test.ts — the upgrade through the cloud driver, against a fake that applies no rules

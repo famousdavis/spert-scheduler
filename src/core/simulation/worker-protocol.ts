@@ -15,6 +15,11 @@ export interface SimulationRequest {
     deterministicDurations?: number[];
     /** Per-activity constraint info for sequential mode (parallel to activities array). */
     sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[];
+    /**
+     * WI-137, dependencies off: per-activity recorded progress (parallel to activities, null = no
+     * record) — the recorded start's offset, and a Complete row's day count from its dates.
+     */
+    sequentialRecords?: ({ startOffset: number; duration?: number } | null)[];
     /** When true, use dependency-aware simulation. */
     dependencyMode?: boolean;
     /** Dependencies for dependency-aware simulation. */
@@ -27,6 +32,9 @@ export interface SimulationRequest {
     activityEarliestStart?: Record<string, number>;
     /** Map of activityId → constraint info for MC per-trial clamping (serialized as Record). */
     constraintMap?: Record<string, { type: string; offsetFromStart: number; mode: string }>;
+    /** WI-137: activityId → recorded start's offset; a Complete row's day count from its dates. */
+    recordedStarts?: Record<string, number>;
+    recordedDurations?: Record<string, number>;
   };
 }
 

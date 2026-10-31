@@ -117,7 +117,8 @@ Project
         │     ├── confidenceLevel: RSMLevel (10 levels)
         │     ├── distributionType: "normal" | "logNormal" | "betaPert" | "triangular" | "uniform"
         │     ├── status: "planned" | "inProgress" | "complete"
-        │     └── actualDuration?: number
+        │     ├── actualDuration?: number  (elapsed working days, or a Complete row's count)
+        │     └── actualStartDate?, actualFinishDate?: string  (YYYY-MM-DD, recorded — schema 26)
         ├── dependencies: ActivityDependency[]
         │     ├── fromActivityId, toActivityId
         │     ├── type: "FS" (Finish-to-Start)
@@ -190,9 +191,11 @@ Factory: `createDistributionForActivity(activity)` switches on `distributionType
 
 For each non-complete activity: `duration = Math.ceil(distribution.inverseCDF(probabilityTarget))`, minimum 1 working day. In sequential mode, activities chain linearly (finish-to-start). In dependency mode, topological sort determines execution order and the critical path method computes project duration accounting for parallelism. Calendar-aware working day arithmetic.
 
+**Recorded progress (v0.80.0, `core/schedule/recorded-progress.ts`).** An In Progress or Complete activity with an Actual Start is placed at that start in both modes: links into it, a milestone start and a start constraint do not move it, and where one is overtaken the schedule carries a neutral `progressNotes` entry instead of a warning. A Complete row's finish is its Actual Finish; an In Progress row's forecast finish still follows its finish-to-finish links and its finish constraint. A row with no Actual Start is scheduled exactly as before. One rule, `statusChangeUpdates`, writes the dates and the count on every Status path.
+
 ### Monte Carlo Simulation
 
-For each of N trials (default 50,000), sample all non-complete activities from their distributions. **Parkinson's Law clamping:** each sampled duration is floored to the deterministic duration (`max(sampled, deterministicDuration)`). Complete activities contribute their fixed `actualDuration`. Trial total = sum of all activity durations (sequential mode) or critical path duration (dependency mode).
+For each of N trials (default 50,000), sample all non-complete activities from their distributions. **Parkinson's Law clamping:** each sampled duration is floored to the deterministic duration (`max(sampled, deterministicDuration)`). Complete activities contribute their fixed `actualDuration` (counted from their dates when both are recorded). Trial total = sum of all activity durations (sequential mode) or critical path duration (dependency mode); a recorded start is placed at its offset in every trial, in both modes, and the sequential total is then the latest end.
 
 Post-simulation: sort samples, compute percentiles (P5 through P99), histogram (samples > P99 excluded to remove extreme outliers), mean, SD.
 

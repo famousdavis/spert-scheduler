@@ -121,6 +121,8 @@ function runDependencyBranch(
     activityEarliestStart: toValidatedMap(payload.activityEarliestStart, isNumber),
     // Shared with the synchronous service path — see toMcConstraintMap.
     constraintMap: toMcConstraintMap(payload.constraintMap),
+    recordedStartMap: toValidatedMap(payload.recordedStarts, isNumber),
+    recordedDurationMap: toValidatedMap(payload.recordedDurations, isNumber),
     onProgress: postProgress,
     progressInterval: PROGRESS_INTERVAL,
   });
@@ -182,11 +184,28 @@ function isValidSeqConstraint(c: SeqConstraintEntry): c is ValidatedSeqConstrain
   );
 }
 
+/** One entry of the sequential-record array (WI-137), as it arrives over `postMessage`. */
+type SeqRecordEntry = NonNullable<StartPayload["sequentialRecords"]>[number];
+
+/**
+ * WI-137: a recorded row's entry, checked like a constraint entry — a non-numeric offset or day
+ * count would reach the position arithmetic and turn every sample into NaN. A bad entry is
+ * dropped to null: that row is then simulated as if it had no record.
+ */
+function isValidSeqRecord(r: SeqRecordEntry): r is NonNullable<SeqRecordEntry> {
+  return (
+    r != null &&
+    typeof r.startOffset === "number" &&
+    (r.duration === undefined || typeof r.duration === "number")
+  );
+}
+
 /** Sequential simulation, with optional constraint support. */
 function runSequentialBranch(payload: StartPayload): TrialOutcome {
   const seqConstraints = payload.sequentialConstraints?.map((c) =>
     isValidSeqConstraint(c) ? c : null,
   );
+  const seqRecords = payload.sequentialRecords?.map((r) => (isValidSeqRecord(r) ? r : null));
 
   const trials = runTrials({
     activities: payload.activities,
@@ -194,6 +213,7 @@ function runSequentialBranch(payload: StartPayload): TrialOutcome {
     rngSeed: payload.rngSeed,
     deterministicDurations: payload.deterministicDurations,
     sequentialConstraints: seqConstraints,
+    sequentialRecords: seqRecords,
     onProgress: postProgress,
     progressInterval: PROGRESS_INTERVAL,
   });

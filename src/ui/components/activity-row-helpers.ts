@@ -2,10 +2,11 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { Calendar } from "@domain/models/types";
+import type { Activity, ActivityStatus, Calendar } from "@domain/models/types";
 import type { EstimateKey } from "@domain/helpers/estimate-rules";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
-import { countWorkingDays, parseDateISO, isWorkingDay } from "@core/calendar/calendar";
+import { countWorkingDays, parseDateISO, isWorkingDay, formatDateISO, activityEndDate } from "@core/calendar/calendar";
+import { statusChangeUpdates } from "@core/schedule/recorded-progress";
 import { computeHeuristic } from "@core/estimation/heuristic";
 
 /**
@@ -90,6 +91,71 @@ export function computeElapsedDays(
     countWorkingDays(start, today, calendar) +
     (isWorkingDay(today, calendar) ? 1 : 0);
   return Math.max(1, elapsed);
+}
+
+/** Today as `YYYY-MM-DD`, from the clock — the one place the status rule's "today" is read. */
+export function todayISO(): string {
+  return formatDateISO(new Date());
+}
+
+/** The row's dates and duration as the schedule shows them — what a Status change may default from. */
+export interface ScheduledDates {
+  startDate: string;
+  endDate: string;
+  duration: number;
+}
+
+/**
+ * WI-137: the fields a Status change writes, by THE rule (`statusChangeUpdates`), with today read
+ * here. The grid's Status cell calls this; so does the bulk toolbar's plan.
+ */
+export function statusUpdatesFor(
+  activity: Activity,
+  newStatus: ActivityStatus,
+  scheduled: ScheduledDates | undefined,
+  calendar?: WorkCalendar | Calendar,
+): Partial<Activity> {
+  return {
+    status: newStatus,
+    ...statusChangeUpdates(activity, newStatus, {
+      today: todayISO(),
+      scheduledStart: scheduled?.startDate,
+      scheduledFinish: scheduled?.endDate,
+      scheduledDuration: scheduled?.duration,
+      calendar,
+    }),
+  };
+}
+
+/**
+ * WI-137: the Actual cell's title. Its count is from the Actual Start when one is recorded; a row
+ * from before v0.80.0 counts from its scheduled start, and says so. Two functions, so the grid row
+ * keeps the one ternary it had (its complexity is an informed decline and must not move).
+ */
+export function inProgressActualTitle(activity: Activity): string {
+  const from = activity.actualStartDate ? "the Actual Start" : "the scheduled start";
+  return `Working days elapsed since ${from}. Used as the minimum floor for simulation trials.`;
+}
+
+export function completeActualTitle(activity: Activity): string {
+  return activity.actualStartDate
+    ? "Total working days from the Actual Start to the Actual Finish"
+    : "Total working days from scheduled start to actual finish";
+}
+
+/** WI-137: the Actual cell's recount when cleared — from the ACTUAL start when one is recorded. */
+export function elapsedFor(activity: Activity, scheduledStart: string, calendar?: WorkCalendar | Calendar): number {
+  return computeElapsedDays(activity.actualStartDate ?? scheduledStart, calendar);
+}
+
+/**
+ * WI-137: a typed Actual count. On a Complete row with a recorded start it moves the Actual
+ * Finish with it, so the count and the two dates cannot disagree.
+ */
+export function actualCountUpdates(activity: Activity, count: number, calendar?: WorkCalendar | Calendar): Partial<Activity> {
+  if (activity.status !== "complete" || !activity.actualStartDate) return { actualDuration: count };
+  const finish = formatDateISO(activityEndDate(parseDateISO(activity.actualStartDate), Math.max(1, count), calendar));
+  return { actualDuration: Math.max(1, count), actualFinishDate: finish };
 }
 
 export const ENTER_A_NUMBER = "Enter a number.";

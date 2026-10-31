@@ -5,7 +5,7 @@
 import type { ConstraintMode, ConstraintType } from "@domain/models/types";
 
 /** A reason the Edit Activity window cannot save. */
-export type UnsaveableCause = "name" | "negativeEstimate" | "constraintDate" | "constraintMode";
+export type UnsaveableCause = "name" | "actualDates" | "negativeEstimate" | "constraintDate" | "constraintMode";
 
 /**
  * Why the Edit Activity window cannot save, if it cannot — the FIRST cause, in the order the user is told.
@@ -13,6 +13,10 @@ export type UnsaveableCause = "name" | "negativeEstimate" | "constraintDate" | "
  *
  * `null` is exactly the window's `isValid`: it derives that from this, so Save's state and the
  * reasons given for it cannot disagree.
+ *
+ * `actualDates` (WI-137) is asked last, so the four causes before it keep their order exactly; which
+ * date is wrong, and why, is the red line under the dates (`actual-dates-fault.ts`). It defaults to
+ * false, so every caller from before it reads exactly as it did.
  *
  * ⚠️ `constraintMode` cannot be reached from the window today. Choosing a Type fills an empty Mode
  * with "hard", clearing the Type or "Clear constraint" clears all three, and Mode is a pair of radio
@@ -25,17 +29,20 @@ export function unsaveableCause(
   constraintType: ConstraintType | null,
   constraintDate: string | null,
   constraintMode: ConstraintMode | null,
+  actualDatesFault = false,
 ): UnsaveableCause | null {
   if (nameMissing) return "name";
   if (negativeEstimate) return "negativeEstimate";
   if (constraintType && !constraintDate) return "constraintDate";
   if (constraintType && !constraintMode) return "constraintMode";
+  if (actualDatesFault) return "actualDates";
   return null;
 }
 
 /** In the voice of Run's reason under the grid, so the two disabled buttons explain themselves alike. */
 const SAVE_BLOCKED_REASON: Record<UnsaveableCause, string> = {
   name: "Save needs a name for this activity.",
+  actualDates: "Save needs the actual dates corrected, as the line under them says.",
   negativeEstimate: "Save needs every estimate to be 0 or more.",
   constraintDate: "Save needs a date for the scheduling constraint.",
   constraintMode: "Save needs a mode for the scheduling constraint.",
@@ -43,6 +50,8 @@ const SAVE_BLOCKED_REASON: Record<UnsaveableCause, string> = {
 
 const UNSAVEABLE_DESCRIPTION: Record<UnsaveableCause, string> = {
   name: "This activity needs a name, so your changes can't be saved. Discarding them can't be undone.",
+  actualDates:
+    "An actual date can't be saved as it is, so your changes can't be saved. Discarding them can't be undone.",
   negativeEstimate: "An estimate is negative, so your changes can't be saved. Discarding them can't be undone.",
   constraintDate:
     "This activity's constraint needs a date, so your changes can't be saved. Discarding them can't be undone.",

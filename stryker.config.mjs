@@ -25,6 +25,7 @@ export default {
     "src/core/schedule/dependency-graph.ts",
     "src/core/schedule/buffer.ts",
     "src/core/schedule/milestone-sim-params.ts",
+    "src/core/schedule/recorded-progress.ts",
     // Conditional sampling (v0.49.0): mutate whole files, not line ranges (they drift).
     "src/core/distributions/*.ts",
     "!src/core/distributions/*.test.ts",

@@ -6,8 +6,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type {
-  Activity,
-  Calendar,
+  Activity, Calendar,
   DistributionType,
   ScheduledActivity,
 } from "@domain/models/types";
@@ -22,7 +21,8 @@ import type { CellIssues, RowReport } from "@ui/hooks/use-estimate-validity";
 import { suggestDistributionChange } from "@core/recommendation/recommendation";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
-import { commitEstimateGroup, computeElapsedDays, focusField, type EstimateDrafts } from "./activity-row-helpers";
+import { commitEstimateGroup, focusField, statusUpdatesFor, elapsedFor, actualCountUpdates, inProgressActualTitle, completeActualTitle, type EstimateDrafts } from "./activity-row-helpers";
+import { RecordedDateText } from "./RecordedDateText";
 import {
   constraintBadgeClass,
   constraintBadgeLabel,
@@ -570,7 +570,7 @@ export function UnifiedActivityRow({
       {/* Schedule: Start */}
       <div className="tabular-nums text-gray-700 dark:text-gray-300 text-sm px-1">
         {scheduledActivity ? (
-          <span>{formatDate(scheduledActivity.startDate)}</span>
+          <RecordedDateText text={formatDate(scheduledActivity.startDate)} recorded={scheduledActivity.recordedStart} which="start" />
         ) : (
           <span className="text-gray-300 dark:text-gray-600">&mdash;</span>
         )}
@@ -579,7 +579,7 @@ export function UnifiedActivityRow({
       {/* Schedule: End */}
       <div className="tabular-nums text-gray-700 dark:text-gray-300 text-sm px-1">
         {scheduledActivity ? (
-          <span>{formatDate(scheduledActivity.endDate)}</span>
+          <RecordedDateText text={formatDate(scheduledActivity.endDate)} recorded={scheduledActivity.recordedFinish} which="finish" />
         ) : (
           <span className="text-gray-300 dark:text-gray-600">&mdash;</span>
         )}
@@ -710,21 +710,9 @@ export function UnifiedActivityRow({
           aria-label="Activity status"
           value={activity.status}
           onChange={(e) => {
+            // WI-137: one rule for every Status path — the dates and the count, together.
             const newStatus = e.target.value as Activity["status"];
-            const updates: Partial<Activity> = { status: newStatus };
-            if (newStatus === "inProgress" && scheduledActivity) {
-              updates.actualDuration = computeElapsedDays(scheduledActivity.startDate, calendar);
-            }
-            if (newStatus === "planned") {
-              updates.actualDuration = undefined;
-            }
-            if (newStatus === "complete" && activity.actualDuration == null && scheduledActivity) {
-              // Mirror the bulk Mark-complete path: default to the scheduled
-              // deterministic duration so completed activities carry a fixed,
-              // known duration rather than a missing value.
-              updates.actualDuration = scheduledActivity.duration;
-            }
-            onUpdate(activity.id, updates);
+            onUpdate(activity.id, statusUpdatesFor(activity, newStatus, scheduledActivity, calendar));
           }}
           onKeyDown={(e) => handleTabNav(e, "status")}
           disabled={isLocked}
@@ -749,8 +737,8 @@ export function UnifiedActivityRow({
             aria-label="Actual duration"
             type="number"
             title={isInProgress
-              ? "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials."
-              : "Total working days from scheduled start to actual finish"
+              ? inProgressActualTitle(activity)
+              : completeActualTitle(activity)
             }
             defaultValue={activity.actualDuration ?? ""}
             key={`${activity.id}-actual-${activity.status}-${activity.actualDuration ?? "empty"}`}
@@ -759,7 +747,7 @@ export function UnifiedActivityRow({
               const raw = e.target.value.trim();
               if (raw === "") {
                 if (isInProgress && scheduledActivity) {
-                  const elapsed = computeElapsedDays(scheduledActivity.startDate, calendar);
+                  const elapsed = elapsedFor(activity, scheduledActivity.startDate, calendar);
                   onUpdate(activity.id, { actualDuration: elapsed });
                   e.target.value = String(elapsed);
                 } else {
@@ -769,7 +757,7 @@ export function UnifiedActivityRow({
               }
               const val = parseInt(raw, 10);
               if (!isNaN(val) && val >= 0) {
-                onUpdate(activity.id, { actualDuration: val });
+                onUpdate(activity.id, actualCountUpdates(activity, val, calendar));
               }
             }}
             onKeyDown={(e) => handleTabNav(e, "actual")}
