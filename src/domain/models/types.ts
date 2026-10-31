@@ -346,11 +346,16 @@ export interface ScheduledActivity {
   isActual: boolean; // true if from actualDuration
   recordedStart?: true; // WI-137: startDate is the recorded Actual Start (absent otherwise)
   recordedFinish?: true; // WI-137: endDate is the recorded Actual Finish (absent otherwise)
+  /**
+   * WI-154 (owner, R639, C′): a Planned row's dates in the plan before today's floor. Set by the
+   * project page on the rows its grid reads, for the Status rule; the engine never sets it.
+   */
+  planDates?: { startDate: string; endDate: string; duration: number };
   lateStart?: string; // constraint-adjusted late start (display only)
   lateFinish?: string; // constraint-adjusted late finish (display only)
   lateStartNet?: string; // network-driven late start (for SNLT/FNLT eval)
   lateFinishNet?: string; // network-driven late finish (for SNLT/FNLT eval)
-  totalFloat?: number; // lateStartNet − ES_net (network-driven CPM float)
+  totalFloat?: number; // late start − ES_net (network-driven CPM float; WI-151: links a record overtook skipped)
   freeFloat?: number;  // min gap to successors' early start (working days)
 }
 
@@ -365,6 +370,11 @@ export interface ConstraintConflict {
   deltaWorkingDays: number;
   severity: "error" | "warning";
   message: string;
+  /**
+   * WI-154: a hard Must Start On or Must Finish On on an activity that has not started, whose date
+   * has passed — the schedule starts it no earlier than today instead (owner, R639). Absent otherwise.
+   */
+  passed?: true;
 }
 
 export interface DependencyConflict {
@@ -385,7 +395,7 @@ export interface DependencyConflict {
  * not a ScheduleConflict and has no severity. It carries fields, not a sentence: the window and the
  * project page compose the words, so a date inside an activity's name is never reformatted.
  */
-export type ProgressNote = LinkProgressNote | ConstraintProgressNote | StartDateProgressNote;
+export type ProgressNote = LinkProgressNote | ConstraintProgressNote | StartDateProgressNote | DataDateProgressNote;
 
 interface ProgressNoteBase {
   activityId: string;
@@ -409,6 +419,18 @@ export interface LinkProgressNote extends ProgressNoteBase {
   allowedDate: string;
   /** Dependencies off: the predecessor is the row above. */
   sequential: boolean;
+  /**
+   * WI-154: the predecessor has not started — its start and finish as scheduled. Absent when it has
+   * started, so the words never say a predecessor started or finished that has not.
+   */
+  predecessorNotStarted?: { start: string; finish: string };
+  /**
+   * WI-154 (Review 35, E1): the activity has started with no recorded start — its Status. A link from
+   * work that has not started does not hold it, and `date` is where the schedule placed it.
+   */
+  unrecorded?: "inProgress" | "complete";
+  /** WI-154 (E1): `date` is an In Progress row's forecast finish, which such a link does not hold. */
+  forecast?: true;
 }
 
 /** A recorded start that breaks its start constraint, or a Complete row's finish that missed its finish constraint. */
@@ -424,6 +446,18 @@ export interface StartDateProgressNote extends ProgressNoteBase {
   kind: "before-start-date";
   /** The scenario's Start Date, where the schedule starts the row. */
   startDate: string;
+}
+
+/**
+ * WI-154: an activity that has not started, which the data date moved later. `date` is the data
+ * date, where the schedule starts it; `logicStart` is where its links (or the Start Date) alone
+ * would have started it — a day that has passed; `today` is today, which `date` is, or the day
+ * before the next working day.
+ */
+export interface DataDateProgressNote extends ProgressNoteBase {
+  kind: "data-date";
+  logicStart: string;
+  today: string;
 }
 
 export interface DeterministicSchedule {

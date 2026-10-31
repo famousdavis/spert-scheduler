@@ -44,6 +44,7 @@ export function runSimulationInWorker(
   dependencyParams?: DependencySimulationParams,
   sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
   sequentialRecords?: (SequentialRecordEntry | null)[],
+  dataDateOffset?: number,
 ): SimulationHandle {
   const worker = new Worker(
     new URL("../../workers/simulation.worker.ts", import.meta.url),
@@ -102,6 +103,8 @@ export function runSimulationInWorker(
       sequentialConstraints: sequentialConstraints ?? undefined,
       // WI-137: sent only when a row has a record, so every other request is as before.
       ...(sequentialRecords && { sequentialRecords }),
+      // WI-154: sent only when the data date can move a row, so every other request is as before.
+      ...(dataDateOffset && { dataDateOffset }),
       ...(dependencyParams && {
         dependencyMode: dependencyParams.dependencyMode,
         dependencies: dependencyParams.dependencies,

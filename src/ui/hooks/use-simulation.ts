@@ -35,6 +35,7 @@ export function useSimulation() {
       dependencyParams?: DependencySimulationParams,
       sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
       sequentialRecords?: (SequentialRecordEntry | null)[],
+      dataDateOffset?: number,
     ) => {
       setState({
         isRunning: true,
@@ -69,7 +70,7 @@ export function useSimulation() {
           });
           handleRef.current = null;
         },
-      }, dependencyParams, sequentialConstraints, sequentialRecords);
+      }, dependencyParams, sequentialConstraints, sequentialRecords, dataDateOffset);
     },
     []
   );

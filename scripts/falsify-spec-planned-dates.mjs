@@ -421,8 +421,8 @@ export const mutations = [
   {
     id: "P26 2i: the print intro back to its false second sentence  [expect 1]",
     file: PRINT_SECTIONS,
-    find: "The schedule keeps it as recorded, except a start before the Start Date, which it draws from the Start Date.",
-    replace: "The schedule keeps it as recorded.",
+    find: "kept as recorded (a start before the Start Date is drawn from the Start Date);",
+    replace: "kept as recorded;",
     expectFailing: only("its intro is true beside a start before the Start Date, which the schedule draws from the Start Date (Review 33, F6)"),
   },
   {

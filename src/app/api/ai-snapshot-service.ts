@@ -31,6 +31,8 @@ import {
   type ValidationError,
 } from "@core/schedule/dependency-graph";
 import { estimateOrderIssues, logNormalHasNoMean } from "@domain/helpers/estimate-rules";
+import { scenarioDataDate, staleResults } from "@core/schedule/recorded-progress";
+import { formatDateISO } from "@core/calendar/calendar";
 
 // ---------------------------------------------------------------------------
 // The read model the paired AI client consumes via scheduler_get_project.
@@ -80,7 +82,12 @@ export interface ScenarioSnapshot {
   startDate: string;
   projectEndDate?: string;
   totalDurationDays?: number;
-  simulationStatus: "present" | "absent";
+  /**
+   * WI-154 (owner, R639, decision 3): "stale" — results simulated on an earlier data date, in a
+   * scenario that holds a record; they no longer match its schedule, and `simulationNote` says why.
+   */
+  simulationStatus: "present" | "absent" | "stale";
+  simulationNote?: string;
   activities: ActivitySnapshot[];
   milestones: Milestone[];
   dependencies: ActivityDependency[];
@@ -128,7 +135,8 @@ function hasInvalidEstimate(scenario: Scenario): boolean {
  */
 export function classifyAndComputeScenario(
   scenario: Scenario,
-  workCalendar?: WorkCalendar | Calendar
+  workCalendar?: WorkCalendar | Calendar,
+  today: string = formatDateISO(new Date()),
 ): ScenarioComputation {
   const dependencyMode = scenario.settings.dependencyMode ?? false;
   if (dependencyMode && detectCycle(scenario.activities.map((a) => a.id), scenario.dependencies)) {
@@ -139,6 +147,8 @@ export function classifyAndComputeScenario(
   }
   try {
     const percentile = scenario.settings.probabilityTarget;
+    // WI-154: the same data date, by the same scope, as the project page.
+    const dataDate = scenarioDataDate(scenario.activities, today);
     const schedule = dependencyMode
       ? computeDependencySchedule(
           scenario.activities,
@@ -146,13 +156,15 @@ export function classifyAndComputeScenario(
           scenario.startDate,
           percentile,
           workCalendar,
-          scenario.milestones
+          scenario.milestones,
+          dataDate,
         )
       : computeDeterministicSchedule(
           scenario.activities,
           scenario.startDate,
           percentile,
-          workCalendar
+          workCalendar,
+          dataDate,
         );
     return { scheduleStatus: "ok", schedule };
   } catch (err) {
@@ -166,23 +178,30 @@ export function classifyAndComputeScenario(
 
 /**
  * Memoizes {@link classifyAndComputeScenario} per scenario id. A cached entry
- * is only reused when both the scenario reference AND the workCalendar reference
- * are identical to the ones it was computed under — a change to either forces a
- * recompute. `evictAbsent` drops entries for scenario ids no longer present.
+ * is only reused when the scenario reference, the workCalendar reference AND
+ * today are the ones it was computed under — a change to any forces a recompute.
+ * WI-154: today is in the key because a scenario that holds a record schedules
+ * work that has not started from it, so yesterday's entry is not today's schedule
+ * (Review 35, verification R3). `evictAbsent` drops entries for scenario ids no
+ * longer present.
  */
 export class ScenarioScheduleCache {
   private entries = new Map<
     string,
-    { scenario: Scenario; workCalendar: WorkCalendar | Calendar | undefined; computed: ScenarioComputation }
+    { scenario: Scenario; workCalendar: WorkCalendar | Calendar | undefined; today: string; computed: ScenarioComputation }
   >();
 
-  compute(scenario: Scenario, workCalendar?: WorkCalendar | Calendar): ScenarioComputation {
+  compute(
+    scenario: Scenario,
+    workCalendar?: WorkCalendar | Calendar,
+    today: string = formatDateISO(new Date()),
+  ): ScenarioComputation {
     const cached = this.entries.get(scenario.id);
-    if (cached && cached.scenario === scenario && cached.workCalendar === workCalendar) {
+    if (cached && cached.scenario === scenario && cached.workCalendar === workCalendar && cached.today === today) {
       return cached.computed;
     }
-    const computed = classifyAndComputeScenario(scenario, workCalendar);
-    this.entries.set(scenario.id, { scenario, workCalendar, computed });
+    const computed = classifyAndComputeScenario(scenario, workCalendar, today);
+    this.entries.set(scenario.id, { scenario, workCalendar, today, computed });
     return computed;
   }
 
@@ -244,9 +263,24 @@ function buildActivitySnapshot(activity: Activity, scheduled?: ScheduledActivity
   return snap;
 }
 
+/** WI-154: results from an earlier data date — the status and the one sentence (ISO dates, as the snapshot's are). */
+function simulationStatusOf(
+  scenario: Scenario, today: string, workCalendar?: WorkCalendar | Calendar,
+): Pick<ScenarioSnapshot, "simulationStatus" | "simulationNote"> {
+  if (!scenario.simulationResults) return { simulationStatus: "absent" };
+  const stale = staleResults(scenario, today, workCalendar);
+  if (!stale) return { simulationStatus: "present" };
+  return {
+    simulationStatus: "stale",
+    simulationNote: `The last simulation was run on ${stale.simulatedOn}. Work that has not started is now scheduled no earlier than ${stale.dataDate}, so its results no longer match the schedule until the simulation is run again.`,
+  };
+}
+
 export function buildScenarioSnapshot(
   scenario: Scenario,
-  computed: ScenarioComputation
+  computed: ScenarioComputation,
+  workCalendar?: WorkCalendar | Calendar,
+  today: string = formatDateISO(new Date()),
 ): ScenarioSnapshot {
   const dependencyMode = scenario.settings.dependencyMode ?? false;
   const scheduledById = new Map(
@@ -270,7 +304,7 @@ export function buildScenarioSnapshot(
     dependencyMode,
     scheduleStatus: computed.scheduleStatus,
     startDate: scenario.startDate,
-    simulationStatus: scenario.simulationResults ? "present" : "absent",
+    ...simulationStatusOf(scenario, today, workCalendar),
     activities,
     milestones: scenario.milestones.map(milestoneForSnapshot),
     dependencies: scenario.dependencies.map(dependencyForSnapshot),
@@ -293,12 +327,13 @@ export function buildProjectSnapshot(
   workCalendar: WorkCalendar | Calendar | undefined,
   openScenarioId: string | null,
   asOfSeq: number,
-  cache?: ScenarioScheduleCache
+  cache?: ScenarioScheduleCache,
+  today: string = formatDateISO(new Date()),
 ): ProjectSnapshot {
   const scheduleCache = cache ?? new ScenarioScheduleCache();
   scheduleCache.evictAbsent(new Set(project.scenarios.map((s) => s.id)));
   const scenarios = project.scenarios.map((s) =>
-    buildScenarioSnapshot(s, scheduleCache.compute(s, workCalendar))
+    buildScenarioSnapshot(s, scheduleCache.compute(s, workCalendar, today), workCalendar, today)
   );
   return {
     projectId: project.id,

@@ -8,7 +8,7 @@ import type { DependencySimulationParams } from "@core/simulation/worker-client"
 import { computeDeterministicDurations, computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildMilestoneSimParams } from "@core/schedule/milestone-sim-params";
 import { parseDateISO, countWorkingDays } from "@core/calendar/calendar";
-import { resolveRecordedProgress } from "@core/schedule/recorded-progress";
+import { resolveDataDate, resolveRecordedProgress, scenarioDataDate } from "@core/schedule/recorded-progress";
 import type { SequentialRecordEntry } from "@core/simulation/monte-carlo";
 
 /** Per-activity constraint info for sequential MC (parallel to activities array). */
@@ -20,6 +20,8 @@ export interface SimulationParams {
   sequentialConstraints: SequentialConstraintEntry[] | undefined;
   /** WI-137: dependencies off, only when a row has a record (parallel to activities). */
   sequentialRecords?: SeqRecord[];
+  /** WI-154, both modes: the data date's offset, only when it can move a row. */
+  dataDateOffset?: number;
 }
 
 type SeqRecord = SequentialRecordEntry | null;
@@ -93,7 +95,11 @@ export function buildSimulationParams(
   startDate: string,
   calendar: WorkCalendar | Calendar | undefined,
   parkinsonsLawEnabled: boolean,
+  today?: string,
 ): SimulationParams {
+  // WI-154: the same data date, by the same scope, as the page's schedule (`computeScenarioSchedule`).
+  const dataDateOffset = resolveDataDate(today && scenarioDataDate(activities, today), startDate, calendar)?.offset;
+  const floor = dataDateOffset ? { dataDateOffset } : {};
   if (dependencyMode) {
     const durationMap = computeDependencyDurations(activities, probabilityTarget);
     const durMapRecord: Record<string, number> = {};
@@ -114,6 +120,7 @@ export function buildSimulationParams(
         ...(recordedStarts ? { recordedStarts, recordedDurations } : {}),
       },
       sequentialConstraints: undefined,
+      ...floor,
     };
   }
 
@@ -128,5 +135,6 @@ export function buildSimulationParams(
     dependencyParams: undefined,
     sequentialConstraints,
     ...(seq ? { sequentialRecords: seq } : {}),
+    ...floor,
   };
 }

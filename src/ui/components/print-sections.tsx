@@ -29,7 +29,7 @@ import { confidenceApplies } from "@domain/helpers/confidence-applies";
 import { savedScenarioFlags } from "@ui/helpers/scenario-flags";
 import { flagNote, scheduleErrorKind } from "@ui/helpers/flag-sentences";
 import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
-import { progressNoteKey, progressNoteSentence } from "@ui/helpers/progress-note-words";
+import { progressNoteLines } from "@ui/helpers/progress-note-words";
 import {
   buildComparisonModel,
   type ComparisonCdf,
@@ -282,6 +282,8 @@ export interface PrintComparisonSectionProps {
   /** The scenario whose report follows: the one on screen. */
   reportScenarioName: string;
   formatDate: FormatDate;
+  /** WI-154: the page's today, as the screen's comparison reads it. */
+  today?: string;
 }
 
 /**
@@ -300,10 +302,11 @@ export function PrintComparisonSection({
   showActivityNumbers,
   reportScenarioName,
   formatDate,
+  today,
 }: PrintComparisonSectionProps) {
   const model = useMemo(
-    () => buildComparisonModel({ scenarios, calendar, showActivityNumbers, runGate: null, formatDate }),
-    [scenarios, calendar, showActivityNumbers, formatDate]
+    () => buildComparisonModel({ scenarios, calendar, showActivityNumbers, runGate: null, formatDate, today }),
+    [scenarios, calendar, showActivityNumbers, formatDate, today]
   );
   return (
     <section className="mb-3">
@@ -316,6 +319,7 @@ export function PrintComparisonSection({
       {model.flagNotes.map((f) => (
         <PrintFlagNote key={f.scenarioId} flag={f} />
       ))}
+      {model.staleNote && <p className="mt-1 text-xs text-gray-600">{model.staleNote}</p>}
       {model.runNote && <p className="mt-1 text-xs text-gray-500">{model.runNote}</p>}
       {model.failNote && <p className="mt-1 text-xs text-red-700">{model.failNote}</p>}
       {model.cdf && (
@@ -656,23 +660,26 @@ export interface PrintProgressNotesSectionProps {
  * The schedule's neutral progress notes on paper, in their own section (owner, R622): the same
  * sentences the project page and the Edit Activity window show (`progress-note-words.ts`), never a
  * second copy of the words. Grey, as on screen — a fact, not a warning. No note, no section. The
- * intro is true beside every kind of note (Review 33, F6): a link's and a constraint's keep the
- * recorded date, while a start before the Start Date is drawn from the Start Date, as its own
- * sentence says.
+ * intro names the kinds of note, each in words true of every note of that kind (Review 33, F6): a
+ * link's and a constraint's keep the recorded date, while a start before the Start Date is drawn
+ * from the Start Date; WI-154 adds work started before work it follows, and work not started.
  */
 export function PrintProgressNotesSection({ notes, formatDate }: PrintProgressNotesSectionProps) {
   if (!notes || notes.length === 0) return null;
+  // WI-154: the data date's notes are one line, as on the project page, and so are several notes of
+  // work started before work it follows.
+  const lines = progressNoteLines(notes, formatDate);
   return (
     <section className="mb-3">
       <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
-        Progress Notes ({notes.length})
+        Progress Notes ({lines.length})
       </h2>
       <p className="text-[9px] text-gray-600 mb-1">
-        A recorded start or finish that a link, a constraint or the Start Date would not have allowed. The schedule keeps it as recorded, except a start before the Start Date, which it draws from the Start Date.
+        Each note below is one of these: a recorded start or finish that a link, a constraint or the Start Date would not have allowed, kept as recorded (a start before the Start Date is drawn from the Start Date); work that has started before work it follows, which the schedule does not hold back; or work that has not started, which is not scheduled before today.
       </p>
       <ul className="text-[9px] text-gray-800 list-disc pl-4 space-y-0.5">
-        {notes.map((n) => (
-          <li key={progressNoteKey(n)}>{progressNoteSentence(n, formatDate)}</li>
+        {lines.map((n) => (
+          <li key={n.key}>{n.sentence}</li>
         ))}
       </ul>
     </section>

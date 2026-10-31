@@ -4,7 +4,7 @@
 
 import type { ProgressNote } from "@domain/models/types";
 import { useDateFormat } from "@ui/hooks/use-date-format";
-import { progressNoteKey, progressNoteSentence } from "@ui/helpers/progress-note-words";
+import { progressNoteLines } from "@ui/helpers/progress-note-words";
 
 /**
  * WI-137 (look U3): the schedule's NEUTRAL notes — a recorded date the schedule keeps although a
@@ -17,7 +17,7 @@ import { progressNoteKey, progressNoteSentence } from "@ui/helpers/progress-note
  */
 export function ProgressNotesPanel({ notes }: { notes: ProgressNote[] | undefined }) {
   const formatDate = useDateFormat();
-  const shown = notes ?? [];
+  const shown = progressNoteLines(notes ?? [], formatDate);
   return (
     <div aria-live="polite" className="contents">
       {shown.length > 0 && (
@@ -29,11 +29,11 @@ export function ProgressNotesPanel({ notes }: { notes: ProgressNote[] | undefine
             Progress notes <span className="text-xs font-normal text-gray-600 dark:text-gray-400">({shown.length})</span>
           </h3>
           {shown.map((n) => (
-            <p key={progressNoteKey(n)} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+            <p key={n.key} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
               <span aria-hidden="true" className="mt-px inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-blue-300 dark:border-blue-500 text-xs font-semibold text-blue-700 dark:text-blue-300">
                 i
               </span>
-              <span>{progressNoteSentence(n, formatDate)}</span>
+              <span>{n.sentence}</span>
             </p>
           ))}
         </section>

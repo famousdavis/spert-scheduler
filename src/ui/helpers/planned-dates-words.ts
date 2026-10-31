@@ -13,12 +13,13 @@ import { pluralize } from "@domain/helpers/format-labels";
 
 /**
  * What the pair IS (owner, R630 ruling 5b): the window's two labels carry it as their tooltip and
- * their accessible description. "At that moment": the edits made in the same window visit or the
- * same bulk Apply are part of it (ruling 5a), and nothing moves it afterwards — only the one Status
- * rule writes the pair, and only when the activity leaves Planned.
+ * their accessible description. "When it left Planned": the edits made in the same window visit or
+ * the same bulk Apply are part of it (ruling 5a), and nothing moves it afterwards — only the one
+ * Status rule writes the pair, and only when the activity leaves Planned. WI-154 (owner, R639, C′):
+ * the plan's dates, without today's floor, so a late start keeps the date it was late against.
  */
 export const PLANNED_DATES_DEFINITION =
-  "Planned Start and Planned Finish: the schedule's dates at the moment the activity left Planned. The schedule does not move them afterwards.";
+  "Planned Start and Planned Finish: the dates the plan gave the activity when it left Planned, without moving work that has not started to today. The schedule does not move them afterwards.";
 
 /**
  * The visible line under an In Progress line whose Planned Start is a dash (ruling 2; Review 33,

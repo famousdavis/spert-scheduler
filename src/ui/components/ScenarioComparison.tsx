@@ -42,6 +42,8 @@ interface ScenarioComparisonProps {
   runningIds?: ReadonlySet<string>;
   /** What the last Compare run did, for a screen reader — announced outside the captured region. */
   runStatus?: string;
+  /** WI-154: the page's today (`useToday`), so the comparison moves on at midnight with the page. */
+  today?: string;
 }
 
 /**
@@ -141,9 +143,12 @@ function FlagNoteView({ flag }: { flag: ComparisonFlagNote }) {
  * ⚠️ Inside the captured region: light colours only, NO `dark:` variant (see the note on tableRef).
  */
 function ComparisonNotes({ model }: { model: ComparisonModel }) {
-  if (!model.bufferNote && model.flagNotes.length === 0 && !model.runNote && !model.failNote) return null;
+  if (!model.bufferNote && model.flagNotes.length === 0 && !model.runNote && !model.failNote && !model.staleNote) return null;
   return (
     <div className="w-0 min-w-full">
+      {model.staleNote && (
+        <p className="px-4 py-2 text-xs text-gray-600 border-t border-gray-100">{model.staleNote}</p>
+      )}
       {model.bufferNote && (
         <p className="px-4 py-2 text-xs text-gray-600 border-t border-gray-100">{model.bufferNote}</p>
       )}
@@ -168,14 +173,15 @@ export function ScenarioComparisonTable({
   onRunScenario,
   runningIds = NOTHING_RUNNING,
   runStatus = "",
+  today,
 }: ScenarioComparisonProps) {
   const formatDate = useDateFormat();
   const tableRef = useRef<HTMLDivElement>(null);
   const cdfRef = useRef<HTMLDivElement>(null);
   // What the comparison says — the same model the printed comparison renders (WI-61).
   const model = useMemo(
-    () => buildComparisonModel({ scenarios, calendar, showActivityNumbers, runGate: activeRunGate, formatDate }),
-    [scenarios, calendar, showActivityNumbers, activeRunGate, formatDate]
+    () => buildComparisonModel({ scenarios, calendar, showActivityNumbers, runGate: activeRunGate, formatDate, today }),
+    [scenarios, calendar, showActivityNumbers, activeRunGate, formatDate, today]
   );
 
   // Format duration as finish date for CDF tooltip (uses first scenario's start date)

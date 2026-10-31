@@ -35,6 +35,8 @@ export interface SimulationRequest {
     /** WI-137: activityId → recorded start's offset; a Complete row's day count from its dates. */
     recordedStarts?: Record<string, number>;
     recordedDurations?: Record<string, number>;
+    /** WI-154, both modes: working days from the project start to the data date. */
+    dataDateOffset?: number;
   };
 }
 

@@ -14,6 +14,7 @@ import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { isCalendarError } from "@core/calendar/work-calendar";
 import { computeDependencySchedule } from "@core/schedule/deterministic";
 import { isDependencyCycleError } from "@core/schedule/dependency-graph";
+import { scenarioDataDate } from "@core/schedule/recorded-progress";
 import { computeSchedule } from "@app/api/schedule-service";
 
 export interface ScheduleError {
@@ -39,6 +40,11 @@ export interface ScenarioScheduleInputs {
   calendar?: WorkCalendar | Calendar;
   /** Dependency mode: its links and milestones. `null` in sequential mode. */
   network: { dependencies: ActivityDependency[]; milestones: Milestone[] } | null;
+  /**
+   * WI-154: today, `YYYY-MM-DD`, local. With a record in the scenario, no Planned row starts before
+   * it (`scenarioDataDate`). Omitted: no floor, as before.
+   */
+  today?: string;
 }
 
 export interface ScenarioScheduleResult {
@@ -54,12 +60,13 @@ export interface ScenarioScheduleResult {
  * sequential engine never builds a dependency graph, so it cannot raise one.
  */
 export function computeScenarioSchedule(inputs: ScenarioScheduleInputs): ScenarioScheduleResult {
-  const { activities, startDate, probabilityTarget, calendar, network } = inputs;
+  const { activities, startDate, probabilityTarget, calendar, network, today } = inputs;
   if (activities.length === 0) return { schedule: null, scheduleError: null };
+  const dataDate = today ? scenarioDataDate(activities, today) : undefined;
   try {
     const schedule = network
-      ? computeDependencySchedule(activities, network.dependencies, startDate, probabilityTarget, calendar, network.milestones)
-      : computeSchedule(activities, startDate, probabilityTarget, calendar);
+      ? computeDependencySchedule(activities, network.dependencies, startDate, probabilityTarget, calendar, network.milestones, dataDate)
+      : computeSchedule(activities, startDate, probabilityTarget, calendar, dataDate);
     return { schedule, scheduleError: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -85,13 +92,14 @@ export function useSchedule(
   startDate: string,
   probabilityTarget: number,
   calendar?: WorkCalendar | Calendar,
-  onScheduleError?: (error: ScheduleError | null) => void
+  onScheduleError?: (error: ScheduleError | null) => void,
+  today?: string,
 ): DeterministicSchedule | null {
   return useMemo(() => {
     if (activities.length === 0) return null;
-    const { schedule, scheduleError } = computeScenarioSchedule({ activities, startDate, probabilityTarget, calendar, network: null });
+    const { schedule, scheduleError } = computeScenarioSchedule({ activities, startDate, probabilityTarget, calendar, network: null, today });
     onScheduleError?.(scheduleError);
     return schedule;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- onScheduleError is a setState, stable ref
-  }, [activities, startDate, probabilityTarget, calendar]);
+  }, [activities, startDate, probabilityTarget, calendar, today]);
 }

@@ -126,7 +126,7 @@ const SETTER_HEAD =
   "  updateScenarioTargetFinishDate: (projectId, scenarioId, targetFinishDate) => {\n    if (isLocked(get().projects, projectId, scenarioId)) return;\n    pushUndo(projectId);\n";
 const BACKFILL = "    const scenario = createScenario(name, startDate, settingsOverrides);\n";
 const RAG_DEPS =
-  "    [scenario?.targetFinishDate, scenario?.simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],\n";
+  "    [scenario?.targetFinishDate, simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],\n";
 const CARD_READ = "            targetFinishDate={scenario.targetFinishDate ?? null}\n            onTargetFinishDateChange";
 const CARD_WRITE = "              updateScenarioTargetFinishDate(id!, scenario.id, date)\n";
 const GANTT_READ = "              targetFinishDate={scenario.targetFinishDate ?? null}\n              targetRAGColor";
@@ -319,7 +319,7 @@ export const mutations = [
     file: PAGE,
     find: RAG_DEPS,
     replace:
-      "    [project?.targetFinishDate, scenario?.simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],\n",
+      "    [project?.targetFinishDate, simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],\n",
     expectFailing: only(V_SURFACES, V_RUN),
   },
   {

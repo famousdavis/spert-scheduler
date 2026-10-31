@@ -195,11 +195,15 @@ describe("the bulk toolbar keeps, in ONE Apply, the pair two Applies keep (rulin
   const normal = (acts: Activity[]) =>
     acts.map((a) => (a.id === "e" ? { ...a, distributionType: "normal" as const, min: 5, mostLikely: 6, max: 30 } : a));
   const TRIANGULAR_PLAN = ["2026-10-19", "2026-11-04"];
+  // WI-154: the fixture holds a record, so the grid SHOWS work that has not started from today, Tue
+  // 10/27: Delta (10 days) 10/27 – Mon 11/09, so Echo from Tue 11/10 — 10 days to Mon 11/23, or 13
+  // (Triangular) to Thu 11/26. The pair is still the plan before that floor (owner, R639, C′).
+  const SHOWN_TRIANGULAR = ["2026-11-10", "2026-11-26"];
 
   it("a Distribution staged with the Status: the plan has the new Distribution", () => {
     load(normal);
     renderPage();
-    expect(shownDates("e")).toEqual(["2026-10-19", "2026-10-30"]);
+    expect(shownDates("e")).toEqual(["2026-11-10", "2026-11-23"]);
     bulkApply(["e"], { distribution: "triangular", status: "inProgress" });
     expect([stored("e").distributionType, stored("e").status, ...pairOf("e")]).toEqual(["triangular", "inProgress", ...TRIANGULAR_PLAN]);
   });
@@ -208,7 +212,7 @@ describe("the bulk toolbar keeps, in ONE Apply, the pair two Applies keep (rulin
     load(normal);
     renderPage();
     bulkApply(["e"], { distribution: "triangular" });
-    expect(shownDates("e")).toEqual(TRIANGULAR_PLAN);
+    expect(shownDates("e")).toEqual(SHOWN_TRIANGULAR);
     bulkApply(["e"], { status: "inProgress" });
     expect([stored("e").distributionType, stored("e").status, ...pairOf("e")]).toEqual(["triangular", "inProgress", ...TRIANGULAR_PLAN]);
   });

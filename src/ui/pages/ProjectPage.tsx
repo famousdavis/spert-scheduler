@@ -21,6 +21,7 @@ import { runBlockedMessage } from "@ui/helpers/run-blocked-message";
 import { useEstimateValidity } from "@ui/hooks/use-estimate-validity";
 import { useHeldWhilePointerDown } from "@ui/hooks/use-held-while-pointer-down";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
+import { useToday } from "@ui/hooks/use-today";
 import { useMilestoneBuffers } from "@ui/hooks/use-milestone-buffers";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useAutoRunSimulation } from "@ui/hooks/use-auto-run-simulation";
@@ -35,6 +36,7 @@ import { computeTargetRAGColor } from "@core/schedule/target-rag";
 import { computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
 import { hasAnyRecord, zeroFloatIds } from "@core/schedule/recorded-progress";
+import { useDataDateView } from "@ui/hooks/use-data-date-view";
 import { buildSimulationParams, type SimulationParams } from "@ui/helpers/build-simulation-params";
 import { currentSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 import { toast } from "@ui/hooks/use-notification-store";
@@ -395,12 +397,15 @@ export function ProjectPage() {
   // WI-137 release 2: everything but the activities that this page's schedule is computed from,
   // gathered ONCE. Both modes below read it, and so does `planSchedule`, so the plan a row keeps
   // when it leaves Planned is this page's own computation, on this page's own inputs.
+  // WI-154: today, local — the data date in a scenario that holds a record.
+  const today = useToday();
   const scheduleInputs = useMemo<Omit<ScenarioScheduleInputs, "activities">>(() => ({
+    today,
     startDate: startDate ?? "2025-01-06",
     probabilityTarget: probTarget ?? 0.5,
     calendar: workCalendar,
     network: depMode ? { dependencies: dependencies ?? [], milestones: milestones ?? [] } : null,
-  }), [depMode, dependencies, milestones, startDate, probTarget, workCalendar]);
+  }), [depMode, dependencies, milestones, startDate, probTarget, workCalendar, today]);
 
   // Deterministic schedule — uses sequential or dependency-aware engine
   const sequentialSchedule = useSchedule(
@@ -408,7 +413,8 @@ export function ProjectPage() {
     scheduleInputs.startDate,
     scheduleInputs.probabilityTarget,
     scheduleInputs.calendar,
-    setSequentialScheduleError
+    setSequentialScheduleError,
+    today,
   );
 
   // Compute the dependency schedule purely — no state-setting during render.
@@ -429,11 +435,15 @@ export function ProjectPage() {
    * with the edits made in the same step applied. A row leaving Planned keeps its start and finish
    * in it. `null` when it cannot be calculated (a cycle, a calendar error, a row whose distribution
    * cannot be built), and then no Planned date is kept.
+   *
+   * WI-154 (owner, R639, C′): computed with today's floor OFF — the plan before work that has not
+   * started was moved to today — so a late start keeps the date it was late against, and Complete
+   * judges "already due" by the same plan. The same inputs, `today` left out: no second copy.
    */
   const planSchedule = useCallback((changed: Activity[]): DeterministicSchedule | null => {
     if (!activities) return null;
     const byId = new Map(changed.map((a) => [a.id, a]));
-    return computeScenarioSchedule({ ...scheduleInputs, activities: activities.map((a) => byId.get(a.id) ?? a) }).schedule;
+    return computeScenarioSchedule({ ...scheduleInputs, today: undefined, activities: activities.map((a) => byId.get(a.id) ?? a) }).schedule;
   }, [scheduleInputs, activities]);
 
   const dependencySchedule = dependencyScheduleResult.schedule;
@@ -500,6 +510,10 @@ export function ProjectPage() {
   }, [depMode, activities, dependencies, probTarget, dependencySchedule]);
 
   const schedule = scenario?.settings.dependencyMode ? dependencySchedule : sequentialSchedule;
+  // WI-154 (owner, R639): the grid's rows with each Planned row's plan before today's floor (C′),
+  // and results from an earlier data date shown as not run, with one sentence (decision 3).
+  const dataDateView = useDataDateView({ scenario, today, workCalendar, schedule, planSchedule });
+  const { simulationResults } = dataDateView;
   // The warnings panel also sits above the grid and reads `schedule`, which is null whenever
   // the engine throws — so a commit can remove it under a click, as it can the banner. Held for
   // that panel (v0.69.0), and for the Gantt (v0.70.4, below).
@@ -508,7 +522,7 @@ export function ProjectPage() {
   // Schedule buffer = MC percentile at project target - deterministic span
   const buffer = useScheduleBuffer(
     schedule?.spanDays ?? null,
-    scenario?.simulationResults,
+    simulationResults,
     scenario?.settings.probabilityTarget ?? 0.5,
     scenario?.settings.projectProbabilityTarget ?? 0.95
   );
@@ -531,7 +545,7 @@ export function ProjectPage() {
     scenario?.milestones ?? [],
     schedule?.activities ?? NO_SCHEDULED_ACTIVITIES,
     scenario?.activities ?? [],
-    scenario?.simulationResults,
+    simulationResults,
     scenario?.startDate ?? "2025-01-06",
     scenario?.settings.projectProbabilityTarget ?? 0.95,
     scenario?.settings.dependencyMode ?? false,
@@ -577,13 +591,13 @@ export function ProjectPage() {
     () =>
       computeTargetRAGColor({
         targetFinishDate: scenario?.targetFinishDate,
-        percentiles: scenario?.simulationResults?.percentiles,
+        percentiles: simulationResults?.percentiles,
         startDate: scenario?.startDate,
         greenPct: targetFinishGreenPct,
         amberPct: targetFinishAmberPct,
         calendar: workCalendar,
       }),
-    [scenario?.targetFinishDate, scenario?.simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],
+    [scenario?.targetFinishDate, simulationResults?.percentiles, scenario?.startDate, targetFinishGreenPct, targetFinishAmberPct, workCalendar],
   );
 
   // Format a simulation duration (days) as a projected finish date for CDF tooltips
@@ -618,6 +632,8 @@ export function ProjectPage() {
     isRunning: simulation.isRunning,
     runSimulation: simulation.run,
     setSimulationResults,
+    // WI-154: only where the data date applies, so a new day re-runs a scenario with a record alone.
+    today: dataDateView.autoRunToday,
   });
 
   // Undo/Redo keyboard shortcuts
@@ -753,6 +769,7 @@ export function ProjectPage() {
         scenario.startDate,
         workCalendar,
         scenario.settings.parkinsonsLawEnabled ?? true,
+        today,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -774,8 +791,9 @@ export function ProjectPage() {
       params.dependencyParams,
       params.sequentialConstraints,
       params.sequentialRecords,
+      params.dataDateOffset,
     );
-  }, [id, scenario, simulation, setSimulationResults, workCalendar, validity.runnable, validity.runBlockers, activityNumberMap]);
+  }, [id, scenario, simulation, setSimulationResults, workCalendar, validity.runnable, validity.runBlockers, activityNumberMap, today]);
 
   const handleSettingsChange = useCallback(
     (updates: Partial<ScenarioSettings>) => {
@@ -947,6 +965,7 @@ export function ProjectPage() {
           onRunScenario={handleCompareRun}
           runningIds={paintedCompareRunningIds}
           runStatus={compareRuns.runStatus}
+          today={today}
         />
       )}
       {compareMode && paintedCompareScenarios.length < 2 && (
@@ -989,7 +1008,7 @@ export function ProjectPage() {
             buffer={paintedBuffer}
             calendar={workCalendar}
             settings={scenario.settings}
-            hasSimulationResults={!!scenario.simulationResults}
+            hasSimulationResults={!!simulationResults}
             runBlocked={paintedFlaggedRows.length > 0}
             onSettingsChange={handleSettingsChange}
             onStartDateChange={(startDate) =>
@@ -1037,7 +1056,7 @@ export function ProjectPage() {
           <UnifiedActivityGrid
             activities={scenario.activities}
             bands={scenario.bands ?? []}
-            scheduledActivities={schedule?.activities ?? []}
+            scheduledActivities={dataDateView.gridScheduledActivities}
             activityProbabilityTarget={scenario.settings.probabilityTarget}
             onUpdate={(activityId, updates) =>
               updateActivityField(id!, scenario.id, activityId, updates)
@@ -1192,7 +1211,8 @@ export function ProjectPage() {
 
           {/* Monte Carlo Simulation */}
           <SimulationPanel
-            simulationResults={scenario.simulationResults}
+            simulationResults={simulationResults}
+            staleNote={dataDateView.staleNote}
             probabilityTarget={scenario.settings.projectProbabilityTarget}
             activityProbabilityTarget={scenario.settings.probabilityTarget}
             isRunning={simulation.isRunning}
@@ -1328,7 +1348,9 @@ export function ProjectPage() {
       {scenario && (
         <PrintableReport
           project={project}
-          scenario={scenario}
+          scenario={dataDateView.printScenario ?? scenario}
+          staleNote={dataDateView.staleNote}
+          today={today}
           schedule={schedule}
           scheduledActivities={schedule?.activities ?? []}
           buffer={buffer}

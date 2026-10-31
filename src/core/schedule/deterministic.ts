@@ -10,6 +10,7 @@ import type {
   DependencyConflict,
   DeterministicSchedule,
   Milestone,
+  DataDateProgressNote,
   ProgressNote,
   ScheduledActivity,
 } from "@domain/models/types";
@@ -33,13 +34,20 @@ import {
   detectConstraintNotes,
   detectProgressNotes,
   detectStartDateNotes,
+  dataDateFloorOffsets,
   ffRequiredFinish,
+  floorsAtDataDate,
   hasRecordedFinish,
+  linkKey,
+  overtakenLinks,
   placeRecordedRow,
   recordExplains,
   recordSetsConstraintAside,
   recordedFlags,
+  resolveDataDate,
   resolveRecordedProgress,
+  setAsideLinks,
+  type DataDateFloor,
   type ProgressPair,
   type RecordedPin,
   type RecordedProgress,
@@ -123,12 +131,14 @@ export function computeDeterministicDurations(
  * @param startDate - Project start date ("YYYY-MM-DD")
  * @param percentile - Probability target (e.g. 0.85 for P85)
  * @param calendar - Optional calendar with holidays
+ * @param dataDate - WI-154: no Planned row starts before it ("YYYY-MM-DD"); omitted, no floor
  */
 export function computeDeterministicSchedule(
   activities: Activity[],
   startDate: string,
   percentile: number,
-  calendar?: WorkCalendar | Calendar
+  calendar?: WorkCalendar | Calendar,
+  dataDate?: string,
 ): DeterministicSchedule {
   const scheduledActivities: ScheduledActivity[] = [];
   const conflicts: ConstraintConflict[] = [];
@@ -136,23 +146,37 @@ export function computeDeterministicSchedule(
   let currentDate = parseDateISO(startDate);
   // WI-137: rows with a recorded start. Empty for every project a v25 build wrote.
   const records = resolveRecordedProgress(activities, startDate, calendar);
+  // WI-154: the data date, or undefined — then every row is placed exactly as before.
+  const floor = resolveDataDate(dataDate, startDate, calendar);
+  const flooredFrom = new Map<string, string>();
+  const held = new Set<string>();
+  // WI-154 (E1): a started row is not held by a row above it that has not started.
+  const setAside = setAsideLinks(sequentialPairs(activities), new Map(activities.map((a) => [a.id, a])), !!floor);
 
   // Ensure start date is a working day
   currentDate = advanceToNextWorkingDay(currentDate, calendar);
+  // E1: where a started row goes when the row above it has not started — after the last started row.
+  let afterStarted = currentDate;
 
-  for (const activity of activities) {
-    const placed = placeSequentialRow(activity, records.get(activity.id), currentDate, percentile, calendar);
+  for (const [i, activity] of activities.entries()) {
+    const from = heldByRowAbove(activities, i, setAside) ? currentDate : afterStarted;
+    const at = dataDateStart(activity, from, floor);
+    if (at !== from) flooredFrom.set(activity.id, formatDateISO(from));
+    const placed = placeSequentialRow(activity, records.get(activity.id), at, percentile, calendar, floor);
     if (placed.conflict) conflicts.push(placed.conflict);
+    if (placed.conflict?.passed) held.add(activity.id);
     scheduledActivities.push(placed.row);
 
     // Next activity starts the working day after this one's (possibly constrained) end
     currentDate = addWorkingDays(parseDateISO(placed.row.endDate), 1, calendar);
+    if (!floorsAtDataDate(activity)) afterStarted = currentDate;
   }
 
   const lastActivity = scheduledActivities[scheduledActivities.length - 1];
   const { totalDuration, projectEndISO, notes } = sequentialTotals(
-    activities, scheduledActivities, records, formatDateISO(currentDate), calendar,
+    activities, scheduledActivities, records, formatDateISO(currentDate), calendar, floor, setAside,
   );
+  notes.push(...dataDateNotes(activities, flooredFrom, scheduledActivities, held, floor));
   // Inclusive span in the MC duration domain (includes constraint idle). currentDate
   // has been advanced past the last activity by the loop, so use the raw startDate.
   const spanDays = lastActivity
@@ -180,6 +204,7 @@ function placeSequentialRow(
   currentDate: Date,
   percentile: number,
   calendar: Cal,
+  floor: DataDateFloor | undefined,
 ): { row: ScheduledActivity; conflict: ConstraintConflict | null } {
   let duration = rec?.duration ?? resolveActivityDuration(activity, percentile);
   let startISO = formatDateISO(currentDate);
@@ -199,9 +224,10 @@ function placeSequentialRow(
       activity.constraintType, activity.constraintDate,
       activity.constraintMode, activity.id, activity.name, calendar,
     );
-    startISO = result.es;
-    endISO = result.ef;
-    conflict = result.conflict;
+    const held = holdAtDataDate(activity, parseDateISO(result.es), result, currentDate, duration, floor, calendar);
+    startISO = formatDateISO(held.es);
+    endISO = formatDateISO(held.ef);
+    conflict = held.conflict;
   }
   return {
     row: {
@@ -224,8 +250,10 @@ function sequentialTotals(
   records: Map<string, RecordedProgress>,
   afterLastISO: string,
   calendar: Cal,
+  floor: DataDateFloor | undefined,
+  setAside: ReadonlySet<string>,
 ): { totalDuration: number; projectEndISO: string; notes: ProgressNote[] } {
-  if (records.size > 0) return summariseSequentialRecords(activities, scheduled, records, calendar);
+  if (records.size > 0 || floor) return summariseSequentialRecords(activities, scheduled, records, calendar, floor, setAside);
   const last = scheduled[scheduled.length - 1];
   return {
     totalDuration: scheduled.reduce((sum, a) => sum + a.duration, 0),
@@ -249,30 +277,48 @@ function summariseSequentialRecords(
   scheduled: ScheduledActivity[],
   records: Map<string, RecordedProgress>,
   calendar: Cal,
+  floor: DataDateFloor | undefined,
+  setAside: ReadonlySet<string>,
 ): { totalDuration: number; projectEndISO: string; notes: ProgressNote[] } {
   let pos = 0;
   let maxEnd = 0;
   let endISO = scheduled[0]!.endDate;
+  // WI-154: a Planned row starts no earlier than the data date's offset, and (E1) a started row
+  // whose row above has not started goes after the last started row, as the date loop places it.
+  const floors = dataDateFloorOffsets(activities, floor?.offset);
+  let afterStarted = 0;
   for (let i = 0; i < scheduled.length; i++) {
-    const rec = records.get(scheduled[i]!.activityId);
+    const id = scheduled[i]!.activityId;
+    const rec = records.get(id);
+    if (!heldByRowAbove(activities, i, setAside)) pos = afterStarted;
     if (rec) pos = rec.startOffset;
+    pos = Math.max(pos, floors?.get(id) ?? 0);
     pos += scheduled[i]!.duration;
+    if (!floors?.has(id)) afterStarted = pos;
     if (pos > maxEnd) maxEnd = pos;
     if (scheduled[i]!.endDate > endISO) endISO = scheduled[i]!.endDate;
   }
-  const pairs = activities.slice(1).map((a, i) => ({
-    fromId: activities[i]!.id, toId: a.id, type: "FS" as const, lagDays: 0,
-  }));
   const notes = allProgressNotes({
-    pairs,
+    pairs: sequentialPairs(activities),
     records,
     startDates: new Map(scheduled.map((sa) => [sa.activityId, parseDateISO(sa.startDate)])),
     endDates: new Map(scheduled.map((sa) => [sa.activityId, parseDateISO(sa.endDate)])),
     activityMap: new Map(activities.map((a) => [a.id, a])),
     calendar,
     sequential: true,
+    setAside,
   });
   return { totalDuration: maxEnd, projectEndISO: endISO, notes };
+}
+
+/** Dependencies off: does the row above hold this row? Not when E1 sets their pair aside (WI-154). */
+function heldByRowAbove(activities: Activity[], i: number, setAside: ReadonlySet<string>): boolean {
+  return i === 0 || !setAside.has(linkKey(activities[i - 1]!.id, activities[i]!.id, "FS"));
+}
+
+/** Dependencies off: each row and the row above it, as a finish-to-start pair. */
+function sequentialPairs(activities: Activity[]): ProgressPair[] {
+  return activities.slice(1).map((a, i) => ({ fromId: activities[i]!.id, toId: a.id, type: "FS" as const, lagDays: 0 }));
 }
 
 /** WI-137: every neutral note — links overtaken, constraints set aside, starts before the Start Date. */
@@ -282,6 +328,78 @@ function allProgressNotes(args: Parameters<typeof detectProgressNotes>[0]): Prog
     ...detectConstraintNotes(args),
     ...detectStartDateNotes(args.records, args.activityMap),
   ];
+}
+
+// -- WI-154: the data date in the date domain ------------------------------------
+
+/** A not-started row's start: never before the data date. Any other row, as given. */
+function dataDateStart(activity: Activity, start: Date, floor: DataDateFloor | undefined): Date {
+  return floor && floorsAtDataDate(activity) && start < floor.date ? new Date(floor.date) : start;
+}
+
+/**
+ * After the row's own constraint: a hard Must Start On or Must Finish On whose date has passed would
+ * pull a not-started row back into days that have passed. The schedule starts it instead where it
+ * would start with no constraint — `networkStart`, the later of the data date and what its links (or
+ * the row above) allow, as the simulation does (owner, R639, decision 2) — and the red conflict the
+ * constraint raised is reworded to say so.
+ */
+function holdAtDataDate(
+  activity: Activity, es: Date, result: { ef: string | Date; conflict?: ConstraintConflict | null },
+  networkStart: Date, duration: number, floor: DataDateFloor | undefined, calendar: Cal,
+): { es: Date; ef: Date; conflict: ConstraintConflict | null } {
+  const ef = typeof result.ef === "string" ? parseDateISO(result.ef) : result.ef;
+  const conflict = result.conflict ?? null;
+  if (!floor || !floorsAtDataDate(activity) || es >= floor.date) return { es, ef, conflict };
+  const end = activityEndDate(networkStart, duration, calendar);
+  return { es: new Date(networkStart), ef: end, conflict: conflict && passedConstraint(conflict, networkStart, end, floor) };
+}
+
+/**
+ * "today, 2026-10-27", "on 2026-11-02, the next working day", or "on 2026-11-10" — `mid`: the words
+ * go on, so an appositive is closed with a comma.
+ */
+function startWords(start: Date, floor: DataDateFloor, mid = false): string {
+  const iso = formatDateISO(start);
+  if (start.getTime() !== floor.date.getTime()) return `on ${iso}`;
+  const words = iso === floor.today ? `today, ${iso}` : `on ${iso}, the next working day`;
+  return mid ? `${words},` : words;
+}
+
+/**
+ * The conflict's words once the row is held: the date has passed, and the row has not started — no
+ * "data date" (Review 35, verification W1), and no "held", which it is not (interactions E4).
+ */
+function passedConstraint(c: ConstraintConflict, start: Date, end: Date, floor: DataDateFloor): ConstraintConflict {
+  const name = nameOrUnnamed(c.activityName);
+  const message = c.constraintType === "MFO"
+    ? `${name}: Must Finish On ${c.constraintDate} cannot be met: ${name} has not started, so the schedule starts it ${startWords(start, floor, true)} and finishes it on ${formatDateISO(end)}.`
+    : `${name}: Must Start On ${c.constraintDate} has passed, and ${name} has not started, so the schedule starts it ${startWords(start, floor)}.`;
+  return { ...c, computedDate: formatDateISO(start), message, passed: true };
+}
+
+/**
+ * One note per not-started row the data date moved later, when the schedule starts it ON the data
+ * date, in the grid's order (Review 35, W5). A row a later constraint or a predecessor moved
+ * further has none; nor has a row its reworded Must Start On or Must Finish On error explains —
+ * any other conflict leaves the note (W4).
+ */
+function dataDateNotes(
+  activities: Activity[],
+  flooredFrom: Map<string, string>,
+  scheduled: ScheduledActivity[],
+  held: ReadonlySet<string>,
+  floor: DataDateFloor | undefined,
+): DataDateProgressNote[] {
+  if (!floor || flooredFrom.size === 0) return [];
+  const dateISO = formatDateISO(floor.date);
+  const byId = new Map(scheduled.map((sa) => [sa.activityId, sa]));
+  return activities
+    .filter((a) => flooredFrom.has(a.id) && byId.get(a.id)?.startDate === dateISO && !held.has(a.id))
+    .map((a) => ({
+      kind: "data-date", activityId: a.id, activityName: a.name, date: dateISO,
+      logicStart: flooredFrom.get(a.id)!, today: floor.today,
+    }));
 }
 
 // -- Per-activity uncertainty computation -------------------------------------
@@ -541,6 +659,7 @@ function forwardPass(args: {
   calendar: Cal;
   milestones?: Milestone[];
   records: Map<string, RecordedProgress>;
+  floor?: DataDateFloor;
 }): {
   startDates: Map<string, Date>;
   endDates: Map<string, Date>;
@@ -548,14 +667,18 @@ function forwardPass(args: {
   networkEnd: Map<string, string>;
   conflicts: ConstraintConflict[];
   heldDurations: Map<string, number>;
+  flooredFrom: Map<string, string>;
+  held: Set<string>;
 } {
-  const { graph, activityMap, durationMap, projectStart, calendar, milestones, records } = args;
+  const { graph, activityMap, durationMap, projectStart, calendar, milestones, records, floor } = args;
   const startDates = new Map<string, Date>();    // constrained ES
   const endDates = new Map<string, Date>();      // constrained EF
   const networkStart = new Map<string, string>(); // network ES (ISO)
   const networkEnd = new Map<string, string>();   // network EF (ISO)
   const conflicts: ConstraintConflict[] = [];
   const heldDurations = new Map<string, number>(); // WI-137: recorded rows, start to finish
+  const flooredFrom = new Map<string, string>(); // WI-154: the start logic gave a row the data date moved
+  const held = new Set<string>(); // WI-154: rows a passed Must Start On or Must Finish On no longer holds
 
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
@@ -581,6 +704,10 @@ function forwardPass(args: {
     let activityStart = earliestStartFromPreds(preds, startDates, endDates, duration, projectStart, calendar);
     activityStart = applyMilestoneFloor(activity, activityStart, milestones);
     activityStart = advanceToNextWorkingDay(activityStart, calendar); // ensure a working day
+    // WI-154: a not-started row starts no earlier than the data date (already a working day).
+    const logicStart = activityStart;
+    activityStart = dataDateStart(activity, activityStart, floor);
+    if (activityStart !== logicStart) flooredFrom.set(id, formatDateISO(logicStart));
 
     const activityEnd = activityEndDate(activityStart, duration, calendar);
 
@@ -593,12 +720,14 @@ function forwardPass(args: {
     const local = applyLocalConstraint(
       activity, esNetISO, efNetISO, duration, activityStart, activityEnd, calendar,
     );
-    startDates.set(id, local.es);
-    endDates.set(id, local.ef);
-    if (local.conflict) conflicts.push(local.conflict);
+    const placed = holdAtDataDate(activity, local.es, local, activityStart, duration, floor, calendar);
+    startDates.set(id, placed.es);
+    endDates.set(id, placed.ef);
+    if (placed.conflict) conflicts.push(placed.conflict);
+    if (placed.conflict?.passed) held.add(id);
   }
 
-  return { startDates, endDates, networkStart, networkEnd, conflicts, heldDurations };
+  return { startDates, endDates, networkStart, networkEnd, conflicts, heldDurations, flooredFrom, held };
 }
 
 /** WI-137: the finish each FF link asks of a recorded row, lag counted. */
@@ -618,8 +747,9 @@ function backwardPassConstrained(args: {
   durationMap: Map<string, number>;
   projectEndDate: Date;
   calendar: Cal;
+  overtaken: ReadonlySet<string>;
 }): { lateStartCon: Map<string, string>; lateFinishCon: Map<string, string> } {
-  const { graph, activityMap, durationMap, projectEndDate, calendar } = args;
+  const { graph, activityMap, durationMap, projectEndDate, calendar, overtaken } = args;
   const lateStartCon = new Map<string, string>();
   const lateFinishCon = new Map<string, string>();
 
@@ -627,7 +757,7 @@ function backwardPassConstrained(args: {
     const id = graph.topologicalOrder[i]!;
     const activity = activityMap.get(id)!;
     const duration = durationMap.get(id) ?? 1;
-    const succs = graph.successors.get(id) ?? [];
+    const succs = liveSuccessors(graph, id, overtaken);
 
     let ls: Date;
     if (succs.length === 0) {
@@ -672,15 +802,16 @@ function backwardPassNetwork(args: {
   durationMap: Map<string, number>;
   projectEndDate: Date;
   calendar: Cal;
+  overtaken: ReadonlySet<string>;
 }): { lateStartNet: Map<string, string>; lateFinishNet: Map<string, string> } {
-  const { graph, durationMap, projectEndDate, calendar } = args;
+  const { graph, durationMap, projectEndDate, calendar, overtaken } = args;
   const lateStartNet = new Map<string, string>();
   const lateFinishNet = new Map<string, string>();
 
   for (let i = graph.topologicalOrder.length - 1; i >= 0; i--) {
     const id = graph.topologicalOrder[i]!;
     const duration = durationMap.get(id) ?? 1;
-    const succs = graph.successors.get(id) ?? [];
+    const succs = liveSuccessors(graph, id, overtaken);
 
     let ls: Date;
     if (succs.length === 0) {
@@ -702,6 +833,31 @@ function backwardPassNetwork(args: {
   }
 
   return { lateStartNet, lateFinishNet };
+}
+
+/**
+ * WI-151: a row's successors less the links a record overtook (`overtakenLinks`, the links the
+ * progress notes name). Such a link holds nothing back — the recorded start is placed where it
+ * happened — so the late dates and the floats come from the row's other successors, or from the
+ * project's end when none is left. Skipping it is what keeps a total float from going negative.
+ */
+const NO_LINKS: ReadonlySet<string> = new Set();
+
+/**
+ * WI-154 (E1): the network less the links set aside, in the FULL network's order — a valid order for
+ * any part of it — so the rows come out in the order they always did. With none set aside, as given.
+ */
+function withoutLinks(
+  full: DepGraph, activities: Activity[], dependencies: ActivityDependency[], setAside: ReadonlySet<string>,
+): DepGraph {
+  if (setAside.size === 0) return full;
+  const kept = dependencies.filter((d) => !setAside.has(linkKey(d.fromActivityId, d.toActivityId, d.type)));
+  return { ...buildDependencyGraph(activities.map((a) => a.id), kept), topologicalOrder: full.topologicalOrder };
+}
+
+function liveSuccessors(graph: DepGraph, id: string, overtaken: ReadonlySet<string>): Edge[] {
+  const succs = (graph.successors.get(id) ?? []) as Edge[];
+  return overtaken.size === 0 ? succs : succs.filter((s) => !overtaken.has(linkKey(id, s.id, s.type)));
 }
 
 // ---------------------------------------------------------------------------
@@ -727,12 +883,13 @@ function computeFreeFloat(args: {
   startDates: Map<string, Date>;
   endDates: Map<string, Date>;
   calendar: Cal;
+  overtaken: ReadonlySet<string>;
 }): Map<string, number> {
-  const { graph, totalFloatMap, startDates, endDates, calendar } = args;
+  const { graph, totalFloatMap, startDates, endDates, calendar, overtaken } = args;
   const freeFloatMap = new Map<string, number>();
 
   for (const id of graph.topologicalOrder) {
-    const succs = (graph.successors.get(id) ?? []) as Edge[];
+    const succs = liveSuccessors(graph, id, overtaken);
     if (succs.length === 0) {
       freeFloatMap.set(id, totalFloatMap.get(id) ?? 0);
       continue;
@@ -802,8 +959,9 @@ function validateDependencies(args: {
   activityMap: Map<string, Activity>;
   calendar: Cal;
   records: Map<string, RecordedProgress>;
+  setAside: ReadonlySet<string>;
 }): DependencyConflict[] {
-  const { dependencies, startDates, endDates, activityMap, calendar, records } = args;
+  const { dependencies, startDates, endDates, activityMap, calendar, records, setAside } = args;
   const dependencyConflicts: DependencyConflict[] = [];
 
   function computeRequired(baseDate: Date, offset: number): Date {
@@ -813,8 +971,10 @@ function validateDependencies(args: {
   }
 
   for (const dep of dependencies) {
-    // WI-137: a violation a record explains is a neutral note, not this amber warning.
+    // WI-137: a violation a record explains is a neutral note, not this amber warning. WI-154 (E1):
+    // so is a link from work that has not started into work that has, which holds nothing.
     if (recordExplains(dep.type, dep.toActivityId, records)) continue;
+    if (setAside.has(linkKey(dep.fromActivityId, dep.toActivityId, dep.type))) continue;
     const succES = startDates.get(dep.toActivityId);
     const succEF = endDates.get(dep.toActivityId);
     const predES = startDates.get(dep.fromActivityId);
@@ -873,11 +1033,12 @@ function buildScheduleResult(args: {
   projectEndISO: string;
   calendar: Cal;
   records: Map<string, RecordedProgress>;
+  floors?: Map<string, number>;
 }): { scheduledActivities: ScheduledActivity[]; totalDurationDays: number; spanDays: number } {
   const {
     graph, activityMap, durationMap, startDates, endDates,
     lateStartCon, lateFinishCon, lateStartNet, lateFinishNet,
-    totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar, records,
+    totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar, records, floors,
   } = args;
 
   const scheduledActivities: ScheduledActivity[] = [];
@@ -905,8 +1066,9 @@ function buildScheduleResult(args: {
 
   // Total duration is the critical path length (consistent with Monte Carlo computation) —
   // with recorded starts placed where they happened (WI-137), as the simulation places them.
-  const totalDurationDays = records.size > 0
-    ? computeCriticalPathWithMilestones(graph, durationMap, new Map(), undefined, undefined, recordedStartPins(records)).projectDuration
+  // WI-154: and with not-started rows at the data date, as the simulation places them.
+  const totalDurationDays = records.size > 0 || floors
+    ? computeCriticalPathWithMilestones(graph, durationMap, new Map(), undefined, undefined, recordedStartPins(records), floors).projectDuration
     : computeCriticalPathDuration(graph, durationMap);
   // Inclusive span in the MC duration domain: project start → constraint/milestone-
   // adjusted end. projectStart is the advanced start (never mutated after line ~260).
@@ -923,7 +1085,8 @@ export function computeDependencySchedule(
   startDate: string,
   percentile: number,
   calendar?: WorkCalendar | Calendar,
-  milestones?: Milestone[]
+  milestones?: Milestone[],
+  dataDate?: string,
 ): DeterministicSchedule {
   const graph = buildDependencyGraph(
     activities.map((a) => a.id),
@@ -937,9 +1100,17 @@ export function computeDependencySchedule(
 
   let projectStart = parseDateISO(startDate);
   projectStart = advanceToNextWorkingDay(projectStart, calendar);
+  // WI-154: the data date, or undefined — then every row is placed exactly as before.
+  const floor = resolveDataDate(dataDate, startDate, calendar);
+  const pairs = dependencies.map((d): ProgressPair => ({ fromId: d.fromActivityId, toId: d.toActivityId, type: d.type, lagDays: d.lagDays }));
+  // WI-154 (Review 35, E1): with the data date, a link from work that has not started holds no work
+  // that has, so the network the schedule is computed on leaves it out; the simulation does the same.
+  // The full network is built first all the same, so a cycle fails the schedule exactly as before.
+  const setAside = setAsideLinks(pairs, activityMap, !!floor);
+  const network = withoutLinks(graph, activities, dependencies, setAside);
 
-  const { startDates, endDates, networkStart, networkEnd, conflicts, heldDurations } = forwardPass({
-    graph, activityMap, durationMap, projectStart, calendar, milestones, records,
+  const { startDates, endDates, networkStart, networkEnd, conflicts, heldDurations, flooredFrom, held } = forwardPass({
+    graph: network, activityMap, durationMap, projectStart, calendar, milestones, records, floor,
   });
   // WI-137: a recorded row lasts from its start to its finish as placed, so the backward passes,
   // the floats and the totals all read the dates the forward pass drew.
@@ -952,43 +1123,52 @@ export function computeDependencySchedule(
   }
   const projectEndISO = formatDateISO(projectEndDate);
 
+  // WI-137's notes, from the dates the forward pass drew — before the backward passes, because the
+  // links they name are the links the float skips (WI-151).
+  const progressNotes = records.size > 0 || setAside.size > 0
+    ? allProgressNotes({ pairs, records, startDates, endDates, activityMap, calendar, sequential: false, setAside })
+    : [];
+  const overtaken = overtakenLinks(progressNotes);
+
   const { lateStartCon, lateFinishCon } = backwardPassConstrained({
-    graph, activityMap, durationMap, projectEndDate, calendar,
+    graph: network, activityMap, durationMap, projectEndDate, calendar, overtaken,
   });
-  const { lateStartNet, lateFinishNet } = backwardPassNetwork({
-    graph, durationMap, projectEndDate, calendar,
-  });
+  // The float: on the network the schedule placed, less the links a record overtook (WI-151).
+  const floatPass = backwardPassNetwork({ graph: network, durationMap, projectEndDate, calendar, overtaken });
+  // The late dates the No Later Than checks read (and the row's network late dates): on the FULL
+  // network with every link, as before WI-151 — skipping a link makes its predecessor end with the
+  // project, and a check of that late finish would say a date cannot be met that is (Review 35,
+  // verification E3). Without a skipped link the two passes are one.
+  const { lateStartNet, lateFinishNet } = network === graph && overtaken.size === 0
+    ? floatPass
+    : backwardPassNetwork({ graph, durationMap, projectEndDate, calendar, overtaken: NO_LINKS });
 
   const totalFloatMap = new Map<string, number>();
   for (const id of graph.topologicalOrder) {
     const esDate = parseDateISO(networkStart.get(id)!);
-    const lsDate = parseDateISO(lateStartNet.get(id)!);
+    const lsDate = parseDateISO(floatPass.lateStartNet.get(id)!);
     totalFloatMap.set(id, countWorkingDays(esDate, lsDate, calendar));
   }
 
   const freeFloatMap = computeFreeFloat({
-    graph, totalFloatMap, startDates, endDates, calendar,
+    graph: network, totalFloatMap, startDates, endDates, calendar, overtaken,
   });
 
   conflicts.push(...detectSoftConflicts({
-    graph, activityMap, networkStart, networkEnd, lateStartNet, lateFinishNet, calendar, records,
+    graph: network, activityMap, networkStart, networkEnd, lateStartNet, lateFinishNet, calendar, records,
   }));
 
   const dependencyConflicts = validateDependencies({
-    dependencies, startDates, endDates, activityMap, calendar, records,
+    dependencies, startDates, endDates, activityMap, calendar, records, setAside,
   });
-  const progressNotes = records.size > 0
-    ? allProgressNotes({
-      pairs: dependencies.map((d): ProgressPair => ({ fromId: d.fromActivityId, toId: d.toActivityId, type: d.type, lagDays: d.lagDays })),
-      records, startDates, endDates, activityMap, calendar, sequential: false,
-    })
-    : [];
 
   const { scheduledActivities, totalDurationDays, spanDays } = buildScheduleResult({
-    graph, activityMap, durationMap, startDates, endDates,
+    graph: network, activityMap, durationMap, startDates, endDates,
     lateStartCon, lateFinishCon, lateStartNet, lateFinishNet,
     totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar, records,
+    floors: dataDateFloorOffsets(activities, floor?.offset),
   });
+  progressNotes.push(...dataDateNotes(activities, flooredFrom, scheduledActivities, held, floor));
 
   return {
     activities: scheduledActivities,

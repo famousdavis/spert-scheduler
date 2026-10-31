@@ -227,29 +227,55 @@ function requiredDate(base: Date, offset: number, calendar: Cal): Date {
   return offset >= 0 ? addWorkingDays(base, offset, calendar) : subtractWorkingDays(base, -offset, calendar);
 }
 
-/** What a link allowed, and whether the recorded date came before it. */
+type LinkHit = { event: "start" | "finish"; date: string; predecessorDate: Date; allowed: Date };
+
+/**
+ * What a link allowed, and whether the activity's date came before it. `start` is its recorded start
+ * (`undefined`: it has started with none — WI-154, E1 — and its start as placed is compared).
+ * `heldFinish`: a finish-to-finish link holds an In Progress row's forecast finish — unless the link
+ * is set aside (WI-154, E1), when the forecast is compared like a fact.
+ */
 function linkHit(
   pair: ProgressPair,
-  rec: RecordedProgress,
+  start: string | undefined,
+  heldFinish: boolean,
   startDates: Map<string, Date>,
   endDates: Map<string, Date>,
   calendar: Cal,
-): { event: "start" | "finish"; date: string; predecessorDate: Date; allowed: Date } | null {
+): LinkHit | null {
   const predES = startDates.get(pair.fromId);
   const predEF = endDates.get(pair.fromId);
   if (!predES || !predEF) return null;
   if (pair.type === "FF") {
     // An In Progress row's finish is a forecast the link holds (no note); a Complete row's is a fact.
     const finish = endDates.get(pair.toId);
-    if (!rec.complete || !finish) return null;
+    if (heldFinish || !finish) return null;
     const allowed = requiredDate(predEF, pair.lagDays, calendar);
     return finish < allowed ? { event: "finish", date: formatDateISO(finish), predecessorDate: predEF, allowed } : null;
   }
+  const date = start ?? (startDates.get(pair.toId) && formatDateISO(startDates.get(pair.toId)!));
+  if (!date) return null;
   const base = pair.type === "SS" ? predES : predEF;
   const allowed = requiredDate(base, pair.type === "SS" ? pair.lagDays : 1 + pair.lagDays, calendar);
-  return parseDateISO(rec.start) < allowed
-    ? { event: "start", date: rec.start, predecessorDate: base, allowed }
-    : null;
+  return parseDateISO(date) < allowed ? { event: "start", date, predecessorDate: base, allowed } : null;
+}
+
+/**
+ * The note's WI-154 fields: the predecessor's dates as scheduled when it has not started (Review 35,
+ * verification E4, interactions W7 — the words must not say it started or finished), and how the
+ * activity started when its start is not recorded.
+ */
+function notStartedFields(
+  pred: Activity, succ: Activity, recorded: boolean, forecast: boolean,
+  predES: Date | undefined, predEF: Date | undefined,
+): Partial<LinkProgressNote> {
+  const out: Partial<LinkProgressNote> = {};
+  if (floorsAtDataDate(pred) && predES && predEF) {
+    out.predecessorNotStarted = { start: formatDateISO(predES), finish: formatDateISO(predEF) };
+  }
+  if (!recorded && (succ.status === "inProgress" || succ.status === "complete")) out.unrecorded = succ.status;
+  if (forecast) out.forecast = true;
+  return out;
 }
 
 /**
@@ -266,6 +292,8 @@ export function detectProgressNotes(args: {
   activityMap: Map<string, Activity>;
   calendar: Cal;
   sequential: boolean;
+  /** WI-154 (E1): links from work that has not started into work that has (`setAsideLinks`). */
+  setAside?: ReadonlySet<string>;
 }): LinkProgressNote[] {
   const { pairs, records, startDates, endDates, activityMap, calendar, sequential } = args;
   const notes: LinkProgressNote[] = [];
@@ -273,9 +301,13 @@ export function detectProgressNotes(args: {
     const rec = records.get(pair.toId);
     const succ = activityMap.get(pair.toId);
     const pred = activityMap.get(pair.fromId);
-    if (!rec || !succ || !pred) continue;
-    const hit = linkHit(pair, rec, startDates, endDates, calendar);
+    if (!succ || !pred) continue;
+    const setAside = args.setAside?.has(linkKey(pair.fromId, pair.toId, pair.type)) ?? false;
+    if (!rec && !setAside) continue;
+    const heldFinish = !setAside && !rec?.complete;
+    const hit = linkHit(pair, rec?.start, heldFinish, startDates, endDates, calendar);
     if (!hit) continue;
+    const forecast = hit.event === "finish" && !!rec && !rec.complete;
     notes.push({
       kind: "link",
       activityId: pair.toId,
@@ -290,6 +322,7 @@ export function detectProgressNotes(args: {
       predecessorDate: formatDateISO(hit.predecessorDate),
       allowedDate: formatDateISO(hit.allowed),
       sequential,
+      ...notStartedFields(pred, succ, !!rec, forecast, startDates.get(pair.fromId), endDates.get(pair.fromId)),
     });
   }
   return notes;
@@ -369,7 +402,12 @@ export function recordExplains(
 export interface StatusChangeContext {
   /** Today, `YYYY-MM-DD`, read from the clock by the caller (the core never reads it). */
   today: string;
-  /** The row's start, finish and duration as the schedule shows them now, when there is a schedule. */
+  /**
+   * The row's start, finish and duration in the PLAN, when there is a schedule. WI-154 (owner, R639,
+   * C′): for a Planned row that is the page's schedule computed WITHOUT today's floor, the plan
+   * before work that has not started was moved to today; the caller passes that row. So a late start
+   * keeps the plan's date as its Planned Start, and Complete judges "already due" by the plan.
+   */
   scheduledStart?: string;
   scheduledFinish?: string;
   scheduledDuration?: number;
@@ -415,8 +453,9 @@ export function recordableToday(todayISO: string, calendar: Cal): string {
 
 /**
  * WI-137 release 2 — the Planned Start and Planned Finish a row keeps when it leaves Planned: its
- * start and finish as the schedule shows them at that moment, P6's Planned dates (owner, R625).
- * Nothing moves them afterwards. Both or neither: with no schedule (a cycle, a calendar error)
+ * start and finish in the plan at that moment, P6's Planned dates (owner, R625). WI-154 (R639, C′):
+ * the plan is the schedule without today's floor, so a late start keeps the date it was late
+ * against. Nothing moves them afterwards. Both or neither: with no schedule (a cycle, a calendar error)
  * nothing is kept, and a pair a Planned row somehow carries (an old import) is never kept over.
  */
 function plannedDatesAtStart(ctx: StatusChangeContext): Partial<Activity> {
@@ -485,4 +524,122 @@ export function statusChangeUpdates(
     };
   }
   return { ...planned, ...completeUpdates(activity, today, ctx) };
+}
+
+// -- WI-154: the data date ---------------------------------------------------------
+
+/**
+ * WI-154 — the rows the data date floors: a Planned row, which has not started. A recorded start is
+ * a fact; an In Progress row without one (from before v0.80.0) started on a day nobody recorded; a
+ * Complete row is done. An In Progress row's FINISH is the remaining-work model's question (WI-78,
+ * WI-139 step 2), not the floor's. Both engines ask this one predicate.
+ */
+export function floorsAtDataDate(a: Activity): boolean {
+  return a.status === "planned";
+}
+
+/** The data date as both engines use it. */
+export interface DataDateFloor {
+  /** A working day after the project start: a non-working data date moves FORWARD. */
+  date: Date;
+  /** Working days from the project start to `date` — the simulation's offset. */
+  offset: number;
+  /** Today as the caller gave it, `YYYY-MM-DD`: `date`, or the day before a weekend or holiday ended. */
+  today: string;
+}
+
+/**
+ * The data date, or undefined when it can move nothing: none given, or on or before the project
+ * start (then every row already starts on or after it, and the schedule is exactly as before).
+ */
+export function resolveDataDate(
+  dataDateISO: string | undefined, projectStartISO: string, calendar: Cal,
+): DataDateFloor | undefined {
+  if (!dataDateISO) return undefined;
+  const projectStart = advanceToNextWorkingDay(parseDateISO(projectStartISO), calendar);
+  const date = advanceToNextWorkingDay(parseDateISO(dataDateISO), calendar);
+  if (date <= projectStart) return undefined;
+  return { date, offset: countWorkingDays(projectStart, date, calendar), today: dataDateISO };
+}
+
+/**
+ * WI-154's scope (option (a), records only): the data date is TODAY, and it applies only in a
+ * scenario that holds a record — where someone has said what has started. A plan with no record
+ * schedules exactly as before. `todayISO` is read from the clock by the caller (the core never is).
+ */
+export function scenarioDataDate(activities: Activity[], todayISO: string): string | undefined {
+  return hasAnyRecord(activities) ? todayISO : undefined;
+}
+
+/** The simulation's floors, keyed by id: each Planned row at the data date's offset. */
+export function dataDateFloorOffsets(activities: Activity[], offset: number | undefined): Map<string, number> | undefined {
+  if (!offset || offset <= 0) return undefined;
+  return new Map(activities.filter(floorsAtDataDate).map((a) => [a.id, offset]));
+}
+
+/** One key per link — the progress notes' and the float's (WI-151) — so the two name the same links. */
+export function linkKey(fromId: string, toId: string, type: string): string {
+  return `${fromId}|${toId}|${type}`;
+}
+
+/**
+ * WI-154 (Review 35, interactions E1) — with the data date, a link from work that has NOT started
+ * never holds work that HAS started (In Progress or Complete, its start recorded or not): its start,
+ * and an In Progress row's forecast finish, are placed as if the link were not there, in both
+ * engines. Otherwise the floor would push a started row — finished work included — past today
+ * behind work that has not begun. Without the data date this is empty, and every schedule is as
+ * before. `pairs` are the dependencies, or — dependencies off — each row and the row above it.
+ */
+export function setAsideLinks(
+  pairs: readonly ProgressPair[], activityMap: Map<string, Activity>, floorApplies: boolean,
+): Set<string> {
+  const keys = new Set<string>();
+  if (!floorApplies) return keys;
+  for (const p of pairs) {
+    const from = activityMap.get(p.fromId);
+    const to = activityMap.get(p.toId);
+    if (from && to && floorsAtDataDate(from) && !floorsAtDataDate(to)) keys.add(linkKey(p.fromId, p.toId, p.type));
+  }
+  return keys;
+}
+
+/**
+ * WI-151: the links a record overtook — exactly the links the progress notes name. A recorded
+ * start is placed where it happened (v0.80.0), so such a link holds nothing back, and the float
+ * calculation skips it as the start's placement already does; a negative float never arises.
+ */
+export function overtakenLinks(notes: readonly ProgressNote[]): Set<string> {
+  const keys = new Set<string>();
+  for (const n of notes) if (n.kind === "link") keys.add(linkKey(n.predecessorId, n.activityId, n.dependencyType));
+  return keys;
+}
+
+/** Stale results: the local day they were simulated on, and today's data date. */
+export interface StaleResults {
+  /** The run's own day, `YYYY-MM-DD`, local — from its `timestamp`. */
+  simulatedOn: string;
+  /** Today's data date, `YYYY-MM-DD`: where work that has not started is now scheduled from. */
+  dataDate: string;
+}
+
+/**
+ * WI-154 (owner, R639, decision 3): are a scenario's simulation results from an earlier data date?
+ * In a scenario that holds a record the schedule moves with today, so results simulated when the
+ * data date was earlier no longer match it: every surface shows them as not run, with one sentence,
+ * and none writes the store to say so. The day comes from the run's own `timestamp` (no schema
+ * change). It is compared as a data date — a weekend shares Monday's — so a Saturday run is not
+ * stale on Sunday or Monday: nothing moved. A scenario with no record never has stale results.
+ */
+export function staleResults(
+  scenario: { activities: Activity[]; startDate: string; simulationResults?: { timestamp: string } },
+  todayISO: string,
+  calendar: Cal,
+): StaleResults | null {
+  const run = scenario.simulationResults;
+  if (!run || !scenarioDataDate(scenario.activities, todayISO)) return null;
+  const simulatedOn = formatDateISO(new Date(run.timestamp));
+  const now = resolveDataDate(todayISO, scenario.startDate, calendar);
+  const then = resolveDataDate(simulatedOn, scenario.startDate, calendar);
+  if (now?.date.getTime() === then?.date.getTime()) return null;
+  return { simulatedOn, dataDate: formatDateISO(now?.date ?? advanceToNextWorkingDay(parseDateISO(todayISO), calendar)) };
 }

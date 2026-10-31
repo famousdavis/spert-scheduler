@@ -77,7 +77,10 @@ describe("the progress notes reach each place that shows them", () => {
     const c = renderPage();
     const report = c.querySelector(".print-report")!;
     const headings = Array.from(report.querySelectorAll("h2")).map((h) => h.textContent?.trim());
-    expect(headings).toContain("Progress Notes (1)");
+    // WI-154: two lines — the link note, and the data date's: today is Tue 10/27, so Delta (Planned,
+    // no predecessor) starts today instead of on the Start Date, 10/05. Echo and Foxtrot follow it.
+    expect(headings).toContain("Progress Notes (2)");
+    expect(report.textContent).toContain("Delta has not started, and 10/05/2026 has passed, so the schedule starts it today, 10/27/2026. Once a start is recorded in a scenario, work that has not started is not scheduled before today.");
     expect(report.textContent).toContain("Bravo started on 10/19/2026, before Alpha finished on 10/23/2026. The schedule keeps the start you recorded.");
   });
 });

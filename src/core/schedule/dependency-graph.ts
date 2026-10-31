@@ -554,6 +554,30 @@ function applyHardConstraintIfPresent(
   return { es: result.es, ef: result.ef, maxPredEF: state.maxPredEF };
 }
 
+/**
+ * WI-154: a not-started row's start in one trial, never before the data date's offset — applied
+ * where the milestone start floor is. The deterministic pass applies it at the same point
+ * (`dataDateStart`).
+ */
+function floorAtDataDate(state: MilestoneActivityState, dur: number, floor: number | undefined): MilestoneActivityState {
+  if (floor === undefined || state.es >= floor) return state;
+  return { es: floor, ef: Math.max(state.ef, floor + dur), maxPredEF: state.maxPredEF };
+}
+
+/**
+ * WI-154 (owner, R639, decision 2): after the row's own hard constraint. A Must Start On or Must
+ * Finish On whose date has passed would put a not-started row before the data date (or, for Must
+ * Finish On, finish it too soon to have started on it): the row is placed instead as it was before
+ * the constraint — the later of the data date and what its links allow. The deterministic pass
+ * does the same (`holdAtDataDate`).
+ */
+function holdAtDataDate(
+  network: MilestoneActivityState, constrained: MilestoneActivityState, dur: number, floor: number | undefined,
+): MilestoneActivityState {
+  if (floor === undefined || (constrained.es >= floor && constrained.ef >= floor + dur)) return constrained;
+  return network;
+}
+
 function computeMilestoneDurations(
   milestoneActivityIds: Map<string, string[]>,
   earlyFinish: Map<string, number>,
@@ -581,6 +605,7 @@ function computeMilestoneDurations(
  * @param durations - Map of activityId → duration in working days
  * @param milestoneActivityIds - Map of milestoneId → list of activity IDs assigned to that milestone
  * @param activityEarliestStart - Map of activityId → earliest start offset (working days from project start)
+ * @param dataDateFloors - WI-154: activityId → the data date's offset, for each not-started row
  * @returns Project duration and per-milestone durations
  */
 export function computeCriticalPathWithMilestones(
@@ -590,6 +615,7 @@ export function computeCriticalPathWithMilestones(
   activityEarliestStart?: Map<string, number>,
   constraintMap?: Map<string, { type: string; offsetFromStart: number; mode: string }>,
   recordedPins?: Map<string, RecordedPin>,
+  dataDateFloors?: Map<string, number>,
 ): { projectDuration: number; milestoneDurations: Map<string, number> } {
   const earlyStart = new Map<string, number>();
   const earlyFinish = new Map<string, number>();
@@ -608,7 +634,9 @@ export function computeCriticalPathWithMilestones(
     let state = computeActivityScheduleWithMilestone(
       id, dur, preds, earlyStart, earlyFinish, activityEarliestStart,
     );
-    state = applyHardConstraintIfPresent(state, dur, constraintMap?.get(id));
+    const floor = dataDateFloors?.get(id);
+    state = floorAtDataDate(state, dur, floor);
+    state = holdAtDataDate(state, applyHardConstraintIfPresent(state, dur, constraintMap?.get(id)), dur, floor);
     earlyStart.set(id, state.es);
     earlyFinish.set(id, state.ef);
   }
