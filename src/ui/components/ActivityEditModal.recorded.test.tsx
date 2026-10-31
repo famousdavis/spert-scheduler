@@ -86,7 +86,8 @@ afterEach(() => {
 describe("look B revised — one line, laid out by Status", () => {
   it("In Progress: Actual Start, Sched. Finish, Sched. Dur., Actual Dur.; the note, described by the start", () => {
     open("b");
-    expect(lineLabels()).toEqual(["Actual Start", "Sched. Finish", "Sched. Dur.", "Actual Dur."]);
+    // Release 2 (v0.81.0, R624–R625): Planned Start first — here a dash, B kept none.
+    expect(lineLabels()).toEqual(["Planned Start", "Actual Start", "Sched. Finish", "Sched. Dur.", "Actual Dur."]);
     expect(input("actualStartDate").value).toBe("2026-10-19");
     expect(screen.getByText("10/30/2026")).toBeTruthy();
     const note = "B started on 10/19/2026, before A finished on 10/23/2026. The schedule keeps the start you recorded.";
@@ -96,7 +97,8 @@ describe("look B revised — one line, laid out by Status", () => {
 
   it("Complete: Sched. Finish (read-only, 10/05 + 10 working days = 10/16), Actual Start, Actual Finish, Actual Dur.", () => {
     open("a");
-    expect(lineLabels()).toEqual(["Sched. Finish", "Actual Start", "Actual Finish", "Actual Dur."]);
+    // Release 2 (v0.81.0, R630 ruling 2): with no Planned Finish kept, v0.80.0's Sched. Finish, between the actuals.
+    expect(lineLabels()).toEqual(["Actual Start", "Sched. Finish", "Actual Finish", "Actual Dur."]);
     expect(screen.getByText("10/16/2026")).toBeTruthy();
     expect([input("actualStartDate").value, input("actualFinishDate").value, input("actualDuration").value]).toEqual(["2026-10-05", "2026-10-23", "15"]);
   });
@@ -229,7 +231,7 @@ describe("(i) elapsed days are recounted only when the start's value changes", (
 describe("(e) the date fields stay when there is no schedule", () => {
   it("they show, with a dash where a scheduled value would be", () => {
     open("b", { schedule: false });
-    expect(lineLabels()).toEqual(["Actual Start", "Sched. Finish", "Sched. Dur.", "Actual Dur."]);
+    expect(lineLabels()).toEqual(["Planned Start", "Actual Start", "Sched. Finish", "Sched. Dur.", "Actual Dur."]); // release 2
     expect(input("actualStartDate").value).toBe("2026-10-19");
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
   });

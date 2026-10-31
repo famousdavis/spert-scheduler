@@ -30,7 +30,7 @@ import type { ResolvedGanttAppearance } from "./gantt-constants";
 import {
   BAR_RADIUS, MIN_BAR_HIT_WIDTH,
   ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT, RIGHT_MARGIN,
-  COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
+  COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS, OVERTAKEN_LINK_DASH,
   TICK_LABEL_FONT_PX, FINISH_LABEL_FONT_PX, TODAY_LABEL_FONT_PX, TODAY_DATE_FONT_PX,
   TARGET_LABEL_FONT_PX, MILESTONE_NAME_FONT_PX, MILESTONE_DATE_FONT_PX,
   MILESTONE_NAME_DY, MILESTONE_DATE_DY, TARGET_LABEL_DY, TODAY_LABEL_DY, TODAY_DATE_DY,
@@ -39,7 +39,7 @@ import {
 } from "./gantt-constants";
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
-  computeBarHitRect, buildActivityTooltip, tickHasYear,
+  computeBarHitRect, buildActivityTooltip, tickHasYear, overtakenArrowDash, overtakenHoverClause, overtakenLegendDash,
   barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite, markerTextFill,
 } from "./gantt-utils";
 import { GanttActivityRow } from "./GanttActivityRow";
@@ -246,7 +246,7 @@ interface GanttChartProps {
   calendar?: WorkCalendar | Calendar;
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
-  criticalPathIds?: Set<string> | null;
+  criticalPathIds?: Set<string> | null; overtakenLinks?: ReadonlySet<string>; // WI-137 r2: dashed, never a critical edge
   projectName?: string;
   svgContainerRef?: RefObject<HTMLDivElement | null>;
   onEditActivity?: (activityId: string) => void;
@@ -281,7 +281,7 @@ export function GanttChart({
   calendar,
   milestones = [],
   milestoneBuffers,
-  criticalPathIds,
+  criticalPathIds, overtakenLinks,
   projectName,
   svgContainerRef,
   onEditActivity,
@@ -571,20 +571,20 @@ export function GanttChart({
         }
       }
 
-      const isCriticalEdge = !synthetic && showCriticalPath &&
+      const dash = overtakenArrowDash(dep, overtakenLinks, OVERTAKEN_LINK_DASH); const isCriticalEdge = !synthetic && showCriticalPath && !dash &&
         !!(criticalPathIds?.has(dep.fromActivityId) && criticalPathIds?.has(dep.toActivityId));
       const fromName = activities.find((a) => a.id === dep.fromActivityId)?.name ?? "";
       const toName = activities.find((a) => a.id === dep.toActivityId)?.name ?? "";
       const lagLabel = formatLagLabel(dep.lagDays);
-      const label = `${fromName} → ${toName}, ${dependencyLabel(dep.type)}${lagLabel}`;
+      const label = `${fromName} → ${toName}, ${dependencyLabel(dep.type)}${lagLabel}${overtakenHoverClause(dep, overtakenLinks)}`;
 
-      return { dep, synthetic, path, barEndX, toX, fromY, toY, isCriticalEdge, label };
+      return { dep, synthetic, path, barEndX, toX, fromY, toY, isCriticalEdge, label, dash };
     }).filter(Boolean) as Array<{
       dep: ActivityDependency; synthetic: boolean; path: string; barEndX: number; toX: number;
-      fromY: number; toY: number; isCriticalEdge: boolean; label: string;
+      fromY: number; toY: number; isCriticalEdge: boolean; label: string; dash: string | undefined;
     }>;
   }, [effectiveDependencies, rowIndex, scheduleMap, minTimestamp, dateRange,
-    chartAreaWidth, topMargin, ra.leftMargin, ra.rowHeight, showCriticalPath, criticalPathIds, activities]);
+    chartAreaWidth, topMargin, ra.leftMargin, ra.rowHeight, showCriticalPath, criticalPathIds, activities, overtakenLinks]);
 
   // Terminal activities: no successor dependency (only meaningful when deps exist)
   const terminalIds = useMemo(() => {
@@ -983,7 +983,7 @@ export function GanttChart({
             const arrowMarker = resolveArrowMarker(isHovered, ap.isCriticalEdge);
             return (
               <g key={`dep-${i}`}>
-                <path d={ap.path} stroke={arrowColor} strokeWidth={isHovered ? "3" : "2"}
+                <path d={ap.path} stroke={arrowColor} strokeWidth={isHovered ? "3" : "2"} strokeDasharray={ap.dash}
                   fill="none" markerEnd={arrowMarker}
                   className="pointer-events-none transition-all duration-100" />
                 {ap.dep.lagDays !== 0 && (
@@ -1248,6 +1248,7 @@ export function GanttChart({
           targetColor={tc[(targetRAGColor ?? "gray") as keyof typeof tc] ?? tc.gray}
           targetDash={TARGET_DASH_PATTERNS[targetRAGColor ?? "gray"] ?? TARGET_DASH_PATTERNS.gray}
           weekendShading={ra.weekendShading}
+          overtakenLinkDash={overtakenLegendDash(showArrows ? arrowPaths : [], overtakenLinks, OVERTAKEN_LINK_DASH)}
         />
       </div>
 

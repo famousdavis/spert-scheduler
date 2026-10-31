@@ -98,6 +98,9 @@ export function buildSummaryData(params: ScheduleExportParams): SummaryRow[] {
     { key: "Schedule Buffer", value: buffer ? `${buffer.bufferDays} ${pluralize(buffer.bufferDays, "day")}` : "N/A" },
     { key: "Dependency Mode", value: settings.dependencyMode ? "On" : "Off" },
     { key: "Exported", value: new Date().toISOString() },
+    // WI-137 release 2 (owner, R630; Review 33, F11): the format every date in this file is written
+    // in — the exporting user's — so a reader, or an importer (WI-150), can tell 03/04 from 04/03.
+    { key: "Date Format", value: dateFormat },
   ];
 }
 
@@ -126,6 +129,11 @@ export interface GridRow {
   duration: number;
   startDate: string;
   endDate: string;
+  /** WI-137 release 2 — "" where the row holds none. */
+  plannedStart: string;
+  plannedFinish: string;
+  actualStart: string;
+  actualFinish: string;
   predecessors?: string;
   successors?: string;
   constraintType?: string;
@@ -189,6 +197,32 @@ export function buildSuccessorMap(
   return result;
 }
 
+/**
+ * WI-137 release 2: the four progress dates, in the user's date format as Start Date and End Date
+ * are. A Planned row's Planned Start and Planned Finish are its current scheduled start and finish
+ * — P6's Planned dates for an activity not yet started (owner, R630; Review 33, F10) — and a pair
+ * such a row carries (a hand-edited import) is not written. A started row's are the pair it kept
+ * when it left Planned, or nothing when none was kept (a row started before v0.81.0): never filled
+ * from today's schedule. The Actual Start is written on an In Progress or Complete row, the Actual
+ * Finish on a Complete one.
+ */
+function progressDateCells(
+  activity: Activity,
+  sa: { startDate: string; endDate: string } | undefined,
+  fmt: (iso: string) => string,
+): Pick<GridRow, "plannedStart" | "plannedFinish" | "actualStart" | "actualFinish"> {
+  const held = (iso: string | undefined) => (iso ? fmt(iso) : "");
+  if (activity.status === "planned") {
+    return { plannedStart: held(sa?.startDate), plannedFinish: held(sa?.endDate), actualStart: "", actualFinish: "" };
+  }
+  return {
+    plannedStart: held(activity.plannedStartDate),
+    plannedFinish: held(activity.plannedFinishDate),
+    actualStart: held(activity.actualStartDate),
+    actualFinish: activity.status === "complete" ? held(activity.actualFinishDate) : "",
+  };
+}
+
 export function buildGridRows(params: ScheduleExportParams): GridRow[] {
   const { activities, schedule, settings, dependencies, dateFormat } = params;
   const fmt = (iso: string) => formatDateDisplay(iso, dateFormat);
@@ -223,6 +257,7 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
       duration: sa?.duration ?? 0,
       startDate: sa ? fmt(sa.startDate) : "",
       endDate: sa ? fmt(sa.endDate) : "",
+      ...progressDateCells(activity, sa, fmt),
     };
     if (settings.dependencyMode) {
       row.totalFloat = sa?.totalFloat ?? "";
@@ -276,6 +311,12 @@ export function buildScheduleHeaders(
     `Duration (${pctLabel})`,
     "Start Date",
     "End Date",
+    // WI-137 release 2. Named as the Edit Activity window names them, and as P6 does, so a later
+    // importer (WI-150) can read them back; none matches any heading the importer reads today.
+    "Planned Start",
+    "Planned Finish",
+    "Actual Start",
+    "Actual Finish",
   ];
   if (hasDeps) {
     headers.push("Total Float (days)", "Free Float (days)");

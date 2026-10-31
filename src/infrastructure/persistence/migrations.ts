@@ -470,6 +470,18 @@ function migrateV25toV26(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v26 → v27 (WI-137 release 2): a pure stamp. The two Planned dates are captured only when a row
+ * leaves Planned from this version on; no existing row is given one. A started row's schedule now
+ * starts on its Actual Start, so a back-fill from it would store the actual as the plan. The stamp
+ * makes every older build evict the project instead of dropping both dates through Zod.
+ */
+function migrateV26toV27(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 27;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -496,6 +508,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   23: migrateV23toV24,
   24: migrateV24toV25,
   25: migrateV25toV26,
+  26: migrateV26toV27,
 };
 
 /**

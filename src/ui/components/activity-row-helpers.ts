@@ -8,6 +8,8 @@ import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { countWorkingDays, parseDateISO, isWorkingDay, formatDateISO, activityEndDate } from "@core/calendar/calendar";
 import { statusChangeUpdates } from "@core/schedule/recorded-progress";
 import { computeHeuristic } from "@core/estimation/heuristic";
+import { toast } from "@ui/hooks/use-notification-store";
+import { noPlanKeptMessage } from "@ui/helpers/planned-dates-words";
 
 /**
  * Focus a field in a specific activity row by data attributes.
@@ -125,6 +127,37 @@ export function statusUpdatesFor(
       calendar,
     }),
   };
+}
+
+/**
+ * WI-137 release 2: did this Status change take the row out of Planned with NO Planned dates kept?
+ * The rule writes both keys `undefined` exactly then — it had no schedule to keep them from — while
+ * → Planned clears them too, so a change TO Planned is not one.
+ */
+export function keptNoPlan(updates: Partial<Activity>): boolean {
+  return updates.status !== "planned" && "plannedStartDate" in updates && updates.plannedStartDate === undefined;
+}
+
+/** WI-137 release 2: say so, in one toast (ruling 7c) — `name` for the grid's one row, else the count. */
+export function announceNoPlanKept(count: number, name?: string): void {
+  if (count > 0) toast.info(noPlanKeptMessage(count, name));
+}
+
+/**
+ * WI-137 release 2: the grid's Status cell — the one rule (`statusUpdatesFor`) from the row as the
+ * page's live schedule shows it, and the toast when it leaves Planned with no schedule to keep its
+ * Planned dates from. The Status change is made either way. Kept here, not in the row, so the row's
+ * complexity (an informed decline) does not move.
+ */
+export function gridStatusUpdates(
+  activity: Activity,
+  newStatus: ActivityStatus,
+  scheduled: ScheduledDates | undefined,
+  calendar?: WorkCalendar | Calendar,
+): Partial<Activity> {
+  const updates = statusUpdatesFor(activity, newStatus, scheduled, calendar);
+  if (keptNoPlan(updates)) announceNoPlanKept(1, activity.name);
+  return updates;
 }
 
 /**

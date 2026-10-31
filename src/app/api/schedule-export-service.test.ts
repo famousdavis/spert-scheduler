@@ -560,7 +560,8 @@ describe("constraint columns in sequential mode (v0.57.3)", () => {
 
   it("buildScheduleHeaders emits constraint columns without dep columns when hasConstraints alone is set", () => {
     const headers = buildScheduleHeaders(false, "P50", true);
-    expect(headers.indexOf("Constraint Type")).toBe(headers.indexOf("End Date") + 1);
+    // Since v0.81.0 the four progress dates (Planned Start … Actual Finish) sit between End Date and Constraint Type.
+    expect(headers.indexOf("Constraint Type")).toBe(headers.indexOf("End Date") + 5);
     expect(headers).toContain("Constraint Date");
     expect(headers).toContain("Constraint Mode");
     expect(headers).toContain("Constraint Note");
@@ -594,7 +595,7 @@ describe("constraint columns in sequential mode (v0.57.3)", () => {
     const lines = csv.split("\n");
     const headerCells = lines.find((l) => l.startsWith("#,"))!.split(",");
     const typeIdx = headerCells.indexOf("Constraint Type");
-    expect(typeIdx).toBe(headerCells.indexOf("End Date") + 1);
+    expect(typeIdx).toBe(headerCells.indexOf("End Date") + 5); // the four progress dates between (v0.81.0)
     expect(headerCells).not.toContain("Predecessors");
     const dataCells = lines.find((l) => l.startsWith("1,"))!.split(",");
     expect(dataCells[typeIdx]).toBe("SNET");
@@ -841,7 +842,7 @@ describe("exportScheduleXlsx with bands", () => {
     }
     expect(headerRow).toBeGreaterThan(0);
     // Last header column should be "Type"
-    const lastCol = 18; // sequential mode: 18 columns incl. new Description (Type is last)
+    const lastCol = 22; // sequential mode: 22 columns incl. Description and, since v0.81.0, the four progress dates (Type is last)
     expect(ws.getCell(headerRow, lastCol).value).toBe("Type");
     // Three activities → three data rows after header
     for (let i = 1; i <= 3; i++) {
@@ -862,7 +863,7 @@ describe("exportScheduleXlsx with bands", () => {
     for (let r = 1; r <= 30; r++) {
       if (ws.getCell(r, 1).value === "#") { headerRow = r; break; }
     }
-    const lastCol = 18; // sequential mode: 18 columns incl. new Description (Type is last)
+    const lastCol = 22; // sequential mode: 22 columns incl. Description and, since v0.81.0, the four progress dates (Type is last)
     // Order: a1 (header+1), band (header+2), a2, a3
     const bandRowNum = headerRow + 2;
     const nameCell = ws.getCell(bandRowNum, 2);
@@ -968,7 +969,7 @@ describe("exportScheduleXlsx with bands", () => {
     }
     const bandRowNum = headerRow + 1;
     const loadedNameCell = ws.getCell(bandRowNum, 2);
-    const lastCol = 18; // sequential mode: 18 columns incl. new Description (Type is last)
+    const lastCol = 22; // sequential mode: 22 columns incl. Description and, since v0.81.0, the four progress dates (Type is last)
 
     expect(loadedNameCell.fill).toBeDefined();
     expect(loadedNameCell.border?.left).toBeDefined();

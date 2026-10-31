@@ -31,7 +31,8 @@ const datesOf = (p: Project) => p.scenarios[0]!.activities.map((a) => [a.actualS
 
 describe("schema 26", () => {
   it("is the version this build writes — pinned deliberately (WI-137)", () => {
-    expect(SCHEMA_VERSION).toBe(26);
+    // Release 2 (v0.81.0, WI-137) moved it to 27; planned-dates-storage.test.ts pins it too.
+    expect(SCHEMA_VERSION).toBe(27);
   });
 
   it("the 25 → 26 step only stamps the version: no row is given a date (ruling 3)", () => {
@@ -107,7 +108,7 @@ describe("a tab still running v0.79.36, after this version saved the project (s)
     useProjectStore.getState().loadProjects();
     useProjectStore.getState().renameProject(project.id, "Dated, renamed here");
     const ours = JSON.parse(localStorage.getItem(`spert:project:local:${project.id}`)!) as Project;
-    expect(ours.schemaVersion).toBe(26);
+    expect(ours.schemaVersion).toBe(27); // this version's stamp: 26 in v0.80.0, 27 since v0.81.0
     expect(datesOf(ours)[1]).toEqual(["2026-10-19", undefined]);
 
     // The older tab loaded the project before this version wrote any date, and holds it so in
@@ -124,7 +125,7 @@ describe("a tab still running v0.79.36, after this version saved the project (s)
     useProjectStore.getState().loadProjects();
     const loaded = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
     expect(loaded.name).toBe("Dated, renamed in the older tab");
-    expect(loaded.schemaVersion).toBe(26);
+    expect(loaded.schemaVersion).toBe(27);
     expect(datesOf(loaded)).toEqual([[undefined, undefined], [undefined, undefined], [undefined, undefined]]);
     expect(loaded.scenarios[0]!.activities.map((a) => a.actualDuration)).toEqual([15, 1, undefined]);
   });

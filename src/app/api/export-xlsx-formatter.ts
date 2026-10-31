@@ -32,6 +32,10 @@ function buildActivityCells(
     row.duration,
     row.startDate,
     row.endDate,
+    row.plannedStart,
+    row.plannedFinish,
+    row.actualStart,
+    row.actualFinish,
   ];
   if (hasDeps) {
     cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
@@ -258,6 +262,7 @@ export async function exportScheduleXlsx(
   // Auto-fit to the longest summary key with bold font padding, capped at 28.
   const colAWidth = Math.min(28, Math.max(5, ...summary.map((r) => r.key.length + 4)));
   const widths = [colAWidth, 30, 8, 12, 8, 16, 14, 12, 8, 14, 14, 14];
+  widths.push(14, 14, 14, 14); // Planned Start / Planned Finish / Actual Start / Actual Finish (WI-137 r2)
   if (hasDeps) widths.push(14, 14, 16, 16); // Floats + Predecessors / Successors
   if (hasConstraints) widths.push(16, 14, 10, 30); // Constraint Type / Date / Mode / Note
   widths.push(8, 40, 12, 40); // Tasks / Task Details / Deliverables / Deliverable Details

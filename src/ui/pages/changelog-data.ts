@@ -13,6 +13,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.81.0",
+    date: "2026-10-31",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "An activity now keeps its Planned Start and Planned Finish: the dates the schedule showed for it at the moment it left Planned. Changes made to the activity in the same Edit Activity window, or in the same bulk change, count as part of that plan, and the schedule never moves these dates afterwards. The Edit Activity window shows them beside the actual dates: for an In Progress activity, Planned Start, Actual Start, Sched. Finish, Sched. Dur. and Actual Dur.; for a Complete one, Actual Start, Planned Finish, Actual Finish and Actual Dur. An activity started before this version, imported from a spreadsheet as already started, or carried into a reforecast copy has none: if it is In Progress, the window shows a dash and says why; if it is Complete, the window shows its Sched. Finish as before. If the schedule cannot be calculated at the moment an activity leaves Planned, none are kept, and the app says so.",
+          "A link that an actual date overtook is drawn dashed in the Gantt chart, on screen and in print, and never in the critical path's red. A legend entry, \"Link overtaken by an actual date\", shows while such a link is drawn, and the link's hover text says so.",
+          "The schedule export (Excel and CSV) has four new columns after End Date: Planned Start, Planned Finish, Actual Start and Actual Finish. A Planned activity's Planned Start and Planned Finish are its current scheduled dates. The summary at the top of the file now names the date format its dates are written in. Total Float and every column after it move four places to the right.",
+          "The printed report lists the progress notes in their own section, after Constraints.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Reload every SPERT Scheduler tab that was open before this update. This release saves projects in a new format (schema version 27), which an older version cannot open. With cloud storage, a tab still running an older version stops showing a project once this version has saved it, rather than risk overwriting your changes; reload that tab and the project is back. Without cloud storage, each tab saves a project whole, so if a tab still running an older version saves last, the project is saved as that tab holds it: its Planned dates, and any change made in another tab since that tab loaded it, are lost.",
+          "The note for an activity that started on the day the one before it finished now names the day its link allowed, instead of putting the same date on both sides of \"before\".",
+          "The Edit Activity window's Schedule Analysis no longer repeats the start and finish dates shown at the top of the window. It keeps the duration and the float.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Schema 26 → 27 adds two optional dates to an activity, plannedStartDate and plannedFinishDate; the step only stamps the version, and no engine reads them (the four oracles did not move, and a test with far-off dates on every row finds the schedule and the simulation unchanged). The one Status rule, statusChangeUpdates, keeps them when a row leaves Planned, both or neither. The page's schedule is now one pure function, computeScenarioSchedule (ui/hooks/use-schedule.ts): the grid reads the page's live schedule, while the Edit Activity window and the bulk toolbar read a plan schedule from that same function with the same step's estimate, Distribution, Confidence, heuristic and constraint edits applied, so v0.80.0's Complete defaults read the same schedule as the pair. The window derives the pair from the stored and the draft Status. The Gantt builds the overtaken links once per schedule. 24 existing tests were re-pinned by hand; new tests drive every transition through the real page, path parity, the export in three date formats and three threading paths; scripts/falsify-spec-planned-dates.mjs holds 36 straws.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.80.0",
     date: "2026-10-30",
     sections: [

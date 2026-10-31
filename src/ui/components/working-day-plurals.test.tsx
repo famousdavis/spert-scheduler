@@ -66,10 +66,7 @@ function valueAfter(label: string): string {
 describe("ScheduleAnalysisSection", () => {
   const renderWith = (n: number) =>
     render(
-      <ScheduleAnalysisSection
-        sa={{ startDate: "2026-01-05", endDate: "2026-01-05", duration: n, totalFloat: n, freeFloat: n }}
-        formatDate={(iso) => iso}
-      />
+      <ScheduleAnalysisSection sa={{ duration: n, totalFloat: n, freeFloat: n }} />
     );
 
   it("renders a one-day duration as '1 working day'", () => {

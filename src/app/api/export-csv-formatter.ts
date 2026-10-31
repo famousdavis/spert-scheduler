@@ -33,6 +33,10 @@ function buildCsvActivityCells(
     row.duration,
     row.startDate,
     row.endDate,
+    row.plannedStart,
+    row.plannedFinish,
+    row.actualStart,
+    row.actualFinish,
   ];
   if (hasDeps) {
     cells.push(row.totalFloat ?? "", row.freeFloat ?? "");
@@ -106,6 +110,7 @@ export function exportScheduleCsv(params: ScheduleExportParams): string {
     totalDuration,
     "",
     "",
+    "", "", "", "", // Planned Start / Planned Finish / Actual Start / Actual Finish
   ];
   if (hasDeps) {
     totalCells.push("", "", "", ""); // Floats + Predecessors / Successors

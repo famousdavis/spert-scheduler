@@ -11,6 +11,7 @@ import type {
   Milestone,
   MilestoneBufferInfo,
   ScheduledActivity,
+  ProgressNote,
   Calendar,
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
@@ -24,10 +25,10 @@ import {
   PRINT_MILESTONE_ROW_STEP, PRINT_LABEL_GAP_PX, PRINT_DIAMOND_SIZE, PRINT_DIAMOND_DROP_PER_FONT_PX, PRINT_FINISH_LABEL_EDGE_PX,
   PRINT_TODAY_LABEL_DY, PRINT_TODAY_DATE_DY,
   TODAY_LABEL_TEXT, TARGET_LABEL_TEXT, DATE_LABEL_SPECIMEN,
-  COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS,
+  COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS, PRINT_OVERTAKEN_LINK_DASH,
   resolveGanttAppearance,
 } from "./gantt-constants";
-import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressTicksNamingEveryYear, clampFinishLabelX, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite } from "./gantt-utils";
+import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, suppressTicksNamingEveryYear, clampFinishLabelX, computeTodayLine, labelHalfWidth, assignMilestoneRows, barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite, overtakenArrowDash, overtakenLegendDash, overtakenLinkKeys } from "./gantt-utils";
 import type { TickLevel, TickObstacle } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -51,6 +52,8 @@ export interface PrintGanttChartProps {
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;
+  /** WI-137 release 2: the schedule's progress notes — an overtaken link's arrow is drawn dashed, as on screen. */
+  progressNotes?: ProgressNote[];
   projectName?: string;
   targetFinishDate?: string | null;
   showTargetOnGantt?: boolean;
@@ -74,6 +77,7 @@ export function PrintGanttChart({
   milestones = [],
   milestoneBuffers,
   criticalPathIds,
+  progressNotes,
   projectName,
   targetFinishDate,
   showTargetOnGantt,
@@ -312,6 +316,9 @@ export function PrintGanttChart({
     }
     return synth;
   }, [dependencyMode, dependencies, activities]);
+
+  // WI-137 release 2: the links a recorded date overtook, as keys, built once per schedule (Review 33, F18).
+  const overtakenLinks = useMemo(() => overtakenLinkKeys(progressNotes), [progressNotes]);
 
   // Terminal activities: no successor dependency
   const terminalIds = useMemo(() => {
@@ -570,14 +577,16 @@ export function PrintGanttChart({
             }
           }
 
-          const isCriticalEdge = !synthetic && hasCriticalPath &&
+          // WI-137 release 2: an overtaken link is dashed and never a critical edge (owner, R630 ruling 6).
+          const dash = overtakenArrowDash(dep, overtakenLinks, PRINT_OVERTAKEN_LINK_DASH);
+          const isCriticalEdge = !synthetic && hasCriticalPath && !dash &&
             criticalPathIds!.has(dep.fromActivityId) && criticalPathIds!.has(dep.toActivityId);
           const arrowColor = isCriticalEdge ? ra.criticalPath : c.arrow;
           const arrowMarker = isCriticalEdge ? "url(#print-arrowhead-critical)" : "url(#print-arrowhead)";
 
           return (
             <g key={`dep-${i}`}>
-              <path d={path} stroke={arrowColor} strokeWidth="1" fill="none" markerEnd={arrowMarker} />
+              <path d={path} stroke={arrowColor} strokeWidth="1" fill="none" markerEnd={arrowMarker} strokeDasharray={dash} />
               {dep.lagDays !== 0 && (
                 <text x={(barEndX + toStartX) / 2} y={(fromY + toY) / 2 - 2}
                   textAnchor="middle" fontSize={fs4} fill={arrowColor} fontWeight="600">
@@ -781,6 +790,14 @@ export function PrintGanttChart({
           <span className="flex items-center gap-1">
             <span className="inline-block w-2 h-2 rounded-sm border border-gray-300" style={{ backgroundColor: "rgba(0,0,0,0.04)" }} />
             Non-work day
+          </span>
+        )}
+        {overtakenLegendDash(effectiveDependencies, overtakenLinks, PRINT_OVERTAKEN_LINK_DASH) && (
+          <span className="flex items-center gap-1">
+            <svg width="12" height="8" className="inline-block">
+              <line x1="0" y1="4" x2="12" y2="4" stroke={c.arrow} strokeWidth="1" strokeDasharray={PRINT_OVERTAKEN_LINK_DASH} />
+            </svg>
+            Link overtaken by an actual date
           </span>
         )}
         <span className="ml-auto text-gray-500">
