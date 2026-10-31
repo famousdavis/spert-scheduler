@@ -453,6 +453,23 @@ function migrateV24toV25(data: unknown): unknown {
   return project;
 }
 
+/**
+ * v25 → v26: an activity's Actual Start and Actual Finish dates (WI-137). A pure relabel, like
+ * v23 → v24: no existing row is given a date (Q2, recommended). A v25 In Progress or Complete row
+ * holds only a day count, counted from a scheduled start that may since have moved, so any date
+ * derived from it here would freeze the old rule's output as a recorded fact. With no date the row
+ * is scheduled exactly as before.
+ *
+ * ⚠️ The bump is the point: a build from before it cannot parse the two dates and Zod would strip
+ * them, then write the project back without them. Stamped 26, it meets the future-version guard and
+ * evicts the project instead.
+ */
+function migrateV25toV26(data: unknown): unknown {
+  const project = data as Record<string, unknown>;
+  project.schemaVersion = 26;
+  return project;
+}
+
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -478,6 +495,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   22: migrateV22toV23,
   23: migrateV23toV24,
   24: migrateV24toV25,
+  25: migrateV25toV26,
 };
 
 /**

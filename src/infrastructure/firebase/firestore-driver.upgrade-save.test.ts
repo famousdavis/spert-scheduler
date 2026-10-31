@@ -195,24 +195,24 @@ describe("the save a load makes to upgrade a project (WI-128)", () => {
     expect(project && datesOf(project)).toEqual([DEC, DEC]);
   });
 
-  it("load: its upgrade save names neither internal field, so an owner's is stored as 25", async () => {
+  it("load: its upgrade save names neither internal field, so an owner's is stored at the current schema", async () => {
     cloud.docs.set("p-alder", storedBy0772("Alder", DEC));
     const { driver, reported } = driverFor(OWNER);
     const project = await driver.load("p-alder");
     expect(cloud.stored, "let through").toEqual(["p-alder"]);
-    expect(versionOf("p-alder")).toBe(25);
+    expect(versionOf("p-alder")).toBe(SCHEMA_VERSION);
     expect(datesOf(cloud.docs.get("p-alder") as { scenarios: object[] })).toEqual([DEC, DEC]);
     expect(reported).toEqual([]);
     expect(project && datesOf(project)).toEqual([DEC, DEC]);
   });
 
-  it("loadAll: a document that already holds `_owner` and `_members` with the same values is stored as 25 as it loads", async () => {
+  it("loadAll: a document that already holds `_owner` and `_members` with the same values is stored at the current schema as it loads", async () => {
     const stored = storedBy0772("Alder", DEC);
     cloud.docs.set("p-alder", { ...stored, _owner: stored.owner, _members: cloud.clone(stored.members) });
     const { driver, reported } = driverFor(OWNER);
     await driver.loadAll();
     expect(cloud.stored, "let through").toEqual(["p-alder"]);
-    expect(versionOf("p-alder")).toBe(25);
+    expect(versionOf("p-alder")).toBe(SCHEMA_VERSION);
     expect(datesOf(cloud.docs.get("p-alder") as { scenarios: object[] })).toEqual([DEC, DEC]);
     expect(reported).toEqual([]);
   });
@@ -232,13 +232,13 @@ describe("the save a load makes to upgrade a project (WI-128)", () => {
     expect(cloud.stored).toEqual([]);
   });
 
-  it("a change's save is let through, and stores the project as 25 with each scenario's date", async () => {
+  it("a change's save is let through, and stores the project at the current schema with each scenario's date", async () => {
     cloud.docs.set("p-alder", storedBy0772("Alder", DEC));
     const { driver, reported } = driverFor(OWNER);
     const { projects } = await driver.loadAll();
     const project = asTheAppHoldsIt(projects[0]!);
     await driver.saveImmediate({ ...project, name: "Alder, renamed" });
-    expect(versionOf("p-alder")).toBe(25);
+    expect(versionOf("p-alder")).toBe(SCHEMA_VERSION);
     expect(cloud.stored).toEqual(["p-alder"]);
     expect(datesOf(cloud.docs.get("p-alder") as { scenarios: object[] })).toEqual([DEC, DEC]);
     expect(cloud.docs.get("p-alder")?.name).toBe("Alder, renamed");

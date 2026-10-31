@@ -33,6 +33,9 @@ export default defineConfig({
       "src/core/schedule/dependency-graph.test.ts",
       "src/core/schedule/buffer.test.ts",
       "src/core/schedule/milestone-sim-params.test.ts",
+      // WI-137 (v0.80.0): recorded progress is mutated, so its own tests and the engine tests that read it run too.
+      "src/core/schedule/recorded-progress.test.ts",
+      "src/integration/recorded-progress.test.ts",
       "src/integration/sequential-constraints.test.ts",
       "src/integration/dependency-roundtrip.test.ts",
       "src/integration/full-workflow.test.ts",

@@ -8,6 +8,7 @@ import { createActivity, createProject, createScenario, addActivityToScenario } 
 import { runSimulationSync } from "@app/api/simulation-service";
 import { buildSimulationParams } from "@ui/helpers/build-simulation-params";
 import type { Project, Scenario } from "@domain/models/types";
+import { SCHEMA_VERSION } from "@domain/models/types";
 
 /**
  * WI-124 (owner ruling, 2026-10-16): each scenario keeps its own Finish Target date, and whether the Gantt shows it
@@ -96,11 +97,11 @@ describe("the per-scenario setter", () => {
     expect(projectOf(p.id).scenarios[0]!.simulationResults).toBe(ran.simulationResults);
   });
 
-  it("saves the dates in the scenarios, schema 25, nothing on the project", () => {
+  it("saves the dates in the scenarios, the current schema, nothing on the project", () => {
     const p = seed([undefined, undefined]);
     setTargetIn(p.id, p.scenarios[1]!.id, JAN);
     const saved = JSON.parse(localStorage.getItem(`spert:project:local:${p.id}`)!) as Project;
-    expect(saved.schemaVersion).toBe(25);
+    expect(saved.schemaVersion).toBe(SCHEMA_VERSION);
     expect(datesOf(saved)).toEqual([ABSENT, JAN]);
     expect("targetFinishDate" in saved).toBe(false);
   });

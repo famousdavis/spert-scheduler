@@ -13,11 +13,20 @@ import type {
   RSMLevel,
 } from "@domain/models/types";
 import { dependencyLabel, pluralize } from "@domain/helpers/format-labels";
+import {
+  ACTUAL_DATES_FAULT_FIELD,
+  ACTUAL_DATES_FAULT_LINE,
+  type ActualDatesFault,
+} from "@ui/helpers/actual-dates-fault";
 
-function actualDurTitle(status: ActivityStatus): string {
+/** The Actual Dur. title. Its count is from the Actual Start when one is recorded; a row from before WI-137 counts from its scheduled start. */
+function actualDurTitle(status: ActivityStatus, hasActualStart: boolean): string {
   if (status === "planned") return "Set status to In Progress or Complete to enter actual duration";
-  if (status === "inProgress") return "Working days elapsed since the scheduled start. Used as the minimum floor for simulation trials.";
-  return "Total working days from scheduled start to actual finish";
+  const from = hasActualStart ? "the Actual Start" : "the scheduled start";
+  if (status === "inProgress") return `Working days elapsed since ${from}. Used as the minimum floor for simulation trials.`;
+  return hasActualStart
+    ? "Total working days from the Actual Start to the Actual Finish"
+    : "Total working days from scheduled start to actual finish";
 }
 
 function formatDepLagSuffix(lagDays: number): string {
@@ -31,14 +40,54 @@ function totalFloatLabel(totalFloat: number | null | undefined): string {
   return `${totalFloat} ${pluralize(totalFloat, "day")}`;
 }
 
-/** Schedule context row: Sched. Finish, Sched. Duration, Actual Duration, Actual Finish */
+const LABEL = "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 whitespace-nowrap";
+const VALUE = "text-sm text-gray-900 dark:text-gray-100 py-1.5";
+const INPUT_OK = "w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
+const INPUT_BAD = "w-full text-sm border border-red-400 dark:border-red-500 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none";
+
+/** A date field's `aria-invalid` and `aria-describedby` while the red line is about it — spread, as `constraintDateAria` is. */
+function dateFieldAria(
+  field: "start" | "finish",
+  fault: ActualDatesFault | null,
+  errorId: string,
+  noteId: string | undefined,
+): { "aria-invalid"?: true; "aria-describedby"?: string } {
+  if (fault && ACTUAL_DATES_FAULT_FIELD[fault] === field) {
+    return { "aria-invalid": true, "aria-describedby": noteId ? `${errorId} ${noteId}` : errorId };
+  }
+  return noteId ? { "aria-describedby": noteId } : {};
+}
+
+/** The line for a row with no Actual Start: where the schedule puts it instead, in the mode it is in. */
+function unrecordedHint(dependencyMode: boolean): string {
+  const where = dependencyMode ? "after its predecessors" : "after the activities before it";
+  return `No Actual Start is recorded, so the schedule places this activity ${where}. Enter the day it started to record it.`;
+}
+
+/**
+ * Schedule context (WI-137, look B revised, owner 2026-10-30): one line. Planned: Sched. Start,
+ * Sched. Finish, Sched. Dur., Actual Dur. In Progress: Actual Start, Sched. Finish, Sched. Dur.,
+ * Actual Dur. Complete: Sched. Finish, Actual Start, Actual Finish, Actual Dur. Actual Dur. takes
+ * three digits (4rem) on every row; the date cells take the rest. Then the red line for a date the
+ * window refuses, and any neutral note.
+ *
+ * It renders with or without a schedule: a date that breaks the schedule must stay where it was
+ * typed, to be corrected there (Review 32, G3). With no schedule the Sched. cells show a dash.
+ */
 export function ScheduleContextRow({
   status,
   sa,
   scheduledStartDate,
   actualDuration,
+  actualStartDate,
+  setActualStartDate,
+  handleActualStartDateBlur,
+  today,
+  progressNotes,
+  completeSchedFinish,
+  dateFault,
+  dependencyMode,
   actualFinishDate,
-  committedFinishDate,
   formatDate,
   handleActualDurationChange,
   handleActualFinishDateChange,
@@ -46,11 +95,21 @@ export function ScheduleContextRow({
   setActualDuration,
 }: {
   status: ActivityStatus;
-  sa: { endDate: string; duration: number };
-  scheduledStartDate: string;
+  sa: { endDate: string; duration: number } | undefined;
+  scheduledStartDate: string | null;
   actualDuration: number | "";
+  actualStartDate: string;
+  setActualStartDate: (v: string) => void;
+  handleActualStartDateBlur: (e: React.FocusEvent<HTMLInputElement>) => void;
+  today: string;
+  /** This activity's neutral notes, as sentences. */
+  progressNotes: { key: string; sentence: string }[];
+  /** A Complete row's Sched. Finish — see `completeRowSchedFinish` in ActivityEditModal. */
+  completeSchedFinish?: string;
+  /** What the window refuses about the two dates, if anything. */
+  dateFault: ActualDatesFault | null;
+  dependencyMode: boolean;
   actualFinishDate: string;
-  committedFinishDate: string;
   formatDate: (iso: string) => string;
   handleActualDurationChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleActualFinishDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -60,85 +119,122 @@ export function ScheduleContextRow({
   const baseId = useId();
   const actualDurId = `${baseId}-actualdur`;
   const actualFinId = `${baseId}-actualfin`;
+  const actualStartId = `${baseId}-actualstart`;
+  const errorId = `${baseId}-dateerror`;
+  const noteId = progressNotes.length > 0 ? `${baseId}-notes` : undefined;
+  const isPlanned = status === "planned";
+  const isComplete = status === "complete";
+  const unrecorded = !isPlanned && !actualStartDate;
+  const dash = <p className={VALUE}>&mdash;</p>;
+
+  // Look B: ONE line. A Planned row keeps v0.79.36's line exactly; an In Progress or Complete row
+  // shows its Actual Start where Sched. Start was — the schedule follows the record, so the plan's
+  // own start is no longer a separate date to show.
+  const schedStart = (
+    <div>
+      <div className={LABEL}>Sched. Start</div>
+      {scheduledStartDate ? <p className={VALUE}>{formatDate(scheduledStartDate)}</p> : dash}
+    </div>
+  );
+  const schedFinishCell = (iso: string | undefined) => (
+    <div>
+      <div className={LABEL}>Sched. Finish</div>
+      {iso ? <p className={VALUE}>{formatDate(iso)}</p> : dash}
+    </div>
+  );
+  const schedFinish = schedFinishCell(sa?.endDate);
+  const schedDur = (
+    <div>
+      <div className={LABEL}>Sched. Dur.</div>
+      {sa ? <p className={VALUE}>{sa.duration}d</p> : dash}
+    </div>
+  );
+  const startAria = dateFieldAria("start", dateFault, errorId, noteId);
+  const actualStart = (
+    <div title="The day this activity really started. A non-working day moves to the next working day.">
+      <label htmlFor={actualStartId} className={LABEL}>Actual Start</label>
+      <input
+        id={actualStartId}
+        name="actualStartDate"
+        type="date"
+        autoComplete="off"
+        value={actualStartDate}
+        max={today}
+        onChange={(e) => setActualStartDate(e.target.value)}
+        onBlur={handleActualStartDateBlur}
+        {...startAria}
+        className={startAria["aria-invalid"] ? INPUT_BAD : INPUT_OK}
+      />
+    </div>
+  );
+  const finishAria = dateFieldAria("finish", dateFault, errorId, undefined);
+  const actualFinish = (
+    <div title="The day this activity really finished. A non-working day moves back to the last working day.">
+      <label htmlFor={actualFinId} className={LABEL}>Actual Finish</label>
+      <input
+        id={actualFinId}
+        name="actualFinishDate"
+        type="date"
+        autoComplete="off"
+        value={actualFinishDate}
+        min={actualStartDate || undefined}
+        max={today}
+        onChange={handleActualFinishDateChange}
+        onBlur={handleActualFinishDateBlur}
+        {...finishAria}
+        className={finishAria["aria-invalid"] ? INPUT_BAD : INPUT_OK}
+      />
+    </div>
+  );
+  const actualDur = (
+    <div title={actualDurTitle(status, !!actualStartDate)}>
+      <label htmlFor={actualDurId} className={LABEL}>Actual Dur.</label>
+      <input
+        id={actualDurId}
+        name="actualDuration"
+        type="number"
+        autoComplete="off"
+        min={1}
+        value={actualDuration}
+        placeholder={status === "inProgress" ? "Elapsed" : undefined}
+        onChange={
+          isComplete
+            ? handleActualDurationChange
+            : (e) => setActualDuration(e.target.value === "" ? "" : Number(e.target.value))
+        }
+        disabled={isPlanned}
+        className={INPUT_OK}
+      />
+    </div>
+  );
+
   return (
-    <div className={`grid gap-3 ${status === "complete" ? "grid-cols-[1fr_1fr_auto_4.5rem_1.3fr]" : "grid-cols-4"}`}>
-      {/* Col 1: Scheduled Start (display only — always) */}
-      <div>
-        <div className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-          Sched. Start
+    <div className="space-y-2">
+      {isPlanned && (
+        <div className="grid gap-3 grid-cols-[1fr_1fr_auto_4rem]">{schedStart}{schedFinish}{schedDur}{actualDur}</div>
+      )}
+      {status === "inProgress" && (
+        <div className="grid gap-3 grid-cols-[1.4fr_1fr_auto_4rem]">{actualStart}{schedFinish}{schedDur}{actualDur}</div>
+      )}
+      {isComplete && (
+        <div className="grid gap-3 grid-cols-[1fr_1.3fr_1.3fr_4rem]">
+          {schedFinishCell(completeSchedFinish ?? sa?.endDate)}{actualStart}{actualFinish}{actualDur}
         </div>
-        <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
-          {formatDate(scheduledStartDate)}
-        </p>
-      </div>
-
-      {/* Col 2: Scheduled Finish (display only — always) */}
-      <div>
-        <div className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 whitespace-nowrap">
-          Sched. Finish
-        </div>
-        <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
-          {formatDate(sa.endDate)}
-        </p>
-      </div>
-
-      {/* Col 3: Scheduled Duration (display only — always) */}
-      <div>
-        <div className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-          Sched. Dur.
-        </div>
-        <p className="text-sm text-gray-900 dark:text-gray-100 py-1.5">
-          {sa.duration}d
-        </p>
-      </div>
-
-      {/* Col 4: Actual Duration — disabled for planned, editable for inProgress + complete */}
-      <div title={actualDurTitle(status)}>
-        <label htmlFor={actualDurId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-          Actual Dur.
-        </label>
-        <input
-          id={actualDurId}
-          name="actualDuration"
-          type="number"
-          min={1}
-          value={actualDuration}
-          placeholder={status === "inProgress" ? "Elapsed" : undefined}
-          onChange={
-            status === "complete"
-              ? handleActualDurationChange
-              : (e) => setActualDuration(e.target.value === "" ? "" : Number(e.target.value))
-          }
-          disabled={status === "planned"}
-          className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-      </div>
-
-      {/* Col 4: Actual Finish Date — complete only */}
-      {status === "complete" && (
-        <div title="Entering a date auto-calculates duration; entering a duration auto-calculates this date">
-          <label htmlFor={actualFinId} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-            Actual Finish
-          </label>
-          <input
-            id={actualFinId}
-            name="actualFinishDate"
-            type="date"
-            value={actualFinishDate}
-            onChange={handleActualFinishDateChange}
-            onBlur={handleActualFinishDateBlur}
-            min={scheduledStartDate}
-            className={`w-full text-sm border rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none ${
-              committedFinishDate && committedFinishDate < scheduledStartDate
-                ? "border-red-400 dark:border-red-500"
-                : "border-gray-300 dark:border-gray-600"
-            }`}
-          />
-          {committedFinishDate && committedFinishDate < scheduledStartDate && (
-            <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">
-              Finish date cannot be before the scheduled start.
+      )}
+      {dateFault && (
+        <p id={errorId} className="text-xs text-red-700 dark:text-red-400">{ACTUAL_DATES_FAULT_LINE[dateFault]}</p>
+      )}
+      {unrecorded && (
+        <p className="text-xs text-gray-600 dark:text-gray-400">{unrecordedHint(dependencyMode)}</p>
+      )}
+      {noteId && (
+        <div id={noteId} className="space-y-1">
+          {progressNotes.map((n) => (
+            <p key={n.key} className="flex items-start gap-1.5 text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded px-2 py-1.5">
+              <span aria-hidden="true" className="text-blue-700 dark:text-blue-300 font-semibold">i</span>
+              <span>{n.sentence}</span>
             </p>
-          )}
+          ))}
         </div>
       )}
     </div>
@@ -249,6 +345,8 @@ export function computeGeneralUpdates(
   name: string,
   status: ActivityStatus,
   actualDuration: string | number,
+  actualStartDate?: string,
+  actualFinishDate?: string,
 ): Partial<Activity> {
   const updates: Partial<Activity> = {};
 
@@ -266,7 +364,30 @@ export function computeGeneralUpdates(
   } else if (activity.actualDuration != null) {
     updates.actualDuration = undefined;
   }
+  Object.assign(updates, computeRecordedDateUpdates(activity, status, actualStartDate, actualFinishDate));
 
+  return updates;
+}
+
+/**
+ * WI-137: the two recorded dates. `undefined` drafts mean "not shown here" and change nothing;
+ * an empty draft clears. Planned clears both; In Progress clears the finish.
+ */
+function computeRecordedDateUpdates(
+  activity: Activity,
+  status: ActivityStatus,
+  start: string | undefined,
+  finish: string | undefined,
+): Partial<Activity> {
+  const updates: Partial<Activity> = {};
+  const wantStart = status === "planned" ? "" : start;
+  const wantFinish = status === "complete" ? finish : "";
+  if (wantStart !== undefined && wantStart !== (activity.actualStartDate ?? "")) {
+    updates.actualStartDate = wantStart || undefined;
+  }
+  if (wantFinish !== undefined && wantFinish !== (activity.actualFinishDate ?? "")) {
+    updates.actualFinishDate = wantFinish || undefined;
+  }
   return updates;
 }
 

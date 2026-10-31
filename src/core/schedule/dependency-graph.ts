@@ -12,6 +12,7 @@
 
 import type { ActivityDependency, ConstraintType, ConstraintMode, DependencyType } from "@domain/models/types";
 import { applyForwardConstraintInt } from "./constraint-utils";
+import { pinnedFinishInt, type RecordedPin } from "./recorded-progress";
 
 // -- Types -------------------------------------------------------------------
 
@@ -483,6 +484,26 @@ export function computeCriticalPathActivities(
 
 // -- Milestone-aware critical path -------------------------------------------
 
+/**
+ * WI-137: a recorded row's early finish in one trial. A Complete row ends after its duration; an
+ * In Progress row's forecast finish is held by each FF link (predecessor finish + lag, as
+ * `computeEarlyStartFromPred` asks of an unrecorded row) and then by its hard finish constraint.
+ */
+function pinnedEarlyFinish(
+  pin: RecordedPin,
+  dur: number,
+  preds: EdgeRef[],
+  earlyFinish: Map<string, number>,
+  constraint: { type: string; offsetFromStart: number; mode: string } | undefined,
+): number {
+  let ef = pin.offset + dur;
+  if (!pin.finishFollowsLogic) return ef;
+  for (const pred of preds) {
+    if (pred.type === "FF") ef = Math.max(ef, (earlyFinish.get(pred.id) ?? 0) + pred.lagDays);
+  }
+  return pinnedFinishInt(pin.offset, ef, constraint);
+}
+
 interface MilestoneActivityState {
   es: number;
   ef: number;
@@ -568,6 +589,7 @@ export function computeCriticalPathWithMilestones(
   milestoneActivityIds: Map<string, string[]>,
   activityEarliestStart?: Map<string, number>,
   constraintMap?: Map<string, { type: string; offsetFromStart: number; mode: string }>,
+  recordedPins?: Map<string, RecordedPin>,
 ): { projectDuration: number; milestoneDurations: Map<string, number> } {
   const earlyStart = new Map<string, number>();
   const earlyFinish = new Map<string, number>();
@@ -575,6 +597,14 @@ export function computeCriticalPathWithMilestones(
   for (const id of graph.topologicalOrder) {
     const dur = durations.get(id) ?? 0;
     const preds = graph.predecessors.get(id) ?? [];
+    // WI-137: a recorded start is placed where it happened — not by predecessors, floors or start
+    // constraints. An In Progress row's finish still follows its FF links and its finish constraint.
+    const pin = recordedPins?.get(id);
+    if (pin !== undefined) {
+      earlyStart.set(id, pin.offset);
+      earlyFinish.set(id, pinnedEarlyFinish(pin, dur, preds, earlyFinish, constraintMap?.get(id)));
+      continue;
+    }
     let state = computeActivityScheduleWithMilestone(
       id, dur, preds, earlyStart, earlyFinish, activityEarliestStart,
     );

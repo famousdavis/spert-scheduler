@@ -404,6 +404,16 @@ export interface ProjectStore {
     activityIds: string[],
     updates: Partial<Activity>
   ) => void;
+  /**
+   * WI-137: a different update for each row, in ONE write — one undo step and one save, however
+   * many rows. The grid's bulk Apply sends its whole plan here (a Status change per row by the one
+   * rule), so undo takes every row back at once.
+   */
+  bulkUpdateActivitiesEach: (
+    projectId: string,
+    scenarioId: string,
+    updatesById: Map<string, Partial<Activity>>
+  ) => void;
   bulkDeleteActivities: (
     projectId: string,
     scenarioId: string,
@@ -1286,6 +1296,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         name: activity.name.trim() ? `${activity.name} (copy)` : "",
         status: "planned",
         actualDuration: undefined,
+        actualStartDate: undefined, // WI-137: a copy is new work — nothing recorded
+        actualFinishDate: undefined,
         checklist: activity.checklist?.map((item) => ({
           ...item,
           id: generateId(),
@@ -1605,6 +1617,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       activities: s.activities.map((a) =>
         activityIds.includes(a.id) ? { ...a, ...updates } : a
       ),
+      simulationResults: undefined,
+    })),
+
+  bulkUpdateActivitiesEach: (projectId, scenarioId, updatesById) =>
+    mutateScenario(projectId, scenarioId, "already-invalidated", (s) => ({
+      ...s,
+      activities: s.activities.map((a) => {
+        const updates = updatesById.get(a.id);
+        return updates ? { ...a, ...updates } : a;
+      }),
       simulationResults: undefined,
     })),
 

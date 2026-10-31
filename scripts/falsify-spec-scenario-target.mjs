@@ -54,8 +54,8 @@ const U_HOLDING = "leaves a scenario that already holds a date, or null, as it i
 const U_V14 = "runs at the end of the whole ladder from v14: a v14 project gains no date, and no project-level key";
 const U_V15 = "carries a date set at v15 through the whole ladder to every scenario";
 const L_LOCAL = "this browser's storage: each scenario's date, the locked scenario still locked, every run kept";
-const L_SAVE = "this browser's storage: the next change saves the project as schema 25, its dates in the scenarios";
-const L_IMPORT = "Import Projects: the file 0.77.2 exported imports with each scenario's date, as schema 25";
+const L_SAVE = "this browser's storage: the next change saves the project at the current schema, its dates in the scenarios";
+const L_IMPORT = "Import Projects: the file 0.77.2 exported imports with each scenario's date, at the current schema";
 const L_LOADALL = "cloud loadAll: each scenario's date, and the upgraded project written forward with them";
 const L_LOAD = "cloud load: each scenario's date";
 const L_SUB = "cloud subscription: a snapshot of 0.77.2's document arrives with each scenario's date";
@@ -65,7 +65,7 @@ const O_CLOUD = "cloud storage: its save, merged by field, gives every scenario 
 const T_NAMED = "sets the date of the scenario it names and no other's; the project keeps no date of its own";
 const T_OWN = "keeps each scenario's own date through changes to another's";
 const T_RUN = "keeps the scenario's run: a target date is not a simulation input";
-const T_SAVED = "saves the dates in the scenarios, schema 25, nothing on the project";
+const T_SAVED = "saves the dates in the scenarios, the current schema, nothing on the project";
 const T_LOCKED = "refuses a locked scenario: no change, and no undo entry";
 const T_LOCKED_OTHER = "a date set in another scenario leaves the locked scenario's own date";
 const T_UNDO = "is one undo entry: undo restores the scenario's previous date, redo puts it back";
@@ -94,10 +94,10 @@ const V_TOOLTIP =
 const D_LOADALL =
   "loadAll: each project's upgrade save is tried and refused, logged, and reported to no one; the documents stay at 24";
 const D_VIEWER = "load: a viewer's upgrade save is refused and reported to no one; the document stays at 24";
-const D_OWNER = "load: its upgrade save names neither internal field, so an owner's is stored as 25";
+const D_OWNER = "load: its upgrade save names neither internal field, so an owner's is stored at the current schema";
 const D_HELD =
-  "loadAll: a document that already holds `_owner` and `_members` with the same values is stored as 25 as it loads";
-const D_CHANGE = "a change's save is let through, and stores the project as 25 with each scenario's date";
+  "loadAll: a document that already holds `_owner` and `_members` with the same values is stored at the current schema as it loads";
+const D_CHANGE = "a change's save is let through, and stores the project at the current schema with each scenario's date";
 const D_REFETCH =
   "a second loadAll on the same driver, as at an invitation's re-fetch: each upgrade save is tried and refused again, and still reported to no one";
 // project-service.test.ts and export-import-roundtrip.test.ts — existing tests that follow the ruled shape

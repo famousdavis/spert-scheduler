@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { Activity } from "@domain/models/types";
 import {
   constraintBadgeClass,
@@ -23,7 +23,10 @@ const focusFieldMock = vi.fn();
 const focusNextRowMock = vi.fn();
 const focusPrevRowMock = vi.fn();
 
-vi.mock("./activity-row-helpers", () => ({
+// The three focus helpers are spied on; everything else in the module is the real one — the bulk
+// planner's Status rule (`statusUpdatesFor`, WI-137) included, so a plan is what the grid would get.
+vi.mock("./activity-row-helpers", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./activity-row-helpers")>()),
   focusField: (...args: unknown[]) => focusFieldMock(...args),
   focusNextRow: (...args: unknown[]) => focusNextRowMock(...args),
   focusPrevRow: (...args: unknown[]) => focusPrevRowMock(...args),
@@ -480,6 +483,20 @@ describe("planBulkApply", () => {
   ];
   const IDS = ["a1", "a2"];
   const NO_HEURISTIC = { enabled: false };
+  // WI-137: the schedule's own dates, for the Status rule. Today is pinned to Tue 2026-10-27 in the
+  // tests that read it: a1 was due to finish on Thu 10-08 (passed); a2 started Mon 10-26, due Tue 11-03.
+  const SCHED_DATED = [
+    { activityId: "a1", duration: 4, startDate: "2026-10-05", endDate: "2026-10-08" },
+    { activityId: "a2", duration: 7, startDate: "2026-10-26", endDate: "2026-11-03" },
+  ];
+  const pinToday = () => vi.useFakeTimers({ now: new Date("2026-10-27T12:00:00"), toFake: ["Date"] });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const datedPlan = (
+    staged: Parameters<typeof planBulkApply>[0],
+    heuristic: Parameters<typeof planBulkApply>[4] = NO_HEURISTIC,
+  ) => planBulkApply(staged, IDS, ACTS, SCHED_DATED, heuristic, heuristicFn);
 
   const plan = (
     staged: Parameters<typeof planBulkApply>[0],
@@ -502,34 +519,44 @@ describe("planBulkApply", () => {
       expect(p.perActivity).toEqual([]);
     });
 
-    it("treats a non-complete status as shared", () => {
-      expect(plan({ status: "inProgress" }).sharedUpdates).toEqual({ status: "inProgress" });
+    it("WI-137: routes every Status per activity, never as a shared update — In Progress writes today and a count", () => {
+      // The value differs per activity once a Status writes dates, so no Status is shared any more.
+      pinToday();
+      const p = datedPlan({ status: "inProgress" });
+      expect(p.sharedUpdates).toBeNull();
+      expect(p.perActivity).toStrictEqual([
+        { id: "a1", updates: { status: "inProgress", actualStartDate: "2026-10-27", actualFinishDate: undefined, actualDuration: 1 } },
+        { id: "a2", updates: { status: "inProgress", actualStartDate: "2026-10-27", actualFinishDate: undefined, actualDuration: 1 } },
+      ]);
     });
   });
 
   describe('the "complete" status is routed per activity, not shared', () => {
-    it("carries each activity's own scheduled duration as its actual duration", () => {
-      // This is why it cannot be a shared update: the value differs per activity.
-      const p = plan({ status: "complete" });
+    it("WI-137: gives each activity its own dates and count, by the one rule", () => {
+      // a1 was due on 10-08, before today: its scheduled dates. a2 was not yet due: from its
+      // scheduled start (on or before today) to today, two working days.
+      pinToday();
+      const p = datedPlan({ status: "complete" });
       expect(p.sharedUpdates).toBeNull();
       expect(p.perActivity).toEqual([
-        { id: "a1", updates: { status: "complete", actualDuration: 4 } },
-        { id: "a2", updates: { status: "complete", actualDuration: 7 } },
+        { id: "a1", updates: { status: "complete", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-08", actualDuration: 4 } },
+        { id: "a2", updates: { status: "complete", actualStartDate: "2026-10-26", actualFinishDate: "2026-10-27", actualDuration: 2 } },
       ]);
     });
 
-    it("leaves actualDuration undefined for an activity with no schedule entry", () => {
+    it("WI-137: an activity with no schedule entry finished today; an id with no activity is skipped", () => {
+      pinToday();
       const p = planBulkApply(
         { status: "complete" },
-        ["a1", "ghost"],
+        ["a2", "ghost"],
         ACTS,
-        SCHED,
+        [SCHED_DATED[0]!],
         NO_HEURISTIC,
         heuristicFn,
       );
-      const ghost = p.perActivity.find((e) => e.id === "ghost")!;
-      expect(ghost.updates.status).toBe("complete");
-      expect(ghost.updates.actualDuration).toBeUndefined();
+      expect(p.perActivity).toEqual([
+        { id: "a2", updates: { status: "complete", actualStartDate: "2026-10-27", actualFinishDate: "2026-10-27", actualDuration: 1 } },
+      ]);
     });
 
     it("still shares confidence and distribution alongside a complete status", () => {
@@ -592,14 +619,16 @@ describe("planBulkApply", () => {
   it("issues TWO entries for an activity that is both completed and recalculated", () => {
     // ⚠️ Deliberate, and the reason perActivity is a list rather than a map. The original
     // handler made two separate onUpdate calls in this order; merging them into one
-    // update would change what a consumer observes.
-    const p = plan(
+    // update would change what a consumer observes. (WI-137: the Status entries carry each
+    // row's dates by the one rule; the order is unchanged.)
+    pinToday();
+    const p = datedPlan(
       { status: "complete", recalculateHeuristic: true },
       { enabled: true, minPercent: 50, maxPercent: 200 },
     );
     expect(p.perActivity).toEqual([
-      { id: "a1", updates: { status: "complete", actualDuration: 4 } },
-      { id: "a2", updates: { status: "complete", actualDuration: 7 } },
+      { id: "a1", updates: { status: "complete", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-08", actualDuration: 4 } },
+      { id: "a2", updates: { status: "complete", actualStartDate: "2026-10-26", actualFinishDate: "2026-10-27", actualDuration: 2 } },
       { id: "a1", updates: { min: 5, max: 20 } },
       { id: "a2", updates: { min: 5, max: 20 } },
     ]);

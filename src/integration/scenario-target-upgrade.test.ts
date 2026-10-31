@@ -848,7 +848,7 @@ describe("the v24 → v25 step, on the projects 0.77.2 saved", () => {
     const upgraded = upgrade(SAVED_ALPHA, 24);
     expect(datesOf(upgraded)).toEqual([ALPHA_DATE, ALPHA_DATE, ALPHA_DATE]);
     expect("targetFinishDate" in upgraded).toBe(false);
-    expect(upgraded.schemaVersion).toBe(25);
+    expect(upgraded.schemaVersion).toBe(SCHEMA_VERSION);
     expect(upgraded.scenarios.map((s) => s.locked ?? false)).toEqual([false, false, true]);
     expect(upgraded.showTargetOnGantt).toBe(true);
   });
@@ -858,7 +858,7 @@ describe("the v24 → v25 step, on the projects 0.77.2 saved", () => {
       const upgraded = upgrade(saved, 24);
       expect(datesOf(upgraded), saved.name).toEqual([ABSENT]);
       expect("targetFinishDate" in upgraded, saved.name).toBe(false);
-      expect(upgraded.schemaVersion, saved.name).toBe(25);
+      expect(upgraded.schemaVersion, saved.name).toBe(SCHEMA_VERSION);
     }
   });
 
@@ -884,7 +884,7 @@ describe("the v24 → v25 step, on the projects 0.77.2 saved", () => {
     expect(datesOf(upgraded)).toEqual([ABSENT]);
     expect("targetFinishDate" in upgraded).toBe(false);
     expect(upgraded.showTargetOnGantt).toBe(false);
-    expect(upgraded.schemaVersion).toBe(25);
+    expect(upgraded.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
   it("carries a date set at v15 through the whole ladder to every scenario", () => {
@@ -917,22 +917,22 @@ describe("each load path, on what 0.77.2 saved", () => {
     expect(loaded.map((r) => (r.success ? "targetFinishDate" in r.data : "failed"))).toEqual([false, false, false, false]);
   });
 
-  it("this browser's storage: the next change saves the project as schema 25, its dates in the scenarios", () => {
+  it("this browser's storage: the next change saves the project at the current schema, its dates in the scenarios", () => {
     storeLocally(SAVED);
     useProjectStore.getState().loadProjects();
     useProjectStore.getState().renameProject(SAVED_ALPHA.id, "Alpha renamed");
     const saved = storedLocally(SAVED_ALPHA.id);
-    expect(saved.schemaVersion).toBe(25);
+    expect(saved.schemaVersion).toBe(SCHEMA_VERSION);
     expect(datesOf(saved)).toEqual([ALPHA_DATE, ALPHA_DATE, ALPHA_DATE]);
     expect("targetFinishDate" in saved).toBe(false);
   });
 
-  it("Import Projects: the file 0.77.2 exported imports with each scenario's date, as schema 25", () => {
+  it("Import Projects: the file 0.77.2 exported imports with each scenario's date, at the current schema", () => {
     const result = validateImport(JSON.stringify(EXPORT_FILE, null, 2), []);
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.projects.map(datesOf)).toEqual([[ALPHA_DATE, ALPHA_DATE, ALPHA_DATE], [ABSENT], [ABSENT], [ABSENT]]);
-    expect(result.projects.map((p) => p.schemaVersion)).toEqual([25, 25, 25, 25]);
+    expect(result.projects.map((p) => p.schemaVersion)).toEqual([SCHEMA_VERSION, SCHEMA_VERSION, SCHEMA_VERSION, SCHEMA_VERSION]);
     expect(result.projects.map((p) => "targetFinishDate" in p)).toEqual([false, false, false, false]);
   });
 
@@ -943,7 +943,7 @@ describe("each load path, on what 0.77.2 saved", () => {
     const byId = new Map(projects.map((p) => [p.id, p]));
     expect(SAVED.map((s) => datesOf(byId.get(s.id)!))).toEqual([[ALPHA_DATE, ALPHA_DATE, ALPHA_DATE], [ABSENT], [ABSENT], [ABSENT]]);
     const written = cloud.docs.get(SAVED_ALPHA.id)!;
-    expect(written.schemaVersion).toBe(25);
+    expect(written.schemaVersion).toBe(SCHEMA_VERSION);
     expect(datesOf(written as StoredProject)).toEqual([ALPHA_DATE, ALPHA_DATE, ALPHA_DATE]);
     const forward = cloud.sent.find((w) => w.id === SAVED_ALPHA.id)!;
     expect(forward.mergeFields).not.toContain("targetFinishDate");
@@ -988,7 +988,7 @@ describe("a tab still running 0.77.2, after this version saved the project", () 
     cloud.docs.set(SAVED_ALPHA.id, cloudDocOf(SAVED_ALPHA));
     const driver = new FirestoreDriver(OWNER_UID);
     await driver.loadAll();
-    expect(cloud.docs.get(SAVED_ALPHA.id)!.schemaVersion).toBe(25);
+    expect(cloud.docs.get(SAVED_ALPHA.id)!.schemaVersion).toBe(SCHEMA_VERSION);
 
     // The older tab's save, as its driver sends it: every field it holds, merged by field.
     const olderTabSave = { ...cloudFieldsOf(OLDER_TAB_ALPHA), updatedAt: SENT_AT };

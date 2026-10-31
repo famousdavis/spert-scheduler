@@ -2,9 +2,10 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { Activity } from "@domain/models/types";
+import type { Activity, Calendar } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
-import { focusField, focusNextRow, focusPrevRow } from "./activity-row-helpers";
+import { focusField, focusNextRow, focusPrevRow, statusUpdatesFor, type ScheduledDates } from "./activity-row-helpers";
 
 // Re-exported for existing grid-side consumers; the definition moved to the
 // domain layer (v0.57.3) so the schedule-export formatters can share it without
@@ -210,22 +211,42 @@ function collectSharedUpdates(staged: StagedBulkFields): Partial<Activity> {
   const shared: Partial<Activity> = {};
   if (staged.confidenceLevel) shared.confidenceLevel = staged.confidenceLevel;
   if (staged.distributionType) shared.distributionType = staged.distributionType;
-  // "complete" is deliberately excluded: it needs a per-activity actual duration, so it
-  // is routed through planCompleteUpdates instead.
-  if (staged.status && staged.status !== "complete") shared.status = staged.status;
+  // WI-137: no Status here at all — every Status change writes each row's own dates by the one
+  // rule (`statusUpdatesFor`), so it is routed per activity through planStatusUpdates.
   return shared;
 }
 
-/** Marking complete carries each activity's own scheduled duration across as the actual. */
-function planCompleteUpdates(
+/** A scheduled row as the bulk planner reads it; the dates are optional for callers that have none. */
+export interface BulkScheduledRow {
+  activityId: string;
+  duration: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+function scheduledDatesOf(sa: BulkScheduledRow | undefined): ScheduledDates | undefined {
+  if (!sa?.startDate || !sa.endDate) return undefined;
+  return { startDate: sa.startDate, endDate: sa.endDate, duration: sa.duration };
+}
+
+/**
+ * WI-137: each selected row's Status change, by the one rule, from its own schedule — so a bulk
+ * change gives each row the actual days and dates the grid's own Status cell would.
+ */
+function planStatusUpdates(
+  status: Activity["status"],
   ids: string[],
-  scheduledActivities: { activityId: string; duration: number }[],
+  activities: Activity[],
+  scheduledActivities: BulkScheduledRow[],
+  calendar: WorkCalendar | Calendar | undefined,
 ): BulkApplyPlan["perActivity"] {
-  const durations = new Map(scheduledActivities.map((sa) => [sa.activityId, sa.duration]));
-  return ids.map((id) => ({
-    id,
-    updates: { status: "complete" as const, actualDuration: durations.get(id) ?? undefined },
-  }));
+  const scheduled = new Map(scheduledActivities.map((sa) => [sa.activityId, sa]));
+  const out: BulkApplyPlan["perActivity"] = [];
+  for (const id of ids) {
+    const activity = activities.find((a) => a.id === id);
+    if (activity) out.push({ id, updates: statusUpdatesFor(activity, status, scheduledDatesOf(scheduled.get(id)), calendar) });
+  }
+  return out;
 }
 
 /** Re-derives min/max from each activity's own mostLikely. */
@@ -254,14 +275,15 @@ export function planBulkApply(
   staged: StagedBulkFields,
   ids: string[],
   activities: Activity[],
-  scheduledActivities: { activityId: string; duration: number }[],
+  scheduledActivities: BulkScheduledRow[],
   heuristic: { enabled?: boolean; minPercent?: number; maxPercent?: number },
   computeHeuristicFn: (ml: number, minPct: number, maxPct: number) => { min: number; max: number },
+  calendar?: WorkCalendar | Calendar,
 ): BulkApplyPlan {
   const shared = collectSharedUpdates(staged);
 
   const perActivity: BulkApplyPlan["perActivity"] = [
-    ...(staged.status === "complete" ? planCompleteUpdates(ids, scheduledActivities) : []),
+    ...(staged.status ? planStatusUpdates(staged.status, ids, activities, scheduledActivities, calendar) : []),
     ...(staged.recalculateHeuristic && heuristic.enabled
       ? planHeuristicUpdates(ids, activities, heuristic, computeHeuristicFn)
       : []),
@@ -271,4 +293,43 @@ export function planBulkApply(
     sharedUpdates: Object.keys(shared).length > 0 ? shared : null,
     perActivity,
   };
+}
+
+/**
+ * WI-137: a whole plan as ONE update per selected row — the shared fields, then that row's own
+ * updates in the plan's order (a later entry for the same row wins, as the separate calls did).
+ * Rows with nothing to change are left out.
+ */
+export function bulkUpdatesById(ids: string[], plan: BulkApplyPlan): Map<string, Partial<Activity>> {
+  const byId = new Map<string, Partial<Activity>>();
+  for (const id of ids) if (plan.sharedUpdates) byId.set(id, { ...plan.sharedUpdates });
+  for (const { id, updates } of plan.perActivity) byId.set(id, { ...byId.get(id), ...updates });
+  return byId;
+}
+
+/**
+ * Sends a bulk plan to the grid's callbacks. With `onBulkUpdateEach` (the project page) the whole
+ * Apply is ONE store write, so ONE undo step whatever it changed, however many rows (WI-137; it was
+ * one step per row for every Complete, and would have been for every Status). Without it, as before:
+ * the shared fields in one call, then each row's own.
+ */
+export function dispatchBulkPlan(
+  ids: string[],
+  plan: BulkApplyPlan,
+  callbacks: {
+    onBulkUpdateEach?: (updatesById: Map<string, Partial<Activity>>) => void;
+    onBulkUpdate?: (activityIds: string[], updates: Partial<Activity>) => void;
+    onUpdate: (activityId: string, updates: Partial<Activity>) => void;
+  },
+): void {
+  const { onBulkUpdateEach, onBulkUpdate, onUpdate } = callbacks;
+  if (onBulkUpdateEach) {
+    onBulkUpdateEach(bulkUpdatesById(ids, plan));
+    return;
+  }
+  if (plan.sharedUpdates) {
+    if (onBulkUpdate) onBulkUpdate(ids, plan.sharedUpdates);
+    else for (const id of ids) onUpdate(id, plan.sharedUpdates);
+  }
+  for (const { id, updates } of plan.perActivity) onUpdate(id, updates);
 }

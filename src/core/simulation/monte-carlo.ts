@@ -22,6 +22,7 @@ import {
   computeCriticalPathDuration,
   computeCriticalPathWithMilestones,
 } from "@core/schedule/dependency-graph";
+import { pinnedFinishInt, type RecordedPin } from "@core/schedule/recorded-progress";
 
 /** Per-activity constraint info for sequential mode (parallel to activities array). */
 export interface SequentialConstraintEntry {
@@ -38,10 +39,21 @@ export interface MonteCarloInput {
   deterministicDurations?: number[];
   /** Per-activity constraint info for sequential mode (parallel to activities array, null = no constraint). */
   sequentialConstraints?: (SequentialConstraintEntry | null)[];
+  /**
+   * WI-137: per-activity recorded progress (parallel to activities array, null = no record): the
+   * recorded start's offset from the project start, and a Complete row's day count from its dates.
+   */
+  sequentialRecords?: (SequentialRecordEntry | null)[];
   /** Optional progress callback, called every `progressInterval` trials. */
   onProgress?: (completedTrials: number, totalTrials: number) => void;
   /** How often to report progress (default: 10000). */
   progressInterval?: number;
+}
+
+/** WI-137: a recorded start's offset, and a Complete row's day count from its dates. */
+export interface SequentialRecordEntry {
+  startOffset: number;
+  duration?: number;
 }
 
 /** One activity as the constrained sequential loop needs it: order-preserving. */
@@ -56,7 +68,7 @@ type SequentialActivityInfo =
  * The conditional-sampling seam (v0.49.0) lives here: in-progress activities draw from
  * X | X > t, and an activity whose model is exhausted is reported by id.
  */
-function buildActivityDistributions(activities: Activity[]): {
+function buildActivityDistributions(activities: Activity[], records?: (SequentialRecordEntry | null)[]): {
   completedSum: number;
   distributions: Distribution[];
   exhaustedIds: string[];
@@ -64,9 +76,10 @@ function buildActivityDistributions(activities: Activity[]): {
   let completedSum = 0;
   const distributions: Distribution[] = [];
   const exhaustedIds: string[] = [];
-  for (const activity of activities) {
-    if (activity.status === "complete" && activity.actualDuration != null) {
-      completedSum += activity.actualDuration;
+  for (const [i, activity] of activities.entries()) {
+    const recDur = records?.[i]?.duration;
+    if (activity.status === "complete" && (activity.actualDuration != null || recDur !== undefined)) {
+      completedSum += recDur ?? activity.actualDuration!;
     } else {
       const base = createDistributionForActivity(activity);
       const { dist, isExhausted } = buildMcDistribution(activity, base);
@@ -87,12 +100,14 @@ function buildActivityDistributions(activities: Activity[]): {
 function buildSequentialActivityInfos(
   activities: Activity[],
   deterministicDurations: number[] | undefined,
+  records?: (SequentialRecordEntry | null)[],
 ): SequentialActivityInfo[] {
   const infos: SequentialActivityInfo[] = [];
   let distIdx = 0;
-  for (const activity of activities) {
-    if (activity.status === "complete" && activity.actualDuration != null) {
-      infos.push({ type: "complete", duration: activity.actualDuration });
+  for (const [i, activity] of activities.entries()) {
+    const recDur = records?.[i]?.duration;
+    if (activity.status === "complete" && (activity.actualDuration != null || recDur !== undefined)) {
+      infos.push({ type: "complete", duration: recDur ?? activity.actualDuration! });
     } else {
       infos.push({
         type: "active",
@@ -140,31 +155,52 @@ function applyHardConstraint(
   }
 }
 
+/**
+ * Where one activity ends in the position path: in turn, or after its hard constraint — or, WI-137,
+ * from its recorded start, where an In Progress row's forecast finish still meets its hard finish
+ * constraint (`pinnedFinishInt`) and a Complete row's does not move.
+ */
+function placeSequential(
+  currentPos: number,
+  duration: number,
+  constraint: SequentialConstraintEntry | null | undefined,
+  record: SequentialRecordEntry | null | undefined,
+  complete: boolean,
+): number {
+  if (record) {
+    const end = record.startOffset + duration;
+    return complete ? end : pinnedFinishInt(record.startOffset, end, constraint);
+  }
+  if (constraint && constraint.mode === "hard") return applyHardConstraint(currentPos, duration, constraint) + duration;
+  return currentPos + duration;
+}
+
 /** The per-trial sample loop for the constrained path — positions, not a plain sum. */
 function runConstrainedTrials(
   samples: Float64Array,
   infos: SequentialActivityInfo[],
   distributions: Distribution[],
-  sequentialConstraints: (SequentialConstraintEntry | null)[],
+  sequentialConstraints: (SequentialConstraintEntry | null)[] | undefined,
   rng: SeededRng,
   reportProgress: ((trial: number) => void) | null,
+  records?: (SequentialRecordEntry | null)[],
 ): void {
   const trialCount = samples.length;
   for (let trial = 0; trial < trialCount; trial++) {
     let currentPos = 0; // cumulative working-day offset from project start
+    // WI-137: a recorded start can sit before the row above ends, so the project ends at the
+    // LATEST end. With no record, positions never go back and this equals the final position.
+    let maxEnd = 0;
     for (let a = 0; a < infos.length; a++) {
       const info = infos[a]!;
       const duration =
         info.type === "complete"
           ? info.duration
           : Math.max(info.floor, distributions[info.distIndex]!.sample(rng));
-      const constraint = sequentialConstraints[a];
-      if (constraint && constraint.mode === "hard") {
-        currentPos = applyHardConstraint(currentPos, duration, constraint);
-      }
-      currentPos += duration;
+      currentPos = placeSequential(currentPos, duration, sequentialConstraints?.[a], records?.[a], info.type === "complete");
+      if (currentPos > maxEnd) maxEnd = currentPos;
     }
-    samples[trial] = currentPos;
+    samples[trial] = maxEnd;
     reportProgress?.(trial);
   }
 }
@@ -224,26 +260,29 @@ export function runTrials(input: MonteCarloInput): { samples: Float64Array; exha
     rngSeed,
     deterministicDurations,
     sequentialConstraints,
+    sequentialRecords,
     onProgress,
     progressInterval = 10000,
   } = input;
 
   const rng = createSeededRng(rngSeed);
-  const { completedSum, distributions, exhaustedIds } = buildActivityDistributions(activities);
+  const { completedSum, distributions, exhaustedIds } = buildActivityDistributions(activities, sequentialRecords);
   const samples = new Float64Array(trialCount);
   const reportProgress = makeProgressReporter(trialCount, onProgress, progressInterval);
   const hasConstraints = sequentialConstraints?.some((c) => c !== null) ?? false;
+  const hasRecords = sequentialRecords?.some((r) => r !== null) ?? false;
 
-  if (hasConstraints) {
+  if (hasConstraints || hasRecords) {
     // Position-tracking path: constraints can insert idle gaps, so a running position is
     // tracked rather than a plain sum, and activity order must be preserved.
     runConstrainedTrials(
       samples,
-      buildSequentialActivityInfos(activities, deterministicDurations),
+      buildSequentialActivityInfos(activities, deterministicDurations, sequentialRecords),
       distributions,
-      sequentialConstraints!,
+      sequentialConstraints,
       rng,
       reportProgress,
+      sequentialRecords,
     );
   } else {
     runFastTrials(samples, completedSum, distributions, deterministicDurations, rng, reportProgress);
@@ -267,6 +306,10 @@ export interface DependencyMonteCarloInput {
   activityEarliestStart?: Map<string, number>;
   /** Map of activityId → constraint info for per-trial clamping. */
   constraintMap?: Map<string, { type: string; offsetFromStart: number; mode: string }>;
+  /** WI-137: activityId → recorded start's offset from the project start (placed, never moved). */
+  recordedStartMap?: Map<string, number>;
+  /** WI-137: activityId → a Complete row's day count from its recorded dates. */
+  recordedDurationMap?: Map<string, number>;
   /** Optional progress callback. */
   onProgress?: (completedTrials: number, totalTrials: number) => void;
   /** How often to report progress (default: 10000). */
@@ -304,14 +347,16 @@ interface DependencySamplingModel {
 function buildDependencySamplingModel(
   activities: Activity[],
   deterministicDurationMap: Map<string, number> | undefined,
+  recordedDurations?: Map<string, number>,
 ): DependencySamplingModel {
   const completedDurations = new Map<string, number>();
   const activeDistributions = new Map<string, Distribution>();
   const activeFloors = new Map<string, number>();
   const exhaustedIds: string[] = [];
   for (const activity of activities) {
-    if (activity.status === "complete" && activity.actualDuration != null) {
-      completedDurations.set(activity.id, activity.actualDuration);
+    const recDur = recordedDurations?.get(activity.id);
+    if (activity.status === "complete" && (activity.actualDuration != null || recDur !== undefined)) {
+      completedDurations.set(activity.id, recDur ?? activity.actualDuration!);
     } else {
       // Conditional sampling seam (dependency mode): X | X > t for in-progress.
       const base = createDistributionForActivity(activity);
@@ -375,6 +420,7 @@ function makeTrialRecorder(
   milestoneActivityIds: Map<string, string[]> | undefined,
   activityEarliestStart: Map<string, number> | undefined,
   constraintMap: Map<string, { type: string; offsetFromStart: number; mode: string }> | undefined,
+  recordedPins?: Map<string, RecordedPin>,
 ): (trial: number, durations: Map<string, number>) => void {
   const hasMilestones = !!milestoneActivityIds && milestoneActivityIds.size > 0;
 
@@ -386,6 +432,7 @@ function makeTrialRecorder(
         milestoneActivityIds,
         activityEarliestStart,
         constraintMap,
+        recordedPins,
       );
       samples[trial] = result.projectDuration;
       for (const [milestoneId, duration] of result.milestoneDurations) {
@@ -394,7 +441,7 @@ function makeTrialRecorder(
     };
   }
 
-  if (constraintMap && constraintMap.size > 0) {
+  if (hasEntries(constraintMap) || hasEntries(recordedPins)) {
     // Constraints without milestones: same engine call, empty milestone map. Allocated
     // once here rather than per trial, which the inlined version did not do.
     const noMilestones = new Map<string, string[]>();
@@ -405,6 +452,7 @@ function makeTrialRecorder(
         noMilestones,
         activityEarliestStart,
         constraintMap,
+        recordedPins,
       );
       samples[trial] = result.projectDuration;
     };
@@ -413,6 +461,24 @@ function makeTrialRecorder(
   return (trial, durations) => {
     samples[trial] = computeCriticalPathDuration(graph, durations);
   };
+}
+
+function hasEntries(m: Map<string, unknown> | undefined): boolean {
+  return !!m && m.size > 0;
+}
+
+/**
+ * WI-137: each recorded start as the trial pass places it. A row the model takes as done (Complete)
+ * keeps its finish; any other recorded row is In Progress, and its finish follows logic.
+ */
+function recordedPinsFor(
+  recordedStartMap: Map<string, number> | undefined,
+  completedDurations: Map<string, number>,
+): Map<string, RecordedPin> | undefined {
+  if (!recordedStartMap) return undefined;
+  return new Map(Array.from(recordedStartMap, ([id, offset]) => [
+    id, { offset, finishFollowsLogic: !completedDurations.has(id) },
+  ]));
 }
 
 export function runDependencyTrials(input: DependencyMonteCarloInput): DependencyTrialsResult {
@@ -425,6 +491,8 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
     milestoneActivityIds,
     activityEarliestStart,
     constraintMap,
+    recordedStartMap,
+    recordedDurationMap,
     onProgress,
     progressInterval = 10000,
   } = input;
@@ -433,7 +501,7 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
   const activityIds = activities.map((a) => a.id);
   // Built once and reused across all trials.
   const graph = buildDependencyGraph(activityIds, dependencies);
-  const model = buildDependencySamplingModel(activities, deterministicDurationMap);
+  const model = buildDependencySamplingModel(activities, deterministicDurationMap, recordedDurationMap);
 
   const hasMilestones = !!milestoneActivityIds && milestoneActivityIds.size > 0;
   const samples = new Float64Array(trialCount);
@@ -454,6 +522,7 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
     milestoneActivityIds,
     activityEarliestStart,
     constraintMap,
+    recordedPinsFor(recordedStartMap, model.completedDurations),
   );
 
   for (let trial = 0; trial < trialCount; trial++) {

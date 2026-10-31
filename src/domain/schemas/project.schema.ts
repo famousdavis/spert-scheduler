@@ -99,6 +99,10 @@ const ActivityShape = z
     distributionType: z.enum(DISTRIBUTION_TYPES),
     status: z.enum(ACTIVITY_STATUSES),
     actualDuration: z.number().nonnegative().optional(),
+    // WI-137. No cross-field check here on purpose: a finish before its start must never stop a
+    // project loading (v0.69.0's lesson). The Edit window refuses it; the engine reads it as one day.
+    actualStartDate: ISODateString.optional(),
+    actualFinishDate: ISODateString.optional(),
     milestoneId: z.string().max(64).optional(),
     startsAtMilestoneId: z.string().max(64).optional(),
     constraintType: z.enum(CONSTRAINT_TYPES).nullable().optional(),

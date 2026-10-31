@@ -6,6 +6,7 @@ import { useState, useCallback, useRef } from "react";
 import type { Activity, SimulationRun } from "@domain/models/types";
 import { runSimulation } from "@app/api/simulation-service";
 import type { SimulationHandle, DependencySimulationParams } from "@core/simulation/worker-client";
+import type { SequentialRecordEntry } from "@core/simulation/monte-carlo";
 
 export interface SimulationState {
   isRunning: boolean;
@@ -33,6 +34,7 @@ export function useSimulation() {
       onComplete: (result: SimulationRun, elapsedMs: number) => void,
       dependencyParams?: DependencySimulationParams,
       sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
+      sequentialRecords?: (SequentialRecordEntry | null)[],
     ) => {
       setState({
         isRunning: true,
@@ -67,7 +69,7 @@ export function useSimulation() {
           });
           handleRef.current = null;
         },
-      }, dependencyParams, sequentialConstraints);
+      }, dependencyParams, sequentialConstraints, sequentialRecords);
     },
     []
   );

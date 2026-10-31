@@ -10,6 +10,7 @@ import type {
   DependencyConflict,
   DeterministicSchedule,
   Milestone,
+  ProgressNote,
   ScheduledActivity,
 } from "@domain/models/types";
 import { advanceToNextWorkingDay, type WorkCalendar } from "@core/calendar/work-calendar";
@@ -23,7 +24,26 @@ import {
   formatDateISO,
   parseDateISO,
 } from "@core/calendar/calendar";
-import { buildDependencyGraph, computeCriticalPathDuration } from "./dependency-graph";
+import {
+  buildDependencyGraph,
+  computeCriticalPathDuration,
+  computeCriticalPathWithMilestones,
+} from "./dependency-graph";
+import {
+  detectConstraintNotes,
+  detectProgressNotes,
+  detectStartDateNotes,
+  ffRequiredFinish,
+  hasRecordedFinish,
+  placeRecordedRow,
+  recordExplains,
+  recordSetsConstraintAside,
+  recordedFlags,
+  resolveRecordedProgress,
+  type ProgressPair,
+  type RecordedPin,
+  type RecordedProgress,
+} from "./recorded-progress";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import {
   applyForwardConstraint,
@@ -88,8 +108,9 @@ export function computeDeterministicDurations(
   activities: Activity[],
   probabilityTarget: number
 ): number[] {
+  // WI-137: a Complete row counted from its recorded dates is done too, as the simulation reads it.
   return activities
-    .filter((a) => !(a.status === "complete" && a.actualDuration != null))
+    .filter((a) => !(a.status === "complete" && (a.actualDuration != null || hasRecordedFinish(a))))
     .map((a) => resolveActivityDuration(a, probabilityTarget));
 }
 
@@ -113,51 +134,25 @@ export function computeDeterministicSchedule(
   const conflicts: ConstraintConflict[] = [];
 
   let currentDate = parseDateISO(startDate);
+  // WI-137: rows with a recorded start. Empty for every project a v25 build wrote.
+  const records = resolveRecordedProgress(activities, startDate, calendar);
 
   // Ensure start date is a working day
   currentDate = advanceToNextWorkingDay(currentDate, calendar);
 
   for (const activity of activities) {
-    const isActual = activity.status === "complete" && activity.actualDuration != null;
-    const duration = resolveActivityDuration(activity, percentile);
-
-    const activityStartDate = currentDate;
-    const activityEnd = activityEndDate(activityStartDate, duration, calendar);
-
-    let finalStartISO = formatDateISO(activityStartDate);
-    let finalEndISO = formatDateISO(activityEnd);
-
-    // Apply scheduling constraint (forward pass)
-    if (activity.constraintType && activity.constraintDate && activity.constraintMode) {
-      const result = applyForwardConstraint(
-        finalStartISO, finalEndISO, duration,
-        activity.constraintType, activity.constraintDate,
-        activity.constraintMode, activity.id, activity.name, calendar,
-      );
-      finalStartISO = result.es;
-      finalEndISO = result.ef;
-      if (result.conflict) conflicts.push(result.conflict);
-    }
-
-    scheduledActivities.push({
-      activityId: activity.id,
-      name: activity.name,
-      duration,
-      startDate: finalStartISO,
-      endDate: finalEndISO,
-      isActual,
-    });
+    const placed = placeSequentialRow(activity, records.get(activity.id), currentDate, percentile, calendar);
+    if (placed.conflict) conflicts.push(placed.conflict);
+    scheduledActivities.push(placed.row);
 
     // Next activity starts the working day after this one's (possibly constrained) end
-    currentDate = addWorkingDays(parseDateISO(finalEndISO), 1, calendar);
+    currentDate = addWorkingDays(parseDateISO(placed.row.endDate), 1, calendar);
   }
 
   const lastActivity = scheduledActivities[scheduledActivities.length - 1];
-  const totalDuration = scheduledActivities.reduce(
-    (sum, a) => sum + a.duration,
-    0
+  const { totalDuration, projectEndISO, notes } = sequentialTotals(
+    activities, scheduledActivities, records, formatDateISO(currentDate), calendar,
   );
-  const projectEndISO = lastActivity ? lastActivity.endDate : formatDateISO(currentDate);
   // Inclusive span in the MC duration domain (includes constraint idle). currentDate
   // has been advanced past the last activity by the loop, so use the raw startDate.
   const spanDays = lastActivity
@@ -170,7 +165,123 @@ export function computeDeterministicSchedule(
     spanDays,
     projectEndDate: projectEndISO,
     constraintConflicts: conflicts.length > 0 ? conflicts : undefined,
+    ...(notes.length > 0 ? { progressNotes: notes } : {}),
   };
+}
+
+/**
+ * One row of the sequential schedule: in turn after the row above, or — WI-137 — at its recorded
+ * start (`placeRecordedRow`: a start constraint set aside, an In Progress row's finish constraint
+ * still applied).
+ */
+function placeSequentialRow(
+  activity: Activity,
+  rec: RecordedProgress | undefined,
+  currentDate: Date,
+  percentile: number,
+  calendar: Cal,
+): { row: ScheduledActivity; conflict: ConstraintConflict | null } {
+  let duration = rec?.duration ?? resolveActivityDuration(activity, percentile);
+  let startISO = formatDateISO(currentDate);
+  let endISO = formatDateISO(activityEndDate(currentDate, duration, calendar));
+  let conflict: ConstraintConflict | null = null;
+
+  if (rec) {
+    const placed = placeRecordedRow({ activity, rec, duration, ffFinishes: [], calendar });
+    startISO = formatDateISO(placed.es);
+    endISO = formatDateISO(placed.ef);
+    duration = placed.duration;
+    conflict = placed.conflict;
+  } else if (activity.constraintType && activity.constraintDate && activity.constraintMode) {
+    // Apply scheduling constraint (forward pass)
+    const result = applyForwardConstraint(
+      startISO, endISO, duration,
+      activity.constraintType, activity.constraintDate,
+      activity.constraintMode, activity.id, activity.name, calendar,
+    );
+    startISO = result.es;
+    endISO = result.ef;
+    conflict = result.conflict;
+  }
+  return {
+    row: {
+      activityId: activity.id,
+      name: activity.name,
+      duration,
+      startDate: startISO,
+      endDate: endISO,
+      isActual: isCompleteActual(activity, rec),
+      ...recordedFlags(rec),
+    },
+    conflict,
+  };
+}
+
+/** Totals: with no record, the sum and the last row's end, exactly as before WI-137. */
+function sequentialTotals(
+  activities: Activity[],
+  scheduled: ScheduledActivity[],
+  records: Map<string, RecordedProgress>,
+  afterLastISO: string,
+  calendar: Cal,
+): { totalDuration: number; projectEndISO: string; notes: ProgressNote[] } {
+  if (records.size > 0) return summariseSequentialRecords(activities, scheduled, records, calendar);
+  const last = scheduled[scheduled.length - 1];
+  return {
+    totalDuration: scheduled.reduce((sum, a) => sum + a.duration, 0),
+    projectEndISO: last ? last.endDate : afterLastISO,
+    notes: [],
+  };
+}
+
+/** WI-137: a Complete row's count is its record's when its dates are recorded. */
+function isCompleteActual(activity: Activity, rec: RecordedProgress | undefined): boolean {
+  return activity.status === "complete" && (activity.actualDuration != null || rec?.duration !== undefined);
+}
+
+/**
+ * WI-137, dependencies off, only when a row has a record: the project ends when its LAST-ENDING row
+ * ends (a recorded start can sit before the row above ends), the work-content duration follows the
+ * recorded starts, and each recorded start earlier than the row above's finish gets a note.
+ */
+function summariseSequentialRecords(
+  activities: Activity[],
+  scheduled: ScheduledActivity[],
+  records: Map<string, RecordedProgress>,
+  calendar: Cal,
+): { totalDuration: number; projectEndISO: string; notes: ProgressNote[] } {
+  let pos = 0;
+  let maxEnd = 0;
+  let endISO = scheduled[0]!.endDate;
+  for (let i = 0; i < scheduled.length; i++) {
+    const rec = records.get(scheduled[i]!.activityId);
+    if (rec) pos = rec.startOffset;
+    pos += scheduled[i]!.duration;
+    if (pos > maxEnd) maxEnd = pos;
+    if (scheduled[i]!.endDate > endISO) endISO = scheduled[i]!.endDate;
+  }
+  const pairs = activities.slice(1).map((a, i) => ({
+    fromId: activities[i]!.id, toId: a.id, type: "FS" as const, lagDays: 0,
+  }));
+  const notes = allProgressNotes({
+    pairs,
+    records,
+    startDates: new Map(scheduled.map((sa) => [sa.activityId, parseDateISO(sa.startDate)])),
+    endDates: new Map(scheduled.map((sa) => [sa.activityId, parseDateISO(sa.endDate)])),
+    activityMap: new Map(activities.map((a) => [a.id, a])),
+    calendar,
+    sequential: true,
+  });
+  return { totalDuration: maxEnd, projectEndISO: endISO, notes };
+}
+
+/** WI-137: every neutral note — links overtaken, constraints set aside, starts before the Start Date. */
+function allProgressNotes(args: Parameters<typeof detectProgressNotes>[0]): ProgressNote[] {
+  return [
+    ...detectProgressNotes(args),
+    ...detectConstraintNotes(args),
+    ...detectStartDateNotes(args.records, args.activityMap),
+  ];
 }
 
 // -- Per-activity uncertainty computation -------------------------------------
@@ -429,24 +540,43 @@ function forwardPass(args: {
   projectStart: Date;
   calendar: Cal;
   milestones?: Milestone[];
+  records: Map<string, RecordedProgress>;
 }): {
   startDates: Map<string, Date>;
   endDates: Map<string, Date>;
   networkStart: Map<string, string>;
   networkEnd: Map<string, string>;
   conflicts: ConstraintConflict[];
+  heldDurations: Map<string, number>;
 } {
-  const { graph, activityMap, durationMap, projectStart, calendar, milestones } = args;
+  const { graph, activityMap, durationMap, projectStart, calendar, milestones, records } = args;
   const startDates = new Map<string, Date>();    // constrained ES
   const endDates = new Map<string, Date>();      // constrained EF
   const networkStart = new Map<string, string>(); // network ES (ISO)
   const networkEnd = new Map<string, string>();   // network EF (ISO)
   const conflicts: ConstraintConflict[] = [];
+  const heldDurations = new Map<string, number>(); // WI-137: recorded rows, start to finish
 
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
     const duration = durationMap.get(id) ?? 1;
     const preds = (graph.predecessors.get(id) ?? []) as Edge[];
+    const rec = records.get(id);
+    if (rec) {
+      // WI-137: a recorded start is a fact — not moved by predecessors, a milestone start, or a
+      // start constraint. An In Progress row's forecast finish still follows FF links and its
+      // finish constraint (owner, 2026-10-30).
+      const placed = placeRecordedRow({
+        activity, rec, duration, ffFinishes: ffFinishesFor(preds, endDates, calendar), calendar,
+      });
+      networkStart.set(id, rec.start);
+      networkEnd.set(id, formatDateISO(placed.efNet));
+      startDates.set(id, placed.es);
+      endDates.set(id, placed.ef);
+      heldDurations.set(id, placed.duration);
+      if (placed.conflict) conflicts.push(placed.conflict);
+      continue;
+    }
 
     let activityStart = earliestStartFromPreds(preds, startDates, endDates, duration, projectStart, calendar);
     activityStart = applyMilestoneFloor(activity, activityStart, milestones);
@@ -468,7 +598,14 @@ function forwardPass(args: {
     if (local.conflict) conflicts.push(local.conflict);
   }
 
-  return { startDates, endDates, networkStart, networkEnd, conflicts };
+  return { startDates, endDates, networkStart, networkEnd, conflicts, heldDurations };
+}
+
+/** WI-137: the finish each FF link asks of a recorded row, lag counted. */
+function ffFinishesFor(preds: Edge[], endDates: Map<string, Date>, calendar: Cal): Date[] {
+  return preds
+    .filter((p) => p.type === "FF")
+    .map((p) => ffRequiredFinish(endDates.get(p.id)!, p.lagDays, calendar));
 }
 
 // ---------------------------------------------------------------------------
@@ -627,13 +764,16 @@ function detectSoftConflicts(args: {
   lateStartNet: Map<string, string>;
   lateFinishNet: Map<string, string>;
   calendar: Cal;
+  records: Map<string, RecordedProgress>;
 }): ConstraintConflict[] {
-  const { graph, activityMap, networkStart, networkEnd, lateStartNet, lateFinishNet, calendar } = args;
+  const { graph, activityMap, networkStart, networkEnd, lateStartNet, lateFinishNet, calendar, records } = args;
   const found: ConstraintConflict[] = [];
 
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
     if (!activity.constraintType || !activity.constraintDate || !activity.constraintMode) continue;
+    // WI-137: a constraint the record sets aside gets a neutral note instead (detectConstraintNotes).
+    if (recordSetsConstraintAside(activity.constraintType, records.get(id))) continue;
     // A hard Must Start On or Must Finish On conflict is already reported by the forward pass
     // (applyLocalConstraint); reporting it here as well listed it twice (WI-140).
     const forwardPassReports = activity.constraintType === "MSO" || activity.constraintType === "MFO";
@@ -661,8 +801,9 @@ function validateDependencies(args: {
   endDates: Map<string, Date>;
   activityMap: Map<string, Activity>;
   calendar: Cal;
+  records: Map<string, RecordedProgress>;
 }): DependencyConflict[] {
-  const { dependencies, startDates, endDates, activityMap, calendar } = args;
+  const { dependencies, startDates, endDates, activityMap, calendar, records } = args;
   const dependencyConflicts: DependencyConflict[] = [];
 
   function computeRequired(baseDate: Date, offset: number): Date {
@@ -672,6 +813,8 @@ function validateDependencies(args: {
   }
 
   for (const dep of dependencies) {
+    // WI-137: a violation a record explains is a neutral note, not this amber warning.
+    if (recordExplains(dep.type, dep.toActivityId, records)) continue;
     const succES = startDates.get(dep.toActivityId);
     const succEF = endDates.get(dep.toActivityId);
     const predES = startDates.get(dep.fromActivityId);
@@ -729,18 +872,19 @@ function buildScheduleResult(args: {
   projectStart: Date;
   projectEndISO: string;
   calendar: Cal;
+  records: Map<string, RecordedProgress>;
 }): { scheduledActivities: ScheduledActivity[]; totalDurationDays: number; spanDays: number } {
   const {
     graph, activityMap, durationMap, startDates, endDates,
     lateStartCon, lateFinishCon, lateStartNet, lateFinishNet,
-    totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar,
+    totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar, records,
   } = args;
 
   const scheduledActivities: ScheduledActivity[] = [];
   for (const id of graph.topologicalOrder) {
     const activity = activityMap.get(id)!;
     const duration = durationMap.get(id) ?? 1;
-    const isActual = activity.status === "complete" && activity.actualDuration != null;
+    const isActual = isCompleteActual(activity, records.get(id));
 
     scheduledActivities.push({
       activityId: id,
@@ -755,11 +899,15 @@ function buildScheduleResult(args: {
       lateFinishNet: lateFinishNet.get(id),
       totalFloat: totalFloatMap.get(id),
       freeFloat: freeFloatMap.get(id),
+      ...recordedFlags(records.get(id)),
     });
   }
 
-  // Total duration is the critical path length (consistent with Monte Carlo computation)
-  const totalDurationDays = computeCriticalPathDuration(graph, durationMap);
+  // Total duration is the critical path length (consistent with Monte Carlo computation) —
+  // with recorded starts placed where they happened (WI-137), as the simulation places them.
+  const totalDurationDays = records.size > 0
+    ? computeCriticalPathWithMilestones(graph, durationMap, new Map(), undefined, undefined, recordedStartPins(records)).projectDuration
+    : computeCriticalPathDuration(graph, durationMap);
   // Inclusive span in the MC duration domain: project start → constraint/milestone-
   // adjusted end. projectStart is the advanced start (never mutated after line ~260).
   const spanDays = scheduledActivities.length > 0
@@ -783,13 +931,19 @@ export function computeDependencySchedule(
   );
   const durationMap = computeDependencyDurations(activities, percentile);
   const activityMap = new Map(activities.map((a) => [a.id, a]));
+  // WI-137: rows with a recorded start. Empty for every project a v25 build wrote.
+  const records = resolveRecordedProgress(activities, startDate, calendar);
+  for (const [id, rec] of records) if (rec.duration !== undefined) durationMap.set(id, rec.duration);
 
   let projectStart = parseDateISO(startDate);
   projectStart = advanceToNextWorkingDay(projectStart, calendar);
 
-  const { startDates, endDates, networkStart, networkEnd, conflicts } = forwardPass({
-    graph, activityMap, durationMap, projectStart, calendar, milestones,
+  const { startDates, endDates, networkStart, networkEnd, conflicts, heldDurations } = forwardPass({
+    graph, activityMap, durationMap, projectStart, calendar, milestones, records,
   });
+  // WI-137: a recorded row lasts from its start to its finish as placed, so the backward passes,
+  // the floats and the totals all read the dates the forward pass drew.
+  for (const [id, days] of heldDurations) durationMap.set(id, days);
 
   // Project end is the latest constrained end date
   let projectEndDate = projectStart;
@@ -817,17 +971,23 @@ export function computeDependencySchedule(
   });
 
   conflicts.push(...detectSoftConflicts({
-    graph, activityMap, networkStart, networkEnd, lateStartNet, lateFinishNet, calendar,
+    graph, activityMap, networkStart, networkEnd, lateStartNet, lateFinishNet, calendar, records,
   }));
 
   const dependencyConflicts = validateDependencies({
-    dependencies, startDates, endDates, activityMap, calendar,
+    dependencies, startDates, endDates, activityMap, calendar, records,
   });
+  const progressNotes = records.size > 0
+    ? allProgressNotes({
+      pairs: dependencies.map((d): ProgressPair => ({ fromId: d.fromActivityId, toId: d.toActivityId, type: d.type, lagDays: d.lagDays })),
+      records, startDates, endDates, activityMap, calendar, sequential: false,
+    })
+    : [];
 
   const { scheduledActivities, totalDurationDays, spanDays } = buildScheduleResult({
     graph, activityMap, durationMap, startDates, endDates,
     lateStartCon, lateFinishCon, lateStartNet, lateFinishNet,
-    totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar,
+    totalFloatMap, freeFloatMap, projectStart, projectEndISO, calendar, records,
   });
 
   return {
@@ -837,5 +997,15 @@ export function computeDependencySchedule(
     projectEndDate: projectEndISO,
     constraintConflicts: conflicts.length > 0 ? conflicts : undefined,
     dependencyConflicts: dependencyConflicts.length > 0 ? dependencyConflicts : undefined,
+    ...(progressNotes.length > 0 ? { progressNotes } : {}),
   };
+}
+
+/**
+ * WI-137: each recorded start's offset from the project start, for the integer-domain pass. Its
+ * finish does not follow logic HERE: the durations it is given were already held by the forward
+ * pass (FF links, finish constraints), so the pin's start plus that duration is the finish drawn.
+ */
+function recordedStartPins(records: Map<string, RecordedProgress>): Map<string, RecordedPin> {
+  return new Map(Array.from(records, ([id, rec]) => [id, { offset: rec.startOffset, finishFollowsLogic: false }]));
 }

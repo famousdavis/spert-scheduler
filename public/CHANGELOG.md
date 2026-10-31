@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.80.0 — 2026-10-30
+
+### Added
+
+- **You can now record the day an activity really started and the day it finished.** An activity set to In Progress gets an Actual Start, and one then set to Complete an Actual Finish: today's date, or the last working day before it on a weekend or holiday. Change either in the Edit Activity window, opened from the activity's pencil in the grid or from its bar in the Gantt. The schedule and the forecast keep those dates, so an activity that started before the one it follows had finished stays where it started, with a grey note saying so. Recorded dates show in green in the activity grid.
+
+### Changed
+
+- **Reload every SPERT Scheduler tab that was open before this update.** This release saves projects in a new format (schema version 26), which an older version cannot open. With cloud storage, a tab still running an older version stops showing a project once this version has saved it, rather than risk overwriting your changes; reload that tab and the project is back. Without cloud storage, each tab saves a project whole, so a change made in a tab still running an older version, if it is saved last, saves the project without its recorded dates.
+
+### Fixed
+
+- **Changing the Status of several selected activities at once now gives each the actual days and dates it would get on its own,** and marking several Complete at once is now one step to undo.
+
+### Internal
+
+- Schema 25 → 26 adds two optional dates to an activity, actualStartDate and actualFinishDate; the step only stamps the version, so no existing row is given a date. One rule, statusChangeUpdates in the new core/schedule/recorded-progress.ts, writes both dates and the day count on every Status path: the grid, the Edit Activity window and the bulk toolbar. The deterministic schedule and the simulation, through the worker and with dependencies on or off, place a recorded start where it was recorded; an In Progress row's forecast finish still follows its finish-to-finish links and its finish constraint. A project with no recorded date schedules and simulates as before: the four committed oracles are unchanged. The Edit Activity window refuses an impossible pair of dates through unsaveableCause, and a bulk Apply is one store write. Tests pin each part, and a falsify spec moves each of 25 pieces; each fails exactly the tests it names.
+
 ## 0.79.36 — 2026-10-30
 
 ### Fixed

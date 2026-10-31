@@ -23,6 +23,7 @@ interface UseAutoRunSimulationArgs {
     onComplete: (result: SimulationRun, elapsedMs: number) => void,
     dependencyParams?: import("@core/simulation/worker-client").DependencySimulationParams,
     sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
+    sequentialRecords?: (import("@core/simulation/monte-carlo").SequentialRecordEntry | null)[],
   ) => void;
   setSimulationResults: (projectId: string, scenarioId: string, result: SimulationRun) => void;
 }
@@ -103,6 +104,7 @@ export function useAutoRunSimulation({
         },
         params.dependencyParams,
         params.sequentialConstraints,
+        params.sequentialRecords,
       );
     }, 500);
 
