@@ -103,6 +103,10 @@ const ActivityShape = z
     // project loading (v0.69.0's lesson). The Edit window refuses it; the engine reads it as one day.
     actualStartDate: ISODateString.optional(),
     actualFinishDate: ISODateString.optional(),
+    // WI-137 release 2: the row's scheduled start and finish as they stood when it left Planned.
+    // Read by no engine; no cross-field check, for the same reason as the two above.
+    plannedStartDate: ISODateString.optional(),
+    plannedFinishDate: ISODateString.optional(),
     milestoneId: z.string().max(64).optional(),
     startsAtMilestoneId: z.string().max(64).optional(),
     constraintType: z.enum(CONSTRAINT_TYPES).nullable().optional(),

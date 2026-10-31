@@ -139,9 +139,12 @@ function asRemainingWork(a: Activity): Activity {
  * WI-137: a reforecast copy carries no recorded date. Its rows are replanned from the copy's Start
  * Date (WI-139 step 1, unchanged): an In Progress row's start and a stale finish go with its count,
  * and a Planned row holds none to keep. Step 2 may keep the start, now that it is stored.
+ * Release 2: nor the Planned dates — they were the source's plan, not the copy's.
  */
 function withoutRecordedDates(a: Activity): Activity {
-  return { ...a, actualStartDate: undefined, actualFinishDate: undefined };
+  return {
+    ...a, actualStartDate: undefined, actualFinishDate: undefined, plannedStartDate: undefined, plannedFinishDate: undefined,
+  };
 }
 
 /**

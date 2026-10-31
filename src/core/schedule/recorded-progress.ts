@@ -378,6 +378,8 @@ export interface StatusChangeContext {
 
 const PROGRESS_CLEARED: Partial<Activity> = {
   actualDuration: undefined,
+  plannedStartDate: undefined,
+  plannedFinishDate: undefined,
   actualStartDate: undefined,
   actualFinishDate: undefined,
 };
@@ -409,6 +411,19 @@ export function snapRecordedDate(iso: string, which: "start" | "finish", calenda
  */
 export function recordableToday(todayISO: string, calendar: Cal): string {
   return snapRecordedDate(todayISO, "finish", calendar);
+}
+
+/**
+ * WI-137 release 2 — the Planned Start and Planned Finish a row keeps when it leaves Planned: its
+ * start and finish as the schedule shows them at that moment, P6's Planned dates (owner, R625).
+ * Nothing moves them afterwards. Both or neither: with no schedule (a cycle, a calendar error)
+ * nothing is kept, and a pair a Planned row somehow carries (an old import) is never kept over.
+ */
+function plannedDatesAtStart(ctx: StatusChangeContext): Partial<Activity> {
+  const { scheduledStart, scheduledFinish } = ctx;
+  return scheduledStart && scheduledFinish
+    ? { plannedStartDate: scheduledStart, plannedFinishDate: scheduledFinish }
+    : { plannedStartDate: undefined, plannedFinishDate: undefined };
 }
 
 /** Planned or In Progress → Complete (owner, 2026-10-30). */
@@ -448,6 +463,8 @@ function completeUpdates(activity: Activity, today: string, ctx: StatusChangeCon
  *  - In Progress keeps a recorded start (Complete → In Progress), else fills TODAY (owner, R599);
  *    clears any finish; the elapsed count is counted from that start to today.
  *  - Complete: see `completeUpdates`.
+ *  - Leaving Planned keeps the Planned dates (`plannedDatesAtStart`); In Progress ↔ Complete leaves
+ *    them as they are; Planned clears them with the rest (release 2).
  * A date taken from today is never in the future: on a non-working day it is the last working day.
  */
 export function statusChangeUpdates(
@@ -456,14 +473,16 @@ export function statusChangeUpdates(
   if (newStatus === activity.status) return {};
   if (newStatus === "planned") return { ...PROGRESS_CLEARED };
   const today = recordableToday(ctx.today, ctx.calendar);
+  const planned = activity.status === "planned" ? plannedDatesAtStart(ctx) : {};
   if (newStatus === "inProgress") {
     // A Planned row holds no record, so a date it carries (an old import) is not its start.
     const start = activity.status === "planned" ? today : (activity.actualStartDate ?? today);
     return {
+      ...planned,
       actualStartDate: start,
       actualFinishDate: undefined,
       actualDuration: elapsedWorkingDays(start, ctx.today, ctx.calendar),
     };
   }
-  return completeUpdates(activity, today, ctx);
+  return { ...planned, ...completeUpdates(activity, today, ctx) };
 }

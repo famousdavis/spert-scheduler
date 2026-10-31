@@ -85,6 +85,14 @@ interface ActivityEditModalProps {
   projectId: string;
   onClose: () => void;
   schedule: DeterministicSchedule | undefined;
+  /**
+   * WI-137 release 2: the page's PLAN schedule (`ProjectPage`'s `planSchedule`) — its own schedule,
+   * by the same function from the same inputs, with the given rows replaced. A row stored Planned
+   * whose Status leaves Planned here keeps its start and finish in it, with this window's edits made.
+   * Absent (the window rendered alone, as some tests do), no plan can be computed and none is kept,
+   * as with no schedule.
+   */
+  planSchedule?: (changed: Activity[]) => DeterministicSchedule | null;
   dependencyMode?: boolean;
   heuristicEnabled?: boolean;
   heuristicMinPercent?: number;
@@ -246,6 +254,89 @@ interface ProgressDrafts {
   actualDuration: number | "";
 }
 
+/** WI-137 release 2: an activity's Planned pair, "" for none. Read-only in this window. */
+interface PlannedPair {
+  plannedStartDate: string;
+  plannedFinishDate: string;
+}
+
+const NO_PLANNED_PAIR: PlannedPair = { plannedStartDate: "", plannedFinishDate: "" };
+
+/** The drafts that move a date: the estimate and the constraint, as this window holds them. */
+interface PlanDrafts {
+  min: EstimateDraft;
+  mostLikely: EstimateDraft;
+  max: EstimateDraft;
+  confidenceLevel: RSMLevel;
+  distributionType: DistributionType;
+  constraintType: ConstraintType | null;
+  constraintDate: string | null;
+  constraintMode: ConstraintMode | null;
+  constraintNote: string | null;
+}
+
+/**
+ * WI-137 release 2 (owner, R630 ruling 5a) — the row as the PLAN schedule takes it: its Status kept
+ * Planned and its actual fields dropped, with this window's drafts applied by the very functions
+ * Save writes them with: Min, Most Likely, Max, Confidence and Distribution (`computeEstimateUpdates`)
+ * and the constraint's Type, Date and Mode (`computeConstraintUpdates`; its Note moves no date). The
+ * SD override is the stored one: this window never edits it. Nothing else the window holds moves a
+ * date — the name, Description, Notes, Tasks and Deliverables do not, and a link edited from here is
+ * saved at once, so the page's own inputs already hold it.
+ */
+function planRowDraft(activity: Activity, d: PlanDrafts): Activity {
+  return {
+    ...activity,
+    ...computeEstimateUpdates(activity, d.min, d.mostLikely, d.max, d.confidenceLevel, d.distributionType),
+    ...computeConstraintUpdates(activity, d.constraintType, d.constraintDate, d.constraintMode, d.constraintNote),
+    status: "planned",
+    actualStartDate: undefined,
+    actualFinishDate: undefined,
+    actualDuration: undefined,
+  };
+}
+
+/**
+ * The row's start and finish in the plan schedule — computed only while needed: a row STORED Planned
+ * whose Status draft has left Planned. Undefined otherwise, and with no schedule (or no page).
+ */
+function planRowFor(
+  planSchedule: ActivityEditModalProps["planSchedule"],
+  activity: Activity | undefined,
+  draftStatus: ActivityStatus,
+  drafts: PlanDrafts,
+): ScheduledActivity | undefined {
+  if (!planSchedule || !activity || activity.status !== "planned" || draftStatus === "planned") return undefined;
+  const row = planRowDraft(activity, drafts);
+  return planSchedule([row])?.activities.find((x) => x.activityId === row.id);
+}
+
+/**
+ * WI-137 release 2 (owner, R630 ruling 5a) — the window's Planned pair, DERIVED from the stored and
+ * the draft Status, never drafted step by step, so neither the order of the edits nor a Status
+ * taken to Planned and back can change it:
+ *  - draft Planned: none. Nothing is written for a row stored Planned (`computePlannedDateUpdates`),
+ *    and a started row's pair is cleared at Save;
+ *  - stored Planned, draft started: the row's start and finish in the PLAN schedule (`planRowFor`),
+ *    which holds this window's edits; none when there is no schedule;
+ *  - stored started, draft started: the stored pair, whatever Status walk led here. In Progress ↔
+ *    Complete keeps it, and a toggle through Planned can never capture the row's own record as its
+ *    plan. A stored started row with NO pair keeps none (Review 33, F15) — one started before
+ *    v0.81.0, imported as started, or carried into a reforecast copy: its schedule places it by its
+ *    record, or by its links when it has no Actual Start, and neither is known to be the plan it had
+ *    when it left Planned. So it stays without one, though the grid's two separate changes (to
+ *    Planned, then out of it) would capture the links' dates as a fresh plan.
+ */
+function derivedPlannedPair(
+  activity: Activity | undefined, draftStatus: ActivityStatus, planSa: ScheduledActivity | undefined,
+): PlannedPair {
+  if (!activity || draftStatus === "planned") return NO_PLANNED_PAIR;
+  if (activity.status !== "planned") {
+    return { plannedStartDate: activity.plannedStartDate ?? "", plannedFinishDate: activity.plannedFinishDate ?? "" };
+  }
+  return planSa ? { plannedStartDate: planSa.startDate, plannedFinishDate: planSa.endDate } : NO_PLANNED_PAIR;
+}
+
 /**
  * WI-137: the window's Status change, by THE rule (`statusChangeUpdates`) applied to its drafts.
  * A field the rule leaves out keeps its draft — a row started before v0.80.0 set to Complete keeps
@@ -303,6 +394,7 @@ export function ActivityEditModal({
   projectId,
   onClose,
   schedule,
+  planSchedule,
   dependencyMode,
   heuristicEnabled,
   heuristicMinPercent = 50,
@@ -378,7 +470,9 @@ export function ActivityEditModal({
    * it there: its Sched. Finish is `sa.endDate`, Actual Start + Sched. Dur. A Complete row's schedule
    * finish IS its Actual Finish, so for that row the window counts it here, from the estimate at the
    * Activity Target — what `resolveActivityDuration` gives the same row as Planned — never from the
-   * actual count. The engine is not asked for anything new.
+   * actual count. The engine is not asked for anything new. Release 2 (owner, R630 ruling 2): the
+   * Complete line shows it only for a row with no Planned Finish kept — every Complete row on the
+   * day v0.81.0 ships.
    */
   const completeRowSchedFinish = useMemo(() => {
     if (!activity || status !== "complete") return undefined;
@@ -428,6 +522,19 @@ export function ActivityEditModal({
   // -- Local draft state: Notes --
   const [notes, setNotes] = useState<string>(activity?.notes ?? "");
   const [description, setDescription] = useState<string>(activity?.description ?? "");
+
+  // -- WI-137 release 2: the Planned pair, DERIVED (see `derivedPlannedPair`) --
+  // The drafts that move a date, and the row's place in the plan schedule they give. The plan is
+  // computed only while it is needed: a row stored Planned whose Status draft has left Planned.
+  const planDrafts = useMemo<PlanDrafts>(
+    () => ({ min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote }),
+    [min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote],
+  );
+  const planSa = useMemo(
+    () => planRowFor(planSchedule, activity, status, planDrafts),
+    [planSchedule, activity, status, planDrafts],
+  );
+  const plannedPair = useMemo(() => derivedPlannedPair(activity, status, planSa), [activity, status, planSa]);
 
   // -- Heuristic auto-fill: when ML changes, recalculate min/max --
   const handleMostLikelyBlur = useCallback(() => {
@@ -658,12 +765,12 @@ export function ActivityEditModal({
     // preserves those own-properties, which is what save and dismiss-detection count.
     return Object.assign(
       {} as Partial<Activity>,
-      computeGeneralUpdates(activity, name, status, actualDuration, actualStartDate, actualFinishDate),
+      computeGeneralUpdates(activity, name, status, actualDuration, actualStartDate, actualFinishDate, plannedPair),
       computeEstimateUpdates(activity, min, mostLikely, max, confidenceLevel, distributionType),
       computeConstraintUpdates(activity, constraintType, constraintDate, constraintMode, constraintNote),
       computeDescriptionUpdate(activity, description),
     );
-  }, [activity, name, status, actualDuration, actualStartDate, actualFinishDate, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, description]);
+  }, [activity, name, status, actualDuration, actualStartDate, actualFinishDate, plannedPair, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, description]);
 
   // -- Save: only send changed fields --
   const handleSave = useCallback(() => {
@@ -967,8 +1074,11 @@ export function ActivityEditModal({
                     onChange={(e) => {
                       // WI-137: the grid's rule, applied to this window's drafts.
                       const newStatus = e.target.value as ActivityStatus;
+                      // Release 2: a row stored Planned reads the plan schedule (this window's edits made),
+                      // so v0.80.0's Complete defaults come from the same schedule its Planned pair does.
+                      const context = activity.status === "planned" ? planRowFor(planSchedule, activity, newStatus, planDrafts) : sa;
                       const next = statusChangeDrafts(
-                        activity, status, newStatus, { actualStartDate, actualFinishDate, actualDuration }, sa, calendar ?? undefined,
+                        activity, status, newStatus, { actualStartDate, actualFinishDate, actualDuration }, context, calendar ?? undefined,
                       );
                       setStatus(newStatus);
                       setActualStartDate(next.actualStartDate);
@@ -1018,6 +1128,8 @@ export function ActivityEditModal({
                 handleActualStartDateBlur={handleActualStartDateBlur}
                 today={todayISO()}
                 progressNotes={activityNoteSentences(schedule?.progressNotes, activityId, formatDate)}
+                plannedStartDate={plannedPair.plannedStartDate}
+                plannedFinishDate={plannedPair.plannedFinishDate}
                 completeSchedFinish={completeRowSchedFinish}
                 dateFault={dateFault}
                 dependencyMode={!!dependencyMode}
@@ -1372,7 +1484,7 @@ export function ActivityEditModal({
             {/* ── Section 8: Schedule Analysis (dependency mode only) ── */}
             {dependencyMode && sa && (
               <Section title="Schedule Analysis" defaultOpen={false}>
-                <ScheduleAnalysisSection sa={sa} formatDate={formatDate} />
+                <ScheduleAnalysisSection sa={sa} />
               </Section>
             )}
           </div>

@@ -340,6 +340,15 @@ export const TARGET_DASH_PATTERNS: Record<string, string> = {
   gray: "4 3",
 };
 
+/**
+ * WI-137 release 2: the dash of a dependency arrow whose link a recorded date overtook (the
+ * schedule's `link` progress note), on screen and in print, and in each legend's entry. Each matches
+ * NO other dash on its chart or legend — release 1's first choice, "4 3", was the gray Finish
+ * Target's own (Review 32, G3). `gantt-overtaken-arrow.test.tsx` reads every dash and holds this.
+ */
+export const OVERTAKEN_LINK_DASH = "5 3";
+export const PRINT_OVERTAKEN_LINK_DASH = "3 2";
+
 export type GanttColorTheme = (typeof COLORS)["light"];
 
 // --- Gantt Color Presets ---

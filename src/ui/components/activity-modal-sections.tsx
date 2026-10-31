@@ -18,6 +18,7 @@ import {
   ACTUAL_DATES_FAULT_LINE,
   type ActualDatesFault,
 } from "@ui/helpers/actual-dates-fault";
+import { NO_PLANNED_START_LINE, PLANNED_DATES_DEFINITION } from "@ui/helpers/planned-dates-words";
 
 /** The Actual Dur. title. Its count is from the Actual Start when one is recorded; a row from before WI-137 counts from its scheduled start. */
 function actualDurTitle(status: ActivityStatus, hasActualStart: boolean): string {
@@ -65,11 +66,15 @@ function unrecordedHint(dependencyMode: boolean): string {
 }
 
 /**
- * Schedule context (WI-137, look B revised, owner 2026-10-30): one line. Planned: Sched. Start,
- * Sched. Finish, Sched. Dur., Actual Dur. In Progress: Actual Start, Sched. Finish, Sched. Dur.,
- * Actual Dur. Complete: Sched. Finish, Actual Start, Actual Finish, Actual Dur. Actual Dur. takes
- * three digits (4rem) on every row; the date cells take the rest. Then the red line for a date the
- * window refuses, and any neutral note.
+ * Schedule context (WI-137, look B revised, owner 2026-10-30; release 2, owner R624–R625, R630): one
+ * line. Planned: Sched. Start, Sched. Finish, Sched. Dur., Actual Dur. In Progress: Planned Start,
+ * Actual Start, Sched. Finish, Sched. Dur., Actual Dur. Complete: Actual Start, Planned Finish,
+ * Actual Finish, Actual Dur. — the Planned Finish between the two actuals, the comparison it is for;
+ * with no Planned Finish kept, v0.80.0's computed Sched. Finish in its place (ruling 2). Actual Dur.
+ * takes three digits (4rem) on every row; the date cells take the rest. Then the red line for a
+ * date the window refuses, the line for an In Progress row with no Planned Start kept, and any
+ * neutral note. The two Planned labels carry what the dates are, as a tooltip and as their
+ * accessible description (ruling 5b).
  *
  * It renders with or without a schedule: a date that breaks the schedule must stay where it was
  * typed, to be corrected there (Review 32, G3). With no schedule the Sched. cells show a dash.
@@ -84,6 +89,8 @@ export function ScheduleContextRow({
   handleActualStartDateBlur,
   today,
   progressNotes,
+  plannedStartDate,
+  plannedFinishDate,
   completeSchedFinish,
   dateFault,
   dependencyMode,
@@ -104,6 +111,9 @@ export function ScheduleContextRow({
   today: string;
   /** This activity's neutral notes, as sentences. */
   progressNotes: { key: string; sentence: string }[];
+  /** The Planned pair the row kept when it left Planned ("" for none) — read-only (release 2). */
+  plannedStartDate: string;
+  plannedFinishDate: string;
   /** A Complete row's Sched. Finish — see `completeRowSchedFinish` in ActivityEditModal. */
   completeSchedFinish?: string;
   /** What the window refuses about the two dates, if anything. */
@@ -121,10 +131,13 @@ export function ScheduleContextRow({
   const actualFinId = `${baseId}-actualfin`;
   const actualStartId = `${baseId}-actualstart`;
   const errorId = `${baseId}-dateerror`;
+  const definitionId = `${baseId}-planned-definition`;
+  const noPlannedStartId = `${baseId}-no-planned-start`;
   const noteId = progressNotes.length > 0 ? `${baseId}-notes` : undefined;
   const isPlanned = status === "planned";
   const isComplete = status === "complete";
   const unrecorded = !isPlanned && !actualStartDate;
+  const noPlannedStart = status === "inProgress" && !plannedStartDate;
   const dash = <p className={VALUE}>&mdash;</p>;
 
   // Look B: ONE line. A Planned row keeps v0.79.36's line exactly; an In Progress or Complete row
@@ -143,6 +156,18 @@ export function ScheduleContextRow({
     </div>
   );
   const schedFinish = schedFinishCell(sa?.endDate);
+  // Release 2: a Planned cell — the kept date, or a dash that a screen reader reads as "none kept",
+  // described by the line under the row that says why (ruling 2). Its label carries the definition.
+  const plannedCell = (which: "Start" | "Finish", iso: string) => (
+    <div aria-describedby={iso ? undefined : noPlannedStartId}>
+      <div className={LABEL} title={PLANNED_DATES_DEFINITION} aria-describedby={definitionId}>Planned {which}</div>
+      {iso ? (
+        <p className={VALUE}>{formatDate(iso)}</p>
+      ) : (
+        <p className={VALUE}><span aria-hidden="true">&mdash;</span><span className="sr-only">none kept</span></p>
+      )}
+    </div>
+  );
   const schedDur = (
     <div>
       <div className={LABEL}>Sched. Dur.</div>
@@ -210,19 +235,29 @@ export function ScheduleContextRow({
 
   return (
     <div className="space-y-2">
+      {/* The Planned labels' description. FIRST, so the hidden span is never the container's last
+          child: `space-y-2` would then give the line above it a margin (8 px measured). */}
+      {!isPlanned && <span id={definitionId} hidden>{PLANNED_DATES_DEFINITION}</span>}
       {isPlanned && (
         <div className="grid gap-3 grid-cols-[1fr_1fr_auto_4rem]">{schedStart}{schedFinish}{schedDur}{actualDur}</div>
       )}
       {status === "inProgress" && (
-        <div className="grid gap-3 grid-cols-[1.4fr_1fr_auto_4rem]">{actualStart}{schedFinish}{schedDur}{actualDur}</div>
+        <div className="grid gap-3 grid-cols-[1fr_1.4fr_1fr_auto_4rem]">
+          {plannedCell("Start", plannedStartDate)}{actualStart}{schedFinish}{schedDur}{actualDur}
+        </div>
       )}
       {isComplete && (
-        <div className="grid gap-3 grid-cols-[1fr_1.3fr_1.3fr_4rem]">
-          {schedFinishCell(completeSchedFinish ?? sa?.endDate)}{actualStart}{actualFinish}{actualDur}
+        <div className="grid gap-3 grid-cols-[1.3fr_1fr_1.3fr_4rem]">
+          {actualStart}
+          {plannedFinishDate ? plannedCell("Finish", plannedFinishDate) : schedFinishCell(completeSchedFinish ?? sa?.endDate)}
+          {actualFinish}{actualDur}
         </div>
       )}
       {dateFault && (
         <p id={errorId} className="text-xs text-red-700 dark:text-red-400">{ACTUAL_DATES_FAULT_LINE[dateFault]}</p>
+      )}
+      {noPlannedStart && (
+        <p id={noPlannedStartId} className="text-xs text-gray-600 dark:text-gray-400">{NO_PLANNED_START_LINE}</p>
       )}
       {unrecorded && (
         <p className="text-xs text-gray-600 dark:text-gray-400">{unrecordedHint(dependencyMode)}</p>
@@ -347,6 +382,7 @@ export function computeGeneralUpdates(
   actualDuration: string | number,
   actualStartDate?: string,
   actualFinishDate?: string,
+  planned?: { plannedStartDate: string; plannedFinishDate: string },
 ): Partial<Activity> {
   const updates: Partial<Activity> = {};
 
@@ -365,7 +401,30 @@ export function computeGeneralUpdates(
     updates.actualDuration = undefined;
   }
   Object.assign(updates, computeRecordedDateUpdates(activity, status, actualStartDate, actualFinishDate));
+  Object.assign(updates, computePlannedDateUpdates(activity, status, planned));
 
+  return updates;
+}
+
+/**
+ * WI-137 release 2: the Planned pair, as the window DERIVES it (`derivedPlannedPair`). Read-only in
+ * the window — only a Status change moves it. `undefined` means "not shown here" and changes nothing;
+ * a pair equal to the stored one writes nothing, so an unrelated Save of a row from before v0.81.0
+ * writes no Planned date; and a row stored and saved Planned writes none, so a pair a Planned row
+ * carries (a hand-edited import) is neither a change to discard nor cleared by an unrelated Save.
+ */
+function computePlannedDateUpdates(
+  activity: Activity,
+  status: ActivityStatus,
+  planned: { plannedStartDate: string; plannedFinishDate: string } | undefined,
+): Partial<Activity> {
+  if (!planned) return {};
+  // Planned stays Planned: nothing to write, whatever the stored row carries (Review 33, E1).
+  if (status === "planned" && activity.status === "planned") return {};
+  const want = status === "planned" ? { plannedStartDate: "", plannedFinishDate: "" } : planned;
+  const updates: Partial<Activity> = {};
+  if (want.plannedStartDate !== (activity.plannedStartDate ?? "")) updates.plannedStartDate = want.plannedStartDate || undefined;
+  if (want.plannedFinishDate !== (activity.plannedFinishDate ?? "")) updates.plannedFinishDate = want.plannedFinishDate || undefined;
   return updates;
 }
 
@@ -504,20 +563,18 @@ export function DependenciesDisplaySection({
   );
 }
 
-/** Display-only schedule analysis grid: dates, duration, float values. */
+/**
+ * Display-only schedule analysis grid: duration and float values. WI-137 release 2 (owner, R630
+ * ruling 3, option B): no dates — the line at the top of the window holds every date this activity
+ * has, so the section repeats none of them, and cannot name one differently from that line.
+ */
 export function ScheduleAnalysisSection({
   sa,
-  formatDate,
 }: {
-  sa: { startDate: string; endDate: string; duration: number; totalFloat?: number; freeFloat?: number | null };
-  formatDate: (iso: string) => string;
+  sa: { duration: number; totalFloat?: number; freeFloat?: number | null };
 }) {
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-      <div className="text-gray-500 dark:text-gray-400">Scheduled Start</div>
-      <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.startDate)}</div>
-      <div className="text-gray-500 dark:text-gray-400">Scheduled Finish</div>
-      <div className="text-gray-900 dark:text-gray-100">{formatDate(sa.endDate)}</div>
       <div className="text-gray-500 dark:text-gray-400">Duration</div>
       <div className="text-gray-900 dark:text-gray-100">{sa.duration} working {pluralize(sa.duration, "day")}</div>
       <div className="text-gray-500 dark:text-gray-400">Total Float</div>

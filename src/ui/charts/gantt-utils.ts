@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { MilestoneBufferInfo, ScheduledActivity } from "@domain/models/types";
+import type { MilestoneBufferInfo, ProgressNote, ScheduledActivity } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { formatDateISO } from "@core/calendar/calendar";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
@@ -992,4 +992,49 @@ export function buildActivityTooltip(args: {
       ? `\nFree Float: ${args.freeFloat}d`
       : "";
   return `${displayName}\n${dates}\nTotal Float: ${floatLabel}${freeFloatLabel}`;
+}
+
+// -- WI-137 release 2: the overtaken link -----------------------------------------
+
+type ArrowDep = { fromActivityId: string; toActivityId: string; type: string };
+
+/** A link's key: predecessor, successor and type. A pair of activities has one link at most. */
+export function linkKey(dep: ArrowDep): string {
+  return `${dep.fromActivityId}|${dep.toActivityId}|${dep.type}`;
+}
+
+/**
+ * The links a recorded date overtook: the keys of the schedule's own `link` notes, their lag and
+ * lead already counted. Built ONCE per schedule and passed to the chart (Review 33, F18), so no
+ * render scans every note for every arrow. Dependencies off, a note's link is the row above, FS
+ * without lag: the arrow each chart draws there.
+ */
+export function overtakenLinkKeys(notes: readonly ProgressNote[] | undefined): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const n of notes ?? []) {
+    if (n.kind === "link") keys.add(linkKey({ fromActivityId: n.predecessorId, toActivityId: n.activityId, type: n.dependencyType }));
+  }
+  return keys;
+}
+
+/**
+ * The dash for a dependency arrow: `dash` when a recorded date overtook its link, else undefined —
+ * no attribute at all, so a schedule with no such note draws exactly as before. Both charts call
+ * this, each with its own dash, and neither then draws that arrow as a critical edge (owner, R630
+ * ruling 6): the dash says the link was overtaken, so it is never also the critical path's red.
+ */
+export function overtakenArrowDash(dep: ArrowDep, overtaken: ReadonlySet<string> | undefined, dash: string): string | undefined {
+  return overtaken?.has(linkKey(dep)) ? dash : undefined;
+}
+
+/** The arrow's hover text adds this when its link was overtaken (Review 33, F13). */
+export function overtakenHoverClause(dep: ArrowDep, overtaken: ReadonlySet<string> | undefined): string {
+  return overtaken?.has(linkKey(dep)) ? ", overtaken by an actual date" : "";
+}
+
+/** The legend entry's dash: given only while at least one drawn arrow is dashed. */
+export function overtakenLegendDash(
+  arrows: readonly { dep: ArrowDep }[], overtaken: ReadonlySet<string> | undefined, dash: string,
+): string | undefined {
+  return arrows.some(({ dep }) => overtakenArrowDash(dep, overtaken, dash) !== undefined) ? dash : undefined;
 }

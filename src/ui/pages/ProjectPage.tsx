@@ -8,7 +8,13 @@ import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useProjectActions } from "@ui/hooks/use-project-actions";
 import { useSimulation } from "@ui/hooks/use-simulation";
 import { useCompareRuns } from "@ui/hooks/use-compare-runs";
-import { useSchedule, type ScheduleError } from "@ui/hooks/use-schedule";
+import {
+  useSchedule,
+  computeScenarioSchedule,
+  type ScheduleError,
+  type ScenarioScheduleInputs,
+  type ScenarioScheduleResult,
+} from "@ui/hooks/use-schedule";
 import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
 import { ScheduleErrorBanner } from "@ui/components/ScheduleErrorBanner";
 import { runBlockedMessage } from "@ui/helpers/run-blocked-message";
@@ -26,9 +32,7 @@ import { useDateFormat } from "@ui/hooks/use-date-format";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { computeTargetRAGColor } from "@core/schedule/target-rag";
-import { isCalendarError } from "@core/calendar/work-calendar";
-import { computeDependencySchedule, computeDependencyDurations } from "@core/schedule/deterministic";
-import { isDependencyCycleError } from "@core/schedule/dependency-graph";
+import { computeDependencyDurations } from "@core/schedule/deterministic";
 import { buildDependencyGraph, computeCriticalPathActivities } from "@core/schedule/dependency-graph";
 import { hasAnyRecord, zeroFloatIds } from "@core/schedule/recorded-progress";
 import { buildSimulationParams, type SimulationParams } from "@ui/helpers/build-simulation-params";
@@ -381,15 +385,6 @@ export function ProjectPage() {
     setAiFeed([]);
   }, [stopSession]);
 
-  // Deterministic schedule — uses sequential or dependency-aware engine
-  const sequentialSchedule = useSchedule(
-    scenario?.settings.dependencyMode ? [] : (scenario?.activities ?? []),
-    scenario?.startDate ?? "2025-01-06",
-    scenario?.settings.probabilityTarget ?? 0.5,
-    workCalendar,
-    setSequentialScheduleError
-  );
-
   const depMode = scenario?.settings.dependencyMode;
   const activities = scenario?.activities;
   const dependencies = scenario?.dependencies;
@@ -397,41 +392,49 @@ export function ProjectPage() {
   const probTarget = scenario?.settings.probabilityTarget;
   const milestones = scenario?.milestones;
 
+  // WI-137 release 2: everything but the activities that this page's schedule is computed from,
+  // gathered ONCE. Both modes below read it, and so does `planSchedule`, so the plan a row keeps
+  // when it leaves Planned is this page's own computation, on this page's own inputs.
+  const scheduleInputs = useMemo<Omit<ScenarioScheduleInputs, "activities">>(() => ({
+    startDate: startDate ?? "2025-01-06",
+    probabilityTarget: probTarget ?? 0.5,
+    calendar: workCalendar,
+    network: depMode ? { dependencies: dependencies ?? [], milestones: milestones ?? [] } : null,
+  }), [depMode, dependencies, milestones, startDate, probTarget, workCalendar]);
+
+  // Deterministic schedule — uses sequential or dependency-aware engine
+  const sequentialSchedule = useSchedule(
+    depMode ? [] : (activities ?? []),
+    scheduleInputs.startDate,
+    scheduleInputs.probabilityTarget,
+    scheduleInputs.calendar,
+    setSequentialScheduleError
+  );
+
   // Compute the dependency schedule purely — no state-setting during render.
   // null = no error (including "not yet computed"/n/a); every thrown error has an
   // owner now, so this is a simple ScheduleError | null contract — no third,
   // "undefined" state. isCalendarError (via the shared work-calendar.ts predicate)
   // distinguishes a genuine calendar problem from every other schedule error, so
-  // the banner (below) can show the right advice for each.
-  const dependencyScheduleResult = useMemo<{
-    schedule: DeterministicSchedule | null;
-    scheduleError: ScheduleError | null;
-  }>(() => {
-    if (!depMode || !activities || activities.length === 0 || !dependencies || !startDate || probTarget == null) {
-      return { schedule: null, scheduleError: null };
-    }
-    try {
-      const schedule = computeDependencySchedule(
-        activities,
-        dependencies,
-        startDate,
-        probTarget,
-        workCalendar,
-        milestones
-      );
-      return { schedule, scheduleError: null };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return {
-        schedule: null,
-        scheduleError: {
-          message,
-          isCalendarError: isCalendarError(err),
-          isCycleError: isDependencyCycleError(err),
-        },
-      };
-    }
-  }, [depMode, activities, dependencies, startDate, probTarget, workCalendar, milestones]);
+  // the banner (below) can show the right advice for each. The computation itself is
+  // `computeScenarioSchedule` (use-schedule.ts), the one the sequential hook uses too.
+  const dependencyScheduleResult = useMemo<ScenarioScheduleResult>(() => {
+    if (!scheduleInputs.network || !activities) return { schedule: null, scheduleError: null };
+    return computeScenarioSchedule({ ...scheduleInputs, activities });
+  }, [scheduleInputs, activities]);
+
+  /**
+   * WI-137 release 2 (owner, R630 ruling 5a) — the PLAN schedule: this page's schedule, by the
+   * same function from the same inputs, with only the given rows replaced — each still Planned,
+   * with the edits made in the same step applied. A row leaving Planned keeps its start and finish
+   * in it. `null` when it cannot be calculated (a cycle, a calendar error, a row whose distribution
+   * cannot be built), and then no Planned date is kept.
+   */
+  const planSchedule = useCallback((changed: Activity[]): DeterministicSchedule | null => {
+    if (!activities) return null;
+    const byId = new Map(changed.map((a) => [a.id, a]));
+    return computeScenarioSchedule({ ...scheduleInputs, activities: activities.map((a) => byId.get(a.id) ?? a) }).schedule;
+  }, [scheduleInputs, activities]);
 
   const dependencySchedule = dependencyScheduleResult.schedule;
 
@@ -1065,6 +1068,7 @@ export function ProjectPage() {
             onBulkUpdateEach={(updatesById) =>
               bulkUpdateActivitiesEach(id!, scenario.id, updatesById)
             }
+            planSchedule={planSchedule}
             onBulkDelete={(activityIds) =>
               bulkDeleteActivities(id!, scenario.id, activityIds)
             }
@@ -1160,6 +1164,7 @@ export function ProjectPage() {
               milestones={scenario.milestones}
               milestoneBuffers={paintedMilestoneBuffers}
               criticalPathIds={criticalPathIds}
+              progressNotes={paintedSchedule.progressNotes}
               onEditActivity={setEditingActivityId}
               onRenameActivity={(activityId, newName) =>
                 updateActivityField(id!, scenario.id, activityId, { name: newName })
@@ -1259,6 +1264,7 @@ export function ProjectPage() {
           projectId={id!}
           onClose={() => setEditingActivityId(null)}
           schedule={schedule ?? undefined}
+          planSchedule={planSchedule}
           dependencyMode={scenario.settings.dependencyMode}
           heuristicEnabled={scenario.settings.heuristicEnabled}
           heuristicMinPercent={scenario.settings.heuristicMinPercent}

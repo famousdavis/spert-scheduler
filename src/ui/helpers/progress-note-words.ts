@@ -64,10 +64,29 @@ function linkSentence(note: LinkProgressNote, formatDate: (iso: string) => strin
   if (note.dependencyType === "SS") {
     return `${succ} started on ${date}, before ${who} started on ${predDate}. ${keeps("start")}`;
   }
+  if (note.date === note.predecessorDate) return sameDaySentence(note, succ, who, formatDate);
   const predEnd = note.predecessorComplete
     ? `finished on ${predDate}`
     : `finished (it is scheduled to finish on ${predDate})`;
   return `${succ} ${verb} on ${date}, before ${who} ${predEnd}. ${keeps(note.event)}`;
+}
+
+/**
+ * WI-137 release 2 (owner, R625): a start ON the predecessor's finish day. A finish-to-start link
+ * without lag allows the NEXT working day, so the note is real — but "before B finished on 10/30"
+ * beside a start on 10/30 reads as a contradiction. Only FS without lag reaches here: SS and FF need
+ * a strictly earlier date, and a lag or a lead takes the sentence above, which names no predecessor
+ * date. So the sentence names the day it allowed instead (the lag sentence's own form).
+ */
+function sameDaySentence(
+  note: LinkProgressNote, succ: string, who: string, formatDate: (iso: string) => string,
+): string {
+  const predDay = note.predecessorComplete ? `${who} finished` : `${who} is scheduled to finish`;
+  const allowed = formatDate(note.allowedDate);
+  const why = note.sequential
+    ? `with dependencies off, it could start on ${allowed} at the earliest`
+    : `its finish-to-start link allowed ${allowed} at the earliest`;
+  return `${succ} started on ${formatDate(note.date)}, the day ${predDay}; ${why}. ${keeps("start")}`;
 }
 
 function constraintSentence(note: ConstraintProgressNote, formatDate: (iso: string) => string): string {

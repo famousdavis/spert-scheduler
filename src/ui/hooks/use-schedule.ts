@@ -5,11 +5,15 @@
 import { useMemo } from "react";
 import type {
   Activity,
+  ActivityDependency,
   Calendar,
   DeterministicSchedule,
+  Milestone,
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { isCalendarError } from "@core/calendar/work-calendar";
+import { computeDependencySchedule } from "@core/schedule/deterministic";
+import { isDependencyCycleError } from "@core/schedule/dependency-graph";
 import { computeSchedule } from "@app/api/schedule-service";
 
 export interface ScheduleError {
@@ -21,6 +25,49 @@ export interface ScheduleError {
    * silently default to "not a cycle" and fall back to advice that points at estimates.
    */
   isCycleError: boolean;
+}
+
+/**
+ * Everything the project page schedules a scenario from (WI-137 release 2). The page gathers it
+ * ONCE; its own schedule and the plan a row keeps when it leaves Planned are both computed from it
+ * by `computeScenarioSchedule`, so the two can never be computed from different inputs.
+ */
+export interface ScenarioScheduleInputs {
+  activities: Activity[];
+  startDate: string;
+  probabilityTarget: number;
+  calendar?: WorkCalendar | Calendar;
+  /** Dependency mode: its links and milestones. `null` in sequential mode. */
+  network: { dependencies: ActivityDependency[]; milestones: Milestone[] } | null;
+}
+
+export interface ScenarioScheduleResult {
+  schedule: DeterministicSchedule | null;
+  scheduleError: ScheduleError | null;
+}
+
+/**
+ * THE schedule the project page shows, in either mode, as one pure function (lifted out of this
+ * hook and the page's dependency memo in WI-137 release 2). No activities: no schedule and no
+ * error. Every failure is caught and classified: `isCalendarError` by the shared, two-shape
+ * work-calendar.ts#isCalendarError predicate; `isCycleError` only in dependency mode — the
+ * sequential engine never builds a dependency graph, so it cannot raise one.
+ */
+export function computeScenarioSchedule(inputs: ScenarioScheduleInputs): ScenarioScheduleResult {
+  const { activities, startDate, probabilityTarget, calendar, network } = inputs;
+  if (activities.length === 0) return { schedule: null, scheduleError: null };
+  try {
+    const schedule = network
+      ? computeDependencySchedule(activities, network.dependencies, startDate, probabilityTarget, calendar, network.milestones)
+      : computeSchedule(activities, startDate, probabilityTarget, calendar);
+    return { schedule, scheduleError: null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      schedule: null,
+      scheduleError: { message, isCalendarError: isCalendarError(err), isCycleError: !!network && isDependencyCycleError(err) },
+    };
+  }
 }
 
 /**
@@ -42,20 +89,9 @@ export function useSchedule(
 ): DeterministicSchedule | null {
   return useMemo(() => {
     if (activities.length === 0) return null;
-    try {
-      const result = computeSchedule(activities, startDate, probabilityTarget, calendar);
-      onScheduleError?.(null);
-      return result;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      onScheduleError?.({
-        message,
-        isCalendarError: isCalendarError(err),
-        // The sequential engine never builds a dependency graph, so it cannot raise one.
-        isCycleError: false,
-      });
-      return null;
-    }
+    const { schedule, scheduleError } = computeScenarioSchedule({ activities, startDate, probabilityTarget, calendar, network: null });
+    onScheduleError?.(scheduleError);
+    return schedule;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- onScheduleError is a setState, stable ref
   }, [activities, startDate, probabilityTarget, calendar]);
 }

@@ -58,11 +58,11 @@ describe("statusChangeUpdates — the one rule, as a decision table", () => {
   const rows: Array<[string, Activity, ActivityStatus, ReturnType<typeof ctx>, Partial<Activity>]> = [
     ["same status → nothing", act("a", { status: "inProgress", actualStartDate: "2026-10-19", actualDuration: 3 }), "inProgress", ctx(TUE, NOW), {}],
     ["Planned → In Progress on a Tuesday: today, 1", act("a"), "inProgress", ctx(TUE, NOW),
-      { actualStartDate: TUE, actualFinishDate: undefined, actualDuration: 1 }],
+      { plannedStartDate: "2026-10-19", plannedFinishDate: "2026-10-30", actualStartDate: TUE, actualFinishDate: undefined, actualDuration: 1 }],
     ["Planned → In Progress ignores a date a Planned row carries (an import): today", act("a", { actualStartDate: "2026-09-01" }), "inProgress", ctx(TUE, NOW),
-      { actualStartDate: TUE, actualFinishDate: undefined, actualDuration: 1 }],
+      { plannedStartDate: "2026-10-19", plannedFinishDate: "2026-10-30", actualStartDate: TUE, actualFinishDate: undefined, actualDuration: 1 }],
     ["Planned → In Progress on a Saturday: the Friday before, never a Monday to come (h)", act("a"), "inProgress", ctx(SAT, NOW),
-      { actualStartDate: "2026-10-30", actualFinishDate: undefined, actualDuration: 1 }],
+      { plannedStartDate: "2026-10-19", plannedFinishDate: "2026-10-30", actualStartDate: "2026-10-30", actualFinishDate: undefined, actualDuration: 1 }],
     ["Complete → In Progress: start kept, finish cleared, elapsed from the start", act("a", { status: "complete", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-23", actualDuration: 15 }), "inProgress", ctx(TUE, PAST),
       { actualStartDate: "2026-10-05", actualFinishDate: undefined, actualDuration: 17 }],
     ["In Progress → Complete on a Tuesday: finish today", act("a", { status: "inProgress", actualStartDate: "2026-10-05", actualDuration: 3 }), "complete", ctx(TUE, PAST),
@@ -76,19 +76,21 @@ describe("statusChangeUpdates — the one rule, as a decision table", () => {
       { actualDuration: 10 }],
     ["In Progress with no start, no count, no schedule → Complete: nothing", act("a", { status: "inProgress" }), "complete", ctx(TUE), {}],
     ["Planned → Complete, already due: its scheduled start and finish", act("a"), "complete", ctx(TUE, PAST),
-      { actualStartDate: "2026-10-05", actualFinishDate: "2026-10-16", actualDuration: 10 }],
+      { plannedStartDate: "2026-10-05", plannedFinishDate: "2026-10-16", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-16", actualDuration: 10 }],
     ["Planned → Complete, started and not yet due: scheduled start to today", act("a"), "complete", ctx(TUE, NOW),
-      { actualStartDate: "2026-10-19", actualFinishDate: TUE, actualDuration: 7 }],
+      { plannedStartDate: "2026-10-19", plannedFinishDate: "2026-10-30", actualStartDate: "2026-10-19", actualFinishDate: TUE, actualDuration: 7 }],
     ["Planned → Complete, not yet started: today and today", act("a"), "complete", ctx(TUE, LATER),
-      { actualStartDate: TUE, actualFinishDate: TUE, actualDuration: 1 }],
+      { plannedStartDate: "2026-11-02", plannedFinishDate: "2026-11-13", actualStartDate: TUE, actualFinishDate: TUE, actualDuration: 1 }],
     ["Planned → Complete with no schedule: today and today", act("a"), "complete", ctx(TUE),
-      { actualStartDate: TUE, actualFinishDate: TUE, actualDuration: 1 }],
+      { plannedStartDate: undefined, plannedFinishDate: undefined, actualStartDate: TUE, actualFinishDate: TUE, actualDuration: 1 }],
     ["Planned → Complete on a Saturday, due Friday 10-30: its scheduled dates, nothing after today", act("a"), "complete", ctx(SAT, NOW),
-      { actualStartDate: "2026-10-19", actualFinishDate: "2026-10-30", actualDuration: 10 }],
+      { plannedStartDate: "2026-10-19", plannedFinishDate: "2026-10-30", actualStartDate: "2026-10-19", actualFinishDate: "2026-10-30", actualDuration: 10 }],
+    // Release 2 (v0.81.0): leaving Planned also keeps the Planned pair — the schedule's dates, or
+    // both keys undefined with no schedule — and → Planned clears the pair with the three.
     ["In Progress → Planned: all three cleared", act("a", { status: "inProgress", actualStartDate: "2026-10-19", actualDuration: 3 }), "planned", ctx(TUE, NOW),
-      { actualDuration: undefined, actualStartDate: undefined, actualFinishDate: undefined }],
+      { actualDuration: undefined, plannedStartDate: undefined, plannedFinishDate: undefined, actualStartDate: undefined, actualFinishDate: undefined }],
     ["Complete → Planned: all three cleared", act("a", { status: "complete", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-16", actualDuration: 10 }), "planned", ctx(TUE, PAST),
-      { actualDuration: undefined, actualStartDate: undefined, actualFinishDate: undefined }],
+      { actualDuration: undefined, plannedStartDate: undefined, plannedFinishDate: undefined, actualStartDate: undefined, actualFinishDate: undefined }],
   ];
 
   for (const [name, activity, to, c, expected] of rows) {
@@ -99,7 +101,7 @@ describe("statusChangeUpdates — the one rule, as a decision table", () => {
 
   it("a clear names its keys, so a spread over the activity removes the old values", () => {
     const u = statusChangeUpdates(act("a", { status: "complete", actualStartDate: "2026-10-05" }), "planned", ctx(TUE));
-    expect(Object.keys(u).sort()).toEqual(["actualDuration", "actualFinishDate", "actualStartDate"]);
+    expect(Object.keys(u).sort()).toEqual(["actualDuration", "actualFinishDate", "actualStartDate", "plannedFinishDate", "plannedStartDate"]);
   });
 });
 

@@ -11,7 +11,7 @@ interface ColorSet {
   criticalPath: string;
   terminal: string;
   finishLine: string;
-  todayLine: string;
+  todayLine: string; arrow?: string;
 }
 
 interface MilestoneColorSet {
@@ -34,7 +34,7 @@ interface GanttLegendProps {
   showTarget?: boolean;
   targetColor?: string;
   targetDash?: string;
-  weekendShading?: boolean;
+  weekendShading?: boolean; overtakenLinkDash?: string; // WI-137 r2: given only while such an arrow is drawn
 }
 
 export function GanttLegend({
@@ -53,7 +53,7 @@ export function GanttLegend({
   showTarget,
   targetColor,
   targetDash,
-  weekendShading,
+  weekendShading, overtakenLinkDash,
 }: GanttLegendProps) {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
@@ -163,6 +163,16 @@ export function GanttLegend({
             <text x="6" y="6" textAnchor="middle" dominantBaseline="central" fontSize="8" fill="#ffffff" fontWeight="700">C</text>
           </svg>
           <span className="align-middle">Constraint</span>
+        </span>
+      )}
+
+      {/* WI-137 release 2: a link a recorded date overtook — only while such an arrow is drawn */}
+      {overtakenLinkDash && (
+        <span>
+          <svg width="18" height="12" className="inline-block align-middle mr-1.5">
+            <line x1="0" y1="6" x2="18" y2="6" stroke={c.arrow} strokeWidth="2" strokeDasharray={overtakenLinkDash} />
+          </svg>
+          <span className="align-middle">Link overtaken by an actual date</span>
         </span>
       )}
 

@@ -39,7 +39,7 @@ import {
   NAME_COLUMN_MIN_WITH_IDS_PX,
   gridMinWidthPx,
 } from "./grid-columns";
-import { shouldShowConstraintColumn, planBulkApply, dispatchBulkPlan } from "./unified-activity-helpers";
+import { shouldShowConstraintColumn, planBulkApply, dispatchBulkPlan, type BulkPlanSchedule } from "./unified-activity-helpers";
 import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
 import { useGridFocus, useGridSelection } from "@ui/hooks/use-grid-state";
 import { confirmDialog } from "@ui/hooks/use-confirm-store";
@@ -72,6 +72,8 @@ interface UnifiedActivityGridProps {
   onBulkUpdate?: (activityIds: string[], updates: Partial<Activity>) => void;
   /** WI-137: a whole bulk Apply as one store write — one update per row, one undo step. */
   onBulkUpdateEach?: (updatesById: Map<string, Partial<Activity>>) => void;
+  /** WI-137 release 2: the page's plan schedule — what a row leaving Planned keeps its dates from. */
+  planSchedule?: BulkPlanSchedule;
   onBulkDelete?: (activityIds: string[]) => void;
   isScenarioLocked?: boolean;
   heuristicEnabled?: boolean;
@@ -108,6 +110,7 @@ export function UnifiedActivityGrid({
   cellIssues,
   onBulkUpdate,
   onBulkUpdateEach,
+  planSchedule,
   onBulkDelete,
   isScenarioLocked,
   heuristicEnabled,
@@ -184,6 +187,7 @@ export function UnifiedActivityGrid({
         },
         computeHeuristic,
         calendar,
+        planSchedule,
       );
 
       dispatchBulkPlan(ids, plan, { onBulkUpdateEach, onBulkUpdate, onUpdate });
@@ -220,7 +224,7 @@ export function UnifiedActivityGrid({
       });
     },
     [selectedIds, scheduledActivities, activities, onBulkUpdate, onBulkUpdateEach, onUpdate,
-     heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, clearSelection, calendar],
+     heuristicEnabled, heuristicMinPercent, heuristicMaxPercent, clearSelection, calendar, planSchedule],
   );
 
   // Build a lookup map from activityId to ScheduledActivity

@@ -524,9 +524,10 @@ describe("planBulkApply", () => {
       pinToday();
       const p = datedPlan({ status: "inProgress" });
       expect(p.sharedUpdates).toBeNull();
+      // Release 2 (v0.81.0): each Planned row also keeps its scheduled start and finish as its Planned pair.
       expect(p.perActivity).toStrictEqual([
-        { id: "a1", updates: { status: "inProgress", actualStartDate: "2026-10-27", actualFinishDate: undefined, actualDuration: 1 } },
-        { id: "a2", updates: { status: "inProgress", actualStartDate: "2026-10-27", actualFinishDate: undefined, actualDuration: 1 } },
+        { id: "a1", updates: { status: "inProgress", plannedStartDate: "2026-10-05", plannedFinishDate: "2026-10-08", actualStartDate: "2026-10-27", actualFinishDate: undefined, actualDuration: 1 } },
+        { id: "a2", updates: { status: "inProgress", plannedStartDate: "2026-10-26", plannedFinishDate: "2026-11-03", actualStartDate: "2026-10-27", actualFinishDate: undefined, actualDuration: 1 } },
       ]);
     });
   });
@@ -538,9 +539,10 @@ describe("planBulkApply", () => {
       pinToday();
       const p = datedPlan({ status: "complete" });
       expect(p.sharedUpdates).toBeNull();
+      // Release 2 (v0.81.0): and each keeps its scheduled start and finish as its Planned pair.
       expect(p.perActivity).toEqual([
-        { id: "a1", updates: { status: "complete", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-08", actualDuration: 4 } },
-        { id: "a2", updates: { status: "complete", actualStartDate: "2026-10-26", actualFinishDate: "2026-10-27", actualDuration: 2 } },
+        { id: "a1", updates: { status: "complete", plannedStartDate: "2026-10-05", plannedFinishDate: "2026-10-08", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-08", actualDuration: 4 } },
+        { id: "a2", updates: { status: "complete", plannedStartDate: "2026-10-26", plannedFinishDate: "2026-11-03", actualStartDate: "2026-10-26", actualFinishDate: "2026-10-27", actualDuration: 2 } },
       ]);
     });
 
@@ -627,8 +629,8 @@ describe("planBulkApply", () => {
       { enabled: true, minPercent: 50, maxPercent: 200 },
     );
     expect(p.perActivity).toEqual([
-      { id: "a1", updates: { status: "complete", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-08", actualDuration: 4 } },
-      { id: "a2", updates: { status: "complete", actualStartDate: "2026-10-26", actualFinishDate: "2026-10-27", actualDuration: 2 } },
+      { id: "a1", updates: { status: "complete", plannedStartDate: "2026-10-05", plannedFinishDate: "2026-10-08", actualStartDate: "2026-10-05", actualFinishDate: "2026-10-08", actualDuration: 4 } },
+      { id: "a2", updates: { status: "complete", plannedStartDate: "2026-10-26", plannedFinishDate: "2026-11-03", actualStartDate: "2026-10-26", actualFinishDate: "2026-10-27", actualDuration: 2 } },
       { id: "a1", updates: { min: 5, max: 20 } },
       { id: "a2", updates: { min: 5, max: 20 } },
     ]);

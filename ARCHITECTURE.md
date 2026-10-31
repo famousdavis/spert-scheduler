@@ -118,7 +118,8 @@ Project
         │     ├── distributionType: "normal" | "logNormal" | "betaPert" | "triangular" | "uniform"
         │     ├── status: "planned" | "inProgress" | "complete"
         │     ├── actualDuration?: number  (elapsed working days, or a Complete row's count)
-        │     └── actualStartDate?, actualFinishDate?: string  (YYYY-MM-DD, recorded — schema 26)
+        │     ├── actualStartDate?, actualFinishDate?: string  (YYYY-MM-DD, recorded — schema 26)
+        │     └── plannedStartDate?, plannedFinishDate?: string  (YYYY-MM-DD, kept when it left Planned — schema 27)
         ├── dependencies: ActivityDependency[]
         │     ├── fromActivityId, toActivityId
         │     ├── type: "FS" (Finish-to-Start)
@@ -191,7 +192,7 @@ Factory: `createDistributionForActivity(activity)` switches on `distributionType
 
 For each non-complete activity: `duration = Math.ceil(distribution.inverseCDF(probabilityTarget))`, minimum 1 working day. In sequential mode, activities chain linearly (finish-to-start). In dependency mode, topological sort determines execution order and the critical path method computes project duration accounting for parallelism. Calendar-aware working day arithmetic.
 
-**Recorded progress (v0.80.0, `core/schedule/recorded-progress.ts`).** An In Progress or Complete activity with an Actual Start is placed at that start in both modes: links into it, a milestone start and a start constraint do not move it, and where one is overtaken the schedule carries a neutral `progressNotes` entry instead of a warning. A Complete row's finish is its Actual Finish; an In Progress row's forecast finish still follows its finish-to-finish links and its finish constraint. A row with no Actual Start is scheduled exactly as before. One rule, `statusChangeUpdates`, writes the dates and the count on every Status path.
+**Recorded progress (v0.80.0, `core/schedule/recorded-progress.ts`).** An In Progress or Complete activity with an Actual Start is placed at that start in both modes: links into it, a milestone start and a start constraint do not move it, and where one is overtaken the schedule carries a neutral `progressNotes` entry instead of a warning. A Complete row's finish is its Actual Finish; an In Progress row's forecast finish still follows its finish-to-finish links and its finish constraint. A row with no Actual Start is scheduled exactly as before. One rule, `statusChangeUpdates`, writes the dates and the count on every Status path. **Since v0.81.0 (schema 27)** the same rule keeps a row's Planned Start and Planned Finish when it leaves Planned: its start and finish in the page's plan schedule — `computeScenarioSchedule` (`ui/hooks/use-schedule.ts`), the function the page's own schedule comes from, with the edits made in the same Edit Activity window visit or the same bulk Apply applied and the Status kept Planned. Both or neither; with no schedule, neither. No engine reads them, and nothing moves them afterwards; → Planned clears them.
 
 ### Monte Carlo Simulation
 
