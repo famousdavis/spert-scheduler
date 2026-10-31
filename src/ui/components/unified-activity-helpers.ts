@@ -5,7 +5,7 @@
 import type { Activity, Calendar } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { hasAnyConstraint } from "@domain/helpers/constraint-labels";
-import { focusField, focusNextRow, focusPrevRow, statusUpdatesFor, type ScheduledDates } from "./activity-row-helpers";
+import { focusField, focusNextRow, focusPrevRow, statusUpdatesFor, keptNoPlan, announceNoPlanKept, type ScheduledDates } from "./activity-row-helpers";
 
 // Re-exported for existing grid-side consumers; the definition moved to the
 // domain layer (v0.57.3) so the schedule-export formatters can share it without
@@ -271,6 +271,32 @@ function planHeuristicUpdates(
   return out;
 }
 
+/** A schedule as the bulk planner reads it — the page's `planSchedule` returns one. */
+export type BulkPlanSchedule = (changed: Activity[]) => { activities: BulkScheduledRow[] } | null;
+
+/**
+ * WI-137 release 2 (owner, R630 ruling 5a): the schedule this Apply's Status change reads — ONE plan
+ * per Apply, the page's own schedule function (`planSchedule`) with the Apply's other updates (the
+ * shared Confidence and Distribution, the heuristic's Min and Max) applied to the selected rows and
+ * their Status unchanged. So a row leaving Planned keeps the dates the schedule would show it with
+ * those edits made, as two Applies — the edits first, then the Status — would keep. Dependent rows
+ * started in the same Apply each keep their pre-Apply plan (ruling 5b). With none of those updates,
+ * a change to Planned, or no `planSchedule` (a caller with no page), it is the schedule given.
+ */
+function statusScheduleRows(
+  status: Activity["status"],
+  activities: Activity[],
+  scheduledActivities: BulkScheduledRow[],
+  edits: BulkApplyPlan["perActivity"],
+  planSchedule: BulkPlanSchedule | undefined,
+): BulkScheduledRow[] {
+  if (!planSchedule || status === "planned" || edits.length === 0) return scheduledActivities;
+  const byId = new Map<string, Partial<Activity>>();
+  for (const { id, updates } of edits) byId.set(id, { ...byId.get(id), ...updates });
+  const changed = activities.filter((a) => byId.has(a.id)).map((a) => ({ ...a, ...byId.get(a.id) }));
+  return planSchedule(changed)?.activities ?? [];
+}
+
 export function planBulkApply(
   staged: StagedBulkFields,
   ids: string[],
@@ -279,14 +305,21 @@ export function planBulkApply(
   heuristic: { enabled?: boolean; minPercent?: number; maxPercent?: number },
   computeHeuristicFn: (ml: number, minPct: number, maxPct: number) => { min: number; max: number },
   calendar?: WorkCalendar | Calendar,
+  planSchedule?: BulkPlanSchedule,
 ): BulkApplyPlan {
   const shared = collectSharedUpdates(staged);
+  const heuristicUpdates = staged.recalculateHeuristic && heuristic.enabled
+    ? planHeuristicUpdates(ids, activities, heuristic, computeHeuristicFn)
+    : [];
+  // The edits this Apply makes besides the Status, row by row: the plan schedule is computed with them.
+  const edits = [...(Object.keys(shared).length > 0 ? ids.map((id) => ({ id, updates: shared })) : []), ...heuristicUpdates];
 
   const perActivity: BulkApplyPlan["perActivity"] = [
-    ...(staged.status ? planStatusUpdates(staged.status, ids, activities, scheduledActivities, calendar) : []),
-    ...(staged.recalculateHeuristic && heuristic.enabled
-      ? planHeuristicUpdates(ids, activities, heuristic, computeHeuristicFn)
+    ...(staged.status
+      ? planStatusUpdates(staged.status, ids, activities,
+        statusScheduleRows(staged.status, activities, scheduledActivities, edits, planSchedule), calendar)
       : []),
+    ...heuristicUpdates,
   ];
 
   return {
@@ -323,6 +356,8 @@ export function dispatchBulkPlan(
   },
 ): void {
   const { onBulkUpdateEach, onBulkUpdate, onUpdate } = callbacks;
+  // WI-137 release 2 (ruling 7c): ONE toast for the rows that left Planned with no Planned dates kept.
+  announceNoPlanKept(plan.perActivity.filter((e) => keptNoPlan(e.updates)).length);
   if (onBulkUpdateEach) {
     onBulkUpdateEach(bulkUpdatesById(ids, plan));
     return;

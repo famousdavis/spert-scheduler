@@ -9,6 +9,7 @@ import type {
   DeterministicSchedule,
   ScheduledActivity,
   MilestoneBufferInfo,
+  ProgressNote,
   SimulationRun,
 } from "@domain/models/types";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
@@ -28,6 +29,7 @@ import { confidenceApplies } from "@domain/helpers/confidence-applies";
 import { savedScenarioFlags } from "@ui/helpers/scenario-flags";
 import { flagNote, scheduleErrorKind } from "@ui/helpers/flag-sentences";
 import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
+import { progressNoteKey, progressNoteSentence } from "@ui/helpers/progress-note-words";
 import {
   buildComparisonModel,
   type ComparisonCdf,
@@ -639,6 +641,40 @@ export function PrintConstraintsTable({
             ))}
         </tbody>
       </table>
+    </section>
+  );
+}
+
+// -- Progress Notes (WI-137 release 2) ---------------------------------------
+
+export interface PrintProgressNotesSectionProps {
+  notes: ProgressNote[] | undefined;
+  formatDate: FormatDate;
+}
+
+/**
+ * The schedule's neutral progress notes on paper, in their own section (owner, R622): the same
+ * sentences the project page and the Edit Activity window show (`progress-note-words.ts`), never a
+ * second copy of the words. Grey, as on screen — a fact, not a warning. No note, no section. The
+ * intro is true beside every kind of note (Review 33, F6): a link's and a constraint's keep the
+ * recorded date, while a start before the Start Date is drawn from the Start Date, as its own
+ * sentence says.
+ */
+export function PrintProgressNotesSection({ notes, formatDate }: PrintProgressNotesSectionProps) {
+  if (!notes || notes.length === 0) return null;
+  return (
+    <section className="mb-3">
+      <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
+        Progress Notes ({notes.length})
+      </h2>
+      <p className="text-[9px] text-gray-600 mb-1">
+        A recorded start or finish that a link, a constraint or the Start Date would not have allowed. The schedule keeps it as recorded, except a start before the Start Date, which it draws from the Start Date.
+      </p>
+      <ul className="text-[9px] text-gray-800 list-disc pl-4 space-y-0.5">
+        {notes.map((n) => (
+          <li key={progressNoteKey(n)}>{progressNoteSentence(n, formatDate)}</li>
+        ))}
+      </ul>
     </section>
   );
 }

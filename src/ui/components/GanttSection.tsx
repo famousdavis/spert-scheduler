@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { flushSync } from "react-dom";
 import type {
   Activity,
@@ -13,11 +13,13 @@ import type {
   MilestoneBufferInfo,
   ScheduledActivity,
   Calendar,
+  ProgressNote,
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { ScheduleBuffer } from "@core/schedule/buffer";
 import { resolveGanttAppearance } from "@ui/charts/gantt-constants";
 import { GanttChart } from "@ui/charts/GanttChart";
+import { overtakenLinkKeys } from "@ui/charts/gantt-utils";
 import { GanttAppearancePanel } from "./GanttAppearancePanel";
 import { CopyImageButton } from "./CopyImageButton";
 import { useIsDarkClass } from "@ui/hooks/use-dark-class";
@@ -37,6 +39,8 @@ interface GanttSectionProps {
   milestones?: Milestone[];
   milestoneBuffers?: Map<string, MilestoneBufferInfo> | null;
   criticalPathIds?: Set<string> | null;
+  /** WI-137 release 2: the schedule's progress notes; an overtaken link's arrow is drawn dashed. */
+  progressNotes?: ProgressNote[];
   projectName?: string;
   onEditActivity?: (activityId: string) => void;
   onRenameActivity?: (activityId: string, newName: string) => void;
@@ -55,7 +59,10 @@ interface GanttSectionProps {
 }
 
 export function GanttSection(props: GanttSectionProps) {
-  const { ganttAppearance, onAppearanceChange, ...chartProps } = props;
+  const { ganttAppearance, onAppearanceChange, progressNotes, ...chartProps } = props;
+  // WI-137 release 2: the links a recorded date overtook, as keys — built once per schedule, not
+  // at every render of the chart (Review 33, F18).
+  const overtakenLinks = useMemo(() => overtakenLinkKeys(progressNotes), [progressNotes]);
   const [collapsed, setCollapsed] = useState(false);
   const [appearancePanelOpen, setAppearancePanelOpen] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -117,6 +124,7 @@ export function GanttSection(props: GanttSectionProps) {
         <div className="p-4 bg-white dark:bg-gray-800">
           <GanttChart
             {...chartProps}
+            overtakenLinks={overtakenLinks}
             svgContainerRef={chartRef}
             resolvedAppearance={resolvedAppearance}
             forceLight={forceLight}

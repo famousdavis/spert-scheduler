@@ -21,7 +21,7 @@ import type { CellIssues, RowReport } from "@ui/hooks/use-estimate-validity";
 import { suggestDistributionChange } from "@core/recommendation/recommendation";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
-import { commitEstimateGroup, focusField, statusUpdatesFor, elapsedFor, actualCountUpdates, inProgressActualTitle, completeActualTitle, type EstimateDrafts } from "./activity-row-helpers";
+import { commitEstimateGroup, focusField, gridStatusUpdates, elapsedFor, actualCountUpdates, inProgressActualTitle, completeActualTitle, type EstimateDrafts } from "./activity-row-helpers";
 import { RecordedDateText } from "./RecordedDateText";
 import {
   constraintBadgeClass,
@@ -712,7 +712,7 @@ export function UnifiedActivityRow({
           onChange={(e) => {
             // WI-137: one rule for every Status path — the dates and the count, together.
             const newStatus = e.target.value as Activity["status"];
-            onUpdate(activity.id, statusUpdatesFor(activity, newStatus, scheduledActivity, calendar));
+            onUpdate(activity.id, gridStatusUpdates(activity, newStatus, scheduledActivity, calendar));
           }}
           onKeyDown={(e) => handleTabNav(e, "status")}
           disabled={isLocked}

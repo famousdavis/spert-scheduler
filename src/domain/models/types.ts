@@ -12,7 +12,7 @@
 export const ENGINE_VERSION = "1.1.1";
 
 /** Operational. Drives persistence migration system. */
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 // -- Schema Limits -----------------------------------------------------------
 
@@ -163,6 +163,8 @@ export interface Activity {
   actualDuration?: number; // filled when status is "complete"
   actualStartDate?: string; // ISO "YYYY-MM-DD" — WI-137: the day it really started (In Progress / Complete)
   actualFinishDate?: string; // ISO "YYYY-MM-DD" — WI-137: the day it really finished (Complete)
+  plannedStartDate?: string; // ISO "YYYY-MM-DD" — WI-137 r2: the scheduled start, kept when the row left Planned
+  plannedFinishDate?: string; // ISO "YYYY-MM-DD" — WI-137 r2: the scheduled finish, kept when the row left Planned
   milestoneId?: string; // which milestone this activity must finish before
   startsAtMilestoneId?: string; // activity starts on this milestone's target date
   constraintType?: ConstraintType | null; // scheduling constraint type

@@ -1298,6 +1298,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         actualDuration: undefined,
         actualStartDate: undefined, // WI-137: a copy is new work — nothing recorded
         actualFinishDate: undefined,
+        plannedStartDate: undefined, // WI-137 release 2: nor a plan kept from the original
+        plannedFinishDate: undefined,
         checklist: activity.checklist?.map((item) => ({
           ...item,
           id: generateId(),

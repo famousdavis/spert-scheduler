@@ -29,6 +29,7 @@ import {
   PrintDescriptionsTable,
   PrintDependenciesTable,
   PrintConstraintsTable,
+  PrintProgressNotesSection,
   PrintItemTable,
   PrintMilestonesTable,
   PrintSimulationResultsSection,
@@ -131,6 +132,7 @@ export function PrintableReport({
       <PrintDependenciesTable scenario={scenario} />
 
       <PrintConstraintsTable scenario={scenario} formatDate={formatDate} />
+      <PrintProgressNotesSection notes={schedule?.progressNotes} formatDate={formatDate} />
 
       <PrintItemTable
         scenario={scenario}
@@ -173,6 +175,7 @@ export function PrintableReport({
           milestones={scenario.milestones}
           milestoneBuffers={milestoneBuffers}
           criticalPathIds={criticalPathIds}
+          progressNotes={schedule.progressNotes}
           projectName={project.name}
           targetFinishDate={scenario.targetFinishDate ?? null}
           showTargetOnGantt={project.showTargetOnGantt ?? false}
