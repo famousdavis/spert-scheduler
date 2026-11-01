@@ -24,6 +24,9 @@ const T4 = "T4 typed text alone: Cancel asks to discard, and Keep editing keeps 
 const T5 = "T5 typed text alone: Escape asks the three-way question, and its Save adds the task";
 const T6D = "T6 deliverables: Add and Enter still add and clear the box, and Save then adds nothing more";
 const T6T = "T6 tasks: Add and Enter still add and clear the box, and Save then adds nothing more";
+// ActivityEditModal.outside-write.test.tsx (v0.83.1, WI-158): the box's item joins the list as it is now.
+const P10C = "Review 38 P10c (D4): a task only typed in its box is added to the list as it is now";
+const D4D = "D4: a deliverable only typed in its box is added to the list as it is now";
 
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
@@ -32,31 +35,34 @@ const only = (...titles) => new RegExp(`> (?:${titles.map(escape).join("|")})$`)
 
 export const testFile = "src/";
 export const mutations = [
+  // ⚠️ v0.83.1 (WI-158) moved S1–S3: Save and both prompts now read ONE set of drafts, in which the
+  // boxes' text is already in its list, so the three needles name that one place. S1 gains T4, which
+  // types in the Deliverables box: a box ignored there is ignored by Cancel's question too. S3 keeps
+  // its regression — the prompts reading lists without the boxes while Save still adds them —
+  // written as that mistake. (First drafted with T4 under S2; the run put it under S1, and T4's
+  // `openSection("Deliverables")` says why.) Its review build (B, owner R653) moved the needles into
+  // `windowWrites`, and S1 and S2 each gain the WI-158 test that types in the same box.
   {
-    id: "S1  Save ignores the deliverable box  [expect 1: T1]",
+    id: "S1  Save ignores the deliverable box  [expect 3: T1, T4, D4 deliverable]",
     file: MODAL,
-    find: "    const finalDeliverables = withTypedItem(deliverables, newDeliverableText);",
-    replace: "    const finalDeliverables = deliverables;",
-    expectFailing: only(T1),
+    find: "    deliverables: withTypedItem(shown.deliverables, typed.deliverable),",
+    replace: "    deliverables: shown.deliverables,",
+    expectFailing: only(T1, T4, D4D),
   },
   {
-    // T5's save goes through the same handleSave, so the task it types is lost too.
-    id: "S2  Save ignores the task box  [expect 2: T2, T5]",
+    // T5's save goes through the same drafts, so the task it types is lost too.
+    id: "S2  Save ignores the task box  [expect 3: T2, T5, P10c]",
     file: MODAL,
-    find: "    const finalChecklist = withTypedItem(checklist, newTaskText);",
-    replace: "    const finalChecklist = checklist;",
-    expectFailing: only(T2, T5),
+    find: "    checklist: withTypedItem(shown.checklist, typed.task),",
+    replace: "    checklist: shown.checklist,",
+    expectFailing: only(T2, T5, P10C),
   },
   {
     // With nothing else changed, Cancel and Escape close without asking.
     id: "S3  hasChanges ignores the boxes  [expect 2: T4, T5]",
     file: MODAL,
-    find: [
-      "    if (typedItemText(checklist.length, newTaskText) !== null) return true;",
-      "    if (typedItemText(deliverables.length, newDeliverableText) !== null) return true;",
-      "",
-    ].join("\n"),
-    replace: "",
+    find: "  const hasChanges = writesAnything(writes);",
+    replace: "  const hasChanges = writesAnything(windowWrites(activity, edits, { task: \"\", deliverable: \"\" }, plannedPair));",
     expectFailing: only(T4, T5),
   },
   {

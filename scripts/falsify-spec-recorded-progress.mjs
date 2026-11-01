@@ -283,12 +283,17 @@ export const mutations = [
     ),
   },
   {
-    id: "2i  elapsed recounted on a blur alone  [expect 1]",
+    // v0.83.1 (WI-158) moved this needle: the window's drafts change through ONE edit per action, so
+    // the blur's early return now writes the snapped start first. Removing the branch is the same straw.
+    // ⚠️ Run at v0.83.1 it failed 2 for its 1: WI-158's D4_TOUCHED blurs a Saturday start the user's
+    // count stands on, and a blur alone recounting it gives 5 for the typed 6 — the same rule. Added.
+    id: "2i  elapsed recounted on a blur alone  [expect 2]",
     file: WINDOW,
-    find: "      if (snapped === committedStartDate) return;\n",
+    find: "      if (snapped === committedStartDate) {\n        edit({ actualStartDate: snapped });\n        return;\n      }\n",
     replace: "",
     expectFailing: only(
       "a blur alone keeps a typed count; a new start recounts",
+      "D4: once the count is changed here, a blur never snaps the start the window shows over another writer's",
     ),
   },
   {
