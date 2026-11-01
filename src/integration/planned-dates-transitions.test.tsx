@@ -159,9 +159,14 @@ describe("the grid's Status cell", () => {
     setGridStatus("c", "planned");
     expect(pairCensus()).toEqual([["c", "planned", null, null]]); // keys present, values undefined
     expect(savedCensus()).toEqual([]); // and gone from what is saved
+    // WI-154 (owner, R639, C′): Delta has no predecessor, so the grid SHOWS it from today, Tue 10/27
+    // (10 days, to Mon 11/09), while the pair it keeps is the plan before that floor — from the Start
+    // Date, Mon 10/05, to Fri 10/16. Due by that plan, Complete takes the same dates (R622).
     const shownD = shownDates("d");
+    expect(shownD).toEqual(["2026-10-27", "2026-11-09"]);
     setGridStatus("d", "complete");
-    expect([stored("d").plannedStartDate, stored("d").plannedFinishDate]).toEqual(shownD);
+    expect([stored("d").plannedStartDate, stored("d").plannedFinishDate, stored("d").actualStartDate, stored("d").actualFinishDate])
+      .toEqual(["2026-10-05", "2026-10-16", "2026-10-05", "2026-10-16"]);
     log(`grid d Planned->Complete: shown ${shownD} pair ${[stored("d").plannedStartDate, stored("d").plannedFinishDate]} actual ${[stored("d").actualStartDate, stored("d").actualFinishDate]}`);
   });
 
@@ -171,7 +176,11 @@ describe("the grid's Status cell", () => {
     const shownB = shownDates("b");
     setGridStatus("b", "inProgress");
     log(`grid b legacy -> Planned (shown ${shownB}) -> In Progress: pair ${[stored("b").plannedStartDate, stored("b").plannedFinishDate]} actualStart ${stored("b").actualStartDate}`);
-    expect([stored("b").plannedStartDate, stored("b").plannedFinishDate]).toEqual(shownB);
+    // WI-154 (owner, R639, C′): as Planned, Bravo follows Alpha's recorded finish, Fri 10/23, so its
+    // links start it Mon 10/26 (10 days, to Fri 11/06); the grid SHOWS it from today, Tue 10/27, to
+    // Mon 11/09. The pair is the plan before that floor: Bravo started a day after it.
+    expect(shownB).toEqual(["2026-10-27", "2026-11-09"]);
+    expect([stored("b").plannedStartDate, stored("b").plannedFinishDate]).toEqual(["2026-10-26", "2026-11-06"]);
     expect(stored("b").plannedStartDate).not.toBe("2026-10-19"); // never the old Actual Start
   });
 });
@@ -264,17 +273,23 @@ describe("the bulk toolbar", () => {
 
   it("a dependent chain started in ONE Apply: each row its pre-Apply plan — compared with the grid one row at a time", () => {
     renderPage();
+    // WI-154 (owner, R639, C′): the grid SHOWS the chain from today, Tue 10/27 (Delta to Mon 11/09,
+    // Echo 11/10 – 11/23, Foxtrot 11/24 – 12/07); each row keeps its dates in the plan before that
+    // floor — from the Start Date: Delta 10/05 – 10/16, Echo 10/19 – 10/30, Foxtrot 11/02 – 11/13.
     const shown = { d: shownDates("d"), e: shownDates("e"), f: shownDates("f") };
+    expect(shown).toEqual({ d: ["2026-10-27", "2026-11-09"], e: ["2026-11-10", "2026-11-23"], f: ["2026-11-24", "2026-12-07"] });
     bulk(["d", "e", "f"], "inProgress");
     const viaBulk = withPair();
-    expect(viaBulk).toEqual([["d", ...shown.d], ["e", ...shown.e], ["f", ...shown.f]]);
-    // The same three by the grid, one at a time: each click reschedules the page first.
+    expect(viaBulk).toEqual([["d", "2026-10-05", "2026-10-16"], ["e", "2026-10-19", "2026-10-30"], ["f", "2026-11-02", "2026-11-13"]]);
+    // The same three by the grid, one at a time: each click reschedules the page first. Delta keeps
+    // its plan; started today, it runs 10/27 – 11/09, so Echo's plan is 11/10 – 11/23; started
+    // today too, Echo runs 10/27 – 11/09, and Foxtrot's plan is 11/10 – 11/23.
     reload();
     const viaGrid: (string | null)[][] = [];
+    const planAtClick: Record<string, string[]> = { d: ["2026-10-05", "2026-10-16"], e: ["2026-11-10", "2026-11-23"], f: ["2026-11-10", "2026-11-23"] };
     for (const id of ["d", "e", "f"]) {
-      const s = shownDates(id);
       setGridStatus(id, "inProgress");
-      viaGrid.push([id, ...s]);
+      viaGrid.push([id, ...planAtClick[id]!]);
     }
     expect(withPair()).toEqual(viaGrid);
     log(`bulk chain d,e,f: ${JSON.stringify(viaBulk)}`);

@@ -90,6 +90,14 @@ function validateStartPayload(payload: StartPayload): string | null {
 }
 
 const isNumber = (value: unknown): boolean => typeof value === "number";
+
+/**
+ * WI-154: the data date's offset, as sent — a whole number of working days, or nothing. Anything
+ * else is dropped, as a malformed map entry is: the trials then run with no floor.
+ */
+function validDataDateOffset(value: unknown): number | undefined {
+  return Number.isInteger(value) && (value as number) > 0 ? (value as number) : undefined;
+}
 const isStringArray = (value: unknown): boolean => Array.isArray(value);
 
 /**
@@ -123,6 +131,7 @@ function runDependencyBranch(
     constraintMap: toMcConstraintMap(payload.constraintMap),
     recordedStartMap: toValidatedMap(payload.recordedStarts, isNumber),
     recordedDurationMap: toValidatedMap(payload.recordedDurations, isNumber),
+    dataDateOffset: validDataDateOffset(payload.dataDateOffset),
     onProgress: postProgress,
     progressInterval: PROGRESS_INTERVAL,
   });
@@ -214,6 +223,7 @@ function runSequentialBranch(payload: StartPayload): TrialOutcome {
     deterministicDurations: payload.deterministicDurations,
     sequentialConstraints: seqConstraints,
     sequentialRecords: seqRecords,
+    dataDateOffset: validDataDateOffset(payload.dataDateOffset),
     onProgress: postProgress,
     progressInterval: PROGRESS_INTERVAL,
   });

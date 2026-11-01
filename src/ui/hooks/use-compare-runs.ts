@@ -12,6 +12,7 @@ import { savedScenarioFlags } from "@ui/helpers/scenario-flags";
 import { runBlockedMessage } from "@ui/helpers/run-blocked-message";
 import { currentSimulationGeneration } from "@infrastructure/simulation/simulation-cancellation";
 import { toast } from "@ui/hooks/use-notification-store";
+import { todayISO } from "@ui/components/activity-row-helpers";
 
 type SetSimulationResults = (projectId: string, scenarioId: string, results: SimulationRun) => void;
 
@@ -85,6 +86,7 @@ export function useCompareRuns(setSimulationResults: SetSimulationResults): Comp
           scenario.startDate,
           calendar,
           scenario.settings.parkinsonsLawEnabled ?? true,
+          todayISO(),
         );
       } catch (err) {
         toast.error(err instanceof Error ? err.message : String(err));
@@ -120,6 +122,7 @@ export function useCompareRuns(setSimulationResults: SetSimulationResults): Comp
         params.dependencyParams,
         params.sequentialConstraints,
         params.sequentialRecords,
+        params.dataDateOffset,
       );
     },
     [setSimulationResults, settle],

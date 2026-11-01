@@ -24,8 +24,11 @@ interface UseAutoRunSimulationArgs {
     dependencyParams?: import("@core/simulation/worker-client").DependencySimulationParams,
     sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
     sequentialRecords?: (import("@core/simulation/monte-carlo").SequentialRecordEntry | null)[],
+    dataDateOffset?: number,
   ) => void;
   setSimulationResults: (projectId: string, scenarioId: string, result: SimulationRun) => void;
+  /** WI-154: today, local — a new day re-runs, since the data date may move the forecast. */
+  today?: string;
 }
 
 /**
@@ -40,6 +43,7 @@ export function useAutoRunSimulation({
   isRunning,
   runSimulation,
   setSimulationResults,
+  today,
 }: UseAutoRunSimulationArgs): void {
   const autoRunSimulation = usePreferencesStore(
     (s) => s.preferences.autoRunSimulation,
@@ -76,6 +80,7 @@ export function useAutoRunSimulation({
           scenario.startDate,
           workCalendar,
           scenario.settings.parkinsonsLawEnabled ?? true,
+          today,
         );
       } catch (err) {
         // Silent to the user (see rationale below) but not silent to the developer:
@@ -105,6 +110,7 @@ export function useAutoRunSimulation({
         params.dependencyParams,
         params.sequentialConstraints,
         params.sequentialRecords,
+        params.dataDateOffset,
       );
     }, 500);
 
@@ -126,5 +132,6 @@ export function useAutoRunSimulation({
     // project holidays, global calendar, work-week mask) — workCalendar is the
     // memoized value from useWorkCalendar(), stable across unrelated renders.
     workCalendar,
+    today,
   ]);
 }

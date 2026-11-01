@@ -97,6 +97,8 @@ interface SimulationPanelProps {
   dateToWorkingDays?: (targetDateISO: string) => number | null;
   targetFinishGreenPct?: number;
   targetFinishAmberPct?: number;
+  /** WI-154: the results are from an earlier data date and are not shown — the one sentence why. */
+  staleNote?: string;
   onRun: () => void;
   onCancel: () => void;
 }
@@ -121,6 +123,7 @@ export function SimulationPanel({
   dateToWorkingDays,
   targetFinishGreenPct = 80,
   targetFinishAmberPct = 50,
+  staleNote,
   onRun,
   onCancel,
 }: SimulationPanelProps) {
@@ -214,6 +217,10 @@ export function SimulationPanel({
         <p className="text-gray-500 dark:text-gray-400 text-sm">
           Add activities to run a simulation.
         </p>
+      )}
+
+      {staleNote && !isRunning && (
+        <p role="status" className="text-sm text-gray-600 dark:text-gray-300">{staleNote}</p>
       )}
 
       {!allActivitiesValid && hasActivities && (

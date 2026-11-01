@@ -143,7 +143,8 @@ describe("no pair kept (ruling 2)", () => {
 
 describe("the definition (ruling 5b): each Planned label's tooltip AND accessible description", () => {
   it("says what the dates are", () => {
-    expect(PLANNED_DATES_DEFINITION).toContain("the schedule's dates at the moment the activity left Planned");
+    // WI-154 (owner, R639, C′): the plan's dates, without today's floor.
+    expect(PLANNED_DATES_DEFINITION).toContain("the dates the plan gave the activity when it left Planned, without moving work that has not started to today");
     open("b");
     const label = cell("Planned Start").firstElementChild as HTMLElement;
     expect(label.getAttribute("title")).toBe(PLANNED_DATES_DEFINITION);

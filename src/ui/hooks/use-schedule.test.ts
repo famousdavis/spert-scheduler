@@ -138,7 +138,8 @@ describe("useSchedule", () => {
 
     rerender({ target: 0.8 });
     expect(mockCompute).toHaveBeenCalledTimes(2);
-    expect(mockCompute).toHaveBeenLastCalledWith(ACTS, "2026-04-06", 0.8, undefined);
+    // WI-154: the fifth argument is the data date — none here (no `today`, and no record).
+    expect(mockCompute).toHaveBeenLastCalledWith(ACTS, "2026-04-06", 0.8, undefined, undefined);
   });
 
   it("does not recompute when nothing changes", () => {

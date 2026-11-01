@@ -222,11 +222,13 @@ export interface BulkScheduledRow {
   duration: number;
   startDate?: string;
   endDate?: string;
+  /** WI-154 (C′): a Planned row's dates in the plan before today's floor (`withPlanDates`). */
+  planDates?: ScheduledDates["planDates"];
 }
 
 function scheduledDatesOf(sa: BulkScheduledRow | undefined): ScheduledDates | undefined {
   if (!sa?.startDate || !sa.endDate) return undefined;
-  return { startDate: sa.startDate, endDate: sa.endDate, duration: sa.duration };
+  return { startDate: sa.startDate, endDate: sa.endDate, duration: sa.duration, planDates: sa.planDates };
 }
 
 /**

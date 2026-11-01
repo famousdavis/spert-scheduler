@@ -51,6 +51,10 @@ interface PrintableReportProps {
   compareScenarios?: Scenario[];
   /** The project numbers its activities; the printed comparison's notes number rows as the screen's do. */
   showActivityNumbers?: boolean;
+  /** WI-154: the open scenario's results are from an earlier data date — the sentence, printed in their place. */
+  staleNote?: string;
+  /** WI-154: the page's today, which the printed comparison reads as the screen's does. */
+  today?: string;
 }
 
 const NO_COMPARISON: Scenario[] = [];
@@ -68,6 +72,8 @@ export function PrintableReport({
   scheduleError = null,
   compareScenarios = NO_COMPARISON,
   showActivityNumbers = false,
+  staleNote,
+  today,
 }: PrintableReportProps) {
   const formatDate = useDateFormat();
   const formatDateShort = useDateFormatShort();
@@ -109,6 +115,7 @@ export function PrintableReport({
           showActivityNumbers={showActivityNumbers}
           reportScenarioName={scenario.name}
           formatDate={formatDate}
+          today={today}
         />
       )}
 
@@ -189,6 +196,12 @@ export function PrintableReport({
           simulationResults={simulationResults}
           projPct={projPct}
         />
+      )}
+      {staleNote && (
+        <section className="mb-3">
+          <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">Simulation Results</h2>
+          <p className="text-[9px] text-gray-600">{staleNote}</p>
+        </section>
       )}
 
       {/* Footer */}

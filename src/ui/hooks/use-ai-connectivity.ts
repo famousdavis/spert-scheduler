@@ -25,6 +25,7 @@ import type {
 import { db, isFirebaseAvailable, getTeardownAiSession } from "@infrastructure/firebase/firebase";
 import { sanitizeForFirestore } from "@infrastructure/firebase/firestore-sanitize";
 import { APP_VERSION } from "@app/constants";
+import { useToday } from "@ui/hooks/use-today";
 import type { Project, Calendar } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
 import type { AiOp, AiOpResult } from "@app/api/ai-batch-service";
@@ -268,6 +269,10 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
   const productRef = useRef<Project | null>(project);
   const activeScenarioIdRef = useRef<string | null>(activeScenarioId);
   const workCalendarRef = useRef<WorkCalendar | Calendar | undefined>(workCalendar);
+  // WI-154 (Review 36, G1): today, which a scenario with a recorded start schedules unstarted work
+  // from — so a new day is a new snapshot, as the page's own schedule is.
+  const today = useToday();
+  const todayRef = useRef(today);
   const applyAiBatchRef = useRef(applyAiBatch);
   const clearAiUndoFrameRef = useRef(clearAiUndoFrame);
   const onResultsRef = useRef(onResults);
@@ -296,6 +301,7 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
   useEffect(() => { productRef.current = project; }, [project]);
   useEffect(() => { activeScenarioIdRef.current = activeScenarioId; }, [activeScenarioId]);
   useEffect(() => { workCalendarRef.current = workCalendar; }, [workCalendar]);
+  useEffect(() => { todayRef.current = today; }, [today]);
   useEffect(() => { applyAiBatchRef.current = applyAiBatch; }, [applyAiBatch]);
   useEffect(() => { clearAiUndoFrameRef.current = clearAiUndoFrame; }, [clearAiUndoFrame]);
   useEffect(() => { onResultsRef.current = onResults; }, [onResults]);
@@ -332,7 +338,8 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
       workCalendarRef.current,
       activeScenarioIdRef.current,
       lastAppliedSeqRef.current,
-      cacheRef.current
+      cacheRef.current,
+      todayRef.current,
     );
     const body = sanitizeForFirestore(truncateSnapshotToBudget(full));
     const byteSize = new TextEncoder().encode(JSON.stringify(body)).length;
@@ -356,14 +363,15 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
   }, [writeSnapshot]);
 
   // Reactive snapshot refresh on any snapshot input change: project edits
-  // (human or applied AI batch), the open scenario, or the assembled work
+  // (human or applied AI batch), the open scenario, the assembled work
   // calendar (global work week / holidays live in preferences, so they change
-  // without changing `project`). writeSnapshot reads all three via refs; this
-  // effect is the only thing that schedules the rewrite.
+  // without changing `project`), or the day (WI-154: at local midnight).
+  // writeSnapshot reads them via refs; this effect is the only thing that
+  // schedules the rewrite.
   useEffect(() => {
     if (!sessionState.sessionActive || !sessionState.consentRead) return;
     scheduleSnapshot();
-  }, [project, activeScenarioId, workCalendar, sessionState.sessionActive, sessionState.consentRead, scheduleSnapshot]);
+  }, [project, activeScenarioId, workCalendar, today, sessionState.sessionActive, sessionState.consentRead, scheduleSnapshot]);
 
   // ── Op listener handlers ───────────────────────────────────────────────────
   const makeOpHandlers = useCallback((sessionId: string) => {

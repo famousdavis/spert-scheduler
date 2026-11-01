@@ -18,12 +18,14 @@ export function computeSchedule(
   activities: Activity[],
   startDate: string,
   probabilityTarget: number,
-  calendar?: WorkCalendar | Calendar
+  calendar?: WorkCalendar | Calendar,
+  dataDate?: string,
 ): DeterministicSchedule {
   return computeDeterministicSchedule(
     activities,
     startDate,
     probabilityTarget,
-    calendar
+    calendar,
+    dataDate,
   );
 }

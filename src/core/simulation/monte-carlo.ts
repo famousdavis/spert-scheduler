@@ -22,7 +22,14 @@ import {
   computeCriticalPathDuration,
   computeCriticalPathWithMilestones,
 } from "@core/schedule/dependency-graph";
-import { pinnedFinishInt, type RecordedPin } from "@core/schedule/recorded-progress";
+import {
+  dataDateFloorOffsets,
+  floorsAtDataDate,
+  linkKey,
+  pinnedFinishInt,
+  setAsideLinks,
+  type RecordedPin,
+} from "@core/schedule/recorded-progress";
 
 /** Per-activity constraint info for sequential mode (parallel to activities array). */
 export interface SequentialConstraintEntry {
@@ -44,6 +51,8 @@ export interface MonteCarloInput {
    * recorded start's offset from the project start, and a Complete row's day count from its dates.
    */
   sequentialRecords?: (SequentialRecordEntry | null)[];
+  /** WI-154: working days from the project start to the data date; no Planned row starts before it. */
+  dataDateOffset?: number;
   /** Optional progress callback, called every `progressInterval` trials. */
   onProgress?: (completedTrials: number, totalTrials: number) => void;
   /** How often to report progress (default: 10000). */
@@ -56,10 +65,14 @@ export interface SequentialRecordEntry {
   duration?: number;
 }
 
-/** One activity as the constrained sequential loop needs it: order-preserving. */
+/**
+ * One activity as the constrained sequential loop needs it: order-preserving. WI-154: `started` — it
+ * has started; `afterStarted` — the row above has not, so (Review 35, E1) it goes after the last
+ * started row instead of after the row above. Both only matter with a data date.
+ */
 type SequentialActivityInfo =
-  | { type: "complete"; duration: number }
-  | { type: "active"; distIndex: number; floor: number };
+  | { type: "complete"; duration: number; started: true; afterStarted: boolean }
+  | { type: "active"; distIndex: number; floor: number; startFloor: number; started: boolean; afterStarted: boolean };
 
 /**
  * Split activities into a completed-duration sum and a distribution list.
@@ -101,18 +114,26 @@ function buildSequentialActivityInfos(
   activities: Activity[],
   deterministicDurations: number[] | undefined,
   records?: (SequentialRecordEntry | null)[],
+  dataDateOffset = 0,
 ): SequentialActivityInfo[] {
   const infos: SequentialActivityInfo[] = [];
   let distIdx = 0;
   for (const [i, activity] of activities.entries()) {
     const recDur = records?.[i]?.duration;
+    // WI-154 (E1): with a data date, a started row is not held by a row above that has not started.
+    const above = activities[i - 1];
+    const afterStarted = dataDateOffset > 0 && !!above && floorsAtDataDate(above) && !floorsAtDataDate(activity);
     if (activity.status === "complete" && (activity.actualDuration != null || recDur !== undefined)) {
-      infos.push({ type: "complete", duration: recDur ?? activity.actualDuration! });
+      infos.push({ type: "complete", duration: recDur ?? activity.actualDuration!, started: true, afterStarted });
     } else {
       infos.push({
         type: "active",
         distIndex: distIdx,
         floor: deterministicDurations?.[distIdx] ?? 0,
+        // WI-154: a Planned row starts no earlier than the data date (0: no floor).
+        startFloor: floorsAtDataDate(activity) ? dataDateOffset : 0,
+        started: !floorsAtDataDate(activity),
+        afterStarted,
       });
       distIdx++;
     }
@@ -175,6 +196,16 @@ function placeSequential(
   return currentPos + duration;
 }
 
+/**
+ * Where a row starts in the position path, before its own constraint or record: after the row above —
+ * WI-154: or, a started row below one that has not started, after the last started row (E1) — and a
+ * not-started row no earlier than the data date.
+ */
+function startPosition(info: SequentialActivityInfo, currentPos: number, startedEnd: number): number {
+  const from = info.afterStarted ? startedEnd : currentPos;
+  return info.type === "active" ? Math.max(from, info.startFloor) : from;
+}
+
 /** The per-trial sample loop for the constrained path — positions, not a plain sum. */
 function runConstrainedTrials(
   samples: Float64Array,
@@ -191,13 +222,15 @@ function runConstrainedTrials(
     // WI-137: a recorded start can sit before the row above ends, so the project ends at the
     // LATEST end. With no record, positions never go back and this equals the final position.
     let maxEnd = 0;
+    let startedEnd = 0; // WI-154 (E1): where the last started row ended
     for (let a = 0; a < infos.length; a++) {
       const info = infos[a]!;
       const duration =
         info.type === "complete"
           ? info.duration
           : Math.max(info.floor, distributions[info.distIndex]!.sample(rng));
-      currentPos = placeSequential(currentPos, duration, sequentialConstraints?.[a], records?.[a], info.type === "complete");
+      currentPos = placeSequential(startPosition(info, currentPos, startedEnd), duration, sequentialConstraints?.[a], records?.[a], info.type === "complete");
+      startedEnd = info.started ? currentPos : startedEnd;
       if (currentPos > maxEnd) maxEnd = currentPos;
     }
     samples[trial] = maxEnd;
@@ -261,6 +294,7 @@ export function runTrials(input: MonteCarloInput): { samples: Float64Array; exha
     deterministicDurations,
     sequentialConstraints,
     sequentialRecords,
+    dataDateOffset = 0,
     onProgress,
     progressInterval = 10000,
   } = input;
@@ -272,12 +306,12 @@ export function runTrials(input: MonteCarloInput): { samples: Float64Array; exha
   const hasConstraints = sequentialConstraints?.some((c) => c !== null) ?? false;
   const hasRecords = sequentialRecords?.some((r) => r !== null) ?? false;
 
-  if (hasConstraints || hasRecords) {
+  if (hasConstraints || hasRecords || dataDateOffset > 0) {
     // Position-tracking path: constraints can insert idle gaps, so a running position is
     // tracked rather than a plain sum, and activity order must be preserved.
     runConstrainedTrials(
       samples,
-      buildSequentialActivityInfos(activities, deterministicDurations, sequentialRecords),
+      buildSequentialActivityInfos(activities, deterministicDurations, sequentialRecords, dataDateOffset),
       distributions,
       sequentialConstraints,
       rng,
@@ -310,6 +344,8 @@ export interface DependencyMonteCarloInput {
   recordedStartMap?: Map<string, number>;
   /** WI-137: activityId → a Complete row's day count from its recorded dates. */
   recordedDurationMap?: Map<string, number>;
+  /** WI-154: working days from the project start to the data date; no Planned row starts before it. */
+  dataDateOffset?: number;
   /** Optional progress callback. */
   onProgress?: (completedTrials: number, totalTrials: number) => void;
   /** How often to report progress (default: 10000). */
@@ -421,6 +457,7 @@ function makeTrialRecorder(
   activityEarliestStart: Map<string, number> | undefined,
   constraintMap: Map<string, { type: string; offsetFromStart: number; mode: string }> | undefined,
   recordedPins?: Map<string, RecordedPin>,
+  dataDateFloors?: Map<string, number>,
 ): (trial: number, durations: Map<string, number>) => void {
   const hasMilestones = !!milestoneActivityIds && milestoneActivityIds.size > 0;
 
@@ -433,6 +470,7 @@ function makeTrialRecorder(
         activityEarliestStart,
         constraintMap,
         recordedPins,
+        dataDateFloors,
       );
       samples[trial] = result.projectDuration;
       for (const [milestoneId, duration] of result.milestoneDurations) {
@@ -441,7 +479,7 @@ function makeTrialRecorder(
     };
   }
 
-  if (hasEntries(constraintMap) || hasEntries(recordedPins)) {
+  if (hasEntries(constraintMap) || hasEntries(recordedPins) || hasEntries(dataDateFloors)) {
     // Constraints without milestones: same engine call, empty milestone map. Allocated
     // once here rather than per trial, which the inlined version did not do.
     const noMilestones = new Map<string, string[]>();
@@ -453,6 +491,7 @@ function makeTrialRecorder(
         activityEarliestStart,
         constraintMap,
         recordedPins,
+        dataDateFloors,
       );
       samples[trial] = result.projectDuration;
     };
@@ -481,6 +520,21 @@ function recordedPinsFor(
   ]));
 }
 
+/**
+ * The network every trial runs on: the full one (built first all the same, so a cycle fails as
+ * before), less — with a data date — the links from work that has not started into work that has.
+ */
+function trialNetwork(
+  activities: Activity[], dependencies: ActivityDependency[], floorApplies: boolean,
+): ReturnType<typeof buildDependencyGraph> {
+  const ids = activities.map((a) => a.id);
+  const full = buildDependencyGraph(ids, dependencies);
+  const pairs = dependencies.map((d) => ({ fromId: d.fromActivityId, toId: d.toActivityId, type: d.type, lagDays: d.lagDays }));
+  const setAside = setAsideLinks(pairs, new Map(activities.map((a) => [a.id, a])), floorApplies);
+  if (setAside.size === 0) return full;
+  return buildDependencyGraph(ids, dependencies.filter((d) => !setAside.has(linkKey(d.fromActivityId, d.toActivityId, d.type))));
+}
+
 export function runDependencyTrials(input: DependencyMonteCarloInput): DependencyTrialsResult {
   const {
     activities,
@@ -493,14 +547,16 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
     constraintMap,
     recordedStartMap,
     recordedDurationMap,
+    dataDateOffset,
     onProgress,
     progressInterval = 10000,
   } = input;
 
   const rng = createSeededRng(rngSeed);
   const activityIds = activities.map((a) => a.id);
-  // Built once and reused across all trials.
-  const graph = buildDependencyGraph(activityIds, dependencies);
+  // Built once and reused across all trials. WI-154 (E1): with a data date, a link from work that has
+  // not started holds no work that has, so it is left out — as the schedule leaves it out.
+  const graph = trialNetwork(activities, dependencies, (dataDateOffset ?? 0) > 0);
   const model = buildDependencySamplingModel(activities, deterministicDurationMap, recordedDurationMap);
 
   const hasMilestones = !!milestoneActivityIds && milestoneActivityIds.size > 0;
@@ -523,6 +579,7 @@ export function runDependencyTrials(input: DependencyMonteCarloInput): Dependenc
     activityEarliestStart,
     constraintMap,
     recordedPinsFor(recordedStartMap, model.completedDurations),
+    dataDateFloorOffsets(activities, dataDateOffset),
   );
 
   for (let trial = 0; trial < trialCount; trial++) {

@@ -133,7 +133,11 @@ describe("dependencies on", () => {
   });
 
   it("an overtaken arrow is NEVER a critical edge — the ordinary colour and arrowhead; the critical B → C stays red (ruling 6)", () => {
-    expect([...zeroFloatIds(schedule())].sort()).toEqual(["A", "B", "C"]); // why A → B would otherwise be red
+    // WI-151: A's float no longer runs through the link B overtook. A is a terminal row once it is
+    // skipped: LS = 11/13 less 14 working days = 10/26, ES 10/05, so 15 days of float — not critical.
+    // (Before WI-151 A read 0 here, which is why A → B would otherwise have been red.)
+    expect([...zeroFloatIds(schedule())].sort()).toEqual(["B", "C"]);
+    expect(schedule().activities.find((a) => a.activityId === "A")!.totalFloat).toBe(15);
     expect(arrowLooks(screenChart(schedule(), true))).toEqual([
       [LIGHT.arrow, "url(#arrowhead)"], [RED, "url(#arrowhead-critical)"],
     ]);

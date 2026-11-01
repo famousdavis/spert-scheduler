@@ -77,6 +77,7 @@ import {
 } from "@core/schedule/recorded-progress";
 import { actualDatesFault } from "@ui/helpers/actual-dates-fault";
 import { progressNoteKey, progressNoteSentence } from "@ui/helpers/progress-note-words";
+import { passedConstraintPreview } from "@ui/helpers/passed-constraint-preview";
 import { generateId } from "@app/api/id";
 
 interface ActivityEditModalProps {
@@ -582,6 +583,17 @@ export function ActivityEditModal({
         return;
       }
 
+      // WI-154 (Review 35, E4/E5): a passed hard date on work not started is not held — the page's words.
+      const passed = passedConstraintPreview({
+        activity, draftStatus: status, draft: { type: constraintType, date: constraintDate, mode: constraintMode },
+        schedule, activities: allActivities, scenarioStartDate, durationDays: sa.duration, today: todayISO(), calendar,
+        draftActualStart: actualStartDate || undefined,
+      });
+      if (passed !== undefined) {
+        setConflictPreview(passed);
+        return;
+      }
+
       const esNet = sa.startDate;
       const efNet = sa.endDate;
       const lsNet = sa.lateStartNet ?? sa.startDate;
@@ -603,7 +615,7 @@ export function ActivityEditModal({
     }, 200);
 
     return () => clearTimeout(conflictTimerRef.current);
-  }, [constraintType, constraintDate, constraintMode, schedule, activityId, activity?.name, calendar]);
+  }, [constraintType, constraintDate, constraintMode, schedule, activityId, activity, calendar, status, allActivities, scenarioStartDate, actualStartDate]);
 
   // -- Milestone anchor guard --
   const hasMilestoneAnchor = !!activity?.startsAtMilestoneId;

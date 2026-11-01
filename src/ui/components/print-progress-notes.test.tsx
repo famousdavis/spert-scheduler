@@ -43,7 +43,9 @@ describe("Progress Notes, printed", () => {
     const notes = computeDependencySchedule(acts, [], "2026-10-05", 0.5).progressNotes;
     const { container } = render(<PrintProgressNotesSection notes={notes} formatDate={mdy} />);
     expect(container.querySelector("p")!.textContent).toBe(
-      "A recorded start or finish that a link, a constraint or the Start Date would not have allowed. The schedule keeps it as recorded, except a start before the Start Date, which it draws from the Start Date.",
+      // WI-154: the intro names each kind of note, the data date's and work started before work it
+      // follows among them, in words true of every note of that kind (Review 35, W6: no nested dashes).
+      "Each note below is one of these: a recorded start or finish that a link, a constraint or the Start Date would not have allowed, kept as recorded (a start before the Start Date is drawn from the Start Date); work that has started before work it follows, which the schedule does not hold back; or work that has not started, which is not scheduled before today.",
     );
     expect(Array.from(container.querySelectorAll("li")).map((li) => li.textContent)).toEqual([
       "Kickoff started on 09/28/2026, before this scenario's Start Date, 10/05/2026, so the schedule shows it starting on 10/05/2026.",

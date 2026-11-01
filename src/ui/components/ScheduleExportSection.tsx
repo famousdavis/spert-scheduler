@@ -14,10 +14,10 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { formatExportTimestamp } from "@core/calendar/calendar";
-import {
-  computeDeterministicSchedule,
-  computeDependencySchedule,
-} from "@core/schedule/deterministic";
+import { staleResults } from "@core/schedule/recorded-progress";
+import { computeScenarioSchedule, type ScenarioScheduleInputs } from "@ui/hooks/use-schedule";
+import { useToday } from "@ui/hooks/use-today";
+import { staleScenariosSentence } from "@ui/helpers/stale-results-words";
 import { computeScheduleBuffer } from "@core/schedule/buffer";
 import { toast } from "@ui/hooks/use-notification-store";
 
@@ -40,12 +40,23 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
 
   // Assembled work calendar for selected project
   const workCalendar = useWorkCalendar(selectedProjectId);
+  // WI-154: today as the project page reads it, turning at midnight.
+  const today = useToday();
 
-  // Eligible scenarios: must have simulation results
-  const eligibleScenarios = useMemo(
-    () => selectedProject?.scenarios.filter((s) => s.simulationResults) ?? [],
-    [selectedProject]
-  );
+  // Eligible scenarios: must have simulation results — WI-154: current ones (owner, R639, decision 3).
+  // Results from an earlier data date are not exported; the line below the list names them.
+  const { eligibleScenarios, staleNote } = useMemo(() => {
+    const withResults = selectedProject?.scenarios.filter((s) => s.simulationResults) ?? [];
+    const stale = withResults.map((s) => staleResults(s, today, workCalendar));
+    const firstStale = stale.find((x) => x !== null);
+    return {
+      eligibleScenarios: withResults.filter((_, i) => !stale[i]),
+      staleNote: firstStale
+        ? staleScenariosSentence(withResults.filter((_, i) => stale[i]).map((s) => s.name), firstStale.dataDate, formatDate, "before exporting")
+        : null,
+    };
+  }, [selectedProject, today, workCalendar, formatDate]);
+  const selectedEligible = eligibleScenarios.some((s) => s.id === selectedScenarioId);
 
   const handleProjectChange = useCallback(
     (projectId: string) => {
@@ -56,25 +67,24 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
   );
 
   const buildParams = useCallback((): ScheduleExportParams | null => {
-    if (!selectedProject || !selectedScenario || !selectedScenario.simulationResults) return null;
+    if (!selectedProject || !selectedScenario || !selectedScenario.simulationResults || !selectedEligible) return null;
 
     const settings = selectedScenario.settings;
-
-    const schedule = settings.dependencyMode
-      ? computeDependencySchedule(
-          selectedScenario.activities,
-          selectedScenario.dependencies,
-          selectedScenario.startDate,
-          settings.probabilityTarget,
-          workCalendar,
-          selectedScenario.milestones
-        )
-      : computeDeterministicSchedule(
-          selectedScenario.activities,
-          selectedScenario.startDate,
-          settings.probabilityTarget,
-          workCalendar
-        );
+    // WI-154: the scenario's schedule by the project page's own function, from one set of inputs: with
+    // today, as the page shows it, and with today off — the plan a not-started row's Planned dates
+    // come from (owner, 2026-10-31, Q1).
+    const inputs: ScenarioScheduleInputs = {
+      activities: selectedScenario.activities,
+      startDate: selectedScenario.startDate,
+      probabilityTarget: settings.probabilityTarget,
+      calendar: workCalendar,
+      network: settings.dependencyMode ? { dependencies: selectedScenario.dependencies, milestones: selectedScenario.milestones } : null,
+    };
+    const shown = computeScenarioSchedule({ ...inputs, today });
+    if (shown.scheduleError) throw new Error(shown.scheduleError.message);
+    const schedule = shown.schedule;
+    if (!schedule) return null;
+    const plan = computeScenarioSchedule(inputs).schedule;
 
     const buffer = computeScheduleBuffer(
       schedule.spanDays,
@@ -96,8 +106,9 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
       calendar: workCalendar,
       dateFormat,
       bands: selectedScenario.bands ?? [],
+      plan,
     };
-  }, [selectedProject, selectedScenario, workCalendar, dateFormat]);
+  }, [selectedProject, selectedScenario, selectedEligible, today, workCalendar, dateFormat]);
 
   const handleExportXlsx = useCallback(async () => {
     let params: ScheduleExportParams | null;
@@ -132,7 +143,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
     downloadFile(csv, filename, "text/csv");
   }, [buildParams]);
 
-  const canExport = !!selectedScenario?.simulationResults;
+  const canExport = !!selectedScenario?.simulationResults && selectedEligible;
 
   return (
     <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
@@ -171,6 +182,9 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
           {selectedProject && (
             <label className="block text-sm text-gray-700 dark:text-gray-300">
               <span className="font-medium">Scenario</span>
+              {staleNote && (
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{staleNote}</p>
+              )}
               {eligibleScenarios.length === 0 ? (
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   No scenarios with simulation results. Run a simulation first.

@@ -34,6 +34,7 @@ export function runSimulationSync(
   dependencyParams?: DependencySimulationParams,
   sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
   sequentialRecords?: (SequentialRecordEntry | null)[],
+  dataDateOffset?: number,
 ): SimulationRun {
   if (dependencyParams?.dependencyMode) {
     const durMap = dependencyParams.deterministicDurationMap
@@ -67,6 +68,7 @@ export function runSimulationSync(
       constraintMap,
       recordedStartMap: dependencyParams.recordedStarts ? new Map(Object.entries(dependencyParams.recordedStarts)) : undefined,
       recordedDurationMap: dependencyParams.recordedDurations ? new Map(Object.entries(dependencyParams.recordedDurations)) : undefined,
+      dataDateOffset,
     });
     const result = computeSimulationStats(depResult.samples, trialCount, rngSeed, depResult.exhaustedIds);
     if (depResult.milestoneSamples) {
@@ -82,6 +84,7 @@ export function runSimulationSync(
     deterministicDurations,
     sequentialConstraints: sequentialConstraints ?? undefined,
     sequentialRecords,
+    dataDateOffset,
   });
 }
 
@@ -98,6 +101,7 @@ export function runSimulation(
   dependencyParams?: DependencySimulationParams,
   sequentialConstraints?: ({ type: string; offsetFromStart: number; mode: string } | null)[],
   sequentialRecords?: (SequentialRecordEntry | null)[],
+  dataDateOffset?: number,
 ): SimulationHandle {
   const simulationId = generateId();
 
@@ -108,12 +112,12 @@ export function runSimulation(
         callbacks.onComplete({ ...result, id: simulationId }, elapsedMs);
       },
       onError: callbacks.onError,
-    }, dependencyParams, sequentialConstraints, sequentialRecords);
+    }, dependencyParams, sequentialConstraints, sequentialRecords, dataDateOffset);
   } catch {
     // Worker creation failed — synchronous fallback
     try {
       const startTime = performance.now();
-      const result = runSimulationSync(activities, trialCount, rngSeed, deterministicDurations, dependencyParams, sequentialConstraints, sequentialRecords);
+      const result = runSimulationSync(activities, trialCount, rngSeed, deterministicDurations, dependencyParams, sequentialConstraints, sequentialRecords, dataDateOffset);
       const elapsedMs = performance.now() - startTime;
       callbacks.onComplete({ ...result, id: simulationId }, elapsedMs);
     } catch (err) {

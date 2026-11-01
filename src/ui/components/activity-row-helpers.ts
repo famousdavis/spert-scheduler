@@ -105,6 +105,32 @@ export interface ScheduledDates {
   startDate: string;
   endDate: string;
   duration: number;
+  /**
+   * WI-154 (owner, R639, C′): a Planned row's dates in the plan before today's floor — the page's
+   * schedule computed without it (`withPlanDates`). A Status change reads these when present.
+   */
+  planDates?: { startDate: string; endDate: string; duration: number };
+}
+
+/**
+ * WI-154 (owner, R639, C′): the rows the grid and the bulk toolbar read, each Planned row carrying
+ * its dates in the PLAN — the page's own schedule with today's floor off (`planSchedule`, nothing
+ * changed). A row leaving Planned keeps those as its Planned Start and Finish, and Complete judges
+ * "already due" by them, as the Edit Activity window does from the same function. With no plan
+ * (the scenario holds no record, so nothing is floored), the rows as given.
+ */
+export function withPlanDates<T extends { activityId: string }>(
+  rows: T[],
+  plan: { activities: (ScheduledDates & { activityId: string })[] } | null,
+  activities: Activity[],
+): (T & Pick<ScheduledDates, "planDates">)[] {
+  if (!plan) return rows;
+  const planned = new Set(activities.filter((a) => a.status === "planned").map((a) => a.id));
+  const byId = new Map(plan.activities.map((p) => [p.activityId, p]));
+  return rows.map((r) => {
+    const p = planned.has(r.activityId) ? byId.get(r.activityId) : undefined;
+    return p ? { ...r, planDates: { startDate: p.startDate, endDate: p.endDate, duration: p.duration } } : r;
+  });
 }
 
 /**
@@ -121,9 +147,10 @@ export function statusUpdatesFor(
     status: newStatus,
     ...statusChangeUpdates(activity, newStatus, {
       today: todayISO(),
-      scheduledStart: scheduled?.startDate,
-      scheduledFinish: scheduled?.endDate,
-      scheduledDuration: scheduled?.duration,
+      // WI-154 (C′): a Planned row's dates in the plan before today's floor, when the page gave them.
+      scheduledStart: (scheduled?.planDates ?? scheduled)?.startDate,
+      scheduledFinish: (scheduled?.planDates ?? scheduled)?.endDate,
+      scheduledDuration: (scheduled?.planDates ?? scheduled)?.duration,
       calendar,
     }),
   };

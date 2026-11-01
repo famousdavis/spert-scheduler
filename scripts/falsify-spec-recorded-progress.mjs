@@ -110,10 +110,13 @@ export const mutations = [
     ),
   },
   {
-    id: "S8  a note for an on-time start (< becomes <=)  [expect 1]",
+    // WI-154 re-pointed this needle (linkHit now serves a start with no record too) and the run
+    // measured 9: an on-time start noted as overtaken also moves seven of data-date.test.ts's floats
+    // and notes, and the same-day sweep's not-started sentence repeats a date. Left as measured.
+    id: "S8  a note for an on-time start (< becomes <=)  [expect 1 named; measured 9 after WI-154]",
     file: RECORD,
-    find: "  return parseDateISO(rec.start) < allowed\n",
-    replace: "  return parseDateISO(rec.start) <= allowed\n",
+    find: "  return parseDateISO(date) < allowed ? { event: \"start\", date, predecessorDate: base, allowed } : null;\n",
+    replace: "  return parseDateISO(date) <= allowed ? { event: \"start\", date, predecessorDate: base, allowed } : null;\n",
     expectFailing: only(
       "FS: one note with the predecessor's finish and what the link allowed; none for an on-time start (S8)",
     ),
@@ -198,8 +201,8 @@ export const mutations = [
   {
     id: "2a  the app's synchronous simulation drops the sequential records  [expect 1]",
     file: SERVICE,
-    find: "    sequentialRecords,\n  });\n",
-    replace: "  });\n",
+    find: "    sequentialRecords,\n    dataDateOffset,\n  });\n",
+    replace: "    dataDateOffset,\n  });\n",
     expectFailing: only(
       "dependencies off: P50 30.451189059661253, P95 31.339003251031873",
     ),

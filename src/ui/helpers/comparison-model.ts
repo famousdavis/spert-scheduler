@@ -10,6 +10,9 @@ import { computeSchedule } from "@app/api/schedule-service";
 import { computeDependencySchedule } from "@core/schedule/deterministic";
 import { cdf } from "@core/analytics/analytics";
 import { countWorkingDays, durationToFinishDateISO, parseDateISO } from "@core/calendar/calendar";
+import { scenarioDataDate, staleResults } from "@core/schedule/recorded-progress";
+import { todayISO } from "@ui/components/activity-row-helpers";
+import { staleScenariosSentence } from "@ui/helpers/stale-results-words";
 import { isCalendarError } from "@core/calendar/work-calendar";
 import { pluralize } from "@domain/helpers/format-labels";
 import { isDependencyCycleError } from "@core/schedule/dependency-graph";
@@ -43,6 +46,11 @@ export interface ComparisonModelInput {
   runGate: CompareRunGate | null;
   /** The page's date formatter (`useDateFormat()`), passed in so the model stays pure. */
   formatDate: (iso: string) => string;
+  /**
+   * WI-154: today, `YYYY-MM-DD`, local — the page's (`useToday`), so the comparison moves on at
+   * midnight with it. Omitted: read from the clock.
+   */
+  today?: string;
 }
 
 export interface ComparisonColumn {
@@ -104,6 +112,11 @@ export interface ComparisonModel {
   runNote: string | null;
   /** The red note, or null. */
   failNote: string | null;
+  /**
+   * WI-154 (owner, R639, decision 3): the compared scenarios whose results were simulated on an
+   * earlier data date — shown as not run, and named here — or null.
+   */
+  staleNote: string | null;
   /** The S-curves, or null when fewer than two compared scenarios have results WITH samples. */
   cdf: ComparisonCdf | null;
 }
@@ -118,12 +131,14 @@ interface ComparisonEntry {
   flags: SavedScenarioFlags;
 }
 
-function computeEntry(scenario: Scenario, calendar?: WorkCalendar | Calendar): ComparisonEntry {
+function computeEntry(scenario: Scenario, calendar: WorkCalendar | Calendar | undefined, today: string): ComparisonEntry {
   let schedule: DeterministicSchedule | null = null;
   let buffer: ScheduleBuffer | null = null;
   let error: ScheduleError | null = null;
 
   if (scenario.activities.length > 0) {
+    // WI-154: the same data date, by the same scope, as the project page.
+    const dataDate = scenarioDataDate(scenario.activities, today);
     try {
       schedule = scenario.settings.dependencyMode
         ? computeDependencySchedule(
@@ -132,13 +147,15 @@ function computeEntry(scenario: Scenario, calendar?: WorkCalendar | Calendar): C
             scenario.startDate,
             scenario.settings.probabilityTarget,
             calendar,
-            scenario.milestones
+            scenario.milestones,
+            dataDate,
           )
         : computeSchedule(
             scenario.activities,
             scenario.startDate,
             scenario.settings.probabilityTarget,
-            calendar
+            calendar,
+            dataDate,
           );
     } catch (err) {
       error = {
@@ -596,8 +613,14 @@ export function buildComparisonModel({
   showActivityNumbers,
   runGate,
   formatDate,
+  today = todayISO(),
 }: ComparisonModelInput): ComparisonModel {
-  const entries = scenarios.map((s) => computeEntry(s, calendar));
+  // WI-154: results from an earlier data date are not compared — each such scenario is shown as not
+  // run (so the screen offers its Run), and the stale note names it. The store is never written.
+  const stale = scenarios.map((s) => staleResults(s, today, calendar));
+  const entries = scenarios.map((s, i) => computeEntry(stale[i] ? { ...s, simulationResults: undefined } : s, calendar, today));
+  const staleNames = scenarios.filter((_, i) => stale[i]).map((s) => s.name);
+  const firstStale = stale.find((x) => x !== null);
   const flagNotes = entries
     .filter((e) => e.flags.rows.length > 0)
     .map((e) => ({
@@ -630,6 +653,7 @@ export function buildComparisonModel({
     bufferNote: bufferUse.note,
     runNote: runNoteOf(entries, runGate),
     failNote: failing.length > 0 ? `Could not compute a schedule for: ${failures}` : null,
+    staleNote: firstStale ? staleScenariosSentence(staleNames, firstStale.dataDate, formatDate, "before comparing") : null,
     cdf: cdfOf(entries),
   };
 }

@@ -256,8 +256,8 @@ export const mutations = [
   {
     id: "P12 the export prints a Planned row's own pair  [expect 7]",
     file: EXPORT,
-    find: '  if (activity.status === "planned") {\n    return { plannedStart: held(sa?.startDate)',
-    replace: "  if (false) {\n    return { plannedStart: held(sa?.startDate)",
+    find: '  if (activity.status === "planned") {\n    return { plannedStart: held(plan?.startDate)',
+    replace: "  if (false) {\n    return { plannedStart: held(plan?.startDate)",
     expectFailing: only(
       "hold what each row holds — and nothing a row does not",
       "MM/DD/YYYY: a real CSV — its summary's Date Format line, and the four columns",
@@ -421,8 +421,8 @@ export const mutations = [
   {
     id: "P26 2i: the print intro back to its false second sentence  [expect 1]",
     file: PRINT_SECTIONS,
-    find: "The schedule keeps it as recorded, except a start before the Start Date, which it draws from the Start Date.",
-    replace: "The schedule keeps it as recorded.",
+    find: "kept as recorded (a start before the Start Date is drawn from the Start Date);",
+    replace: "kept as recorded;",
     expectFailing: only("its intro is true beside a start before the Start Date, which the schedule draws from the Start Date (Review 33, F6)"),
   },
   {
@@ -451,7 +451,7 @@ export const mutations = [
   {
     id: "P29 2j: a Planned row's Planned columns blank  [expect 7]",
     file: EXPORT,
-    find: '    return { plannedStart: held(sa?.startDate), plannedFinish: held(sa?.endDate), actualStart: "", actualFinish: "" };',
+    find: '    return { plannedStart: held(plan?.startDate), plannedFinish: held(plan?.endDate), actualStart: "", actualFinish: "" };',
     replace: '    return { plannedStart: "", plannedFinish: "", actualStart: "", actualFinish: "" };',
     expectFailing: only(
       "hold what each row holds — and nothing a row does not",

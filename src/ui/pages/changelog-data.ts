@@ -13,6 +13,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.82.0",
+    date: "2026-10-31",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "In a scenario where you have recorded a start, work that has not started is no longer scheduled before today. Each such activity starts today at the earliest, or on the next working day on a weekend or holiday, so while such work drives the forecast, the forecast moves on with the calendar. A grey note on the project page and in print lists the activities moved to that day, except one whose Must Start On date has passed, or whose Must Finish On date can no longer be met, which gets a red error saying why instead. Its Edit Activity window gives the same reason.",
+          "In such a scenario, an activity that has not started, whose Must Start On date has passed or whose Must Finish On date can no longer be met, now starts no earlier than today, or than the work before it allows, and its red error says the date has passed or can no longer be met, in the Edit Activity window too.",
+          "In such a scenario, work that has started is never held back for work before it that has not started: an In Progress or Complete activity is placed as if that work were not there, so finished work is never pushed past today by it (one with no recorded start can move earlier), and an In Progress activity's forecast finish is not held by a finish-to-finish link from such work. Work after such an activity is not held back for that work on its account either, so a forecast can finish earlier than before; the grey note says so.",
+          "An activity that leaves Planned keeps as its Planned Start and Planned Finish the dates the plan gave it before work that has not started was moved to today, so a late start shows how late it is. An activity set Complete once its planned finish has come still takes those planned dates as its actual dates.",
+          "In the schedule export, an activity that has not started now has as its Planned Start and Planned Finish its dates in the plan before work that has not started was moved to today, the dates it would keep if it started now, so an overdue one shows how late it is beside its Start.",
+          "Simulation results go out of date when the day the schedule starts unstarted work from moves on. In a scenario where you have recorded a start, they are then shown as not run on the project page, in print, in Compare, in the schedule export and to a connected AI, with one sentence saying why, until the simulation is run again. With Auto-run on, the open scenario's simulation runs again by itself.",
+          "When an activity started before work it follows had started, its grey note says that work has not started and when it is scheduled, and several such notes are one line on the project page and in print.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "An activity is no longer shown on the critical path, with no float, only because an activity linked after it started before the link allowed. Its total float and free float are now counted without that link.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "One rule, both engines (the deterministic schedule and the simulation, dependencies on and off, through the worker): with a data date, today snapped forward to a working day and applied only in a scenario that holds a recorded start (scenarioDataDate), a Planned row starts no earlier than it; a passed hard Must Start On or Must Finish On on a Planned row is placed at its network start, the later of the data date and its links (owner, R639, decision 2); and a link from a Planned row into a started row is left out of the network (setAsideLinks; Review 35, interactions E1). The worker takes an optional dataDateOffset, validated, sent only when it can move a row. WI-151: the float's backward passes and free float skip the links the progress notes name; the No Later Than checks read the full network's late dates (Review 35, verification E3). The Planned pair and Complete's \"already due\" read the page's one schedule function, computeScenarioSchedule, with the data date off (owner, R639, C′). Stale results are judged from each run's own timestamp, with no schema change, and never written to the store. The AI snapshot's cache is keyed on today, and its simulationStatus can be \"stale\". useToday turns the page's today at local midnight. No schema change; ENGINE_VERSION stays 1.1.1; the four committed oracles are byte-identical. Known limit: a row whose only successors are start-to-start or finish-to-finish links can read float past the project's end (Review 35, verification R1); capping it moves six of the deterministic oracle's pinned fixtures, so it is left for its own item. 10 existing tests were re-pinned by hand, each for a ruling or a fix; scripts/falsify-spec-data-date.mjs holds 55 straws.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.81.0",
     date: "2026-10-31",
     sections: [
