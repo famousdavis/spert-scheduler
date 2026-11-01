@@ -81,6 +81,11 @@ interface ScenarioSummaryCardProps {
   settings: ScenarioSettings;
   hasSimulationResults: boolean;
   /**
+   * WI-154 (owner, 2026-10-31, Q1): the page's plan schedule (`planSchedule`, today's floor off) — a
+   * not-started row's Planned dates in the export come from it. Absent, from the schedule shown.
+   */
+  planSchedule?: (changed: Activity[]) => DeterministicSchedule | null;
+  /**
    * This screen's Run is refused — a flagged row, or a cell the grid would not store (WI-58). The
    * page passes its HELD flagged rows: the buffer line is visible text above the grid, and it must not
    * change length between a press and its click.
@@ -122,6 +127,7 @@ interface UseScheduleExportParams {
   milestones: Milestone[];
   calendar?: WorkCalendar | Calendar;
   hasSimulationResults: boolean;
+  planSchedule?: (changed: Activity[]) => DeterministicSchedule | null;
 }
 
 function useScheduleExport({
@@ -137,6 +143,7 @@ function useScheduleExport({
   milestones,
   calendar,
   hasSimulationResults,
+  planSchedule,
 }: UseScheduleExportParams) {
   const dateFormat = usePreferencesStore((s) => s.preferences.dateFormat);
   const [exporting, setExporting] = useState(false);
@@ -144,8 +151,9 @@ function useScheduleExport({
 
   const buildExportParams = useCallback((): ScheduleExportParams | null => {
     if (!schedule) return null;
-    return { projectName, scenarioName, startDate, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat };
-  }, [projectName, scenarioName, startDate, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat]);
+    const plan = planSchedule?.([]);
+    return { projectName, scenarioName, startDate, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat, plan };
+  }, [projectName, scenarioName, startDate, activities, bands, schedule, buffer, settings, dependencies, milestones, calendar, dateFormat, planSchedule]);
 
   const handleExportXlsx = useCallback(async () => {
     const params = buildExportParams();
@@ -178,6 +186,7 @@ export function ScenarioSummaryCard({
   calendar,
   settings,
   hasSimulationResults,
+  planSchedule,
   runBlocked = false,
   onSettingsChange,
   onStartDateChange,
@@ -268,7 +277,7 @@ export function ScenarioSummaryCard({
   // Schedule export state
   const { exporting, exportDisabled, handleExportXlsx, handleExportCsv } = useScheduleExport({
     projectName, scenarioName, startDate, activities, bands, schedule, buffer,
-    settings, dependencies, milestones, calendar, hasSimulationResults,
+    settings, dependencies, milestones, calendar, hasSimulationResults, planSchedule,
   });
 
   // Buffered finish date, sourced from the MC project-target percentile so it agrees

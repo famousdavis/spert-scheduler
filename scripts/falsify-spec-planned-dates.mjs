@@ -256,8 +256,8 @@ export const mutations = [
   {
     id: "P12 the export prints a Planned row's own pair  [expect 7]",
     file: EXPORT,
-    find: '  if (activity.status === "planned") {\n    return { plannedStart: held(sa?.startDate)',
-    replace: "  if (false) {\n    return { plannedStart: held(sa?.startDate)",
+    find: '  if (activity.status === "planned") {\n    return { plannedStart: held(plan?.startDate)',
+    replace: "  if (false) {\n    return { plannedStart: held(plan?.startDate)",
     expectFailing: only(
       "hold what each row holds — and nothing a row does not",
       "MM/DD/YYYY: a real CSV — its summary's Date Format line, and the four columns",
@@ -451,7 +451,7 @@ export const mutations = [
   {
     id: "P29 2j: a Planned row's Planned columns blank  [expect 7]",
     file: EXPORT,
-    find: '    return { plannedStart: held(sa?.startDate), plannedFinish: held(sa?.endDate), actualStart: "", actualFinish: "" };',
+    find: '    return { plannedStart: held(plan?.startDate), plannedFinish: held(plan?.endDate), actualStart: "", actualFinish: "" };',
     replace: '    return { plannedStart: "", plannedFinish: "", actualStart: "", actualFinish: "" };',
     expectFailing: only(
       "hold what each row holds — and nothing a row does not",

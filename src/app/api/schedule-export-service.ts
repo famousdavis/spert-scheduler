@@ -41,6 +41,12 @@ export interface ScheduleExportParams {
   calendar?: WorkCalendar | Calendar;
   dateFormat: DateFormatPreference;
   bands?: ActivityBand[]; // default [] when absent
+  /**
+   * WI-154 (owner, Q1 of R639's follow-up): the plan before today's floor — the same schedule
+   * function with today off. A not-started row's Planned Start and Planned Finish come from it, the
+   * dates it would keep if it started now (C′). Absent: from `schedule`, as before.
+   */
+  plan?: DeterministicSchedule | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -199,8 +205,9 @@ export function buildSuccessorMap(
 
 /**
  * WI-137 release 2: the four progress dates, in the user's date format as Start Date and End Date
- * are. A Planned row's Planned Start and Planned Finish are its current scheduled start and finish
- * — P6's Planned dates for an activity not yet started (owner, R630; Review 33, F10) — and a pair
+ * are. A Planned row's Planned Start and Planned Finish are its start and finish in the PLAN — since
+ * WI-154, the schedule before today's floor (owner, 2026-10-31, Q1; R639's C′), the dates it would
+ * keep if it started now, so an overdue row shows its delay beside its Start — and a pair
  * such a row carries (a hand-edited import) is not written. A started row's are the pair it kept
  * when it left Planned, or nothing when none was kept (a row started before v0.81.0): never filled
  * from today's schedule. The Actual Start is written on an In Progress or Complete row, the Actual
@@ -208,12 +215,12 @@ export function buildSuccessorMap(
  */
 function progressDateCells(
   activity: Activity,
-  sa: { startDate: string; endDate: string } | undefined,
+  plan: { startDate: string; endDate: string } | undefined,
   fmt: (iso: string) => string,
 ): Pick<GridRow, "plannedStart" | "plannedFinish" | "actualStart" | "actualFinish"> {
   const held = (iso: string | undefined) => (iso ? fmt(iso) : "");
   if (activity.status === "planned") {
-    return { plannedStart: held(sa?.startDate), plannedFinish: held(sa?.endDate), actualStart: "", actualFinish: "" };
+    return { plannedStart: held(plan?.startDate), plannedFinish: held(plan?.endDate), actualStart: "", actualFinish: "" };
   }
   return {
     plannedStart: held(activity.plannedStartDate),
@@ -229,6 +236,7 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
   const scheduledMap = new Map(
     schedule.activities.map((sa) => [sa.activityId, sa])
   );
+  const planMap = new Map((params.plan ?? schedule).activities.map((sa) => [sa.activityId, sa]));
   const predMap = settings.dependencyMode
     ? buildPredecessorMap(activities, dependencies)
     : undefined;
@@ -257,7 +265,7 @@ export function buildGridRows(params: ScheduleExportParams): GridRow[] {
       duration: sa?.duration ?? 0,
       startDate: sa ? fmt(sa.startDate) : "",
       endDate: sa ? fmt(sa.endDate) : "",
-      ...progressDateCells(activity, sa, fmt),
+      ...progressDateCells(activity, planMap.get(activity.id), fmt),
     };
     if (settings.dependencyMode) {
       row.totalFloat = sa?.totalFloat ?? "";

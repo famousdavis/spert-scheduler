@@ -16,6 +16,9 @@ import { staleResultsSentence } from "./stale-results-words";
 import { buildComparisonModel } from "./comparison-model";
 import { buildScenarioSnapshot, classifyAndComputeScenario, ScenarioScheduleCache } from "@app/api/ai-snapshot-service";
 import { useToday } from "@ui/hooks/use-today";
+import { buildGridRows } from "@app/api/schedule-export-service";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * WI-154 — what the owner's rulings (R639) and Review 35's fixes put on the screen, below the page:
@@ -105,6 +108,7 @@ describe("Review 35, E4 and E5: the Edit window's words for a passed hard date",
     passedConstraintPreview({
       activity: M, draftStatus: status, draft: { ...draft, mode: "hard" }, schedule, activities: ACTS,
       scenarioStartDate: "2026-10-05", durationDays: 5, today: "2026-10-27",
+      ...(status === "planned" ? {} : { draftActualStart: "2026-10-27" }),
     });
 
   it("as saved: the page's own red words, exactly — never \"Constraint date held\"", () => {
@@ -119,11 +123,21 @@ describe("Review 35, E4 and E5: the Edit window's words for a passed hard date",
     );
   });
 
-  it("anything else keeps the window's preview as it was: a date to come, a soft or other type, or work that has started", () => {
+  it("anything else keeps the window's preview as it was: a date to come, or a soft or other type", () => {
+    expect([preview({ type: "MSO", date: "2026-10-28" }), preview({ type: "SNET", date: "2026-10-12" })]).toEqual([undefined, undefined]);
+  });
+
+  it("Review 36, E1: a Status draft that has started gets the page's rule — no conflict for what the start sets aside", () => {
+    // In Progress sets a start constraint aside; Complete, a finish constraint too. An In Progress
+    // forecast finish still meets a hard Must Finish On, from the start it records (today, five days
+    // to 11/02), in the page's words for a recorded row.
     expect([
-      preview({ type: "MSO", date: "2026-10-28" }), preview({ type: "SNET", date: "2026-10-12" }),
-      preview({ type: "MSO", date: "2026-10-12" }, "inProgress"),
-    ]).toEqual([undefined, undefined, undefined]);
+      preview({ type: "MSO", date: "2026-10-12" }, "inProgress"), preview({ type: "MSO", date: "2026-10-12" }, "complete"),
+      preview({ type: "MFO", date: "2026-10-16" }, "complete"),
+    ]).toEqual([null, null, null]);
+    expect(preview({ type: "MFO", date: "2026-10-16" }, "inProgress")?.message).toBe(
+      "M: Must Finish On 2026-10-16 conflicts with predecessor logic (network-driven EF: 2026-11-02, delta: 11 working days). Constraint date held.",
+    );
   });
 });
 
@@ -191,6 +205,42 @@ describe("Review 35, verification R3 and G4: the AI snapshot reads today, and it
     const cache = new ScenarioScheduleCache();
     expect(nextStart(cache.compute(s, undefined, "2026-10-27"))).toBe("2026-10-27");
     expect(nextStart(cache.compute(s, undefined, "2026-10-28"))).toBe("2026-10-28");
+  });
+});
+
+describe("owner, 2026-10-31, Q1: the export's Planned dates for work that has not started are the plan before today's floor", () => {
+  // Done (Complete, 10/05 – 10/09) → Next, five days, not started; today Tue 10/27.
+  const acts = [REC, act5("Next")];
+  const deps = [fs("Rec", "Next")];
+  const params = (plan?: DeterministicSchedule) => ({
+    projectName: "P", scenarioName: "S", startDate: "2026-10-05", activities: acts, buffer: null,
+    schedule: computeDependencySchedule(acts, deps, "2026-10-05", 0.5, undefined, undefined, "2026-10-27"),
+    settings: { ...DEFAULT_SCENARIO_SETTINGS, dependencyMode: true }, dependencies: deps, milestones: [],
+    dateFormat: "MM/DD/YYYY" as const, ...(plan ? { plan } : {}),
+  });
+  const next = (rows: ReturnType<typeof buildGridRows>) => rows.find((r) => r.name === "Next")!;
+
+  it("with the plan: Planned 10/12 – 10/16, the dates Next would keep if it started now", () => {
+    const row = next(buildGridRows(params(computeDependencySchedule(acts, deps, "2026-10-05", 0.5))));
+    expect([row.plannedStart, row.plannedFinish]).toEqual(["10/12/2026", "10/16/2026"]);
+  });
+
+  it("without one, as before: the dates shown, 10/27 – 11/02", () => {
+    const row = next(buildGridRows(params()));
+    expect([row.plannedStart, row.plannedFinish]).toEqual(["10/27/2026", "11/02/2026"]);
+  });
+});
+
+describe("the 0.82.0 changelog says what Q1 and Q2 decided", () => {
+  const entry = (() => {
+    const md = readFileSync(join(process.cwd(), "CHANGELOG.md"), "utf8");
+    return md.slice(md.indexOf("## 0.82.0"), md.indexOf("## 0.81.0"));
+  })();
+  it("Q2: work after a started activity is not held back for work that has not started", () => {
+    expect(entry).toContain("Work after such an activity is not held back for that work on its account either, so a forecast can finish earlier than before; the grey note says so.");
+  });
+  it("Q1: the export's Planned dates for work not started are the plan before today's floor", () => {
+    expect(entry).toContain("In the schedule export, an activity that has not started now has as its Planned Start and Planned Finish its dates in the plan before work that has not started was moved to today,");
   });
 });
 

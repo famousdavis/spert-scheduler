@@ -82,12 +82,33 @@ function isOutOfSequence(n: ProgressNote): n is LinkProgressNote {
 function outOfSequenceLine(notes: LinkProgressNote[]): string {
   const names = [...new Set(notes.map((n) => nameOrUnnamed(n.activityName)))];
   const rule = "the schedule does not hold work that has started back for work that has not.";
+  const one = names.length === 1;
+  const after = notes.some((n) => n.workAfter) ? ` ${followWords(one)}` : "";
   if (notes[0]!.sequential) {
-    return `${nameList(names)} ${names.length === 1 ? "has" : "have"} started, but the activity above ${names.length === 1 ? "it" : "each of them"} has not: ${rule}`;
+    return `${nameList(names)} ${one ? "has" : "have"} started, but the activity above ${one ? "it" : "each of them"} has not: ${rule}${after}`;
   }
-  return names.length === 1
-    ? `${names[0]} has started, but some of its predecessors have not: ${rule}`
-    : `${nameList(names)} have started, but some of their predecessors have not: ${rule}`;
+  return one
+    ? `${names[0]} has started, but some of its predecessors have not: ${rule}${after}`
+    : `${nameList(names)} have started, but some of their predecessors have not: ${rule}${after}`;
+}
+
+/**
+ * WI-154 (owner, 2026-10-31, Q2): the work after such an activity is not held back for that work on
+ * its account either — the schedule's progress override, which can make a forecast finish earlier.
+ */
+function followWords(one: boolean): string {
+  return `Work after ${one ? "it" : "them"} is not held back for that work on ${one ? "its" : "their"} account either.`;
+}
+
+/** One out-of-sequence note on the page or in print, with Q2's sentence when work follows it. */
+function outOfSequenceSentence(note: LinkProgressNote, formatDate: (iso: string) => string): string {
+  const own = progressNoteSentence(note, formatDate);
+  if (!note.workAfter) return own;
+  const succ = nameOrUnnamed(note.activityName);
+  const pred = nameOrUnnamed(note.predecessorName);
+  return note.sequential
+    ? `${own} The activity below ${succ} is not held back for ${pred} on its account either.`
+    : `${own} Work after ${succ} is not held back for ${pred} on its account either.`;
 }
 
 /**
@@ -107,6 +128,8 @@ export function progressNoteLines(
       if (n === dataDate[0]) lines.push({ key: "data-date", sentence: dataDateSentence(dataDate, formatDate) });
     } else if (grouped && isOutOfSequence(n)) {
       if (n === outOfSequence[0]) lines.push({ key: "out-of-sequence", sentence: outOfSequenceLine(outOfSequence) });
+    } else if (isOutOfSequence(n)) {
+      lines.push({ key: progressNoteKey(n), sentence: outOfSequenceSentence(n, formatDate) });
     } else {
       lines.push({ key: progressNoteKey(n), sentence: progressNoteSentence(n, formatDate) });
     }

@@ -1009,6 +1009,7 @@ export function ProjectPage() {
             calendar={workCalendar}
             settings={scenario.settings}
             hasSimulationResults={!!simulationResults}
+            planSchedule={planSchedule}
             runBlocked={paintedFlaggedRows.length > 0}
             onSettingsChange={handleSettingsChange}
             onStartDateChange={(startDate) =>

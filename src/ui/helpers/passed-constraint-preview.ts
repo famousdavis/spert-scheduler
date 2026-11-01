@@ -11,8 +11,9 @@ import type {
   DeterministicSchedule,
 } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
-import { activityStartDate, formatDateISO, parseDateISO } from "@core/calendar/calendar";
-import { resolveDataDate, scenarioDataDate } from "@core/schedule/recorded-progress";
+import { activityEndDate, activityStartDate, formatDateISO, parseDateISO } from "@core/calendar/calendar";
+import { resolveDataDate, scenarioDataDate, startSetsConstraintAside } from "@core/schedule/recorded-progress";
+import { applyForwardConstraint } from "@core/schedule/constraint-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
 
 export interface ConstraintDraft {
@@ -30,6 +31,11 @@ export interface ConstraintDraft {
  *  - The constraint as saved: the schedule's own red words for the row — the page's, exactly.
  *  - A draft not yet saved: the same words for what the schedule will do, which needs no guess at
  *    the activity's other links: no earlier than today.
+ * And once the Status draft has started (Review 36, E1), whatever the activity's stored Status: the
+ * start it records sets a start constraint aside — a Complete one's finish constraint too — so the
+ * page will show no conflict for it, and nor does the window. An In Progress forecast finish still
+ * meets its hard finish constraint, from the start it records, in the page's words (the rule
+ * `placeRecordedRow` applies).
  * `undefined` for anything else, which keeps the window's preview as it was.
  */
 export function passedConstraintPreview(args: {
@@ -42,9 +48,12 @@ export function passedConstraintPreview(args: {
   durationDays: number;
   today: string;
   calendar?: WorkCalendar | Calendar;
+  /** The Actual Start the window will save, when its Status draft has started. */
+  draftActualStart?: string;
 }): ConstraintConflict | null | undefined {
   const { activity, draft } = args;
-  if (!activity || activity.status !== "planned" || args.draftStatus !== "planned" || !args.scenarioStartDate) return undefined;
+  if (activity && args.draftStatus !== "planned") return startedPreview(activity, args);
+  if (!activity || activity.status !== "planned" || !args.scenarioStartDate) return undefined;
   if (draft.mode !== "hard" || (draft.type !== "MSO" && draft.type !== "MFO")) return undefined;
   const floor = resolveDataDate(scenarioDataDate(args.activities, args.today), args.scenarioStartDate, args.calendar);
   if (!floor) return undefined;
@@ -65,4 +74,18 @@ export function passedConstraintPreview(args: {
     constraintType: draft.type, constraintDate: draft.date, constraintMode: "hard",
     computedDate: dateISO, deltaWorkingDays: 0, severity: "error", message, passed: true,
   };
+}
+
+/** The Status draft has started: the page's rule for a recorded start (see above). */
+function startedPreview(
+  activity: Activity,
+  args: { draftStatus: Activity["status"]; draft: ConstraintDraft; durationDays: number; draftActualStart?: string; calendar?: WorkCalendar | Calendar },
+): ConstraintConflict | null | undefined {
+  const { draft } = args;
+  if (startSetsConstraintAside(draft.type, args.draftStatus === "complete")) return null;
+  if (draft.mode !== "hard" || !args.draftActualStart) return undefined;
+  const end = activityEndDate(parseDateISO(args.draftActualStart), args.durationDays, args.calendar);
+  return applyForwardConstraint(
+    args.draftActualStart, formatDateISO(end), args.durationDays, draft.type, draft.date, "hard", activity.id, activity.name, args.calendar,
+  ).conflict;
 }

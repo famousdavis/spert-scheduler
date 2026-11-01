@@ -431,6 +431,12 @@ export interface LinkProgressNote extends ProgressNoteBase {
   unrecorded?: "inProgress" | "complete";
   /** WI-154 (E1): `date` is an In Progress row's forecast finish, which such a link does not hold. */
   forecast?: true;
+  /**
+   * WI-154 (owner, 2026-10-31, Q2): the predecessor has not started and work follows this activity,
+   * which is not held back for the predecessor on this activity's account either (P6's progress
+   * override). Absent otherwise.
+   */
+  workAfter?: true;
 }
 
 /** A recorded start that breaks its start constraint, or a Complete row's finish that missed its finish constraint. */

@@ -587,6 +587,7 @@ export function ActivityEditModal({
       const passed = passedConstraintPreview({
         activity, draftStatus: status, draft: { type: constraintType, date: constraintDate, mode: constraintMode },
         schedule, activities: allActivities, scenarioStartDate, durationDays: sa.duration, today: todayISO(), calendar,
+        draftActualStart: actualStartDate || undefined,
       });
       if (passed !== undefined) {
         setConflictPreview(passed);
@@ -614,7 +615,7 @@ export function ActivityEditModal({
     }, 200);
 
     return () => clearTimeout(conflictTimerRef.current);
-  }, [constraintType, constraintDate, constraintMode, schedule, activityId, activity, calendar, status, allActivities, scenarioStartDate]);
+  }, [constraintType, constraintDate, constraintMode, schedule, activityId, activity, calendar, status, allActivities, scenarioStartDate, actualStartDate]);
 
   // -- Milestone anchor guard --
   const hasMilestoneAnchor = !!activity?.startsAtMilestoneId;

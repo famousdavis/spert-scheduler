@@ -264,7 +264,40 @@ describe("Review 35's words: W4, W5, E4 and W7, and G3's grouped line", () => {
     ];
     const s = computeDeterministicSchedule(acts, "2026-10-05", 0.5, undefined, TODAY);
     expect(progressNoteLines(s.progressNotes ?? [], mdy)[0]!.sentence).toBe(
-      "B and D have started, but the activity above each of them has not: the schedule does not hold work that has started back for work that has not.",
+      // Owner, 2026-10-31, Q2: C follows B, so the line says the work after them is not held back either.
+      "B and D have started, but the activity above each of them has not: the schedule does not hold work that has started back for work that has not. Work after them is not held back for that work on their account either.",
+    );
+  });
+});
+
+describe("owner, 2026-10-31, Q2: work after a started row does not wait for work before it that has not started", () => {
+  it("dependencies on: P → C (Complete, no dates) → Q: Q runs beside P, and the page's line says why", () => {
+    // P today, 10/27 – 11/02. C from the Start Date, 10/05 – 10/09 (E1). Q after C would start 10/12:
+    // today instead, 10/27 – 10/29, beside P — it does not wait for P on C's account.
+    const acts = [REC, act("P", 5), act("C", 5, { status: "complete", actualDuration: 5 }), act("Q", 3)];
+    const s = computeDependencySchedule(acts, [link("P", "C"), link("C", "Q")], "2026-10-05", 0.5, undefined, undefined, TODAY);
+    expect([dates(s, "P"), dates(s, "C"), dates(s, "Q")]).toEqual([
+      ["2026-10-27", "2026-11-02"], ["2026-10-05", "2026-10-09"], ["2026-10-27", "2026-10-29"],
+    ]);
+    expect(progressNoteLines(s.progressNotes ?? [], mdy).map((l) => l.sentence)).toEqual([
+      "C is complete, but its predecessor P has not started (it is scheduled from 10/27/2026 to 11/02/2026). The schedule does not hold work that has started back for work that has not. Work after C is not held back for P on its account either.",
+      "P and Q have not started, so the schedule starts them today, 10/27/2026, not on days that have passed. Once a start is recorded in a scenario, work that has not started is not scheduled before today.",
+    ]);
+  });
+
+  it("dependencies off: the row below B follows B, not A above it, and the page's line says so", () => {
+    const acts = [REC, act("A", 5), act("B", 5, { status: "complete", actualDuration: 5 }), act("C", 3)];
+    const s = computeDeterministicSchedule(acts, "2026-10-05", 0.5, undefined, TODAY);
+    expect(progressNoteLines(s.progressNotes ?? [], mdy)[0]!.sentence).toBe(
+      "B is complete, but A, the activity above it, has not started (it is scheduled from 10/27/2026 to 11/02/2026). The schedule does not hold work that has started back for work that has not. The activity below B is not held back for A on its account either.",
+    );
+  });
+
+  it("with no work after the started rows, no such sentence", () => {
+    const acts = [REC, act("P", 5), act("C", 5, { status: "complete", actualDuration: 5 }), act("L", 5, { status: "inProgress", actualDuration: 2 })];
+    const s = computeDependencySchedule(acts, [link("P", "C"), link("P", "L")], "2026-10-05", 0.5, undefined, undefined, TODAY);
+    expect(progressNoteLines(s.progressNotes ?? [], mdy)[0]!.sentence).toBe(
+      "C and L have started, but some of their predecessors have not: the schedule does not hold work that has started back for work that has not.",
     );
   });
 });

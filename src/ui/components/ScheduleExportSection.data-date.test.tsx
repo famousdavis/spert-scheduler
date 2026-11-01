@@ -55,13 +55,14 @@ describe("the schedule export, with a data date", () => {
     )).toBeTruthy();
   });
 
-  it("schedules work that has not started from today: Next 10/27 – 11/02", () => {
+  it("schedules work that has not started from today: Next 10/27 – 11/02, its Planned dates the plan's 10/12 – 10/16 (owner, Q1)", () => {
     const { container } = render(<ScheduleExportSection projects={[PROJECT]} />);
     fireEvent.change(container.querySelector('select[name="exportProjectId"]')!, { target: { value: "p1" } });
     fireEvent.change(container.querySelector('select[name="exportScenarioId"]')!, { target: { value: "Fresh" } });
     fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
     const csv = String(vi.mocked(downloadFile).mock.calls[0]![0]);
     const next = csv.split("\n").find((line) => line.includes("Next"))!;
-    expect([next.includes("10/27/2026"), next.includes("11/02/2026"), csv.includes("10/12/2026")]).toEqual([true, true, false]);
+    // Start and End from today; Planned Start and Finish from the plan before today's floor (Q1).
+    expect(["10/27/2026", "11/02/2026", "10/12/2026", "10/16/2026"].map((d) => next.includes(d))).toEqual([true, true, true, true]);
   });
 });

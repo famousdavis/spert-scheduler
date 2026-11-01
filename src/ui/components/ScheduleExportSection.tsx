@@ -14,13 +14,10 @@ import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { formatExportTimestamp } from "@core/calendar/calendar";
-import { scenarioDataDate, staleResults } from "@core/schedule/recorded-progress";
+import { staleResults } from "@core/schedule/recorded-progress";
+import { computeScenarioSchedule, type ScenarioScheduleInputs } from "@ui/hooks/use-schedule";
 import { useToday } from "@ui/hooks/use-today";
 import { staleScenariosSentence } from "@ui/helpers/stale-results-words";
-import {
-  computeDeterministicSchedule,
-  computeDependencySchedule,
-} from "@core/schedule/deterministic";
 import { computeScheduleBuffer } from "@core/schedule/buffer";
 import { toast } from "@ui/hooks/use-notification-store";
 
@@ -73,26 +70,21 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
     if (!selectedProject || !selectedScenario || !selectedScenario.simulationResults || !selectedEligible) return null;
 
     const settings = selectedScenario.settings;
-    // WI-154: the same data date, by the same scope, as the project page.
-    const dataDate = scenarioDataDate(selectedScenario.activities, today);
-
-    const schedule = settings.dependencyMode
-      ? computeDependencySchedule(
-          selectedScenario.activities,
-          selectedScenario.dependencies,
-          selectedScenario.startDate,
-          settings.probabilityTarget,
-          workCalendar,
-          selectedScenario.milestones,
-          dataDate,
-        )
-      : computeDeterministicSchedule(
-          selectedScenario.activities,
-          selectedScenario.startDate,
-          settings.probabilityTarget,
-          workCalendar,
-          dataDate,
-        );
+    // WI-154: the scenario's schedule by the project page's own function, from one set of inputs: with
+    // today, as the page shows it, and with today off — the plan a not-started row's Planned dates
+    // come from (owner, 2026-10-31, Q1).
+    const inputs: ScenarioScheduleInputs = {
+      activities: selectedScenario.activities,
+      startDate: selectedScenario.startDate,
+      probabilityTarget: settings.probabilityTarget,
+      calendar: workCalendar,
+      network: settings.dependencyMode ? { dependencies: selectedScenario.dependencies, milestones: selectedScenario.milestones } : null,
+    };
+    const shown = computeScenarioSchedule({ ...inputs, today });
+    if (shown.scheduleError) throw new Error(shown.scheduleError.message);
+    const schedule = shown.schedule;
+    if (!schedule) return null;
+    const plan = computeScenarioSchedule(inputs).schedule;
 
     const buffer = computeScheduleBuffer(
       schedule.spanDays,
@@ -114,6 +106,7 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
       calendar: workCalendar,
       dateFormat,
       bands: selectedScenario.bands ?? [],
+      plan,
     };
   }, [selectedProject, selectedScenario, selectedEligible, today, workCalendar, dateFormat]);
 

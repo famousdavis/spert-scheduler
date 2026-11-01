@@ -24,10 +24,12 @@ vi.mock("@ui/hooks/use-ai-connectivity", () => ({
 vi.mock("@ui/providers/AuthProvider", () => ({ useAuth: () => ({ user: null }) }));
 vi.mock("@ui/providers/StorageProvider", () => ({ useStorage: () => ({ mode: "local", storageReady: true }) }));
 vi.mock("@app/api/simulation-service", () => ({ runSimulation: vi.fn(() => ({ cancel: vi.fn() })), runSimulationSync: vi.fn() }));
+vi.mock("@ui/helpers/download", () => ({ downloadFile: vi.fn(), sanitizeFilename: (s: string) => s }));
 
 import { ProjectPage } from "@ui/pages/ProjectPage";
 import { ConfirmHost } from "@ui/components/ConfirmHost";
 import { runSimulation } from "@app/api/simulation-service";
+import { downloadFile } from "@ui/helpers/download";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import type { Project, SimulationRun } from "@domain/models/types";
@@ -104,6 +106,33 @@ describe("the project page, with a data date", () => {
       text.includes("Delta: Must Start On 10/12/2026 has passed, and Delta has not started, so the schedule starts it today, 10/27/2026."),
       text.includes("Constraint date held"),
     ]).toEqual([true, false]);
+  });
+
+  it("Review 36, E1: set In Progress in the window, Delta's passed Must Start On is no conflict at all — the start sets it aside", async () => {
+    load();
+    act(() => {
+      useProjectStore.getState().updateActivityField(PID, scn().id, "d", { constraintType: "MSO", constraintDate: "2026-10-12", constraintMode: "hard" });
+    });
+    renderPage();
+    let row: HTMLElement | null = screen.getByDisplayValue("Delta");
+    while (row && !row.querySelector('select[aria-label="Activity status"]')) row = row.parentElement;
+    fireEvent.click(within(row!).getByLabelText("Edit activity"));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Scheduling Constraint/ }));
+    fireEvent.change(dialog.querySelector('[name="activityStatus"]')!, { target: { value: "inProgress" } });
+    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    const text = screen.getByRole("dialog").textContent!;
+    expect([text.includes("Constraint date held"), text.includes("conflicts with predecessor logic"), text.includes("has passed")]).toEqual([false, false, false]);
+  });
+
+  it("owner, Q1: the page's own export gives Delta, not started, its Planned dates from the plan before today's floor", () => {
+    // Delta (10 days, no predecessor) is shown from today, 10/27 – 11/09; the plan from the Start Date, 10/05 – 10/16.
+    load([10, 27]);
+    renderPage();
+    fireEvent.click(screen.getAllByRole("button", { name: "CSV" })[0]!);
+    const csv = String(vi.mocked(downloadFile).mock.calls.at(-1)![0]);
+    const delta = csv.split("\n").find((line) => line.includes("Delta"))!;
+    expect(["10/27/2026", "11/09/2026", "10/05/2026", "10/16/2026"].map((d) => delta.includes(d))).toEqual([true, true, true, true]);
   });
 
   it("results simulated today are shown as they are, with no sentence", () => {

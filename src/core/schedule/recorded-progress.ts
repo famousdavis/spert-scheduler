@@ -187,7 +187,12 @@ export function placeRecordedRow(args: {
  */
 export function recordSetsConstraintAside(type: ConstraintType, rec: RecordedProgress | undefined): boolean {
   if (!rec) return false;
-  return rec.complete || isStartConstraint(type);
+  return startSetsConstraintAside(type, rec.complete);
+}
+
+/** The same rule for a Status not yet saved (WI-154, Review 36 E1): a start sets aside a start constraint; Complete, any. */
+export function startSetsConstraintAside(type: ConstraintType, complete: boolean): boolean {
+  return complete || isStartConstraint(type);
 }
 
 // -- Placing a recorded row: the simulation's integer domain ----------------------
@@ -267,11 +272,12 @@ function linkHit(
  */
 function notStartedFields(
   pred: Activity, succ: Activity, recorded: boolean, forecast: boolean,
-  predES: Date | undefined, predEF: Date | undefined,
+  predES: Date | undefined, predEF: Date | undefined, workAfter: boolean,
 ): Partial<LinkProgressNote> {
   const out: Partial<LinkProgressNote> = {};
   if (floorsAtDataDate(pred) && predES && predEF) {
     out.predecessorNotStarted = { start: formatDateISO(predES), finish: formatDateISO(predEF) };
+    if (workAfter) out.workAfter = true;
   }
   if (!recorded && (succ.status === "inProgress" || succ.status === "complete")) out.unrecorded = succ.status;
   if (forecast) out.forecast = true;
@@ -297,6 +303,7 @@ export function detectProgressNotes(args: {
 }): LinkProgressNote[] {
   const { pairs, records, startDates, endDates, activityMap, calendar, sequential } = args;
   const notes: LinkProgressNote[] = [];
+  const followed = new Set(pairs.map((p) => p.fromId)); // the activities some link starts from
   for (const pair of pairs) {
     const rec = records.get(pair.toId);
     const succ = activityMap.get(pair.toId);
@@ -322,7 +329,7 @@ export function detectProgressNotes(args: {
       predecessorDate: formatDateISO(hit.predecessorDate),
       allowedDate: formatDateISO(hit.allowed),
       sequential,
-      ...notStartedFields(pred, succ, !!rec, forecast, startDates.get(pair.fromId), endDates.get(pair.fromId)),
+      ...notStartedFields(pred, succ, !!rec, forecast, startDates.get(pair.fromId), endDates.get(pair.fromId), followed.has(pair.toId)),
     });
   }
   return notes;
