@@ -152,11 +152,12 @@ export const mutations = [
     expectFailing: only(I1),
   },
   {
-    id: "X11 the Status warning names the internal value  [expect 1: I1]",
-    file: PARSER,
+    id: "X11 the Status warning names the internal value  [expect 2: I1, and WI-150's unknown-Status test]",
+    // WI-150 re-pointed: the warning's last sentence now comes from the date reader (owner, R636, D3).
+    file: PARSER.replace("flat-activity-parser.ts", "progress-dates.ts"),
     find: "${statusLabel(status)} will be used instead.",
     replace: "${status} will be used instead.",
-    expectFailing: only(I1),
+    expectFailing: only(I1, "each says so in its own warning, and none is counted as a blank Status"),
   },
   {
     id: "X12 the Confidence list is the map's keys again  [expect 1: M1]",

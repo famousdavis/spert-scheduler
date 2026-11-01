@@ -80,7 +80,9 @@ describe("measure-complexity — suppressed functions", () => {
 
     expect(row).toBeDefined();
     expect(row!.suppressed).toBe(false);
-    expect(row!.cc).toBe(106);
+    // 106 → 108 in WI-150: one `if` in the row loop refuses a row whose dates are refused (+1, +1 nesting).
+    // The decision table itself is in progress-dates.ts. The recorded decline is re-adjudicated, not cleared.
+    expect(row!.cc).toBe(108);
   });
 
   it("counts the suppressed function in the total, not just as a flag", async () => {

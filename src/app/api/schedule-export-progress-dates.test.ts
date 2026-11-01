@@ -81,14 +81,17 @@ describe("the four progress dates in the schedule export", () => {
     expect(cells(headerRow + 1).slice(2)).toEqual(["10/05/2026", "10/16/2026", "10/05/2026", "10/23/2026"]);
   });
 
-  it("none of the four is a heading the CSV importer reads today (WI-150 adds them; nothing is misread meanwhile)", () => {
+  // WI-150 flipped this pin: it said none of the four was read "today" (v0.81.0), so nothing was misread
+  // until the importer read them. Now each export heading reaches its own field, and no other.
+  it("each of the four is the heading the CSV importer reads into its own date (WI-150)", () => {
     const four = ["Planned Start", "Planned Finish", "Actual Start", "Actual Finish"];
     const template = Object.values(COLUMN_LABELS);
     const resolved = resolveHeaders([...template, ...four]);
     expect("headers" in resolved).toBe(true);
     if (!("headers" in resolved)) return;
-    const taken = new Set(Object.values(resolved.headers));
-    for (let i = template.length; i < template.length + four.length; i++) expect(taken.has(i)).toBe(false);
+    const { plannedStart, plannedFinish, actualStart, actualFinish } = resolved.headers;
+    const at = template.length;
+    expect([plannedStart, plannedFinish, actualStart, actualFinish]).toEqual([at, at + 1, at + 2, at + 3]);
   });
 });
 

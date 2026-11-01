@@ -402,6 +402,12 @@ interface ProgressNoteBase {
   activityName: string; // as stored; the words show "(unnamed)" for a blank name
   /** The recorded date the note is about, "YYYY-MM-DD". */
   date: string;
+  /**
+   * WI-150 (Review 34, V-E3): the date the activity recorded, when the schedule placed it elsewhere —
+   * a non-working day moved to a working day, or a start before the Start Date. `date` is then where
+   * the schedule placed it, and the words name both. Absent when `date` IS the recorded date.
+   */
+  recordedDate?: string;
 }
 
 /** A recorded start (FS, SS) or a Complete row's finish (FF) earlier than a link allowed. */

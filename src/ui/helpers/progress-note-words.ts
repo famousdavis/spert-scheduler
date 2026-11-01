@@ -150,8 +150,15 @@ function lagWords(lagDays: number): string {
   return `${n} ${unit} ${lagDays > 0 ? "lag" : "lead"}`;
 }
 
-function keeps(event: "start" | "finish"): string {
-  return event === "start" ? "The schedule keeps the start you recorded." : "The schedule keeps the dates you recorded.";
+/**
+ * The sentence's last clause. WI-150 (Review 34, V-E3): when the schedule moved the recorded date
+ * (`recordedDate`), it names that date instead of saying the schedule keeps it.
+ */
+function keeps(note: { event: "start" | "finish"; date: string; recordedDate?: string }, formatDate: (iso: string) => string): string {
+  if (note.recordedDate) {
+    return `The recorded ${note.event} is ${formatDate(note.recordedDate)}; the schedule shows it on ${formatDate(note.date)}.`;
+  }
+  return note.event === "start" ? "The schedule keeps the start you recorded." : "The schedule keeps the dates you recorded.";
 }
 
 /**
@@ -174,7 +181,7 @@ function notStartedSentence(
   }
   if (note.forecast) return `${succ} has started, but ${pred} has not (it is ${when}). ${holds}`;
   const verb = note.event === "start" ? "started" : "finished";
-  return `${succ} ${verb} on ${formatDate(note.date)}, but ${pred} has not started (it is ${when}). ${keeps(note.event)}`;
+  return `${succ} ${verb} on ${formatDate(note.date)}, but ${pred} has not started (it is ${when}). ${keeps(note, formatDate)}`;
 }
 
 function linkSentence(note: LinkProgressNote, formatDate: (iso: string) => string): string {
@@ -187,18 +194,18 @@ function linkSentence(note: LinkProgressNote, formatDate: (iso: string) => strin
   // it did allow, or the sentence says "before" a date the activity is after (Review 32, E2).
   if (note.lagDays !== 0) {
     const link = `${LINK_TYPE_WORDS[note.dependencyType]}, ${lagWords(note.lagDays)}`;
-    return `${succ} ${verb} on ${date}; its link from ${pred} (${link}) allowed ${formatDate(note.allowedDate)} at the earliest. ${keeps(note.event)}`;
+    return `${succ} ${verb} on ${date}; its link from ${pred} (${link}) allowed ${formatDate(note.allowedDate)} at the earliest. ${keeps(note, formatDate)}`;
   }
   const who = note.sequential ? `${pred}, the activity above it,` : pred;
   const predDate = formatDate(note.predecessorDate);
   if (note.dependencyType === "SS") {
-    return `${succ} started on ${date}, before ${who} started on ${predDate}. ${keeps("start")}`;
+    return `${succ} started on ${date}, before ${who} started on ${predDate}. ${keeps({ ...note, event: "start" }, formatDate)}`;
   }
   if (note.date === note.predecessorDate) return sameDaySentence(note, succ, who, formatDate);
   const predEnd = note.predecessorComplete
     ? `finished on ${predDate}`
     : `finished (it is scheduled to finish on ${predDate})`;
-  return `${succ} ${verb} on ${date}, before ${who} ${predEnd}. ${keeps(note.event)}`;
+  return `${succ} ${verb} on ${date}, before ${who} ${predEnd}. ${keeps(note, formatDate)}`;
 }
 
 /**
@@ -216,7 +223,7 @@ function sameDaySentence(
   const why = note.sequential
     ? `with dependencies off, it could start on ${allowed} at the earliest`
     : `its finish-to-start link allowed ${allowed} at the earliest`;
-  return `${succ} started on ${formatDate(note.date)}, the day ${predDay}; ${why}. ${keeps("start")}`;
+  return `${succ} started on ${formatDate(note.date)}, the day ${predDay}; ${why}. ${keeps({ ...note, event: "start" }, formatDate)}`;
 }
 
 function constraintSentence(note: ConstraintProgressNote, formatDate: (iso: string) => string): string {
@@ -227,5 +234,5 @@ function constraintSentence(note: ConstraintProgressNote, formatDate: (iso: stri
   let relation = "after";
   if (type === "MSO" || type === "MFO") relation = "not on";
   else if (type === "SNET" || type === "FNET") relation = "before";
-  return `${name} ${verb} on ${formatDate(note.date)}, ${relation} its ${label} date, ${formatDate(note.constraintDate)}. ${keeps(note.event)}`;
+  return `${name} ${verb} on ${formatDate(note.date)}, ${relation} its ${label} date, ${formatDate(note.constraintDate)}. ${keeps(note, formatDate)}`;
 }

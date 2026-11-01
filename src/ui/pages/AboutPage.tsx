@@ -86,8 +86,9 @@ export function AboutPage() {
           </h2>
           <p className="mt-2">
             Bring a schedule from Primavera P6 or Microsoft Project into SPERT®
-            Scheduler through Excel, or a summary of one with thousands of
-            activities. Download the import guide for the steps.
+            Scheduler through Excel, with the actual dates of work already
+            underway, or a summary of one with thousands of activities. Download
+            the import guide for the steps.
           </p>
           <a
             href="/SPERTScheduler_P6_MSProject_Import_Guide.pdf"
