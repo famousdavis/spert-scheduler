@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.83.1",
+    date: "2026-11-01",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The Edit Activity window now saves only the parts you change. Until now, if an activity was changed somewhere else while its window was open, by a collaborator or by Connect AI, pressing Save there put back what the window had shown when it opened, without a word: its name, description, estimates, distribution and confidence, Status and dates, constraint, tasks, deliverables and notes. Now Save writes only the parts you changed, and changes made elsewhere to the other parts stay. The window shows those changes as they arrive, except in a part you have changed.",
+          "Four parts are saved whole when you change anything in them: Status with Actual Start, Actual Finish, Actual Dur. and the Planned dates; the Scheduling Constraint; Tasks; and Deliverables. If one of those was also changed elsewhere, Save keeps that whole part as your window shows it. A task or deliverable you have only typed in its box is added to the list as it is now.",
+          "When an activity is changed somewhere else while its window is open, a line under the window's title now says what changed, and names any part where Save keeps your window's version. Cancel and Escape no longer ask about changes made somewhere else.",
+          "Undo and Redo no longer act on the page while a window is open. Pressing Ctrl+Z (Cmd+Z on a Mac) inside the Edit Activity window used to undo the page's last change behind it.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin each part the window saves, the cases Review 38 measured that this release fixes, and the undo guard; a falsify spec moves each rule.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.83.0",
     date: "2026-11-01",
     sections: [

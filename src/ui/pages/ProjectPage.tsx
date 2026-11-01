@@ -659,6 +659,10 @@ export function ProjectPage() {
         target.tagName === "TEXTAREA" ||
         target.isContentEditable;
       if (inTextField && target.dataset?.undoScope !== "store") return;
+      // WI-158 (owner, R653, D5): never while a window is open. Ctrl/Cmd+Z on the Edit Activity
+      // window's Status, a button or a section header undid the page's last change BEHIND it — even
+      // a scenario's unlock (Review 38, R2). Not prevented, so a text box's own undo still works.
+      if (target.closest?.('[role="dialog"], [role="alertdialog"]')) return;
 
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault();

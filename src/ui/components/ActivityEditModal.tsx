@@ -68,6 +68,22 @@ import {
   unsaveableDescription,
   type UnsaveableCause,
 } from "@ui/helpers/unsaveable-cause";
+import {
+  changedWhileOpenLine,
+  committedStartOf,
+  editDrafts,
+  onlyChangedParts,
+  ownListWrites,
+  partsChangedHere,
+  progressRow,
+  seedDrafts,
+  shownDrafts,
+  writesAnything,
+  type WindowDrafts,
+  type WindowEdits,
+  type WindowPart,
+  type WindowWrites,
+} from "@ui/helpers/edit-window-changes";
 import { todayISO } from "./activity-row-helpers";
 import {
   statusChangeUpdates,
@@ -373,6 +389,94 @@ function statusChangeDrafts(
   };
 }
 
+/**
+ * WI-158: the updates that would make `row` hold the window's values, by the functions Save always
+ * used — each keeps its own rules (an empty name is not written; leaving a started Status clears).
+ */
+function fieldUpdatesFor(row: Activity, d: WindowDrafts, plannedPair: PlannedPair): Partial<Activity> {
+  return Object.assign(
+    {} as Partial<Activity>,
+    computeGeneralUpdates(row, d.name, d.status, d.actualDuration, d.actualStartDate, d.actualFinishDate, plannedPair),
+    computeEstimateUpdates(row, d.min, d.mostLikely, d.max, d.confidenceLevel, d.distributionType),
+    computeConstraintUpdates(row, d.constraintType, d.constraintDate, d.constraintMode, d.constraintNote),
+    computeDescriptionUpdate(row, d.description),
+  );
+}
+
+const NO_WRITES: WindowWrites = {
+  fields: {}, checklist: false, deliverables: false, notes: false, changedHere: new Set(), drafts: seedDrafts(undefined),
+};
+
+/**
+ * WI-158 (G2, Review 38): "Save needs …" judges only a part Save writes — one the user changed. An
+ * unnamed row's empty Name, or recorded dates another writer left out of order, never block a Notes
+ * edit; the dates are judged, as the window would save them, only when Status or a date was changed.
+ */
+function judgedFaults(
+  changedHere: Set<WindowPart>, name: string, dates: Parameters<typeof actualDatesFault>[0],
+): { nameMissing: boolean; dateFault: ReturnType<typeof actualDatesFault> } {
+  return {
+    nameMissing: changedHere.has("name") && name.trim().length === 0,
+    dateFault: changedHere.has("progress") ? actualDatesFault(dates) : null,
+  };
+}
+
+/** The text in the "Add a task…" and "Add a deliverable…" boxes. */
+interface TypedTexts {
+  task: string;
+  deliverable: string;
+}
+
+/**
+ * WI-158 (owner, R653) — what Save writes: each part the user changed in this window, written so that
+ * `live` holds the window's value (`edit-window-changes.ts`). A part the user did not change is never
+ * written, so another writer's change to it stays. A task or deliverable typed in its box but not
+ * added is added as Add would add it (WI-138) — to the list as it is now, when that is all that
+ * changed in the list (D4). Save, both unsaved-changes prompts and the line all read this result.
+ */
+function windowWrites(
+  live: Activity | undefined, edits: WindowEdits, typed: TypedTexts, plannedPair: PlannedPair,
+): WindowWrites {
+  if (!live) return NO_WRITES;
+  const shown = shownDrafts(edits, live);
+  const drafts: WindowDrafts = {
+    ...shown,
+    checklist: withTypedItem(shown.checklist, typed.task),
+    deliverables: withTypedItem(shown.deliverables, typed.deliverable),
+  };
+  const changedHere = partsChangedHere(edits, {
+    checklist: drafts.checklist !== shown.checklist, deliverables: drafts.deliverables !== shown.deliverables,
+  });
+  return {
+    fields: onlyChangedParts(fieldUpdatesFor(live, drafts, plannedPair), changedHere),
+    changedHere, drafts, ...ownListWrites(changedHere, drafts, live),
+  };
+}
+
+/** The Scheduling Constraint cleared: its four fields at once, as one part. */
+const NO_CONSTRAINT: Partial<WindowDrafts> = {
+  constraintType: null, constraintDate: null, constraintMode: null, constraintNote: null,
+};
+
+/**
+ * WI-137: the count a new Actual Start gives — the days elapsed to today on an In Progress row, the
+ * recorded days to its finish on a Complete one — or none. Module level, so the component's
+ * complexity does not move.
+ */
+function recountFromStart(
+  start: string, status: ActivityStatus, finish: string, calendar: Parameters<typeof elapsedWorkingDays>[2],
+): { actualDuration?: number } {
+  if (status === "inProgress") return { actualDuration: elapsedWorkingDays(start, todayISO(), calendar) };
+  if (status === "complete" && finish && finish >= start) return { actualDuration: recordedDuration(start, finish, calendar) };
+  return {};
+}
+
+/** G1: the row as it is in the store NOW — Escape's "Save" answer is given after a wait. */
+function storedRow(projectId: string, scenarioId: string, activityId: string): Activity | undefined {
+  const project = useProjectStore.getState().projects.find((p) => p.id === projectId);
+  return project?.scenarios.find((sc) => sc.id === scenarioId)?.activities.find((a) => a.id === activityId);
+}
+
 /** This activity's neutral notes, as the window shows them. */
 function activityNoteSentences(
   notes: ProgressNote[] | undefined,
@@ -446,25 +550,41 @@ export function ActivityEditModal({
   const sa = schedule?.activities.find((a) => a.activityId === activityId);
   const scheduledStartDate = sa?.startDate ?? null;
 
-  // -- Local draft state: General --
-  const [name, setName] = useState(activity?.name ?? "");
-  const [status, setStatus] = useState<ActivityStatus>(activity?.status ?? "planned");
-  const [actualDuration, setActualDuration] = useState<number | "">(activity?.actualDuration ?? "");
+  // WI-158 (owner, R653, B): the row AS THIS WINDOW OPENED IT — for the line only — and the user's
+  // EDITS, part by part. The window shows the LIVE row with each part the user changed laid over it,
+  // so a write that lands while it is open (a collaborator, Connect AI) shows at once, except in a
+  // part the user has changed; and Save writes only those parts. Every draft below is DERIVED from
+  // the two on each render — no effect sets state — and `edit` is the one way to change them.
+  const [opened] = useState(activity);
+  const [edits, setEdits] = useState<WindowEdits>({});
+  const shown = useMemo(() => shownDrafts(edits, activity), [edits, activity]);
+  const edit = useCallback(
+    (patch: Partial<WindowDrafts>, committedStart?: string) => {
+      if (activity) setEdits((prev) => editDrafts(prev, activity, patch, committedStart));
+    },
+    [activity],
+  );
+  // D2 and D4: the activity as the window shows it — the live row, with the progress part as it stood
+  // when the user first changed it. The Status rule, the Planned pair and the stored dates read it.
+  const shownRow = useMemo(() => progressRow(edits, activity), [edits, activity]);
+
+  // -- Drafts: General --
+  const { name, status, actualDuration } = shown;
 
   // WI-137: the Actual Start and Actual Finish are STORED now. A row a v25 build wrote has neither,
   // and its drafts start EMPTY — never back-calculated from the scheduled start (that would save the
   // old rule's output as a recorded date the first time the window is saved for any reason).
   // `actualFinishDate` is the input's value; its blur snaps it to a working day and recounts.
-  const [actualStartDate, setActualStartDate] = useState<string>(activity?.actualStartDate ?? "");
-  const [actualFinishDate, setActualFinishDate] = useState<string>(activity?.actualFinishDate ?? "");
+  const { actualStartDate, actualFinishDate } = shown;
   // WI-150 (owner, R636, D4; Review 34, V-E1 = V-E2 = I-F4): the dates as STORED. A blur snaps only a
   // date the user changed: an imported Saturday stays a Saturday until someone types another date.
-  const storedStartDate = activity?.actualStartDate ?? "";
-  const storedFinishDate = activity?.actualFinishDate ?? "";
+  // WI-158: stored as the window shows the row — the live row's, until the user changes Status or a
+  // date — so a blur alone never snaps a date and writes it over another writer's.
+  const { actualStartDate: storedStartDate, actualFinishDate: storedFinishDate } = seedDrafts(shownRow);
   // The start as last committed — on open, at a Status change, at a blur. Elapsed days are recounted
   // only when a blur brings a DIFFERENT start (Review 32, R3): tabbing through the window on a later
-  // day must not replace a count the user typed.
-  const [committedStartDate, setCommittedStartDate] = useState(actualStartDate);
+  // day must not replace a count the user typed. WI-158: the live row's, until the user changes it.
+  const committedStartDate = committedStartOf(edits, activity);
   // Which date was typed last, so an out-of-order pair marks the field just edited.
   const [lastEditedDate, setLastEditedDate] = useState<"start" | "finish">("finish");
 
@@ -487,46 +607,26 @@ export function ActivityEditModal({
     return formatDateISO(activityEndDate(parseDateISO(start), planned, calendar));
   }, [activity, sa, status, actualStartDate, activityTarget, calendar]);
 
-  // -- Local draft state: Estimates --
-  const [min, setMin] = useState<number | "">(activity?.min ?? "");
-  const [mostLikely, setMostLikely] = useState<number | "">(activity?.mostLikely ?? "");
-  const [max, setMax] = useState<number | "">(activity?.max ?? "");
-  const [confidenceLevel, setConfidenceLevel] = useState<RSMLevel>(activity?.confidenceLevel ?? "mediumConfidence");
-  const [distributionType, setDistributionType] = useState<DistributionType>(activity?.distributionType ?? "normal");
-  // Read from LOCAL state, not the saved activity: switching the distribution, or editing
+  // -- Drafts: Estimates --
+  const { min, mostLikely, max, confidenceLevel, distributionType } = shown;
+  // Read from the DRAFTS, not the saved activity: switching the distribution, or editing
   // Min and Max, must update the Confidence field immediately, before any save. The dialog
   // never edits an sdOverride, so that one comes from the activity.
   const confidenceInert = confidenceInertReason(distributionType, min, max, activity?.sdOverride);
 
-  // -- Local draft state: Constraint --
-  const [constraintType, setConstraintType] = useState<ConstraintType | null>(
-    activity?.constraintType ?? null
-  );
-  const [constraintDate, setConstraintDate] = useState<string | null>(
-    activity?.constraintDate ?? null
-  );
-  const [constraintMode, setConstraintMode] = useState<ConstraintMode | null>(
-    activity?.constraintMode ?? null
-  );
-  const [constraintNote, setConstraintNote] = useState<string | null>(
-    activity?.constraintNote ?? null
-  );
+  // -- Drafts: Constraint --
+  const { constraintType, constraintDate, constraintMode, constraintNote } = shown;
   const [dateAdjustedNote, setDateAdjustedNote] = useState<string | null>(null);
 
-  // -- Local draft state: Checklist --
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(activity?.checklist ?? []);
-  // WI-138 (v0.79.28): the "Add a task…" box's text, held here rather than in the section so Save
-  // can add a task typed but not added, and `hasChanges` can count it.
+  // -- Drafts: Checklist and Deliverables --
+  const { checklist, deliverables } = shown;
+  // WI-138 (v0.79.28): the "Add a task…" and "Add a deliverable…" boxes' text, held here rather than
+  // in the sections so Save can add an item typed but not added, and the prompts can count it.
   const [newTaskText, setNewTaskText] = useState("");
-
-  // -- Local draft state: Deliverables --
-  const [deliverables, setDeliverables] = useState<DeliverableItem[]>(activity?.deliverables ?? []);
-  // WI-138 (v0.79.28): the "Add a deliverable…" box's text, held here for the same reason.
   const [newDeliverableText, setNewDeliverableText] = useState("");
 
-  // -- Local draft state: Notes --
-  const [notes, setNotes] = useState<string>(activity?.notes ?? "");
-  const [description, setDescription] = useState<string>(activity?.description ?? "");
+  // -- Drafts: Notes and Description --
+  const { notes, description } = shown;
 
   // -- WI-137 release 2: the Planned pair, DERIVED (see `derivedPlannedPair`) --
   // The drafts that move a date, and the row's place in the plan schedule they give. The plan is
@@ -535,11 +635,12 @@ export function ActivityEditModal({
     () => ({ min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote }),
     [min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote],
   );
+  // WI-158 (D2): both read the activity as the window shows it.
   const planSa = useMemo(
-    () => planRowFor(planSchedule, activity, status, planDrafts),
-    [planSchedule, activity, status, planDrafts],
+    () => planRowFor(planSchedule, shownRow, status, planDrafts),
+    [planSchedule, shownRow, status, planDrafts],
   );
-  const plannedPair = useMemo(() => derivedPlannedPair(activity, status, planSa), [activity, status, planSa]);
+  const plannedPair = useMemo(() => derivedPlannedPair(shownRow, status, planSa), [shownRow, status, planSa]);
 
   // -- Heuristic auto-fill: when ML changes, recalculate min/max --
   const handleMostLikelyBlur = useCallback(() => {
@@ -547,9 +648,8 @@ export function ActivityEditModal({
     const ml = Number(mostLikely);
     if (isNaN(ml) || ml <= 0) return;
     const { min: newMin, max: newMax } = computeHeuristic(ml, heuristicMinPercent, heuristicMaxPercent);
-    setMin(newMin);
-    setMax(newMax);
-  }, [heuristicEnabled, mostLikely, heuristicMinPercent, heuristicMaxPercent]);
+    edit({ min: newMin, max: newMax });
+  }, [heuristicEnabled, mostLikely, heuristicMinPercent, heuristicMaxPercent, edit]);
 
   // -- Conflict preview (200ms debounce) --
   const [conflictPreview, setConflictPreview] = useState<ConstraintConflict | null>(null);
@@ -648,7 +748,7 @@ export function ActivityEditModal({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value;
       if (!raw) {
-        setConstraintDate(null);
+        edit({ constraintDate: null });
         setDateAdjustedNote(null);
         return;
       }
@@ -661,7 +761,7 @@ export function ActivityEditModal({
       }
       const normalized = formatDateISO(date);
 
-      setConstraintDate(normalized);
+      edit({ constraintDate: normalized });
       if (normalized !== raw) {
         setDateAdjustedNote(
           `Adjusted from ${formatDate(raw)} to ${formatDate(normalized)} (non-working day)`
@@ -670,7 +770,7 @@ export function ActivityEditModal({
         setDateAdjustedNote(null);
       }
     },
-    [calendar, formatDate]
+    [calendar, formatDate, edit]
   );
 
   // -- Actual finish date → duration (bidirectional sync) --
@@ -678,9 +778,9 @@ export function ActivityEditModal({
   // This prevents computation errors from intermediate partial dates when typing.
   const handleActualFinishDateChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setActualFinishDate(e.target.value);
+      edit({ actualFinishDate: e.target.value });
     },
-    []
+    [edit]
   );
 
   // WI-137: the count is taken from the ACTUAL START draft only — never the scheduled start, which
@@ -693,17 +793,17 @@ export function ActivityEditModal({
       // <input type="date"> produces YYYY-MM-DD or empty; guard against
       // malformed strings that would cause parseDateISO to produce NaN dates.
       if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        setActualFinishDate("");
+        edit({ actualFinishDate: "" });
         return;
       }
       // A finish on a non-working day moves BACK to the last working day (it was done by then) —
       // unless it is the stored date, unchanged (D4).
       const snapped = raw === storedFinishDate ? raw : snapRecordedDate(raw, "finish", calendar);
-      setActualFinishDate(snapped);
-      if (!actualStartDate || snapped < actualStartDate) return; // refused: the red line says why
-      setActualDuration(recordedDuration(actualStartDate, snapped, calendar));
+      // refused when it comes before the start, or with none: the red line says why
+      const counted = !actualStartDate || snapped < actualStartDate ? {} : { actualDuration: recordedDuration(actualStartDate, snapped, calendar) };
+      edit({ actualFinishDate: snapped, ...counted });
     },
-    [actualStartDate, calendar, storedFinishDate]
+    [actualStartDate, calendar, storedFinishDate, edit]
   );
 
   // WI-137: the Actual Start. A non-working day moves FORWARD; the count follows it — but only when
@@ -713,20 +813,18 @@ export function ActivityEditModal({
       const raw = e.target.value;
       setLastEditedDate("start");
       if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        setActualStartDate(committedStartDate);
+        edit({ actualStartDate: committedStartDate });
         return;
       }
       // Unless it is the stored date, unchanged (D4): never moved on a blur alone.
       const snapped = raw === storedStartDate ? raw : snapRecordedDate(raw, "start", calendar);
-      setActualStartDate(snapped);
-      if (snapped === committedStartDate) return;
-      setCommittedStartDate(snapped);
-      if (status === "inProgress") setActualDuration(elapsedWorkingDays(snapped, todayISO(), calendar));
-      if (status === "complete" && actualFinishDate && actualFinishDate >= snapped) {
-        setActualDuration(recordedDuration(snapped, actualFinishDate, calendar));
+      if (snapped === committedStartDate) {
+        edit({ actualStartDate: snapped });
+        return;
       }
+      edit({ actualStartDate: snapped, ...recountFromStart(snapped, status, actualFinishDate, calendar) }, snapped);
     },
-    [committedStartDate, status, actualFinishDate, calendar, storedStartDate]
+    [committedStartDate, status, actualFinishDate, calendar, storedStartDate, edit]
   );
 
   // -- Actual duration → finish date (bidirectional sync) --
@@ -734,21 +832,20 @@ export function ActivityEditModal({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value;
       if (raw === "") {
-        setActualDuration("");
-        setActualFinishDate("");
+        edit({ actualDuration: "", actualFinishDate: "" });
         return;
       }
       const parsed = Number(raw);
       if (isNaN(parsed)) return;
       const val = Math.max(1, Math.floor(parsed));
-      setActualDuration(val);
       // WI-137: the finish follows the count only from a recorded Actual Start. With none (a row from
       // before v0.80.0), the count is written alone, as v0.79.36 stored it.
-      if (!actualStartDate) return;
       // activityEndDate encapsulates the PM convention; no adjustment needed here.
-      setActualFinishDate(formatDateISO(activityEndDate(parseDateISO(actualStartDate), val, calendar)));
+      edit(actualStartDate
+        ? { actualDuration: val, actualFinishDate: formatDateISO(activityEndDate(parseDateISO(actualStartDate), val, calendar)) }
+        : { actualDuration: val });
     },
-    [actualStartDate, calendar]
+    [actualStartDate, calendar, edit]
   );
 
   // -- Type change: auto-set mode to "hard" if first selection --
@@ -756,86 +853,61 @@ export function ActivityEditModal({
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const val = e.target.value;
       if (!val) {
-        setConstraintType(null);
-        setConstraintMode(null);
-        setConstraintDate(null);
-        setConstraintNote(null);
+        edit(NO_CONSTRAINT);
         setDateAdjustedNote(null);
         setConflictPreview(null);
         return;
       }
       const newType = val as ConstraintType;
-      setConstraintType(newType);
-      if (!constraintMode) {
-        setConstraintMode("hard");
-      }
+      edit({ constraintType: newType, constraintMode: constraintMode ?? "hard" });
     },
-    [constraintMode]
+    [constraintMode, edit]
   );
 
-  // -- Build field updates (General + Estimates + Constraint) --
-  // Reused by both handleSave and hasChanges to avoid duplicated diff logic.
-  const buildFieldUpdates = useCallback((): Partial<Activity> => {
-    if (!activity) return {};
+  // -- What Save writes (WI-158) --
+  // WI-138 (v0.79.28): a task or deliverable typed in its box but not added is in its list here, as
+  // Add would add it. Each section keeps its own diff rules (`fieldUpdatesFor`), including the two
+  // that emit an EXPLICIT `undefined` to clear a stored value (actualDuration, description).
+  const writes = useMemo(
+    () => windowWrites(activity, edits, { task: newTaskText, deliverable: newDeliverableText }, plannedPair),
+    [activity, edits, newTaskText, newDeliverableText, plannedPair],
+  );
 
-    // Each section owns its own diff rules, including the two that emit an EXPLICIT
-    // `undefined` to clear a stored value (actualDuration, description). Object.assign
-    // preserves those own-properties, which is what save and dismiss-detection count.
-    return Object.assign(
-      {} as Partial<Activity>,
-      computeGeneralUpdates(activity, name, status, actualDuration, actualStartDate, actualFinishDate, plannedPair),
-      computeEstimateUpdates(activity, min, mostLikely, max, confidenceLevel, distributionType),
-      computeConstraintUpdates(activity, constraintType, constraintDate, constraintMode, constraintNote),
-      computeDescriptionUpdate(activity, description),
-    );
-  }, [activity, name, status, actualDuration, actualStartDate, actualFinishDate, plannedPair, min, mostLikely, max, confidenceLevel, distributionType, constraintType, constraintDate, constraintMode, constraintNote, description]);
-
-  // -- Save: only send changed fields --
+  // -- Save: only what the user changed (WI-158) --
   const handleSave = useCallback(() => {
-    if (!activity) return;
-
-    const updates = buildFieldUpdates();
+    // G1 (Review 38): onto the row as it is when Save runs, not as it was at the render the Escape
+    // prompt was raised from — a write that landed while the prompt was up is never half undone.
+    const w = windowWrites(
+      storedRow(projectId, scenarioId, activityId), edits, { task: newTaskText, deliverable: newDeliverableText }, plannedPair,
+    );
+    if (w === NO_WRITES) return;
 
     // Non-checklist field updates go through normal path (invalidates simulation)
-    if (Object.keys(updates).length > 0) {
-      updateActivityField(projectId, scenarioId, activityId, updates);
+    if (Object.keys(w.fields).length > 0) {
+      updateActivityField(projectId, scenarioId, activityId, w.fields);
     }
 
-    // WI-138 (v0.79.28): a task or deliverable typed in its box but not added is added here, as
-    // Add would add it. Computed into locals, not set into state: state set here could not be
-    // read back before the two saves below.
-    const finalChecklist = withTypedItem(checklist, newTaskText);
-    const finalDeliverables = withTypedItem(deliverables, newDeliverableText);
-
     // Checklist — separate save path to avoid simulation invalidation
-    const origChecklist = activity.checklist ?? [];
-    const checklistChanged = JSON.stringify(finalChecklist) !== JSON.stringify(origChecklist);
-    if (checklistChanged) {
-      updateActivityChecklist(projectId, scenarioId, activityId, finalChecklist.length > 0 ? finalChecklist : undefined);
+    if (w.checklist) {
+      updateActivityChecklist(projectId, scenarioId, activityId, w.drafts.checklist.length > 0 ? w.drafts.checklist : undefined);
     }
 
     // Deliverables — same split-save pattern as checklist
-    const origDeliverables = activity.deliverables ?? [];
-    const deliverablesChanged = JSON.stringify(finalDeliverables) !== JSON.stringify(origDeliverables);
-    if (deliverablesChanged) {
-      updateActivityDeliverables(projectId, scenarioId, activityId, finalDeliverables.length > 0 ? finalDeliverables : undefined);
+    if (w.deliverables) {
+      updateActivityDeliverables(projectId, scenarioId, activityId, w.drafts.deliverables.length > 0 ? w.drafts.deliverables : undefined);
     }
 
     // Notes — same split-save pattern
-    const origNotes = activity.notes ?? "";
-    if (notes !== origNotes) {
-      updateActivityNotes(projectId, scenarioId, activityId, notes.trim() || undefined);
+    if (w.notes) {
+      updateActivityNotes(projectId, scenarioId, activityId, w.drafts.notes.trim() || undefined);
     }
 
     onClose();
   }, [
-    activity,
-    buildFieldUpdates,
-    checklist,
-    deliverables,
+    edits,
     newTaskText,
     newDeliverableText,
-    notes,
+    plannedPair,
     updateActivityField,
     updateActivityChecklist,
     updateActivityDeliverables,
@@ -848,13 +920,10 @@ export function ActivityEditModal({
 
   // -- Clear constraint --
   const handleClearConstraint = useCallback(() => {
-    setConstraintType(null);
-    setConstraintDate(null);
-    setConstraintMode(null);
-    setConstraintNote(null);
+    edit(NO_CONSTRAINT);
     setDateAdjustedNote(null);
     setConflictPreview(null);
-  }, []);
+  }, [edit]);
 
   const checklistDoneCount = useMemo(
     () => checklist.filter((item) => item.completed).length,
@@ -869,7 +938,12 @@ export function ActivityEditModal({
   // Determine if save is valid.
   // `nameMissing` is the same condition surfaced to the user: the Save button was already
   // correctly disabled for an empty name, but nothing said WHY.
-  const nameMissing = name.trim().length === 0;
+  // WI-158 (G2): judged only in a part Save writes (`judgedFaults`). WI-137: the two recorded dates,
+  // judged as the window would save them.
+  const { nameMissing, dateFault } = judgedFaults(writes.changedHere, name, {
+    status, start: actualStartDate, finish: actualFinishDate, today: todayISO(),
+    scenarioStart: scenarioStartDate, lastEdited: lastEditedDate,
+  });
   // ⚠️ Derived here, after the hooks, on purpose. Placed beside `confidenceInert` above, among the
   // useState calls, this one line made the React Compiler report four
   // `react-hooks/preserve-manual-memoization` errors on `handleTypeChange` (it inferred the
@@ -886,31 +960,17 @@ export function ActivityEditModal({
 
   // v0.73.3 — the first reason Save is off, or null; `isValid` is derived from it, so Save's state
   // and the line beside it cannot disagree. Here, beside the old `isValid`, for the note above.
-  // WI-137: the two recorded dates, judged as the window would save them.
-  const dateFault = actualDatesFault({
-    status, start: actualStartDate, finish: actualFinishDate, today: todayISO(),
-    scenarioStart: scenarioStartDate, lastEdited: lastEditedDate,
-  });
   const saveBlocked = unsaveableCause(
     nameMissing, negativeEstimate, constraintType, constraintDate, constraintMode, dateFault !== null,
   );
   const isValid = saveBlocked === null;
 
-  // -- Dirty check: detect any unsaved changes --
-  const hasChanges = useMemo(() => {
-    if (!activity) return false;
-    // Field updates (General + Estimates + Constraint)
-    if (Object.keys(buildFieldUpdates()).length > 0) return true;
-    // Qualitative paths
-    if (JSON.stringify(checklist) !== JSON.stringify(activity.checklist ?? [])) return true;
-    if (JSON.stringify(deliverables) !== JSON.stringify(activity.deliverables ?? [])) return true;
-    // WI-138 (v0.79.28): text in a Tasks or Deliverables box that Save would add is a change too,
-    // so Cancel and Escape ask before it is lost.
-    if (typedItemText(checklist.length, newTaskText) !== null) return true;
-    if (typedItemText(deliverables.length, newDeliverableText) !== null) return true;
-    if (notes !== (activity.notes ?? "")) return true;
-    return false;
-  }, [activity, buildFieldUpdates, checklist, deliverables, newTaskText, newDeliverableText, notes]);
+  // -- Dirty check: WI-158 — THE SAME comparison as Save: is there anything Save would write? --
+  // Text in a Tasks or Deliverables box that Save would add is a change too (WI-138), so Cancel and
+  // Escape ask before it is lost; another writer's change alone is not, so neither asks about it.
+  const hasChanges = writesAnything(writes);
+  // D3: the line saying the activity changed somewhere else while the window was open, or none.
+  const changedLine = changedWhileOpenLine(opened, activity, edits);
 
   /**
    * Escape and overlay-click. Asks through the app's own dialog host rather than the browser's
@@ -1050,6 +1110,14 @@ export function ActivityEditModal({
           <Dialog.Title className="shrink-0 px-6 pt-6 pb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Edit Activity
           </Dialog.Title>
+          {/* WI-158: another writer changed this activity while the window was open, and what Save does
+              about it. Outside the scroller, so it is seen wherever the sections are scrolled to; the
+              live region is always there, so a screen reader hears the line when it appears. */}
+          <div role="status" className="shrink-0">
+            {changedLine && (
+              <p className="px-6 pb-2 text-sm text-amber-700 dark:text-amber-300">{changedLine}</p>
+            )}
+          </div>
 
           <div className="min-h-0 overflow-y-auto px-6 pt-1 pb-1 space-y-0">
             {/* ── Section 1: General ── */}
@@ -1065,7 +1133,7 @@ export function ActivityEditModal({
                     name="activityName"
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => edit({ name: e.target.value })}
                     maxLength={NAME_MAX_LENGTH}
                     aria-invalid={nameMissing}
                     aria-describedby={nameMissing ? fieldNameErrorId : undefined}
@@ -1094,15 +1162,14 @@ export function ActivityEditModal({
                       const newStatus = e.target.value as ActivityStatus;
                       // Release 2: a row stored Planned reads the plan schedule (this window's edits made),
                       // so v0.80.0's Complete defaults come from the same schedule its Planned pair does.
-                      const context = activity.status === "planned" ? planRowFor(planSchedule, activity, newStatus, planDrafts) : sa;
+                      // WI-158 (D2): on the activity as the window shows it — the live row, unless the
+                      // user has changed Status or its dates. One edit, so the part moves as one.
+                      const row = shownRow ?? activity;
+                      const context = row.status === "planned" ? planRowFor(planSchedule, row, newStatus, planDrafts) : sa;
                       const next = statusChangeDrafts(
-                        activity, status, newStatus, { actualStartDate, actualFinishDate, actualDuration }, context, calendar ?? undefined,
+                        row, status, newStatus, { actualStartDate, actualFinishDate, actualDuration }, context, calendar ?? undefined,
                       );
-                      setStatus(newStatus);
-                      setActualStartDate(next.actualStartDate);
-                      setCommittedStartDate(next.actualStartDate);
-                      setActualFinishDate(next.actualFinishDate);
-                      setActualDuration(next.actualDuration);
+                      edit({ status: newStatus, ...next }, next.actualStartDate);
                     }}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
@@ -1125,7 +1192,7 @@ export function ActivityEditModal({
                   name="activityDescription"
                   aria-describedby={fieldDescriptionCounterId}
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => edit({ description: e.target.value })}
                   maxLength={2000}
                   rows={2}
                   placeholder="Plain-language scope — what this activity entails…"
@@ -1142,7 +1209,7 @@ export function ActivityEditModal({
                 scheduledStartDate={scheduledStartDate}
                 actualDuration={actualDuration}
                 actualStartDate={actualStartDate}
-                setActualStartDate={setActualStartDate}
+                setActualStartDate={(v) => edit({ actualStartDate: v })}
                 handleActualStartDateBlur={handleActualStartDateBlur}
                 today={todayISO()}
                 progressNotes={activityNoteSentences(schedule?.progressNotes, activityId, formatDate)}
@@ -1156,7 +1223,7 @@ export function ActivityEditModal({
                 handleActualDurationChange={handleActualDurationChange}
                 handleActualFinishDateChange={handleActualFinishDateChange}
                 handleActualFinishDateBlur={handleActualFinishDateBlur}
-                setActualDuration={setActualDuration}
+                setActualDuration={(v) => edit({ actualDuration: v })}
               />
             </Section>
 
@@ -1175,7 +1242,7 @@ export function ActivityEditModal({
                     min={0}
                     step={0.5}
                     value={min}
-                    onChange={(e) => setMin(e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) => edit({ min: e.target.value === "" ? "" : Number(e.target.value) })}
                     {...estimateAria.min}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
                   />
@@ -1191,7 +1258,7 @@ export function ActivityEditModal({
                     min={0}
                     step={0.5}
                     value={mostLikely}
-                    onChange={(e) => setMostLikely(e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) => edit({ mostLikely: e.target.value === "" ? "" : Number(e.target.value) })}
                     {...estimateAria.mostLikely}
                     onBlur={handleMostLikelyBlur}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
@@ -1208,7 +1275,7 @@ export function ActivityEditModal({
                     min={0}
                     step={0.5}
                     value={max}
-                    onChange={(e) => setMax(e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) => edit({ max: e.target.value === "" ? "" : Number(e.target.value) })}
                     {...estimateAria.max}
                     className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-400 focus:outline-none"
                   />
@@ -1221,7 +1288,7 @@ export function ActivityEditModal({
                     id={fieldDistributionId}
                     name="distributionType"
                     value={distributionType}
-                    onChange={(e) => setDistributionType(e.target.value as DistributionType)}
+                    onChange={(e) => edit({ distributionType: e.target.value as DistributionType })}
                     {...distributionSelectLook(distributionInert)}
                   >
                     {DISTRIBUTION_TYPES.map((dt) => (
@@ -1259,7 +1326,7 @@ export function ActivityEditModal({
                       id={fieldConfidenceId}
                       name="confidenceLevel"
                       value={confidenceLevel}
-                      onChange={(e) => setConfidenceLevel(e.target.value as RSMLevel)}
+                      onChange={(e) => edit({ confidenceLevel: e.target.value as RSMLevel })}
                       className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
                       {RSM_LEVELS.map((level) => (
@@ -1360,7 +1427,7 @@ export function ActivityEditModal({
                               name="constraintMode"
                               value={mode}
                               checked={constraintMode === mode}
-                              onChange={() => setConstraintMode(mode)}
+                              onChange={() => edit({ constraintMode: mode })}
                               className="text-blue-600"
                             />
                             <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
@@ -1387,7 +1454,7 @@ export function ActivityEditModal({
                         id={fieldConstraintNoteId}
                         name="constraintNote"
                         value={constraintNote ?? ""}
-                        onChange={(e) => setConstraintNote(e.target.value || null)}
+                        onChange={(e) => edit({ constraintNote: e.target.value || null })}
                         maxLength={500}
                         rows={2}
                         placeholder="Why does this constraint exist?"
@@ -1452,7 +1519,7 @@ export function ActivityEditModal({
             >
               <ChecklistSection
                 checklist={checklist}
-                onChange={setChecklist}
+                onChange={(items) => edit({ checklist: items })}
                 newTaskText={newTaskText}
                 onNewTaskTextChange={setNewTaskText}
               />
@@ -1466,7 +1533,7 @@ export function ActivityEditModal({
             >
               <DeliverablesSection
                 deliverables={deliverables}
-                onChange={setDeliverables}
+                onChange={(items) => edit({ deliverables: items })}
                 newText={newDeliverableText}
                 onNewTextChange={setNewDeliverableText}
               />
@@ -1484,7 +1551,7 @@ export function ActivityEditModal({
                 name="activityNotes"
                 aria-label="Activity notes"
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => edit({ notes: e.target.value })}
                 maxLength={2000}
                 rows={5}
                 placeholder="Add notes about this activity…"
