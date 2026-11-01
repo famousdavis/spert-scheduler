@@ -56,6 +56,8 @@ const U_NO_LINE = "none while nothing has changed somewhere else, whatever was c
 const U_LABELS = "names the fields changed somewhere else by their labels, in the window's order, ending one sentence";
 const U_AFTER = "a part the user changed AFTER the other writer's change is named too: Save keeps the window's";
 const U_EVERY = "each part the user had changed too, in every form: the field, the Status and dates, the constraint, the lists";
+const U_SHOWN_ONLY = "owner, R656: with a part the user changed too, the window says it shows only the new values it shows";
+const U_SHOWN_PERIOD = "owner, R656: a shown label that ends in a period ends its sentence once";
 // ActivityEditModal.test.tsx (v0.79.28, WI-138), unedited.
 const T2 = "T2 Save adds a typed task to the existing ones, trimmed, once";
 const T5 = "T5 typed text alone: Escape asks the three-way question, and its Save adds the task";
@@ -200,11 +202,19 @@ export const mutations = [
   {
     // (Run exact at [expect 7] before the line named a part the user changed AFTER the other writer
     // too — the owner's words set no order; P3 and U_AFTER joined then, so it was re-registered.)
-    id: "E14  the line names no part the user had changed too  [expect 9]",
+    // (Owner, R656: two unit tests of the "now shows" sentence also carry a part changed here: 9 → 11.)
+    id: "E14  the line names no part the user had changed too  [expect 11]",
     file: CHANGES,
     find: "    ...both.map((p) => bothSentence(p, edits[p]!)),",
     replace: "",
-    expectFailing: only(P1B, P3, P1, P13_OTHER, P10A, P10B, NAME_BOTH, U_AFTER, U_EVERY),
+    expectFailing: only(P1B, P3, P1, P13_OTHER, P10A, P10B, NAME_BOTH, U_AFTER, U_EVERY, U_SHOWN_ONLY, U_SHOWN_PERIOD),
+  },
+  {
+    id: "E20  owner, R656: the line says the window shows the new values even where it shows the user's  [expect 11]",
+    file: CHANGES,
+    find: "  if (!anyBoth) return [\"The window now shows the new values.\"];",
+    replace: "  return [\"The window now shows the new values.\"];",
+    expectFailing: only(P1B, P3, P1, P13_OTHER, P10A, P10B, NAME_BOTH, U_AFTER, U_EVERY, U_SHOWN_ONLY, U_SHOWN_PERIOD),
   },
   {
     id: "E15  the Planned dates left out of the line  [expect 2]",

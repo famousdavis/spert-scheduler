@@ -108,7 +108,21 @@ describe("D3: the line", () => {
   it("a part the user changed AFTER the other writer's change is named too: Save keeps the window's", () => {
     const live = { ...opened, name: "Build v2" };
     expect(changedWhileOpenLine(opened, live, editDrafts({}, live, { name: "Build (mine)" }))).toBe(
-      "Changed somewhere else while this window was open: Name. The window now shows the new values. You had changed Name too: Save keeps the Name this window shows.",
+      "Changed somewhere else while this window was open: Name. You had changed Name too: Save keeps the Name this window shows.",
+    );
+  });
+
+  it("owner, R656: with a part the user changed too, the window says it shows only the new values it shows", () => {
+    const live = { ...opened, name: "Build v2", notes: "Note two" };
+    expect(changedWhileOpenLine(opened, live, editDrafts({}, opened, { name: "Build (mine)" }))).toBe(
+      "Changed somewhere else while this window was open: Name and Notes. The window now shows the new Notes. You had changed Name too: Save keeps the Name this window shows.",
+    );
+  });
+
+  it("owner, R656: a shown label that ends in a period ends its sentence once", () => {
+    const live = { ...opened, name: "Build v2", actualDuration: 11 };
+    expect(changedWhileOpenLine(opened, live, editDrafts({}, opened, { name: "Build (mine)" }))).toBe(
+      "Changed somewhere else while this window was open: Name and Actual Dur. The window now shows the new Actual Dur. You had changed Name too: Save keeps the Name this window shows.",
     );
   });
 
@@ -132,7 +146,6 @@ describe("D3: the line", () => {
     };
     expect(changedWhileOpenLine(opened, live, edits)).toBe([
       "Changed somewhere else while this window was open: Name, Actual Start, Scheduling Constraint, Tasks and Deliverables.",
-      "The window now shows the new values.",
       "You had changed Name too: Save keeps the Name this window shows.",
       "You had changed Actual Dur. too: Save keeps the Status and dates this window shows.",
       "You had changed Scheduling Constraint too: Save keeps the constraint this window shows.",

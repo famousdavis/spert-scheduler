@@ -327,6 +327,16 @@ function bothSentence(part: WindowPart, e: PartEdit): string {
 }
 
 /**
+ * Owner, R656: "The window now shows the new values" only where it does. In a part the user had
+ * changed too, the window shows the user's version, so the sentence then names only the fields it now
+ * shows, and is left out when it shows none of them.
+ */
+function nowShowsSentence(shown: string[], anyBoth: boolean): string[] {
+  if (!anyBoth) return ["The window now shows the new values."];
+  return shown.length > 0 ? [`The window now shows the new ${endSentence(inWords(shown))}`] : [];
+}
+
+/**
  * The one line the window shows once another writer has changed the activity: none until then (D3).
  * It names, by their labels, the fields changed somewhere else since the window opened, and each part
  * the user had changed too — where Save keeps the window's version, as it shows it.
@@ -338,10 +348,13 @@ export function changedWhileOpenLine(
   const then = lineValues(opened);
   const now = lineValues(live);
   const both = bothChangedParts(edits, then, now);
-  const elsewhere = labelsWhere((k) => !sameJson(then[k], now[k]) || movedSinceTouched(edits, k, now));
+  const changed = (k: LineKey): boolean => !sameJson(then[k], now[k]) || movedSinceTouched(edits, k, now);
+  const elsewhere = labelsWhere(changed);
   if (elsewhere.length === 0) return null;
+  const shown = labelsWhere((k) => changed(k) && !both.includes(LINE_PART[k]));
   return [
-    `Changed somewhere else while this window was open: ${endSentence(inWords(elsewhere))} The window now shows the new values.`,
+    `Changed somewhere else while this window was open: ${endSentence(inWords(elsewhere))}`,
+    ...nowShowsSentence(shown, both.length > 0),
     ...both.map((p) => bothSentence(p, edits[p]!)),
   ].join(" ");
 }

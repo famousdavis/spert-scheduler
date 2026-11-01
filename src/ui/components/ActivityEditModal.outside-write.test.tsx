@@ -372,7 +372,7 @@ describe("B: the window shows the activity as it is now, except in a part the us
     fireEvent.change(ml, { target: { value: "6" } });
     collaborator((b) => ({ ...b, mostLikely: 8, max: 12 }));
     expect([field('input[name="estimateMin"]').value, ml.value, field('input[name="estimateMax"]').value]).toEqual(["3", "6", "12"]);
-    expect(line()).toBe(`${FIRST} ML and Max. ${NOW_SHOWS} You had changed ML too: Save keeps the ML this window shows.`);
+    expect(line()).toBe(`${FIRST} ML and Max. The window now shows the new Max. You had changed ML too: Save keeps the ML this window shows.`);
     fireEvent.blur(ml);
     save();
     expect([stored().min, stored().mostLikely, stored().max]).toEqual([3, 6, 12]);
@@ -386,7 +386,7 @@ describe("B: the window shows the activity as it is now, except in a part the us
     const ta = screen.getByLabelText("Activity notes") as HTMLTextAreaElement;
     expect(ta.value).toBe("Note two");
     fireEvent.change(ta, { target: { value: `${ta.value} + mine` } });
-    expect(line()).toBe(`${FIRST} Notes. ${NOW_SHOWS} You had changed Notes too: Save keeps the Notes this window shows.`);
+    expect(line()).toBe(`${FIRST} Notes. You had changed Notes too: Save keeps the Notes this window shows.`);
     save();
     expect(stored().notes).toBe("Note two + mine");
   });
@@ -429,7 +429,7 @@ describe("D1: a part the user changed and another writer changed after it is sav
     collaborator((b) => ({ ...b, actualStartDate: "2026-10-21", actualDuration: 8 }));
     expect([field('input[name="actualStartDate"]').value, field('input[name="actualDuration"]').value]).toEqual(["2026-10-19", "9"]);
     expect(line()).toBe(
-      `${FIRST} Actual Start and Actual Dur. ${NOW_SHOWS} You had changed Actual Dur. too: Save keeps the Status and dates this window shows.`,
+      `${FIRST} Actual Start and Actual Dur. You had changed Actual Dur. too: Save keeps the Status and dates this window shows.`,
     );
     save();
     expect(progress(stored())).toEqual(["inProgress", "2026-10-19", undefined, 9, "2026-10-12", "2026-10-16"]);
@@ -441,7 +441,7 @@ describe("D1: a part the user changed and another writer changed after it is sav
     fireEvent.change(field('textarea[name="constraintNote"]'), { target: { value: "n1 mine" } });
     collaborator((b) => ({ ...b, constraintDate: "2026-10-21" }));
     expect(line()).toBe(
-      `${FIRST} Scheduling Constraint. ${NOW_SHOWS} You had changed Scheduling Constraint too: Save keeps the constraint this window shows.`,
+      `${FIRST} Scheduling Constraint. You had changed Scheduling Constraint too: Save keeps the constraint this window shows.`,
     );
     save();
     expect([stored().constraintType, stored().constraintDate, stored().constraintMode, stored().constraintNote])
@@ -449,7 +449,7 @@ describe("D1: a part the user changed and another writer changed after it is sav
   });
 
   const TASK_TWO = { id: "t2", text: "Task two", completed: false };
-  const TASKS_LINE = `${FIRST} Tasks. ${NOW_SHOWS} You had changed Tasks too: Save keeps the list this window shows.`;
+  const TASKS_LINE = `${FIRST} Tasks. You had changed Tasks too: Save keeps the list this window shows.`;
 
   it("Review 38 P10a: Task one ticked here, Task two added elsewhere: the window's list is saved", () => {
     open();
@@ -494,7 +494,7 @@ describe("D1: a part the user changed and another writer changed after it is sav
     open();
     fireEvent.change(field('input[name="activityName"]'), { target: { value: "Build (mine)" } });
     collaborator((b) => ({ ...b, name: "Build v2" }));
-    expect(line()).toBe(`${FIRST} Name. ${NOW_SHOWS} You had changed Name too: Save keeps the Name this window shows.`);
+    expect(line()).toBe(`${FIRST} Name. You had changed Name too: Save keeps the Name this window shows.`);
     save();
     expect(stored().name).toBe("Build (mine)");
   });
