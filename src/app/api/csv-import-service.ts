@@ -9,7 +9,7 @@ import {
   parseFlatActivityTable,
   resolveHeaders,
 } from "@core/import/flat-activity-parser";
-import type { CSVImportError, CSVParseResult } from "@core/import/types";
+import type { CSVImportError, CSVParseResult, ParseTableOptions } from "@core/import/types";
 import { formatDateISO } from "@core/calendar/calendar";
 import { generateId } from "@app/api/id";
 
@@ -17,6 +17,16 @@ import { generateId } from "@app/api/id";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_CLIPBOARD_LENGTH = 5_000_000; // 5 MB of text
+
+// -- Options -------------------------------------------------------------------
+
+/** What a caller may say about a parse: the headerless order, and (WI-150) today and the user's date format. */
+export type ImportParseOptions = Pick<ParseTableOptions, "assumeDefaultColumnOrder" | "today" | "dateFormat">;
+
+/** WI-150: today, read here from the computer's clock when the caller does not give it (the core never reads it). */
+function withToday(options: ImportParseOptions | undefined): ImportParseOptions {
+  return { today: formatDateISO(new Date()), ...options };
+}
 
 // -- Clipboard parsing --------------------------------------------------------
 
@@ -41,8 +51,9 @@ export function parseClipboardTable(text: string): string[][] {
  */
 export function parsePastedRows(
   lines: string[][],
-  options?: { assumeDefaultColumnOrder?: boolean }
+  given?: ImportParseOptions
 ): CSVParseResult {
+  const options = withToday(given);
   const { rows, rowNumbers } = numberedRows(lines, (row) => !isBlankRow(row));
   return parseFlatActivityTable(rows, generateId, { ...options, rowNumbers });
 }
@@ -98,8 +109,9 @@ export async function readCsvRows(file: File): Promise<string[][]> {
  */
 export function parseCsvFileRows(
   records: string[][],
-  options?: { assumeDefaultColumnOrder?: boolean }
+  given?: ImportParseOptions
 ): CSVParseResult {
+  const options = withToday(given);
   const { rows, rowNumbers } = numberedRows(records, (row) => !isBlankRow(row) && !isNoteRow(row));
   const result = parseFlatActivityTable(rows, generateId, { ...options, rowNumbers });
   const layout = fileLayout(rows, rowNumbers, options?.assumeDefaultColumnOrder ?? false);

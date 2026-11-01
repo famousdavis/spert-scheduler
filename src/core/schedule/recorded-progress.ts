@@ -330,9 +330,23 @@ export function detectProgressNotes(args: {
       allowedDate: formatDateISO(hit.allowed),
       sequential,
       ...notStartedFields(pred, succ, !!rec, forecast, startDates.get(pair.fromId), endDates.get(pair.fromId), followed.has(pair.toId)),
+      ...movedRecordedDate(succ, rec, hit.event),
     });
   }
   return notes;
+}
+
+/**
+ * WI-150 (Review 34, V-E3): the stored date a note's event is about, when the schedule did not keep
+ * it as recorded — so the words never say "the start you recorded" of a date the schedule moved.
+ */
+function movedRecordedDate(
+  a: Activity, rec: RecordedProgress | undefined, event: "start" | "finish",
+): { recordedDate?: string } {
+  if (!rec) return {};
+  const moved = event === "start" ? !rec.startAsRecorded : rec.complete && rec.finishAsRecorded === false;
+  const date = event === "start" ? a.actualStartDate : a.actualFinishDate;
+  return moved && date ? { recordedDate: date } : {};
 }
 
 /** Is `date` on the wrong side of a constraint of this type? */
@@ -372,6 +386,7 @@ export function detectConstraintNotes(args: {
       date,
       constraintType: type,
       constraintDate: a.constraintDate,
+      ...movedRecordedDate(a, rec, isStart ? "start" : "finish"),
     });
   }
   return notes;

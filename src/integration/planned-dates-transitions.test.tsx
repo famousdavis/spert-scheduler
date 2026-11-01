@@ -111,6 +111,12 @@ function renderPage() {
   );
 }
 
+// WI-150 (Review 34, V-R6): every test here renders the whole page and drives it many times. Under a
+// whole-suite load some took longer than vitest's 5-second default and failed by TIMING OUT, never by
+// an assertion (5 of them at v0.82.0's tree, each passing alone). A per-file timeout well past the
+// slowest measured run makes each test's outcome its assertions' alone. No assertion changed.
+vi.setConfig({ testTimeout: 60_000 });
+
 beforeEach(() => {
   vi.useFakeTimers({ now: new Date("2026-10-27T12:00:00"), toFake: ["Date"] });
   usePreferencesStore.setState((st) => ({ preferences: { ...st.preferences, dateFormat: "MM/DD/YYYY", autoRunSimulation: false } }));

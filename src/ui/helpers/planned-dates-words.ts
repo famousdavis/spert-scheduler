@@ -17,19 +17,21 @@ import { pluralize } from "@domain/helpers/format-labels";
  * the same bulk Apply are part of it (ruling 5a), and nothing moves it afterwards — only the one
  * Status rule writes the pair, and only when the activity leaves Planned. WI-154 (owner, R639, C′):
  * the plan's dates, without today's floor, so a late start keeps the date it was late against.
+ * WI-150: an activity imported as already started may bring the plan of the tool it came from.
  */
 export const PLANNED_DATES_DEFINITION =
-  "Planned Start and Planned Finish: the dates the plan gave the activity when it left Planned, without moving work that has not started to today. The schedule does not move them afterwards.";
+  "Planned Start and Planned Finish: the dates the plan gave the activity when it left Planned — Scheduler's own plan, without moving work that has not started to today, or the plan it was imported with. The schedule does not move them afterwards.";
 
 /**
  * The visible line under an In Progress line whose Planned Start is a dash (ruling 2; Review 33,
  * F5, F14, W3). It names no single cause, because the window cannot tell which one it was: a row
- * started before v0.81.0, a spreadsheet import's started row (`flat-activity-parser.ts` writes a
- * Status and no date) and a reforecast copy's In Progress row (`withoutRecordedDates`) all have
- * none, and so has a row that left Planned while the schedule could not be calculated.
+ * started before v0.81.0, a spreadsheet import's started row whose file gave no Planned Start and
+ * Planned Finish (WI-150: one that gave both keeps them) and a reforecast copy's In Progress row
+ * (`withoutRecordedDates`) all have none, and so has a row that left Planned while the schedule
+ * could not be calculated.
  */
 export const NO_PLANNED_START_LINE =
-  "No Planned Start was kept for this activity. Planned dates are kept when an activity leaves Planned while the schedule can be calculated, from version 0.81.0 on. One started earlier, imported from a spreadsheet as already started, or carried into a reforecast copy has none.";
+  "No Planned Start was kept for this activity. Planned dates are kept when an activity leaves Planned while the schedule can be calculated, from version 0.81.0 on. One started earlier, imported from a spreadsheet as already started without its Planned Start and Planned Finish, or carried into a reforecast copy has none.";
 
 /**
  * The toast when a Status change takes activities out of Planned while the schedule cannot be

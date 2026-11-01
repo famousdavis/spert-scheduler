@@ -105,7 +105,9 @@ export function buildSummaryData(params: ScheduleExportParams): SummaryRow[] {
     { key: "Dependency Mode", value: settings.dependencyMode ? "On" : "Off" },
     { key: "Exported", value: new Date().toISOString() },
     // WI-137 release 2 (owner, R630; Review 33, F11): the format every date in this file is written
-    // in — the exporting user's — so a reader, or an importer (WI-150), can tell 03/04 from 04/03.
+    // in — the exporting user's — so a reader can tell 03/04 from 04/03. No importer reads it: this
+    // export does not re-import (WI-150 §0; WI-155 would make it), and Import Activities takes the
+    // day order from the user's Date Format and the file's own dates.
     { key: "Date Format", value: dateFormat },
   ];
 }
@@ -319,8 +321,9 @@ export function buildScheduleHeaders(
     `Duration (${pctLabel})`,
     "Start Date",
     "End Date",
-    // WI-137 release 2. Named as the Edit Activity window names them, and as P6 does, so a later
-    // importer (WI-150) can read them back; none matches any heading the importer reads today.
+    // WI-137 release 2. Named as the Edit Activity window names them, and as P6 does. Since WI-150
+    // Import Activities reads these four headings — from P6, MS Project or a hand-made sheet; this
+    // export itself still does not re-import (its summary block, `#` header and Total row; WI-155).
     "Planned Start",
     "Planned Finish",
     "Actual Start",

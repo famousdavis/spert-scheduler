@@ -254,7 +254,7 @@ export const mutations = [
     ),
   },
   {
-    id: "P12 the export prints a Planned row's own pair  [expect 7]",
+    id: "P12 the export prints a Planned row's own pair  [expect 12]",
     file: EXPORT,
     find: '  if (activity.status === "planned") {\n    return { plannedStart: held(plan?.startDate)',
     replace: "  if (false) {\n    return { plannedStart: held(plan?.startDate)",
@@ -266,6 +266,12 @@ export const mutations = [
       "DD/MM/YYYY: a real XLSX, read back — the Date Format line, and the four columns",
       "YYYY/MM/DD: a real CSV — its summary's Date Format line, and the four columns",
       "YYYY/MM/DD: a real XLSX, read back — the Date Format line, and the four columns",
+      // WI-150 (v0.83.0): measured alone, 12 — v0.82.0's four export tests and WI-150's round trip also catch it.
+      "owner, Q1: the page's own export gives Delta, not started, its Planned dates from the plan before today's floor",
+      "hand-edited (summary block removed, # renamed Activity ID, Total row removed): the four dates come back",
+      "with the plan: Planned 10/12 – 10/16, the dates Next would keep if it started now",
+      "without one, as before: the dates shown, 10/27 – 11/02",
+      "schedules work that has not started from today: Next 10/27 – 11/02, its Planned dates the plan's 10/12 – 10/16",
     ),
   },
   {
@@ -449,7 +455,7 @@ export const mutations = [
     ),
   },
   {
-    id: "P29 2j: a Planned row's Planned columns blank  [expect 7]",
+    id: "P29 2j: a Planned row's Planned columns blank  [expect 12]",
     file: EXPORT,
     find: '    return { plannedStart: held(plan?.startDate), plannedFinish: held(plan?.endDate), actualStart: "", actualFinish: "" };',
     replace: '    return { plannedStart: "", plannedFinish: "", actualStart: "", actualFinish: "" };',
@@ -461,6 +467,12 @@ export const mutations = [
       "DD/MM/YYYY: a real XLSX, read back — the Date Format line, and the four columns",
       "YYYY/MM/DD: a real CSV — its summary's Date Format line, and the four columns",
       "YYYY/MM/DD: a real XLSX, read back — the Date Format line, and the four columns",
+      // WI-150 (v0.83.0): measured alone, 12 — v0.82.0's four export tests and WI-150's round trip also catch it.
+      "owner, Q1: the page's own export gives Delta, not started, its Planned dates from the plan before today's floor",
+      "hand-edited (summary block removed, # renamed Activity ID, Total row removed): the four dates come back",
+      "with the plan: Planned 10/12 – 10/16, the dates Next would keep if it started now",
+      "without one, as before: the dates shown, 10/27 – 11/02",
+      "schedules work that has not started from today: Next 10/27 – 11/02, its Planned dates the plan's 10/12 – 10/16",
     ),
   },
   {

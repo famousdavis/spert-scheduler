@@ -64,6 +64,20 @@ export interface ActivitySnapshot {
   endDate?: string;
   duration?: number;
   isCritical?: boolean;
+  /**
+   * WI-150 (release B): `startDate` is the activity's recorded Actual Start, unmoved — as the grid
+   * shows it in green. Absent when `startDate` is the schedule's own date (planned, or a start the
+   * schedule moved: before the Start Date, or on a day that is no longer a working day).
+   */
+  recordedStart?: true;
+  /** WI-150: `endDate` is the recorded Actual Finish, unmoved. */
+  recordedFinish?: true;
+  /** WI-150: the dates the activity records: the day it really started, and (Complete) finished. */
+  actualStartDate?: string;
+  actualFinishDate?: string;
+  /** WI-150: the schedule's start and finish as they stood when the activity left Planned — its kept plan. */
+  plannedStartDate?: string;
+  plannedFinishDate?: string;
   notes?: string;
   checklist?: ChecklistItem[];
   deliverables?: DeliverableItem[];
@@ -238,6 +252,22 @@ function deliverableItemForSnapshot(d: DeliverableItem): DeliverableItem {
   return { id: d.id, text: d.text, completed: d.completed };
 }
 
+/**
+ * WI-150: the four dates, each copied by name (AI-7), and only the ones the activity's Status keeps
+ * (Review 34, V-R4): a Planned activity none, an In Progress one no Actual Finish. The rule clears
+ * them at each Status change, but a stored row may still carry a stale one (a JSON import); the
+ * schedule ignores it, and so does the AI's view.
+ */
+function progressDatesForSnapshot(a: Activity): Partial<ActivitySnapshot> {
+  const out: Partial<ActivitySnapshot> = {};
+  if (a.status === "planned") return out;
+  if (a.actualStartDate !== undefined) out.actualStartDate = a.actualStartDate;
+  if (a.status === "complete" && a.actualFinishDate !== undefined) out.actualFinishDate = a.actualFinishDate;
+  if (a.plannedStartDate !== undefined) out.plannedStartDate = a.plannedStartDate;
+  if (a.plannedFinishDate !== undefined) out.plannedFinishDate = a.plannedFinishDate;
+  return out;
+}
+
 function buildActivitySnapshot(activity: Activity, scheduled?: ScheduledActivity): ActivitySnapshot {
   const snap: ActivitySnapshot = {
     id: activity.id,
@@ -255,7 +285,10 @@ function buildActivitySnapshot(activity: Activity, scheduled?: ScheduledActivity
     snap.endDate = scheduled.endDate;
     snap.duration = scheduled.duration;
     if (scheduled.totalFloat !== undefined) snap.isCritical = scheduled.totalFloat === 0;
+    if (scheduled.recordedStart) snap.recordedStart = true;
+    if (scheduled.recordedFinish) snap.recordedFinish = true;
   }
+  Object.assign(snap, progressDatesForSnapshot(activity));
   if (activity.notes !== undefined) snap.notes = activity.notes;
   if (activity.checklist !== undefined) snap.checklist = activity.checklist.map(checklistItemForSnapshot);
   if (activity.deliverables !== undefined) snap.deliverables = activity.deliverables.map(deliverableItemForSnapshot);
@@ -383,6 +416,9 @@ function minimalActivity(a: ActivitySnapshot): ActivitySnapshot {
   if (a.endDate !== undefined) m.endDate = a.endDate;
   if (a.duration !== undefined) m.duration = a.duration;
   if (a.isCritical !== undefined) m.isCritical = a.isCritical;
+  // WI-150: the two flags say what startDate and endDate ARE, so they stay with them; the four dates go.
+  if (a.recordedStart) m.recordedStart = a.recordedStart;
+  if (a.recordedFinish) m.recordedFinish = a.recordedFinish;
   if (a.hasDescription) m.hasDescription = a.hasDescription;
   return m;
 }

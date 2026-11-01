@@ -357,7 +357,7 @@ export const mutations = [
   {
     id: "C4  the Planned pair's definition back to \"the schedule's dates at the moment\"  [expect 1]",
     file: p("src/ui/helpers/planned-dates-words.ts"),
-    find: "the dates the plan gave the activity when it left Planned, without moving work that has not started to today.",
+    find: "the dates the plan gave the activity when it left Planned — Scheduler's own plan, without moving work that has not started to today, or the plan it was imported with.",
     replace: "the schedule's dates at the moment the activity left Planned.",
     expectFailing: only(DEFINITION),
   },
@@ -558,11 +558,12 @@ export const mutations = [
     expectFailing: only(PGQ1),
   },
   {
-    id: "Q1d the changelog drops Q1's bullet  [expect 1]",
+    // WI-150 (v0.83.0): measured alone, 2 — the root-only edit also fails changelog-public-sync.
+    id: "Q1d the changelog drops Q1's bullet  [expect 2]",
     file: p("CHANGELOG.md"),
     find: "- **In the schedule export, an activity that has not started now has as its Planned Start and Planned Finish its dates in the plan before work that has not started was moved to today,**",
     replace: "- **In the schedule export,**",
-    expectFailing: only(CLQ1),
+    expectFailing: only(CLQ1, "the public copy is byte-identical to the root changelog"),
   },
   {
     id: "Q2a a note never knows work follows its activity  [expect 3]",
@@ -579,10 +580,11 @@ export const mutations = [
     expectFailing: only(Q2DEP, Q2SEQ),
   },
   {
-    id: "Q2c the changelog drops Q2's sentence  [expect 1]",
+    // WI-150 (v0.83.0): measured alone, 2 — the root-only edit also fails changelog-public-sync.
+    id: "Q2c the changelog drops Q2's sentence  [expect 2]",
     file: p("CHANGELOG.md"),
     find: " Work after such an activity is not held back for that work on its account either, so a forecast can finish earlier than before; the grey note says so.",
     replace: "",
-    expectFailing: only(CLQ2),
+    expectFailing: only(CLQ2, "the public copy is byte-identical to the root changelog"),
   },
 ];

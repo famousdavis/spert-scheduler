@@ -457,6 +457,10 @@ export function ActivityEditModal({
   // `actualFinishDate` is the input's value; its blur snaps it to a working day and recounts.
   const [actualStartDate, setActualStartDate] = useState<string>(activity?.actualStartDate ?? "");
   const [actualFinishDate, setActualFinishDate] = useState<string>(activity?.actualFinishDate ?? "");
+  // WI-150 (owner, R636, D4; Review 34, V-E1 = V-E2 = I-F4): the dates as STORED. A blur snaps only a
+  // date the user changed: an imported Saturday stays a Saturday until someone types another date.
+  const storedStartDate = activity?.actualStartDate ?? "";
+  const storedFinishDate = activity?.actualFinishDate ?? "";
   // The start as last committed — on open, at a Status change, at a blur. Elapsed days are recounted
   // only when a blur brings a DIFFERENT start (Review 32, R3): tabbing through the window on a later
   // day must not replace a count the user typed.
@@ -692,13 +696,14 @@ export function ActivityEditModal({
         setActualFinishDate("");
         return;
       }
-      // A finish on a non-working day moves BACK to the last working day (it was done by then).
-      const snapped = snapRecordedDate(raw, "finish", calendar);
+      // A finish on a non-working day moves BACK to the last working day (it was done by then) —
+      // unless it is the stored date, unchanged (D4).
+      const snapped = raw === storedFinishDate ? raw : snapRecordedDate(raw, "finish", calendar);
       setActualFinishDate(snapped);
       if (!actualStartDate || snapped < actualStartDate) return; // refused: the red line says why
       setActualDuration(recordedDuration(actualStartDate, snapped, calendar));
     },
-    [actualStartDate, calendar]
+    [actualStartDate, calendar, storedFinishDate]
   );
 
   // WI-137: the Actual Start. A non-working day moves FORWARD; the count follows it — but only when
@@ -711,7 +716,8 @@ export function ActivityEditModal({
         setActualStartDate(committedStartDate);
         return;
       }
-      const snapped = snapRecordedDate(raw, "start", calendar);
+      // Unless it is the stored date, unchanged (D4): never moved on a blur alone.
+      const snapped = raw === storedStartDate ? raw : snapRecordedDate(raw, "start", calendar);
       setActualStartDate(snapped);
       if (snapped === committedStartDate) return;
       setCommittedStartDate(snapped);
@@ -720,7 +726,7 @@ export function ActivityEditModal({
         setActualDuration(recordedDuration(snapped, actualFinishDate, calendar));
       }
     },
-    [committedStartDate, status, actualFinishDate, calendar]
+    [committedStartDate, status, actualFinishDate, calendar, storedStartDate]
   );
 
   // -- Actual duration → finish date (bidirectional sync) --

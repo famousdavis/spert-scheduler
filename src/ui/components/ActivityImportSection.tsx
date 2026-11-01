@@ -4,6 +4,7 @@
 
 import {
   useId,
+  useMemo,
   useState,
   useCallback,
   useRef,
@@ -12,6 +13,8 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
+import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
+import { useDateFormat } from "@ui/hooks/use-date-format";
 import { describedByWhile, CLOUD_IMPORT_WAIT_NOTE } from "@ui/helpers/cloud-create-gate";
 import { toast } from "@ui/hooks/use-notification-store";
 import {
@@ -23,9 +26,11 @@ import {
 } from "@app/api/csv-import-service";
 import { columnLabel } from "@core/import/flat-activity-parser";
 import type { CSVParseResult, CSVImportError } from "@core/import/types";
-import { formatDateISO } from "@core/calendar/calendar";
+import { withImportedCounts } from "@core/import/progress-dates";
+import { formatDateISO, parseDateISO } from "@core/calendar/calendar";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 import { generateId } from "@app/api/id";
-import type { Project, Scenario, ScenarioSettings } from "@domain/models/types";
+import type { Activity, DateFormatPreference, Project, Scenario, ScenarioSettings } from "@domain/models/types";
 import { DEFAULT_SCENARIO_SETTINGS, SCHEMA_VERSION, MAX_SCENARIOS_PER_PROJECT } from "@domain/models/types";
 import { pluralize } from "@domain/helpers/format-labels";
 import type { ImportApplyParams } from "@ui/hooks/use-project-store";
@@ -43,6 +48,10 @@ type PreviewState = {
   /** The rows this preview was built from — what "Treat first row as data" reads again. */
   rows: string[][];
   source: PreviewSource;
+  /** WI-150: the date format its dates were read in — "Treat first row as data" reads them the same way. */
+  dateFormat?: DateFormatPreference;
+  /** "Treat first row as data" read these rows in the template's column order. */
+  assumeDefaultColumnOrder?: true;
 };
 
 type ActivityImportState =
@@ -52,14 +61,15 @@ type ActivityImportState =
   | { step: "done"; count: number; projectId: string; projectName: string };
 
 /** A paste's preview: its rows, split on tabs, and their parse. Throws on oversized text. */
-function pastePreview(text: string): PreviewState {
+function pastePreview(text: string, dateFormat?: DateFormatPreference): PreviewState {
   const rows = parseClipboardTable(text);
   return {
     step: "preview",
-    result: parsePastedRows(rows),
+    result: parsePastedRows(rows, { dateFormat }),
     defaultName: getDefaultScenarioName("clipboard"),
     rows,
     source: { kind: "paste" },
+    dateFormat,
   };
 }
 
@@ -69,20 +79,75 @@ function pastePreview(text: string): PreviewState {
  * checks again, and keep the file's name; a paste's rows do not need them (they split on tabs).
  */
 function firstRowAsData(preview: PreviewState): PreviewState {
-  const options = { assumeDefaultColumnOrder: true };
+  const options = { assumeDefaultColumnOrder: true, dateFormat: preview.dateFormat };
   const { rows, source } = preview;
   if (source.kind === "file") {
     return {
       ...preview,
       result: parseCsvFileRows(rows, options),
       defaultName: getDefaultScenarioName("file", source.name),
+      assumeDefaultColumnOrder: true,
     };
   }
   return {
     ...preview,
     result: parsePastedRows(rows, options),
     defaultName: getDefaultScenarioName("clipboard"),
+    assumeDefaultColumnOrder: true,
   };
+}
+
+/**
+ * WI-150 (Review 34, I-W11): a preview read in another date format is read again in the current one
+ * — a file's rows as a paste's — so 03/04/2026 never stays read the way the user just changed.
+ */
+function inDateFormat(state: ActivityImportState, dateFormat: DateFormatPreference | undefined): ActivityImportState {
+  if (state.step !== "preview" || state.dateFormat === dateFormat) return state;
+  const options = { assumeDefaultColumnOrder: state.assumeDefaultColumnOrder, dateFormat };
+  const result = state.source.kind === "file" ? parseCsvFileRows(state.rows, options) : parsePastedRows(state.rows, options);
+  return { ...state, result, dateFormat };
+}
+
+/**
+ * WI-150 (owner, R636, D4; Review 34, I-F4): the recorded dates on a day the target calendar does not
+ * work. The import keeps them as given; the schedule starts such an activity on the next working day
+ * and ends it on the last one before, and does not show those dates in green.
+ */
+function nonWorkingRecordedDates(activities: readonly Activity[], calendar: WorkCalendar): number {
+  const recorded = activities.flatMap((a) => [a.actualStartDate, a.actualFinishDate]);
+  return recorded.filter((iso) => iso !== undefined && !calendar.isWorkDay(parseDateISO(iso))).length;
+}
+
+function nonWorkingDatesNote(count: number): string {
+  return count === 1
+    ? "1 recorded date falls on a day that is not a working day. The schedule starts such an activity on the next working day, or ends it on the last working day before, and does not show that date in green."
+    : `${count} recorded dates fall on days that are not working days. The schedule starts such an activity on the next working day, or ends it on the last working day before, and does not show those dates in green.`;
+}
+
+/**
+ * WI-150: a scenario whose rows record an Actual Start starts on the earliest one, not today — so no
+ * recorded start falls before its Start Date, which the Edit Activity window would refuse.
+ */
+function startsAtEarliestActual(scenario: Scenario, earliest: string | undefined): Scenario {
+  return earliest ? { ...scenario, startDate: earliest } : scenario;
+}
+
+/**
+ * WI-150: the preview's lines about the file's dates. The Start Date line shows only when the earliest
+ * Actual Start is before today (Review 34, V-E5: never "rather than today" on today itself).
+ */
+function previewDateLines(
+  result: CSVParseResult, calendar: WorkCalendar, formatDate: (iso: string) => string,
+): string[] {
+  const lines: string[] = [];
+  const earliest = result.earliestActualStart;
+  if (earliest && earliest < formatDateISO(new Date())) {
+    lines.push(`The scenario will start on ${formatDate(earliest)}, the earliest Actual Start, rather than today.`);
+  }
+  lines.push(...(result.notes ?? []));
+  const nonWorking = nonWorkingRecordedDates(result.activities, calendar);
+  if (nonWorking > 0) lines.push(nonWorkingDatesNote(nonWorking));
+  return lines;
 }
 
 // -- Props --------------------------------------------------------------------
@@ -145,7 +210,7 @@ export function ActivityImportSection({
   importBlocked = false,
 }: ActivityImportSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importState, setImportState] = useState<ActivityImportState>({
+  const [storedImportState, setImportState] = useState<ActivityImportState>({
     step: "idle",
   });
   const [pasteText, setPasteText] = useState("");
@@ -161,6 +226,13 @@ export function ActivityImportSection({
   const blockedId = `${baseId}-blocked`;
 
   const preferences = usePreferencesStore((s) => s.preferences);
+  const dateFormat = preferences.dateFormat;
+  const formatDate = useDateFormat();
+  // WI-150: the calendar an import's day counts are worked out on — the target project's, or, for a
+  // new project, the work week and holidays from Settings (useWorkCalendar is the one assembly point).
+  const importCalendar = useWorkCalendar(targetProjectId === "new" ? "" : targetProjectId);
+  // WI-150 (I-W11): the preview as the current Date Format reads it — every read below sees this one.
+  const importState = useMemo(() => inDateFormat(storedImportState, dateFormat), [storedImportState, dateFormat]);
 
   // -- Auto-preview on paste with debounce ------------------------------------
 
@@ -170,7 +242,7 @@ export function ActivityImportSection({
     const timer = setTimeout(() => {
       startTransition(() => {
         try {
-          const preview = pastePreview(pasteText);
+          const preview = pastePreview(pasteText, dateFormat);
           setImportState(preview);
           setScenarioName(preview.defaultName);
         } catch (err) {
@@ -183,7 +255,7 @@ export function ActivityImportSection({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [pasteText, autoPreview]);
+  }, [pasteText, autoPreview, dateFormat]);
 
   // -- CSV file upload --------------------------------------------------------
 
@@ -195,7 +267,7 @@ export function ActivityImportSection({
 
       try {
         const rows = await readCsvRows(file);
-        const result = parseCsvFileRows(rows);
+        const result = parseCsvFileRows(rows, { dateFormat });
         const name = getDefaultScenarioName("file", file.name);
 
         if (result.errors.length > 0 && result.activities.length === 0 && !result.noHeaderDetected) {
@@ -208,7 +280,7 @@ export function ActivityImportSection({
           // A preview — "No recognizable header row found" included: its button reads these
           // same rows again. Each names the scenario from the file, never an earlier preview.
           const source: PreviewSource = { kind: "file", name: file.name };
-          setImportState({ step: "preview", result, defaultName: name, rows, source });
+          setImportState({ step: "preview", result, defaultName: name, rows, source, dateFormat });
           setScenarioName(name);
         }
       } catch (err) {
@@ -220,7 +292,7 @@ export function ActivityImportSection({
 
       e.target.value = "";
     },
-    []
+    [dateFormat]
   );
 
   // -- Manual parse button (when auto-preview is off) -------------------------
@@ -229,7 +301,7 @@ export function ActivityImportSection({
     if (!pasteText.trim()) return;
     startTransition(() => {
       try {
-        const preview = pastePreview(pasteText);
+        const preview = pastePreview(pasteText, dateFormat);
         setImportState(preview);
         setScenarioName(preview.defaultName);
       } catch (err) {
@@ -239,7 +311,7 @@ export function ActivityImportSection({
         });
       }
     });
-  }, [pasteText]);
+  }, [pasteText, dateFormat]);
 
   // -- "Assume default column order" retry ------------------------------------
 
@@ -290,15 +362,15 @@ export function ActivityImportSection({
       rngSeed: generateId(),
     };
 
-    const scenario: Scenario = {
+    const scenario: Scenario = startsAtEarliestActual({
       id: generateId(),
       name: finalName,
       startDate: formatDateISO(new Date()),
-      activities: result.activities,
+      activities: withImportedCounts(result.activities, formatDateISO(new Date()), importCalendar),
       dependencies: result.dependencies,
       milestones: [],
       settings,
-    };
+    }, result.earliestActualStart);
 
     let committedProjectId: string;
     let committedProjectName: string;
@@ -368,6 +440,7 @@ export function ActivityImportSection({
     importProjects,
     importScenarioToProject,
     importBlocked,
+    importCalendar,
   ]);
 
   // -- Keyboard shortcut: ⌘↵ / Ctrl↵ to commit --------------------------------
@@ -395,6 +468,10 @@ export function ActivityImportSection({
 
   const previewResult =
     importState.step === "preview" ? importState.result : null;
+  const dateLines = useMemo(
+    () => (previewResult ? previewDateLines(previewResult, importCalendar, formatDate) : []),
+    [previewResult, importCalendar, formatDate],
+  );
   const allErrors = previewResult
     ? [...previewResult.errors, ...previewResult.warnings].sort(
         (a, b) => a.row - b.row
@@ -518,13 +595,9 @@ export function ActivityImportSection({
         {/* -- Preview state -------------------------------------------------- */}
         {importState.step === "preview" && previewResult && (
           <div className="space-y-4">
-            {/* Summary line (aria-live region) */}
-            <div
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-              className="text-sm text-gray-700 dark:text-gray-300"
-            >
+            {/* Summary line and, WI-150 (I-W8), the date lines: ONE aria-live region */}
+            <div role="status" aria-live="polite" aria-atomic="true" className="space-y-1">
+            <div className="text-sm text-gray-700 dark:text-gray-300">
               {previewResult.activities.length}{" "}
               {pluralize(previewResult.activities.length, "activity", "activities")} ·{" "}
               {previewResult.dependencies.length}{" "}
@@ -539,6 +612,14 @@ export function ActivityImportSection({
                 {previewResult.errors.length} {pluralize(previewResult.errors.length, "error")}
               </span>{" "}
               · {previewResult.warnings.length} {pluralize(previewResult.warnings.length, "warning")}
+            </div>
+
+            {/* WI-150: what the import does with the file's dates — only when nothing blocks it */}
+            {previewResult.errors.length === 0 && dateLines.length > 0 && (
+              <ul aria-label="About the dates" className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                {dateLines.map((line) => <li key={line}>{line}</li>)}
+              </ul>
+            )}
             </div>
 
             {/* "No header detected" escape hatch */}

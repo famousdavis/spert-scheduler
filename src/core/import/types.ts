@@ -8,6 +8,7 @@ import type {
   RSMLevel,
   DistributionType,
   ActivityStatus,
+  DateFormatPreference,
 } from "@domain/models/types";
 
 // -- Intermediate parse row ---------------------------------------------------
@@ -50,6 +51,16 @@ export interface ParseTableOptions {
    * Without it, a row's number is its index + 1.
    */
   rowNumbers?: readonly number[];
+  /**
+   * WI-150: today, `YYYY-MM-DD`, read from the clock by the caller (the core never reads it). An
+   * Actual Start or Actual Finish after it is refused, as the Edit Activity window refuses one.
+   */
+  today?: string;
+  /**
+   * WI-150: the importing user's date format. A date such as 03/04/2026 is read in its order unless
+   * the file's own dates prove the other order (a day above 12 where the month would be).
+   */
+  dateFormat?: DateFormatPreference;
 }
 
 // -- Parse result -------------------------------------------------------------
@@ -61,4 +72,11 @@ export interface CSVParseResult {
   warnings: CSVImportError[];
   /** True when no recognizable header row was detected (UI can offer "assume default order" option) */
   noHeaderDetected?: boolean;
+  /**
+   * WI-150: whole-file sentences for the preview — neither errors nor warnings, and not counted.
+   * Shown only when nothing blocks the import, so every count in them is a count of activities.
+   */
+  notes?: string[];
+  /** WI-150: the earliest Actual Start the imported rows record, `YYYY-MM-DD` — the scenario starts there. */
+  earliestActualStart?: string;
 }

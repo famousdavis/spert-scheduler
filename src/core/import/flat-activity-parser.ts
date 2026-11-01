@@ -16,9 +16,10 @@ import {
   MIN_ABOVE_MOST_LIKELY,
   MOST_LIKELY_ABOVE_MAX,
 } from "@domain/helpers/estimate-rules";
-import { distributionLabel, statusLabel } from "@domain/helpers/format-labels";
+import { distributionLabel } from "@domain/helpers/format-labels";
 import { detectCycle } from "@core/schedule/dependency-graph";
 import type { FlatActivityRow, CSVImportError, CSVParseResult, ParseTableOptions } from "./types";
+import { DATE_HEADER_ALIASES, makeProgressDateReader } from "./progress-dates";
 
 // -- Normalization helpers ----------------------------------------------------
 
@@ -62,6 +63,10 @@ const STATUS_MAP: Record<string, ActivityStatus> = {
   planned: "planned",
   inprogress: "inProgress",
   complete: "complete",
+  // WI-150: P6's Activity Status words. MS Project's Status words ("On Schedule", "Late") say nothing
+  // about whether the work has started, so they stay unrecognised.
+  notstarted: "planned",
+  completed: "complete",
 };
 
 // -- Security helpers ---------------------------------------------------------
@@ -88,9 +93,11 @@ const HEADER_ALIASES: Record<string, string[]> = {
   max: ["pessimistic", "max", "pessimisticmax", "pessimistic(max)"],
   confidence: ["confidence", "confidencelevel"],
   distribution: ["distribution"],
-  status: ["status"],
+  status: ["status", "activitystatus"],
   predecessors: ["predecessors", "depends", "dependencies", "predecessor"],
   type: ["type"],
+  // WI-150: the four progress dates, read by heading only (progress-dates.ts).
+  ...DATE_HEADER_ALIASES,
 };
 
 const REQUIRED_FIELDS = [
@@ -269,6 +276,9 @@ export function parseFlatActivityTable(
     headers = result.headers;
     dataStartIndex = 1;
   }
+
+  // WI-150: the date columns, if the file has any — read row by row in Pass 1 (progress-dates.ts).
+  const dateReader = makeProgressDateReader(headers, rows, dataStartIndex, options, isKnownStatus);
 
   // -- Pass 1: Row parse + UUID + Zod -----------------------------------------
 
@@ -463,11 +473,22 @@ export function parseFlatActivityTable(
         warnings.push({
           row: rowNum,
           column: "Status",
-          message: `Unrecognized status "${truncate(rawStatus)}". ${statusLabel(status)} will be used instead.`,
+          // WI-150 (D3): "Planned will be used instead.", or the Status the row's Actual dates give it.
+          message: `Unrecognized status "${truncate(rawStatus)}". ${dateReader.unknownStatusOutcome(cappedRow)}`,
           severity: "warning",
         });
       }
     }
+
+    // WI-150: the row's Actual and Planned dates, by the import's decision table. A blank Status
+    // takes the Status its Actual dates give.
+    const progress = dateReader.read(cappedRow, rawStatus, status, rowNum);
+    warnings.push(...progress.warnings);
+    if (progress.errors.length > 0) {
+      errors.push(...progress.errors);
+      continue;
+    }
+    status = progress.status;
 
     // Generate UUID BEFORE safeParse (schema requires id)
     const uuid = idGen();
@@ -482,6 +503,7 @@ export function parseFlatActivityTable(
       confidenceLevel,
       distributionType,
       status,
+      ...progress.fields,
     };
 
     const parseResult = ActivitySchema.safeParse(activityObj);
@@ -658,5 +680,13 @@ export function parseFlatActivityTable(
     });
   }
 
-  return { activities, dependencies, errors, warnings };
+  return {
+    activities, dependencies, errors, warnings,
+    notes: dateReader.notes(), earliestActualStart: dateReader.earliestActualStart(),
+  };
+}
+
+/** WI-150 (owner, R636, D3): is a Status word one the importer knows? An unknown one may take its Status from the row's dates. */
+function isKnownStatus(rawStatus: string): boolean {
+  return STATUS_MAP[normalizeKey(rawStatus)] !== undefined;
 }

@@ -180,6 +180,18 @@ prefer setting 'description' at create time, or enable Read Mode first so you ca
 see what you would replace. In a truncated Read-Mode snapshot, activities that
 already have a description are flagged with hasDescription: true.
 
+PROGRESS DATES (Read Mode)
+With Read Mode, an activity that has started shows actualStartDate (the day it
+really started) and, once Complete, actualFinishDate (the day it really
+finished), as YYYY-MM-DD. plannedStartDate / plannedFinishDate are the plan as
+it stood when the activity started (kept by the app, or imported with it).
+recordedStart / recordedFinish: true mean startDate / endDate ARE those actual
+dates; without them, startDate / endDate are the schedule's own dates, which
+differ from a recorded date on a non-working day or before the scenario's
+Start Date. A truncated snapshot may drop the four dates from an activity that
+is not critical; it keeps the two flags.
+You cannot set any of these dates: I record them in the app.
+
 VERIFYING
 Writes are queued and applied in my browser a moment later. If Read Mode is on,
 call scheduler_get_project to confirm the result rather than assuming success.

@@ -117,7 +117,7 @@ describe("no pair kept (ruling 2)", () => {
     open("l3");
     expect(cell("Planned Start").textContent).toBe("Planned Start—none kept");
     expect(NO_PLANNED_START_LINE).toBe(
-      "No Planned Start was kept for this activity. Planned dates are kept when an activity leaves Planned while the schedule can be calculated, from version 0.81.0 on. One started earlier, imported from a spreadsheet as already started, or carried into a reforecast copy has none.",
+      "No Planned Start was kept for this activity. Planned dates are kept when an activity leaves Planned while the schedule can be calculated, from version 0.81.0 on. One started earlier, imported from a spreadsheet as already started without its Planned Start and Planned Finish, or carried into a reforecast copy has none.",
     );
     const line = screen.getByText(NO_PLANNED_START_LINE);
     expect(line.className).toContain("text-gray-600");
@@ -144,7 +144,7 @@ describe("no pair kept (ruling 2)", () => {
 describe("the definition (ruling 5b): each Planned label's tooltip AND accessible description", () => {
   it("says what the dates are", () => {
     // WI-154 (owner, R639, C′): the plan's dates, without today's floor.
-    expect(PLANNED_DATES_DEFINITION).toContain("the dates the plan gave the activity when it left Planned, without moving work that has not started to today");
+    expect(PLANNED_DATES_DEFINITION).toContain("the dates the plan gave the activity when it left Planned — Scheduler's own plan, without moving work that has not started to today, or the plan it was imported with");
     open("b");
     const label = cell("Planned Start").firstElementChild as HTMLElement;
     expect(label.getAttribute("title")).toBe(PLANNED_DATES_DEFINITION);

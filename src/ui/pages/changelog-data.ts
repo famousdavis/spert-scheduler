@@ -13,6 +13,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.83.0",
+    date: "2026-11-01",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Import Activities now reads Actual Start, Actual Finish, Planned Start and Planned Finish columns, so a project already underway in Primavera P6, Microsoft Project or a spreadsheet comes across with its recorded progress. The imported scenario starts on the earliest Actual Start, and an activity that has started keeps the file's Planned Start and Planned Finish when the file gives both, in order. P6's Activity Status column is read too, with its Not Started and Completed.",
+          "In Read Mode, Connect AI now sees an activity's Actual Start and Actual Finish, and the Planned Start and Planned Finish it kept when it started or was imported with. When a very large project's snapshot is shortened to fit, it may leave the four dates out of an activity that is not critical, along with that activity's estimates.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "The Edit Activity window no longer moves a recorded date you did not change. Tabbing past an Actual Start or Actual Finish on a non-working day used to move it to a working day.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Tests pin every date form the importer reads, each Status and date combination with its message, the day order a file is read in, today in several time zones, and Read Mode's new fields. The Edit Activity window's rule for actual dates moved to /domain unchanged, so the importer asks the same question. Four straw counts in 0.82.0's falsification specs are corrected.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.82.0",
     date: "2026-10-31",
     sections: [
