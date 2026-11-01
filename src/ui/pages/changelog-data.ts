@@ -24,6 +24,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "Changed",
+        items: [
+          "The import guide (PDF) beside Import Activities and the P6 & MS Project Import Guide on the About page now cover a project already underway. The import guide adds the four date columns, P6's Activity Status, the date forms the import reads, and the new warnings and errors. The P6 & MS Project Import Guide has a new edition: it now says to keep finished activities with their actual dates, to keep Most Likely as the whole duration rather than Remaining Duration, and to leave Start on the earliest Actual Start.",
+        ],
+      },
+      {
         title: "Fixed",
         items: [
           "The Edit Activity window no longer moves a recorded date you did not change. Tabbing past an Actual Start or Actual Finish on a non-working day used to move it to a working day.",
@@ -33,6 +39,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: "Internal",
         items: [
           "Tests pin every date form the importer reads, each Status and date combination with its message, the day order a file is read in, today in several time zones, and Read Mode's new fields. The Edit Activity window's rule for actual dates moved to /domain unchanged, so the importer asks the same question. Four straw counts in 0.82.0's falsification specs are corrected.",
+          "Both guides' PDFs are replaced in the repository root and in public/, byte-identical; every new sentence in them was checked against this release's source.",
         ],
       },
     ],
