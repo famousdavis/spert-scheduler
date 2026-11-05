@@ -8,10 +8,12 @@
 //   ai-op-types.ts     — op/payload/outcome contract + result constructors
 //   ai-op-handlers.ts  — singular handlers + the shared item-level cores
 //   ai-bulk-handlers.ts — bulk / composite-import / reorder handlers
+//   ai-progress-handlers.ts — the progress write (WI-150 release C)
 // Consumers import ONLY from this module; the public surface (applyAiOpsToProject
 // plus the contract types re-exported below) is unchanged by the split.
 
 import type { Project, Scenario } from "@domain/models/types";
+import { formatDateISO } from "@core/calendar/calendar";
 import type { ZodType } from "zod";
 import {
   BulkCreateActivitiesSchema,
@@ -22,9 +24,11 @@ import {
   BulkImportScheduleSchema,
   ReorderActivitiesSchema,
   BulkAppendNotesSchema,
+  BulkSetActivityProgressSchema,
 } from "./ai-bulk-schemas";
 import {
   type AiOp,
+  type AiBatchContext,
   type AiOpResult,
   type OpResult,
   type BulkCreateActivitiesPayload,
@@ -61,9 +65,11 @@ import {
   handleReorderActivities,
   handleBulkAppendNotes,
 } from "./ai-bulk-handlers";
+import { handleBulkSetActivityProgress } from "./ai-progress-handlers";
 
 export type {
   AiOp,
+  AiBatchContext,
   AiSkipReason,
   ItemReject,
   BulkSection,
@@ -82,18 +88,33 @@ export type {
 // payload type — sound because enum values are re-validated per item in the
 // cores. Routing a bulk case through this keeps it from adding a branch to
 // applyAiOpToScenario, which sits at the cognitive-complexity budget.
+// WI-150 release C: the handler also receives the op's context — the drain
+// day's today, the project's work calendar and the op's creation day — which
+// only the progress write reads; every other handler ignores it.
+type OpContext = AiBatchContext & { createdOn?: string };
+
 function dispatchBulk<T>(
   scenario: Scenario,
   payload: unknown,
   schema: ZodType,
-  handler: (s: Scenario, p: T) => OpResult
+  handler: (s: Scenario, p: T, ctx: OpContext) => OpResult,
+  ctx: OpContext
 ): OpResult {
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return skip(scenario, "invalid");
-  return handler(scenario, parsed.data as T);
+  return handler(scenario, parsed.data as T, ctx);
 }
 
-export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
+/** The context when a caller gives none: today from this machine's clock, the default calendar. */
+function defaultBatchContext(): AiBatchContext {
+  return { today: formatDateISO(new Date()) };
+}
+
+export function applyAiOpToScenario(
+  scenario: Scenario,
+  op: AiOp,
+  ctx: AiBatchContext = defaultBatchContext()
+): OpResult {
   switch (op.op) {
     case "create_activity":
       return handleCreateActivity(scenario, op.payload);
@@ -178,7 +199,11 @@ export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
     // under the cognitive-complexity budget. Behaviour is identical: structural
     // parse first, whole-op `invalid` on shape failure, then the domain handler.
     case "bulk_append_notes":
-      return dispatchBulk(scenario, op.payload, BulkAppendNotesSchema, handleBulkAppendNotes);
+      return dispatchBulk(scenario, op.payload, BulkAppendNotesSchema, handleBulkAppendNotes, ctx);
+    // WI-150 release C: the progress write, through dispatchBulk for the same
+    // reason — a case, and no branch. The op's creation day rides with it (R4).
+    case "bulk_set_activity_progress":
+      return dispatchBulk(scenario, op.payload, BulkSetActivityProgressSchema, handleBulkSetActivityProgress, { ...ctx, createdOn: op.createdOn });
     default:
       // Unreachable for well-typed input; a defensive floor for a malformed
       // op string drained from Firestore.
@@ -191,11 +216,12 @@ export function applyAiOpToScenario(scenario: Scenario, op: AiOp): OpResult {
 function applyOpsToOneScenario(
   scenario: Scenario,
   targetOps: AiOp[],
-  results: AiOpResult[]
+  results: AiOpResult[],
+  ctx: AiBatchContext
 ): Scenario {
   return targetOps.reduce((acc, op) => {
     try {
-      const { scenario: next, outcome } = applyAiOpToScenario(acc, op);
+      const { scenario: next, outcome } = applyAiOpToScenario(acc, op, ctx);
       results.push({ op, outcome });
       return next;
     } catch (err) {
@@ -235,11 +261,14 @@ function recordUntargetedOps(
  * routed to their target scenario (`payload.scenarioId ?? openScenarioId`);
  * locked scenarios reject their ops; ops with no resolvable/known scenario are
  * recorded, not dropped. Results are sorted by `op.seq`.
+ * WI-150 release C: `ctx` is the draining browser's today and the project's work
+ * calendar; one value for the whole batch.
  */
 export function applyAiOpsToProject(
   project: Project,
   ops: AiOp[],
-  openScenarioId: string | null
+  openScenarioId: string | null,
+  ctx: AiBatchContext = defaultBatchContext()
 ): { project: Project; results: AiOpResult[] } {
   const results: AiOpResult[] = [];
   let changed = false;
@@ -253,7 +282,7 @@ export function applyAiOpsToProject(
       }
       return s;
     }
-    const next = applyOpsToOneScenario(s, targetOps, results);
+    const next = applyOpsToOneScenario(s, targetOps, results, ctx);
     if (next !== s) changed = true;
     return next;
   });

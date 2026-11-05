@@ -128,3 +128,18 @@ export const BulkAppendNotesSchema = z.object({
   scenarioId: scenarioIdOpt,
   notes: z.array(bulkAppendNoteItem).min(1).max(100),
 });
+
+// WI-150 release C. Record progress: one array, ≤100 items. Structural only — the Status enum, the
+// date form and the rules between Status and dates are the handler's, item by item, so one entry's
+// content never refuses another's.
+const bulkSetProgressItem = z.object({
+  id: z.string(),
+  status: z.string().optional(),
+  actualStartDate: z.string().optional(),
+  actualFinishDate: z.string().optional(),
+});
+
+export const BulkSetActivityProgressSchema = z.object({
+  scenarioId: scenarioIdOpt,
+  updates: z.array(bulkSetProgressItem).min(1).max(100),
+});

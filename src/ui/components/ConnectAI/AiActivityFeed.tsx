@@ -44,12 +44,16 @@ export function AiActivityFeed({ items }: AiActivityFeedProps) {
     <ul className="max-h-48 overflow-y-auto space-y-1 text-xs" aria-label="AI activity feed">
       {items.map((item) => {
         const { text, tone } = describeOutcome(item.result.outcome);
+        // WI-150 release C (Review 37, G2): the outcome WRAPS at the panel's width — it names each
+        // skipped activity, so it can be long — and the label keeps its own width. Until v0.84.0
+        // the label truncated and the outcome never shrank, so a long outcome pushed the label to
+        // nothing and the list scrolled sideways.
         return (
-          <li key={item.feedId} className="flex items-center justify-between gap-2">
-            <span className="text-gray-700 dark:text-gray-300 truncate">
+          <li key={item.feedId} className="flex items-start justify-between gap-2">
+            <span className="shrink-0 text-gray-700 dark:text-gray-300">
               {OP_LABELS[item.result.op.op] ?? item.result.op.op}
             </span>
-            <span className={`shrink-0 ${TONE_CLASSES[tone]}`}>{text}</span>
+            <span className={`min-w-0 break-words text-right ${TONE_CLASSES[tone]}`}>{text}</span>
           </li>
         );
       })}

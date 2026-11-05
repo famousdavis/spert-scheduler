@@ -1057,6 +1057,23 @@ describe("ProjectPage — Connect AI entry point", () => {
     expect(aiHook.startSession).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
+
+  // WI-150 release C (owner, R650 ruling 9): the consent words changed — Write Mode also records
+  // progress — so a consent stored under version 1 is asked again; one stored under version 2 resumes.
+  it.each([
+    ["version 1: asked again, in the consent window", 1, false],
+    ["version 2: the session resumes without asking", 2, true],
+  ] as const)("a stored consent of %s", (_label, version, resumes) => {
+    aiHook.startSession.mockClear();
+    localStorage.setItem("spert_scheduler_ai_consent", JSON.stringify({ version, write: true, read: true }));
+    localStorage.setItem("spert_scheduler_ai_session_id", "session-before");
+    renderPage(makeProject());
+
+    fireEvent.click(screen.getByRole("button", { name: "Connect an AI assistant" }));
+
+    expect(aiHook.startSession).toHaveBeenCalledTimes(resumes ? 1 : 0);
+    expect(screen.queryByRole("dialog") !== null).toBe(!resumes);
+  });
 });
 
 /**

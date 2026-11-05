@@ -11,6 +11,7 @@ import { useCompareRuns } from "@ui/hooks/use-compare-runs";
 import {
   useSchedule,
   computeScenarioSchedule,
+  scenarioScheduleInputs,
   type ScheduleError,
   type ScenarioScheduleInputs,
   type ScenarioScheduleResult,
@@ -399,13 +400,14 @@ export function ProjectPage() {
   // when it leaves Planned is this page's own computation, on this page's own inputs.
   // WI-154: today, local — the data date in a scenario that holds a record.
   const today = useToday();
-  const scheduleInputs = useMemo<Omit<ScenarioScheduleInputs, "activities">>(() => ({
-    today,
+  // WI-150 release C: by THE scenario → inputs mapping (`scenarioScheduleInputs`), the one the AI's
+  // progress write and Settings' schedule export use, so no caller gathers a second set.
+  const scheduleInputs = useMemo<Omit<ScenarioScheduleInputs, "activities">>(() => scenarioScheduleInputs({
     startDate: startDate ?? "2025-01-06",
-    probabilityTarget: probTarget ?? 0.5,
-    calendar: workCalendar,
-    network: depMode ? { dependencies: dependencies ?? [], milestones: milestones ?? [] } : null,
-  }), [depMode, dependencies, milestones, startDate, probTarget, workCalendar, today]);
+    settings: { probabilityTarget: probTarget ?? 0.5, dependencyMode: depMode ?? false },
+    dependencies: dependencies ?? [],
+    milestones: milestones ?? [],
+  }, workCalendar, today), [depMode, dependencies, milestones, startDate, probTarget, workCalendar, today]);
 
   // Deterministic schedule — uses sequential or dependency-aware engine
   const sequentialSchedule = useSchedule(

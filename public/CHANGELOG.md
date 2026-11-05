@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.84.0 — 2026-11-05
+
+### Added
+
+- **Connect AI can now record an activity's progress: its Status, its Actual Start and its Actual Finish.** With Read Mode on, ask your AI assistant to mark activities started or finished, and give it the dates. A date it leaves out is the day you sent the request, or the working day before it when that is not a working day. To mark an activity that has not started as Complete, it must give both dates. It only adds what is not yet recorded: it cannot set an activity back to Planned, reopen a finished one, or change a recorded date — those stay yours, in the grid or the Edit Activity window. An activity leaving Planned keeps its Planned Start and Planned Finish from Scheduler's own plan, as when you change its Status yourself; the AI never sets a Planned date. An entry that breaks a rule is skipped whole, and the AI activity feed names the activity and says why.
+
+### Changed
+
+- **Connect AI asks for your consent again,** because Write Mode now also records progress, and Read Mode is required for it. Neither box is ticked for you.
+
+### Internal
+
+- Connect AI's contract is version 5, with one new operation, `bulk_set_activity_progress` (MCP server 1.15.0, landing v2.9.0, deployed first). The page's schedule function moved to `app/api/scenario-schedule.ts`, with one scenario → inputs mapping that the page, Settings' schedule export and Connect AI share. Tests pin each rule; a falsify spec moves each.
+
 ## 0.83.1 — 2026-11-01
 
 ### Fixed

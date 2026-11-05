@@ -113,6 +113,12 @@ export interface ProjectSnapshot {
   projectName: string;
   openScenarioId: string | null;
   asOfSeq: number;
+  /**
+   * WI-150 release C (Review 37, G3): today on the user's computer, `YYYY-MM-DD`, local — the day
+   * this snapshot was built, which a new day rebuilds. The AI reads "today" from here, never from its
+   * own clock, whose date can differ from the user's.
+   */
+  today: string;
   scenarios: ScenarioSnapshot[];
 }
 
@@ -373,6 +379,7 @@ export function buildProjectSnapshot(
     projectName: project.name,
     openScenarioId,
     asOfSeq,
+    today,
     scenarios,
   };
 }

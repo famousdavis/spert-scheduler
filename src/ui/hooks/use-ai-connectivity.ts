@@ -28,7 +28,8 @@ import { APP_VERSION } from "@app/constants";
 import { useToday } from "@ui/hooks/use-today";
 import type { Project, Calendar } from "@domain/models/types";
 import type { WorkCalendar } from "@core/calendar/work-calendar";
-import type { AiOp, AiOpResult } from "@app/api/ai-batch-service";
+import type { AiOp, AiBatchContext, AiOpResult } from "@app/api/ai-batch-service";
+import { formatDateISO } from "@core/calendar/calendar";
 import {
   buildProjectSnapshot,
   truncateSnapshotToBudget,
@@ -49,6 +50,7 @@ import {
   buildOpsQuery,
   storedSessionMatchesProject,
   opsTargetWrongProject,
+  opCreatedOn,
 } from "./ai-connectivity-utils";
 
 // ── Public types ────────────────────────────────────────────────────────────
@@ -63,7 +65,7 @@ export interface UseAiConnectivityParams {
   project: Project | null;
   activeScenarioId: string | null;
   workCalendar: WorkCalendar | Calendar | undefined;
-  applyAiBatch: (projectId: string, ops: AiOp[], openScenarioId: string | null) => AiOpResult[];
+  applyAiBatch: (projectId: string, ops: AiOp[], openScenarioId: string | null, ctx?: AiBatchContext) => AiOpResult[];
   clearAiUndoFrame: (projectId: string) => void;
   /** Provenance feed sink — called with the per-op results after each drain. */
   onResults?: (results: AiOpResult[]) => void;
@@ -82,6 +84,8 @@ interface RawOpDoc {
   seq: number;
   op: string;
   payload: unknown;
+  /** WI-150 release C (R4): the local date of the op's server `createdAt`, when it has one. */
+  createdOn?: string;
 }
 
 function readOpDocs(changes: Array<DocumentChange<DocumentData>>): RawOpDoc[] {
@@ -91,6 +95,7 @@ function readOpDocs(changes: Array<DocumentChange<DocumentData>>): RawOpDoc[] {
       seq: c.doc.data().seq as number,
       op: c.doc.data().op as string,
       payload: c.doc.data().payload as unknown,
+      createdOn: opCreatedOn(c.doc.data().createdAt),
     }))
     .sort((a, b) => a.seq - b.seq);
 }
@@ -396,8 +401,13 @@ export function useAiConnectivity(params: UseAiConnectivityParams): UseAiConnect
       if (!toProcess.length) return;
       // Raw op docs are validated inside applyAiBatch (schemas + unknown_op), so
       // the cast is safe — malformed ops resolve to a skipped outcome.
-      const ops = toProcess.map((o) => ({ seq: o.seq, op: o.op, payload: o.payload })) as unknown as AiOp[];
-      const results = applyAiBatchRef.current(current.id, ops, activeScenarioIdRef.current);
+      const ops = toProcess.map((o) => ({ seq: o.seq, op: o.op, payload: o.payload, createdOn: o.createdOn })) as unknown as AiOp[];
+      // WI-150 release C: today read from this browser's clock NOW (the bound on a recorded date,
+      // as the grid reads it), and the project's work calendar as the page assembles it.
+      const results = applyAiBatchRef.current(current.id, ops, activeScenarioIdRef.current, {
+        today: formatDateISO(new Date()),
+        calendar: workCalendarRef.current,
+      });
       const maxSeq = toProcess[toProcess.length - 1]!.seq;
       setLastSeq(sessionId, maxSeq);
       lastAppliedSeqRef.current = Math.max(lastAppliedSeqRef.current, maxSeq);

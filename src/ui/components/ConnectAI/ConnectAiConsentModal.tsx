@@ -5,13 +5,13 @@
 import { useState, useId } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AI_PRIVACY_URL } from "@app/ai-connectivity-constants";
+import { CONSENT_WORDS } from "./consent-words";
 
 interface ConnectAiConsentModalProps {
   open: boolean;
   onClose: () => void;
   /** Calls startSession; resolves true on success. Parent opens the panel. */
   onConnect: (consentRead: boolean) => Promise<boolean>;
-  initialConsentRead?: boolean;
   /** AI-7 (v0.79.x audit): the project the consent is for, named in the text. */
   projectName: string;
 }
@@ -20,10 +20,29 @@ export function ConnectAiConsentModal({
   open,
   onClose,
   onConnect,
-  initialConsentRead = false,
   projectName,
 }: ConnectAiConsentModalProps) {
-  const [consentRead, setConsentRead] = useState(initialConsentRead);
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md z-50">
+          <ConsentForm onConnect={onConnect} projectName={projectName} />
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/**
+ * The window's body. WI-150 release C (owner, R650 ruling 9): consent is affirmative, so NEITHER box
+ * is ticked for the user — Write Mode is required, so Connect waits until it is ticked. The body
+ * mounts each time the window opens (Radix renders the content only while open), so a box ticked
+ * before a Cancel is not ticked again for the user the next time. The words are `CONSENT_WORDS`.
+ */
+function ConsentForm({ onConnect, projectName }: Pick<ConnectAiConsentModalProps, "onConnect" | "projectName">) {
+  const [consentWrite, setConsentWrite] = useState(false);
+  const [consentRead, setConsentRead] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const baseId = useId();
@@ -41,96 +60,85 @@ export function ConnectAiConsentModal({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md z-50">
-          <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Connect an AI assistant
-          </Dialog.Title>
-          <Dialog.Description className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-            Connecting lets your AI chatbot build and edit{" "}
-            <span className="font-medium text-gray-900 dark:text-gray-100">{projectName}</span>. You
-            stay in control: the AI asks what to build before doing anything, and you choose what it
-            can access.
-          </Dialog.Description>
+    <>
+      <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        {CONSENT_WORDS.title}
+      </Dialog.Title>
+      <Dialog.Description className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+        {CONSENT_WORDS.introBeforeName}{" "}
+        <span className="font-medium text-gray-900 dark:text-gray-100">{projectName}</span>
+        {CONSENT_WORDS.introAfterName}
+      </Dialog.Description>
 
-          <div className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300">
-            <label htmlFor={writeId} className="flex items-start gap-3">
-              <input
-                id={writeId}
-                name="aiConsentWrite"
-                type="checkbox"
-                checked
-                disabled
-                autoComplete="off"
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
-              />
-              <span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">Write Mode</span>{" "}
-                (required)
-                <span className="block text-xs text-gray-500 dark:text-gray-400">
-                  The AI can create and edit activities, estimates, milestones,
-                  and notes in this project.
-                </span>
-              </span>
-            </label>
-            <label htmlFor={readId} className="flex items-start gap-3">
-              <input
-                id={readId}
-                name="aiConsentRead"
-                type="checkbox"
-                checked={consentRead}
-                autoComplete="off"
-                onChange={(e) => setConsentRead(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
-              />
-              <span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">Read Mode</span>{" "}
-                (optional)
-                <span className="block text-xs text-gray-500 dark:text-gray-400">
-                  Let the AI read this project's full schedule — every scenario
-                  (including locked ones), their activities, estimates, milestones,
-                  dependencies, and computed dates, plus activity notes, descriptions,
-                  and checklist/deliverable items — so it can make context-aware edits.
-                  Required for dependency edits.
-                </span>
-              </span>
-            </label>
-          </div>
+      <div className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300">
+        <label htmlFor={writeId} className="flex items-start gap-3">
+          <input
+            id={writeId}
+            name="aiConsentWrite"
+            type="checkbox"
+            checked={consentWrite}
+            autoComplete="off"
+            onChange={(e) => setConsentWrite(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
+          />
+          <span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{CONSENT_WORDS.write.label}</span>{" "}
+            {CONSENT_WORDS.write.note}
+            <span className="block text-xs text-gray-500 dark:text-gray-400">
+              {CONSENT_WORDS.write.detail}
+            </span>
+          </span>
+        </label>
+        <label htmlFor={readId} className="flex items-start gap-3">
+          <input
+            id={readId}
+            name="aiConsentRead"
+            type="checkbox"
+            checked={consentRead}
+            autoComplete="off"
+            onChange={(e) => setConsentRead(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
+          />
+          <span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{CONSENT_WORDS.read.label}</span>{" "}
+            {CONSENT_WORDS.read.note}
+            <span className="block text-xs text-gray-500 dark:text-gray-400">
+              {CONSENT_WORDS.read.detail}
+            </span>
+          </span>
+        </label>
+      </div>
 
-          {error && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{error}</p>}
 
-          <div className="mt-6 flex items-center justify-between">
-            <a
-              href={AI_PRIVACY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+      <div className="mt-6 flex items-center justify-between">
+        <a
+          href={AI_PRIVACY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+        >
+          AI privacy notice
+        </a>
+        <div className="flex gap-2">
+          <Dialog.Close asChild>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm rounded-md text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              AI privacy notice
-            </a>
-            <div className="flex gap-2">
-              <Dialog.Close asChild>
-                <button
-                  type="button"
-                  className="px-3 py-1.5 text-sm rounded-md text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  Cancel
-                </button>
-              </Dialog.Close>
-              <button
-                type="button"
-                onClick={handleConnect}
-                disabled={connecting}
-                className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {connecting ? "Connecting…" : "Connect"}
-              </button>
-            </div>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+              Cancel
+            </button>
+          </Dialog.Close>
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={connecting || !consentWrite}
+            className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {connecting ? "Connecting…" : "Connect"}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }

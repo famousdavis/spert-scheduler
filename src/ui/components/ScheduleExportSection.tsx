@@ -15,7 +15,7 @@ import { useDateFormat } from "@ui/hooks/use-date-format";
 import { useWorkCalendar } from "@ui/hooks/use-work-calendar";
 import { formatExportTimestamp } from "@core/calendar/calendar";
 import { staleResults } from "@core/schedule/recorded-progress";
-import { computeScenarioSchedule, type ScenarioScheduleInputs } from "@ui/hooks/use-schedule";
+import { computeScenarioSchedule, scenarioScheduleInputs, type ScenarioScheduleInputs } from "@ui/hooks/use-schedule";
 import { useToday } from "@ui/hooks/use-today";
 import { staleScenariosSentence } from "@ui/helpers/stale-results-words";
 import { computeScheduleBuffer } from "@core/schedule/buffer";
@@ -73,12 +73,10 @@ export function ScheduleExportSection({ projects }: ScheduleExportSectionProps) 
     // WI-154: the scenario's schedule by the project page's own function, from one set of inputs: with
     // today, as the page shows it, and with today off — the plan a not-started row's Planned dates
     // come from (owner, 2026-10-31, Q1).
+    // WI-150 release C: by THE scenario → inputs mapping, the one the page and the AI's write use.
     const inputs: ScenarioScheduleInputs = {
+      ...scenarioScheduleInputs(selectedScenario, workCalendar),
       activities: selectedScenario.activities,
-      startDate: selectedScenario.startDate,
-      probabilityTarget: settings.probabilityTarget,
-      calendar: workCalendar,
-      network: settings.dependencyMode ? { dependencies: selectedScenario.dependencies, milestones: selectedScenario.milestones } : null,
     };
     const shown = computeScenarioSchedule({ ...inputs, today });
     if (shown.scheduleError) throw new Error(shown.scheduleError.message);

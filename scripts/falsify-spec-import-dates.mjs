@@ -22,7 +22,8 @@ const RECORD = p("src/core/schedule/recorded-progress.ts");
 const WORDS = p("src/ui/helpers/progress-note-words.ts");
 const PLANNED_WORDS = p("src/ui/helpers/planned-dates-words.ts");
 const PROMPT = p("src/ui/components/ConnectAI/copyPrompt.ts");
-const SCHEDULE_HOOK = p("src/ui/hooks/use-schedule.ts");
+// WI-150 release C: the page's schedule function moved to /app (use-schedule.ts re-exports it).
+const SCHEDULE_HOOK = p("src/app/api/scenario-schedule.ts");
 const SIM_PARAMS = p("src/ui/helpers/build-simulation-params.ts");
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 const only = (...titles) => new RegExp(`> (?:${titles.map(escape).join("|")})$`);
