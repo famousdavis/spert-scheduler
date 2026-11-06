@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.85.1",
+    date: "2026-11-06",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The Connect AI window's Copy Code and Copy Prompt buttons stay in one place. They now sit on the \"Session code\" line, with the code on its own line below, so a long code no longer wraps onto two lines, and nothing moves while the code loads or when you copy it. Their labels are also readable in dark mode now.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.85.0",
     date: "2026-11-06",
     sections: [

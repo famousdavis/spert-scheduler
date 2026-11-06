@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.85.1 — 2026-11-06
+
+### Fixed
+
+- **The Connect AI window's Copy Code and Copy Prompt buttons stay in one place.** They now sit on the "Session code" line, with the code on its own line below, so a long code no longer wraps onto two lines, and nothing moves while the code loads or when you copy it. Their labels are also readable in dark mode now.
+
 ## 0.85.0 — 2026-11-06
 
 ### Added
