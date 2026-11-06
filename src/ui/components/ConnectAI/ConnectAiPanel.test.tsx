@@ -25,11 +25,15 @@ import type { AiFeedItem } from "./AiActivityFeed";
  * where the question puts focus back.
  */
 
+// WI-170's tests set what the code fetch answers; every other test gets this default.
+const defaultPairing = () => Promise.resolve({ data: { code: "ABCDE-1234" } });
+const pairing = vi.hoisted(() => ({ call: null as null | (() => Promise<{ data: { code: string } }>) }));
+
 vi.mock("@infrastructure/firebase/firebase", () => ({
   auth: null,
   db: null,
   isFirebaseAvailable: true,
-  getGeneratePairingCode: () => () => Promise.resolve({ data: { code: "ABCDE-1234" } }),
+  getGeneratePairingCode: () => () => (pairing.call ?? defaultPairing)(),
   getTeardownAiSession: () => null,
   getSendInvitationEmail: () => null,
   getClaimPendingInvitations: () => null,
@@ -69,6 +73,10 @@ async function renderPanel(state: AiSessionState = sessionState()) {
   return { onClose, onDisconnect };
 }
 
+function widthClasses(button: HTMLElement): string[] {
+  return [...button.classList].filter((c) => /^(min-w-|max-w-|w-)/.test(c));
+}
+
 /** As a mouse press would: focus, then click. */
 function pressDisconnect() {
   const disconnect = screen.getByRole("button", { name: "Disconnect" });
@@ -78,6 +86,8 @@ function pressDisconnect() {
 
 afterEach(() => {
   cleanup();
+  pairing.call = null;
+  Reflect.deleteProperty(navigator, "clipboard");
 });
 
 describe("WI-111: the Connect AI panel's close button", () => {
@@ -160,5 +170,143 @@ describe("WI-111: Disconnect asks before it ends the AI session", () => {
     });
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(onDisconnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * WI-170: the owner, on Copy Code and Copy Prompt: "I'd prefer that the copy code and copy prompt
+ * buttons not move around (including when the MCP server is first fetching the session code, as those
+ * buttons start by left-aligning to the placeholder asterisks)." They shared one row with the code, so
+ * they sat wherever the code ended, and a word of 6 letters or more wrapped the code and their labels.
+ *
+ * ⚠️ jsdom has no layout. These tests pin the STRUCTURE that keeps the buttons still; that they do stay
+ * still was measured in real Chrome, by getBoundingClientRect in every state, at 1280 px and at 375 px.
+ */
+describe("WI-170: the Copy buttons stay in one place", () => {
+  const LONGEST = "BROCCOLI-4827150936";
+  const LONGEST_SHOWN = "BROCCOLI · 4827150936";
+  const ERROR = "Couldn\u2019t generate a code.";
+  const VALID_LINE = "Valid 15 min · refreshes automatically";
+
+  const copyCode = () => screen.getByRole("button", { name: "Copy Code" });
+  const copyPrompt = () => screen.getByRole("button", { name: "Copy Prompt" });
+
+  function panel(open = true) {
+    return (
+      <ConnectAiPanel
+        open={open}
+        onClose={() => {}}
+        sessionState={sessionState({ aiConnected: false })}
+        onChangePermissions={() => Promise.resolve(true)}
+        onDisconnect={() => Promise.resolve()}
+        feedItems={[]}
+      />
+    );
+  }
+
+  async function renderWithCode() {
+    pairing.call = () => Promise.resolve({ data: { code: LONGEST } });
+    const view = render(panel());
+    await screen.findByText(LONGEST_SHOWN);
+    return view;
+  }
+
+  function renderLoading() {
+    pairing.call = () => new Promise(() => {});
+    render(panel());
+  }
+
+  async function renderError() {
+    pairing.call = () => Promise.reject(new Error("refused"));
+    render(panel());
+    await screen.findByText(ERROR);
+  }
+
+  it("both buttons sit on the Session code line, at its right, Copy Code first, and not on the code's line", async () => {
+    await renderWithCode();
+    const labelLine = screen.getByText("Session code").parentElement as HTMLElement;
+    expect(labelLine).toHaveClass("flex", "justify-between");
+    expect(labelLine.firstElementChild).toBe(screen.getByText("Session code"));
+    expect(within(labelLine).getAllByRole("button").map((b) => b.textContent)).toEqual(["Copy Code", "Copy Prompt"]);
+    expect(labelLine).not.toContainElement(screen.getByText(LONGEST_SHOWN));
+  });
+
+  it("the code's line holds the code alone, in the font it had, and cannot wrap, with the Valid line under it", async () => {
+    await renderWithCode();
+    const code = screen.getByText(LONGEST_SHOWN);
+    expect(code).toHaveClass("font-mono", "text-lg", "tracking-wide", "whitespace-nowrap");
+    const line = code.parentElement as HTMLElement;
+    expect(line.textContent).toBe(LONGEST_SHOWN);
+    expect(within(line).queryAllByRole("button")).toEqual([]);
+    expect(line.nextElementSibling).toHaveTextContent(VALID_LINE);
+  });
+
+  it("the error and Retry take the code's line, at the height a code has", async () => {
+    await renderError();
+    const line = screen.getByText(ERROR).parentElement as HTMLElement;
+    expect(line).toHaveClass("h-7");
+    expect(within(line).getByRole("button", { name: "Retry" })).toBeInTheDocument();
+
+    pairing.call = () => Promise.resolve({ data: { code: LONGEST } });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect((await screen.findByText(LONGEST_SHOWN)).parentElement).toBe(line);
+  });
+
+  it("the placeholder has the code's shape, five dots then ten, with Generating code… under it", () => {
+    renderLoading();
+    const placeholder = screen.getByText(/^•{5} · •{10}$/);
+    expect(placeholder.parentElement?.nextElementSibling).toHaveTextContent("Generating code…");
+  });
+
+  it("both are there and greyed while the code loads", () => {
+    renderLoading();
+    expect(copyCode()).toBeDisabled();
+    expect(copyPrompt()).toBeDisabled();
+  });
+
+  it("both are there and greyed in the error state", async () => {
+    await renderError();
+    expect(copyCode()).toBeDisabled();
+    expect(copyPrompt()).toBeDisabled();
+  });
+
+  it("both are greyed when a later fetch fails, though the last code is still held", async () => {
+    const { rerender } = await renderWithCode();
+    expect(copyCode()).toBeEnabled();
+    pairing.call = () => Promise.reject(new Error("refused"));
+    rerender(panel(false));
+    rerender(panel());
+    await screen.findByText(ERROR);
+    expect(copyCode()).toBeDisabled();
+    expect(copyPrompt()).toBeDisabled();
+  });
+
+  it("both have the same fixed width, Copied! included, and their labels cannot wrap", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: () => Promise.resolve() },
+    });
+    await renderWithCode();
+    const code = copyCode();
+    const prompt = copyPrompt();
+    const readings = (): string[][] => [widthClasses(code), widthClasses(prompt)];
+    expect(readings()).toEqual([["w-24"], ["w-24"]]);
+
+    fireEvent.click(code);
+    await waitFor(() => expect(code).toHaveTextContent("Copied!"));
+    expect(readings()).toEqual([["w-24"], ["w-24"]]);
+
+    fireEvent.click(prompt);
+    await waitFor(() => expect(prompt).toHaveTextContent("Copied!"));
+    expect(readings()).toEqual([["w-24"], ["w-24"]]);
+
+    expect(code).toHaveClass("whitespace-nowrap");
+    expect(prompt).toHaveClass("whitespace-nowrap");
+  });
+
+  it("both labels set their own colour, dark text in the light theme and light text in the dark theme", async () => {
+    await renderWithCode();
+    expect(copyCode()).toHaveClass("text-gray-900", "dark:text-gray-100");
+    expect(copyPrompt()).toHaveClass("text-gray-900", "dark:text-gray-100");
   });
 });

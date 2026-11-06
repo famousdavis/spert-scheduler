@@ -25,6 +25,15 @@ const DISCONNECT_CONSEQUENCES =
   "The AI will no longer be able to change this project, and the Recent AI activity list will be cleared. To use an AI again, press Connect AI to start a new session.";
 
 /**
+ * WI-170: Copy Code and Copy Prompt, one width, wide enough for "Copy Prompt", so that "Copied!", which
+ * is narrower than either label, moves neither button. A whole static string, for the Tailwind scanner.
+ * The label sets its own colour: the panel is portaled to `body`, which sets none, so a label that
+ * inherits is black, on dark grey in the dark theme.
+ */
+const COPY_BUTTON_CLASS =
+  "w-24 whitespace-nowrap px-2 py-1 text-xs text-gray-900 dark:text-gray-100 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-40 dark:bg-gray-700 dark:hover:bg-gray-600";
+
+/**
  * Close (X) icon — the Share window's (ShareProjectModal), copied as it is. ⚠️ That file says to
  * extract a shared icon "if a third caller appears", and this is the third — but its two copies
  * already DIFFER (StorageLoginModal's is 16 px with no aria-hidden), so extracting one would change
@@ -137,7 +146,8 @@ export function ConnectAiPanel({
     onClose();
   };
 
-  const codeReady = !!code && !codeLoading;
+  // Not after a failed fetch either: the last code is still held then, but it is no longer shown.
+  const codeReady = !!code && !codeLoading && !codeError;
   const displayCode = code ? code.replace("-", " · ") : "";
 
   return (
@@ -163,33 +173,41 @@ export function ConnectAiPanel({
 
           <div className="mt-4 space-y-4 text-sm">
             <div>
-              <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">Session code</p>
-              {codeError ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-red-600 dark:text-red-400 text-xs">Couldn&rsquo;t generate a code.</span>
-                  <button onClick={fetchCode} className="text-xs text-blue-600 hover:underline">Retry</button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-lg tracking-wide text-gray-900 dark:text-gray-100">
-                    {codeReady ? displayCode : "••••• · ••••"}
-                  </span>
+              {/* WI-170: the buttons have this line to themselves, in every state, so a code of any
+                  length, the placeholder and the error move neither of them. */}
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-gray-500 dark:text-gray-400 text-xs">Session code</p>
+                <div className="flex shrink-0 items-center gap-2">
                   <button
                     onClick={() => copy("code")}
                     disabled={!codeReady}
-                    className="px-2 py-1 text-xs rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-40 dark:bg-gray-700 dark:hover:bg-gray-600"
+                    className={COPY_BUTTON_CLASS}
                   >
                     {copied === "code" ? "Copied!" : "Copy Code"}
                   </button>
                   <button
                     onClick={() => copy("prompt")}
                     disabled={!codeReady}
-                    className="px-2 py-1 text-xs rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-40 dark:bg-gray-700 dark:hover:bg-gray-600"
+                    className={COPY_BUTTON_CLASS}
                   >
                     {copied === "prompt" ? "Copied!" : "Copy Prompt"}
                   </button>
                 </div>
-              )}
+              </div>
+              {/* One height, a code's, for the error too: the panel is centred, so a shorter line
+                  would move everything above it. */}
+              <div className="flex h-7 items-center gap-2">
+                {codeError ? (
+                  <>
+                    <span className="text-red-600 dark:text-red-400 text-xs">Couldn&rsquo;t generate a code.</span>
+                    <button onClick={fetchCode} className="text-xs text-blue-600 hover:underline">Retry</button>
+                  </>
+                ) : (
+                  <span className="font-mono text-lg tracking-wide whitespace-nowrap text-gray-900 dark:text-gray-100">
+                    {codeReady ? displayCode : "••••• · ••••••••••"}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {codeLoading ? "Generating code…" : "Valid 15 min · refreshes automatically"}
               </p>
