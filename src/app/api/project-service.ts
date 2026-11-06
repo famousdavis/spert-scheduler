@@ -224,9 +224,18 @@ export function cloneScenario(
     startsAtMilestoneId: a.startsAtMilestoneId ? oldToNewMilestoneId.get(a.startsAtMilestoneId) ?? undefined : undefined,
   }));
 
+  // WI-165: a header whose first activity was dropped starts at the next one left, as a delete does.
+  // Until now it fell to the bottom of the copy, away from the activities it grouped.
+  const bandsLeft = reanchorBandsAfterRemovals(
+    scenario.bands ?? [],
+    new Set(scenario.activities.filter((a) => !oldToNewId.has(a.id)).map((a) => a.id)),
+    scenario.activities,
+    scenario.activities.filter((a) => oldToNewId.has(a.id)),
+  );
+
   // Clone bands with fresh IDs; remap insertBeforeActivityId through
   // oldToNewId (which already excludes dropped-completed activities).
-  const clonedBands: ActivityBand[] = (scenario.bands ?? []).map((band) => ({
+  const clonedBands: ActivityBand[] = bandsLeft.map((band) => ({
     ...band,
     id: generateId(),
     insertBeforeActivityId:

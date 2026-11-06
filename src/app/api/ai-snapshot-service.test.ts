@@ -396,6 +396,7 @@ function bigSnapshot(): ProjectSnapshot {
         milestones: [],
         dependencies: [],
         dependencyValidationErrors: [{ type: "duplicate", message: "dup" }],
+        sections: [],
       },
     ],
   };

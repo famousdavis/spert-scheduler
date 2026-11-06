@@ -4,6 +4,11 @@
 
 import type { Activity, ActivityBand, Scenario } from "@domain/models/types";
 
+/** Does a Section (band) in this scenario hold this id? */
+export function isSectionId(scenario: Scenario, id: string): boolean {
+  return (scenario.bands ?? []).some((b) => b.id === id);
+}
+
 export function addBand(scenario: Scenario, band: ActivityBand): Scenario {
   return { ...scenario, bands: [...(scenario.bands ?? []), band] };
 }

@@ -190,6 +190,9 @@ export interface Milestone {
   targetDate: string; // "YYYY-MM-DD" — the hard deadline
 }
 
+/** The most Sections (bands) one scenario can hold: the schema refuses a save past it (WI-162). */
+export const SECTION_CAP = 50;
+
 export interface ActivityBand {
   id: string;
   name: string; // max 200 chars, empty string allowed

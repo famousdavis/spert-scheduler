@@ -246,6 +246,42 @@ export interface BulkSetActivityProgressPayload {
   updates: BulkSetProgressItem[];
 }
 
+// WI-162 — Sections (in code, bands). `beforeActivityId` is what the snapshot's `sections` shows: the
+// activity the header sits directly above, or null = after the last activity. Colours travel by
+// swatch name; `BulkSection` above means a part of the composite import, not one of these.
+export interface BulkCreateSectionItem {
+  id: string;
+  name: string;
+  beforeActivityId: string | null;
+  color?: string;
+}
+
+export interface BulkCreateSectionsPayload {
+  scenarioId?: string;
+  sections: BulkCreateSectionItem[];
+}
+
+/** The `color` that clears a Section's colour, and what the snapshot shows for a Section with none. */
+export const NO_SECTION_COLOR = "none";
+
+/** Only the fields sent change. `color: "none"` clears the colour. */
+export interface BulkUpdateSectionItem {
+  id: string;
+  name?: string;
+  beforeActivityId?: string | null;
+  color?: string;
+}
+
+export interface BulkUpdateSectionsPayload {
+  scenarioId?: string;
+  updates: BulkUpdateSectionItem[];
+}
+
+export interface DeleteSectionsPayload {
+  scenarioId?: string;
+  ids: string[];
+}
+
 /**
  * WI-150 release C: what the browser that drains a batch adds to it. `today` is read from that
  * browser's clock at drain (the bound: no recorded date after it); `calendar` is the project's work
@@ -281,7 +317,10 @@ type AiOpVariant =
   | { seq: number; op: "bulk_import_schedule"; payload: BulkImportSchedulePayload }
   | { seq: number; op: "reorder_activities"; payload: ReorderActivitiesPayload }
   | { seq: number; op: "bulk_append_notes"; payload: BulkAppendNotesPayload }
-  | { seq: number; op: "bulk_set_activity_progress"; payload: BulkSetActivityProgressPayload };
+  | { seq: number; op: "bulk_set_activity_progress"; payload: BulkSetActivityProgressPayload }
+  | { seq: number; op: "bulk_create_sections"; payload: BulkCreateSectionsPayload }
+  | { seq: number; op: "bulk_update_sections"; payload: BulkUpdateSectionsPayload }
+  | { seq: number; op: "delete_sections"; payload: DeleteSectionsPayload };
 
 /**
  * An op as drained. `createdOn` (WI-150 release C, Review 34 R4): the LOCAL date, in the draining
@@ -316,7 +355,11 @@ export type AiSkipReason =
   | "date_after_today"
   | "before_start_date"
   | "dates_out_of_order"
-  | "finish_without_start";
+  | "finish_without_start"
+  // WI-162 — the Section writes' own three; every other Section refusal shares a reason above.
+  | "anchor_not_found"
+  | "section_limit"
+  | "section_exists";
 
 // Per-item skip reasons for the `partial` outcome. Widened (P0.1) so the shared
 // item-level cores can surface the full vocabulary through the bulk handlers.
@@ -339,7 +382,10 @@ export type ItemReject =
   | "date_after_today"
   | "before_start_date"
   | "dates_out_of_order"
-  | "finish_without_start";
+  | "finish_without_start"
+  | "anchor_not_found"
+  | "section_limit"
+  | "section_exists";
 
 export type BulkSection = "activities" | "milestones" | "assignments" | "dependencies";
 
@@ -353,7 +399,8 @@ export interface SkippedItem {
   section?: BulkSection;
   /**
    * WI-150 release C (Review 37, G2): what the feed calls this entry — the activity's name, or the id
-   * the AI sent when no activity has it. Set by the progress write only, on every entry it skips.
+   * the AI sent when no activity has it. Set by the progress write and (WI-162) the Section writes,
+   * which name the Section, on every entry they skip.
    */
   name?: string;
 }
@@ -370,11 +417,21 @@ export interface BulkSectionCounts {
   dependencies?: SectionCount;
 }
 
+/**
+ * WI-162 (owner, R674): what a Section delete took, for its row in Recent AI activity: the scenario's
+ * name and each Section's, as the feed names them. Set only by `delete_sections`, and only when it
+ * took at least one. These stay in the browser: the drain writes no outcome back to the relay.
+ */
+export interface DeletedSections {
+  scenarioName: string;
+  names: string[];
+}
+
 export type AiOpOutcome =
   // `noPlanKept` (WI-150 release C, Review 34 F7): how many activities left Planned with NO Planned
   // dates kept, because the schedule could not be calculated — as the grid's toast says. Set only by
   // the progress write, and only when non-zero.
-  | { status: "applied"; noPlanKept?: number }
+  | { status: "applied"; noPlanKept?: number; deletedSections?: DeletedSections }
   | { status: "skipped"; reason: AiSkipReason }
   | {
       status: "partial";
@@ -384,7 +441,11 @@ export type AiOpOutcome =
       // handleAddItems or the single-array bulk handlers.
       sections?: BulkSectionCounts;
       noPlanKept?: number;
+      deletedSections?: DeletedSections;
     };
+
+/** What a bulk op that reached its entries can come to: the two outcomes `bulkOutcome` gives. */
+export type BulkOutcome = Exclude<AiOpOutcome, { status: "skipped" }>;
 
 export type AiOpResult = { op: AiOp; outcome: AiOpOutcome };
 
@@ -442,6 +503,9 @@ export function toItemReject(reason: AiSkipReason): ItemReject {
     case "before_start_date":
     case "dates_out_of_order":
     case "finish_without_start":
+    case "anchor_not_found":
+    case "section_limit":
+    case "section_exists":
       return reason;
     default:
       return "invalid";

@@ -24,6 +24,7 @@ import {
   type QualitativePatch,
 } from "./project-service";
 import { addMilestone, updateMilestone, assignActivityToMilestone } from "./milestone-service";
+import { isSectionId } from "./band-service";
 import {
   addDependency,
   removeDependency,
@@ -101,6 +102,9 @@ function estimateOutOfRange(v: number | undefined): boolean {
 export function createActivityCore(scenario: Scenario, p: CreateActivityPayload): CoreResult {
   if (scenario.activities.length >= ACTIVITY_CAP) return reject("cap_exceeded");
   if (scenario.activities.some((a) => a.id === p.id)) return reject("duplicate");
+  // WI-162: and a Section (band) must not hold it either. The grid's drag finds a row by its id alone,
+  // so a Section and an activity with one id move each other. `createSectionCore` asks the other way.
+  if (isSectionId(scenario, p.id)) return reject("duplicate");
   // Non-blank name at the AI-write boundary. NOT on ActivitySchema — the shared
   // schema also gates every project load, and a `.min(1)` there bricks any stored
   // project holding an unnamed activity (the grid's "+ Add Activity" persists

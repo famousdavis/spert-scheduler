@@ -23,6 +23,7 @@ import type {
   Calendar,
   ScheduledActivity,
 } from "@domain/models/types";
+import { SECTION_CAP } from "@domain/models/types";
 import { computeHeuristic } from "@core/estimation/heuristic";
 import type { BulkApplyPayload } from "./BulkActionToolbar";
 import type { CellIssues, RowReport } from "@ui/hooks/use-estimate-validity";
@@ -44,6 +45,11 @@ import { buildRenderList, deriveReorderResult } from "@ui/helpers/band-utils";
 import { useGridFocus, useGridSelection } from "@ui/hooks/use-grid-state";
 import { confirmDialog } from "@ui/hooks/use-confirm-store";
 import { focusNextRow } from "./activity-row-helpers";
+import { describedByWhile } from "@ui/helpers/cloud-create-gate";
+
+/** WI-164: the line under the greyed "+ Section". A 51st Section would stop every later save. */
+const SECTION_LIMIT_NOTE = `A scenario holds up to ${SECTION_CAP} Sections. Delete one to add another.`;
+const SECTION_LIMIT_NOTE_ID = "section-limit-note";
 
 interface UnifiedActivityGridProps {
   activities: Activity[];
@@ -143,6 +149,7 @@ export function UnifiedActivityGrid({
   const [isAnyDragging, setIsAnyDragging] = useState(false);
   const { focusActivityId, focusBandId, signalActivityAdd, signalBandAdd, signalActivityAddById } =
     useGridFocus(activities, bands);
+  const sectionsFull = !isScenarioLocked && bands.length >= SECTION_CAP;
   const { selectedIds, toggleSelect, toggleSelectAll, clearSelection } =
     useGridSelection(activities);
 
@@ -605,13 +612,19 @@ export function UnifiedActivityGrid({
             signalBandAdd();
             onAddBand();
           }}
-          disabled={isScenarioLocked}
+          disabled={isScenarioLocked || sectionsFull}
           aria-label="Add section header"
+          {...describedByWhile(sectionsFull, SECTION_LIMIT_NOTE_ID)}
           className="flex-1 py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 focus:border-blue-400 dark:focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-700 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
         >
           + Section
         </button>
       </div>
+      {sectionsFull && (
+        <p id={SECTION_LIMIT_NOTE_ID} className="px-2 pb-2 text-right text-xs text-gray-600 dark:text-gray-400">
+          {SECTION_LIMIT_NOTE}
+        </p>
+      )}
       </div>{/* end of the collapsible body */}
     </div>
   );

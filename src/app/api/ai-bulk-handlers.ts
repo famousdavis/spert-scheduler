@@ -25,7 +25,7 @@ import {
   type BulkSectionCounts,
   type SectionCount,
   type SkippedItem,
-  type AiOpOutcome,
+  type BulkOutcome,
   type OpResult,
   type CoreResult,
   skip,
@@ -49,7 +49,7 @@ import {
 // never set here. Structural parsing runs once at the dispatcher boundary
 // (P0.0 step 1) before any of these; here every item is shape-valid.
 
-function bulkOutcome(appliedCount: number, skippedItems: SkippedItem[]): AiOpOutcome {
+export function bulkOutcome(appliedCount: number, skippedItems: SkippedItem[]): BulkOutcome {
   return skippedItems.length === 0
     ? { status: "applied" }
     : { status: "partial", appliedCount, skippedItems };

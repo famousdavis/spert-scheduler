@@ -16,6 +16,9 @@ import {
   ReorderActivitiesSchema,
   BulkAppendNotesSchema,
   BulkSetActivityProgressSchema,
+  BulkCreateSectionsSchema,
+  BulkUpdateSectionsSchema,
+  DeleteSectionsSchema,
 } from "./ai-bulk-schemas";
 
 // Contract test (client half, P0.2 / F3-7). The client validates the drained OP
@@ -29,6 +32,7 @@ import {
 interface FieldSpec {
   required: boolean;
   type: "string" | "number";
+  nullable?: boolean;
   enum?: string[];
   minLen?: number;
   maxLen?: number;
@@ -86,6 +90,9 @@ const SCHEMAS: Record<string, ZodType> = {
   reorder_activities: ReorderActivitiesSchema,
   bulk_append_notes: BulkAppendNotesSchema,
   bulk_set_activity_progress: BulkSetActivityProgressSchema,
+  bulk_create_sections: BulkCreateSectionsSchema,
+  bulk_update_sections: BulkUpdateSectionsSchema,
+  delete_sections: DeleteSectionsSchema,
 };
 
 // Partition by shape. `array`+`item` → single-array; `array`+`element` →
@@ -154,6 +161,19 @@ describe.each(singleArrayOps)("client contract — %s", (op, spec) => {
         delete missing[field];
         expect(schema.safeParse(payload(spec, [missing])).success).toBe(false);
       }
+    }
+  });
+});
+
+// WI-162: `nullable` both ways. A field the contract marks takes null; every other field refuses it,
+// so a schema that loosened one field would fail here as well as one that lost the marking.
+describe.each(singleArrayOps)("client contract, nullable — %s", (op, spec) => {
+  const schema = SCHEMAS[op]!;
+
+  it("takes null exactly where the contract says", () => {
+    for (const [field, fspec] of Object.entries(spec.item)) {
+      const withNull = { ...minimalItem(spec.item), [field]: null };
+      expect(schema.safeParse(payload(spec, [withNull])).success).toBe(fspec.nullable === true);
     }
   });
 });

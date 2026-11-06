@@ -26,6 +26,19 @@ const partial: AiOpOutcome = {
   ],
 };
 
+describe("a Section delete's row (WI-162, owner, R674)", () => {
+  const del = { seq: 2, op: "delete_sections", payload: { ids: [] } } as unknown as AiOp;
+  it("names what went and where, under its label, and wraps as the other lines do", () => {
+    const outcome: AiOpOutcome = { status: "applied", deletedSections: { scenarioName: "Baseline", names: ["Phase 1", "Testing"] } };
+    render(<AiActivityFeed items={[{ feedId: 1, result: { op: del, outcome } }]} />);
+    const [label, line] = Array.from(screen.getByRole("listitem").children) as HTMLElement[];
+    expect(label!.textContent).toBe("Delete sections");
+    expect(line!.textContent).toBe("Deleted from Baseline: Phase 1, Testing");
+    expect(line!.classList.contains("min-w-0")).toBe(true);
+    expect(line!.classList.contains("break-words")).toBe(true);
+  });
+});
+
 describe("the feed's progress line", () => {
   it("names each skipped activity with its reason", () => {
     render(<AiActivityFeed items={[{ feedId: 1, result: { op, outcome: partial } }]} />);
