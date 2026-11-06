@@ -277,6 +277,38 @@ describe("AI-4 project binding", () => {
     };
     act(() => opsOnNext!(batch));
 
-    expect(applyAiBatch).toHaveBeenCalledWith("P1", expect.any(Array), null);
+    // WI-150 release C: the drain also passes today, read from this browser's clock, and the
+    // project's work calendar (here none).
+    expect(applyAiBatch).toHaveBeenCalledWith("P1", expect.any(Array), null, {
+      today: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      calendar: undefined,
+    });
+  });
+
+  it("WI-150 release C (R4): passes each op's creation day, the LOCAL date of its server createdAt", async () => {
+    let opsOnNext: ((snap: unknown) => void) | undefined;
+    fs.onSnapshot.mockImplementation((_q: unknown, onNext: (s: unknown) => void) => {
+      opsOnNext ??= onNext;
+      return () => {};
+    });
+    fs.setDoc.mockResolvedValue(undefined);
+
+    const applyAiBatch = vi.fn((..._args: unknown[]) => []);
+    const { result } = renderHook(() => useAiConnectivity({ ...makeParams(), applyAiBatch }));
+    await act(async () => {
+      await result.current.startSession(true);
+    });
+
+    const friday = new Date(2026, 9, 30, 16, 45); // local Friday 30 October 2026, 16:45
+    const batch = {
+      docChanges: () => [
+        { type: "added", doc: { data: () => ({ seq: 1, op: "bulk_set_activity_progress", payload: {}, createdAt: { toDate: () => friday } }) } },
+        { type: "added", doc: { data: () => ({ seq: 2, op: "bulk_set_activity_progress", payload: {} }) } },
+      ],
+    };
+    act(() => opsOnNext!(batch));
+
+    const ops = applyAiBatch.mock.calls[0]![1] as Array<{ seq: number; createdOn?: string }>;
+    expect(ops.map((o) => [o.seq, o.createdOn])).toEqual([[1, "2026-10-30"], [2, undefined]]);
   });
 });

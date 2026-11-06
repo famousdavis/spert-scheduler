@@ -15,6 +15,7 @@ import {
   BulkImportScheduleSchema,
   ReorderActivitiesSchema,
   BulkAppendNotesSchema,
+  BulkSetActivityProgressSchema,
 } from "./ai-bulk-schemas";
 
 // Contract test (client half, P0.2 / F3-7). The client validates the drained OP
@@ -84,6 +85,7 @@ const SCHEMAS: Record<string, ZodType> = {
   bulk_import_schedule: BulkImportScheduleSchema,
   reorder_activities: ReorderActivitiesSchema,
   bulk_append_notes: BulkAppendNotesSchema,
+  bulk_set_activity_progress: BulkSetActivityProgressSchema,
 };
 
 // Partition by shape. `array`+`item` → single-array; `array`+`element` →

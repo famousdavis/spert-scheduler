@@ -10,6 +10,7 @@ import {
   safeParseConsent,
   storedSessionMatchesProject,
   opsTargetWrongProject,
+  opCreatedOn,
 } from "./ai-connectivity-utils";
 import { AI_LAST_SEQ_PREFIX } from "@app/ai-connectivity-constants";
 
@@ -95,4 +96,18 @@ describe("ai-connectivity-utils", () => {
       expect(opsTargetWrongProject(null, "P1")).toBe(false);
     });
   });
+});
+
+// WI-150 release C (Review 34, R4): the op's creation day, read in this browser's time zone.
+describe("opCreatedOn", () => {
+  it("is the LOCAL date of the server timestamp", () => {
+    expect(opCreatedOn({ toDate: () => new Date(2026, 9, 30, 23, 59) })).toBe("2026-10-30");
+    expect(opCreatedOn({ toDate: () => new Date(2026, 9, 31, 0, 1) })).toBe("2026-10-31");
+  });
+  it.each([["absent", undefined], ["null (not resolved)", null], ["no toDate", { seconds: 1 }], ["an invalid date", { toDate: () => new Date(Number.NaN) }]])(
+    "is undefined when the timestamp is %s",
+    (_label, createdAt) => {
+      expect(opCreatedOn(createdAt)).toBeUndefined();
+    },
+  );
 });

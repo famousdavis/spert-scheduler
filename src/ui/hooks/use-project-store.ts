@@ -67,6 +67,7 @@ import { generateId } from "@app/api/id";
 import {
   applyAiOpsToProject,
   type AiOp,
+  type AiBatchContext,
   type AiOpResult,
 } from "@app/api/ai-batch-service";
 import {
@@ -338,7 +339,8 @@ export interface ProjectStore {
    * coarse undo frame, and persists (cloud sync fires via persist). Returns a
    * per-op result list for the provenance feed.
    */
-  applyAiBatch: (projectId: string, ops: AiOp[], openScenarioId: string | null) => AiOpResult[];
+  /** WI-150 release C: `ctx` — the draining browser's today and the project's work calendar. */
+  applyAiBatch: (projectId: string, ops: AiOp[], openScenarioId: string | null, ctx?: AiBatchContext) => AiOpResult[];
   /** Clear the active AI undo frame if it targets this project (hook teardown). */
   clearAiUndoFrame: (projectId: string) => void;
 
@@ -995,7 +997,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
     activeUndoGroup = null;
   },
 
-  applyAiBatch: (projectId, ops, openScenarioId) => {
+  applyAiBatch: (projectId, ops, openScenarioId, ctx) => {
     const project = get().projects.find((p) => p.id === projectId);
     if (!project) {
       return ops.map((op): AiOpResult => ({
@@ -1003,7 +1005,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
         outcome: { status: "skipped", reason: "not_found" },
       }));
     }
-    const { project: next, results } = applyAiOpsToProject(project, ops, openScenarioId);
+    const { project: next, results } = applyAiOpsToProject(project, ops, openScenarioId, ctx);
     if (next !== project) {
       pushOrExtendAiUndoFrame(projectId);
       set((state) => {

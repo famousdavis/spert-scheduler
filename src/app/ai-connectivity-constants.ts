@@ -8,7 +8,12 @@
  * never collide when served from the same origin).
  */
 
-export const AI_CONSENT_VERSION = 1;
+/**
+ * The version of the consent words (`ui/components/ConnectAI/consent-words.ts`). A stored consent of
+ * another version is asked again. 2 since v0.84.0 (WI-150 release C, owner, R650 ruling 9): Write
+ * Mode also records progress, and Read Mode is required for it.
+ */
+export const AI_CONSENT_VERSION = 2;
 
 /** Suite-wide AI privacy notice (shared across SPERT apps). */
 export const AI_PRIVACY_URL = "https://spertsuite.com/ai-privacy";

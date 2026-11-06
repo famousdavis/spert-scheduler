@@ -5,6 +5,7 @@
 import { collection, query, where, orderBy } from "firebase/firestore";
 import { db } from "@infrastructure/firebase/firebase";
 import { AI_LAST_SEQ_PREFIX, AI_SESSIONS_COL } from "@app/ai-connectivity-constants";
+import { formatDateISO } from "@core/calendar/calendar";
 
 /**
  * Pure module-level helpers for the AI connectivity hook. Extracted so the
@@ -81,4 +82,17 @@ export function opsTargetWrongProject(
   currentProjectId: string,
 ): boolean {
   return boundProjectId !== null && boundProjectId !== currentProjectId;
+}
+
+/**
+ * WI-150 release C (Review 34, R4): the LOCAL date (`YYYY-MM-DD`, in this browser's time zone) of an
+ * op document's server `createdAt` — a Firestore Timestamp, or anything with `toDate()` — or
+ * undefined when it has none (an op written before the field existed, or not yet resolved). A
+ * progress date the op leaves out is taken from this day, not from the day the browser drains it.
+ */
+export function opCreatedOn(createdAt: unknown): string | undefined {
+  const toDate = (createdAt as { toDate?: () => Date } | null | undefined)?.toDate;
+  if (typeof toDate !== "function") return undefined;
+  const d = toDate.call(createdAt);
+  return d instanceof Date && !Number.isNaN(d.getTime()) ? formatDateISO(d) : undefined;
 }

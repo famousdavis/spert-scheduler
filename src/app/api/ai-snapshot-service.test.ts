@@ -324,6 +324,15 @@ describe("buildProjectSnapshot", () => {
     expect(cache.size).toBe(0);
   });
 
+  it("carries today, the date on the user's computer, for the AI to count from (WI-150 release C, G3)", () => {
+    const { scenario } = makeScenario();
+    const base = createProject("P", "2025-01-06");
+    const project = { ...base, scenarios: [scenario] };
+    const snap = buildProjectSnapshot(project, monFri(), scenario.id, 7, undefined, "2026-11-05");
+    expect(snap.today).toBe("2026-11-05");
+    expect(truncateSnapshotToBudget(snap, 1).today).toBe("2026-11-05");
+  });
+
   it("produces a body with no undefined at any depth (Firestore-safe before sanitize)", () => {
     const { scenario } = makeScenario();
     const base = createProject("P", "2025-01-06");
@@ -343,6 +352,7 @@ function bigSnapshot(): ProjectSnapshot {
     projectName: "P",
     openScenarioId: "s1",
     asOfSeq: 5,
+    today: "2025-01-06",
     scenarios: [
       {
         id: "s1",

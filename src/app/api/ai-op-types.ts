@@ -8,7 +8,8 @@
 // ai-bulk-handlers.ts bulk handlers). Types plus the tiny result constructors —
 // no domain logic lives here.
 
-import type { Scenario, RSMLevel, DistributionType, DependencyType } from "@domain/models/types";
+import type { Scenario, RSMLevel, DistributionType, DependencyType, ActivityStatus, Calendar } from "@domain/models/types";
+import type { WorkCalendar } from "@core/calendar/work-calendar";
 
 // -- Op contract -------------------------------------------------------------
 // Every op carries an optional `scenarioId`. Dependency ops require it at the
@@ -229,7 +230,33 @@ export interface BulkAppendNotesPayload {
   notes: BulkAppendNoteItem[];
 }
 
-export type AiOp =
+// WI-150 release C — record progress: one entry per EXISTING activity, its Status and/or its
+// Actual Start and Actual Finish. NEVER a Planned date: the app keeps the Planned pair itself, by
+// the one Status rule, when a row leaves Planned. Add-only (owner, R650 ruling 6d): an entry records
+// only what is not yet recorded, so it can never set a row back or change a recorded date.
+export interface BulkSetProgressItem {
+  id: string;
+  status?: ActivityStatus;
+  actualStartDate?: string;
+  actualFinishDate?: string;
+}
+
+export interface BulkSetActivityProgressPayload {
+  scenarioId?: string;
+  updates: BulkSetProgressItem[];
+}
+
+/**
+ * WI-150 release C: what the browser that drains a batch adds to it. `today` is read from that
+ * browser's clock at drain (the bound: no recorded date after it); `calendar` is the project's work
+ * calendar as the page assembles it. The core never reads the clock.
+ */
+export interface AiBatchContext {
+  today: string;
+  calendar?: WorkCalendar | Calendar;
+}
+
+type AiOpVariant =
   | { seq: number; op: "create_activity"; payload: CreateActivityPayload }
   | { seq: number; op: "update_activity_estimate"; payload: UpdateEstimatePayload }
   | { seq: number; op: "rename_activity"; payload: RenameActivityPayload }
@@ -253,7 +280,15 @@ export type AiOp =
   | { seq: number; op: "bulk_update_activities"; payload: BulkUpdateActivitiesPayload }
   | { seq: number; op: "bulk_import_schedule"; payload: BulkImportSchedulePayload }
   | { seq: number; op: "reorder_activities"; payload: ReorderActivitiesPayload }
-  | { seq: number; op: "bulk_append_notes"; payload: BulkAppendNotesPayload };
+  | { seq: number; op: "bulk_append_notes"; payload: BulkAppendNotesPayload }
+  | { seq: number; op: "bulk_set_activity_progress"; payload: BulkSetActivityProgressPayload };
+
+/**
+ * An op as drained. `createdOn` (WI-150 release C, Review 34 R4): the LOCAL date, in the draining
+ * browser, of the op's server `createdAt` — the day the AI sent it. A progress date the op leaves
+ * out is taken from that day, so an op queued on Friday and drained on Monday records Friday.
+ */
+export type AiOp = AiOpVariant & { createdOn?: string };
 
 export type AiSkipReason =
   | "not_found"
@@ -269,7 +304,19 @@ export type AiSkipReason =
   | "stale_order"
   | "invalid_order"
   | "unknown_noop"
-  | "unknown_op";
+  | "unknown_op"
+  // WI-150 release C — the progress write's refusals (Review 34, W9: each its own label). Ruling 5:
+  // needs_both_dates. Ruling 6d, add-only: already_started, already_complete, date_recorded.
+  | "dates_on_planned"
+  | "finish_while_in_progress"
+  | "needs_both_dates"
+  | "already_started"
+  | "already_complete"
+  | "date_recorded"
+  | "date_after_today"
+  | "before_start_date"
+  | "dates_out_of_order"
+  | "finish_without_start";
 
 // Per-item skip reasons for the `partial` outcome. Widened (P0.1) so the shared
 // item-level cores can surface the full vocabulary through the bulk handlers.
@@ -282,7 +329,17 @@ export type ItemReject =
   | "not_found"
   | "cycle"
   | "value_unchanged"
-  | "would_exceed_length";
+  | "would_exceed_length"
+  | "dates_on_planned"
+  | "finish_while_in_progress"
+  | "needs_both_dates"
+  | "already_started"
+  | "already_complete"
+  | "date_recorded"
+  | "date_after_today"
+  | "before_start_date"
+  | "dates_out_of_order"
+  | "finish_without_start";
 
 export type BulkSection = "activities" | "milestones" | "assignments" | "dependencies";
 
@@ -294,6 +351,11 @@ export interface SkippedItem {
   id?: string;
   reason: ItemReject;
   section?: BulkSection;
+  /**
+   * WI-150 release C (Review 37, G2): what the feed calls this entry — the activity's name, or the id
+   * the AI sent when no activity has it. Set by the progress write only, on every entry it skips.
+   */
+  name?: string;
 }
 
 export interface SectionCount {
@@ -309,7 +371,10 @@ export interface BulkSectionCounts {
 }
 
 export type AiOpOutcome =
-  | { status: "applied" }
+  // `noPlanKept` (WI-150 release C, Review 34 F7): how many activities left Planned with NO Planned
+  // dates kept, because the schedule could not be calculated — as the grid's toast says. Set only by
+  // the progress write, and only when non-zero.
+  | { status: "applied"; noPlanKept?: number }
   | { status: "skipped"; reason: AiSkipReason }
   | {
       status: "partial";
@@ -318,6 +383,7 @@ export type AiOpOutcome =
       // Composite-only producer (bulk_import_schedule, Phase 2). Never set by
       // handleAddItems or the single-array bulk handlers.
       sections?: BulkSectionCounts;
+      noPlanKept?: number;
     };
 
 export type AiOpResult = { op: AiOp; outcome: AiOpOutcome };
@@ -366,6 +432,16 @@ export function toItemReject(reason: AiSkipReason): ItemReject {
     case "cycle":
     case "value_unchanged":
     case "would_exceed_length":
+    case "dates_on_planned":
+    case "finish_while_in_progress":
+    case "needs_both_dates":
+    case "already_started":
+    case "already_complete":
+    case "date_recorded":
+    case "date_after_today":
+    case "before_start_date":
+    case "dates_out_of_order":
+    case "finish_without_start":
       return reason;
     default:
       return "invalid";
