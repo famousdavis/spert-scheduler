@@ -17,7 +17,7 @@ import type {
   ScenarioSettings,
   SimulationRun,
 } from "@domain/models/types";
-import { MAX_SCENARIOS_PER_PROJECT, SCHEMA_VERSION } from "@domain/models/types";
+import { MAX_SCENARIOS_PER_PROJECT, SCHEMA_VERSION, SECTION_CAP } from "@domain/models/types";
 import { ProjectSchema } from "@domain/schemas/project.schema";
 import { toast } from "@ui/hooks/use-notification-store";
 import { SAMPLE_PROJECT_NAME } from "@domain/data/sample-project-meta";
@@ -201,6 +201,11 @@ function scenarioHasActivity(
 ): boolean {
   const scenario = findScenario(projects, projectId, scenarioId);
   return scenario !== undefined && scenario.activities.some((a) => a.id === activityId);
+}
+
+/** WI-164: does this scenario hold all the Sections it can? */
+function sectionsAtCap(projects: Project[], projectId: string, scenarioId: string): boolean {
+  return (findScenario(projects, projectId, scenarioId)?.bands ?? []).length >= SECTION_CAP;
 }
 
 /**
@@ -1395,7 +1400,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       reorderActivities(s, fromIndex, toIndex)
     ),
 
-  addBand: (projectId, scenarioId) =>
+  addBand: (projectId, scenarioId) => {
+    // WI-164: "+ Section" is off at the cap; this holds for any other caller. Past the cap the
+    // schema refuses every later save of the project until a Section is deleted.
+    if (sectionsAtCap(get().projects, projectId, scenarioId)) return;
     mutateScenario(projectId, scenarioId, "results-unaffected", (s) => {
       const band: ActivityBand = {
         id: generateId(),
@@ -1405,7 +1413,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
       };
       // NOTE: simulationResults NOT cleared — bands are display only.
       return addBandSvc(s, band);
-    }),
+    });
+  },
 
   deleteBand: (projectId, scenarioId, bandId) =>
     mutateScenario(projectId, scenarioId, "results-unaffected", (s) =>

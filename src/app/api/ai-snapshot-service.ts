@@ -12,6 +12,7 @@ import type {
   DeliverableItem,
   RSMLevel,
   DistributionType,
+  ActivityBand,
   ActivityStatus,
   ScheduledActivity,
   DeterministicSchedule,
@@ -30,9 +31,12 @@ import {
   validateDependencies,
   type ValidationError,
 } from "@core/schedule/dependency-graph";
+import { PROJECT_TILE_COLORS } from "@domain/models/types";
 import { estimateOrderIssues, logNormalHasNoMean } from "@domain/helpers/estimate-rules";
 import { scenarioDataDate, staleResults } from "@core/schedule/recorded-progress";
 import { formatDateISO } from "@core/calendar/calendar";
+import { buildRenderList, type GanttRenderItem } from "@ui/helpers/band-utils";
+import { NO_SECTION_COLOR } from "./ai-op-types";
 
 // ---------------------------------------------------------------------------
 // The read model the paired AI client consumes via scheduler_get_project.
@@ -87,6 +91,24 @@ export interface ActivitySnapshot {
   hasDescription?: boolean;
 }
 
+/**
+ * WI-162: one Section (a header row in the grid), in the order the user sees them. `name` is raw: an
+ * unnamed header is "". The AI can send `name`, `color` and `beforeActivityId` back through the Section
+ * tools, but not a name of "", a colour no swatch has, or `lastActivityId` and `activityCount`.
+ */
+export interface SectionSnapshot {
+  id: string;
+  name: string;
+  /** A swatch name, or "none". A colour no swatch has (from an imported file) shows as itself. */
+  color: string;
+  /** The activity this header sits above; null = after the last activity (an anchor no activity holds renders there). */
+  beforeActivityId: string | null;
+  /** The last activity it groups; absent when it groups none. */
+  lastActivityId?: string;
+  /** The activities from this header down to the next one. */
+  activityCount: number;
+}
+
 export interface ScenarioSnapshot {
   id: string;
   name: string;
@@ -106,6 +128,11 @@ export interface ScenarioSnapshot {
   milestones: Milestone[];
   dependencies: ActivityDependency[];
   dependencyValidationErrors: ValidationError[];
+  /**
+   * WI-162: always present, [] when the scenario has none. A scenario WITHOUT the key comes from a
+   * Scheduler tab older than the Section tools.
+   */
+  sections: SectionSnapshot[];
 }
 
 export interface ProjectSnapshot {
@@ -258,6 +285,35 @@ function deliverableItemForSnapshot(d: DeliverableItem): DeliverableItem {
   return { id: d.id, text: d.text, completed: d.completed };
 }
 
+/** A colour by the name on its swatch (the picker's own match: case does not matter). */
+function swatchName(color: string | undefined): string {
+  if (color === undefined) return NO_SECTION_COLOR;
+  return PROJECT_TILE_COLORS.find((c) => c.hex.toLowerCase() === color.toLowerCase())?.name ?? color;
+}
+
+/** One Section, from its place in the render list: everything below it, up to the next header, is its own. */
+function sectionForSnapshot(band: ActivityBand, below: readonly GanttRenderItem[]): SectionSnapshot {
+  const next = below.findIndex((row) => row.kind === "band");
+  const grouped = (next === -1 ? below : below.slice(0, next)).filter((row) => row.kind === "activity");
+  const firstBelow = below.find((row) => row.kind === "activity");
+  const last = grouped[grouped.length - 1];
+  const snap: SectionSnapshot = {
+    id: band.id,
+    name: band.name,
+    color: swatchName(band.color),
+    beforeActivityId: firstBelow?.kind === "activity" ? firstBelow.activity.id : null,
+    activityCount: grouped.length,
+  };
+  if (last?.kind === "activity") snap.lastActivityId = last.activity.id;
+  return snap;
+}
+
+/** WI-162: in ON-SCREEN order, from the grid's own function — never the stored array's order. AI-7: copied by name. */
+function sectionsForSnapshot(scenario: Scenario): SectionSnapshot[] {
+  const rows = buildRenderList(scenario.activities, scenario.bands ?? []);
+  return rows.flatMap((row, i) => (row.kind === "band" ? [sectionForSnapshot(row.band, rows.slice(i + 1))] : []));
+}
+
 /**
  * WI-150: the four dates, each copied by name (AI-7), and only the ones the activity's Status keeps
  * (Review 34, V-R4): a Planned activity none, an In Progress one no Actual Finish. The rule clears
@@ -348,6 +404,7 @@ export function buildScenarioSnapshot(
     milestones: scenario.milestones.map(milestoneForSnapshot),
     dependencies: scenario.dependencies.map(dependencyForSnapshot),
     dependencyValidationErrors,
+    sections: sectionsForSnapshot(scenario),
   };
   if (computed.schedule) {
     snap.projectEndDate = computed.schedule.projectEndDate;

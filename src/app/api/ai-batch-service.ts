@@ -9,6 +9,7 @@
 //   ai-op-handlers.ts  — singular handlers + the shared item-level cores
 //   ai-bulk-handlers.ts — bulk / composite-import / reorder handlers
 //   ai-progress-handlers.ts — the progress write (WI-150 release C)
+//   ai-section-handlers.ts — the Section writes (WI-162)
 // Consumers import ONLY from this module; the public surface (applyAiOpsToProject
 // plus the contract types re-exported below) is unchanged by the split.
 
@@ -25,6 +26,9 @@ import {
   ReorderActivitiesSchema,
   BulkAppendNotesSchema,
   BulkSetActivityProgressSchema,
+  BulkCreateSectionsSchema,
+  BulkUpdateSectionsSchema,
+  DeleteSectionsSchema,
 } from "./ai-bulk-schemas";
 import {
   type AiOp,
@@ -66,6 +70,11 @@ import {
   handleBulkAppendNotes,
 } from "./ai-bulk-handlers";
 import { handleBulkSetActivityProgress } from "./ai-progress-handlers";
+import {
+  handleBulkCreateSections,
+  handleBulkUpdateSections,
+  handleDeleteSections,
+} from "./ai-section-handlers";
 
 export type {
   AiOp,
@@ -75,6 +84,7 @@ export type {
   BulkSection,
   SkippedItem,
   BulkSectionCounts,
+  DeletedSections,
   AiOpOutcome,
   AiOpResult,
 } from "./ai-op-types";
@@ -204,6 +214,13 @@ export function applyAiOpToScenario(
     // reason — a case, and no branch. The op's creation day rides with it (R4).
     case "bulk_set_activity_progress":
       return dispatchBulk(scenario, op.payload, BulkSetActivityProgressSchema, handleBulkSetActivityProgress, { ...ctx, createdOn: op.createdOn });
+    // WI-162: the Section writes, through dispatchBulk for the same reason: a case, and no branch.
+    case "bulk_create_sections":
+      return dispatchBulk(scenario, op.payload, BulkCreateSectionsSchema, handleBulkCreateSections, ctx);
+    case "bulk_update_sections":
+      return dispatchBulk(scenario, op.payload, BulkUpdateSectionsSchema, handleBulkUpdateSections, ctx);
+    case "delete_sections":
+      return dispatchBulk(scenario, op.payload, DeleteSectionsSchema, handleDeleteSections, ctx);
     default:
       // Unreachable for well-typed input; a defensive floor for a malformed
       // op string drained from Firestore.

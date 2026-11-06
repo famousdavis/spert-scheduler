@@ -3,8 +3,12 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describeOutcome, summarizeSections, OP_LABELS } from "./describe-ai-outcome";
 import type { AiOpOutcome } from "@app/api/ai-batch-service";
+import { handleDeleteSections } from "@app/api/ai-section-handlers";
+import { createScenario } from "@app/api/project-service";
 
 describe("describeOutcome", () => {
   it("renders an applied outcome", () => {
@@ -156,5 +160,78 @@ describe("the progress write in the feed", () => {
     const partial = describeOutcome({ status: "partial", appliedCount: 1, skippedItems: [{ index: 1, id: "z", name: "z", reason: "not_found" }], noPlanKept: 1 }).text;
     expect(partial).toBe("1 applied · 1 skipped: z (not found); no Planned dates kept: the schedule could not be calculated");
     expect(partial).not.toContain(") (");
+  });
+});
+
+describe("the Section writes in the feed (WI-162)", () => {
+  // OP_LABELS is a plain Record<string, string>, so a missing label fails no compile: the row would
+  // read the raw op name. The contract's list of the Scheduler's ops is what a new op must join.
+  it("every op the contract lists has a label", () => {
+    const contract = JSON.parse(readFileSync(resolve("src/app/api/ai-op-contract.json"), "utf8")) as { schedulerOps: string[] };
+    expect(contract.schedulerOps.length).toBeGreaterThanOrEqual(28);
+    expect(contract.schedulerOps.filter((op) => OP_LABELS[op] === undefined)).toEqual([]);
+  });
+  it("labels the three", () => {
+    expect([OP_LABELS.bulk_create_sections, OP_LABELS.bulk_update_sections, OP_LABELS.delete_sections]).toEqual(["Add sections", "Update sections", "Delete sections"]);
+  });
+  it("names each skipped Section, with its reason in its own words", () => {
+    const outcome: AiOpOutcome = {
+      status: "partial",
+      appliedCount: 2,
+      skippedItems: [
+        { index: 2, id: "h1", name: "Build", reason: "anchor_not_found" },
+        { index: 3, id: "h2", name: "Test", reason: "section_limit" },
+        { index: 4, id: "h3", name: "Deploy", reason: "section_exists" },
+        { index: 5, id: "h4", name: "h4", reason: "not_found" },
+        { index: 6, id: "h5", name: "Train", reason: "value_unchanged" },
+      ],
+    };
+    expect(describeOutcome(outcome)).toEqual({
+      text: "2 applied · 5 skipped: Build (activity not found), Test (limit of 50 Sections reached), Deploy (already exists), h4 (not found), Train (no change)",
+      tone: "partial",
+    });
+  });
+  it("a whole-op skip reads as every other", () => {
+    expect(describeOutcome({ status: "skipped", reason: "locked" }).text).toBe("Skipped — scenario locked");
+  });
+  it("an activity's own refusal stays duplicate", () => {
+    const outcome: AiOpOutcome = { status: "partial", appliedCount: 1, skippedItems: [{ index: 1, id: "a1", reason: "duplicate" }] };
+    expect(describeOutcome(outcome).text).toBe("1 applied · 1 skipped (duplicate ×1)");
+  });
+});
+
+describe("a Section delete's row names what went and where (owner, R674)", () => {
+  const deleted = (...names: string[]) => ({ scenarioName: "Baseline", names });
+  it("all applied", () => {
+    expect(describeOutcome({ status: "applied", deletedSections: deleted("Phase 1", "Testing") })).toEqual({
+      text: "Deleted from Baseline: Phase 1, Testing",
+      tone: "applied",
+    });
+  });
+  it("partial: the names, then C's format for the skip", () => {
+    const outcome: AiOpOutcome = {
+      status: "partial",
+      appliedCount: 1,
+      skippedItems: [{ index: 1, id: "sec-old", name: "sec-old", reason: "not_found" }],
+      deletedSections: deleted("Phase 1"),
+    };
+    expect(describeOutcome(outcome)).toEqual({ text: "Deleted from Baseline: Phase 1 · 1 skipped: sec-old (not found)", tone: "partial" });
+  });
+  it("an unnamed Section reads (unnamed), through the real handler", () => {
+    const s = { ...createScenario("Baseline", "2026-11-02"), bands: [{ id: "h1", name: "  ", insertBeforeActivityId: null }] };
+    const { outcome } = handleDeleteSections(s, { ids: ["h1"] });
+    expect(describeOutcome(outcome).text).toBe("Deleted from Baseline: (unnamed)");
+  });
+  it("ten names are all shown", () => {
+    const names = Array.from({ length: 10 }, (_, i) => `S${i + 1}`);
+    expect(describeOutcome({ status: "applied", deletedSections: deleted(...names) }).text).toBe("Deleted from Baseline: S1, S2, S3, S4, S5, S6, S7, S8, S9, S10");
+  });
+  it("eleven names stop after ten, then and 1 more", () => {
+    const names = Array.from({ length: 11 }, (_, i) => `S${i + 1}`);
+    expect(describeOutcome({ status: "applied", deletedSections: deleted(...names) }).text).toBe("Deleted from Baseline: S1, S2, S3, S4, S5, S6, S7, S8, S9, S10 and 1 more");
+  });
+  it("nothing deleted keeps the counts", () => {
+    const outcome: AiOpOutcome = { status: "partial", appliedCount: 0, skippedItems: [{ index: 0, id: "gone", name: "gone", reason: "not_found" }] };
+    expect(describeOutcome(outcome)).toEqual({ text: "0 applied · 1 skipped: gone (not found)", tone: "skipped" });
   });
 });

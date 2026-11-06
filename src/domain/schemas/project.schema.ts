@@ -12,6 +12,7 @@ import {
   CONSTRAINT_MODES,
   MAX_SCENARIOS_PER_PROJECT,
   NAME_MAX_LENGTH,
+  SECTION_CAP,
   HOLIDAY_LOCALE_MAX_LENGTH,
 } from "../models/types";
 import {
@@ -262,7 +263,7 @@ export const ScenarioSchema = z.object({
   simulationResults: SimulationRunSchema.optional(),
   locked: z.boolean().optional(), // default false
   notes: z.string().max(2000).optional(),
-  bands: z.array(ActivityBandSchema).max(50).optional(),
+  bands: z.array(ActivityBandSchema).max(SECTION_CAP).optional(),
   targetFinishDate: ISODateString.nullable().optional(), // per scenario since schema v25 (WI-124)
 });
 

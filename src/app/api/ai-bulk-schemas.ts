@@ -143,3 +143,35 @@ export const BulkSetActivityProgressSchema = z.object({
   scenarioId: scenarioIdOpt,
   updates: z.array(bulkSetProgressItem).min(1).max(100),
 });
+
+// WI-162. Sections: one array, ≤50 entries (a scenario's cap). Structural only, as above: the swatch
+// names, the non-blank name and everything else are the handler's, entry by entry.
+// `beforeActivityId` is the contract's one NULLABLE field: null = after the last activity.
+const bulkCreateSectionItem = z.object({
+  id: z.string(),
+  name: z.string(),
+  beforeActivityId: z.string().nullable(),
+  color: z.string().optional(),
+});
+
+const bulkUpdateSectionItem = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  beforeActivityId: z.string().nullable().optional(),
+  color: z.string().optional(),
+});
+
+export const BulkCreateSectionsSchema = z.object({
+  scenarioId: scenarioIdOpt,
+  sections: z.array(bulkCreateSectionItem).min(1).max(50),
+});
+
+export const BulkUpdateSectionsSchema = z.object({
+  scenarioId: scenarioIdOpt,
+  updates: z.array(bulkUpdateSectionItem).min(1).max(50),
+});
+
+export const DeleteSectionsSchema = z.object({
+  scenarioId: scenarioIdOpt,
+  ids: z.array(z.string()).min(1).max(50),
+});

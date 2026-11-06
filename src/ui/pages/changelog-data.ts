@@ -13,6 +13,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.85.0",
+    date: "2026-11-06",
+    sections: [
+      {
+        title: "Added",
+        items: [
+          "Connect AI can now read and change Sections. With Read Mode the AI sees each scenario's Sections: their names, colours and the activities under them. It can add Sections (a scenario holds up to 50), rename them, change their colour, move them and delete them. Sections are display only, so none of this moves a date or clears a simulation.",
+          "Deleting a Section removes the header only. Its activities stay, and fall under the Section above, if there is one. Recent AI activity names what went. Undo (Ctrl+Z, with the Connect AI panel closed) brings it back, but it also takes back anything else the AI did in that stretch, and, like every Undo, it clears the simulation results in every scenario, so run the simulation again.",
+          "When the AI reorders activities, a Section stays with the activity it starts at. The AI can then move it back.",
+          'Recent AI activity names each Section it skips one at a time, and says why, for example "Phase 9 (activity not found)".',
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          'A scenario holds up to 50 Sections. At 50, "+ Section" is greyed and a line under it says so. Until now the 51st stopped every later save of the project until one was deleted.',
+          "A reforecast copy keeps a Section above its activities when the first of them was Complete. It used to fall to the bottom. A Section whose activities were all Complete stays, empty.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Connect AI's contract is version 6, with three new operations, `bulk_create_sections`, `bulk_update_sections` and `delete_sections` (MCP server 1.16.0, landing v2.10.0, deployed first). Tests pin each rule; three falsify specs move each.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.84.0",
     date: "2026-11-05",
     sections: [

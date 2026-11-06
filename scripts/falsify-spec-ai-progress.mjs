@@ -425,8 +425,8 @@ export const mutations = [
   {
     id: "P46 the digest: a one-sided contract edit",
     file: CONTRACT,
-    find: '  "phase": 5,',
-    replace: '  "phase": 6,',
+    find: '  "phase": 6,',
+    replace: '  "phase": 7,',
     expectFailing: only("matches the canonical digest shared with spert-landing-page"),
   },
 ];

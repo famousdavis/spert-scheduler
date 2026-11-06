@@ -2,7 +2,8 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { AiOpOutcome, AiSkipReason, ItemReject, BulkSectionCounts, SkippedItem } from "@app/api/ai-batch-service";
+import type { AiOpOutcome, AiSkipReason, ItemReject, BulkSectionCounts, DeletedSections, SkippedItem } from "@app/api/ai-batch-service";
+import { SECTION_CAP } from "@domain/models/types";
 
 // Pure presentation logic for the AI provenance feed, extracted from
 // AiActivityFeed.tsx for unit testability and react-refresh hygiene (mirrors
@@ -36,6 +37,9 @@ export const OP_LABELS: Record<string, string> = {
   reorder_activities: "Reorder activities",
   bulk_append_notes: "Bulk add notes",
   bulk_set_activity_progress: "Record progress",
+  bulk_create_sections: "Add sections",
+  bulk_update_sections: "Update sections",
+  delete_sections: "Delete sections",
 };
 
 // WI-150 release C (Review 34, W9): the progress write's refusals, each in its own words — shared
@@ -55,6 +59,19 @@ const PROGRESS_REASON_LABELS = {
   finish_without_start: "finish without a start",
 } as const;
 
+// WI-162: the Section writes' own three, shared by both tables like the progress reasons. "not found"
+// alone would read as the Section's, on an entry whose Section is fine and whose activity is missing;
+// "duplicate" would read as "same name" (two Sections may share one), and "already exists" says the
+// entry is there. An activity's own refusal stays "duplicate".
+const SECTION_REASON_LABELS = {
+  anchor_not_found: "activity not found",
+  section_limit: `limit of ${SECTION_CAP} Sections reached`,
+  section_exists: "already exists",
+} as const;
+
+/** WI-162 (R674): the most Sections a delete's row names; the rest read "and N more". */
+const DELETED_NAMES_SHOWN = 10;
+
 // Typed by the union since WI-150 release C (W9), so a new reason without its label fails `tsc`.
 const REASON_LABELS: Record<AiSkipReason, string> = {
   not_found: "not found",
@@ -72,6 +89,7 @@ const REASON_LABELS: Record<AiSkipReason, string> = {
   stale_order: "project changed since the AI last read it",
   invalid_order: "duplicate ids in the requested order",
   ...PROGRESS_REASON_LABELS,
+  ...SECTION_REASON_LABELS,
 };
 
 // Per-item skip reasons for the bulk `partial` outcome (distinct from the
@@ -85,6 +103,7 @@ const ITEM_REASON_LABELS: Record<ItemReject, string> = {
   value_unchanged: "no change",
   would_exceed_length: "too long",
   ...PROGRESS_REASON_LABELS,
+  ...SECTION_REASON_LABELS,
 };
 
 const SECTION_ORDER: Array<keyof BulkSectionCounts> = [
@@ -140,17 +159,28 @@ function skipDetail(items: readonly SkippedItem[]): string {
   return reasonSummary ? ` (${reasonSummary})` : "";
 }
 
+/** WI-162 (owner, R674): what a Section delete took and where, e.g. "Deleted from Baseline: Phase 1, Testing". */
+function deletedLine({ scenarioName, names }: DeletedSections): string {
+  const more = names.length - DELETED_NAMES_SHOWN;
+  const tail = more > 0 ? ` and ${more} more` : "";
+  return `Deleted from ${scenarioName}: ${names.slice(0, DELETED_NAMES_SHOWN).join(", ")}${tail}`;
+}
+
 /**
  * Render one op outcome to a feed row's status text + tone. Pure — the source
  * of truth the component and its unit tests both consume.
  */
 export function describeOutcome(outcome: AiOpOutcome): { text: string; tone: OutcomeTone } {
-  if (outcome.status === "applied") return { text: `Applied${noPlanNote(outcome)}`, tone: "applied" };
+  if (outcome.status === "applied") {
+    const lead = outcome.deletedSections ? deletedLine(outcome.deletedSections) : "Applied";
+    return { text: `${lead}${noPlanNote(outcome)}`, tone: "applied" };
+  }
   if (outcome.status === "partial") {
     // A `partial` outcome always carries ≥1 skip (zero skips collapse to
     // `applied`, F3-3), so the counts line always names skips.
     const skipped = outcome.skippedItems.length;
-    const counts = `${outcome.appliedCount} applied · ${skipped} skipped${skipDetail(outcome.skippedItems)}`;
+    const lead = outcome.deletedSections ? deletedLine(outcome.deletedSections) : `${outcome.appliedCount} applied`;
+    const counts = `${lead} · ${skipped} skipped${skipDetail(outcome.skippedItems)}`;
     // Composite imports carry a per-section map so a human reads a cascade as
     // one root cause (e.g. many not_found from a single skipped activity).
     const prefix = outcome.sections ? `${summarizeSections(outcome.sections)} — ` : "";

@@ -756,7 +756,7 @@ describe("cloneScenario with bands", () => {
     expect(anchoredBand?.insertBeforeActivityId).not.toBe(original.activities[0]!.id);
   });
 
-  it("sets insertBeforeActivityId to null when anchor was dropped (dropCompleted)", () => {
+  it("re-anchors to the next activity left when its anchor was dropped (dropCompleted; WI-165)", () => {
     const scenario = createScenario("Original", "2025-01-06");
     const completed = createActivity("Done", scenario.settings);
     const planned = createActivity("Upcoming", scenario.settings);
@@ -772,7 +772,7 @@ describe("cloneScenario with bands", () => {
     };
     const clone = cloneScenario(original, "Clone", { dropCompleted: true });
     expect(clone.activities).toHaveLength(1);
-    expect(clone.bands?.[0]?.insertBeforeActivityId).toBeNull();
+    expect(clone.bands?.[0]?.insertBeforeActivityId).toBe(clone.activities[0]!.id);
   });
 
   it("leaves null anchor as null", () => {
