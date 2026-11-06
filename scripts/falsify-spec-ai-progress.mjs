@@ -401,11 +401,18 @@ export const mutations = [
     expectFailing: only("ticks neither box for the user, and Connect waits for Write Mode"),
   },
   {
-    id: "P44 Read Mode's line no longer says it is required for recording progress",
+    id: "P44 Read Mode's line no longer says it is required for updating progress",
     file: CONSENT_WORDS,
-    find: "Required for dependency edits, reordering and recording progress.",
+    find: "Required for dependency edits, reordering activities and updating progress.",
     replace: "Required for dependency edits.",
-    expectFailing: only("shows the words from CONSENT_WORDS: Write names progress; Read is required for recording it"),
+    expectFailing: only("shows the owner's exact words: Write names progress; Read is required for updating it"),
+  },
+  {
+    id: "P47 Write Mode's line no longer names progress",
+    file: CONSENT_WORDS,
+    find: ", and, with Read Mode, update each activity's progress: its Status, Actual Start and Actual Finish.",
+    replace: ".",
+    expectFailing: only("shows the owner's exact words: Write names progress; Read is required for updating it"),
   },
   // -- The client schema and the digest ------------------------------------------------------------------
   {

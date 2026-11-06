@@ -64,14 +64,19 @@ describe("the consent window (consent version 2)", () => {
     expect(box("aiConsentRead").checked).toBe(false);
   });
 
-  it("shows the words from CONSENT_WORDS: Write names progress; Read is required for recording it", () => {
+  it("shows the owner's exact words: Write names progress; Read is required for updating it", () => {
     render(<Harness onConnect={vi.fn(async () => true)} />);
     const dialog = screen.getByRole("dialog");
     expect(screen.getByRole("heading", { name: CONSENT_WORDS.title })).toBeInTheDocument();
     expect(dialog.textContent).toContain(`${CONSENT_WORDS.introBeforeName} Cloud ERP${CONSENT_WORDS.introAfterName}`);
     expect(dialog.textContent).toContain(CONSENT_WORDS.write.detail);
     expect(dialog.textContent).toContain(CONSENT_WORDS.read.detail);
-    expect(CONSENT_WORDS.write.detail).toContain("record each activity's progress: its Status, Actual Start and Actual Finish");
-    expect(CONSENT_WORDS.read.detail).toMatch(/Required for dependency edits, reordering and recording progress\.$/);
+    // Whole, as literals: he approved these exact words, so one word moving is a change he has not seen.
+    expect(CONSENT_WORDS.write.detail).toBe(
+      "Let the AI create and edit this project's activities, estimates, milestones, section headers and notes, and, with Read Mode, update each activity's progress: its Status, Actual Start and Actual Finish.",
+    );
+    expect(CONSENT_WORDS.read.detail).toBe(
+      "Let the AI read this project's full schedule — every scenario (including locked ones), their activities, estimates, milestones, section headers, dependencies, and computed, recorded and planned dates, plus activity notes, descriptions, and checklist/deliverable items — so it can make context-aware edits. Required for dependency edits, reordering activities and updating progress.",
+    );
   });
 });
