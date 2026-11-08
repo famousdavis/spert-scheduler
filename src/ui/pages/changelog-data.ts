@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.85.2",
+    date: "2026-11-08",
+    sections: [
+      {
+        title: "Fixed",
+        items: [
+          "The Gantt chart's Appearance settings now open right under the button. They used to open below the whole chart, out of sight on most projects, so the button seemed to do nothing.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.85.1",
     date: "2026-11-06",
     sections: [

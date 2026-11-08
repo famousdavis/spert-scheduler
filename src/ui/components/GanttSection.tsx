@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useId } from "react";
 import { flushSync } from "react-dom";
 import type {
   Activity,
@@ -65,6 +65,7 @@ export function GanttSection(props: GanttSectionProps) {
   const overtakenLinks = useMemo(() => overtakenLinkKeys(progressNotes), [progressNotes]);
   const [collapsed, setCollapsed] = useState(false);
   const [appearancePanelOpen, setAppearancePanelOpen] = useState(false);
+  const appearancePanelId = useId();
   const chartRef = useRef<HTMLDivElement>(null);
   // True only while a copy is being taken: the copy is always light (WI-26, captureLight below).
   const [forceLight, setForceLight] = useState(false);
@@ -130,16 +131,20 @@ export function GanttSection(props: GanttSectionProps) {
             forceLight={forceLight}
             appearancePanelOpen={appearancePanelOpen}
             onToggleAppearancePanel={() => setAppearancePanelOpen((o) => !o)}
+            // WI-171: the panel opens directly under the toolbar, where its button is, not below
+            // the whole chart — out of sight on most projects. The chart puts it between its
+            // toolbar and the chart itself, so it is never inside what Copy as image captures.
+            appearancePanelId={appearancePanelOpen ? appearancePanelId : undefined}
+            appearancePanel={appearancePanelOpen && (
+              <div id={appearancePanelId} className="mb-3">
+                <GanttAppearancePanel
+                  appearance={ganttAppearance}
+                  onChange={onAppearanceChange}
+                  isDark={isDark}
+                />
+              </div>
+            )}
           />
-          {appearancePanelOpen && (
-            <div className="mt-3">
-              <GanttAppearancePanel
-                appearance={ganttAppearance}
-                onChange={onAppearanceChange}
-                isDark={isDark}
-              />
-            </div>
-          )}
         </div>
       )}
     </section>
