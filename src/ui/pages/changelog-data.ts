@@ -33,7 +33,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Internal",
         items: [
-          "Fourteen Dashboard tests moved from the Import Projects panel to the new Import, and ten test titles and one group title that named Choose File or Import Projects were renamed, with the four falsify specs that name them. Thirteen new tests; a new falsify spec, falsify-spec-dashboard-toolbar.mjs; and in the re-fetch spec, the straw that moves Choose File's gate now names a new Settings test, and a new straw moves the Dashboard's Import.",
+          "Fourteen Dashboard tests moved from the Import Projects panel to the new Import, and ten test titles and one group title that named Choose File or Import Projects were renamed, with the four falsify specs that name them. Thirteen new tests; a new falsify spec, falsify-spec-dashboard-toolbar.mjs; and in the re-fetch spec, the straw that moves Choose File's gate now names a new Settings test, and a new straw moves the Dashboard's Import. Five straws in two specs now also name, in their expected sets, the tests this release added or extended that they fail, measured against the whole suite.",
         ],
       },
     ],
