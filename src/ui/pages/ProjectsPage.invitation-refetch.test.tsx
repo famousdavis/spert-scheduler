@@ -354,7 +354,7 @@ async function invitedSignIn() {
   expect(edges.loads.map((l) => l.kind)).toEqual(["first", "refetch"]);
 }
 
-/** A file reaches Import Projects' file input. Refused or not, the answer is on screen when this returns. */
+/** A file reaches the Dashboard's project file input. Refused or not, the answer is on screen when this returns. */
 async function fileArrives(projectName: string) {
   const file = new File([serializeExport([createProject(projectName, "2026-10-05")])], "probe.json", {
     type: "application/json",
@@ -368,7 +368,9 @@ async function fileArrives(projectName: string) {
 
 const storeNames = () => useProjectStore.getState().projects.map((p) => p.name);
 const tileNames = () => Array.from(document.querySelectorAll("[data-tile-open]")).map((el) => el.textContent);
-const chooseFile = () => screen.getByRole("button", { name: "Choose File" });
+/** The Dashboard toolbar's Import: since v0.86.1 it opens the file picker itself, where the Import Projects panel's
+ * Choose File did, and it is greyed out with the note under the toolbar on the same condition. */
+const dashboardImport = () => screen.getByRole("button", { name: "Import projects from JSON" });
 
 /** The project names a storage namespace lists, in order; "(none)" when it has no list at all. */
 function listedIn(namespace: string): string[] {
@@ -479,11 +481,11 @@ describe("WI-113: the Dashboard waits for every cloud load of the sign-in", () =
     expect(useProjectStore.getState().cloudDataLoaded).toBe(true);
   });
 
-  it("an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Choose File comes back", async () => {
+  it("an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Import comes back", async () => {
     seedSignedOutProjects([ALPHA]);
     renderApp();
     await settle();
-    await press("Import Projects");
+    await settle();
     await invitedSignIn();
 
     // Since WI-113 this browser's signed-out project is not on show during the sign-in, so the empty answer finds an
@@ -492,13 +494,13 @@ describe("WI-113: the Dashboard waits for every cloud load of the sign-in", () =
     await loadEnds("first", [cloudProject(HEART)]);
 
     expect(tileNames()).toEqual([HEART]);
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
     expect(screen.queryByText(IMPORT_WAIT_NOTE)).toBeNull();
   });
 
   it("constructed — the first load's success callback throws after the load has ended, so its failure callback ends it again: a later re-fetch still ends the loading", async () => {
     renderApp();
-    await press("Import Projects");
+    await settle();
     edges.claimEnabled = true;
     await authReports(ARTHUR_INVITED);
     edges.listenerFails = 1;
@@ -507,64 +509,64 @@ describe("WI-113: the Dashboard waits for every cloud load of the sign-in", () =
     await loadEnds("first", [cloudProject(HEART)]);
     expect(edges.listenerFails).toBe(0);
     expect(console.error).toHaveBeenCalledWith("Failed to load projects from Firestore:", expect.any(Error));
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
 
     await claimEnds();
     expect(edges.loads.map((l) => l.kind)).toEqual(["refetch"]);
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
 
     await loadEnds("refetch", [cloudProject(HEART), cloudProject(SHARED, ZAPHOD)]);
 
     expect(tileNames()).toEqual([HEART, SHARED]);
     expect(useProjectStore.getState().cloudDataLoaded).toBe(true);
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
     expect(screen.queryByText(IMPORT_WAIT_NOTE)).toBeNull();
   });
 });
 
-// -- Import Projects --------------------------------------------------------------------------------------
+// -- the Dashboard's Import -------------------------------------------------------------------------------
 
-describe("WI-113: Import Projects' Choose File, its note and its confirm agree", () => {
-  it("the invited project on screen from the re-fetch, the first load still running: Choose File is greyed out, and the note says why", async () => {
+describe("WI-113: the Dashboard's Import, its note and its confirm agree", () => {
+  it("the invited project on screen from the re-fetch, the first load still running: Import is greyed out, and the note says why", async () => {
     renderApp();
-    await press("Import Projects");
+    await settle();
     await invitedSignIn();
 
     await loadEnds("refetch", [cloudProject(SHARED, ZAPHOD)]);
 
     expect(tileNames()).toEqual([SHARED]);
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
     expect(screen.getByText(IMPORT_WAIT_NOTE)).toBeInTheDocument();
 
     await loadEnds("first", [cloudProject(SHARED, ZAPHOD)]);
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
     expect(screen.queryByText(IMPORT_WAIT_NOTE)).toBeNull();
   });
 
-  it("the projects on screen and the user's settings still loading: Choose File is greyed out, and the note says projects can't be imported until loading ends", async () => {
+  it("the projects on screen and the user's settings still loading: Import is greyed out, and the note says projects can't be imported until loading ends", async () => {
     edges.holdPrefs = true;
     renderApp();
-    await press("Import Projects");
+    await settle();
     await authReports(ARTHUR);
 
     await loadEnds("first", [cloudProject(HEART)]);
     expect(edges.prefLoads).toHaveLength(1);
 
     expect(tileNames()).toEqual([HEART]);
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
     expect(screen.getByText(IMPORT_WAIT_NOTE)).toBeInTheDocument();
     expect(screen.queryByText(/Cloud projects are still loading/)).toBeNull();
 
     await preferencesEnd();
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
     expect(screen.queryByText(IMPORT_WAIT_NOTE)).toBeNull();
   });
 
-  it("a file reaching Import Projects while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports", async () => {
+  it("a file reaching Import while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports", async () => {
     renderApp();
-    await press("Import Projects");
+    await settle();
     await authReports(ARTHUR);
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
 
     await fileArrives(IMPORTED);
 
@@ -581,27 +583,52 @@ describe("WI-113: Import Projects' Choose File, its note and its confirm agree",
     await waitFor(() => expect(edges.created).toEqual([IMPORTED]));
   });
 
-  it("a file confirmed while a later re-fetch runs is refused, with Choose File greyed out and the note shown; when the re-fetch ends, the file chosen again imports", async () => {
+  it("v0.86.1: the refusal closed while Import is greyed out sends focus to the note that says why, and on to Import when the load ends", async () => {
     renderApp();
-    await press("Import Projects");
+    await settle();
+    await authReports(ARTHUR);
+    await fileArrives(IMPORTED);
+    expect(screen.getByRole("alert")).toHaveTextContent(PICK_AGAIN);
+
+    // Try another file goes with the panel; Import is greyed out, so its note takes the focus — not <body>.
+    await press("Try another file");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(dashboardImport()).toBeDisabled();
+    const note = screen.getByText(IMPORT_WAIT_NOTE);
+    expect(note).toHaveAttribute("role", "note");
+    expect(dashboardImport()).toHaveAccessibleDescription(IMPORT_WAIT_NOTE);
+    expect(document.activeElement).toBe(note);
+
+    // The load ends: the note goes with the wait, and Import, enabled in the same commit, takes the focus.
+    await loadEnds("first", [cloudProject(HEART)]);
+    await settle();
+    expect(screen.queryByText(IMPORT_WAIT_NOTE)).toBeNull();
+    expect(dashboardImport()).toBeEnabled();
+    expect(dashboardImport()).not.toHaveAccessibleDescription(IMPORT_WAIT_NOTE);
+    expect(document.activeElement).toBe(dashboardImport());
+  });
+
+  it("a file confirmed while a later re-fetch runs is refused, with Import greyed out and the note shown; when the re-fetch ends, the file chosen again imports", async () => {
+    renderApp();
+    await settle();
     edges.claimEnabled = true;
     await authReports(ARTHUR_INVITED);
     // The first load ends before the claim answers: the re-fetch starts after it.
     await loadEnds("first", [cloudProject(HEART)]);
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
     await fileArrives(IMPORTED);
     expect(screen.getByRole("button", { name: "Confirm Import" })).toBeInTheDocument();
 
     await claimEnds();
     expect(edges.loads.map((l) => l.kind)).toEqual(["refetch"]);
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
     expect(screen.getByText(IMPORT_WAIT_NOTE)).toBeInTheDocument();
     await press("Confirm Import");
     expect(screen.getByRole("alert")).toHaveTextContent(IMPORT_REFUSED);
     expect(storeNames()).toEqual([HEART]);
 
     await loadEnds("refetch", [cloudProject(HEART), cloudProject(SHARED, ZAPHOD)]);
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
     expect(screen.queryByText(IMPORT_WAIT_NOTE)).toBeNull();
     await press("Try another file");
     await fileArrives(IMPORTED);
@@ -609,9 +636,9 @@ describe("WI-113: Import Projects' Choose File, its note and its confirm agree",
     await waitFor(() => expect(storeNames()).toEqual([HEART, SHARED, IMPORTED]));
   });
 
-  it("constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Choose File is greyed out with the note, and the confirm refuses", async () => {
+  it("constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Import is greyed out with the note, and the confirm refuses", async () => {
     renderApp();
-    await press("Import Projects");
+    await settle();
     await authReports(ARTHUR);
     await loadEnds("first", [cloudProject(HEART)]);
     await fileArrives(IMPORTED);
@@ -622,7 +649,7 @@ describe("WI-113: Import Projects' Choose File, its note and its confirm agree",
     });
     expect(useProjectStore.getState().cloudDataLoaded).toBe(true);
 
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
     expect(screen.getByText(IMPORT_WAIT_NOTE)).toBeInTheDocument();
     await press("Confirm Import");
     expect(screen.getByRole("alert")).toHaveTextContent(IMPORT_REFUSED);

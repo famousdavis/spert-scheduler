@@ -87,7 +87,7 @@ const F_ENDED =
 const G_FIRST_EMPTY =
   "control: when the invitation re-fetch answers first, an empty answer from the first load keeps the invited project on show, as before";
 const E_EMPTY =
-  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Choose File comes back";
+  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Import comes back";
 // … a project's page
 const P_RELOAD =
   "a reload of a cloud project's page with a remembered sign-in: it says the projects are loading — before the sign-in is recognised, and until the first load brings it";

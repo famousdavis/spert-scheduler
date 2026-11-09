@@ -450,7 +450,9 @@ const tileNames = () => Array.from(document.querySelectorAll("[data-tile-open]")
 const exportChoices = () =>
   screen.queryAllByRole("checkbox", { name: /^Select .* for export$/ }).map((el) => el.getAttribute("aria-label"));
 const failureLine = () => screen.queryAllByRole("alert").filter((el) => el.textContent === LOAD_FAILED);
-const chooseFile = () => screen.getByRole("button", { name: "Choose File" });
+/** The Dashboard toolbar's Import: since v0.86.1 it opens the file picker itself, where the Import Projects panel's
+ * Choose File did, and it is greyed out with the note under the toolbar on the same condition. */
+const dashboardImport = () => screen.getByRole("button", { name: "Import projects from JSON" });
 const IMPORT_WAIT_NOTE = "Projects can’t be imported until loading from cloud storage ends.";
 
 beforeEach(() => {
@@ -800,18 +802,18 @@ describe("WI-113: a failed cloud load is said on the Dashboard, and 'No projects
 // -- an empty re-fetch answer ----------------------------------------------------------------------------
 
 describe("WI-113: an invitation re-fetch that answers with no projects", () => {
-  it("after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Choose File comes back", async () => {
+  it("after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Import comes back", async () => {
     renderApp("cloud");
     await settle();
-    await press("Import Projects");
+    await settle();
     await invitedSignIn();
     await loadEnds("first", [cloudProject(HEART)]);
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
 
     await loadEnds("refetch", []);
 
     expect(tileNames()).toEqual([HEART]);
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
     expect(screen.queryByText(IMPORT_WAIT_NOTE)).toBeNull();
   });
 });

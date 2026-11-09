@@ -25,7 +25,10 @@ import { confirmDialog } from "@ui/hooks/use-confirm-store";
 import { NewProjectDialog } from "@ui/components/NewProjectDialog";
 import { ProjectTile } from "@ui/components/ProjectTile";
 import { ShareProjectModal } from "@ui/components/ShareProjectModal";
-import { ImportSection } from "@ui/components/ImportSection";
+import { ImportFileInput, ImportPanel } from "@ui/components/ImportSection";
+import { ToolbarIcon } from "@ui/components/ToolbarIcon";
+import { TOOLBAR_ICON_PATHS } from "@ui/components/toolbar-icon-paths";
+import { useImportState } from "@ui/hooks/use-import-state";
 import { downloadFile } from "@ui/helpers/download";
 import { buildProjectExportFilename } from "@ui/helpers/export-filename";
 import { canShareProject } from "@ui/helpers/canShareProject";
@@ -39,6 +42,7 @@ import { CLOUD_LOADING_LINE, CLOUD_LOAD_FAILED_LINE } from "@ui/helpers/cloud-lo
 import {
   describedByWhile,
   CLOUD_CREATE_CONTROLS_NOTE,
+  CLOUD_PROJECT_IMPORT_WAIT_NOTE,
   SAMPLE_NOT_ADDED_MESSAGE,
 } from "@ui/helpers/cloud-create-gate";
 
@@ -85,6 +89,16 @@ function lastResortFocus(
   note: HTMLElement | null
 ): HTMLElement | null {
   return newProject?.disabled && note ? note : newProject;
+}
+
+/**
+ * Where focus goes when the import panel closes — its Cancel, Escape, "Try another file" or "Import another
+ * file" goes with it: the toolbar's Import, or, while Import is greyed out, the note under the toolbar that
+ * says why (the same choice `lastResortFocus` makes for New Project). Moved before the panel goes, so it
+ * never falls to <body>.
+ */
+function focusImportOrItsNote(importButton: HTMLButtonElement | null, note: HTMLElement | null): void {
+  (importButton?.disabled && note ? note : importButton)?.focus();
 }
 
 export function ProjectsPage() {
@@ -155,6 +169,32 @@ export function ProjectsPage() {
   // The note itself, where focus goes after a Delete while New Project is greyed out (owner ruling, 2026-10-09).
   const createNoteRef = useRef<HTMLParagraphElement>(null);
 
+  // The toolbar's Import opens the file picker directly, and the import itself — its error, preview and
+  // result — shows in the panel below the toolbar while it is under way. One `useImportState` for both.
+  // WI-113: Import is greyed out, with a note under the toolbar saying why, for exactly as long as an import
+  // would be refused — the value the confirm itself checks.
+  const importFlow = useImportState({ currentProjects: projects });
+  const importWaits = importFlow.importWaitsForCloud;
+  const importNoteId = useId();
+  const importButtonRef = useRef<HTMLButtonElement>(null);
+  const importNoteRef = useRef<HTMLParagraphElement | null>(null);
+  const { cancelImport } = importFlow;
+  const closeImport = useCallback(() => {
+    focusImportOrItsNote(importButtonRef.current, importNoteRef.current);
+    cancelImport();
+  }, [cancelImport]);
+  // The import note's ref. As with the create note below: if focus was sent to the note and the note leaves
+  // when the wait ends, Import takes the focus, once the same commit has enabled it.
+  const attachImportNote = useCallback((note: HTMLParagraphElement) => {
+    importNoteRef.current = note;
+    return () => {
+      importNoteRef.current = null;
+      if (document.activeElement === note) {
+        queueMicrotask(() => importButtonRef.current?.focus());
+      }
+    };
+  }, []);
+
   const handleChangeTileColor = useCallback(
     (id: string, color: string | undefined) => {
       updateProjectField(id, { tileColor: color });
@@ -178,7 +218,6 @@ export function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
-  const [showImport, setShowImport] = useState(false);
   const [sharingProject, setSharingProject] = useState<Project | null>(null);
 
   // WI-113: not while a cloud session's first load runs — the list stays empty until that load fills it, and
@@ -246,7 +285,7 @@ export function ProjectsPage() {
   // counts, archived ones included — and its heading counts the same list. Importing a project's
   // recovery file saves the restored project under the same id, but `loadErrors` is refreshed
   // only when this page mounts (`loadProjects` above). So after an import from this page's own
-  // Import Projects, the card went on listing the restored project, and its Delete
+  // Import, the card went on listing the restored project, and its Delete
   // (`removeCorruptedProject` → `repo.removeById`) removed the restored project's stored data:
   // measured in a production build, where the project was gone after a reload.
   const unloadedProjectErrors = useMemo(() => {
@@ -339,8 +378,8 @@ export function ProjectsPage() {
       removeCorruptedProject(projectId);
       // This card's Delete button goes with the card, and the whole recovery panel goes with
       // the last error, so `ConfirmDialog`'s captured-`activeElement` restore reaches a
-      // detached node. "New Project" is the destination because it is the one control on this
-      // page that is rendered unconditionally — the second "New Project" further down sits
+      // detached node. The header's "New Project" is the destination (owner ruling, 2026-10-09): like
+      // every toolbar button it is rendered unconditionally — the second "New Project" further down sits
       // inside the `projects.length === 0` empty state. A ref, not a text lookup: the two
       // buttons share an accessible name. While it is greyed out (WI-112), the note under the
       // header instead (`lastResortFocus`). `queueMicrotask` for the reason recorded in
@@ -400,28 +439,41 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* The SPERT® Suite dashboard toolbar: Export All · Import · Load Sample · New Project, every button
+          always rendered, so none appears, goes or moves with the project count or a load. On a narrow
+          screen the row wraps and the buttons keep their order. Not role="toolbar": that role promises
+          arrow-key navigation, which this row does not have. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleExportAll}
             disabled={activeProjects.length === 0}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Export all active projects as JSON"
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Export All Projects
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
+            Export All
           </button>
           <button
-            onClick={() => setShowImport((v) => !v)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+            ref={importButtonRef}
+            onClick={() => importFlow.fileInputRef.current?.click()}
+            disabled={importWaits}
+            {...describedByWhile(importWaits, importNoteId)}
+            aria-label="Import projects from JSON"
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {showImport ? "Hide Import" : "Import Projects"}
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
+            Import
           </button>
+          <ImportFileInput flow={importFlow} />
           <button
             onClick={handleLoadSample}
             disabled={createBlocked}
             {...describedByWhile(createBlocked, createNoteId)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} />
             Load Sample
           </button>
           <button
@@ -429,8 +481,9 @@ export function ProjectsPage() {
             onClick={() => setDialogOpen(true)}
             disabled={createBlocked}
             {...describedByWhile(createBlocked, createNoteId)}
-            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
             New Project
           </button>
         </div>
@@ -450,6 +503,20 @@ export function ProjectsPage() {
         </p>
       )}
 
+      {importWaits && (
+        // WI-113's words (owner ruling, 2026-10-10), under the toolbar's greyed-out Import. tabIndex -1 for the
+        // same reason as the note above: the import panel's close sends focus here while Import is greyed out.
+        <p
+          ref={attachImportNote}
+          id={importNoteId}
+          role="note"
+          tabIndex={-1}
+          className="text-sm text-right text-amber-700 dark:text-amber-300"
+        >
+          {CLOUD_PROJECT_IMPORT_WAIT_NOTE}
+        </p>
+      )}
+
       {cloudLoadFailed && !cloudLoadPending && (
         // WI-113: a load of this session failed (owner ruling, 2026-10-16) — said once no cloud load is pending, so
         // that it never stands beside the loading line. With it, an empty list says nothing more — not "No projects
@@ -459,8 +526,8 @@ export function ProjectsPage() {
         </p>
       )}
 
-      {showImport && (
-        <ImportSection projects={projects} />
+      {importFlow.importState.step !== "idle" && (
+        <ImportPanel flow={{ ...importFlow, cancelImport: closeImport }} pickedFromToolbar />
       )}
 
       {projects.length > 0 && (

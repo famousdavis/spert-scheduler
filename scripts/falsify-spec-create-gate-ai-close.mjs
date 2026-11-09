@@ -57,15 +57,15 @@ const A7 =
 const A8 =
   "Load Sample pressed before the load began and landing inside it adds nothing, and a message says why; pressed after the load, it adds the sample";
 const A9 =
-  "Import Projects: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs";
+  "Import: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs";
 const A10 = "control: in local storage nothing is greyed and there is no note, signed in or not";
 const A11 =
   "control: while a remembered sign-in is still being restored nothing is greyed — the gate starts when the sign-in is recognised";
 const A12 = "is greyed out with a note while the first cloud load runs, Ctrl+Enter adds nothing, and after the load it imports";
 const A13 =
-  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Import as they were until that load ends";
 const A14 =
-  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Import as they were until that load ends";
 const A15 =
   "Load Sample pressed before the sign-in was recognised, with the Dashboard then left: landing inside the load it adds nothing, and a message says why";
 const A16 =
@@ -78,21 +78,21 @@ const A19 =
   "into an existing project too: greyed out with a note while the first cloud load runs, Ctrl+Enter adds nothing, and after the load it imports";
 // ProjectsPage.invitation-refetch.test.tsx (WI-113) — Import Projects
 const I_REFETCH_FIRST =
-  "the invited project on screen from the re-fetch, the first load still running: Choose File is greyed out, and the note says why";
+  "the invited project on screen from the re-fetch, the first load still running: Import is greyed out, and the note says why";
 const I_SETTINGS =
-  "the projects on screen and the user's settings still loading: Choose File is greyed out, and the note says projects can't be imported until loading ends";
+  "the projects on screen and the user's settings still loading: Import is greyed out, and the note says projects can't be imported until loading ends";
 const I_PICKED =
-  "a file reaching Import Projects while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports";
+  "a file reaching Import while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports";
 const I_LATER_REFETCH =
-  "a file confirmed while a later re-fetch runs is refused, with Choose File greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
+  "a file confirmed while a later re-fetch runs is refused, with Import greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
 const I_CONSTRUCTED =
-  "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Choose File is greyed out with the note, and the confirm refuses";
+  "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Import is greyed out with the note, and the confirm refuses";
 // — the Dashboard
 // ProjectsPage.cloud-sign-in-display.test.tsx (WI-113)
 const E_EMPTY =
-  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Choose File comes back";
+  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Import comes back";
 const L_EMPTY_KEPT =
-  "an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Choose File comes back";
+  "an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Import comes back";
 // ProjectsPage.test.tsx and ProjectsPage.tile-delete.test.tsx — local storage, where nothing may be greyed
 const PP_TOAST = "keeps the sample-load toast up for 8 seconds, not the 3-second default";
 const PP_FOCUS = "confirming removes it and focus lands on New Project, not <body>";
@@ -365,8 +365,9 @@ export const mutations = [
   {
     id: "S33 the note cannot take focus  [expect 2: A17, A18]",
     file: PAGE,
-    find: '          role="note"\n          tabIndex={-1}\n',
-    replace: '          role="note"\n',
+    // v0.86.1: the import note under the toolbar has the same two lines, so the create note's id anchors it.
+    find: '          id={createNoteId}\n          role="note"\n          tabIndex={-1}\n',
+    replace: '          id={createNoteId}\n          role="note"\n',
     expectFailing: only(A17, A18),
   },
   {

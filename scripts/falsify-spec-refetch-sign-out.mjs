@@ -51,20 +51,20 @@ const L_REFETCH_ENDED =
 const L_REFETCH_FAILS =
   "a re-fetch that fails ends its part: with the first load ended empty, the Dashboard then says the load failed, not that there are no projects";
 const L_EMPTY_KEPT =
-  "an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Choose File comes back";
+  "an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Import comes back";
 const L_ENDED_TWICE =
   "constructed — the first load's success callback throws after the load has ended, so its failure callback ends it again: a later re-fetch still ends the loading";
 // — Import Projects
 const I_REFETCH_FIRST =
-  "the invited project on screen from the re-fetch, the first load still running: Choose File is greyed out, and the note says why";
+  "the invited project on screen from the re-fetch, the first load still running: Import is greyed out, and the note says why";
 const I_SETTINGS =
-  "the projects on screen and the user's settings still loading: Choose File is greyed out, and the note says projects can't be imported until loading ends";
+  "the projects on screen and the user's settings still loading: Import is greyed out, and the note says projects can't be imported until loading ends";
 const I_PICKED =
-  "a file reaching Import Projects while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports";
+  "a file reaching Import while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports";
 const I_LATER_REFETCH =
-  "a file confirmed while a later re-fetch runs is refused, with Choose File greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
+  "a file confirmed while a later re-fetch runs is refused, with Import greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
 const I_CONSTRUCTED =
-  "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Choose File is greyed out with the note, and the confirm refuses";
+  "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Import is greyed out with the note, and the confirm refuses";
 // — a re-fetch answer from a session that has ended
 const R_SIGN_OUT =
   "after a sign-out, a late re-fetch answer leaves this browser's signed-out projects listed, stored and on screen";
@@ -82,7 +82,7 @@ const K_SIGN_IN_DISPLAY =
   "while a cloud sign-in's first load runs, the project list holds none of this browser's signed-out projects, nor the user's copy in this browser, and the Dashboard says the projects are loading";
 // ProjectsPage.cloud-sign-in-display.test.tsx
 const E_EMPTY =
-  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Choose File comes back";
+  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Import comes back";
 const D_AGAIN =
   "a sign-in again in the same tab after a sign-out: the signed-out projects brought back by the sign-out leave the Dashboard during the next first load";
 const D_SETTINGS =
@@ -150,11 +150,11 @@ const G_REFETCH_FIRST =
 const G_REFETCH_EMPTY =
   "an empty re-fetch ending first: the Dashboard says it is loading, with New Project and Load Sample greyed, until the first load ends";
 const G_IMPORT =
-  "Import Projects: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs";
+  "Import: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs";
 const G_LATE_SETTINGS =
-  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Import as they were until that load ends";
 const G_LATE_FAILURE =
-  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Import as they were until that load ends";
 const G_DELETE_UNLOADED =
   "while New Project is greyed out, deleting a project that could not be loaded moves focus to the note, and on to New Project when the load ends";
 // AuthProvider.sign-out-namespaces.test.tsx (WI-118)

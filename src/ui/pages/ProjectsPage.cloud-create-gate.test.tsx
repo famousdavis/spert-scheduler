@@ -370,7 +370,12 @@ function firstOf(elements: HTMLElement[], what: string): HTMLElement {
 /** The header's New Project — always the first; the empty Dashboard has its own below it. */
 const headerNewProject = () => firstOf(screen.getAllByRole("button", { name: "New Project" }), "New Project button");
 const loadSample = () => screen.getByRole("button", { name: "Load Sample" });
-const chooseFile = () => screen.getByRole("button", { name: "Choose File" });
+/** The create gate's note: one of two while the first load runs, since the Dashboard's Import has its own (v0.86.1). */
+const createNote = () =>
+  firstOf(screen.getAllByRole("note").filter((note) => note.textContent === CONTROLS_NOTE), "the create note");
+/** The Dashboard toolbar's Import: since v0.86.1 it opens the file picker itself, where the Import Projects panel's
+ * Choose File did, and it is greyed out with the note under the toolbar on the same condition. */
+const dashboardImport = () => screen.getByRole("button", { name: "Import projects from JSON" });
 const storageState = () => screen.getByTestId("state").textContent;
 const route = () => screen.getByTestId("route").textContent;
 const projectNames = () => useProjectStore.getState().projects.map((p) => p.name);
@@ -445,7 +450,10 @@ describe("WI-112: while the first cloud load runs, the controls that create a pr
 
     expectUnavailable(headerNewProject());
     expectUnavailable(loadSample());
-    expect(screen.getByRole("note")).toHaveTextContent(CONTROLS_NOTE);
+    // Since v0.86.1 the toolbar's Import is greyed out too, with its own note, under this one.
+    expect(screen.getAllByRole("note").map((note) => note.textContent)).toEqual([CONTROLS_NOTE, IMPORT_WAITING]);
+    expect(dashboardImport()).toBeDisabled();
+    expect(dashboardImport()).toHaveAccessibleDescription(IMPORT_WAITING);
 
     await cloudLoadEnds([]);
     await waitFor(() => expect(headerNewProject()).toBeEnabled());
@@ -644,7 +652,7 @@ describe("WI-112: each create is checked again as it commits, and refused while 
     expect(route()).toMatch(/^\/project\//);
   });
 
-  it("Import Projects: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs", async () => {
+  it("Import: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs", async () => {
     edges.claimEnabled = true;
     const heart = cloudProject(HEART);
     renderApp("cloud");
@@ -655,8 +663,8 @@ describe("WI-112: each create is checked again as it commits, and refused while 
     await screen.findByRole("button", { name: HEART });
     expect(edges.loads).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Import Projects" }));
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
+    expect(dashboardImport()).toHaveAccessibleDescription(IMPORT_WAITING);
     expect(screen.getByText(IMPORT_WAITING)).toBeInTheDocument();
     // A file reaching the input anyway — from a picker opened before the wait began — is refused as it is picked.
     const file = new File([serializeExport([createProject("Probe Imported Project", "2026-10-05")])], "probe.json", {
@@ -828,7 +836,7 @@ describe("WI-112: while New Project is greyed out, a Delete that would send focu
     await settleFocus();
 
     expect(projectNames()).toEqual([]);
-    const note = screen.getByRole("note");
+    const note = createNote();
     expect(note).toHaveTextContent(CONTROLS_NOTE);
     expect(document.activeElement).toBe(note);
 
@@ -863,7 +871,7 @@ describe("WI-112: while New Project is greyed out, a Delete that would send focu
     await settleFocus();
 
     expect(screen.queryByText(UNLOADABLE)).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("note"));
+    expect(document.activeElement).toBe(createNote());
 
     await preferencesEnd();
     await settleFocus();
@@ -876,7 +884,7 @@ describe("WI-112: while New Project is greyed out, a Delete that would send focu
 // -- a sign-in's late answer, after a sign-out ------------------------------------------------------
 
 describe("WI-112: a sign-in's late answer, landing after a sign-out and a new sign-in, does not end the new sign-in's load", () => {
-  it("the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Choose File as they were until that load ends", async () => {
+  it("the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Import as they were until that load ends", async () => {
     edges.holdPrefs = true;
     renderApp("cloud");
     await authResolves(ARTHUR);
@@ -891,8 +899,7 @@ describe("WI-112: a sign-in's late answer, landing after a sign-out and a new si
     expect(edges.loads).toHaveLength(1);
     expect(edges.prefLoads).toHaveLength(1);
     expect(screen.getByText(LOADING)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Import Projects" }));
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
 
     // The FIRST sign-in's settings answer lands now, inside the second sign-in's load.
     await preferencesEnd();
@@ -902,7 +909,7 @@ describe("WI-112: a sign-in's late answer, landing after a sign-out and a new si
     expect(screen.getByText(CONTROLS_NOTE)).toBeInTheDocument();
     expect(screen.getByText(LOADING)).toBeInTheDocument();
     expect(screen.queryByText(EMPTY)).toBeNull();
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
     expect(screen.getByText(IMPORT_WAITING)).toBeInTheDocument();
 
     // The second load's projects arrive; its own settings are still loading.
@@ -911,7 +918,7 @@ describe("WI-112: a sign-in's late answer, landing after a sign-out and a new si
     await waitFor(() => expect(edges.prefLoads).toHaveLength(1));
     expectUnavailable(headerNewProject());
     expectUnavailable(cloneOf(HEART));
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
 
     await preferencesEnd();
     await waitFor(() => expect(headerNewProject()).toBeEnabled());
@@ -919,10 +926,10 @@ describe("WI-112: a sign-in's late answer, landing after a sign-out and a new si
     expectAvailable(loadSample());
     expectAvailable(cloneOf(HEART));
     expect(screen.queryByText(CONTROLS_NOTE)).toBeNull();
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
   });
 
-  it("the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Choose File as they were until that load ends", async () => {
+  it("the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Import as they were until that load ends", async () => {
     // The failure is logged ("Failed to load cloud preferences:"); not this test's subject.
     vi.spyOn(console, "error").mockImplementation(() => {});
     edges.holdPrefs = true;
@@ -939,8 +946,7 @@ describe("WI-112: a sign-in's late answer, landing after a sign-out and a new si
     expect(edges.loads).toHaveLength(1);
     expect(edges.prefLoads).toHaveLength(1);
     expect(screen.getByText(LOADING)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Import Projects" }));
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
 
     // The FIRST sign-in's settings load fails now — as a request cut off by the sign-out may — inside
     // the second sign-in's load.
@@ -955,7 +961,7 @@ describe("WI-112: a sign-in's late answer, landing after a sign-out and a new si
     expect(screen.getByText(CONTROLS_NOTE)).toBeInTheDocument();
     expect(screen.getByText(LOADING)).toBeInTheDocument();
     expect(screen.queryByText(EMPTY)).toBeNull();
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
     expect(screen.getByText(IMPORT_WAITING)).toBeInTheDocument();
 
     // The second load's projects arrive; its own settings are still loading.
@@ -964,7 +970,7 @@ describe("WI-112: a sign-in's late answer, landing after a sign-out and a new si
     await waitFor(() => expect(edges.prefLoads).toHaveLength(1));
     expectUnavailable(headerNewProject());
     expectUnavailable(cloneOf(HEART));
-    expect(chooseFile()).toBeDisabled();
+    expect(dashboardImport()).toBeDisabled();
 
     await preferencesEnd();
     await waitFor(() => expect(headerNewProject()).toBeEnabled());
@@ -972,6 +978,6 @@ describe("WI-112: a sign-in's late answer, landing after a sign-out and a new si
     expectAvailable(loadSample());
     expectAvailable(cloneOf(HEART));
     expect(screen.queryByText(CONTROLS_NOTE)).toBeNull();
-    expect(chooseFile()).toBeEnabled();
+    expect(dashboardImport()).toBeEnabled();
   });
 });

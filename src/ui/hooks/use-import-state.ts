@@ -142,8 +142,9 @@ export interface UseImportStateResult {
   mode: StorageMode;
   cloudDataLoaded: boolean;
   /**
-   * WI-113: an import now would be refused — the confirm's own condition. Import Projects greys its Choose
-   * File, with a note, on this same value, so the button, its note and the confirm agree.
+   * WI-113: an import now would be refused — the confirm's own condition. Settings' Choose File and the
+   * Dashboard toolbar's Import are greyed out, each with its note, on this same value, so the button, its note
+   * and the confirm agree.
    */
   importWaitsForCloud: boolean;
   applyPreferences: boolean;

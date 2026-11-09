@@ -13,7 +13,7 @@ export const mutations = [
   {
     id: "M1  onChange binding removed",
     file: SECTION,
-    find: `onChange={handleFileChange}\n          className="hidden"`,
+    find: `onChange={handleFileChange}\n      className="hidden"`, // in ImportFileInput since v0.86.1
     replace: `className="hidden"`,
     expectFailing: /./, // every pickFile test
   },
@@ -27,8 +27,8 @@ export const mutations = [
   {
     id: "M3  ref={fileInputRef} removed from the input",
     file: SECTION,
-    find: `          ref={fileInputRef}\n          type="file"`,
-    replace: `          type="file"`,
+    find: `      ref={fileInputRef}\n      type="file"`, // in ImportFileInput since v0.86.1
+    replace: `      type="file"`,
     expectFailing: /dispatches a click/,
   },
   {
