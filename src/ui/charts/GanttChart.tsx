@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useEffect, useMemo, useCallback, useRef, type RefObject } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type RefObject, type ReactNode } from "react";
 import type {
   Activity,
   ActivityBand,
@@ -96,7 +96,7 @@ function GanttToolbar({
   projectName,
   showActivityNumbers, onToggleActivityNumbers,
   showTargetOnGantt, onToggleShowTarget, hasTargetDate, isLocked,
-  appearancePanelOpen, onToggleAppearancePanel,
+  appearancePanelOpen, onToggleAppearancePanel, appearancePanelId,
 }: {
   viewMode: string;
   setViewMode: (v: "deterministic" | "uncertainty") => void;
@@ -117,7 +117,7 @@ function GanttToolbar({
   onToggleShowTarget?: (v: boolean) => void;
   hasTargetDate?: boolean; isLocked?: boolean;
   appearancePanelOpen: boolean;
-  onToggleAppearancePanel: () => void;
+  onToggleAppearancePanel: () => void; appearancePanelId?: string;
 }) {
   return (
     <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -221,7 +221,7 @@ function GanttToolbar({
             ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
             : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
         }`}
-        onClick={onToggleAppearancePanel}
+        onClick={onToggleAppearancePanel} aria-expanded={appearancePanelOpen} aria-controls={appearancePanelId}
         title="Appearance settings"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,7 +264,7 @@ interface GanttChartProps {
   hasTargetDate?: boolean;
   resolvedAppearance: ResolvedGanttAppearance;
   appearancePanelOpen: boolean;
-  onToggleAppearancePanel: () => void;
+  onToggleAppearancePanel: () => void; appearancePanel?: ReactNode; appearancePanelId?: string; // WI-171: the panel opens under the toolbar, outside the copy
   forceLight?: boolean; // the light palette whatever the theme — set only while a copy is taken (WI-26)
 }
 
@@ -299,7 +299,7 @@ export function GanttChart({
   hasTargetDate,
   resolvedAppearance: ra,
   appearancePanelOpen,
-  onToggleAppearancePanel,
+  onToggleAppearancePanel, appearancePanel, appearancePanelId,
   forceLight,
 }: GanttChartProps) {
   const formatDate = useDateFormat();
@@ -677,9 +677,9 @@ export function GanttChart({
         projectName={projectName}
         showActivityNumbers={showActivityNumbers} onToggleActivityNumbers={onToggleActivityNumbers}
         showTargetOnGantt={showTargetOnGantt} onToggleShowTarget={onToggleShowTarget} hasTargetDate={hasTargetDate} isLocked={isLocked}
-        appearancePanelOpen={appearancePanelOpen} onToggleAppearancePanel={onToggleAppearancePanel}
+        appearancePanelOpen={appearancePanelOpen} onToggleAppearancePanel={onToggleAppearancePanel} appearancePanelId={appearancePanelId}
       />
-
+      {appearancePanel}
       {/* Chart SVG — horizontally scrollable */}
       <div ref={svgContainerRef} className={`relative border border-gray-200 dark:border-gray-700 rounded-lg${ra.fitToWindow ? "" : " overflow-x-auto"}`}>
         {/* data-gantt-chart marks the CHART svg, distinguishing it from the toolbar icon

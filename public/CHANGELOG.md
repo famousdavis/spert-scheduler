@@ -6,6 +6,12 @@
 
 - **Sections stand out on the Gantt chart.** Each Section's row is now shaded in the Section's colour, or in grey if it has none, and once it holds activities, a bar on that row runs from their first start to their last finish. Hover over the bar to see those dates and how many activities it holds; the legend names it. The printed chart shows the shading and the bar too.
 
+## 0.85.2 — 2026-11-08
+
+### Fixed
+
+- **The Gantt chart's Appearance settings now open right under the button.** They used to open below the whole chart, out of sight on most projects, so the button seemed to do nothing.
+
 ## 0.85.1 — 2026-11-06
 
 ### Fixed
