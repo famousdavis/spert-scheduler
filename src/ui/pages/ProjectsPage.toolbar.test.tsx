@@ -84,6 +84,11 @@ async function pickFile(projectName: string) {
   });
   fireEvent.change(fileInput(), { target: { files: [file] } });
   await screen.findByRole("button", { name: "Confirm Import" });
+  // Where a user is before they act: the preview has taken the focus. React moves it there in an effect that runs
+  // just after the preview is drawn, so a click sent before that effect would have React run it first, focusing the
+  // heading the click is about to remove, and focus would end on <body> — no person clicks that fast, but a test
+  // under load can (measured: a probe clicking Cancel in the microtask after the preview appeared left <body>).
+  await waitFor(() => expect(screen.getByRole("heading", { name: "Review Import" })).toHaveFocus());
 }
 
 describe("v0.86.1: the Dashboard's toolbar", () => {
@@ -95,9 +100,9 @@ describe("v0.86.1: the Dashboard's toolbar", () => {
     expect(buttons.map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual(ACCESSIBLE_NAMES);
     buttons.forEach((b) => expect(b).toHaveAccessibleName(ACCESSIBLE_NAMES[buttons.indexOf(b)]));
     // Label in Name (WCAG 2.5.3): each accessible name begins with the words on the button.
-    buttons.forEach((b, i) => expect(ACCESSIBLE_NAMES[i].toLowerCase().startsWith(VISIBLE_LABELS[i].toLowerCase())).toBe(true));
+    VISIBLE_LABELS.forEach((label, i) => expect(ACCESSIBLE_NAMES[i]?.toLowerCase().startsWith(label.toLowerCase())).toBe(true));
     // New Project is the filled primary button, on the far right; the other three are outlined.
-    expect(buttons[3].className).toContain("bg-blue-600");
+    expect(buttons[3]?.className).toContain("bg-blue-600");
     buttons.slice(0, 3).forEach((b) => expect(b.className).toContain("border-gray-300"));
     // Not a role="toolbar": that role promises arrow-key navigation, which this row does not have.
     expect(screen.queryByRole("toolbar")).toBeNull();
@@ -111,6 +116,7 @@ describe("v0.86.1: the Dashboard's toolbar", () => {
       const svgs = b.querySelectorAll("svg");
       expect(svgs).toHaveLength(1);
       const svg = svgs[0];
+      if (!svg) throw new Error(`no icon on ${b.textContent}`);
       expect(b.firstElementChild).toBe(svg);
       expect(svg.getAttribute("aria-hidden")).toBe("true");
       expect(svg.getAttribute("width")).toBe("18");

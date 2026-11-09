@@ -39,6 +39,7 @@
 const SYNC = new URL("../src/ui/hooks/use-cloud-sync.ts", import.meta.url).pathname;
 const STORAGE = new URL("../src/ui/providers/StorageProvider.tsx", import.meta.url).pathname;
 const SECTION = new URL("../src/ui/components/ImportSection.tsx", import.meta.url).pathname;
+const PAGE = new URL("../src/ui/pages/ProjectsPage.tsx", import.meta.url).pathname;
 const WORDS = new URL("../src/ui/helpers/cloud-create-gate.ts", import.meta.url).pathname;
 const IMPORT = new URL("../src/ui/hooks/use-import-state.ts", import.meta.url).pathname;
 const MODAL = new URL("../src/ui/components/SignOutConfirmModal.tsx", import.meta.url).pathname;
@@ -65,6 +66,9 @@ const I_LATER_REFETCH =
   "a file confirmed while a later re-fetch runs is refused, with Import greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
 const I_CONSTRUCTED =
   "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Import is greyed out with the note, and the confirm refuses";
+// ImportSection.test.tsx: Settings' Choose File in the same constructed state (v0.86.1)
+const S_GATE_SHUT =
+  "cloud mode with the projects loaded and the cloud sync's own gate still shut disables the button and explains why";
 // — a re-fetch answer from a session that has ended
 const R_SIGN_OUT =
   "after a sign-out, a late re-fetch answer leaves this browser's signed-out projects listed, stored and on screen";
@@ -309,7 +313,8 @@ export const mutations = [
   },
   // -- Import Projects -----------------------------------------------------------------------------------------
   {
-    id: "S10 WRONG DESIGN: the note's words only — Choose File still greyed on cloudDataLoaded alone  [expect 1: I_CONSTRUCTED]",
+    // v0.86.1: Choose File is Settings' alone now, so its pin is Settings' own test; the Dashboard's Import is S10b.
+    id: "S10 WRONG DESIGN: the note's words only — Choose File still greyed on cloudDataLoaded alone  [expect 1: S_GATE_SHUT]",
     file: SECTION,
     find: "    importWaitsForCloud,\n    applyPreferences,",
     replace: "    cloudDataLoaded,\n    applyPreferences,",
@@ -317,6 +322,13 @@ export const mutations = [
       find: "  const cloudPending = importWaitsForCloud;",
       replace: '  const cloudPending = mode === "cloud" && !cloudDataLoaded;',
     },
+    expectFailing: only(S_GATE_SHUT),
+  },
+  {
+    id: "S10b WRONG DESIGN: the Dashboard's Import greyed on cloudDataLoaded alone (v0.86.1)  [expect 1: I_CONSTRUCTED]",
+    file: PAGE,
+    find: "  const importWaits = importFlow.importWaitsForCloud;",
+    replace: '  const importWaits = importFlow.mode === "cloud" && !importFlow.cloudDataLoaded;',
     expectFailing: only(I_CONSTRUCTED),
   },
   {

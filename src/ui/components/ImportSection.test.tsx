@@ -667,6 +667,22 @@ describe("ImportSection — the cloud-pending gate", () => {
     expect(clicks).toBe(0);
   });
 
+  it("cloud mode with the projects loaded and the cloud sync's own gate still shut disables the button and explains why", () => {
+    // Constructed: no control of the app reaches this state (WI-113). Settings' Choose File waits on both flags,
+    // as the confirm does; v0.86.1 gave the Dashboard's Import its own copy of the gate, so this pins Settings' own.
+    mockedUseStorage.mockReturnValue({
+      mode: "cloud",
+      storageReady: true,
+    } as unknown as ReturnType<typeof useStorage>);
+    useProjectStore.setState({ cloudDataLoaded: true, cloudSyncReady: false });
+    renderSection();
+
+    expect(screen.getByRole("button", { name: "Choose File" })).toBeDisabled();
+    expect(
+      screen.getByText("Projects can’t be imported until loading from cloud storage ends.")
+    ).toBeInTheDocument();
+  });
+
   it("cloud mode with data loaded enables the button and drops the note", () => {
     mockedUseStorage.mockReturnValue({
       mode: "cloud",
