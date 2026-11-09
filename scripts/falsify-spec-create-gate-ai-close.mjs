@@ -18,6 +18,8 @@
 // project page's states and of the switches of storage while signed in (owner ruling, 2026-10-17), from a
 // run of those tests' file with the straw applied, and again with one test of WI-124's (owner ruling, 2026-10-16) —
 // a scenario's own Finish Target date through a reload of the page — from that straw's run against the whole suite.
+// v0.86.1 extended S6's and S7's sets by name with the tests it added or extended (A9 now checks Import's description;
+// I_FOCUS_NOTE is new), from each straw's run against the whole suite, each with its reason beside it.
 //
 // NOT HERE, on purpose — five straws that cannot fail any test, measured as survivors. Three were run
 // once by hand: removing Clone's own check at commit (the button is natively disabled, so no click
@@ -87,6 +89,9 @@ const I_LATER_REFETCH =
   "a file confirmed while a later re-fetch runs is refused, with Import greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
 const I_CONSTRUCTED =
   "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Import is greyed out with the note, and the confirm refuses";
+// ProjectsPage.invitation-refetch.test.tsx (v0.86.1)
+const I_FOCUS_NOTE =
+  "v0.86.1: the refusal closed while Import is greyed out sends focus to the note that says why, and on to Import when the load ends";
 // — the Dashboard
 // ProjectsPage.cloud-sign-in-display.test.tsx (WI-113)
 const E_EMPTY =
@@ -181,22 +186,26 @@ export const mutations = [
     expectFailing: only(A1, A2, A3, A4, A5, A6, A8, A13, A14, A16, A17, A18),
   },
   {
-    id: "S6  no greyed-out control is described to a screen reader  [expect 14: A1, A2, A3, A4, A5, A6, A7, A12, A13, A14, A16, A17, A18, A19]",
+    // v0.86.1: + A9, whose Import is now described by the note, and I_FOCUS_NOTE. Two more tests read 18 failing, not
+    // 16: CloneScenarioDialog's reforecast date (WI-139) and the "+ Section" cap (WI-164) use the same helper, and fail
+    // this straw on origin/main before v0.86.1 too — not this release's to name.
+    id: "S6  no greyed-out control is described to a screen reader  [expect 16: A1, A2, A3, A4, A5, A6, A7, A9, A12, A13, A14, A16, A17, A18, A19, I_FOCUS_NOTE]",
     file: WORDS,
     find: 'return unavailable ? { "aria-describedby": reasonId } : {};',
     replace: "return {};",
-    expectFailing: only(A1, A2, A3, A4, A5, A6, A7, A12, A13, A14, A16, A17, A18, A19),
+    expectFailing: only(A1, A2, A3, A4, A5, A6, A7, A9, A12, A13, A14, A16, A17, A18, A19, I_FOCUS_NOTE),
   },
   // -- WI-112: the flag ---------------------------------------------------------------------------
   {
-    id: "S7  a load that succeeds never ends it  [expect 21: A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19, I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT, E_EMPTY]",
+    // v0.86.1: + I_FOCUS_NOTE, whose load never ends.
+    id: "S7  a load that succeeds never ends it  [expect 22: A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19, I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT, E_EMPTY, I_FOCUS_NOTE]",
     file: SYNC,
     find:
       "initialLoadDoneRef.current = true;\n          useProjectStore.getState().setCloudSyncReady(true);\n          // WI-113: loaded only if no re-fetch is still running.\n          firstLoadEnded();",
     replace: "initialLoadDoneRef.current = true;\n          // WI-113: loaded only if no re-fetch is still running.\n          firstLoadEnded();",
     expectFailing: only(
       A1, A2, A3, A4, A6, A7, A8, A9, A12, A13, A14, A16, A17, A18, A19,
-      I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT, E_EMPTY,
+      I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, L_EMPTY_KEPT, E_EMPTY, I_FOCUS_NOTE,
     ),
   },
   {
