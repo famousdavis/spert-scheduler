@@ -4,12 +4,23 @@
 
 import type { Project } from "@domain/models/types";
 import type { ConflictInfo } from "@app/api/export-import-service";
-import { useImportState } from "@ui/hooks/use-import-state";
+import { useImportState, type UseImportStateResult } from "@ui/hooks/use-import-state";
 import { importDoneBanner } from "@ui/helpers/import-banner";
 import { CLOUD_PROJECT_IMPORT_WAIT_NOTE } from "@ui/helpers/cloud-create-gate";
 
 interface ImportSectionProps {
   projects: Project[];
+}
+
+interface ImportPanelProps {
+  /** One `useImportState` — the panel shows it; the file input that feeds it may sit elsewhere. */
+  flow: UseImportStateResult;
+  /**
+   * The Dashboard: its toolbar's Import holds the file input, and the note under the toolbar says why
+   * Import is greyed, so the panel shows only the import itself — its error, preview and result. It is
+   * rendered only while an import is under way (`ProjectsPage`).
+   */
+  pickedFromToolbar?: boolean;
 }
 
 const RADIO_LABEL: Record<"skip" | "replace" | "copy", string> = {
@@ -18,8 +29,33 @@ const RADIO_LABEL: Record<"skip" | "replace" | "copy", string> = {
   copy: "Import as copy",
 };
 
-
+/** Settings' Import Projects: Choose File and the whole import, from its own `useImportState`. */
 export function ImportSection({ projects }: ImportSectionProps) {
+  const flow = useImportState({ currentProjects: projects });
+  return <ImportPanel flow={flow} />;
+}
+
+/**
+ * The project file input — hidden, and clicked by Settings' Choose File or by the Dashboard toolbar's
+ * Import. One definition, so the two pages give it the same name and label.
+ */
+export function ImportFileInput({ flow }: { flow: UseImportStateResult }) {
+  const { fileInputRef, handleFileChange } = flow;
+  return (
+    <input
+      ref={fileInputRef}
+      type="file"
+      id="projectImportFile"
+      name="projectImportFile"
+      aria-label="Project import JSON file"
+      accept=".json"
+      onChange={handleFileChange}
+      className="hidden"
+    />
+  );
+}
+
+export function ImportPanel({ flow, pickedFromToolbar = false }: ImportPanelProps) {
   const {
     importState,
     mode,
@@ -28,11 +64,10 @@ export function ImportSection({ projects }: ImportSectionProps) {
     toggleApplyPreferences,
     fileInputRef,
     previewHeadingRef,
-    handleFileChange,
     updateDecision,
     handleConfirmImport,
     cancelImport,
-  } = useImportState({ currentProjects: projects });
+  } = flow;
 
   // WI-113: the confirm's own condition — greyed exactly while an import would be refused.
   const cloudPending = importWaitsForCloud;
@@ -47,34 +82,29 @@ export function ImportSection({ projects }: ImportSectionProps) {
       </p>
 
       <div className="mt-4 space-y-4">
-        <input
-          ref={fileInputRef}
-          type="file"
-          id="projectImportFile"
-          name="projectImportFile"
-          aria-label="Project import JSON file"
-          accept=".json"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={cloudPending}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Choose File
-        </button>
+        {!pickedFromToolbar && (
+          <>
+            <ImportFileInput flow={flow} />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={cloudPending}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Choose File
+            </button>
 
-        {cloudPending && (
-          <div
-            role="note"
-            className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3"
-          >
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              {CLOUD_PROJECT_IMPORT_WAIT_NOTE}
-            </p>
-          </div>
+            {cloudPending && (
+              <div
+                role="note"
+                className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3"
+              >
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  {CLOUD_PROJECT_IMPORT_WAIT_NOTE}
+                </p>
+              </div>
+            )}
+          </>
         )}
 
         {importState.step === "error" && (

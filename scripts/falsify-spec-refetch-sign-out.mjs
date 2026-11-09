@@ -22,7 +22,9 @@
 // four, corrected by name from their first run with WI-113's sign-in display tests (owner ruling, 2026-10-16), each
 // with its reason beside it: S2's, S3's, S6's and S7's. Five — S2's, S3's, S8's, S9's and S20's — were then extended by
 // name with the tests of the project page's states and of the switches of storage while signed in (owner ruling,
-// 2026-10-17), from a run of those tests' file with each straw applied, each with its reason beside it.
+// 2026-10-17), from a run of those tests' file with each straw applied, each with its reason beside it. v0.86.1 pointed
+// S10 at Settings' own test, added S10b, and extended S11's, S12's and S13's sets by name with the tests it added or
+// extended, from each straw's run against the whole suite, each with its reason beside it.
 //
 // NOT HERE, on purpose:
 // - Ending the cloud sync AFTER WI-118's guard instead of before it (the other place the call could go). Measured: the
@@ -39,6 +41,7 @@
 const SYNC = new URL("../src/ui/hooks/use-cloud-sync.ts", import.meta.url).pathname;
 const STORAGE = new URL("../src/ui/providers/StorageProvider.tsx", import.meta.url).pathname;
 const SECTION = new URL("../src/ui/components/ImportSection.tsx", import.meta.url).pathname;
+const PAGE = new URL("../src/ui/pages/ProjectsPage.tsx", import.meta.url).pathname;
 const WORDS = new URL("../src/ui/helpers/cloud-create-gate.ts", import.meta.url).pathname;
 const IMPORT = new URL("../src/ui/hooks/use-import-state.ts", import.meta.url).pathname;
 const MODAL = new URL("../src/ui/components/SignOutConfirmModal.tsx", import.meta.url).pathname;
@@ -51,20 +54,28 @@ const L_REFETCH_ENDED =
 const L_REFETCH_FAILS =
   "a re-fetch that fails ends its part: with the first load ended empty, the Dashboard then says the load failed, not that there are no projects";
 const L_EMPTY_KEPT =
-  "an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Choose File comes back";
+  "an empty re-fetch answer, with the first load still running, ends its part too: when the first load ends, Import comes back";
 const L_ENDED_TWICE =
   "constructed — the first load's success callback throws after the load has ended, so its failure callback ends it again: a later re-fetch still ends the loading";
 // — Import Projects
 const I_REFETCH_FIRST =
-  "the invited project on screen from the re-fetch, the first load still running: Choose File is greyed out, and the note says why";
+  "the invited project on screen from the re-fetch, the first load still running: Import is greyed out, and the note says why";
 const I_SETTINGS =
-  "the projects on screen and the user's settings still loading: Choose File is greyed out, and the note says projects can't be imported until loading ends";
+  "the projects on screen and the user's settings still loading: Import is greyed out, and the note says projects can't be imported until loading ends";
 const I_PICKED =
-  "a file reaching Import Projects while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports";
+  "a file reaching Import while it waits is refused as it is picked, in the note's words; chosen again after the load, it imports";
 const I_LATER_REFETCH =
-  "a file confirmed while a later re-fetch runs is refused, with Choose File greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
+  "a file confirmed while a later re-fetch runs is refused, with Import greyed out and the note shown; when the re-fetch ends, the file chosen again imports";
 const I_CONSTRUCTED =
-  "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Choose File is greyed out with the note, and the confirm refuses";
+  "constructed — the cloud sync's own gate shut with the projects loaded, a state no control of the app reaches: Import is greyed out with the note, and the confirm refuses";
+// ImportSection.test.tsx: Settings' Choose File in the same constructed state (v0.86.1)
+const S_GATE_SHUT =
+  "cloud mode with the projects loaded and the cloud sync's own gate still shut disables the button and explains why";
+// ProjectsPage.cloud-create-gate.test.tsx (WI-112): since v0.86.1 it reads both notes, the import's included
+const A1 = "New Project and Load Sample are greyed out and a note says why; when the load ends they come back and the note goes";
+// ProjectsPage.invitation-refetch.test.tsx (v0.86.1)
+const I_FOCUS_NOTE =
+  "v0.86.1: the refusal closed while Import is greyed out sends focus to the note that says why, and on to Import when the load ends";
 // — a re-fetch answer from a session that has ended
 const R_SIGN_OUT =
   "after a sign-out, a late re-fetch answer leaves this browser's signed-out projects listed, stored and on screen";
@@ -82,7 +93,7 @@ const K_SIGN_IN_DISPLAY =
   "while a cloud sign-in's first load runs, the project list holds none of this browser's signed-out projects, nor the user's copy in this browser, and the Dashboard says the projects are loading";
 // ProjectsPage.cloud-sign-in-display.test.tsx
 const E_EMPTY =
-  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Choose File comes back";
+  "after the first load listed the user's projects, an empty re-fetch answer keeps them on show and ends its part: Import comes back";
 const D_AGAIN =
   "a sign-in again in the same tab after a sign-out: the signed-out projects brought back by the sign-out leave the Dashboard during the next first load";
 const D_SETTINGS =
@@ -150,11 +161,11 @@ const G_REFETCH_FIRST =
 const G_REFETCH_EMPTY =
   "an empty re-fetch ending first: the Dashboard says it is loading, with New Project and Load Sample greyed, until the first load ends";
 const G_IMPORT =
-  "Import Projects: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs";
+  "Import: while a cloud load runs nothing is imported — a file picked between the invitation re-fetch and the end of the first load is refused, and so is one confirmed while a later re-fetch runs";
 const G_LATE_SETTINGS =
-  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Import as they were until that load ends";
 const G_LATE_FAILURE =
-  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Import as they were until that load ends";
 const G_DELETE_UNLOADED =
   "while New Project is greyed out, deleting a project that could not be loaded moves focus to the note, and on to New Project when the load ends";
 // AuthProvider.sign-out-namespaces.test.tsx (WI-118)
@@ -309,7 +320,8 @@ export const mutations = [
   },
   // -- Import Projects -----------------------------------------------------------------------------------------
   {
-    id: "S10 WRONG DESIGN: the note's words only — Choose File still greyed on cloudDataLoaded alone  [expect 1: I_CONSTRUCTED]",
+    // v0.86.1: Choose File is Settings' alone now, so its pin is Settings' own test; the Dashboard's Import is S10b.
+    id: "S10 WRONG DESIGN: the note's words only — Choose File still greyed on cloudDataLoaded alone  [expect 1: S_GATE_SHUT]",
     file: SECTION,
     find: "    importWaitsForCloud,\n    applyPreferences,",
     replace: "    cloudDataLoaded,\n    applyPreferences,",
@@ -317,10 +329,18 @@ export const mutations = [
       find: "  const cloudPending = importWaitsForCloud;",
       replace: '  const cloudPending = mode === "cloud" && !cloudDataLoaded;',
     },
+    expectFailing: only(S_GATE_SHUT),
+  },
+  {
+    id: "S10b WRONG DESIGN: the Dashboard's Import greyed on cloudDataLoaded alone (v0.86.1)  [expect 1: I_CONSTRUCTED]",
+    file: PAGE,
+    find: "  const importWaits = importFlow.importWaitsForCloud;",
+    replace: '  const importWaits = importFlow.mode === "cloud" && !importFlow.cloudDataLoaded;',
     expectFailing: only(I_CONSTRUCTED),
   },
   {
-    id: "S11 the note keeps its old words  [expect 10: I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, I_CONSTRUCTED, G_IMPORT, G_LATE_SETTINGS, G_LATE_FAILURE, S_UNLOADED, H_PICK]",
+    // v0.86.1: + A1 (it reads the import's note under the toolbar), I_FOCUS_NOTE and S_GATE_SHUT.
+    id: "S11 the note keeps its old words  [expect 13: I_REFETCH_FIRST, I_SETTINGS, I_PICKED, I_LATER_REFETCH, I_CONSTRUCTED, G_IMPORT, G_LATE_SETTINGS, G_LATE_FAILURE, S_UNLOADED, H_PICK, A1, I_FOCUS_NOTE, S_GATE_SHUT]",
     file: WORDS,
     find: 'export const CLOUD_PROJECT_IMPORT_WAIT_NOTE = "Projects can’t be imported until loading from cloud storage ends.";',
     replace:
@@ -336,22 +356,27 @@ export const mutations = [
       G_LATE_FAILURE,
       S_UNLOADED,
       H_PICK,
+      A1,
+      I_FOCUS_NOTE,
+      S_GATE_SHUT,
     ),
   },
   {
-    id: "S12 the file-pick refusal keeps its old words  [expect 3: I_PICKED, G_IMPORT, H_PICK]",
+    // v0.86.1: + I_FOCUS_NOTE, which reads the refusal's words.
+    id: "S12 the file-pick refusal keeps its old words  [expect 4: I_PICKED, G_IMPORT, H_PICK, I_FOCUS_NOTE]",
     file: IMPORT,
     find: PICK_REFUSAL,
     replace:
       '        setImportState(showError("Cloud projects are still loading.", "Please wait for sync to complete before importing."));',
-    expectFailing: only(I_PICKED, G_IMPORT, H_PICK),
+    expectFailing: only(I_PICKED, G_IMPORT, H_PICK, I_FOCUS_NOTE),
   },
   {
-    id: "S13 the file-pick refusal loses its second line  [expect 1: I_PICKED]",
+    // v0.86.1: + I_FOCUS_NOTE, which reads the refusal's second line.
+    id: "S13 the file-pick refusal loses its second line  [expect 2: I_PICKED, I_FOCUS_NOTE]",
     file: IMPORT,
     find: PICK_REFUSAL,
     replace: "        setImportState(showError(CLOUD_PROJECT_IMPORT_WAIT_NOTE));",
-    expectFailing: only(I_PICKED),
+    expectFailing: only(I_PICKED, I_FOCUS_NOTE),
   },
   // -- the preferences at a sign-out ---------------------------------------------------------------------------
   {

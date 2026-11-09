@@ -24,7 +24,7 @@ export function NotificationsSection() {
           </p>
         </div>
         <ToggleSwitch
-          ariaLabel="Warn on startup when using local storage"
+          ariaLabel="Warn me on startup when using local storage"
           checked={warnEnabled}
           onChange={(val) => updatePreferences({ suppressLocalStorageWarning: !val })}
         />

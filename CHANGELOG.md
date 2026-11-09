@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.86.1 — 2026-11-09
+
+### Changed
+
+- **The Projects page's buttons now match the other SPERT® Suite apps.** Left to right they read Export All, Import, Load Sample and New Project, each with an icon, beside the Projects heading. Every button stays where it is whether or not you have projects: with no active projects, Export All is greyed out.
+- **Import opens the file window straight away.** There is no Import Projects panel to open first. Once you choose a file, its preview, or what is wrong with it, shows below the buttons as before, with Confirm Import and Cancel. Import Projects in Settings works as it did.
+- **Signed in to cloud storage, Import is greyed out while your projects or settings are loading,** and a line under the buttons says why: “Projects can’t be imported until loading from cloud storage ends.” During the first load it sits under the line about New Project, Load Sample and Clone.
+
+### Fixed
+
+- **The switch that turns off the local-storage caution is now named by the words beside it,** “Warn me on startup when using local storage”, in Settings and in the Storage & Sign In window, so a screen reader or voice control uses the words you see.
+
+### Internal
+
+- Fourteen Dashboard tests moved from the Import Projects panel to the new Import, and ten test titles and one group title that named Choose File or Import Projects were renamed, with the four falsify specs that name them. Thirteen new tests; a new falsify spec, `falsify-spec-dashboard-toolbar.mjs`; and in the re-fetch spec, the straw that moves Choose File's gate now names a new Settings test, and a new straw moves the Dashboard's Import. Five straws in two specs now also name, in their expected sets, the tests this release added or extended that they fail, measured against the whole suite.
+
 ## 0.86.0 — 2026-11-08
 
 ### Changed

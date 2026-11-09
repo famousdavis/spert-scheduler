@@ -52,9 +52,9 @@ const G_EMPTY_REFETCH =
 const G_DELETE_FOCUS =
   "while New Project is greyed out, deleting the last tile moves focus to the note, which says why, and on to New Project when the load ends";
 const G_LATE_SETTINGS =
-  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+  "the first sign-in's settings, arriving while the second sign-in's load runs, leave New Project, Load Sample, the loading message and Import as they were until that load ends";
 const G_LATE_FAILURE =
-  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Choose File as they were until that load ends";
+  "the first sign-in's settings load failing while the second sign-in's load runs leaves New Project, Load Sample, the loading message and Import as they were until that load ends";
 // ProjectsPage.invitation-refetch.test.tsx and StorageProvider.sign-out-cleanup.test.tsx (WI-113)
 const L_FIRST_ENDED =
   "with the first load ended empty and the invitation re-fetch still running, the Dashboard says the projects are loading, not that there are none";
