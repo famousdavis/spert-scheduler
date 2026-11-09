@@ -163,11 +163,15 @@ const SUB_FLOOR_EXCEPTIONS: Record<string, string> = {
   // moved down first by a comment and then by the `forceLight` prop added above it. Not a new site.
   // Re-keyed :991 → :1013 in WI-172 (v0.86.0): the same label, byte-identical, moved down by the Section
   // tint, ink and summary bar added above it; its new halo sits on a line of its own below. Not a new site.
-  'src/ui/charts/GanttChart.tsx:1013': 'dependency lag label — hardcoded, 9px inside an arrow gap',
+  // Re-keyed :1013 → :1009 in WI-173 (v0.86.2): the same label, byte-identical, moved up by the Section
+  // legend swatch's memo removed above it. Not a new site.
+  'src/ui/charts/GanttChart.tsx:1009': 'dependency lag label — hardcoded, 9px inside an arrow gap',
   'src/ui/charts/GanttActivityRow.tsx:222': 'constraint glyph inside an 8px bar icon — non-text, 1.4.11',
   // Re-keyed :163 → :167 in WI-172 (v0.86.0): the same "C", byte-identical, moved down by the import and
   // the prop the Section summary bar's legend entry added above it. Not a new site.
-  'src/ui/charts/GanttLegend.tsx:167': 'the "C" inside a 12x12 legend swatch — non-text, 1.4.11',
+  // Re-keyed :167 → :163 in WI-173 (v0.86.2): the same "C", byte-identical, moved up by that import and
+  // prop, removed with the entry. Not a new site.
+  'src/ui/charts/GanttLegend.tsx:163': 'the "C" inside a 12x12 legend swatch — non-text, 1.4.11',
 };
 
 /**

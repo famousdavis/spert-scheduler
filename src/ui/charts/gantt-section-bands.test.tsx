@@ -15,12 +15,14 @@ import type { Activity, ActivityBand, ActivityDependency, ScheduledActivity } fr
 /**
  * WI-172: a Section stands out on both Gantt charts — its row tinted, and once it holds activities a
  * summary bar on that row from their first start to their last finish (the SOLID bars, in both views),
- * a legend entry while such a bar is drawn, the bar's hover text, and a halo behind every lag label.
- * Driven through the real `GanttChart` and `PrintGanttChart`.
+ * the bar's hover text, and a halo behind every lag label. WI-173 (v0.86.2) took the bar's legend entry
+ * off both legends (owner: Sections are self-explanatory, and the entry could wrap the legend onto a
+ * second line), so neither legend names a Section. Driven through the real `GanttChart` and `PrintGanttChart`.
  */
 
 const HOVER_DELAY_MS = 1500; // GanttChart's hover-intent delay before a tooltip shows
-const LEGEND = "Section: first start to last finish";
+/** The entry WI-172 added and WI-173 removed. */
+const REMOVED_ENTRY = "Section: first start to last finish";
 
 const activity = (id: string, name: string, min: number, mostLikely: number, max: number): Activity => ({
   id, name, min, mostLikely, max, confidenceLevel: "mediumConfidence", distributionType: "normal", status: "planned",
@@ -179,19 +181,33 @@ describe("the bar runs from the group's first solid-bar start to its last solid-
   });
 });
 
-describe("the legend names the bar, only while one is drawn (WI-172)", () => {
+/** Each legend's own row of entries: the element that holds its "Date prepared" line, in both views. */
+function legendOf(c: HTMLElement): Element {
+  const prepared = Array.from(c.querySelectorAll("span")).find((s) => s.textContent?.startsWith("Date prepared:"));
+  expect(prepared).toBeDefined();
+  return prepared!.parentElement!;
+}
+
+describe("neither legend names Sections, with Sections drawn or with none (WI-173)", () => {
   it.each([
     ["the Gantt", (b: ActivityBand[]) => screen({ bands: b })],
     ["the printed Gantt", (b: ActivityBand[]) => paper(b)],
   ])("%s", (_, draw) => {
-    expect(draw(BANDS).textContent).toContain(LEGEND);
-    cleanup();
-    // An empty Section alone has a tint and no bar, so no entry; nor does a chart with no Section.
-    const onlyEmpty = draw([{ ...EMPTY, insertBeforeActivityId: "missing" }]);
-    expect(tintOf(onlyEmpty, EMPTY)).not.toBeNull();
-    expect(onlyEmpty.textContent).not.toContain(LEGEND);
-    cleanup();
-    expect(draw([]).textContent).not.toContain(LEGEND);
+    // Sections drawn, one with a summary bar; then an empty Section alone (a tint, no bar); then none.
+    const cases: [ActivityBand[], ActivityBand | undefined][] = [
+      [BANDS, PHASE],
+      [[{ ...EMPTY, insertBeforeActivityId: "missing" }], EMPTY],
+      [[], undefined],
+    ];
+    for (const [bands, tinted] of cases) {
+      const c = draw(bands);
+      if (tinted) expect(tintOf(c, tinted)).not.toBeNull();
+      const legend = legendOf(c);
+      expect(legend.textContent).toContain("Planned"); // the legend itself, its other entries in place
+      expect(legend.textContent).not.toMatch(/section/i);
+      expect(c.textContent).not.toContain(REMOVED_ENTRY);
+      cleanup();
+    }
   });
 });
 

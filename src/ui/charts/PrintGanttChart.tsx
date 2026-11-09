@@ -32,7 +32,7 @@ import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, supp
 import type { TickLevel, TickObstacle } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
-import { sectionLayers, sectionDisplayName, sectionInk, summaryBarPath } from "./gantt-sections";
+import { sectionLayers, sectionDisplayName } from "./gantt-sections";
 
 export interface PrintGanttChartProps {
   activities: Activity[];
@@ -810,14 +810,6 @@ export function PrintGanttChart({
               <line x1="0" y1="4" x2="12" y2="4" stroke={c.arrow} strokeWidth="1" strokeDasharray={PRINT_OVERTAKEN_LINK_DASH} />
             </svg>
             Link overtaken by an actual date
-          </span>
-        )}
-        {sections.some((s) => s.bar) && (
-          <span className="flex items-center gap-1">
-            <svg width="12" height="8" className="inline-block">
-              <path d={summaryBarPath(0.5, 11.5, 2, 3, 3)} fill={sectionInk(undefined, c.textMuted, c.bg)} />
-            </svg>
-            Section: first start to last finish
           </span>
         )}
         <span className="ml-auto text-gray-500">
