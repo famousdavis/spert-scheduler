@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.86.2",
+    date: "2026-11-09",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The Gantt chart's legend no longer lists Sections. The entry could push the legend onto a second line, and a Section's shaded row and bar need no key. Hovering the bar still shows the Section's dates and how many activities it holds. The printed legend matches.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.86.1",
     date: "2026-11-09",
     sections: [

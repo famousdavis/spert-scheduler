@@ -3,7 +3,6 @@
 // See LICENSE file in the project root for full license text.
 
 import type { GanttViewMode } from "@domain/models/types";
-import { summaryBarPath } from "./gantt-sections";
 
 interface ColorSet {
   barPlanned: string;
@@ -36,8 +35,6 @@ interface GanttLegendProps {
   targetColor?: string;
   targetDash?: string;
   weekendShading?: boolean; overtakenLinkDash?: string; // WI-137 r2: given only while such an arrow is drawn
-  /** WI-172: the Section summary bar's swatch colour, given only while the chart draws at least one. */
-  sectionBarFill?: string;
 }
 
 export function GanttLegend({
@@ -57,7 +54,6 @@ export function GanttLegend({
   targetColor,
   targetDash,
   weekendShading, overtakenLinkDash,
-  sectionBarFill,
 }: GanttLegendProps) {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
@@ -177,16 +173,6 @@ export function GanttLegend({
             <line x1="0" y1="6" x2="18" y2="6" stroke={c.arrow} strokeWidth="2" strokeDasharray={overtakenLinkDash} />
           </svg>
           <span className="align-middle">Link overtaken by an actual date</span>
-        </span>
-      )}
-
-      {/* WI-172: a Section's summary bar — only while the chart draws one */}
-      {sectionBarFill && (
-        <span>
-          <svg width="18" height="12" className="inline-block align-middle mr-1.5">
-            <path d={summaryBarPath(1, 17, 3, 4, 4)} fill={sectionBarFill} />
-          </svg>
-          <span className="align-middle">Section: first start to last finish</span>
         </span>
       )}
 

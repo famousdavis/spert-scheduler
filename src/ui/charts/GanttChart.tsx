@@ -46,7 +46,7 @@ import { GanttActivityRow } from "./GanttActivityRow";
 import { GanttSvgDefs } from "./GanttSvgDefs";
 import { GanttLegend } from "./GanttLegend";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
-import { sectionLayers, sectionDisplayName, sectionInk, sectionTooltip } from "./gantt-sections";
+import { sectionLayers, sectionDisplayName, sectionTooltip } from "./gantt-sections";
 
 /**
  * Hover-intent delay (ms) before a Gantt tooltip appears. The cursor must rest on a
@@ -620,10 +620,6 @@ export function GanttChart({
   }, { muted: c.textMuted, ground: c.bg }),
   [renderItems, scheduleMap, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin, topMargin, ra.rowHeight, ra.barHeight, c.textMuted, c.bg]);
   const sectionInkById = useMemo(() => new Map(sections.map((s) => [s.group.band.id, s.ink])), [sections]);
-  // The legend's swatch, in a Section with no colour's ink — given only while a summary bar is drawn.
-  const sectionLegendFill = useMemo(
-    () => (sections.some((s) => s.bar) ? sectionInk(undefined, c.textMuted, c.bg) : undefined),
-    [sections, c.textMuted, c.bg]);
 
   /**
    * Per-activity row geometry, computed once and consumed by BOTH the visible row pass
@@ -1272,7 +1268,6 @@ export function GanttChart({
           targetDash={TARGET_DASH_PATTERNS[targetRAGColor ?? "gray"] ?? TARGET_DASH_PATTERNS.gray}
           weekendShading={ra.weekendShading}
           overtakenLinkDash={overtakenLegendDash(showArrows ? arrowPaths : [], overtakenLinks, OVERTAKEN_LINK_DASH)}
-          sectionBarFill={sectionLegendFill}
         />
       </div>
 

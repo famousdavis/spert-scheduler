@@ -12,6 +12,13 @@
 //   node scripts/falsify.mjs scripts/falsify-spec-section-bands.mjs
 //
 // ⚠️ Never while a dev server serves this tree: a straw's edit would be served.
+//
+// ⚠️ WI-173 (v0.86.2) took the Section entry off both legends (owner: Sections are self-explanatory, and
+// the entry could wrap the legend onto a second line). B29–B32 broke when the entry showed and its words,
+// and had nothing left to break (their needles were gone), so they were retired, as WI-172 retired
+// WI-100's straws. B13 no longer fails the legend tests, which no longer read the bar. B42 and B43 put an
+// entry back into each legend; B1 and B2 still fail the legend tests, which check each Section's tint
+// so that "with Sections drawn" cannot pass with none drawn.
 const SECTIONS = new URL("../src/ui/charts/gantt-sections.ts", import.meta.url).pathname;
 const CHART = new URL("../src/ui/charts/GanttChart.tsx", import.meta.url).pathname;
 const PRINT = new URL("../src/ui/charts/PrintGanttChart.tsx", import.meta.url).pathname;
@@ -47,7 +54,7 @@ const SPANS = t("the bar runs from the group's first solid-bar start to its last
 const SPANS_DET = SPANS("Deterministic");
 const SPANS_UNC = SPANS("With Uncertainty");
 const SPANS_PRINT = SPANS("the printed Gantt");
-const LEG = t("the legend names the bar, only while one is drawn (WI-172)");
+const LEG = t("neither legend names Sections, with Sections drawn or with none (WI-173)");
 const LEG_SCREEN = LEG("the Gantt");
 const LEG_PRINT = LEG("the printed Gantt");
 const TIP = t("hovering the bar shows the Section's name, dates and number of activities (WI-172)")(
@@ -179,12 +186,12 @@ export const mutations = [
     expectFailing: only(ROW_PRINT, SPANS_PRINT, NAMES_PRINT, ...PARITY_PRINT),
   },
   {
-    id: "B13 an empty Section gets a bar  [expect 7: span, extent, layers, rows ×2, legends ×2]",
+    id: "B13 an empty Section gets a bar  [expect 5: span, extent, layers, rows ×2]",
     file: SECTIONS,
     find: "  return start !== undefined && end !== undefined ? { start, end } : null;",
     replace: "  return { start: start ?? \"2026-04-06\", end: end ?? \"2026-04-06\" };",
     also: { find: "  return x1 === Infinity ? null : { x1, x2 };", replace: "  return x1 === Infinity ? { x1: 0, x2: 4 } : { x1, x2 };" },
-    expectFailing: only(SPAN_EMPTY, EXT_MIN, LAYERS, ROW_SCREEN, ROW_PRINT, LEG_SCREEN, LEG_PRINT),
+    expectFailing: only(SPAN_EMPTY, EXT_MIN, LAYERS, ROW_SCREEN, ROW_PRINT),
   },
   // -- Its dates and extent: the first start and the last finish of the SOLID bars ---------------------
   {
@@ -293,33 +300,19 @@ export const mutations = [
     replace: "  const towardWhite = false;",
     expectFailing: only(NAMES_DARK),
   },
-  // -- The legend: "Section: first start to last finish", only while a bar is drawn -------------------
+  // -- The legend: no Section entry in either (WI-173; B29–B32 retired, see the header) -----------------
   {
-    id: "B29 the Gantt's legend names the bar with none drawn  [expect 1: legend]",
-    file: CHART,
-    find: "() => (sections.some((s) => s.bar) ? sectionInk(",
-    replace: "() => (sections.length >= 0 ? sectionInk(",
-    expectFailing: only(LEG_SCREEN),
-  },
-  {
-    id: "B30 the printed legend names the bar with none drawn  [expect 1: legend]",
-    file: PRINT,
-    find: "        {sections.some((s) => s.bar) && (",
-    replace: "        {sections.length >= 0 && (",
-    expectFailing: only(LEG_PRINT),
-  },
-  {
-    id: "B31 the Gantt's legend entry has other words  [expect 1: legend]",
+    id: "B42 the Gantt's legend names Sections again  [expect 1: legend]",
     file: LEGEND,
-    find: "Section: first start to last finish",
-    replace: "Section summary",
+    find: "      {/* Date prepared — pushed to far right */}\n",
+    replace: "      <span><span className=\"align-middle\">Section: first start to last finish</span></span>\n      {/* Date prepared — pushed to far right */}\n",
     expectFailing: only(LEG_SCREEN),
   },
   {
-    id: "B32 the printed legend entry has other words  [expect 1: legend]",
+    id: "B43 the printed legend names Sections again, while a bar is drawn  [expect 1: legend]",
     file: PRINT,
-    find: "            Section: first start to last finish",
-    replace: "            Section summary",
+    find: "        <span className=\"ml-auto text-gray-500\">\n          Date prepared:",
+    replace: "        {sections.some((s) => s.bar) && <span className=\"flex items-center gap-1\">Section: first start to last finish</span>}\n        <span className=\"ml-auto text-gray-500\">\n          Date prepared:",
     expectFailing: only(LEG_PRINT),
   },
   // -- The hover text --------------------------------------------------------------------------------

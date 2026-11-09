@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.86.2 — 2026-11-09
+
+### Changed
+
+- **The Gantt chart's legend no longer lists Sections.** The entry could push the legend onto a second line, and a Section's shaded row and bar need no key. Hovering the bar still shows the Section's dates and how many activities it holds. The printed legend matches.
+
 ## 0.86.1 — 2026-11-09
 
 ### Changed
