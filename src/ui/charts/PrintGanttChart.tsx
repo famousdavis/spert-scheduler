@@ -32,6 +32,7 @@ import { dateToX, generateTicks, longDateLabel, computeWeekendShadingRects, supp
 import type { TickLevel, TickObstacle } from "./gantt-utils";
 import { buildRenderList, buildActivitySlotMap } from "@ui/helpers/band-utils";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+import { sectionLayers, sectionDisplayName, sectionInk, summaryBarPath } from "./gantt-sections";
 
 export interface PrintGanttChartProps {
   activities: Activity[];
@@ -351,6 +352,15 @@ export function PrintGanttChart({
     [ra.barLabel, formatDateShort],
   );
 
+  // WI-172: each Section's tint, ink and summary bar, as on screen (print parity) — the bar spans the
+  // solid bars, drawn here at a minimum width of 2, as Pass 2 draws them.
+  const sections = useMemo(() => sectionLayers(renderItems, scheduleMap, {
+    toX, minBarWidth: 2, topMargin, rowHeight: ra.printRowHeight,
+    thickness: Math.round(ra.printBarHeight * 0.4), lift: 1, drop: 3,
+  }, { muted: c.textMuted, ground: c.bg }),
+  [renderItems, scheduleMap, toX, topMargin, ra.printRowHeight, ra.printBarHeight, c.textMuted, c.bg]);
+  const sectionInkById = new Map(sections.map((s) => [s.group.band.id, s.ink]));
+
   return (
     <section className="mb-3 print-section-keep">
       <h2 className="text-base font-semibold border-b border-gray-300 pb-1 mb-2">
@@ -398,6 +408,12 @@ export function PrintGanttChart({
             </marker>
           )}
         </defs>
+
+        {/* WI-172: each Section's own row tinted, as on screen (print parity). The first layer. */}
+        {sections.map((s) => (
+          <rect key={`band-tint-${s.group.band.id}`} data-section-tint={s.group.band.id}
+            x={0} y={topMargin + s.group.row * ra.printRowHeight} width={chartW} height={ra.printRowHeight} fill={s.tint} />
+        ))}
 
         {/* Weekend / non-work day shading — first layer */}
         {weekendShadingRects.map((rect, i) => (
@@ -510,8 +526,7 @@ export function PrintGanttChart({
           if (item.kind !== "band") return null;
           const y = topMargin + idx * ra.printRowHeight;
           const midY = y + ra.printRowHeight / 2;
-          const bandColor = item.band.color ?? c.textMuted;
-          const displayName = item.band.name.trim() || "(unnamed section)";
+          const displayName = sectionDisplayName(item.band);
           const truncated = displayName.length > ra.printNameCharLimit
             ? displayName.slice(0, ra.printNameCharLimit - 2) + "..."
             : displayName;
@@ -524,22 +539,18 @@ export function PrintGanttChart({
                 dominantBaseline="central"
                 fontSize={fs7}
                 fontWeight="700"
-                fill={readableOnWhite(bandColor)}
+                fill={sectionInkById.get(item.band.id)}
               >
                 {truncated}
               </text>
-              <line
-                x1={ra.printLeftMargin}
-                y1={midY}
-                x2={chartW - PRINT_RIGHT}
-                y2={midY}
-                stroke={bandColor}
-                strokeWidth={0.75}
-                opacity={0.5}
-              />
             </g>
           );
         })}
+
+        {/* WI-172: each Section's summary bar, as on screen (print parity). */}
+        {sections.map((s) => s.bar && (
+          <path key={`band-span-${s.group.band.id}`} data-section-bar={s.group.band.id} d={s.bar.d} fill={s.ink} />
+        ))}
 
         {/* Dependency arrows — rendered before bars so bars paint on top */}
         {effectiveDependencies.map(({ dep, synthetic }, i) => {
@@ -589,7 +600,8 @@ export function PrintGanttChart({
               <path d={path} stroke={arrowColor} strokeWidth="1" fill="none" markerEnd={arrowMarker} strokeDasharray={dash} />
               {dep.lagDays !== 0 && (
                 <text x={(barEndX + toStartX) / 2} y={(fromY + toY) / 2 - 2}
-                  textAnchor="middle" fontSize={fs4} fill={arrowColor} fontWeight="600">
+                  textAnchor="middle" fontSize={fs4} fill={arrowColor} fontWeight="600"
+                  stroke={c.bg} strokeWidth="1.5" paintOrder="stroke fill">
                   {dep.lagDays > 0 ? "+" : ""}{dep.lagDays}d
                 </text>
               )}
@@ -798,6 +810,14 @@ export function PrintGanttChart({
               <line x1="0" y1="4" x2="12" y2="4" stroke={c.arrow} strokeWidth="1" strokeDasharray={PRINT_OVERTAKEN_LINK_DASH} />
             </svg>
             Link overtaken by an actual date
+          </span>
+        )}
+        {sections.some((s) => s.bar) && (
+          <span className="flex items-center gap-1">
+            <svg width="12" height="8" className="inline-block">
+              <path d={summaryBarPath(0.5, 11.5, 2, 3, 3)} fill={sectionInk(undefined, c.textMuted, c.bg)} />
+            </svg>
+            Section: first start to last finish
           </span>
         )}
         <span className="ml-auto text-gray-500">

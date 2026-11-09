@@ -29,7 +29,7 @@ import { useIsDarkClass } from "@ui/hooks/use-dark-class";
 import type { ResolvedGanttAppearance } from "./gantt-constants";
 import {
   BAR_RADIUS, MIN_BAR_HIT_WIDTH,
-  ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT, RIGHT_MARGIN,
+  ARROW_HEAD_SIZE, PROJECT_NAME_HEIGHT,
   COLORS, MILESTONE_COLORS, TARGET_COLORS, TARGET_DASH_PATTERNS, OVERTAKEN_LINK_DASH,
   TICK_LABEL_FONT_PX, FINISH_LABEL_FONT_PX, TODAY_LABEL_FONT_PX, TODAY_DATE_FONT_PX,
   TARGET_LABEL_FONT_PX, MILESTONE_NAME_FONT_PX, MILESTONE_DATE_FONT_PX,
@@ -40,12 +40,13 @@ import {
 import {
   dateToX, longDateLabel, computeWeekendShadingRects, computeActivityRowGeometry,
   computeBarHitRect, buildActivityTooltip, tickHasYear, overtakenArrowDash, overtakenHoverClause, overtakenLegendDash,
-  barLabelText as computeBarLabelText, milestoneMarkerColor, readableOnWhite, markerTextFill,
+  barLabelText as computeBarLabelText, milestoneMarkerColor, markerTextFill,
 } from "./gantt-utils";
 import { GanttActivityRow } from "./GanttActivityRow";
 import { GanttSvgDefs } from "./GanttSvgDefs";
 import { GanttLegend } from "./GanttLegend";
 import { nameOrUnnamed } from "@domain/helpers/display-name";
+import { sectionLayers, sectionDisplayName, sectionInk, sectionTooltip } from "./gantt-sections";
 
 /**
  * Hover-intent delay (ms) before a Gantt tooltip appears. The cursor must rest on a
@@ -610,6 +611,20 @@ export function GanttChart({
     [ra.barLabel, formatDateShort],
   );
 
+  // WI-172: each Section's tint, ink and summary bar — one computation shared with the printed chart's
+  // (gantt-sections.ts), memoised because a hover re-renders the chart on every mouse move. The bar spans
+  // the solid bars, drawn at `computeActivityRowGeometry`'s minimum width of 4, in both views.
+  const sections = useMemo(() => sectionLayers(renderItems, scheduleMap, {
+    toX: (d) => dateToX(d, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin), minBarWidth: 4,
+    topMargin, rowHeight: ra.rowHeight, thickness: Math.round(ra.barHeight * 0.4), lift: 2, drop: 5,
+  }, { muted: c.textMuted, ground: c.bg }),
+  [renderItems, scheduleMap, minTimestamp, dateRange, chartAreaWidth, ra.leftMargin, topMargin, ra.rowHeight, ra.barHeight, c.textMuted, c.bg]);
+  const sectionInkById = useMemo(() => new Map(sections.map((s) => [s.group.band.id, s.ink])), [sections]);
+  // The legend's swatch, in a Section with no colour's ink — given only while a summary bar is drawn.
+  const sectionLegendFill = useMemo(
+    () => (sections.some((s) => s.bar) ? sectionInk(undefined, c.textMuted, c.bg) : undefined),
+    [sections, c.textMuted, c.bg]);
+
   /**
    * Per-activity row geometry, computed once and consumed by BOTH the visible row pass
    * and the bar hit-area pass that follows the dependency arrows.
@@ -687,6 +702,13 @@ export function GanttChart({
             showCriticalPath={showCriticalPath}
             hasCriticalPath={!!(dependencyMode && criticalPathIds && criticalPathIds.size > 0)}
           />
+
+          {/* WI-172: each Section's own row tinted across the name column and the chart, as the grid
+              tints it. The first layer: weekend shading, grid lines and every marker line draw over it. */}
+          {sections.map((s) => (
+            <rect key={`band-tint-${s.group.band.id}`} data-section-tint={s.group.band.id}
+              x={0} y={topMargin + s.group.row * ra.rowHeight} width={chartWidth} height={ra.rowHeight} fill={s.tint} />
+          ))}
 
           {/* Weekend / non-work day shading — first layer (behind everything) */}
           {weekendShadingRects.map((rect, i) => (
@@ -929,8 +951,7 @@ export function GanttChart({
             if (item.kind !== "band") return null;
             const y = topMargin + idx * ra.rowHeight;
             const midY = y + ra.rowHeight / 2;
-            const bandColor = item.band.color ?? c.textMuted;
-            const displayName = item.band.name.trim() || "(unnamed section)";
+            const displayName = sectionDisplayName(item.band);
             const truncated = displayName.length > ra.nameCharLimit
               ? displayName.slice(0, ra.nameCharLimit - 2) + "..."
               : displayName;
@@ -946,7 +967,7 @@ export function GanttChart({
                   dominantBaseline="central"
                   fontSize={ra.nameFontSize}
                   fontWeight="700"
-                  fill={isDark ? bandColor : readableOnWhite(bandColor)}
+                  fill={sectionInkById.get(item.band.id)}
                   className={canRenameBand ? "cursor-pointer" : "pointer-events-none"}
                   style={isEditingThisBand ? { display: "none" } : undefined}
                   onClick={canRenameBand ? () => {
@@ -956,18 +977,19 @@ export function GanttChart({
                 >
                   {truncated}
                 </text>
-                <line
-                  x1={ra.leftMargin}
-                  y1={midY}
-                  x2={chartWidth - RIGHT_MARGIN}
-                  y2={midY}
-                  stroke={bandColor}
-                  strokeWidth={1}
-                  opacity={0.5}
-                />
               </g>
             );
           })}
+
+          {/* WI-172: each Section's summary bar on its own row, from its first start to its last finish —
+              the solid bars, in both views; an empty Section has the tint alone. Hover shows its dates. */}
+          {sections.map((s) => s.bar && (
+            <path key={`band-span-${s.group.band.id}`} data-section-bar={s.group.band.id} d={s.bar.d} fill={s.ink}
+              onMouseEnter={(e) => scheduleTooltip(e.clientX, e.clientY,
+                sectionTooltip(sectionDisplayName(s.group.band), s.bar!, s.group.activityIds.length, formatDate))}
+              onMouseMove={(e) => moveTooltip(e.clientX, e.clientY)}
+              onMouseLeave={hideTooltip} />
+          ))}
 
           {/* Dependency arrows — visible paths only (rendered before bars so bars paint on top) */}
           {showArrows && arrowPaths.map((ap, i) => {
@@ -989,6 +1011,7 @@ export function GanttChart({
                 {ap.dep.lagDays !== 0 && (
                   <text x={(ap.barEndX + ap.toX) / 2} y={(ap.fromY + ap.toY) / 2 - 4}
                     textAnchor="middle" fontSize="9" fill={arrowColor} fontWeight="600"
+                    stroke={c.bg} strokeWidth="3" paintOrder="stroke fill"
                     className="pointer-events-none">
                     {ap.dep.lagDays > 0 ? "+" : ""}{ap.dep.lagDays}d
                   </text>
@@ -1249,6 +1272,7 @@ export function GanttChart({
           targetDash={TARGET_DASH_PATTERNS[targetRAGColor ?? "gray"] ?? TARGET_DASH_PATTERNS.gray}
           weekendShading={ra.weekendShading}
           overtakenLinkDash={overtakenLegendDash(showArrows ? arrowPaths : [], overtakenLinks, OVERTAKEN_LINK_DASH)}
+          sectionBarFill={sectionLegendFill}
         />
       </div>
 
