@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.86.0",
+    date: "2026-11-08",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Sections stand out on the Gantt chart. Each Section's row is now shaded in the Section's colour, or in grey if it has none, and once it holds activities, a bar on that row runs from their first start to their last finish. Hover over the bar to see those dates and how many activities it holds; the legend names it. The printed chart shows the shading and the bar too.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.85.1",
     date: "2026-11-06",
     sections: [

@@ -161,9 +161,13 @@ const SUB_FLOOR_EXCEPTIONS: Record<string, string> = {
   // was blocking the raise. They are 12px now.
   // Re-keyed :986 → :989 in v0.75.0, and :989 → :991 in WI-26: the same label, byte-identical,
   // moved down first by a comment and then by the `forceLight` prop added above it. Not a new site.
-  'src/ui/charts/GanttChart.tsx:991': 'dependency lag label — hardcoded, 9px inside an arrow gap',
+  // Re-keyed :991 → :1013 in WI-172 (v0.86.0): the same label, byte-identical, moved down by the Section
+  // tint, ink and summary bar added above it; its new halo sits on a line of its own below. Not a new site.
+  'src/ui/charts/GanttChart.tsx:1013': 'dependency lag label — hardcoded, 9px inside an arrow gap',
   'src/ui/charts/GanttActivityRow.tsx:222': 'constraint glyph inside an 8px bar icon — non-text, 1.4.11',
-  'src/ui/charts/GanttLegend.tsx:163': 'the "C" inside a 12x12 legend swatch — non-text, 1.4.11',
+  // Re-keyed :163 → :167 in WI-172 (v0.86.0): the same "C", byte-identical, moved down by the import and
+  // the prop the Section summary bar's legend entry added above it. Not a new site.
+  'src/ui/charts/GanttLegend.tsx:167': 'the "C" inside a 12x12 legend swatch — non-text, 1.4.11',
 };
 
 /**
@@ -287,7 +291,8 @@ describe('legibility floor: no numeric font size below 12 outside print', () => 
  */
 const RULED_EXCEPTIONS: Record<string, string> = {
   // Re-keyed :198 → :201 in v0.75.0, as :986 → :989 above. Not a new site.
-  'src/ui/charts/GanttChart.tsx:201': 'disabled state, paired with cursor-not-allowed',
+  // Re-keyed :201 → :202 in WI-172 (v0.86.0): byte-identical, moved down by the gantt-sections import. Not a new site.
+  'src/ui/charts/GanttChart.tsx:202': 'disabled state, paired with cursor-not-allowed',
   'src/ui/components/StorageLoginModal.tsx:135': 'the disabled half of a ternary',
   'src/ui/components/UnifiedActivityRow.tsx:546': 'icon-only control, no text node',
   // Re-keyed :117 → :140 in WI-62: the same drag handle, byte-identical, moved down by the
@@ -371,7 +376,8 @@ const BELOW_AA_ON_WHITE = new Set([
 /** Non-text under WCAG 1.4.11, which asks 3:1 rather than 4.5:1. Both clear it. */
 const NON_TEXT_EXCEPTIONS: Record<string, string> = {
   // Re-keyed :207 → :210 in v0.75.0, as :986 → :989 above. Not a new site.
-  'src/ui/charts/GanttChart.tsx:210': 'checkbox accent colour, amber-600 at 3.20',
+  // Re-keyed :210 → :211 in WI-172 (v0.86.0): byte-identical, moved down by the gantt-sections import. Not a new site.
+  'src/ui/charts/GanttChart.tsx:211': 'checkbox accent colour, amber-600 at 3.20',
   'src/ui/components/WarningsPanel.tsx:23': 'the warning variant glyph, amber-600 at 3.20 on white and 3.09 on its amber-50 ground',
 };
 

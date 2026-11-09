@@ -12,9 +12,17 @@
 // not merely a non-zero exit — the runner prints ✔ as soon as ANY named test fails. Every
 // mutation runs the WHOLE suite ("src/"), so one that also broke a test elsewhere shows as K
 // above its named-match.
+//
+// ⚠️ WI-172 (v0.86.0) took the CHARTS off this helper. A Section's name is now moved to 4.5:1 against
+// its own row's tint (`gantt-sections.ts`, both charts, both themes), its rule is gone, and the chart
+// tests that read it were re-pinned. So the seven straws that broke the charts' use of `readableOnWhite`
+// — N2–N6, N9 and N10 — had nothing left to break (their needles were gone) and were retired; their
+// rules are straws in `falsify-spec-section-bands.mjs`. The helper still draws other labels on white,
+// and its five straws below stand. Each names the helper's own tests, and each ALSO fails WI-102's
+// milestone and Target label tests (`chart-text-contrast.gantt.test.tsx`), which read the same helper
+// and are not named here: each label gives both counts, measured one straw at a time against the whole
+// suite on 2026-11-08 (WI-172). Those were already failing beside the old labels, which counted neither.
 const UTILS = new URL("../src/ui/charts/gantt-utils.ts", import.meta.url).pathname;
-const CHART = new URL("../src/ui/charts/GanttChart.tsx", import.meta.url).pathname;
-const PRINT = new URL("../src/ui/charts/PrintGanttChart.tsx", import.meta.url).pathname;
 
 /** The eight per-preset helper tests, as the verbose reporter prints them (`it.each` quotes `$name`). */
 const BECOMES = [
@@ -30,101 +38,42 @@ const BECOMES = [
 const UNCHANGED = "a colour that already reads 4.5:1 on white comes back unchanged, byte for byte";
 const ONE_STEP = "a colour just under the line moves exactly one step: #3c7cac becomes #3c7bab";
 const UPPER = "an upper-case colour darkens as its lower-case form does";
-const LIGHT =
-  "the Gantt in light mode: each band NAME is darkened, each rule keeps the band colour, no colour keeps the fallback";
-const DARK = "the Gantt in dark mode: name and rule both keep the band colour, no colour keeps the fallback";
-const COPY = "the light render a copy takes in dark mode: each band NAME is darkened, each rule keeps the band colour";
-const PRINTED =
-  "the printed Gantt: each band NAME is darkened, each rule keeps the band colour, no colour keeps the fallback";
 
 /** Every test that reads the helper's output for a pale colour. */
-const DARKENED = [...BECOMES, ONE_STEP, UPPER, LIGHT, COPY, PRINTED];
+const DARKENED = [...BECOMES, ONE_STEP, UPPER];
 
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /** Matches exactly these test titles, as the verbose reporter prints them. */
 const only = (...titles) => new RegExp(`> (?:${titles.map(escape).join("|")})$`);
 
-const SCREEN_FILL = "fill={isDark ? bandColor : readableOnWhite(bandColor)}";
-const PRINT_FILL = "fill={readableOnWhite(bandColor)}";
-const FALLBACK = "const bandColor = item.band.color ?? c.textMuted;";
-
 export const testFile = "src/";
 export const mutations = [
   {
-    id: "N1  the helper returns its input  [expect 13: the eight, one step, upper case, light, copy, print]",
+    id: "N1  the helper returns its input  [expect 23: 10 named (the eight, one step, upper case), and WI-102's 13]",
     file: UTILS,
     find: "export function readableOnWhite(hex: string): string {\n",
     replace: "export function readableOnWhite(hex: string): string {\n  return hex;\n",
     expectFailing: only(...DARKENED),
   },
   {
-    id: "N2  the Gantt draws the original colour in light mode  [expect 2: light, copy]",
-    file: CHART,
-    find: SCREEN_FILL,
-    replace: "fill={bandColor}",
-    expectFailing: only(LIGHT, COPY),
-  },
-  {
-    id: "N3  the Gantt darkens in dark mode too  [expect 1: dark]",
-    file: CHART,
-    find: SCREEN_FILL,
-    replace: "fill={readableOnWhite(bandColor)}",
-    expectFailing: only(DARK),
-  },
-  {
-    id: "N4  the Gantt's rule is darkened with its name  [expect 2: light, copy]",
-    file: CHART,
-    find: "stroke={bandColor}",
-    replace: "stroke={isDark ? bandColor : readableOnWhite(bandColor)}",
-    expectFailing: only(LIGHT, COPY),
-  },
-  {
-    id: "N5  the printed rule is darkened with its name  [expect 1: print]",
-    file: PRINT,
-    find: "stroke={bandColor}",
-    replace: "stroke={readableOnWhite(bandColor)}",
-    expectFailing: only(PRINTED),
-  },
-  {
-    id: "N6  print draws the original colour  [expect 1: print]",
-    file: PRINT,
-    find: PRINT_FILL,
-    replace: "fill={bandColor}",
-    expectFailing: only(PRINTED),
-  },
-  {
     // Keep stepping until the PREVIOUS step reads, so the colour returned is one step past it.
-    id: "N7  the search over-darkens by one step  [expect 13: as N1]",
+    id: "N7  the search over-darkens by one step  [expect 23: as N1]",
     file: UTILS,
     find: "  } while (contrastOnWhite(darker) < READABLE_CONTRAST);",
     replace: "  } while (contrastOnWhite(towardBlack(rgb, (step - 1) / DARKEN_STEPS)) < READABLE_CONTRAST);",
     expectFailing: only(...DARKENED),
   },
   {
-    id: "N8  the search stops one step short  [expect 13: as N1]",
+    id: "N8  the search stops one step short  [expect 23: as N1]",
     file: UTILS,
     find: "  return `#${hexByte(darker.r)}",
     replace: "  darker = towardBlack(rgb, (step - 1) / DARKEN_STEPS);\n  return `#${hexByte(darker.r)}",
     expectFailing: only(...DARKENED),
   },
   {
-    id: "N9  a band with no colour loses the fallback on the Gantt  [expect 3: light, dark, copy]",
-    file: CHART,
-    find: FALLBACK,
-    replace: "const bandColor = item.band.color ?? c.text;",
-    expectFailing: only(LIGHT, DARK, COPY),
-  },
-  {
-    id: "N10 a band with no colour loses the fallback in print  [expect 1: print]",
-    file: PRINT,
-    find: FALLBACK,
-    replace: "const bandColor = item.band.color ?? c.text;",
-    expectFailing: only(PRINTED),
-  },
-  {
     // 3:1 is the large-text and non-text threshold, not the one ruled for these names.
-    id: "N11 the threshold is 3:1, not 4.5:1  [expect 13: as N1]",
+    id: "N11 the threshold is 3:1, not 4.5:1  [expect 23: as N1]",
     file: UTILS,
     find: "const READABLE_CONTRAST = 4.5;",
     replace: "const READABLE_CONTRAST = 3;",
@@ -133,7 +82,7 @@ export const mutations = [
   {
     // Luminance straight from the 0–255 value, without the sRGB curve: #6b7280 then reads
     // 2.1:1, so the no-colour fallback is darkened too.
-    id: "N12 luminance without the sRGB curve  [expect 14: as N1, and unchanged]",
+    id: "N12 luminance without the sRGB curve  [expect 27: 11 named (as N1, and unchanged), and WI-102's 16]",
     file: UTILS,
     find: "  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;",
     replace: "  return s;",

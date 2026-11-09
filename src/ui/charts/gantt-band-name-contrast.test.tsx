@@ -28,6 +28,14 @@ import type { ActivityBand, ScheduledActivity } from "@domain/models/types";
  *
  * ⚠️ WHY THIS FILE, AND NOT THE PARITY ORACLE: `gantt-parity-oracle.test.tsx` serialises geometry
  * only (no fill, no stroke) and its one band has no colour, so it cannot see any of this.
+ *
+ * ⚠️ WI-172 (v0.86.0) MOVED THE CHARTS' GROUND, NOT THIS RULE. Each Section's own row is now tinted in
+ * its colour at the grid's 0.18 (no colour: the muted grey), the faint rule beside the name is gone, and
+ * the name — on both charts, in both themes — is moved to 4.5:1 against THAT tint: toward black on a
+ * light chart, c' = round(c × (1 − t)), toward white on the dark one, c' = round(c + (255 − c) × t), at
+ * the least `t` in steps of 0.005. The summary bar on the row is drawn in the name's colour. The
+ * `readableOnWhite` table above is unchanged (it still draws other labels on white); the charts' literals
+ * below were re-pinned, and are still checked HERE from the WCAG definition, at the same 4.5:1.
  */
 
 /** WCAG 2.x relative luminance of #rrggbb. */
@@ -121,7 +129,79 @@ describe("readableOnWhite: a band name's colour on a white chart (WI-100)", () =
   });
 });
 
-// -- Both charts ----------------------------------------------------------------
+// -- Both charts, on each Section's tint (WI-172) -----------------------------------
+
+/** c' = round(c + (255 − c) × t) per channel, as #rrggbb: toward white, on the dark chart. */
+function lightened(hex: string, t: number): string {
+  const byte = (at: number) => {
+    const c = parseInt(hex.slice(at, at + 2), 16);
+    return Math.round(c + (255 - c) * t).toString(16).padStart(2, "0");
+  };
+  return `#${byte(1)}${byte(3)}${byte(5)}`;
+}
+
+/** `hex` at 0.18 over `ground`, as the browser composites it: the alpha at 8 bits (46/255), each channel rounded. */
+function tinted(hex: string, ground: string): string {
+  const alpha = Math.round(0.18 * 255) / 255;
+  const byte = (at: number) =>
+    Math.round(parseInt(hex.slice(at, at + 2), 16) * alpha + parseInt(ground.slice(at, at + 2), 16) * (1 - alpha))
+      .toString(16).padStart(2, "0");
+  return `#${byte(1)}${byte(3)}${byte(5)}`;
+}
+
+/** `rgba(…, 0.18)` of #rrggbb: the tint's fill as the charts write it. */
+function tintFill(hex: string): string {
+  const ch = (at: number) => parseInt(hex.slice(at, at + 2), 16);
+  return `rgba(${ch(1)}, ${ch(3)}, ${ch(5)}, 0.18)`;
+}
+
+/**
+ * Each Section's name on its own tint, with the `t` each is made at: light toward black, dark toward
+ * white (t 0: already reads, unchanged). "Plain" has no colour: the muted grey of each chart.
+ */
+const ON_TINT = [
+  { name: "Slate", hex: "#94a3b8", light: { t: 0.33, ink: "#636d7b" }, dark: { t: 0.075, ink: "#9caabd" } },
+  { name: "Sage", hex: "#86b49a", light: { t: 0.36, ink: "#567363" }, dark: { t: 0.01, ink: "#87b59b" } },
+  { name: "Sky", hex: "#7dd3fc", light: { t: 0.44, ink: "#46768d" }, dark: { t: 0, ink: "#7dd3fc" } },
+  { name: "Lavender", hex: "#b4a7d6", light: { t: 0.37, ink: "#716987" }, dark: { t: 0, ink: "#b4a7d6" } },
+  { name: "Rose", hex: "#e8a3a3", light: { t: 0.39, ink: "#8e6363" }, dark: { t: 0, ink: "#e8a3a3" } },
+  { name: "Amber", hex: "#e6c07b", light: { t: 0.43, ink: "#836d46" }, dark: { t: 0, ink: "#e6c07b" } },
+  { name: "Teal", hex: "#6bb6b0", light: { t: 0.355, ink: "#457572" }, dark: { t: 0.01, ink: "#6cb7b1" } },
+  { name: "Clay", hex: "#c9a38a", light: { t: 0.36, ink: "#816858" }, dark: { t: 0, ink: "#c9a38a" } },
+];
+const PLAIN = {
+  light: { hex: COLORS.light.textMuted, t: 0.095, ink: "#616774" },
+  dark: { hex: COLORS.dark.textMuted, t: 0.07, ink: "#a3a9b5" },
+};
+
+describe("a Section's name on its own tint (WI-172): computed here, from the WCAG definition", () => {
+  it("the table holds exactly the eight colours the band picker offers", () => {
+    expect(ON_TINT.map(({ name, hex }) => ({ name, hex }))).toEqual(PRESETS.map(({ name, hex }) => ({ name, hex })));
+  });
+
+  it.each(ON_TINT)("$name on the light chart: $light.ink reads 4.5:1 on its tint, and one step less dark does not", ({ hex, light }) => {
+    const ground = tinted(hex, WHITE);
+    expect(scaled(hex, light.t)).toBe(light.ink);
+    expect(contrast(light.ink, ground)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(scaled(hex, light.t - STEP), ground)).toBeLessThan(4.5);
+  });
+
+  it.each(ON_TINT)("$name on the dark chart: $dark.ink reads 4.5:1 on its tint, by the least step toward white", ({ hex, dark }) => {
+    const ground = tinted(hex, DARK_GROUND);
+    expect(lightened(hex, dark.t)).toBe(dark.ink);
+    expect(contrast(dark.ink, ground)).toBeGreaterThanOrEqual(4.5);
+    if (dark.t > 0) expect(contrast(lightened(hex, dark.t - STEP), ground)).toBeLessThan(4.5);
+  });
+
+  it("a Section with no colour: the muted grey moved the same way, on each chart's grey tint", () => {
+    for (const [ground, side, move] of [[WHITE, PLAIN.light, scaled], [DARK_GROUND, PLAIN.dark, lightened]] as const) {
+      const g = tinted(side.hex, ground);
+      expect(move(side.hex, side.t)).toBe(side.ink);
+      expect(contrast(side.ink, g)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(move(side.hex, side.t - STEP), g)).toBeLessThan(4.5);
+    }
+  });
+});
 
 const START = "2026-04-06";
 const scenario = createScenario("Baseline", START);
@@ -179,45 +259,51 @@ function renderPrint() {
   ).container;
 }
 
-/** Each band's name fill and rule stroke, read from the chart svg. */
+/**
+ * Each band's name fill, its row's tint, its summary bar's fill, and any line left in its group (the
+ * rule WI-172 removed), read from the chart svg.
+ */
 function bandPaint(container: HTMLElement): string[] {
-  const texts = Array.from(container.querySelectorAll("svg[data-gantt-chart] text"));
+  const svg = container.querySelector("svg[data-gantt-chart]")!;
+  const texts = Array.from(svg.querySelectorAll("text"));
   return BANDS.map((band) => {
     const name = texts.find((t) => t.textContent === band.name && t.getAttribute("font-weight") === "700");
     if (!name) return `${band.name}: NOT DRAWN`;
-    const rule = name.parentElement?.querySelector("line");
-    return `${band.name}: name ${name.getAttribute("fill")}, rule ${rule?.getAttribute("stroke")}`;
+    const tint = svg.querySelector(`rect[data-section-tint="${band.id}"]`)?.getAttribute("fill");
+    const bar = svg.querySelector(`path[data-section-bar="${band.id}"]`)?.getAttribute("fill");
+    const rule = name.parentElement?.querySelector("line") ? ", and a rule" : "";
+    return `${band.name}: name ${name.getAttribute("fill")}, tint ${tint}, bar ${bar}${rule}`;
   });
 }
 
-/** On white: every name darkened, every rule the band's own; no colour keeps `textMuted`. */
+/** The light chart: every name, and its bar, moved to 4.5:1 on its own tint; no rule. */
 const ON_WHITE = [
-  ...PRESETS.map((p) => `${p.name}: name ${p.readable}, rule ${p.hex}`),
-  `Plain: name ${COLORS.light.textMuted}, rule ${COLORS.light.textMuted}`,
+  ...ON_TINT.map((p) => `${p.name}: name ${p.light.ink}, tint ${tintFill(p.hex)}, bar ${p.light.ink}`),
+  `Plain: name ${PLAIN.light.ink}, tint ${tintFill(PLAIN.light.hex)}, bar ${PLAIN.light.ink}`,
 ];
 
-/** Dark mode, unchanged: name and rule both the band's own colour. */
+/** The dark chart: the same on the dark tint — toward white where a colour does not already read. */
 const ON_DARK = [
-  ...PRESETS.map((p) => `${p.name}: name ${p.hex}, rule ${p.hex}`),
-  `Plain: name ${COLORS.dark.textMuted}, rule ${COLORS.dark.textMuted}`,
+  ...ON_TINT.map((p) => `${p.name}: name ${p.dark.ink}, tint ${tintFill(p.hex)}, bar ${p.dark.ink}`),
+  `Plain: name ${PLAIN.dark.ink}, tint ${tintFill(PLAIN.dark.hex)}, bar ${PLAIN.dark.ink}`,
 ];
 
 afterEach(() => document.documentElement.classList.remove("dark"));
 
-describe("band names on the Gantt and the printed Gantt (WI-100)", () => {
-  it("the Gantt in light mode: each band NAME is darkened, each rule keeps the band colour, no colour keeps the fallback", () => {
+describe("band names on the Gantt and the printed Gantt (WI-100, re-pinned in WI-172)", () => {
+  it("the Gantt in light mode: each NAME and bar darkened to 4.5:1 on its row's tint, no colour on the grey tint, no rule", () => {
     expect(bandPaint(renderScreen(false))).toEqual(ON_WHITE);
   });
 
-  it("the Gantt in dark mode: name and rule both keep the band colour, no colour keeps the fallback", () => {
+  it("the Gantt in dark mode: each NAME and bar lightened where it does not already read 4.5:1 on its tint, no rule", () => {
     expect(bandPaint(renderScreen(true))).toEqual(ON_DARK);
   });
 
-  it("the light render a copy takes in dark mode: each band NAME is darkened, each rule keeps the band colour", () => {
+  it("the light render a copy takes in dark mode: the light chart's names, tints and bars", () => {
     expect(bandPaint(renderScreen(true, true))).toEqual(ON_WHITE);
   });
 
-  it("the printed Gantt: each band NAME is darkened, each rule keeps the band colour, no colour keeps the fallback", () => {
+  it("the printed Gantt: the light chart's names, tints and bars, no rule", () => {
     expect(bandPaint(renderPrint())).toEqual(ON_WHITE);
   });
 });
