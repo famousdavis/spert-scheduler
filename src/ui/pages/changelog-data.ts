@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.86.3",
+    date: "2026-11-12",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "The Connect AI contract lists one more SPERT® Story Map operation, `bulk_update_backbones`, used by the AI service's new tool for writing many Story Map backbone descriptions at once (MCP server 1.17.0, landing page 2.11.0). Scheduler does not use the Story Map list. The file stays identical to the AI service's copy, so its pinned digest moves from `d98e9098…` to `c2f234c0…`. The contract stays at version 6, as when Story Map's note operations were added.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.86.2",
     date: "2026-11-09",
     sections: [
