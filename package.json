@@ -1,7 +1,7 @@
 {
   "name": "spert-scheduler",
   "private": true,
-  "version": "0.86.5",
+  "version": "0.86.6",
   "type": "module",
   "license": "GPL-3.0",
   "engines": {
@@ -37,7 +37,7 @@
     "react-router-dom": "7.18.2",
     "recharts": "^3.8.1",
     "seedrandom": "^3.0.5",
-    "zod": "^4.4.3",
+    "zod": "4.6.6",
     "zustand": "5.0.13"
   },
   "devDependencies": {

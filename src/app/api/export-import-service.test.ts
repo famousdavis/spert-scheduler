@@ -15,7 +15,11 @@ import {
 } from "./export-import-service";
 import { createProject, createActivity, addActivityToScenario } from "./project-service";
 import { LocalStorageRepository } from "@infrastructure/persistence/local-storage-repository";
-import { SCHEMA_VERSION, DEFAULT_USER_PREFERENCES } from "@domain/models/types";
+import {
+  SCHEMA_VERSION,
+  DEFAULT_USER_PREFERENCES,
+  MAX_SCENARIOS_PER_PROJECT,
+} from "@domain/models/types";
 import { APP_VERSION } from "@app/constants";
 import type { Project } from "@domain/models/types";
 
@@ -672,5 +676,36 @@ describe("validateImport — a malformed project is refused by what is wrong, ne
     expect(() => validateImport(json, [])).not.toThrow();
     const result = validateImport(json, []);
     expect(!result.success && result.error).toBe('Project "#1" failed validation.');
+  });
+});
+
+// -- A list far past its cap (v0.86.6) ----------------------------------------
+
+/**
+ * zod before 4.6.6 (GHSA-mrhx-c7xc-m3w5) went on checking every entry of a list that was already
+ * longer than its `.max()`, and kept one issue per bad entry. So the cap did not bound the work: a
+ * file well inside the 10 MB limit, holding one project whose `scenarios` ran to a million
+ * entries, gave details of about 67 million characters on zod 4.4.3, and an 8 MB file threw
+ * inside ZodError instead of being refused. 4.6.6 stops at the list's length.
+ */
+describe("validateImport — a list far past its cap is refused by its length alone", () => {
+  it("refuses a project with a million scenarios, naming the list, in short details", () => {
+    const project = makeProject("Overlong Numbat");
+    const file = JSON.stringify({
+      ...buildExportEnvelope([]),
+      projects: [{ ...project, scenarios: new Array(1_000_000).fill(0) }],
+    });
+    // Control: the file is inside the size cap, so it reaches the schema.
+    expect(file.length).toBeLessThan(MAX_FILE_SIZE_BYTES);
+
+    const result = validateImport(file, []);
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("unreachable");
+    expect(result.error).toBe('Project "Overlong Numbat" failed validation.');
+    // Length first: on a vulnerable zod a failed content match would print all of the details.
+    expect(result.details?.length).toBeLessThan(10_000);
+    expect(result.details).toBe(
+      `scenarios: Too big: expected array to have <=${MAX_SCENARIOS_PER_PROJECT} items`
+    );
   });
 });
