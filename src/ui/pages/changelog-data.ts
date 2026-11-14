@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.86.4",
+    date: "2026-11-13",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The icons on each project tile on the Projects page are a darker grey, the grey GanttApp, SPERT® Forecaster and SPERT® Story Map use on theirs, so they are easier to see. That is Delete, and the buttons that show when you point at a tile or move to it with the keyboard: Share, Export, Archive or Unarchive, Clone, and the tile colour circle. In the dark theme the same grey is lighter than before, since the old one was hard to see against the dark tile.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.86.3",
     date: "2026-11-12",
     sections: [
