@@ -55,8 +55,10 @@ function startedInTile(e: React.SyntheticEvent<HTMLElement>): boolean {
   return e.target instanceof Node && e.currentTarget.contains(e.target);
 }
 
-// Shared resting style for hover-revealed icon buttons.
-const ICON_BTN = "p-1 text-gray-300 dark:text-gray-600 transition-colors";
+// Shared resting style for the tile's icon buttons (Delete and the hover-revealed ones). The grey is
+// the SPERT® Suite's resting icon grey, the value GanttApp, Forecaster and Story Map use on their
+// Dashboard tiles: #808080 light, #9ca3af dark (was gray-300 / gray-600, which read as faint).
+const ICON_BTN = "p-1 text-[#808080] dark:text-[#9ca3af] transition-colors";
 // Reveal on tile hover or when any child has keyboard focus.
 const REVEAL =
   "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity";
@@ -198,7 +200,7 @@ export function ProjectTile({
             type="button"
             onPointerDown={stopDown}
             onClick={(e) => e.stopPropagation()}
-            className="absolute top-3 right-3 p-1 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+            className={`absolute top-3 right-3 ${ICON_BTN} hover:text-red-500 dark:hover:text-red-400`}
             title="Delete project"
             aria-label="Delete project"
           >
@@ -316,7 +318,7 @@ export function ProjectTile({
             onPointerDown={stopDown}
             disabled={cloneUnavailableNoteId !== undefined}
             aria-describedby={cloneUnavailableNoteId}
-            className={`${ICON_BTN} hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600`}
+            className={`${ICON_BTN} hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-[#808080] dark:disabled:hover:text-[#9ca3af]`}
             title="Clone project"
             aria-label="Clone project"
           >

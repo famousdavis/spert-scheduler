@@ -46,12 +46,14 @@ export function TileColorPicker({ value, onChange }: TileColorPickerProps) {
       <button
         onClick={handleToggle}
         onPointerDown={(e) => e.stopPropagation()}
-        className="p-1 flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors"
+        className="p-1 flex items-center justify-center text-[#808080] dark:text-[#9ca3af] hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
         title="Set tile color"
         aria-label="Set tile color"
       >
+        {/* The ring takes the button's colour, as the suite's tile-colour buttons do: the resting
+            icon grey (ProjectTile's ICON_BTN), darker on hover in light and lighter in dark. */}
         <span
-          className="inline-block w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-500"
+          className="inline-block w-3.5 h-3.5 rounded-full border border-current"
           style={{ backgroundColor: value ?? "transparent" }}
         />
       </button>
