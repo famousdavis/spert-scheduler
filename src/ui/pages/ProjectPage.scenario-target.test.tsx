@@ -343,7 +343,7 @@ describe("a locked scenario, and undo", () => {
     switchTo(B);
     expect(card().value).toBe(EARLY);
     switchTo(A);
-    fireEvent.keyDown(document, { key: "z", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(document, { key: "Z", ctrlKey: true, shiftKey: true });
     expect(card().value).toBe("2027-03-31");
   });
 });

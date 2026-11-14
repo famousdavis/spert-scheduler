@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.86.5 — 2026-11-14
+
+### Fixed
+
+- **Ctrl+Shift+Z (Cmd+Shift+Z on a Mac) now redoes, as the Keyboard Shortcuts window says.** With Shift held, a browser normally reports a capital Z, and the app looked only for a lowercase z, so the key did nothing. Ctrl+Y (Cmd+Y) already redid, and still does.
+- **With Caps Lock on, Ctrl+Z (Cmd+Z) now undoes and Ctrl+Y (Cmd+Y) redoes.** Caps Lock normally turns the letters into capitals, so neither did anything. Ctrl+Shift+Y is still not a shortcut, and is left to your browser.
+
+### Internal
+
+- The undo and redo keys are now decided in one place, `undoRedoForKey` in `src/ui/helpers/undo-keys.ts`, pinned by a 19-row table. The page's tests had sent a lowercase z with Shift, which a browser normally does not send, so they passed while the key did nothing; four of them now send a capital Z, and six new page tests cover Cmd+Shift+Z both ways, Caps Lock, Ctrl+Shift+Y and a key press with no key. A new falsify spec, `falsify-spec-redo-key.mjs`, puts the old handler back and breaks the new rule one part at a time, against the whole suite.
+
 ## 0.86.4 — 2026-11-13
 
 ### Changed

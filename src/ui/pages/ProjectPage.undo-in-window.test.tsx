@@ -89,7 +89,9 @@ describe("D5: Undo and Redo while the Edit Activity window is open", () => {
     const saveButton = screen.getByRole("button", { name: "Save" });
     fireEvent.keyDown(saveButton, { key: "y", ctrlKey: true });
     expect(name(p), "Ctrl+Y").toBe("Build");
-    fireEvent.keyDown(saveButton, { key: "z", ctrlKey: true, shiftKey: true });
+    // "Z", as a browser sends Shift+Z (v0.86.5): with "z" this row could not tell the window's
+    // guard from a handler that ignores a real Ctrl+Shift+Z.
+    fireEvent.keyDown(saveButton, { key: "Z", ctrlKey: true, shiftKey: true });
     expect(name(p), "Ctrl+Shift+Z").toBe("Build");
   });
 

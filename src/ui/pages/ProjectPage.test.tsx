@@ -615,15 +615,116 @@ describe("ProjectPage — undo/redo keyboard shortcuts", () => {
     expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
   });
 
-  it("Ctrl+Shift+Z redoes what Ctrl+Z undid", () => {
+  // ⚠️ v0.86.5: a browser reports Shift+Z as "Z". Until then this row sent `key: "z"` with
+  // Shift, which a browser sends only on a Mac that drops Shift with Cmd held, so it passed
+  // while the real Ctrl+Shift+Z redid nothing.
+  // Every redo row below sends the key as a keyboard does.
+  it("Ctrl+Shift+Z redoes what Ctrl+Z undid, sent as a browser sends it (key \"Z\")", () => {
     const p = makeProject();
     renderPage(p);
     useProjectStore.getState().renameProject(p.id, "Renamed Mid-Test");
     fireEvent.keyDown(document, { key: "z", ctrlKey: true });
     expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
 
-    fireEvent.keyDown(document, { key: "z", ctrlKey: true, shiftKey: true });
+    const notPrevented = fireEvent.keyDown(document, { key: "Z", ctrlKey: true, shiftKey: true });
 
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(
+      "Renamed Mid-Test"
+    );
+    expect(notPrevented).toBe(false);
+  });
+
+  it("Cmd+Shift+Z redoes on a Mac, sent as Mac Chrome sends it (key \"Z\")", () => {
+    const p = makeProject();
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, "Renamed Mid-Test");
+    fireEvent.keyDown(document, { key: "z", metaKey: true });
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
+
+    fireEvent.keyDown(document, { key: "Z", metaKey: true, shiftKey: true });
+
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(
+      "Renamed Mid-Test"
+    );
+  });
+
+  it("Cmd+Shift+Z still redoes where a Mac browser drops Shift from the key (key \"z\")", () => {
+    const p = makeProject();
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, "Renamed Mid-Test");
+    fireEvent.keyDown(document, { key: "z", metaKey: true });
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
+
+    fireEvent.keyDown(document, { key: "z", metaKey: true, shiftKey: true });
+
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(
+      "Renamed Mid-Test"
+    );
+  });
+
+  it("Caps Lock: Ctrl+Z arrives as \"Z\" with Shift off, and still undoes", () => {
+    const p = makeProject();
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, "Renamed Mid-Test");
+
+    const notPrevented = fireEvent.keyDown(document, { key: "Z", ctrlKey: true });
+
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
+    expect(notPrevented).toBe(false);
+  });
+
+  it("Caps Lock: Ctrl+Y arrives as \"Y\" with Shift off, and still redoes", () => {
+    const p = makeProject();
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, "Renamed Mid-Test");
+    fireEvent.keyDown(document, { key: "z", ctrlKey: true });
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
+
+    fireEvent.keyDown(document, { key: "Y", ctrlKey: true });
+
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(
+      "Renamed Mid-Test"
+    );
+  });
+
+  // Reading the key without its case must not newly take Ctrl/Cmd+Shift+Y, which a browser
+  // reports as "Y" and the old `e.key === "y"` never matched. The key is left to the browser.
+  it("Ctrl+Shift+Y stays unbound, as \"Y\" and as \"y\": no redo, and the key is not taken", () => {
+    const p = makeProject();
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, "Renamed Mid-Test");
+    fireEvent.keyDown(document, { key: "z", ctrlKey: true });
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
+
+    const upperNotPrevented = fireEvent.keyDown(document, { key: "Y", ctrlKey: true, shiftKey: true });
+    const lowerNotPrevented = fireEvent.keyDown(document, { key: "y", ctrlKey: true, shiftKey: true });
+
+    expect(useProjectStore.getState().getProject(p.id)!.name).toBe(PROJECT_NAME);
+    expect(upperNotPrevented).toBe(true);
+    expect(lowerNotPrevented).toBe(true);
+  });
+
+  // A keydown with Ctrl held but no `key` (a bare Event) must not throw in the handler.
+  // ⚠️ `expect(() => dispatchEvent(...)).not.toThrow()` cannot see this: jsdom reports a
+  // listener's exception as a window "error" event, not by throwing. So the errors are
+  // collected, and the row asserts there were none.
+  it("a Ctrl keydown with no key does nothing and throws nothing", () => {
+    const p = makeProject();
+    renderPage(p);
+    useProjectStore.getState().renameProject(p.id, "Renamed Mid-Test");
+    const errors: string[] = [];
+    const onError = (ev: ErrorEvent) => {
+      errors.push(ev.message);
+      ev.preventDefault();
+    };
+    window.addEventListener("error", onError);
+    try {
+      document.dispatchEvent(Object.assign(new Event("keydown"), { ctrlKey: true }));
+    } finally {
+      window.removeEventListener("error", onError);
+    }
+
+    expect(errors).toEqual([]);
     expect(useProjectStore.getState().getProject(p.id)!.name).toBe(
       "Renamed Mid-Test"
     );
@@ -791,8 +892,10 @@ describe("ProjectPage — undo/redo does not hijack text fields", () => {
     fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
     expect(storedName(p.id)).toBe(PROJECT_NAME); // undone, so a redo has something to do
 
+    // "Z", as a browser sends Shift+Z (v0.86.5): with "z" this row could not tell the guard
+    // from a handler that ignores a real Ctrl+Shift+Z.
     const notPrevented = fireEvent.keyDown(nameCell(aid), {
-      key: "z",
+      key: "Z",
       ctrlKey: true,
       shiftKey: true,
     });

@@ -19,6 +19,7 @@ import {
 import { getScheduleErrorBanner } from "@ui/helpers/schedule-error-banner";
 import { ScheduleErrorBanner } from "@ui/components/ScheduleErrorBanner";
 import { runBlockedMessage } from "@ui/helpers/run-blocked-message";
+import { undoRedoForKey } from "@ui/helpers/undo-keys";
 import { useEstimateValidity } from "@ui/hooks/use-estimate-validity";
 import { useHeldWhilePointerDown } from "@ui/hooks/use-held-while-pointer-down";
 import { useScheduleBuffer } from "@ui/hooks/use-schedule-buffer";
@@ -666,13 +667,13 @@ export function ProjectPage() {
       // a scenario's unlock (Review 38, R2). Not prevented, so a text box's own undo still works.
       if (target.closest?.('[role="dialog"], [role="alertdialog"]')) return;
 
-      if (e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      } else if ((e.key === "z" && e.shiftKey) || e.key === "y") {
-        e.preventDefault();
-        redo();
-      }
+      // v0.86.5: the letter is read without its case. A real Ctrl+Shift+Z arrives as "Z",
+      // which the old `e.key === "z"` never matched, so the listed redo did nothing.
+      const action = undoRedoForKey(e.key, e.shiftKey);
+      if (action === null) return;
+      e.preventDefault();
+      if (action === "undo") undo();
+      else redo();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);

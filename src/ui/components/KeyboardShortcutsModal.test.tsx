@@ -12,9 +12,15 @@ import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
  * what a user sees, not on the SHORTCUTS array.
  *
  * Ctrl+Y: `ProjectPage`'s undo/redo handler has accepted it since the handler existed
- * (`(e.key === "z" && e.shiftKey) || e.key === "y"`), and ProjectPage.test.tsx drives
- * it end to end. The modal omitted it until WI-16. Falsified at 1c9b1db: the Ctrl+Y
- * assertion fails; the Ctrl+Shift+Z one is the must-not-move twin and passes.
+ * (then `(e.key === "z" && e.shiftKey) || e.key === "y"`; since v0.86.5 `undoRedoForKey`
+ * in `undo-keys.ts`), and ProjectPage.test.tsx drives it end to end. The modal omitted it
+ * until WI-16. Falsified at 1c9b1db: the Ctrl+Y assertion fails; the Ctrl+Shift+Z one is
+ * the must-not-move twin and passes.
+ *
+ * ⚠️ This file checks what the modal LISTS, not that the key works. Ctrl+Shift+Z was
+ * listed here for releases while a real one redid nothing: a browser sends Shift+Z as
+ * "Z", the old handler matched only "z", and its tests sent "z" with Shift. v0.86.5 fixed
+ * the handler; ProjectPage.test.tsx now sends the keys as a browser does.
  */
 afterEach(cleanup);
 
