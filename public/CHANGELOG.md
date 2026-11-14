@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.86.6 — 2026-11-14
+
+### Fixed
+
+- **A project file holding an extremely long list is now refused straight away.** A list running to a million entries could take hundreds of megabytes of memory before the import said what was wrong, and a longer one could fail with an internal error instead; the import now names the list that is too long at once. This was a security advisory in zod, the library that checks imported files, which is now at 4.6.6. Version 0.79.14 had put the update off until it cleared the 60-day soak window, but a measurement showed that each list's length limit did not prevent the problem, so it ships now.
+
+### Internal
+
+- Tooling updates, none of which ships in the app, each to a version past the 60-day window: brace-expansion 5.0.12 (and its two older copies, 2.1.7 and 1.1.21), postcss 8.5.28, nanoid 3.3.19, browserslist 4.28.9, baseline-browser-mapping 2.11.23 and undici 7.29.1. With zod, they clear 29 of the dependency audit's 63 advisories and add none. caniuse-lite, electron-to-chromium, node-releases and update-browserslist-db moved with browserslist.
+- zod is now pinned to exactly 4.6.6 (it was `^4.4.3`), so an install cannot move the app's zod to a newer release still inside the soak window.
+- A new test builds an import file whose one project holds a million scenarios and checks that the import refuses it, naming the list, in a short message. On zod 4.4.3 it fails: the message runs to about 67 million characters.
+
 ## 0.86.5 — 2026-11-14
 
 ### Fixed
