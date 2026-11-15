@@ -141,12 +141,15 @@ describe("StorageLoginModal — popup errors (v0.86.8: no redirect fallback)", (
     expect(toasts()).toEqual([POPUP_BLOCKED]);
   });
 
-  it("double-click with pop-ups blocked: the cancelled first popup is silent, and one message, no redirect", async () => {
+  it("a second click cancels the pending first sign-in: the cancelled one is silent, one message, no redirect", async () => {
     localStorage.setItem(LS_TOS_ACCEPTED_VERSION, TOS_VERSION);
     H.popup
       .mockRejectedValueOnce(authError("auth/cancelled-popup-request"))
       .mockRejectedValueOnce(authError("auth/popup-blocked"));
     await renderSignedOut();
+    // The SDK cancels a sign-in still pending when a second one starts. In a browser with pop-ups blocked, each
+    // click fails before the next one lands, so a double-click there gives two blocked messages, not this (seen
+    // 2026-11-14 on a build of v0.86.8); this case pins the cancellation path itself.
     const google = screen.getByRole("button", { name: BUTTON.google });
 
     fireEvent.click(google);
