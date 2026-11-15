@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.86.9 — 2026-11-14
+
+### Changed
+
+- **The Distribution Histogram's bars can now be a pixel wider, and the gaps between them a pixel narrower.** On the sample project at 1,000 trials the bars are 10 pixels wide with gaps of 2 to 2.7 pixels, where they were 9 pixels wide with gaps of 3 to 3.7. At 10,000 trials they are 9 pixels wide, as before. The bars stand in the same places at the same heights, and each bin's tooltip is unchanged. The change comes with the update to recharts, the library that draws the charts.
+
+### Internal
+
+- recharts is updated from 3.8.1 to 3.10.1, papaparse, which reads imported CSV files, from 5.5.3 to 5.7.0, and Tailwind CSS (`tailwindcss` and `@tailwindcss/vite`, which build the app's styles) from 4.3.0 to 4.3.3, each to a version past the 60-day window. papaparse is now pinned to exactly 5.7.0 (it was `^5.5.3`); both Tailwind packages were already pinned. immer moved with recharts from 10.2.0 to 11.1.18 and reselect from 5.1.1 to 5.2.0, and the separate copy of immer 11.1.8 that Redux Toolkit kept is gone, as it now uses the shared one. enhanced-resolve moved with Tailwind from 5.24.2 to 5.25.1.
+- Importing activities from a CSV file reads the template, a copy saved with a byte-order mark, and a file with a quoted cell running over two lines just as before: the preview is the same for all three, and importing the third keeps the line break in the activity's name.
+- `@radix-ui/react-popover` is removed: it was listed from v0.1.0, but nothing in the app has ever imported it. The nine packages only it used went with it, four from Floating UI and five from Radix.
+- `@radix-ui/react-dialog` stays at 1.1.15, now pinned to it exactly (it was `^1.1.15`, which an install could have moved to a newer release), because from 1.1.17 a dialog waits until a click outside it has finished before it closes, a change in behaviour that gets a release of its own.
+- Tailwind CSS 4.3.3 writes 27 of the stylesheet's spacing rules more simply, as `var(--spacing)` or `0` instead of `calc(var(--spacing) * 1)` or `calc(var(--spacing) * 0)`. With the font list and Firefox's focus-ring rule, which now skips frames, 30 of its 878 rules changed, and no others.
+- Tailwind's default font list now starts `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`, where it started `ui-sans-serif, system-ui`. On a Mac the text draws in the same font at the same widths; Windows and Linux were not checked.
+- Side by side with the previous version at 1,280 pixels, in light and dark, the Projects page, a project's grid and Gantt chart, and its simulation results at 10,000 trials draw pixel for pixel the same, apart from the run time, which varies from run to run. So do the copied chart images and the printed report. The scenario comparison chart's legend sits where it did, below the axis labels.
+- The dependency audit lists the same 34 advisories before and after: this update clears none and adds none.
+
 ## 0.86.8 — 2026-11-14
 
 ### Fixed
