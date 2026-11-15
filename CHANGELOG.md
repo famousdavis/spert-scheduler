@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.86.7 — 2026-11-14
+
+### Internal
+
+- React and React DOM are updated to 19.3.0, React Router to 7.18.4 and Zustand to 5.0.15, each to a version past the 60-day window. Nothing changes in how the app looks or works. scheduler, the package React DOM uses to order its work, moved with it from 0.27.0 to 0.28.0, and the React type definitions, used only to build the app, are now 19.3.0.
+- The dependency audit lists the same 34 advisories before and after: this update clears none and adds none. set-cookie-parser stays at 2.7.2, where the existing override holds it; it is now installed once at the top level instead of inside React Router's own folder.
+
 ## 0.86.6 — 2026-11-14
 
 ### Fixed
