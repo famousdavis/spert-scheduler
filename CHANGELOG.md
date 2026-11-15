@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.86.8 — 2026-11-14
+
+### Fixed
+
+- **When your browser blocks the sign-in window, Scheduler now says so and stays where you are:** "Your browser blocked the sign-in window. Allow pop-ups for this site and try again." The message is red and stays for eight seconds. Before, Scheduler said it was redirecting and took you to Google or Microsoft to sign in on a full page instead. That sign-in cannot finish in current browsers, which keep the sign-in service's stored result apart from this site, so you came back signed out, with no message. When the browser allows the sign-in window, nothing changes.
+
+### Internal
+
+- `AuthProvider` no longer falls back to `signInWithRedirect` when the sign-in popup is blocked, and no longer calls `getRedirectResult` when the app opens. Nothing can start a redirect now, and Firebase still completes any redirect left pending during its own start-up (`initializeCurrentUser` → `tryRedirectSignIn` in `@firebase/auth` 1.13.1). `classifyPopupError` answers `auth/popup-blocked` with `"blocked"` (it was `"redirect"`); a closed window and a double-click stay silent, as before. The Content Security Policy is unchanged, since the sign-in window still loads Firebase's helper frame. The same change as SPERT® Forecaster v0.50.10.
+- A new test, `StorageLoginModal.popup-errors.test.tsx`, drives the real Storage & Sign In window, consent window, sign-in hook, `AuthProvider` and toast, with only Firebase's sign-in library and configuration faked. Its seven cases cover a blocked window for Google and for Microsoft, a first sign-in through the consent window, a double-click, the two silent cases, and opening the app. Each was checked against the old code, with the expected results written down first: the old fallback turns four of the seven red, the old start-up call one, and the old message four.
+
 ## 0.86.7 — 2026-11-14
 
 ### Internal

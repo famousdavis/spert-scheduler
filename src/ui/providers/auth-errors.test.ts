@@ -18,8 +18,8 @@ describe("classifyPopupError", () => {
     );
   });
 
-  it("returns 'redirect' when the popup is blocked by the browser", () => {
-    expect(classifyPopupError({ code: "auth/popup-blocked" })).toBe("redirect");
+  it("returns 'blocked' when the popup is blocked by the browser (v0.86.8: no redirect)", () => {
+    expect(classifyPopupError({ code: "auth/popup-blocked" })).toBe("blocked");
   });
 
   it("returns 'rethrow' for unknown Firebase error codes", () => {

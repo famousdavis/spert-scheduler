@@ -179,8 +179,13 @@ describe("useSignInWithTosGate", () => {
       const { result } = setup();
       act(() => result.current.handleGoogleClick());
 
-      await waitFor(() => expect(toast.info).toHaveBeenCalledTimes(1));
-      expect(toast.error).not.toHaveBeenCalled();
+      // v0.86.8: the owner's words, as a literal (not the constant), held for eight seconds.
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+      expect(toast.error).toHaveBeenCalledWith(
+        "Your browser blocked the sign-in window. Allow pop-ups for this site and try again.",
+        8000
+      );
+      expect(toast.info).not.toHaveBeenCalled();
     });
 
     it("reports any other error as a generic failure", async () => {
@@ -191,6 +196,8 @@ describe("useSignInWithTosGate", () => {
       act(() => result.current.handleGoogleClick());
 
       await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+      // Both outcomes are error toasts since v0.86.8, so the words tell them apart.
+      expect(toast.error).toHaveBeenCalledWith("Sign-in failed. Please try again.");
       expect(toast.info).not.toHaveBeenCalled();
     });
 

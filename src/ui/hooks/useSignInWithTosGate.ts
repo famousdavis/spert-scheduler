@@ -4,7 +4,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@ui/providers/AuthProvider";
-import { SIGN_IN_POPUP_BLOCKED } from "@ui/providers/auth-errors";
+import { SIGN_IN_POPUP_BLOCKED, POPUP_BLOCKED_MESSAGE } from "@ui/providers/auth-errors";
 import { toast } from "@ui/hooks/use-notification-store";
 import {
   TOS_VERSION,
@@ -57,7 +57,10 @@ export function useSignInWithTosGate(): UseSignInWithTosGateResult {
       } catch (err) {
         const code = (err as { code?: string } | undefined)?.code;
         if (code === SIGN_IN_POPUP_BLOCKED) {
-          toast.info("Your browser blocked the sign-in popup. Redirecting…");
+          // v0.86.8: the page no longer redirects (it never signed anyone in), so this is the
+          // whole answer: what happened and what to do. Eight seconds, not the default three,
+          // to read it and find the browser's pop-up setting.
+          toast.error(POPUP_BLOCKED_MESSAGE, 8000);
         } else {
           // SD-7 (v0.79.x audit): log the error CODE only. A raw FirebaseError for
           // account-exists-with-different-credential carries the user's email and the provider's
