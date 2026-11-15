@@ -14,8 +14,6 @@ import type { ReactNode } from "react";
 import {
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   OAuthProvider,
@@ -369,6 +367,23 @@ async function handleNullAuthState(): Promise<void> {
   }
 }
 
+/**
+ * A popup sign-in failed: stay silent, say the popup was blocked, or pass the error on.
+ * v0.86.8: a blocked popup no longer falls back to `signInWithRedirect`, which never
+ * completed (see `classifyPopupError`). It throws `SIGN_IN_POPUP_BLOCKED` and the page
+ * stays where it is, so the caller can ask the person to allow pop-ups.
+ */
+function handlePopupError(err: unknown): void {
+  const action = classifyPopupError(err);
+  if (action === "ignore") return;
+  if (action === "blocked") {
+    const blocked = new Error("The browser blocked the sign-in popup") as Error & { code: string };
+    blocked.code = SIGN_IN_POPUP_BLOCKED;
+    throw blocked;
+  }
+  throw err;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   // No loading state needed if Firebase not configured
@@ -377,13 +392,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!auth) return;
 
-    // Check for redirect result on page load
-    getRedirectResult(auth).catch((e) => {
-      // SD-7 (v0.79.x audit): log the error CODE only — a redirect-result FirebaseError for
-      // account-exists-with-different-credential carries the email and the provider's OAuth tokens.
-      console.error("Redirect sign-in error:", (e as { code?: string } | undefined)?.code ?? "unknown");
-    });
-
+    // v0.86.8: no getRedirectResult() here. Nothing starts a redirect sign-in any more
+    // (see classifyPopupError), and the SDK still completes any redirect left pending
+    // during its own start-up (initializeCurrentUser → tryRedirectSignIn), handing the
+    // user to the listener below whether or not the app asks.
     return onAuthStateChanged(auth, async (firebaseUser) => {
       // setLoading(false) FIRST — guarantees the loading-stuck path can't recur
       // even if any awaited operation below early-returns. Previously this lived
@@ -442,32 +454,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const handlePopupError = useCallback(
-    async (err: unknown, provider: GoogleAuthProvider | OAuthProvider) => {
-      const action = classifyPopupError(err);
-      if (action === "ignore") return;
-      if (action === "redirect") {
-        await signInWithRedirect(auth!, provider);
-        const redirectError = new Error(
-          "Popup blocked; redirecting for sign-in"
-        ) as Error & { code: string };
-        redirectError.code = SIGN_IN_POPUP_BLOCKED;
-        throw redirectError;
-      }
-      throw err;
-    },
-    []
-  );
-
   const signInWithGoogle = useCallback(async () => {
     if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
     } catch (err) {
-      await handlePopupError(err, provider);
+      handlePopupError(err);
     }
-  }, [handlePopupError]);
+  }, []);
 
   const signInWithMicrosoft = useCallback(async () => {
     if (!auth) return;
@@ -476,9 +471,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signInWithPopup(auth, provider);
     } catch (err) {
-      await handlePopupError(err, provider);
+      handlePopupError(err);
     }
-  }, [handlePopupError]);
+  }, []);
 
   const signOut = useCallback(async () => {
     if (!auth) return;
