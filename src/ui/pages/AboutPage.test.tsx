@@ -2,6 +2,10 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
+// Adding a guide to public/? Also add it, with a one-line description, to spertsuite.com's
+// src/data/help.ts (spert-landing-page). The landing page's daily "Guide list matches the app
+// repos" check stays red until you do. The PDF guide house rules say the same.
+
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";

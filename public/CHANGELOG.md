@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.87.1 — 2026-11-16
+
+### Added
+
+- **A Help Center link in the header (in windows at least 1,024 pixels wide) opens the SPERT® Suite Help Center, with every Scheduler guide in one place, in a new tab.** It sits just before About.
+
+### Internal
+
+- `Layout.tsx` gains `HelpCenterLink`, unexported: a plain link to `https://spertsuite.com/help/scheduler`, defined once beside it as the unexported `HELP_CENTER_URL`, with `target="_blank"` and `rel="noopener noreferrer"`, and the classes of a nav item that is not the current page, with its leading `inline-flex` made `hidden lg:inline-flex`. It is rendered inside the nav's map, before the item whose path is `/about`. It is not in `NAV_ITEMS`, so the current route never decides anything about it and it never takes the active pill. A screen reader names it "Help Center (opens in a new tab)": the ↗ is `aria-hidden` and the new-tab words are `sr-only`, with the spaces between the spans rather than inside them, since the name computation trims a span's own text.
+- On the owner's ruling the link is hidden below 1,024 pixels wide. It adds 118 pixels to the header, which v0.87.0 fitted at 768 pixels with 3.3 to spare: shown at every width, the header's account chip wrapped onto two lines below about 882 pixels, and at 768 the page scrolled sideways by 19 pixels. Measured in Chrome, signed out, in light and dark mode: at 1,024 pixels the header is one line with 81.5 pixels to spare; at 1,023 and at 768 the link is not displayed, is not in the accessibility tree, and every other control in the header sits exactly where it does with the link removed, with 4.3 pixels to spare at 768.
+- A new test file, `Layout.help-center.test.tsx` (9 tests), renders the real `Layout` and pins the whole URL against a literal, the new tab and both `rel` tokens, the accessible name with the arrow's `aria-hidden` and the words' `sr-only` class, the link's place immediately before About with the four nav items in their order, the classes `hidden` and `lg:inline-flex` and no bare `inline-flex`, and that it is never styled active at `/projects`, `/calendar`, `/settings` or `/about`. Ten known-bads were run against it, each turning red exactly the tests predicted before it ran: a wrong slug, `target` removed, `rel` reduced to `noopener`, the new-tab words removed, their `sr-only` class dropped, the arrow without `aria-hidden`, the link moved after About, the link given the active pill, `hidden` dropped, and `lg:` changed to `md:`. That file and `AboutPage.test.tsx` now open with a note: a guide added to `public/` also belongs in the landing page's Help Center list.
+- Measured in Chrome, from the computed colours converted to sRGB: the link is 7.56:1 at rest and 16.13:1 on hover in light mode, and 9.96:1 at rest and 9.36:1 on hover in dark mode; the ↗ measures the same.
+- `npm run lint` reports the same three accepted findings, and by `npm run cc` `Layout` is unchanged: the link sits in a JSX `&&`.
+
 ## 0.87.0 — 2026-11-15
 
 ### Changed
