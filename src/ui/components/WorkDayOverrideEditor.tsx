@@ -233,9 +233,9 @@ export function WorkDayOverrideEditor({
 
   return (
     <div className="mt-4">
-      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
         Converted Work Days
-      </h3>
+      </h4>
       <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
         Mark specific dates as working days for this project — weekends, or
         company holidays (with confirmation).

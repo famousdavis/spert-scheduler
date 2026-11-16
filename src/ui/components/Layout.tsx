@@ -78,7 +78,7 @@ export function Layout() {
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 [overflow-anchor:none]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
-            <Link to="/projects" className="inline-flex items-center text-lg font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap cursor-pointer">
+            <Link to="/projects" className="inline-flex items-center text-lg lg:text-2xl font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap cursor-pointer">
               <img
                 src="/spert-favicon-scheduler.png"
                 alt="SPERT® Scheduler icon"
@@ -86,7 +86,7 @@ export function Layout() {
                 height={28}
                 className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20"
               />
-              SPERT<span className="text-gray-300 dark:text-gray-600 text-xs align-super">®</span> Scheduler
+              <span>SPERT<span className="text-gray-300 dark:text-gray-600 text-xs align-super">®</span> Scheduler</span>
             </Link>
             <div className="flex items-center gap-1">
               <nav className="flex gap-1">

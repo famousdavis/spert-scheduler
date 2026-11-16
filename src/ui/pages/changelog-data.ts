@@ -13,6 +13,42 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.87.0",
+    date: "2026-11-15",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "The Calendar page now shows each calendar as one line, closed, so a project's calendar is quick to find. Company Holidays and each project have a line of their own, and beside each name is what that calendar holds: for Company Holidays, \"12 holidays, through 12/31/2026\"; for a project, \"1 holiday · 2 converted work days\", or \"No changes\". A converted work day that is not currently a work day is counted apart: \"3 converted work days, 1 not in effect\". Click a line to open it, and again to close it; closing it keeps anything you had typed in it. With two or more projects listed, Open all and Close all, beside Project-Specific Non-Work Days, open or close every project's line at once. Each time you open the Calendar page from its tab, every line starts closed, except Company Holidays when you have no projects yet, or only archived ones.",
+          "A project's page has a Calendar link, beside Print. It opens the Calendar page with that project's calendar open and in view. An archived project's page has no link, since the Calendar page does not list archived projects.",
+          "The header's SPERT® Scheduler is larger on wide windows. From 1,024 pixels wide it is the size of the About page's title. Narrower windows keep the smaller size, because at 768 pixels wide the header has no room to spare.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "The header read \"SPERT®Scheduler\", with no space before \"Scheduler\", and its ® sat level with the letters. It now has the space and a raised ®, as on the About page, at every window width. In dark mode the About page's ® is now faint, as the header's is.",
+          "On a project's page, a long project name no longer splits Connect AI over two lines, or Print into an icon above a word. The name wraps instead.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "Two new files hold the Calendar page's rows. `src/ui/components/CalendarRow.tsx` is one calendar as a disclosure: a button inside the heading, with a chevron, the name and the summary, and the body below it, which mounts the first time the row opens and is then only hidden. `src/ui/helpers/calendar-summary.ts` holds the words: the Company count and its last date, a project's parts, and the count of converted work days not in effect, decided by `classifyChipStatus`, the rule that strikes a chip through, with the project's own work calendar and holidays, as the chips use them. `CalendarPage.tsx` gains `ProjectCalendarRow` for each project.",
+          "A row's open state is derived, never set in an effect: the user's own toggle for that row if there is one, otherwise its default. A project named by `?project=<id>` defaults to open, so it opens even when it arrives after the page mounts, during a cloud first load. Its button is scrolled into view and focused once per arrival, and only while nothing on the page has focus; `scroll-mt-20` lands it 80 pixels from the top, below the 57-pixel header. Company Holidays defaults to open only when no project is listed and no load is pending, by the expression the Dashboard and a project's page already use, `!storageReady || (mode === \"cloud\" && !cloudDataLoaded)`.",
+          "Four new test files: `CalendarPage.rows.test.tsx` (28 tests) runs the real page, rows and editors against the real stores, with only the storage mode and the country-list fetch faked; `calendar-summary.test.ts` (19) pins the words as decision tables; `ProjectPage.calendar-link.test.tsx` (5) follows the link from a project's page to its open row; and `Layout.title.test.tsx` (5) pins the header's markup and accessible name and the About page's ®. `CalendarPage.test.tsx` now renders inside a router, with the storage mode faked, and matches the Company heading by its start, since the heading now carries the summary. No other existing test changed. The suite goes from 5,668 tests in 339 files to 5,725 in 343.",
+          "A new falsify spec, `scripts/falsify-spec-calendar-rows.mjs`, holds 36 straws, at least one for each of the owner's rulings that a test can see and for each design item a test pins, every straw a single needle. Against the whole suite all 36 turn their named tests red, each exactly as many as predicted when the spec was written, and the suite is green again after. Straw S6 of `falsify-spec-cloud-sign-in-display.mjs`, whose needle is a line of `CalendarPage.tsx` this release keeps unchanged, still turns its test red.",
+          "`npm run lint` reports the same three accepted findings, at the same lines. By `npm run cc`, `ProjectPage` stays at 14: the link sits in a JSX `&&`. `CalendarPage` is 3, its two effects 2 and 3, `CalendarRow` 4, and `projectCalendarSummary` 7, the highest of the new functions.",
+          "Measured in Chrome 154: the header's title is 24 pixels from 1,024 pixels wide, with a 5.1-pixel space before \"Scheduler\" and the ® raised 4.5 pixels, the same as the About page's title; at 1,023 pixels it is 18 pixels, with a 4.1-pixel space and the ® raised 5 pixels. Signed out at 1,024 pixels, the header row has 198 pixels to spare; at 768 pixels, 3.3. In dark mode the ® in the header and both of the About page's measure `oklch(0.446 0.03 256.802)`. With nine projects, every row on the Calendar page is one line, 24 pixels tall for a project and 28 for Company Holidays. Following a project's Calendar link opened its row, focused its button and put the button's top at 80 pixels. A 59-character project name at 1,024 pixels wraps to two lines, and Connect AI, Calendar and Print stay 28 pixels tall, one line each.",
+          "Two limits are accepted. On a direct load of the Calendar page in local storage, the project list is empty for the first render, before the page's own load fills it, so Company Holidays mounts its editor, hidden, and the editor fetches the country list. And the header's Calendar link goes to the Calendar page without a project, so it closes a row that a project's link had opened.",
+          "\"Converted Work Days\", in each project's calendar, is now an `h4`, below the project's own `h3`; `WorkDayOverrideEditor` is used only on the Calendar page.",
+          "A screen reader reads each row's button by its label, the name and the summary with a comma between each part, such as \"Cloud ERP Solution, 1 holiday, 2 converted work days\"; the visible \"·\" is `aria-hidden`. It is a label rather than commas hidden in the text, because Chrome reads a comma hidden with `sr-only` with a space before it, \"Cloud ERP Solution , 1 holiday\", and a comma at a 0-pixel font size, which Chrome reads exactly, is what the legibility floor test forbids. Chrome names each row's heading by the same label; jsdom names it from the visible text. The project page's link reads \"Calendar for this project\", so it is not confused with the header's Calendar. The header's link reads \"SPERT® Scheduler icon SPERT® Scheduler\" in Chrome 154 and \"SPERT® Scheduler iconSPERT® Scheduler\" in jsdom, which the new test pins.",
+          "WI-176 to WI-179, found while reviewing this release and all older than it, are not fixed here; WI-176 is the width of the account chip in the header.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.86.9",
     date: "2026-11-14",
     sections: [

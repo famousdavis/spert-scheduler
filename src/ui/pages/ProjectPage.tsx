@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "@ui/hooks/use-project-store";
 import { useProjectActions } from "@ui/hooks/use-project-actions";
 import { useSimulation } from "@ui/hooks/use-simulation";
@@ -888,7 +888,7 @@ export function ProjectPage() {
               onClick={handleConnectAiClick}
               title={sessionState.sessionActive ? "AI session active" : "Connect an AI assistant"}
               aria-label={sessionState.sessionActive ? "AI session active" : "Connect an AI assistant"}
-              className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded-md no-print transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1 text-sm whitespace-nowrap rounded-md no-print transition-colors ${
                 sessionState.sessionActive
                   ? "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20"
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -902,9 +902,22 @@ export function ProjectPage() {
               {sessionState.sessionActive ? "AI" : "Connect AI"}
             </button>
           )}
+          {!project.archived && (
+            <Link
+              to={`/calendar?project=${encodeURIComponent(project.id)}`}
+              className="px-2 py-1 text-sm whitespace-nowrap text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
+              title="This project's holidays and converted work days"
+              aria-label="Calendar for this project"
+            >
+              <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Calendar
+            </Link>
+          )}
           <button
             onClick={() => window.print()}
-            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
+            className="px-2 py-1 text-sm whitespace-nowrap text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
             title="Print Report"
             aria-label="Print project report"
           >
