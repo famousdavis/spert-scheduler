@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { APP_VERSION } from "@app/constants";
 import { TOS_URL, PRIVACY_URL, LICENSE_URL } from "@app/legal-constants";
@@ -28,6 +28,30 @@ const NAV_ITEMS = [
   { path: "/settings", label: "Settings" },
   { path: "/about", label: "About" },
 ];
+
+/** This app's page in the SPERT® Suite Help Center. Defined once, here, beside its one link. */
+const HELP_CENTER_URL = "https://spertsuite.com/help/scheduler";
+
+/**
+ * The header's Help Center link, immediately left of About. It is NOT in NAV_ITEMS: it leaves the app, so it never
+ * takes the active pill and nothing about it reads the current route. It wears the inactive items' classes, except
+ * that it is hidden below 1,024 px (`hidden lg:inline-flex`, William's ruling, 2026-11-16): v0.87.0 fitted the header
+ * at 768 px with 3.3 px to spare, and this link adds 118 px. The
+ * spaces sit between the spans, not inside them: the accessible-name computation trims a span's own text, and with
+ * the spaces inside, the name reads "Help Center(opens in a new tab)".
+ */
+function HelpCenterLink() {
+  return (
+    <a
+      href={HELP_CENTER_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hidden lg:inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap cursor-pointer text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+    >
+      Help Center{" "}<span aria-hidden="true">↗</span>{" "}<span className="sr-only">(opens in a new tab)</span>
+    </a>
+  );
+}
 
 export function Layout() {
   const location = useLocation();
@@ -93,17 +117,19 @@ export function Layout() {
                 {NAV_ITEMS.map((item) => {
                   const isActive = location.pathname.startsWith(item.path);
                   return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
-                        isActive
-                          ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
-                          : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
+                    <Fragment key={item.path}>
+                      {item.path === "/about" && <HelpCenterLink />}
+                      <Link
+                        to={item.path}
+                        className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                          isActive
+                            ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                            : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    </Fragment>
                   );
                 })}
               </nav>
