@@ -4,10 +4,15 @@
 
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 // The holiday editor reaches the Nager API on mount; the page's headings are the subject
 // here, so the editor renders nothing.
 vi.mock("@ui/components/CalendarEditor", () => ({ CalendarEditor: () => null }));
+// Since v0.87.0 the page reads the storage mode, to tell an empty list from one still loading (WI-174, ruling 1).
+vi.mock("@ui/providers/StorageProvider", () => ({
+  useStorage: () => ({ mode: "local", storageReady: true }),
+}));
 
 import { CalendarPage } from "./CalendarPage";
 
@@ -21,12 +26,12 @@ afterEach(cleanup);
 
 describe("CalendarPage", () => {
   it("titles itself by its nav label", () => {
-    render(<CalendarPage />);
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Calendar$/);
   });
 
   it("keeps Company Holidays as a section heading beneath it", () => {
-    render(<CalendarPage />);
-    expect(screen.getByRole("heading", { level: 2, name: "Company Holidays" })).toBeInTheDocument();
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    expect(screen.getByRole("heading", { level: 2, name: /^Company Holidays\b/ })).toBeInTheDocument();
   });
 });
