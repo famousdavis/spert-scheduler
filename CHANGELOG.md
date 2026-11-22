@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.87.2 — 2026-11-21
+
+### Changed
+
+- **The header's SPERT® Scheduler is now in Scheduler's own orange, the colour of its icon, as a gradient.** Each word runs from a lighter orange on the left to a darker one on the right, in light and dark mode; the ® between them is unchanged. If your computer is set to increase contrast, the title is drawn in solid dark text instead, or solid light text in dark mode.
+
+### Internal
+
+- `Layout.tsx` gains `TITLE_GRADIENT`, unexported: one literal class string, used on two word spans inside the title's existing wrapper, "SPERT" and "Scheduler", with the ® span unchanged between them. Light mode runs `#cc4b24` → `#7c2000` and dark mode `#ffc1af` → `#f26035`, derived from the favicon's `#f75b2b`, whose hue both ends keep. The space before "Scheduler" is text of the wrapper, not the start of the second span: inside the span, jsdom's accessible-name computation trims it, and `Layout.title.test.tsx` pins the name with its space. The link's classes are unchanged, so the title's size and weight are too.
+- Two fallbacks draw the words as solid text: under `prefers-contrast: more`, the title's own `gray-900` in light mode and `gray-100` in dark mode; and in print, `gray-900`. Scheduler's print stylesheet hides the header, so the print classes are kept only for consistency with the other SPERT® apps. In the built CSS each fallback comes after the class it overrides, at the same specificity.
+- Contrast, at every point of each ramp, in Oklab (how Tailwind 4's `bg-gradient-to-r` interpolates) and in sRGB: 4.56:1 in light mode on the white header and 4.54:1 in dark mode on `gray-800` (`#1e2939`), against a bar of 4.5:1, since the title is 18 pixels below 1,024 pixels wide and so is not large text. The solid title measured 17.74:1 and 13.33:1, and the increased-contrast fallback measures the same again.
+- A new test file, `Layout.title-gradient.test.ts` (13 tests), reads `Layout.tsx`'s source: it finds exactly two gradient spans in the title, holding "SPERT" and "Scheduler" with no space inside either; checks that both carry the same four end colours and only the gradient's and fallbacks' classes; resolves the header's `bg-white` and `dark:bg-gray-800` through the installed Tailwind's `theme.css` and pins them to `#ffffff` and `#1e2939`; checks that the title link paints no ground of its own and has no hover or opacity class; samples each theme's ramp at 41 points in both spaces against 4.5:1; checks that the fallbacks use the link's own `text-gray-900` and `dark:text-gray-100` and meet the bar; and checks its own instrument against known values. Five known-bads were run against the whole suite, each turning red exactly the tests predicted before it ran: the suite's old blue gradient (2.99:1 in light mode, 2.12:1 in dark), the header's dark background changed to `gray-700`, the second span given a different end, `contrast-more:bg-none` removed, and the space moved inside the second span, which also turns `Layout.title.test.tsx`'s accessible-name test red. Restored, the suite is green: 5,747 tests in 345 files.
+- Measured in Chrome 154 against v0.87.1, at 768, 1,023 and 1,024 pixels wide, in light and dark mode: the same text, weight 700, word widths (75.02 and 114.19 pixels at 24 pixels; 57.44 and 87.56 at 18), and the ®'s colour and raised position. The space before "Scheduler" is 0.02 pixels wider, so at 768 pixels the header has 3.25 pixels to spare against 3.27 by the same instrument; nothing wraps and the page does not scroll sideways. The computed `background-image` names both end colours, `background-clip` is `text` and the fill is transparent, and switching the theme with no reload, both ways, redraws it in the other theme's colours.
+- `npm run lint` reports the same three accepted findings, and by `npm run cc` `Layout` is unchanged.
+
 ## 0.87.1 — 2026-11-16
 
 ### Added

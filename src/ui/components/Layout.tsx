@@ -29,6 +29,26 @@ const NAV_ITEMS = [
   { path: "/about", label: "About" },
 ];
 
+/**
+ * The header title's colour (HDR26, v0.87.2): Scheduler's favicon orange, `#f75b2b`, as a gradient from its light end
+ * on the left to its dark end on the right, drawn once on each word ("SPERT", "Scheduler"). The ® between them keeps
+ * its own colour. Each theme's ramp is checked at every point against the header behind it, at 4.5 : 1, because the
+ * title is 18 px below 1,024 px and so is not large text: light `#cc4b24` → `#7c2000` on white, weakest 4.56; dark
+ * `#ffc1af` → `#f26035` on `gray-800` (`#1e2939`), weakest 4.54. Both sit just above the bar on purpose; a change to
+ * either end, or to the header's background, needs a new measurement (`Layout.title-gradient.test.ts`).
+ *
+ * Two fallbacks draw the title as solid text instead: under `prefers-contrast: more`, the title's own near-black in
+ * light mode and near-white in dark mode; and in print, near-black. (Scheduler's print stylesheet hides the header,
+ * so the print classes are kept only for consistency with the other SPERT® apps.) In the compiled CSS each fallback
+ * comes after the class it overrides, at the same specificity, so it wins.
+ *
+ * ONE literal string, never assembled: Tailwind writes CSS only for class names it finds whole in the source, and
+ * with `text-transparent` and no gradient the title is invisible. The space before "Scheduler" sits OUTSIDE the
+ * gradient spans, as text of the wrapper: inside a span, jsdom's accessible-name computation trims it.
+ */
+const TITLE_GRADIENT =
+  "bg-gradient-to-r from-[#cc4b24] to-[#7c2000] dark:from-[#ffc1af] dark:to-[#f26035] bg-clip-text text-transparent print:bg-none print:text-gray-900 contrast-more:bg-none contrast-more:text-gray-900 dark:contrast-more:text-gray-100";
+
 /** This app's page in the SPERT® Suite Help Center. Defined once, here, beside its one link. */
 const HELP_CENTER_URL = "https://spertsuite.com/help/scheduler";
 
@@ -110,7 +130,7 @@ export function Layout() {
                 height={28}
                 className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20"
               />
-              <span>SPERT<span className="text-gray-300 dark:text-gray-600 text-xs align-super">®</span> Scheduler</span>
+              <span><span className={TITLE_GRADIENT}>SPERT</span><span className="text-gray-300 dark:text-gray-600 text-xs align-super">®</span>{" "}<span className={TITLE_GRADIENT}>Scheduler</span></span>
             </Link>
             <div className="flex items-center gap-1">
               <nav className="flex gap-1">
