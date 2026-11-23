@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.87.3",
+    date: "2026-11-22",
+    sections: [
+      {
+        title: "Internal",
+        items: [
+          "Internal only — no functional, data, or interface changes. The app behaves identically to 0.87.2.",
+          "The reference-only copy of the Firestore rules is back in step with the canonical one. This project keeps a copy of the suite-wide Firestore security rules. It is never deployed — the canonical file lives in the landing-page project and is released from there — but two tests read it from disk, which is why it has to stay in step.",
+          "What moved belongs to another app. Landing-page 2.14.3 lets SPERT® CFD keep a second key, `projectPrefs`, beside `projectOrder` in each person's own CFD settings document. This copies that one rule line and the comment above it across by hand, and nothing else.",
+          "The copy's deliberate differences from the canonical file are untouched: its own preamble, its longer note on why writing a missing field as `null` does not help, and one comment block that sits in a different place.",
+          "Nothing in this app behaves differently. No Scheduler rule, screen, calculation or stored value is touched.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.87.2",
     date: "2026-11-21",
     sections: [
