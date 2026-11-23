@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.87.4 — 2026-11-23
+
+### Fixed
+
+- **Inside a project, the Projects tab in the header now stays highlighted.** Until now no tab was highlighted on a project's page, so the header did not show where you were. The same was true of an address typed in other capitals, such as /Projects, which opens the Projects page.
+
+- **Screen readers are now told which header tab is the current page.** The highlighted tab is announced as the current page, and only that tab. The Changelog page, which no header tab leads to, marks none.
+
+- **"Sign in" in the header stays readable when you point at it in light mode.** The chip turns a very light grey on hover, and the blue text measured 4.36:1 against it, under the 4.5:1 that small text needs. On hover it now turns a slightly deeper blue, 5.02:1. At rest it is unchanged, and dark mode is unchanged (5.77:1 at rest and on hover).
+
+### Internal
+
+- SCH-1, FRAME26 stage 0. `Layout.tsx` asked `pathname.startsWith(item.path)`, and a project lives at `/project/:id`, singular, so no item matched inside a project; it was also case-sensitive, while React Router matches routes without regard to case. A new helper, `activeNavPath` in `src/ui/helpers/active-nav.ts`, reads the first path segment, lower-cased: `projects` and `project` give Projects; `calendar`, `settings` and `about` give themselves; anything else gives none. The active link now carries `aria-current="page"`, and its pill classes are unchanged. The Help Center link is untouched and never active. A path React Router cannot match still renders its own error page outside the header, as before.
+- SCH-2, FRAME26 stage 0. `styles.css` gains `html:not(.dark) button:hover .auth-signin-accent { color: #155dfc }`. It is scoped to `html:not(.dark)` because a bare `button:hover` rule, at specificity (0,2,1), would outrank `.dark .auth-signin-accent`, at (0,2,0), and paint the dark chip dark blue. The rest colour stays `#0070f3`, which the avatar shares as a background.
+- Tests: `active-nav.test.ts` (19, a decision table over every route and the old rule's misses); `Layout.active-nav.test.tsx` (14, the real header at every route: exactly one link with `aria-current="page"` and the pill, none on /changelog, never Help Center); and eight more in `AuthButton.contrast.test.tsx`, which read the stylesheet's three accent rules, check that no hover rule reaches dark mode, pin the chip's hover backgrounds and check each colour pair's WCAG ratio. Each was falsified once: `Layout.tsx` at 0.87.3 failed 9 tests, the helper with the old `startsWith` rule failed 11, and the stylesheet without the hover rule failed 3, each exactly as predicted. Measured in headless Chrome at 1,280 × 800 against 0.87.3 and against this build, in light and dark mode: before, on a project page, 0 items active and 0 with `aria-current`; after, Projects, with `aria-current="page"`, on every project and Projects address, and exactly one item on each of Calendar, Settings and About.
+
 ## 0.87.3 — 2026-11-22
 
 Internal only — no functional, data, or interface changes. The app behaves identically to 0.87.2.

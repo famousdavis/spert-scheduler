@@ -65,6 +65,16 @@ input[type="number"] {
   color: #60a5fa;
 }
 
+/* On hover the chip turns gray-50 (#f9fafb), and #0070f3 there measured 4.36, under the bar
+   (FRAME26 SCH-2, v0.87.4). Light hover alone steps to blue-600 #155dfc, 5.02 on gray-50;
+   the rest colour stays #0070f3 for the avatar's sake (above). Scoped to `html:not(.dark)`
+   because a bare `button:hover` rule (0,2,1) would outrank `.dark .auth-signin-accent`
+   (0,2,0) and paint the dark chip dark blue; dark hover is gray-800, the header's own
+   colour, where #60a5fa keeps its 5.77. */
+html:not(.dark) button:hover .auth-signin-accent {
+  color: #155dfc;
+}
+
 /* Print styles */
 @media print {
   /* Hide non-printable UI elements */

@@ -21,6 +21,7 @@ import { InvitationBanner } from "./InvitationBanner";
 import { AiTeardownBanner } from "./AiTeardownBanner";
 import { useCloudSync } from "@ui/hooks/use-cloud-sync";
 import { useInvitationLanding } from "@ui/hooks/useInvitationLanding";
+import { activeNavPath } from "@ui/helpers/active-nav";
 
 const NAV_ITEMS = [
   { path: "/projects", label: "Projects" },
@@ -75,6 +76,8 @@ function HelpCenterLink() {
 
 export function Layout() {
   const location = useLocation();
+  // At most one nav item is the current page, and inside a project it is Projects (SCH-1, v0.87.4).
+  const activePath = activeNavPath(location.pathname);
   const loadPreferences = usePreferencesStore((s) => s.loadPreferences);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -135,12 +138,13 @@ export function Layout() {
             <div className="flex items-center gap-1">
               <nav className="flex gap-1">
                 {NAV_ITEMS.map((item) => {
-                  const isActive = location.pathname.startsWith(item.path);
+                  const isActive = item.path === activePath;
                   return (
                     <Fragment key={item.path}>
                       {item.path === "/about" && <HelpCenterLink />}
                       <Link
                         to={item.path}
+                        aria-current={isActive ? "page" : undefined}
                         className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
                           isActive
                             ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
