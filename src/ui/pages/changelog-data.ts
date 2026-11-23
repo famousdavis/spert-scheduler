@@ -13,6 +13,38 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.88.0",
+    date: "2026-11-23",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "Scheduler now uses the SPERT® Suite's shared page layout, the same as AHP, Forecaster and GanttApp. At the top is a row with the icon, SPERT® Scheduler and a short description of the app, with the theme button and your account on the right. Under it is a row of page links.",
+          "The page links are arranged the same way in every SPERT® app: Projects and Calendar on the left, and Settings, About and Help Center on the right. Help Center has moved after About, and it now shows at every window width (until now it was hidden in narrower windows). The page you are on is underlined, instead of shaded.",
+          "On a project's page, the row of page links stays at the top of the window as you scroll down; the row above it scrolls away. On every other page nothing stays fixed at the top. Undo and Redo stay on the project's title row, as before, along with their keyboard shortcuts.",
+          "Notices, such as the terms notice and the reminder that your data is stored only in this browser, now appear in one place under the page links, across the full width. Their wording is unchanged. An invitation to a shared project now runs the full width too.",
+          "The page background is white in light mode (it was a very light grey). Dark mode keeps its background. On wide screens, pages can now use up to 1,536 pixels of width instead of 1,216; on the Projects page that fits four project cards across.",
+          "The SPERT® Scheduler title is the same size at every window width, in the same orange gradient.",
+          "Projects: the four toolbar buttons are a little taller, and the search box sits just below the Projects heading. A project's page: its name and its actions (Connect AI, Calendar, Print, Undo and Redo) share one row, and a name too long for that row is cut short with \"…\", the full name showing when you point at it.",
+          "Settings now uses a narrower column, at most 896 pixels wide. About and the Changelog keep their width but now line up with the left edge of the page instead of sitting in the middle, and their \"Back to Projects\" link now sits just below the page's heading.",
+          "An address that does not exist in the app now shows \"Page not found\", with a link back to Projects, inside the app, instead of a technical error page.",
+          "Pressing Tab on any page now first offers \"Skip to main content\".",
+          "The footer is shorter and runs across the full width; its links and wording are unchanged.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "FRAME26 stage 4 (spert-suite-docs contract `4113e0c0`, frame-check `be35e25`). `src/styles/spert-frame.css` is the suite's stylesheet, vendored byte for byte (md5 `69146fd7…`, version \"2\"), imported once in `styles.css`, unlayered, and pinned by `src/integration/frame-stylesheet.test.ts`; never edit it here. The shell is `Layout.tsx` (the `.sf-app` root, the skip link, the notices slot, `main`) with four new components: `AppHeader.tsx` (the brand row), `AppNav.tsx` (the navigation row, sticky on a project's page only: exception X3), `AppFooter.tsx` and `HeadingRow.tsx` (every page's `h1` row). Every frame element carries the contract's `data-sf` hook. `active-nav.ts` gains `navSticks` and `bodyCapped` (X4: Settings, About, the changelog). A catch-all route renders the new `NotFoundPage.tsx` inside the frame.",
+          "HDR26 moved onto the frame: the two ramps are `--app-grad-light` and `--app-grad-dark` in `styles.css` (ends unchanged), drawn by the frame's `.sf-grad`; `TITLE_GRADIENT` is gone. On the frame's ground (`#ffffff` / `#101828`) the weakest points are 4.56 and 5.49, against a bar of 3, since the title is now 24 px bold at every width. `Layout.title-gradient.test.ts` was re-pinned to that ground and bar on purpose and falsified once.",
+          "The account chip is the frame's `.sf-chip`; the three `.auth-signin-accent` rules in `styles.css` (v0.66.2, v0.87.4) are gone, and \"Sign in\" reads 5.25 / 6.73 at rest and 5.02 / 5.56 on hover. The signed-in avatar is 22 px. The four banners are the frame's `.sf-notice` variants, in a `no-print` slot outside `main`. `APP_TAGLINE` is new; the unused `APP_DESCRIPTION` is removed.",
+          "Checked with frame-check against a local production build: 0 deviations on Projects, Projects on a first visit and a project's page, at 1,280, 1,440 and 1,920 pixels, light and dark, with increased contrast and at 125 % and 150 % zoom, falsification 25 of 25 (production at 0.87.4: 371, 357 and 287). Eleven further screens read 0 (Calendar three ways, Settings, About, the changelog, the 404, a missing project, every project archived, and Projects with its notices showing, with and without projects).",
+          "Tests: 347 files and 5,788 tests before, 355 and 5,870 after. Nine new files, one of which (`AuthButton.frame`) replaces `AuthButton.contrast`: `frame-stylesheet`, `AppNav.frame`, `Layout.frame`, `AuthButton.frame`, `ThemeToggleButton.frame`, `notices.frame`, `ProjectsPage.frame`, `ProjectPage.frame` and `NotFoundPage`; and two decision tables added to `active-nav.test.ts`. Each was falsified once. Five existing files changed shell markup only, and `Layout.title-gradient.test.ts` was re-pinned.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.87.4",
     date: "2026-11-23",
     sections: [

@@ -8,7 +8,9 @@
  * router, the real project page and the real Calendar page.
  *
  * ⚠️ That the title row's controls stay on one line is a LAYOUT fact, measured in Chrome for the release (a
- * 59-character name at 1,024 px). jsdom has no layout, so here only the class that does it (ruling 4).
+ * 59-character name at 1,024 px). jsdom has no layout, so here only the class that does it (ruling 4). Since v0.88.0
+ * (FRAME26 stage 4) that class is the frame's: each action is an `.sf-btn` (`white-space: nowrap`), and a long name
+ * is cut short with an ellipsis in the heading row's `h1` (`.sf-heading`), its full name in the `h1`'s title.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -132,10 +134,14 @@ describe("WI-174: a project's Calendar link (D7)", () => {
     expect(screen.getByRole("button", { name: /^Company Holidays,/ })).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("Connect AI, Calendar and Print each keep to one line, so a long name wraps instead (ruling 4)", () => {
-    renderProjectPage(project("A project name of fifty-nine characters, as measured in R40"));
-    expect(screen.getByRole("button", { name: "Connect an AI assistant" })).toHaveClass("whitespace-nowrap");
-    expect(calendarLink()).toHaveClass("whitespace-nowrap");
-    expect(screen.getByRole("button", { name: "Print project report" })).toHaveClass("whitespace-nowrap");
+  it("Connect AI, Calendar and Print each keep to one line, so a long name is cut short instead (ruling 4)", () => {
+    const name = "A project name of fifty-nine characters, as measured in R40";
+    renderProjectPage(project(name));
+    expect(screen.getByRole("button", { name: "Connect an AI assistant" })).toHaveClass("sf-btn");
+    expect(calendarLink()).toHaveClass("sf-btn");
+    expect(screen.getByRole("button", { name: "Print project report" })).toHaveClass("sf-btn");
+    const heading = screen.getAllByRole("heading", { level: 1 })[0]!;
+    expect(heading).toHaveClass("sf-heading");
+    expect(heading).toHaveAttribute("title", name);
   });
 });

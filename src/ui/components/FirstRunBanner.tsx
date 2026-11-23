@@ -20,15 +20,16 @@ export function FirstRunBanner() {
   };
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 flex items-center gap-4 no-print [overflow-anchor:none]">
-      <p className="text-sm text-blue-800 dark:text-blue-200 flex-1">
+    // The frame's info notice (`.sf-notice--info`, contract §3 "Notices slot", v0.88.0): its colours, padding, radius
+    // and the 28 px outlined "Got it" are the stylesheet's, and the links inherit the notice's text colour, underlined.
+    <div className="sf-notice sf-notice--info no-print [overflow-anchor:none]">
+      <p>
         SPERT® Suite web apps are free to use. No account is required to use
         them. By accessing or using this app, you agree to our{" "}
         <a
           href={TOS_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:text-blue-900 dark:hover:text-blue-100"
         >
           Terms of Service
         </a>{" "}
@@ -37,17 +38,13 @@ export function FirstRunBanner() {
           href={PRIVACY_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:text-blue-900 dark:hover:text-blue-100"
         >
           Privacy Policy
         </a>
         . If you choose to enable optional Cloud Storage, you&apos;ll be asked
         to explicitly confirm your agreement.
       </p>
-      <button
-        onClick={dismiss}
-        className="shrink-0 px-4 py-1.5 border border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 text-sm rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30"
-      >
+      <button type="button" onClick={dismiss} className="sf-notice-dismiss">
         Got it
       </button>
     </div>

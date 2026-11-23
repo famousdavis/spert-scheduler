@@ -58,13 +58,18 @@ export function ThemeToggleButton() {
 
   const label = `Theme: ${LABELS[theme]}. Click to cycle.`;
 
+  // The frame's 32 × 32 theme button (`.sf-theme`, contract §3, v0.88.0). Its icons are `currentColor` strokes, the
+  // frame's muted text colour (4.84 : 1 on white, 6.82 on #101828), at full opacity, and take the text colour on hover:
+  // they carry state (which theme is on), so they are held to the 3 : 1 non-text bar. The stylesheet draws them at
+  // 20 px. Its name is unchanged: frame-check cycles it by "Theme: <mode>".
   return (
     <button
       type="button"
       onClick={handleClick}
       aria-label={label}
       title={label}
-      className="px-2.5 py-1.5 rounded text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center"
+      className="sf-theme"
+      data-sf="theme"
     >
       {theme === "light" && <SunIcon />}
       {theme === "dark" && <MoonIcon />}

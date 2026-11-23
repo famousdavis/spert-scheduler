@@ -10,6 +10,11 @@
  * `vertical-align` does not apply to a flex item. H1 puts the words in ONE inline element. jsdom has no layout, so
  * the space and the raised ® themselves were measured in Chrome; here, the structure that gives them, and the
  * link's accessible name (ruling 11).
+ *
+ * v0.88.0 (FRAME26 stage 4) moved the title onto the frame: the words are ONE element, `.sf-title`, beside the two
+ * favicons in the brand link; the ® is the frame's muted `.sf-mark` (12 px, raised 9 px, line-height 0); the title is
+ * 24 px at every width; and the favicons are decorative (`alt=""`), so the link is named by its visible title alone
+ * (contract §3, "Brand link", WCAG 2.5.3).
  */
 
 import { describe, it, expect, afterEach, vi } from "vitest";
@@ -48,13 +53,19 @@ function renderHeader() {
       </Routes>
     </MemoryRouter>,
   );
-  return screen.getByRole("link", { name: /^SPERT® Scheduler icon/ });
+  return screen.getByRole("link", { name: "SPERT® Scheduler" });
 }
 
 describe("WI-175: the header's SPERT® Scheduler", () => {
-  it("the link's accessible name: the logo's alt, then the words with their space (ruling 11)", () => {
-    // Measured in jsdom; Chrome 154 reads "SPERT® Scheduler icon SPERT® Scheduler" for the same markup.
-    expect(renderHeader()).toHaveAccessibleName("SPERT® Scheduler iconSPERT® Scheduler");
+  it("the link's accessible name: the words with their space, and nothing else (ruling 11; contract §3)", () => {
+    // Both favicons are alt="", so the name is the visible title alone; the space survives because it is a text node
+    // of the title, outside the gradient spans.
+    const link = renderHeader();
+    expect(link).toHaveAccessibleName("SPERT® Scheduler");
+    expect(link).not.toHaveAttribute("aria-label");
+    const icons = [...link.querySelectorAll("img")];
+    expect(icons).toHaveLength(2);
+    for (const icon of icons) expect(icon).toHaveAttribute("alt", "");
   });
 
   it("the words are ONE inline element in the link, so no text run is a flex item of its own (H1)", () => {
@@ -64,21 +75,29 @@ describe("WI-175: the header's SPERT® Scheduler", () => {
     const words = [...link.children].filter((el) => el.tagName !== "IMG");
     expect(words).toHaveLength(1);
     expect(words[0]).toHaveTextContent(/^SPERT® Scheduler$/);
+    expect(words[0]).toHaveClass("sf-title");
   });
 
-  it("the ® is raised, small and faint in both themes (H1, H3's twin in the header)", () => {
+  it("the ® is the frame's mark: raised, small and muted in both themes (H1, H3's twin in the header)", () => {
     const reg = [...renderHeader().querySelectorAll("span")].find((s) => s.textContent === "®")!;
-    expect(reg).toHaveClass("align-super", "text-xs", "text-gray-300", "dark:text-gray-600");
+    expect(reg.getAttribute("class")).toBe("sf-mark");
   });
 
-  it("the title is 18 px below 1,024 px wide and 24 px from it, the About title's size (H2)", () => {
-    expect(renderHeader()).toHaveClass("text-lg", "lg:text-2xl");
+  it("the title is the frame's 24 px at every width: no size class of its own (H2)", () => {
+    const link = renderHeader();
+    expect(link.getAttribute("class")).toBe("sf-brand");
+    const title = link.querySelector(".sf-title")!;
+    expect(title.getAttribute("class")).toBe("sf-title");
   });
 
-  it("the About page's two ® are faint in dark mode too, as the header's is (H3)", () => {
+  it("the About heading's ® is the frame's mark too; the body heading's stays faint (H3)", () => {
     renderHeader();
     const marks = [...document.querySelectorAll("main span")].filter((s) => s.textContent === "®");
     expect(marks).toHaveLength(2);
-    for (const mark of marks) expect(mark).toHaveClass("text-gray-300", "dark:text-gray-600");
+    const [inHeading, inBody] = marks;
+    expect(inHeading!.closest("h1")).not.toBeNull();
+    expect(inHeading!.getAttribute("class")).toBe("sf-mark");
+    expect(inBody!.closest("h2")).not.toBeNull();
+    expect(inBody).toHaveClass("text-gray-300", "dark:text-gray-600");
   });
 });

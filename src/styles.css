@@ -4,6 +4,21 @@
 
 @import "tailwindcss";
 
+/* The SPERT® Suite app frame (FRAME26), vendored byte for byte from spert-suite-docs/suite/frame/spert-frame.css.
+   Never edit the copy: src/integration/frame-stylesheet.test.ts pins its md5. Imported once, here, and unlayered on
+   purpose: its sf- rules beat any Tailwind utility on the same element (contract §9.2). */
+@import "./styles/spert-frame.css";
+
+/* Scheduler's HDR26 title ramps, which the frame's .sf-grad draws on each word of "SPERT® Scheduler": the favicon
+   orange #f75b2b, light end to dark end, interpolated in Oklab as Tailwind's bg-gradient-to-r was. Each ramp is measured
+   at every point against the frame's page ground, at 3 : 1 (the title is 24 px bold, large text): light on #ffffff,
+   weakest 4.56; dark on #101828, weakest 5.49. A change to either end, or to the ground, needs a new measurement
+   (src/ui/components/Layout.title-gradient.test.ts reads these two lines). */
+:root {
+  --app-grad-light: linear-gradient(to right in oklab, #cc4b24, #7c2000);
+  --app-grad-dark: linear-gradient(to right in oklab, #ffc1af, #f26035);
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -48,33 +63,6 @@ input[type="number"] {
   animation: slide-in 0.2s ease-out;
 }
 
-/* Auth chip "Sign in" accent.
-   ⚠️ This lives here rather than as a `dark:` class because the colour was an INLINE
-   STYLE, and an inline style beats every Tailwind variant — a `dark:text-*` on that span
-   emitted CSS that never applied. See the Tailwind 4 JIT guardrail in CLAUDE.md.
-   Light keeps #0070f3 exactly: it measures 4.55 against the white header, a pass with
-   only 0.05 of headroom, and the same hex is a BACKGROUND under white text on the two
-   avatars (AuthButton, StorageLoginModal) where it also measures 4.55 — so moving the
-   light value would trade one pass for another's failure.
-   Dark was 3.22 against the gray-800 header, under the 4.5 bar; blue-400 clears it. */
-.auth-signin-accent {
-  color: #0070f3;
-}
-
-.dark .auth-signin-accent {
-  color: #60a5fa;
-}
-
-/* On hover the chip turns gray-50 (#f9fafb), and #0070f3 there measured 4.36, under the bar
-   (FRAME26 SCH-2, v0.87.4). Light hover alone steps to blue-600 #155dfc, 5.02 on gray-50;
-   the rest colour stays #0070f3 for the avatar's sake (above). Scoped to `html:not(.dark)`
-   because a bare `button:hover` rule (0,2,1) would outrank `.dark .auth-signin-accent`
-   (0,2,0) and paint the dark chip dark blue; dark hover is gray-800, the header's own
-   colour, where #60a5fa keeps its 5.77. */
-html:not(.dark) button:hover .auth-signin-accent {
-  color: #155dfc;
-}
-
 /* Print styles */
 @media print {
   /* Hide non-printable UI elements */
@@ -107,8 +95,8 @@ html:not(.dark) button:hover .auth-signin-accent {
 
   /* Neutralize flex/grid/min-height on all ancestors of .print-report
      so content flows naturally across printed pages.
-     Chain: body > #root > div.flex.flex-col > main.flex-1 > div.space-y-6 > .print-report
-     Their backgrounds too. The app shell paints bg-gray-50 / dark:bg-gray-900 under the
+     Chain: body > #root > div.sf-app > main.sf-main > div.space-y-6 > .print-report
+     Their backgrounds too. The app frame paints its page ground (.sf-app) under the
      report, and `print-color-adjust: exact` below prints it even with the browser's
      Background graphics turned off. In dark mode that printed as a navy block on page 1
      wherever the report does not cover the shell, and as a thin line down the right edge
@@ -116,10 +104,11 @@ html:not(.dark) button:hover .auth-signin-accent {
      white, so that nothing is painted under the report at all.
      `:not(.no-print)`: the #root selectors carry an ID, so they outrank `.no-print` (one
      class) on every property both rules set, whatever their order. Without it, a no-print
-     child of <main> (the first-run notice, the local-storage warning, the invitation card)
-     got back its display, height, margin and padding and kept only `visibility: hidden`:
-     invisible, but as tall as its content, a blank gap at the top of page 1. `no-print`
-     is what keeps a child of <main> out of print; nothing else does. */
+     child of <main> got back its display, height, margin and padding and kept only
+     `visibility: hidden`: invisible, but as tall as its content, a blank gap at the top of
+     page 1. `no-print` is what keeps a child of <main> out of print; nothing else does.
+     (The app-wide notices sat in <main> until v0.88.0; they are now in the frame's notices
+     slot, which is itself `no-print`.) */
   body,
   #root,
   #root > *,

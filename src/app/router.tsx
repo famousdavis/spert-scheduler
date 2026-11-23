@@ -14,6 +14,7 @@ import { CalendarPage } from "@ui/pages/CalendarPage";
 import { SettingsPage } from "@ui/pages/SettingsPage";
 import { AboutPage } from "@ui/pages/AboutPage";
 import { ChangelogPage } from "@ui/pages/ChangelogPage";
+import { NotFoundPage } from "@ui/pages/NotFoundPage";
 import { useConfirmStore } from "@ui/hooks/use-confirm-store";
 
 // CI-4 (v0.79.x audit): a render error in one project (e.g. a cloud-supplied
@@ -61,6 +62,9 @@ export const router = createBrowserRouter([
       { path: "settings", element: <SettingsPage /> },
       { path: "about", element: <AboutPage /> },
       { path: "changelog", element: <ChangelogPage /> },
+      // Any other address: the frame stays, and the page says so (FRAME26, v0.88.0). React Router's own error page,
+      // with no frame, showed here until then.
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

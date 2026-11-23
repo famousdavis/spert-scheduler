@@ -14,6 +14,7 @@ import { CalendarRow } from "@ui/components/CalendarRow";
 import { isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
 import { WorkDayOverrideEditor } from "@ui/components/WorkDayOverrideEditor";
 import { WEEKDAY_LABELS, type Project } from "@domain/models/types";
+import { HeadingRow } from "@ui/components/HeadingRow";
 import {
   companyCalendarSummary,
   notInEffectCount,
@@ -134,11 +135,11 @@ export function CalendarPage() {
   const companyByDefault = unarchived.length === 0 && !cloudLoadPending;
 
   return (
-    <div className="space-y-8">
-      {/* The page titles itself by its nav label, as Projects, Settings and About do;
-          "Company Holidays" is the first of its two sections. */}
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Calendar</h1>
-
+    <>
+    {/* The page titles itself by its nav label, as Projects, Settings and About do;
+        "Company Holidays" is the first of its two sections. The frame's heading row (FRAME26, v0.88.0). */}
+    <HeadingRow>Calendar</HeadingRow>
+    <div className="sf-below space-y-8">
       {/* Section 1: Company-wide holidays */}
       <section>
         <CalendarRow
@@ -204,5 +205,6 @@ export function CalendarPage() {
         </section>
       )}
     </div>
+    </>
   );
 }

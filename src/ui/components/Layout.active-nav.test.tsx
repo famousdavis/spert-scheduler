@@ -3,7 +3,9 @@
 // See LICENSE file in the project root for full license text.
 
 /**
- * v0.87.4, FRAME26 stage 0, SCH-1: the header marks the current page.
+ * v0.87.4, FRAME26 stage 0, SCH-1: the header marks the current page. Since v0.88.0 (FRAME26 stage 4) the mark is the
+ * frame's: the navigation row's `.sf-tab` items carry no utility class, and the stylesheet underlines the one with
+ * `aria-current="page"` (contract §3, "Active item"). The pill is gone.
  *
  * Until v0.87.4 a nav item was active when `pathname.startsWith(item.path)`. A project lives at `/project/:id`
  * (singular), so inside a project no item was active, measured on the live app at v0.87.3. Nor did any item carry
@@ -39,7 +41,8 @@ import { Layout } from "./Layout";
 
 afterEach(cleanup);
 
-const PILL = ["bg-blue-100", "dark:bg-blue-900/50", "text-blue-700", "dark:text-blue-300"];
+/** A nav item's whole class list: the frame's `.sf-tab` and nothing else, so no utility can paint a pill or a hover ground. */
+const TAB_CLASS = "sf-tab";
 
 function navAt(path: string) {
   render(
@@ -56,7 +59,7 @@ function navAt(path: string) {
   return {
     links,
     current: links.filter((a) => a.hasAttribute("aria-current")),
-    pilled: links.filter((a) => PILL.every((cls) => a.classList.contains(cls))),
+    items: links.filter((a) => !a.textContent?.startsWith("Help Center")),
   };
 }
 
@@ -71,19 +74,19 @@ describe("the header's current page", () => {
     ["/calendar", "Calendar"],
     ["/settings", "Settings"],
     ["/about", "About"],
-  ])("at %s exactly one item, %s, is the current page and wears the pill", (path, label) => {
-    const { current, pilled } = navAt(path);
+  ])("at %s exactly one item, %s, is the current page, and every item is a bare .sf-tab", (path, label) => {
+    const { current, items } = navAt(path);
     expect(current.map((a) => a.textContent)).toEqual([label]);
     expect(current[0]).toHaveAttribute("aria-current", "page");
-    expect(pilled).toEqual(current);
+    for (const a of items) expect(a.getAttribute("class")).toBe(TAB_CLASS);
   });
 
-  it("at /changelog no item is the current page and none wears the pill", () => {
-    const { links, current, pilled } = navAt("/changelog");
+  it("at /changelog no item is the current page, and every item is a bare .sf-tab", () => {
+    const { links, current, items } = navAt("/changelog");
     // Control: the nav is there to be read, all five links.
     expect(links).toHaveLength(5);
     expect(current).toEqual([]);
-    expect(pilled).toEqual([]);
+    for (const a of items) expect(a.getAttribute("class")).toBe(TAB_CLASS);
   });
 
   it.each(["/projects", "/project/abc", "/about", "/changelog"])(
@@ -93,7 +96,7 @@ describe("the header's current page", () => {
       const help = links.find((a) => a.textContent?.startsWith("Help Center"))!;
       expect(help).toBeDefined();
       expect(help).not.toHaveAttribute("aria-current");
-      for (const cls of PILL) expect(help).not.toHaveClass(cls);
+      expect(help).not.toHaveClass(TAB_CLASS);
     },
   );
 });

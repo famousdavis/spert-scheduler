@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from "vitest";
-import { activeNavPath } from "./active-nav";
+import { activeNavPath, bodyCapped, navSticks } from "./active-nav";
 
 /**
  * SCH-1 (v0.87.4): the header's current nav item, as a decision table. Expected values are literals, never computed
@@ -43,5 +43,44 @@ describe("activeNavPath", () => {
     ["/__proto__"],
   ])("%s → null", (pathname) => {
     expect(activeNavPath(pathname)).toBeNull();
+  });
+});
+
+/**
+ * FRAME26 stage 4 (v0.88.0): the two frame rules read from the same first segment. The navigation row sticks on a
+ * project's page only (contract §8, X3), and Settings, About and the changelog cap their body (X4). Literals again.
+ */
+describe("navSticks (X3)", () => {
+  it.each([
+    ["/project/9526e0c9-9ce0-40ca-b5f4-9803ad966a09", true],
+    ["/project/does-not-exist", true],
+    ["/PROJECT/abc", true],
+    ["/projects", false],
+    ["/projects/", false],
+    ["/calendar", false],
+    ["/settings", false],
+    ["/about", false],
+    ["/changelog", false],
+    ["/", false],
+    ["/no-such-page", false],
+  ])("%s → %s", (path, sticks) => {
+    expect(navSticks(path)).toBe(sticks);
+  });
+});
+
+describe("bodyCapped (X4)", () => {
+  it.each([
+    ["/settings", true],
+    ["/about", true],
+    ["/changelog", true],
+    ["/Settings", true],
+    ["/ABOUT/", true],
+    ["/projects", false],
+    ["/project/abc", false],
+    ["/calendar", false],
+    ["/", false],
+    ["/no-such-page", false],
+  ])("%s → %s", (path, capped) => {
+    expect(bodyCapped(path)).toBe(capped);
   });
 });
