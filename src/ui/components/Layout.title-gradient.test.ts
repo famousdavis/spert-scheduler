@@ -2,31 +2,41 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, it, expect } from "vitest";
 
 /**
  * The header's SPERT® Scheduler is drawn as a gradient in Scheduler's favicon orange (HDR26, v0.87.2), and every point
- * of it stays readable on the header behind it, in both themes.
+ * of it stays readable on the ground behind it, in both themes.
  *
- * ⚠️ jsdom has no paint, so nothing here is measured from a render: the end colours are read from `Layout.tsx`'s
- * source, the header's background from its classes, resolved through the installed Tailwind's own `theme.css`, and
- * the contrast is computed here from the WCAG 2.x definition. The rendered page was measured in Chrome when this was
- * written. The colour maths is the HDR26 plan's Appendix A, typed; it is copied, not shared.
+ * RE-PINNED at v0.88.0 (FRAME26 stage 4), on purpose. The title moved onto the SPERT® Suite frame: its ground is the
+ * frame's page ground (`--sf-page`, `#ffffff` / `#101828`, read from the vendored `spert-frame.css`), no longer the old
+ * header's `bg-white` / `dark:bg-gray-800` (`#1e2939`); the ramps moved from a Tailwind class string (`TITLE_GRADIENT`)
+ * into two custom properties in `src/styles.css`, `--app-grad-light` and `--app-grad-dark`, which the frame's `.sf-grad`
+ * draws, ends unchanged; the title is the frame's `.sf-title`, 24 px bold at every width, which is large text, so the
+ * bar is 3 : 1 (it was 4.5, because the title was 18 px below 1,024 px); and the fallbacks are the frame's (solid
+ * `--sf-heading` under `prefers-contrast: more`, solid black in print).
  *
- * The bar is 4.5 : 1, at every point of each ramp. The title is 18 px bold below 1,024 px wide (`text-lg`), which is
- * not large text (that needs 18.66 px bold), and the owner chose one gradient for every width over one that changes
- * at 1,024 px. Both ramps clear the bar by a few hundredths, on purpose: the pinned backgrounds below are what catches
- * a change that would sink them.
+ * ⚠️ jsdom has no paint, so nothing here is measured from a render: the ends and the ground are read from the source
+ * and the vendored stylesheet, and the contrast is computed here from the WCAG 2.x definition. The rendered page is
+ * measured by frame-check (`contrast.title`, at 41 sRGB points). The colour maths is the HDR26 plan's Appendix A,
+ * typed; it is copied, not shared.
  */
-const LAYOUT = join(process.cwd(), "src", "ui", "components", "Layout.tsx");
-const THEME_CSS = join(process.cwd(), "node_modules", "tailwindcss", "theme.css");
+const SRC = join(process.cwd(), "src");
+const STYLES = join(SRC, "styles.css");
+const FRAME = join(SRC, "styles", "spert-frame.css");
+const HEADER = join(SRC, "ui", "components", "AppHeader.tsx");
 
-const BAR = 4.5;
-/** The header's background in each theme, measured in Chrome (`getComputedStyle`, read through a canvas). */
-const PREMISE = { light: "#ffffff", dark: "#1e2939" } as const;
+/** The title is 24 px bold (`.sf-title`), large text: WCAG's bar for it is 3 : 1. */
+const BAR = 3;
+/** The frame's page ground in each theme (`--sf-page`), which the vendored stylesheet must still declare. */
+const PREMISE = { light: "#ffffff", dark: "#101828" } as const;
+/** HDR26's ends (v0.87.2), unchanged by the move onto the frame. */
+const ENDS = { light: ["#cc4b24", "#7c2000"], dark: ["#ffc1af", "#f26035"] } as const;
+/** The weakest point of each ramp on its ground, measured when this was re-pinned (Oklab and sRGB agree). */
+const WEAKEST = { light: "4.56", dark: "5.49" } as const;
 /** "SPERT" and "Scheduler": one gradient per word, with the ® between them. */
 const GRADIENT_SPANS = 2;
 
@@ -128,108 +138,50 @@ function weakest(e1: string, e2: string, ground: string, space: "oklab" | "srgb"
   return min;
 }
 
-// ---- Reading the source ---------------------------------------------------------------------------------------
+// ---- Reading the source --------------------------------------------------------------------------------------
 
-const source = () => readFileSync(LAYOUT, "utf8");
+const read = (path: string) => readFileSync(path, "utf8");
 
-/** Every `const NAME = "…"` in the file, so a `className={NAME}` can be resolved to the classes it carries. */
-function stringConstants(text: string): Map<string, string> {
-  const found = new Map<string, string>();
-  for (const m of text.matchAll(/\bconst\s+([A-Za-z_]\w*)\s*=\s*"([^"]*)"/g)) found.set(m[1]!, m[2]!);
-  return found;
+/** The one declaration of `--app-grad-<theme>` in styles.css: its interpolation and its two stops. Exactly one. */
+function ramp(theme: "light" | "dark"): { interpolation: string; stops: string[] } {
+  const hits = [...read(STYLES).matchAll(new RegExp(`--app-grad-${theme}:\\s*linear-gradient\\(([^;]*)\\);`, "g"))];
+  if (hits.length !== 1) throw new Error(`styles.css: --app-grad-${theme} declared ${hits.length} times, expected 1`);
+  const parts = hits[0]![1]!.split(",").map((p) => p.trim());
+  return { interpolation: parts[0]!, stops: parts.slice(1).map((c) => c.toLowerCase()) };
 }
 
-/** The title: the header's `<Link to="/projects" …>` up to its closing tag. */
-function titleLink(text: string): string {
-  const start = text.indexOf('<Link to="/projects"');
-  const end = text.indexOf("</Link>", start);
-  if (start === -1 || end === -1) throw new Error("Layout.tsx: no title link");
-  return text.slice(start, end);
+/** A custom property's value inside the vendored stylesheet's block that opens with `selector {`. */
+function frameToken(selector: string, name: string): string {
+  const css = read(FRAME);
+  const start = css.indexOf(`${selector} {`);
+  if (start === -1) throw new Error(`spert-frame.css: no block "${selector} {"`);
+  const block = css.slice(start, css.indexOf("}", start));
+  const m = new RegExp(`${name}:\\s*(#[0-9a-f]{6});`, "i").exec(block);
+  if (!m) throw new Error(`spert-frame.css: no ${name} in "${selector}"`);
+  return m[1]!.toLowerCase();
+}
+const LIGHT_ROOT = ":root";
+const DARK_ROOT = ':root.dark, :root[data-theme="dark"]';
+
+/** Every `<span className="…">text</span>` in the brand row's source whose classes include `cls`. */
+function spansWith(cls: string): { classes: string[]; text: string }[] {
+  return [...read(HEADER).matchAll(/<span\s+className="([^"]*)"[^>]*>([^<]*)<\/span>/g)]
+    .map((m) => ({ classes: m[1]!.split(/\s+/), text: m[2]! }))
+    .filter((s) => s.classes.includes(cls));
 }
 
-interface GradientSpan {
-  classes: string[];
-  text: string;
+/** Every source file under src/, tests excluded. */
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) return sourceFiles(path);
+    return /\.(?:tsx?|css)$/.test(name) && !name.includes(".test.") ? [path] : [];
+  });
 }
-
-/**
- * Every span in the title whose classes clip a background to its text: a literal `className="…"`, or a
- * `className={NAME}` resolved through the file's string constants. A class name that cannot be resolved fails loudly.
- */
-function gradientSpans(text: string): GradientSpan[] {
-  const constants = stringConstants(text);
-  const spans: GradientSpan[] = [];
-  for (const m of titleLink(text).matchAll(/<span\s+className=(?:"([^"]*)"|\{(\w+)\})>([^<]*)<\/span>/g)) {
-    const raw = m[1] ?? constants.get(m[2]!);
-    if (raw === undefined) throw new Error(`Layout.tsx: className={${m[2]}} is not a string constant`);
-    const classes = raw.split(/\s+/).filter(Boolean);
-    if (classes.includes("bg-clip-text")) spans.push({ classes, text: m[3]! });
-  }
-  return spans;
-}
-
-/** The one class with this exact variant and utility, e.g. `dark:` + `from-` → `#ffc1af`. Exactly one, or it fails. */
-function endColor(classes: string[], variant: "" | "dark:", utility: "from" | "to"): string {
-  const pattern = new RegExp(`^${variant}${utility}-\\[(#[0-9a-f]{6})\\]$`, "i");
-  const hits = classes.map((c) => pattern.exec(c)?.[1]).filter((h): h is string => h !== undefined);
-  if (hits.length !== 1) throw new Error(`${variant}${utility}-[#…]: found ${hits.length}, expected exactly 1`);
-  return hits[0]!.toLowerCase();
-}
-
-interface Ends {
-  light: [string, string];
-  dark: [string, string];
-}
-
-const endsOf = (classes: string[]): Ends => ({
-  light: [endColor(classes, "", "from"), endColor(classes, "", "to")],
-  dark: [endColor(classes, "dark:", "from"), endColor(classes, "dark:", "to")],
-});
-
-/**
- * A class list's one colour class for a variant: `bg-white` → `white` for `bg-`, `dark:bg-gray-800` → `gray-800`.
- * Only colour shapes count, so the link's `text-lg` is not read as a colour.
- */
-function colorToken(classes: string[], head: string): string {
-  const shape = new RegExp(`^${head}(?:white|black|[a-z]+-\\d{2,3})$`);
-  const hits = classes.filter((c) => shape.test(c)).map((c) => c.slice(head.length));
-  if (hits.length !== 1) throw new Error(`${head}…: found ${hits.length}, expected exactly 1`);
-  return hits[0]!;
-}
-
-/** A Tailwind colour token's value in the installed theme.css (`white` → `#fff`), as #rrggbb. */
-function themeColor(token: string): string {
-  const css = readFileSync(THEME_CSS, "utf8");
-  const m = new RegExp(`--color-${token}:\\s*([^;]+);`).exec(css);
-  if (!m) throw new Error(`theme.css: no --color-${token}`);
-  return parseCssColor(m[1]!);
-}
-
-function headerClasses(text: string): string[] {
-  const m = /<header\s+className="([^"]*)"/.exec(text);
-  if (!m) throw new Error("Layout.tsx: no <header> with a static className");
-  return m[1]!.split(/\s+/);
-}
-
-function linkClasses(text: string): string[] {
-  const m = /^<Link to="\/projects"\s+className="([^"]*)"/.exec(titleLink(text));
-  if (!m) throw new Error("Layout.tsx: the title link has no static className");
-  return m[1]!.split(/\s+/);
-}
-
-/** What the gradient string may carry (R5): the gradient, its `dark:` ends, and the two fallbacks. Nothing else. */
-const ALLOWED = [
-  /^bg-gradient-to-r$/,
-  /^(?:dark:)?(?:from|to)-\[#[0-9a-f]{6}\]$/i,
-  /^bg-clip-text$/,
-  /^text-transparent$/,
-  /^(?:print|contrast-more):bg-none$/,
-  /^(?:print|contrast-more|dark:contrast-more):text-[a-z]+-\d{2,3}$/,
-];
 
 // ---- The guard --------------------------------------------------------------------------------------------------
 
-describe("the header's SPERT® Scheduler: a gradient in Scheduler's orange, readable in both themes (HDR26)", () => {
+describe("the header's SPERT® Scheduler: a gradient in Scheduler's orange, readable in both themes (HDR26, on the frame)", () => {
   describe("instrument self-checks", () => {
     it("the contrast formula: #767676 on white is 4.54 : 1", () => {
       expect(trunc(contrast("#767676", "#ffffff"))).toBe("4.54");
@@ -262,73 +214,77 @@ describe("the header's SPERT® Scheduler: a gradient in Scheduler's orange, read
 
   it("the title has exactly two gradient spans, SPERT and Scheduler, with no space inside either", () => {
     // Must-find, and the census: a reader that found nothing would pass every row below. The space before
-    // "Scheduler" is text of the wrapper (HDR26 ruling F1): inside the span, jsdom's accessible name loses it.
-    const spans = gradientSpans(source());
+    // "Scheduler" is text of the title (HDR26 ruling F1): inside the span, jsdom's accessible name loses it.
+    const spans = spansWith("sf-grad");
     expect(spans.map((s) => s.text)).toEqual(["SPERT", "Scheduler"]);
     expect(spans).toHaveLength(GRADIENT_SPANS);
+    for (const span of spans) expect(span.classes).toEqual(["sf-grad"]);
   });
 
-  it("both gradient spans carry the same four end colours", () => {
-    const [first, ...rest] = gradientSpans(source()).map((s) => endsOf(s.classes));
-    expect(first).toBeDefined();
-    for (const other of rest) expect(other).toEqual(first);
-  });
-
-  it("the gradient string carries only the gradient and its fallbacks: no size, weight or other class (R5)", () => {
-    for (const span of gradientSpans(source())) {
-      const stray = span.classes.filter((c) => !ALLOWED.some((re) => re.test(c)));
-      expect(stray, `${span.text}: classes outside the gradient string's list`).toEqual([]);
-      expect(span.classes).toEqual(expect.arrayContaining(["bg-gradient-to-r", "bg-clip-text", "text-transparent"]));
-    }
-  });
-
-  it("the header's background resolves, through the installed Tailwind, to the pinned premise in each theme", () => {
-    const header = headerClasses(source());
-    expect(themeColor(colorToken(header, "bg-"))).toBe(PREMISE.light);
-    expect(themeColor(colorToken(header, "dark:bg-"))).toBe(PREMISE.dark);
-  });
-
-  it("nothing on the title link paints a ground of its own or fades it", () => {
-    // The header is the title's ground only while the link has no background, and a hover fade would sink a ramp
-    // that clears the bar by hundredths.
-    const stray = linkClasses(source()).filter((c) => /(?:^|:)(?:bg-|opacity-)/.test(c) || c.startsWith("hover:"));
+  it("nothing else in the app draws a title gradient: no `.sf-grad` outside the brand row, no `TITLE_GRADIENT`", () => {
+    // changelog-data.ts is excluded: its old entries name `TITLE_GRADIENT` in prose, as history, and must stay.
+    const CHANGELOG_DATA = join(SRC, "ui", "pages", "changelog-data.ts");
+    const stray = sourceFiles(SRC)
+      .filter((f) => f !== HEADER && f !== FRAME && f !== STYLES && f !== CHANGELOG_DATA)
+      .filter((f) => /\bsf-grad\b|TITLE_GRADIENT|bg-clip-text/.test(read(f)))
+      .map((f) => f.replace(SRC + "/", ""));
     expect(stray).toEqual([]);
   });
 
+  it("each theme's ramp is declared once in styles.css, interpolated in Oklab, with HDR26's two ends", () => {
+    for (const theme of ["light", "dark"] as const) {
+      const r = ramp(theme);
+      expect(r.interpolation, theme).toBe("to right in oklab");
+      expect(r.stops, theme).toEqual([...ENDS[theme]]);
+    }
+  });
+
+  it("the ground is the frame's page ground, read from the vendored stylesheet, in each theme", () => {
+    expect(frameToken(LIGHT_ROOT, "--sf-page")).toBe(PREMISE.light);
+    expect(frameToken(DARK_ROOT, "--sf-page")).toBe(PREMISE.dark);
+  });
+
+  it("the title is the frame's 24 px bold, large text, so the bar is 3 : 1", () => {
+    expect(read(FRAME)).toMatch(/\.sf-title \{[^}]*font: 700 24px\/32px var\(--sf-font\)/);
+    // And the brand row sets no size, weight, ground or fade of its own on the link or the title.
+    const header = read(HEADER);
+    expect(header).toMatch(/<Link to="\/projects" className="sf-brand" data-sf="brand">/);
+    expect(header).toMatch(/<span className="sf-title" data-sf="title">/);
+  });
+
   for (const theme of ["light", "dark"] as const) {
-    it(`${theme}: every point of the ramp meets ${BAR} : 1 on the header, in Oklab and in sRGB`, () => {
-      for (const span of gradientSpans(source())) {
-        const [from, to] = endsOf(span.classes)[theme];
-        for (const space of ["oklab", "srgb"] as const) {
-          const w = weakest(from, to, PREMISE[theme], space);
-          expect(w, `${span.text} ${theme} ${from} → ${to} on ${PREMISE[theme]} (${space}): ${trunc(w)}`)
-            .toBeGreaterThanOrEqual(BAR);
-        }
+    it(`${theme}: every point of the ramp meets ${BAR} : 1 on the page ground, in Oklab and in sRGB`, () => {
+      const [from, to] = ramp(theme).stops as [string, string];
+      for (const space of ["oklab", "srgb"] as const) {
+        const w = weakest(from, to, PREMISE[theme], space);
+        expect(w, `${theme} ${from} → ${to} on ${PREMISE[theme]} (${space}): ${trunc(w)}`).toBeGreaterThanOrEqual(BAR);
+        expect(trunc(w), `${theme} (${space}): the weakest point measured at the re-pin`).toBe(WEAKEST[theme]);
       }
     });
   }
 
-  it("falls back to the title's own solid colours in print and under prefers-contrast: more", () => {
-    // The fallbacks use the link's own near-black and near-white, so they cannot drift from the title's colours.
-    const link = linkClasses(source());
-    const nearBlack = colorToken(link, "text-");
-    const nearWhite = colorToken(link, "dark:text-");
-    for (const span of gradientSpans(source())) {
-      expect(span.classes, span.text).toEqual(
-        expect.arrayContaining([
-          "print:bg-none",
-          `print:text-${nearBlack}`,
-          "contrast-more:bg-none",
-          `contrast-more:text-${nearBlack}`,
-          `dark:contrast-more:text-${nearWhite}`,
-        ]),
-      );
-    }
+  it("falls back to solid in print and under prefers-contrast: more, by the frame's own rules", () => {
+    const css = read(FRAME);
+    const more = css.indexOf("@media (prefers-contrast: more)");
+    const print = css.indexOf("@media print");
+    expect(more).toBeGreaterThan(-1);
+    expect(print).toBeGreaterThan(more);
+    expect(css.slice(more, print)).toMatch(
+      /\.sf-grad \{ background-image: none !important; -webkit-text-fill-color: currentColor !important; color: var\(--sf-heading\) !important; \}/,
+    );
+    expect(css.slice(print)).toMatch(
+      /\.sf-grad \{ background-image: none !important; -webkit-text-fill-color: currentColor !important; color: #000 !important; \}/,
+    );
   });
 
-  it("the increased-contrast colours meet the bar on the header too", () => {
-    const link = linkClasses(source());
-    expect(contrast(themeColor(colorToken(link, "text-")), PREMISE.light)).toBeGreaterThanOrEqual(BAR);
-    expect(contrast(themeColor(colorToken(link, "dark:text-")), PREMISE.dark)).toBeGreaterThanOrEqual(BAR);
+  it("the increased-contrast colour, the frame's heading colour, meets the bar on the ground too", () => {
+    expect(contrast(frameToken(LIGHT_ROOT, "--sf-heading"), PREMISE.light)).toBeGreaterThanOrEqual(BAR);
+    expect(contrast(frameToken(DARK_ROOT, "--sf-heading"), PREMISE.dark)).toBeGreaterThanOrEqual(BAR);
+  });
+
+  it("the ® between the words is the frame's muted mark, at 4.5 : 1 on both grounds (it is 12 px text)", () => {
+    expect(spansWith("sf-mark").map((s) => [s.classes, s.text])).toEqual([[["sf-mark"], "®"]]);
+    expect(contrast(frameToken(LIGHT_ROOT, "--sf-text-muted"), PREMISE.light)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(frameToken(DARK_ROOT, "--sf-text-muted"), PREMISE.dark)).toBeGreaterThanOrEqual(4.5);
   });
 });

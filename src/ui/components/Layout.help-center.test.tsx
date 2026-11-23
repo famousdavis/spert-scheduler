@@ -7,17 +7,17 @@
 // repos" check stays red until you do. The PDF guide house rules say the same.
 
 /**
- * v0.87.1, Help Center Phase 2: the header's Help Center link.
+ * v0.87.1, Help Center Phase 2: the header's Help Center link. Since v0.88.0 (FRAME26 stage 4) it is the frame's
+ * `.sf-help`, the navigation row's LAST element: Settings · About · Help Center ↗ (contract §3, "Navigation zones").
  *
- * It sits immediately left of About, opens this app's page in the SPERT® Suite Help Center in a new tab, and is never
- * one of the nav's routes, so it never takes the active pill. jsdom applies no CSS, so the visually hidden words are
- * pinned by their `sr-only` class as well as by the accessible name. The URL is compared with a LITERAL, never with
- * the constant, so a wrong slug at the constant cannot stay green.
+ * It opens this app's page in the SPERT® Suite Help Center in a new tab, and is never one of the nav's routes, so it
+ * is never the current page. jsdom applies no CSS, so the visually hidden words are pinned by their `sr-only` class as
+ * well as by the accessible name. The URL is compared with a LITERAL, never with the constant, so a wrong slug at the
+ * constant cannot stay green.
  *
- * William's ruling (2026-11-16): the link is hidden below 1,024 px (`hidden lg:inline-flex`). v0.87.0 fitted the
- * header at 768 px with 3.3 px to spare, and the link adds 118 px, so below about 882 px the header wrapped and, at
- * 768, scrolled sideways. jsdom evaluates no media query, so the classes are pinned here; the widths were measured
- * in Chrome.
+ * William's ruling of 2026-11-16 hid the link below 1,024 px, because v0.87.0's one-row header had 3.3 px to spare at
+ * 768. The frame's two rows have the room, and the frame's app zone never moves, so it shows at every width (Orch-FRAME-2,
+ * D3, 2026-11-23). `.sf-help` sets `display` unlayered, so a `hidden` utility could not hide it anyway.
  */
 
 import { describe, it, expect, afterEach, vi } from "vitest";
@@ -47,7 +47,6 @@ afterEach(cleanup);
 
 const NAME = "Help Center (opens in a new tab)";
 const ROUTES = ["/projects", "/calendar", "/settings", "/about"] as const;
-const PILL = ["bg-blue-100", "dark:bg-blue-900/50", "text-blue-700", "dark:text-blue-300"];
 
 function renderAt(path: string) {
   render(
@@ -87,36 +86,28 @@ describe("the header's Help Center link", () => {
     expect(link.textContent).toBe("Help Center ↗ (opens in a new tab)");
   });
 
-  it("comes immediately before About, and the four nav items keep their order", () => {
+  it("comes immediately after About, last in the app zone, and the four nav items keep their order", () => {
     const { nav, link } = renderAt("/projects");
     const about = within(nav).getByRole("link", { name: "About" });
-    expect(link.nextElementSibling).toBe(about);
+    expect(about.nextElementSibling).toBe(link);
+    expect(link.nextElementSibling).toBeNull();
+    expect(link.parentElement).toHaveAttribute("data-sf", "nav-app");
     expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual([
       "Projects",
       "Calendar",
       "Settings",
-      "Help Center ↗ (opens in a new tab)",
       "About",
+      "Help Center ↗ (opens in a new tab)",
     ]);
   });
 
-  it("is hidden below 1,024 px and shown from it: `hidden lg:inline-flex`, never a bare `inline-flex`", () => {
-    const classes = renderAt("/projects").link.className.split(/\s+/);
-    expect(classes).toContain("hidden");
-    expect(classes).toContain("lg:inline-flex");
-    expect(classes).not.toContain("inline-flex");
+  it("is the frame's `.sf-help` alone, shown at every width: no `hidden`, no other class", () => {
+    expect(renderAt("/projects").link.getAttribute("class")).toBe("sf-help");
   });
 
-  it.each(ROUTES)("is never styled active, at %s", (path) => {
-    const { nav, link } = renderAt(path);
-    for (const cls of PILL) expect(link).not.toHaveClass(cls);
+  it.each(ROUTES)("is never the current page, nor a nav item, at %s", (path) => {
+    const { link } = renderAt(path);
     expect(link).not.toHaveAttribute("aria-current");
-    // It wears exactly the classes of a nav item that is not the current route, with only its leading `inline-flex`
-    // made `hidden lg:inline-flex`.
-    const inactive = within(nav)
-      .getAllByRole("link")
-      .find((a) => a !== link && !a.className.includes("bg-blue-100"))!;
-    expect(inactive.className.startsWith("inline-flex ")).toBe(true);
-    expect(link.className).toBe(inactive.className.replace(/^inline-flex /, "hidden lg:inline-flex "));
+    expect(link).not.toHaveClass("sf-tab");
   });
 });

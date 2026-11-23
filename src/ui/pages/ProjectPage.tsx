@@ -53,6 +53,7 @@ import { SimulationPanel } from "@ui/components/SimulationPanel";
 import { NewScenarioDialog } from "@ui/components/NewScenarioDialog";
 import { CloneScenarioDialog } from "@ui/components/CloneScenarioDialog";
 import { InlineEdit } from "@ui/components/InlineEdit";
+import { HeadingRow } from "@ui/components/HeadingRow";
 
 import { ValidationSummary } from "@ui/components/ValidationSummary";
 import { ActivityGridBar } from "@ui/components/ActivityGridBar";
@@ -148,16 +149,24 @@ function UnavailableLines() {
   );
 }
 
+/**
+ * The page while its project is not here: loading, failed, or no longer available. The frame's heading row stays
+ * (contract §7, "Loading": only the body shows the state), with a neutral "Project", because the project's name is not
+ * known; the lines below it are unchanged.
+ */
 function UnavailableProject({ onBack }: { onBack: () => void }) {
   return (
-    <div className="text-center py-12">
-      <UnavailableLines />
-      <button
-        onClick={onBack}
-        className="mt-4 text-blue-600 hover:underline text-sm"
-      >
-        Back to projects
-      </button>
+    <div className="space-y-6">
+      <HeadingRow>Project</HeadingRow>
+      <div className="text-center py-12">
+        <UnavailableLines />
+        <button
+          onClick={onBack}
+          className="mt-4 text-blue-600 hover:underline text-sm"
+        >
+          Back to projects
+        </button>
+      </div>
     </div>
   );
 }
@@ -866,29 +875,26 @@ export function ProjectPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with project name and actions.
+      {/* The frame's heading row (FRAME26, contract §7 "Inside a project", v0.88.0): the project's name is the page's
+          h1, and its five actions sit flush right in the toolbar's geometry (`sf-btn`: 36 px, 14 px / 500, 18 px
+          icons), each keeping its own colours. Connect AI stays here, in the project's toolbar. The row sits INSIDE
+          this page's root `space-y-6`, not in `main` directly: the print stylesheet reaches the report through
+          `#root > * > main > *` and hides every other `.space-y-6` child, this row included.
           `[overflow-anchor:none]` here and on everything else above the grid (v0.69.0): none of
           it may become the browser's scroll anchor, so that when the flag grows or shrinks above
           the grid, the browser keeps the GRID still on screen. A free layer under the hold, which
           is what actually protects a click; anchoring does not engage at scrollY 0. */}
-      <div className="flex items-center justify-between [overflow-anchor:none]">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          <InlineEdit
-            value={project.name}
-            onSave={(name) => renameProject(id!, name)}
-            name="projectName"
-            ariaLabel="Project name"
-            className="text-2xl font-bold text-gray-900 dark:text-gray-100"
-            inputClassName="text-2xl font-bold text-gray-900 dark:text-gray-100"
-          />
-        </h1>
-        <div className="flex items-center gap-1">
+      <HeadingRow
+        className="[overflow-anchor:none]"
+        title={project.name}
+        toolbar={
+          <>
           {isFirebaseAvailable && (
             <button
               onClick={handleConnectAiClick}
               title={sessionState.sessionActive ? "AI session active" : "Connect an AI assistant"}
               aria-label={sessionState.sessionActive ? "AI session active" : "Connect an AI assistant"}
-              className={`flex items-center gap-1.5 px-2 py-1 text-sm whitespace-nowrap rounded-md no-print transition-colors ${
+              className={`sf-btn px-2 rounded-md no-print transition-colors ${
                 sessionState.sessionActive
                   ? "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20"
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -905,11 +911,11 @@ export function ProjectPage() {
           {!project.archived && (
             <Link
               to={`/calendar?project=${encodeURIComponent(project.id)}`}
-              className="px-2 py-1 text-sm whitespace-nowrap text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
+              className="sf-btn px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
               title="This project's holidays and converted work days"
               aria-label="Calendar for this project"
             >
-              <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               Calendar
@@ -917,11 +923,11 @@ export function ProjectPage() {
           )}
           <button
             onClick={() => window.print()}
-            className="px-2 py-1 text-sm whitespace-nowrap text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
+            className="sf-btn px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"
             title="Print Report"
             aria-label="Print project report"
           >
-            <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
             Print
@@ -929,7 +935,7 @@ export function ProjectPage() {
           <button
             onClick={undo}
             disabled={!canUndo()}
-            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-gray-200 dark:disabled:text-gray-600"
+            className="sf-btn px-2 text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-gray-200 dark:disabled:text-gray-600"
             title="Undo (Ctrl+Z)"
           >
             Undo
@@ -937,13 +943,22 @@ export function ProjectPage() {
           <button
             onClick={redo}
             disabled={!canRedo()}
-            className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-gray-200 dark:disabled:text-gray-600"
+            className="sf-btn px-2 text-gray-500 hover:text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-gray-200 dark:disabled:text-gray-600"
             title="Redo (Ctrl+Shift+Z)"
           >
             Redo
           </button>
-        </div>
-      </div>
+          </>
+        }
+      >
+        <InlineEdit
+          value={project.name}
+          onSave={(name) => renameProject(id!, name)}
+          name="projectName"
+          ariaLabel="Project name"
+          inputClassName="text-2xl font-bold text-gray-900 dark:text-gray-100"
+        />
+      </HeadingRow>
 
       {/* Scenario tabs + compare toggle */}
       <div className="flex items-center justify-between min-w-0 [overflow-anchor:none]">

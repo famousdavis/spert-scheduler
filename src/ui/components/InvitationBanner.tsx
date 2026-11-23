@@ -42,23 +42,21 @@ export function InvitationBanner({
   const renderPreAuthBody = () => {
     if (!firebaseAvailable) {
       return (
-        <p className="text-sm text-blue-700 dark:text-blue-300">
+        <p>
           Cloud sign-in is unavailable in this build.
         </p>
       );
     }
     if (user !== null) {
       return (
-        <p className="text-sm text-blue-700 dark:text-blue-300">
+        <p>
           Signing you in…
         </p>
       );
     }
     return (
       <>
-        {/* v0.42.3: card itself is max-w-lg (512px), so the inner max-w-md wrapper
-            from Lesson 34 is now redundant — buttons fill the card naturally and
-            stay readable. */}
+        {/* The sign-in buttons keep their own look inside the frame's notice (v0.88.0). */}
         <SignInButtons
           fullLabel
           onGoogleClick={tosGate.handleGoogleClick}
@@ -75,14 +73,19 @@ export function InvitationBanner({
     );
   };
 
-  // v0.42.3 layout: centered card (max-w-lg = 512px) instead of full-width banner.
-  // Gives the call-to-action visual focus, attaches the dismiss × to the card
-  // semantically, and aligns horizontally with the rest of the centered page chrome.
+  // The frame's notice (FRAME26, contract §3 "Notices slot", v0.88.0): full column width, first in the slot. Info
+  // while it asks the user to sign in; success once the invitations are claimed. Its colours, padding and radius are the
+  // stylesheet's. From v0.42.3 to v0.87.4 it was a centred 512 px card; the frame gives every notice the column's width.
+  // `relative` stays: the dismiss × is positioned against the notice.
   return (
     <div
       role="status"
       aria-live="polite"
-      className="relative max-w-lg mx-auto mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5 no-print"
+      className={
+        state === "claimed"
+          ? "sf-notice sf-notice--success relative no-print"
+          : "sf-notice sf-notice--info relative no-print"
+      }
     >
       <button
         type="button"
@@ -99,11 +102,11 @@ export function InvitationBanner({
         {state === "pre_auth" && (
           <>
             <div className="space-y-1">
-              <p className="text-base font-semibold text-blue-900 dark:text-blue-100">
+              <p className="font-semibold">
                 You&apos;ve been invited to a SPERT® Scheduler project.
               </p>
               {firebaseAvailable && user === null && (
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+                <p>
                   Sign in to claim your invitation.
                 </p>
               )}
@@ -114,11 +117,11 @@ export function InvitationBanner({
 
         {state === "claimed" && (
           <>
-            <p className="text-base font-semibold text-blue-900 dark:text-blue-100">
+            <p className="font-semibold">
               You now have access to: {claimedNames.join(", ")}
             </p>
             {mode === "local" && (
-              <p className="text-sm text-blue-700 dark:text-blue-300">
+              <p>
                 Switch to Cloud Storage in Settings to view this project.
               </p>
             )}

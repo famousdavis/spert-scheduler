@@ -252,7 +252,8 @@ describe("ProjectPage — resolving the route's project", () => {
     expect(
       screen.getByText("This project is no longer available.")
     ).toBeInTheDocument();
-    expect(screen.queryAllByRole("heading", { level: 1 })).toHaveLength(0);
+    // Since v0.88.0 (FRAME26) the frame's heading row stays, with a neutral h1, and only the body says why.
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Project"]);
   });
 
   it("Back to projects navigates to the dashboard", () => {

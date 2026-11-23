@@ -7,6 +7,7 @@ import { APP_VERSION } from "@app/constants";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import type { DateFormatPreference } from "@domain/models/types";
 import { CHANGELOG } from "./changelog-data";
+import { HeadingRow } from "@ui/components/HeadingRow";
 
 /**
  * Release dates keep a spelled-out month — INFORMED DECLINE of "changelog dates honour
@@ -29,8 +30,14 @@ function formatChangelogDate(dateStr: string, dateFormat: DateFormatPreference):
 
 export function ChangelogPage() {
   const dateFormat = usePreferencesStore((s) => s.preferences.dateFormat);
+  // The frame's heading row, then the body, both direct children of `main` (FRAME26, v0.88.0): the changelog is capped
+  // at 896 px (exception X4) and aligned at the column's edge, so its entries keep their own 672 px measure. No nav item
+  // leads here (the footer's Version link does), so none is active.
   return (
-    <div className="mx-auto max-w-2xl">
+    <>
+    <HeadingRow>Changelog</HeadingRow>
+    <div className="sf-below">
+    <div className="max-w-2xl">
       <div className="mb-8">
         <Link
           to="/projects"
@@ -40,7 +47,6 @@ export function ChangelogPage() {
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Changelog</h1>
       <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
         Current version: {APP_VERSION}
       </p>
@@ -82,5 +88,7 @@ export function ChangelogPage() {
         ))}
       </div>
     </div>
+    </div>
+    </>
   );
 }

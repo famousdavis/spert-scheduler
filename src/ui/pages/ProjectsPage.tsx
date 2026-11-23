@@ -27,6 +27,7 @@ import { ProjectTile } from "@ui/components/ProjectTile";
 import { ShareProjectModal } from "@ui/components/ShareProjectModal";
 import { ImportFileInput, ImportPanel } from "@ui/components/ImportSection";
 import { ToolbarIcon } from "@ui/components/ToolbarIcon";
+import { HeadingRow } from "@ui/components/HeadingRow";
 import { TOOLBAR_ICON_PATHS } from "@ui/components/toolbar-icon-paths";
 import { useImportState } from "@ui/hooks/use-import-state";
 import { downloadFile } from "@ui/helpers/download";
@@ -438,19 +439,21 @@ export function ProjectsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <>
       {/* The SPERT® Suite dashboard toolbar: Export All · Import · Load Sample · New Project, every button
           always rendered, so none appears, goes or moves with the project count or a load. On a narrow
           screen the row wraps and the buttons keep their order. Not role="toolbar": that role promises
-          arrow-key navigation, which this row does not have. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
-        <div className="flex flex-wrap items-center gap-2">
+          arrow-key navigation, which this row does not have. Since v0.88.0 it is the frame's heading row
+          (FRAME26): the h1 at the column's edge, the buttons 36 px (`sf-btn`) flush right, each keeping its
+          own colours, border, corners, hover and disabled look. */}
+      <HeadingRow
+        toolbar={
+          <>
           <button
             onClick={handleExportAll}
             disabled={activeProjects.length === 0}
             aria-label="Export all active projects as JSON"
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="sf-btn px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
             Export All
@@ -461,7 +464,7 @@ export function ProjectsPage() {
             disabled={importWaits}
             {...describedByWhile(importWaits, importNoteId)}
             aria-label="Import projects from JSON"
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="sf-btn px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
             Import
@@ -471,7 +474,7 @@ export function ProjectsPage() {
             onClick={handleLoadSample}
             disabled={createBlocked}
             {...describedByWhile(createBlocked, createNoteId)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="sf-btn px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} />
             Load Sample
@@ -481,13 +484,16 @@ export function ProjectsPage() {
             onClick={() => setDialogOpen(true)}
             disabled={createBlocked}
             {...describedByWhile(createBlocked, createNoteId)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="sf-btn px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
             New Project
           </button>
-        </div>
-      </div>
+          </>
+        }
+      >
+        Projects
+      </HeadingRow>
 
       {createBlocked && (
         // tabIndex -1: not a Tab stop, but focus can be sent here — after a Delete leaves New Project
@@ -497,7 +503,7 @@ export function ProjectsPage() {
           id={createNoteId}
           role="note"
           tabIndex={-1}
-          className="text-sm text-right text-amber-700 dark:text-amber-300"
+          className="sf-below text-sm text-right text-amber-700 dark:text-amber-300"
         >
           {CLOUD_CREATE_CONTROLS_NOTE}
         </p>
@@ -511,7 +517,7 @@ export function ProjectsPage() {
           id={importNoteId}
           role="note"
           tabIndex={-1}
-          className="text-sm text-right text-amber-700 dark:text-amber-300"
+          className="sf-below text-sm text-right text-amber-700 dark:text-amber-300"
         >
           {CLOUD_PROJECT_IMPORT_WAIT_NOTE}
         </p>
@@ -521,17 +527,21 @@ export function ProjectsPage() {
         // WI-113: a load of this session failed (owner ruling, 2026-10-16) — said once no cloud load is pending, so
         // that it never stands beside the loading line. With it, an empty list says nothing more — not "No projects
         // yet." (below).
-        <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">
+        <p role="alert" className="sf-below text-sm text-amber-700 dark:text-amber-300">
           {CLOUD_LOAD_FAILED_LINE}
         </p>
       )}
 
       {importFlow.importState.step !== "idle" && (
-        <ImportPanel flow={{ ...importFlow, cancelImport: closeImport }} pickedFromToolbar />
+        <div className="sf-below">
+          <ImportPanel flow={{ ...importFlow, cancelImport: closeImport }} pickedFromToolbar />
+        </div>
       )}
 
       {projects.length > 0 && (
-        <div className="flex items-center gap-4">
+        // The collection's one filter row (contract §3, "Filter row"): 16 px below the heading row, at the column's edge,
+        // with the tile grid 16 px below it. frame-check measures the grid from here.
+        <div className="sf-below flex items-center gap-4" data-sf="filters">
           <input
             type="text"
             name="searchProjects"
@@ -558,7 +568,7 @@ export function ProjectsPage() {
       )}
 
       {loadError && unloadedProjectErrors.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
+        <div className="sf-below bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-amber-200 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/30">
             <h2 className="font-semibold text-amber-800 dark:text-amber-200">
               {unloadedProjectErrors.length === 1
@@ -633,7 +643,7 @@ export function ProjectsPage() {
       {(() => {
         if (projects.length === 0 && cloudLoadPending) {
           return (
-            <div role="status" className="flex items-center justify-center gap-3 py-12">
+            <div role="status" className="sf-below flex items-center justify-center gap-3 py-12">
               <span
                 aria-hidden="true"
                 className="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
@@ -647,7 +657,8 @@ export function ProjectsPage() {
         if (projects.length === 0 && cloudLoadFailed) return null;
         if (projects.length === 0) {
           return (
-            <div className="text-center py-12">
+            // The empty collection's panel, in the tile grid's place (contract §7): a first visit, or every project deleted.
+            <div className="sf-below text-center py-12" data-sf="empty">
               <p className="text-gray-500 dark:text-gray-400 text-lg">No projects yet.</p>
               <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                 Create a project to get started with probabilistic scheduling — or
@@ -676,7 +687,9 @@ export function ProjectsPage() {
         }
         if (filteredProjects.length === 0) {
           return (
-            <div className="text-center py-12">
+            // Also in the tile grid's place, and also the empty collection's panel (contract §7) when every project is
+            // archived and Show archived is off. Its words fit a search, not that case: listed for the clean-up pass.
+            <div className="sf-below text-center py-12" data-sf="empty">
               <p className="text-gray-500 dark:text-gray-400 text-lg">No matching projects.</p>
               <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                 Try a different search term.
@@ -694,7 +707,9 @@ export function ProjectsPage() {
             items={filteredProjects.map((p) => p.id)}
             strategy={rectSortingStrategy}
           >
-            <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* The frame's tile grid (contract §3): auto-fill columns of at least 340 px, 16 px apart, 16 px below
+                the filter row. The tile itself is unchanged. */}
+            <div ref={gridRef} className="sf-tiles" data-sf="tiles">
               {filteredProjects.map((project) => (
                 <ProjectTile
                   key={project.id}
@@ -734,6 +749,6 @@ export function ProjectsPage() {
           if (!o) setSharingProject(null);
         }}
       />
-    </div>
+    </>
   );
 }

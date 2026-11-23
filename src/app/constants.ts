@@ -2,10 +2,10 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = "0.87.4";
+export const APP_VERSION = "0.88.0";
 export const APP_NAME = "SPERT Scheduler";
-export const APP_DESCRIPTION =
-  "Probabilistic project scheduling using SPERT three-point estimation with Monte Carlo simulation";
+/** The brand row's tagline (FRAME26, William's wording, 2026-11-23). */
+export const APP_TAGLINE = "Probabilistic project scheduling with Monte Carlo simulation";
 
 /**
  * SessionStorage key set when an ?invite= URL is processed.

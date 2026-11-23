@@ -4,10 +4,19 @@
 
 import { Link } from "react-router-dom";
 import { APP_VERSION } from "@app/constants";
+import { HeadingRow } from "@ui/components/HeadingRow";
 
 export function AboutPage() {
+  // The frame's heading row, then the body, both direct children of `main` (FRAME26, v0.88.0): About is capped at 896 px
+  // (exception X4) and aligned at the column's edge, so the prose keeps its own 672 px measure, no longer centred. The
+  // heading's ® is the frame's muted mark, as the brand's is; the "What is" heading's below is body and unchanged.
   return (
-    <div className="mx-auto max-w-2xl">
+    <>
+    <HeadingRow>
+      About SPERT<span className="sf-mark">®</span> Scheduler
+    </HeadingRow>
+    <div className="sf-below">
+    <div className="max-w-2xl">
       <div className="mb-8">
         <Link
           to="/projects"
@@ -17,9 +26,6 @@ export function AboutPage() {
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-        About SPERT<span className="text-gray-300 dark:text-gray-600 text-xs align-super">®</span> Scheduler
-      </h1>
       <p className="mt-1 italic text-gray-500 dark:text-gray-400">
         Probabilistic project scheduling tool
       </p>
@@ -230,5 +236,7 @@ export function AboutPage() {
         </section>
       </div>
     </div>
+    </div>
+    </>
   );
 }

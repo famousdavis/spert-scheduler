@@ -15,6 +15,7 @@ import { StorageModeSection } from "@ui/components/StorageModeSection";
 import { ScheduleExportSection } from "@ui/components/ScheduleExportSection";
 import { NotificationsSection } from "@ui/components/NotificationsSection";
 import { useCloudCreateBlocked, isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
+import { HeadingRow } from "@ui/components/HeadingRow";
 
 export function SettingsPage() {
   const { projects, loadProjects, importProjects, importScenarioToProject } = useProjectStore(
@@ -37,9 +38,12 @@ export function SettingsPage() {
     loadPrefs();
   }, [projects.length, loadProjects, loadPrefs]);
 
+  // The frame's heading row, then the body, both direct children of `main`: Settings is capped at 896 px (exception X4),
+  // and the cap applies to every child of `main` but the heading row (FRAME26, v0.88.0).
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+    <>
+    <HeadingRow>Settings</HeadingRow>
+    <div className="sf-below space-y-8">
       <PreferencesSection />
       <LocalStorageSection />
       <NotificationsSection />
@@ -54,5 +58,6 @@ export function SettingsPage() {
         importBlocked={createBlocked}
       />
     </div>
+    </>
   );
 }

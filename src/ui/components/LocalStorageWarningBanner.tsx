@@ -22,15 +22,14 @@ export function LocalStorageWarningBanner() {
   if (!show) return null;
 
   return (
-    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4 flex items-center gap-4 no-print [overflow-anchor:none]">
-      <p className="text-sm text-amber-800 dark:text-amber-200 flex-1">
+    // The frame's caution notice (`.sf-notice--caution`, contract §3, v0.88.0): colours, padding, radius and the 28 px
+    // outlined "Got it" are the stylesheet's.
+    <div className="sf-notice sf-notice--caution no-print [overflow-anchor:none]">
+      <p>
         <strong>Your data exists only in this browser</strong> and can be lost without
         warning. Export at the end of every session to protect your work.
       </p>
-      <button
-        onClick={() => setSessionVisible(false)}
-        className="shrink-0 px-4 py-1.5 border border-amber-500 dark:border-amber-400 text-amber-700 dark:text-amber-300 text-sm rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/30"
-      >
+      <button type="button" onClick={() => setSessionVisible(false)} className="sf-notice-dismiss">
         Got it
       </button>
     </div>
