@@ -36,10 +36,10 @@ const T_FOCUS_NONE = "when no tile is left, focus moves to the New Project butto
 // ProjectTile.portal-press.test.tsx
 const T_PRESS = "a press on the confirmation's text starts no drag; a press on the tile still does";
 // ProjectsPage.cloud-loading.test.tsx
-const C_LOCAL = "local storage: the empty Dashboard says 'No projects yet.' at once, signed in or not";
+const C_LOCAL = "local storage: the empty Dashboard shows the Welcome panel at once, signed in or not";
 const C_RESTORE = "cloud storage: while a remembered sign-in is being restored, it says the projects are loading";
 const C_LOADED = "signed in: it says the projects are loading until the cloud load ends, then shows them";
-const C_NONE = "a cloud load that ends with no projects: loading first, then 'No projects yet.'";
+const C_NONE = "a cloud load that ends with no projects: loading first, then the Welcome panel";
 const C_FAILED = "a cloud load that FAILS ends the loading message rather than leaving it up";
 const C_SIGN_OUT = "signing out after a cloud load: no loading message, and the empty Dashboard says so";
 const C_SWITCH = "switching to local storage ends it; switching back to cloud shows it until that load ends";
@@ -76,7 +76,7 @@ const D_DASHBOARD =
 const D_C_NONE =
   "control: with no signed-out projects in this browser, a cloud sign-in says the projects are loading, then shows them, as before";
 const F_FIRST =
-  "a failed first load: the Dashboard says so, and not 'No projects yet.'";
+  "a failed first load: the Dashboard says so, and not the Welcome panel";
 const F_FIRST_LOCAL =
   "a failed first load with this browser's signed-out projects: the Dashboard says so, and shows none of them";
 const F_REFETCH_BEFORE =
@@ -97,7 +97,7 @@ const R_FAILS_LATE = "a re-fetch that fails after a sign-out does not end the ne
 const R_ANSWERS_LATE =
   "a re-fetch that answers after a sign-out neither ends the next sign-in's load nor puts its projects on screen";
 const O_NONE =
-  "control: with no signed-out projects in this browser, the Dashboard says 'No projects yet.' after a sign-out, as before";
+  "control: with no signed-out projects in this browser, the Dashboard shows the Welcome panel after a sign-out, as before";
 
 // ProjectsPage.cloud-sign-in-display.test.tsx — the project page's states and the switches of storage while signed in
 // (owner ruling, 2026-10-17)
@@ -106,7 +106,7 @@ const N_FAILED_PAGE =
 const N_FAILED_PENDING =
   "a failed first load while the invitation re-fetch still runs: the page says the projects are loading, not that a load failed, until the re-fetch answers — and then, the line gone, today's two lines";
 const M_DURING =
-  "a switch to local storage while the first load runs lists this browser's copy of the user's projects — not 'No projects yet.' — the ended load's late answer does not replace it, and nothing is sent";
+  "a switch to local storage while the first load runs lists this browser's copy of the user's projects — not the Welcome panel — the ended load's late answer does not replace it, and nothing is sent";
 const M_FAILED = "a switch to local storage after a failed first load lists this browser's copy of the user's projects";
 const L_SWITCH =
   "signed in with local storage chosen and this browser's projects on show, a switch to cloud storage empties the list until the first load ends";
@@ -167,7 +167,7 @@ export const mutations = [
     // C_LOCAL and C_SIGN_OUT never expect the loading message, so they hold. (Its first run with WI-113's failure-line
     // tests read "24 failing; named-match 23" before this set named F_REFETCH_BEFORE, which expects the loading message
     // while the first load still runs.)
-    id: "S3  'No projects yet.' whenever the list is empty  [expect 26: C_RESTORE, C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN, G_RESTORE, G_EMPTY_REFETCH, G_LATE_SETTINGS, G_LATE_FAILURE, L_FIRST_ENDED, L_REFETCH_ENDED, L_REFETCH_FAILS, L_NO_INVITATION, R_FAILS_LATE, R_ANSWERS_LATE, D_RELOAD, D_FRESH, D_AGAIN, D_CHANGE, D_DASHBOARD, D_C_NONE, K_SIGN_IN_DISPLAY, F_REFETCH_BEFORE, M_DURING, L_SWITCH]",
+    id: "S3  the Welcome panel whenever the list is empty  [expect 26: C_RESTORE, C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN, G_RESTORE, G_EMPTY_REFETCH, G_LATE_SETTINGS, G_LATE_FAILURE, L_FIRST_ENDED, L_REFETCH_ENDED, L_REFETCH_FAILS, L_NO_INVITATION, R_FAILS_LATE, R_ANSWERS_LATE, D_RELOAD, D_FRESH, D_AGAIN, D_CHANGE, D_DASHBOARD, D_C_NONE, K_SIGN_IN_DISPLAY, F_REFETCH_BEFORE, M_DURING, L_SWITCH]",
     file: PAGE,
     find: "if (projects.length === 0 && cloudLoadPending) {",
     replace: "if (projects.length === 0 && false) {",
@@ -177,7 +177,7 @@ export const mutations = [
   },
   {
     // Only C_RESTORE looks at the dashboard before the auth listener has answered.
-    id: "S4  the sign-in restore shows 'No projects yet.'  [expect 2: C_RESTORE, G_RESTORE]",
+    id: "S4  the sign-in restore shows the Welcome panel  [expect 2: C_RESTORE, G_RESTORE]",
     file: PAGE,
     find: 'const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);',
     replace: 'const cloudLoadPending = mode === "cloud" && !cloudDataLoaded;',
@@ -187,7 +187,7 @@ export const mutations = [
     // Extended by name with tests added later (owner ruling, 2026-10-17): the loading line they read is replaced by it.
     // (Its first run with WI-113's failure-line tests read "22 failing; named-match 21" before this set named
     // F_REFETCH_BEFORE, as in S3.)
-    id: "S5  the cloud load shows 'No projects yet.'  [expect 24: C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN, G_EMPTY_REFETCH, G_LATE_SETTINGS, G_LATE_FAILURE, L_FIRST_ENDED, L_REFETCH_ENDED, L_REFETCH_FAILS, L_NO_INVITATION, R_FAILS_LATE, R_ANSWERS_LATE, D_RELOAD, D_FRESH, D_AGAIN, D_CHANGE, D_DASHBOARD, D_C_NONE, K_SIGN_IN_DISPLAY, F_REFETCH_BEFORE, M_DURING, L_SWITCH]",
+    id: "S5  the cloud load shows the Welcome panel  [expect 24: C_LOADED, C_NONE, C_FAILED, C_SWITCH, C_SIGN_IN, G_EMPTY_REFETCH, G_LATE_SETTINGS, G_LATE_FAILURE, L_FIRST_ENDED, L_REFETCH_ENDED, L_REFETCH_FAILS, L_NO_INVITATION, R_FAILS_LATE, R_ANSWERS_LATE, D_RELOAD, D_FRESH, D_AGAIN, D_CHANGE, D_DASHBOARD, D_C_NONE, K_SIGN_IN_DISPLAY, F_REFETCH_BEFORE, M_DURING, L_SWITCH]",
     file: PAGE,
     find: 'const cloudLoadPending = !storageReady || (mode === "cloud" && !cloudDataLoaded);',
     replace: "const cloudLoadPending = !storageReady;",

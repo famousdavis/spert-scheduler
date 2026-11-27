@@ -13,6 +13,11 @@
 // ⚠️ In the first whole run R4b and R5a also failed 3 and 4 tests outside this release; a rerun of each straw
 // failed only the named ones, so those were tests that fail under load, not ones that watch these lines.
 //
+// v0.89.0 (FRAME26 clean-up H4, H5): v0.88.0 moved the title into AppHeader.tsx, made the three actions `.sf-btn`,
+// gave About's heading the frame's mark and re-titled the tests these straws name, so seven needles (R4a–R4c, R11,
+// H1–H3) and four title constants no longer matched and the spec aborted at R4a. Each was re-keyed to what the code
+// now does; the `[expect N]` of those seven, and R2's, are the named tests measured at v0.89.0.
+//
 //   node scripts/falsify.mjs scripts/falsify-spec-calendar-rows.mjs
 const src = (p) => new URL(`../src/${p}`, import.meta.url).pathname;
 const PAGE = src("ui/pages/CalendarPage.tsx");
@@ -20,7 +25,7 @@ const ROW = src("ui/components/CalendarRow.tsx");
 const WORDS = src("ui/helpers/calendar-summary.ts");
 const EDITOR = src("ui/components/WorkDayOverrideEditor.tsx");
 const PROJECT = src("ui/pages/ProjectPage.tsx");
-const LAYOUT = src("ui/components/Layout.tsx");
+const HEADER = src("ui/components/AppHeader.tsx");
 const ABOUT = src("ui/pages/AboutPage.tsx");
 const escape = (s) => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 const only = (...titles) => new RegExp(`> (?:${titles.map(escape).join("|")})$`);
@@ -49,7 +54,7 @@ const T_NO_FLIP =
 const T_RESTORING = "while a remembered cloud sign-in is being restored (storage not ready) it stays closed";
 const T_ARRIVE =
   "?project=<id> opens that row, scrolls it into view and gives its button focus; the others stay closed";
-const T_MARGIN = "the linked row's button keeps an 80 px scroll margin, so it lands below the sticky header (ruling 2)";
+const T_MARGIN = "the linked row's button keeps its 80 px scroll margin (scroll-mt-20, ruling 2)";
 const T_ONCE =
   "it scrolls and focuses once per arrival: a later change to the list neither scrolls again nor takes focus";
 const T_LATE = "a project that arrives after the page mounts — a cloud first load — still opens, scrolls and takes focus";
@@ -63,12 +68,12 @@ const L_PLACE = "sits between Connect AI and Print";
 const L_ARCHIVED = "an archived project's page has no link, since the Calendar page does not list archived projects";
 const L_JOURNEY =
   "following it opens the Calendar page with that project's row open, in view and focused, and the others closed";
-const L_NOWRAP = "Connect AI, Calendar and Print each keep to one line, so a long name wraps instead (ruling 4)";
+const L_NOWRAP = "Connect AI, Calendar and Print each keep to one line, so a long name is cut short instead (ruling 4)";
 // Layout.title.test.tsx
-const H_NAME = "the link's accessible name: the logo's alt, then the words with their space (ruling 11)";
+const H_NAME = "the link's accessible name: the words with their space, and nothing else (ruling 11; contract §3)";
 const H_ONE = "the words are ONE inline element in the link, so no text run is a flex item of its own (H1)";
-const H_SIZE = "the title is 18 px below 1,024 px wide and 24 px from it, the About title's size (H2)";
-const H_ABOUT = "the About page's two ® are faint in dark mode too, as the header's is (H3)";
+const H_SIZE = "the title is the frame's 24 px at every width: no size class of its own (H2)";
+const H_ABOUT = "the About heading's ® is the frame's mark too; the body heading's stays faint (H3)";
 // calendar-summary.test.ts
 const U_ROW = (h, c, i) => `${h} holidays, ${c} converted, ${i} not in effect`;
 const U_ONE = "one: 1 holiday, through its date";
@@ -79,11 +84,15 @@ const U_UNION = "overrideChipDates: the two lists merged, a date in both counted
 const U_IN_EFFECT =
   "notInEffectCount: a converted day a company or project holiday falls on is not in effect; a forced one over a company holiday is";
 
+// Since v0.88.0 the three actions keep to one line by the frame's `.sf-btn` (`white-space: nowrap`).
 const PRINT_CLASS =
-  'className="px-2 py-1 text-sm whitespace-nowrap text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"';
+  'className="sf-btn px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"';
 const PRINT_CLASS_BEFORE =
-  'className="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"';
+  'className="px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 no-print"';
+// The ® before v0.88.0: faint, and bright in dark mode on About (H3's defect). The frame's is `.sf-mark`.
 const REG = '<span className="text-gray-300 dark:text-gray-600 text-xs align-super">®</span>';
+const MARK = '<span className="sf-mark">®</span>';
+const TITLE_WORDS = `<span className="sf-grad">SPERT</span>${MARK}{" "}<span className="sf-grad">Scheduler</span>`;
 
 export const testFile = "src/";
 
@@ -104,7 +113,7 @@ export const mutations = [
     expectFailing: only(T_RESTORING),
   },
   {
-    id: "R2 ruling 2: no scroll margin, so a linked row lands under the sticky header [expect 1]",
+    id: "R2 ruling 2: no scroll margin on the linked row [expect 1]",
     file: ROW,
     find: "text-left scroll-mt-20 rounded",
     replace: "text-left rounded",
@@ -127,8 +136,8 @@ export const mutations = [
   {
     id: "R4b ruling 4: Connect AI may wrap [expect 1]",
     file: PROJECT,
-    find: "gap-1.5 px-2 py-1 text-sm whitespace-nowrap rounded-md",
-    replace: "gap-1.5 px-2 py-1 text-sm rounded-md",
+    find: "className={`sf-btn px-2 rounded-md no-print transition-colors ${",
+    replace: "className={`px-2 rounded-md no-print transition-colors ${",
     expectFailing: only(L_NOWRAP),
   },
   {
@@ -231,9 +240,9 @@ export const mutations = [
   },
   {
     id: "R11 ruling 11: the space before Scheduler is gone, the defect H1 fixed [expect 2]",
-    file: LAYOUT,
-    find: `${REG} Scheduler</span>`,
-    replace: `${REG}Scheduler</span>`,
+    file: HEADER,
+    find: `${MARK}{" "}<span className="sf-grad">Scheduler</span>`,
+    replace: `${MARK}<span className="sf-grad">Scheduler</span>`,
     expectFailing: only(H_NAME, H_ONE),
   },
   // -- the design's items ----------------------------------------------------------------------------------------
@@ -324,23 +333,23 @@ export const mutations = [
   },
   {
     id: "H1 the words straight in the flex link again, each text run a flex item [expect 1]",
-    file: LAYOUT,
-    find: `<span>SPERT${REG} Scheduler</span>`,
-    replace: `SPERT${REG} Scheduler`,
+    file: HEADER,
+    find: `<span className="sf-title" data-sf="title">\n            ${TITLE_WORDS}\n          </span>`,
+    replace: TITLE_WORDS,
     expectFailing: only(H_ONE),
   },
   {
     id: "H2 the title stays 18 px at every width [expect 1]",
-    file: LAYOUT,
-    find: "text-lg lg:text-2xl font-bold",
-    replace: "text-lg font-bold",
+    file: HEADER,
+    find: '<span className="sf-title" data-sf="title">',
+    replace: '<span className="sf-title text-lg" data-sf="title">',
     expectFailing: only(H_SIZE),
   },
   {
     id: "H3 the About title's ® bright in dark mode again [expect 1]",
     file: ABOUT,
-    find: `About SPERT${REG}`,
-    replace: 'About SPERT<span className="text-gray-300 text-xs align-super">®</span>',
+    find: `About SPERT${MARK}`,
+    replace: `About SPERT${REG}`,
     expectFailing: only(H_ABOUT),
   },
 ];

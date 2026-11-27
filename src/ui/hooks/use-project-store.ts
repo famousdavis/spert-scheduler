@@ -20,7 +20,7 @@ import type {
 import { MAX_SCENARIOS_PER_PROJECT, SCHEMA_VERSION, SECTION_CAP } from "@domain/models/types";
 import { ProjectSchema } from "@domain/schemas/project.schema";
 import { toast } from "@ui/hooks/use-notification-store";
-import { SAMPLE_PROJECT_NAME } from "@domain/data/sample-project-meta";
+import { sampleProjectName } from "@domain/data/sample-project-meta";
 import { buildSampleProject } from "@app/api/sample-project-service";
 import {
   createProject,
@@ -1086,10 +1086,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => {
   },
 
   loadSampleProject: async (owner, isRefused) => {
-    const existingNames = get().projects.map((p) => p.name);
-    const name = existingNames.includes(SAMPLE_PROJECT_NAME)
-      ? nextCloneName(SAMPLE_PROJECT_NAME, existingNames)
-      : SAMPLE_PROJECT_NAME;
+    // "Sample: Cloud ERP Solution", then "(2)", "(3)" … (v0.89.0, contract §7), against every project, archived ones included.
+    const name = sampleProjectName(get().projects.map((p) => p.name));
     const project = await buildSampleProject(name);
     // WI-112: the first cloud load may have begun while the build ran.
     if (isRefused?.()) return null;

@@ -36,6 +36,8 @@ import { canShareProject } from "@ui/helpers/canShareProject";
 import { formatExportTimestamp } from "@core/calendar/calendar";
 import { serializeExport, serializeRecoveryExport } from "@app/api/export-import-service";
 import { toast } from "@ui/hooks/use-notification-store";
+import { announce } from "@ui/hooks/use-announcer";
+import { sampleAddedSentence, SAMPLE_LOADED_TOAST } from "@ui/helpers/sample-words";
 import { useCloudCreateBlocked, isCloudCreateBlocked } from "@ui/hooks/use-cloud-create-blocked";
 import { getCloudSyncDriver } from "@ui/hooks/use-cloud-sync";
 import { describeUnloadableDelete } from "@ui/helpers/unloadable-recovery";
@@ -262,9 +264,13 @@ export function ProjectsPage() {
         toast.error(SAMPLE_NOT_ADDED_MESSAGE);
         return;
       }
+      // v0.89.0 (contract §7, "Load Sample"): the suite's sentence in the app's polite line, which outlives this page,
+      // then the sample opens on its project page. The toast carries the hint alone, so a screen reader, which reads
+      // the toast too, does not hear the sentence twice (William, 2026-11-26).
+      announce(sampleAddedSentence(project.name));
       // 8 s, not the 3 s default: this one is read by a room from a projector, and it
       // carries an instruction (audit L3). Every other toast keeps the default.
-      toast.success(`Loaded "${project.name}" — run the simulation to see the buffer`, 8000);
+      toast.success(SAMPLE_LOADED_TOAST, 8000);
       navigate(`/project/${project.id}`);
     } catch {
       toast.error("Couldn't load the sample project. Please try again.");
@@ -380,9 +386,8 @@ export function ProjectsPage() {
       // This card's Delete button goes with the card, and the whole recovery panel goes with
       // the last error, so `ConfirmDialog`'s captured-`activeElement` restore reaches a
       // detached node. The header's "New Project" is the destination (owner ruling, 2026-10-09): like
-      // every toolbar button it is rendered unconditionally — the second "New Project" further down sits
-      // inside the `projects.length === 0` empty state. A ref, not a text lookup: the two
-      // buttons share an accessible name. While it is greyed out (WI-112), the note under the
+      // every toolbar button it is rendered unconditionally — the Welcome panel's "Create New Project" further
+      // down sits inside the `projects.length === 0` empty state and goes with it. A ref, not a text lookup. While it is greyed out (WI-112), the note under the
       // header instead (`lastResortFocus`). `queueMicrotask` for the reason recorded in
       // `UnifiedActivityGrid.handleDeleteActivity`.
       queueMicrotask(() => {
@@ -657,38 +662,60 @@ export function ProjectsPage() {
         if (projects.length === 0 && cloudLoadFailed) return null;
         if (projects.length === 0) {
           return (
-            // The empty collection's panel, in the tile grid's place (contract §7): a first visit, or every project deleted.
-            <div className="sf-below text-center py-12" data-sf="empty">
-              <p className="text-gray-500 dark:text-gray-400 text-lg">No projects yet.</p>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            // The Welcome panel (v0.89.0, contract §3 and §7; stylesheet v3's `.sf-empty`, 16 px below the heading row and
+            // the column's full width): a first visit, or every project deleted. Its two buttons are the toolbar's New
+            // Project and Load Sample, in the toolbar's own primary and secondary looks, greyed with them by the create gate.
+            <div className="sf-empty" data-sf="empty">
+              <h2 className="sf-empty-title">
+                Welcome to SPERT<span className="sf-mark">®</span> Scheduler
+              </h2>
+              <p className="sf-empty-text">
+                Estimate each activity with three points, then run a Monte Carlo simulation to see when your project is
+                likely to finish and how much schedule buffer to hold.
+              </p>
+              <p className="sf-empty-text">
                 Create a project to get started with probabilistic scheduling — or
                 load the sample to explore a fully built schedule first.
               </p>
-              <div className="mt-6 flex items-center justify-center gap-3">
+              <div className="sf-empty-actions">
                 <button
                   onClick={() => setDialogOpen(true)}
                   disabled={createBlocked}
                   {...describedByWhile(createBlocked, createNoteId)}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="sf-btn px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  New Project
+                  Create New Project
                 </button>
                 <button
                   onClick={handleLoadSample}
                   disabled={createBlocked}
                   {...describedByWhile(createBlocked, createNoteId)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="sf-btn px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Load Sample Project
                 </button>
               </div>
+              <p className="sf-empty-note">
+                The sample project is a working example with 40 activities in eight sections, 68 dependencies and four
+                milestones. You can explore it, edit it, or delete it at any time.
+              </p>
             </div>
+          );
+        }
+        if (activeProjects.length === 0 && !showArchived) {
+          return (
+            // Every project archived, Show archived off (v0.89.0, contract §7): the collection is not empty, so not the
+            // Welcome panel, but one line in the tile grid's place, 16 px below the filter row, in the page's muted text
+            // (4.84 / 6.82 : 1). The same sentence as the other SPERT® apps'. A search typed meanwhile finds nothing either.
+            <p className="sf-below text-gray-500 dark:text-gray-400" data-sf="empty">
+              {`All projects are archived. Select "Show archived (${archivedProjects.length})" to see them.`}
+            </p>
           );
         }
         if (filteredProjects.length === 0) {
           return (
-            // Also in the tile grid's place, and also the empty collection's panel (contract §7) when every project is
-            // archived and Show archived is off. Its words fit a search, not that case: listed for the clean-up pass.
+            // A search that matches nothing, in the tile grid's place (contract §7: the app's own line). Every project
+            // archived has its own line, above.
             <div className="sf-below text-center py-12" data-sf="empty">
               <p className="text-gray-500 dark:text-gray-400 text-lg">No matching projects.</p>
               <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">

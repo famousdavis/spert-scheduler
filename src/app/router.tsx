@@ -10,6 +10,7 @@ import { Layout } from "@ui/components/Layout";
 import { ProjectsPage } from "@ui/pages/ProjectsPage";
 import { ProjectPage } from "@ui/pages/ProjectPage";
 import { ErrorBoundary } from "@ui/components/ErrorBoundary";
+import { CrashScreen } from "@ui/components/CrashScreen";
 import { CalendarPage } from "@ui/pages/CalendarPage";
 import { SettingsPage } from "@ui/pages/SettingsPage";
 import { AboutPage } from "@ui/pages/AboutPage";
@@ -18,16 +19,18 @@ import { NotFoundPage } from "@ui/pages/NotFoundPage";
 import { useConfirmStore } from "@ui/hooks/use-confirm-store";
 
 // CI-4 (v0.79.x audit): a render error in one project (e.g. a cloud-supplied
-// value that throws in a duration→date conversion) otherwise bubbles past the
-// router to the app-level ErrorBoundary, taking down the whole app to a "refresh"
-// screen. Scoping a boundary to the project route keeps the shell alive and lets
-// the user return to their other projects. Rendered inside Layout's <Outlet/>, so
+// value that throws in a duration→date conversion) would otherwise reach the root
+// route's errorElement, which replaces the whole frame with the crash screen (until
+// v0.89.0 it reached React Router's own default error page instead: the router
+// catches every render error inside it, so main.tsx's ErrorBoundary only ever saw
+// faults in the providers). Scoping a boundary to the project route keeps the shell
+// alive and lets the user return to their other projects. Rendered inside Layout's <Outlet/>, so
 // it is not full-screen. Recovery is a full navigation (anchor), which remounts
 // the boundary; switching projects via the URL while in the error state is the
 // one case it does not auto-reset — acceptable for a crash fallback.
 const projectErrorFallback = (
   <div className="mx-auto max-w-2xl p-8 text-center">
-    <h1 className="text-xl font-bold text-red-600">
+    <h1 className="text-xl font-bold text-red-600 dark:text-red-400">
       This project couldn't be displayed
     </h1>
     <p className="mt-2 text-gray-600 dark:text-gray-300">
@@ -47,6 +50,9 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
+    // v0.89.0 (FRAME26 clean-up E): any error thrown while a route renders (the frame, a page) shows the app's crash
+    // screen, outside the frame, with Reload, never React Router's default page with the error's stack.
+    errorElement: <CrashScreen />,
     children: [
       { index: true, element: <Navigate to="/projects" replace /> },
       { path: "projects", element: <ProjectsPage /> },

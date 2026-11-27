@@ -269,9 +269,11 @@ describe("WI-110: a tile's delete confirmation keeps the Dashboard on screen", (
     expectStillOnDashboard();
     expect(storedNames()).toEqual([]);
     await settleFocus();
-    // The header's New Project, and the empty Dashboard's own below it: focus is on the FIRST.
+    // The header's New Project, not the Welcome panel's "Create New Project" below it (v0.89.0: until then the panel's
+    // button was also named "New Project", and focus went to the FIRST of the two).
     const newProjectButtons = screen.getAllByRole("button", { name: "New Project" });
-    expect(newProjectButtons).toHaveLength(2);
+    expect(newProjectButtons).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Create New Project" })).toBeInTheDocument();
     expect(document.activeElement).toBe(newProjectButtons[0]);
   });
 

@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { Component, ReactNode } from "react";
+import { CrashScreen } from "./CrashScreen";
 
 interface Props {
   children: ReactNode;
@@ -16,7 +17,8 @@ interface State {
 
 /**
  * Error boundary component that catches JavaScript errors in child components
- * and displays a fallback UI instead of crashing the entire app.
+ * and displays a fallback UI instead of crashing the entire app. With no `fallback`, the app's outermost crash
+ * screen (`CrashScreen`, v0.89.0): `main.tsx` wraps the providers in this boundary.
  */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false };
@@ -28,24 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        this.props.fallback ?? (
-          <div className="flex min-h-screen items-center justify-center bg-gray-50 p-8">
-            <div className="text-center">
-              <h1 className="text-xl font-bold text-red-600">
-                Something went wrong
-              </h1>
-              <p className="mt-2 text-gray-600">
-                Please refresh the page to continue.
-              </p>
-              <button
-                onClick={() => window.location.reload()}
-                className="mt-4 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-              >
-                Refresh Page
-              </button>
-            </div>
-          </div>
-        )
+        this.props.fallback ?? <CrashScreen />
       );
     }
     return this.props.children;

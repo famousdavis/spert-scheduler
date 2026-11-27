@@ -34,7 +34,8 @@ import {
 import type { Project } from "@domain/models/types";
 
 /**
- * "Loaded … — run the simulation to see the buffer" is read by a ROOM, from a projector,
+ * "Run the simulation to see the buffer." (until v0.89.0 "Loaded … — run the simulation to see the
+ * buffer") is read by a ROOM, from a projector,
  * and it carries an instruction; the 3 s default is tuned for one user at a desk
  * (audit L3). This site alone holds its toast for 8 s. Only setTimeout is faked, so the
  * sample fixture's dynamic import still resolves on the real microtask queue.
@@ -89,7 +90,7 @@ describe("ProjectsPage — Load Sample toast", () => {
     fireEvent.click(screen.getByRole("button", { name: "Load Sample" }));
     await settle();
     expect(toasts()).toHaveLength(1);
-    expect(toasts()[0]!.message).toMatch(/run the simulation/);
+    expect(toasts()[0]!.message).toBe("Run the simulation to see the buffer.");
 
     act(() => {
       vi.advanceTimersByTime(3000);

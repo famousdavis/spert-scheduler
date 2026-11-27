@@ -7,6 +7,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { usePreferencesStore } from "@ui/hooks/use-preferences-store";
 import { useTheme } from "@ui/hooks/use-theme";
 import { ToastContainer } from "./ToastContainer";
+import { useAnnouncerStore } from "@ui/hooks/use-announcer";
 import { ConfirmHost } from "./ConfirmHost";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import { StorageLoginModal } from "./StorageLoginModal";
@@ -39,6 +40,7 @@ export function Layout() {
   const loadPreferences = usePreferencesStore((s) => s.loadPreferences);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const announcement = useAnnouncerStore((s) => s.text);
 
   // Initialize theme (applies dark class to document)
   useTheme();
@@ -107,6 +109,12 @@ export function Layout() {
       </main>
       <AppFooter onOpenShortcuts={() => setShortcutsOpen(true)} />
       <ToastContainer />
+      {/* The app's one polite announcement (v0.89.0, FRAME26 clean-up L): always mounted, outside every route, so a
+          sentence set before a navigation (Load Sample's "Added “…” to your projects and opened it.") is still spoken
+          on the next page. */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only" data-sample-status>
+        {announcement}
+      </div>
       <ConfirmHost />
       <KeyboardShortcutsModal
         open={shortcutsOpen}
