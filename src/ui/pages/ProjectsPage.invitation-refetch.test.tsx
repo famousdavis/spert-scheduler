@@ -200,7 +200,8 @@ import { serializeExport } from "@app/api/export-import-service";
 import { ProjectsPage } from "./ProjectsPage";
 
 const LOADING = "Loading your projects from cloud storage…";
-const EMPTY = "No projects yet.";
+/** The Welcome panel's title (v0.89.0; it was "No projects yet."): its ® is a span, so the h2 is matched by its whole text. */
+const EMPTY = (_: string, el: Element | null) => el?.tagName === "H2" && el.textContent === "Welcome to SPERT® Scheduler";
 const IMPORT_WAIT_NOTE = "Projects can’t be imported until loading from cloud storage ends.";
 const PICK_AGAIN = "Choose the file again when loading has ended.";
 const IMPORT_REFUSED = "Cloud data is still loading. Please wait and try again.";

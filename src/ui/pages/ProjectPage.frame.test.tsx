@@ -139,4 +139,15 @@ describe("FRAME26: a project's page on the frame", () => {
     expect(row.querySelector('[data-sf="toolbar"]')).toBeNull();
     expect(screen.getByText("This project is no longer available.")).toBeInTheDocument();
   });
+
+  // v0.89.0 (FRAME26 clean-up H1): the name's text starts at the column's edge, C. InlineEdit's own `px-1` hover pill
+  // stays; `-ml-1` sets its 4 px of padding left of C, where the h1's overflow clips it. (The pixels are measured in
+  // Chrome; jsdom has no layout, so this pins the class.)
+  it("the name's InlineEdit span carries -ml-1, so its text starts at the h1's edge", () => {
+    const p = project("Ossory Causeway");
+    renderAt(`/project/${p.id}`, [p]);
+    const span = document.querySelector('[data-sf="heading"] > span')!;
+    expect(span).toHaveTextContent(/^Ossory Causeway$/);
+    expect(span.className.split(/\s+/)).toEqual(expect.arrayContaining(["px-1", "-ml-1"]));
+  });
 });

@@ -199,12 +199,14 @@ const IMPORT_WAIT_NOTE = "Activities can’t be imported until loading from clou
 const SAMPLE_NOT_ADDED =
   "The sample wasn’t added because loading from cloud storage hadn’t ended. Press Load Sample again when it has.";
 const LOADING = "Loading your projects from cloud storage…";
-const EMPTY = "No projects yet.";
+/** The Welcome panel's title (v0.89.0; it was "No projects yet."): its ® is a span, so the h2 is matched by its whole text. */
+const EMPTY = (_: string, el: Element | null) => el?.tagName === "H2" && el.textContent === "Welcome to SPERT® Scheduler";
 const IMPORT_REFUSED = "Cloud data is still loading. Please wait and try again.";
 const IMPORT_WAITING = "Projects can’t be imported until loading from cloud storage ends.";
 const HEART = "Heart of Gold Refit";
-const SAMPLE = "Cloud ERP Solution (Sample)";
-const LOADED = `Loaded "${SAMPLE}" — run the simulation to see the buffer`;
+// v0.89.0: the sample is "Sample: Cloud ERP Solution", and its toast is the hint alone (the sentence is announced).
+const SAMPLE = "Sample: Cloud ERP Solution";
+const LOADED = "Run the simulation to see the buffer.";
 const UNLOADABLE = "1 project could not be loaded";
 
 const ARTHUR: FakeFirebaseUser = {
@@ -531,9 +533,9 @@ describe("WI-112: while the first cloud load runs, the controls that create a pr
 
     await cloudLoadEnds([]);
     await waitFor(() =>
-      expect(within(emptyDashboard()).getByRole("button", { name: "New Project" })).toBeEnabled(),
+      expect(within(emptyDashboard()).getByRole("button", { name: "Create New Project" })).toBeEnabled(),
     );
-    expectAvailable(within(emptyDashboard()).getByRole("button", { name: "New Project" }));
+    expectAvailable(within(emptyDashboard()).getByRole("button", { name: "Create New Project" }));
     expectAvailable(within(emptyDashboard()).getByRole("button", { name: "Load Sample Project" }));
     expect(screen.queryByText(CONTROLS_NOTE)).toBeNull();
   });

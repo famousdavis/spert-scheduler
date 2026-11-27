@@ -52,7 +52,7 @@ const PROJECT = new URL("../src/ui/pages/ProjectPage.tsx", import.meta.url).path
 const D_RELOAD =
   "a reload with a remembered sign-in: once the sign-in is recognised, the Dashboard says the projects are loading, with none of this browser's signed-out projects, until the cloud's arrive";
 const D_NONE =
-  "when the cloud lists no projects, the Dashboard says 'No projects yet.' — the signed-out projects are not kept on show, and stay in this browser";
+  "when the cloud lists no projects, the Dashboard shows the Welcome panel — the signed-out projects are not kept on show, and stay in this browser";
 const D_FRESH = "a sign-in from the signed-out state: the signed-out projects leave the Dashboard as the sign-in is recognised";
 const D_AGAIN =
   "a sign-in again in the same tab after a sign-out: the signed-out projects brought back by the sign-out leave the Dashboard during the next first load";
@@ -68,7 +68,7 @@ const D_DASHBOARD =
 const D_PAGE =
   "a project's page open as the sign-in is recognised does not load the user's copy in this browser into the list, and says the projects are loading";
 // … a failed load
-const F_FIRST = "a failed first load: the Dashboard says so, and not 'No projects yet.'";
+const F_FIRST = "a failed first load: the Dashboard says so, and not the Welcome panel";
 const F_FIRST_LOCAL =
   "a failed first load with this browser's signed-out projects: the Dashboard says so, and shows none of them";
 const F_REFETCH_AFTER =
@@ -107,7 +107,7 @@ const N_SIGNED_OUT_RELOAD =
   "a reload of a cloud project's page with cloud storage chosen and no one signed in: the Dashboard's loading line until that is known, then the signed-out advice";
 // … a switch of storage while signed in
 const M_DURING =
-  "a switch to local storage while the first load runs lists this browser's copy of the user's projects — not 'No projects yet.' — the ended load's late answer does not replace it, and nothing is sent";
+  "a switch to local storage while the first load runs lists this browser's copy of the user's projects — not the Welcome panel — the ended load's late answer does not replace it, and nothing is sent";
 const M_FAILED = "a switch to local storage after a failed first load lists this browser's copy of the user's projects";
 const M_MADE =
   "a switch to local storage after a failed first load and a project made since lists the whole of this browser's copy, not only the new project";
@@ -296,7 +296,7 @@ export const mutations = [
         expectFailing: only(F_REFETCH_AFTER, F_REFETCH_BEFORE, L_REFETCH_FAILS, M_C_REFETCH_FAILED),
   },
   {
-    id: "S13 WRONG DESIGN: 'No projects yet.' still shown under the failure line  [expect 4: F_FIRST, F_FIRST_LOCAL, L_REFETCH_FAILS, C_FAILED]",
+    id: "S13 WRONG DESIGN: the Welcome panel still shown under the failure line  [expect 4: F_FIRST, F_FIRST_LOCAL, L_REFETCH_FAILS, C_FAILED]",
     file: DASHBOARD,
     find: "        if (projects.length === 0 && cloudLoadFailed) return null;\n",
     replace: "",
@@ -473,7 +473,7 @@ export const mutations = [
     ),
   },
   {
-    id: "S33 the list not loaded again at a switch to local storage — 'No projects yet.' over this browser's copy  [expect 4: M_DURING, M_FAILED, M_MADE, M_PAGE]",
+    id: "S33 the list not loaded again at a switch to local storage — the Welcome panel over this browser's copy  [expect 4: M_DURING, M_FAILED, M_MADE, M_PAGE]",
     file: SYNC,
     find: RELOAD_CALL,
     replace: "",

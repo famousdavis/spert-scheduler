@@ -7,8 +7,8 @@
  *
  * The heading row holds the h1 "Projects" and the toolbar's four buttons, each an `.sf-btn` (36 px, 14 px / 500).
  * Below it, the collection's ONE filter row, hooked `data-sf="filters"`: the search, and "Show archived" when a project
- * is archived. Then the tile grid, `.sf-tiles`, or, in its place, the empty panel hooked `data-sf="empty"` (a first
- * visit, or every project archived), never both. frame-check measures the built page; this pins the structure it
+ * is archived. Then the tile grid, `.sf-tiles`, or, in its place, a panel hooked `data-sf="empty"` (since v0.89.0
+ * the Welcome panel on a first visit, and one line when every project is archived), never both. frame-check measures the built page; this pins the structure it
  * reads.
  */
 
@@ -82,19 +82,20 @@ describe("FRAME26: the Projects screen on the frame", () => {
     expect(hook("empty")).toBeNull();
   });
 
-  it("a first visit: the empty panel stands in for the grid, hooked, with no filter row and no grid", () => {
+  it("a first visit: the Welcome panel stands in for the grid, hooked, with no filter row and no grid", () => {
     renderDashboard([]);
     const empty = hook("empty")!;
-    expect(empty).toHaveTextContent(/No projects yet\./);
+    expect(empty).toHaveClass("sf-empty");
+    expect(empty).toHaveTextContent(/^Welcome to SPERT® Scheduler/);
     expect(hook("tiles")).toBeNull();
     expect(hook("filters")).toBeNull();
   });
 
-  it("every project archived: the filter row with Show archived, and the empty panel in the grid's place", () => {
+  it("every project archived: the filter row with Show archived, and the archived line in the grid's place", () => {
     renderDashboard([{ ...createProject("Heart of Gold", "2026-11-09"), archived: true }]);
     const filters = hook("filters")!;
     expect(within(filters as HTMLElement).getByRole("checkbox", { name: /Show archived/ })).toBeInTheDocument();
-    expect(hook("empty")).toHaveTextContent(/No matching projects\./);
+    expect(hook("empty")).toHaveTextContent('All projects are archived. Select "Show archived (1)" to see them.');
     expect(hook("tiles")).toBeNull();
   });
 });

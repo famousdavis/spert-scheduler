@@ -139,10 +139,10 @@ const A_C_117 =
   "control: nothing is sent to the cloud while the first load runs, nor at its end; a change after it is";
 // StorageProvider.sign-out-cleanup.test.tsx
 const O_DASHBOARD =
-  "signed out on the Dashboard, the Dashboard shows this browser's signed-out projects, not 'No projects yet.'";
+  "signed out on the Dashboard, the Dashboard shows this browser's signed-out projects, not the Welcome panel";
 const O_SETTINGS = "signed out on Settings, Settings offers this browser's signed-out projects for export";
 const O_LOCAL =
-  "signed out with local storage chosen, the Dashboard shows this browser's signed-out projects, not 'No projects yet.'";
+  "signed out with local storage chosen, the Dashboard shows this browser's signed-out projects, not the Welcome panel";
 const PREF_DASHBOARD =
   "signed out on the Dashboard, the settings in use are this browser's signed-out ones; one changed then with the header's theme button keeps the others, and nothing is sent to the cloud";
 const PREF_SETTINGS =
@@ -187,7 +187,7 @@ const N_FAILED_PAGE =
 const N_FAILED_PENDING =
   "a failed first load while the invitation re-fetch still runs: the page says the projects are loading, not that a load failed, until the re-fetch answers — and then, the line gone, today's two lines";
 const M_DURING =
-  "a switch to local storage while the first load runs lists this browser's copy of the user's projects — not 'No projects yet.' — the ended load's late answer does not replace it, and nothing is sent";
+  "a switch to local storage while the first load runs lists this browser's copy of the user's projects — not the Welcome panel — the ended load's late answer does not replace it, and nothing is sent";
 const M_FAILED = "a switch to local storage after a failed first load lists this browser's copy of the user's projects";
 const M_MADE =
   "a switch to local storage after a failed first load and a project made since lists the whole of this browser's copy, not only the new project";

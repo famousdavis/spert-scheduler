@@ -951,11 +951,14 @@ export function ProjectPage() {
           </>
         }
       >
+        {/* `-ml-1` (v0.89.0): the name's text starts at the column's edge, C, like every other heading; the hover pill's
+            own 4 px of padding sits left of C, where the h1's overflow (it ellipsises) clips it. */}
         <InlineEdit
           value={project.name}
           onSave={(name) => renameProject(id!, name)}
           name="projectName"
           ariaLabel="Project name"
+          className="-ml-1"
           inputClassName="text-2xl font-bold text-gray-900 dark:text-gray-100"
         />
       </HeadingRow>

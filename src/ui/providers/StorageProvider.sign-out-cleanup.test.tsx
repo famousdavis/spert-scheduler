@@ -194,7 +194,8 @@ import { TOS_VERSION, LS_TOS_ACCEPTED_VERSION } from "@app/legal-constants";
 import { ProjectsPage } from "@ui/pages/ProjectsPage";
 import { SettingsPage } from "@ui/pages/SettingsPage";
 
-const EMPTY = "No projects yet.";
+/** The Welcome panel's title (v0.89.0; it was "No projects yet."): its ® is a span, so the h2 is matched by its whole text. */
+const EMPTY = (_: string, el: Element | null) => el?.tagName === "H2" && el.textContent === "Welcome to SPERT® Scheduler";
 const LOADING = "Loading your projects from cloud storage…";
 const ALPHA = "Local Alpha";
 const BETA = "Local Beta";
@@ -366,7 +367,7 @@ afterEach(() => {
 // -- the projects on show after a sign-out --------------------------------------------------------------
 
 describe("WI-113: after a sign-out, this browser's signed-out projects are on show at once", () => {
-  it("signed out on the Dashboard, the Dashboard shows this browser's signed-out projects, not 'No projects yet.'", async () => {
+  it("signed out on the Dashboard, the Dashboard shows this browser's signed-out projects, not the Welcome panel", async () => {
     seedSignedOutProjects([ALPHA, BETA]);
     renderApp("cloud");
     await settle();
@@ -393,7 +394,7 @@ describe("WI-113: after a sign-out, this browser's signed-out projects are on sh
     expect(screen.queryByText("No projects to export.")).toBeNull();
   });
 
-  it("signed out with local storage chosen, the Dashboard shows this browser's signed-out projects, not 'No projects yet.'", async () => {
+  it("signed out with local storage chosen, the Dashboard shows this browser's signed-out projects, not the Welcome panel", async () => {
     seedSignedOutProjects([ALPHA, BETA]);
     new LocalStorageRepository(ARTHUR.uid).save(createProject("Signed-in Work", "2026-10-05"));
     renderApp("local");
@@ -407,7 +408,7 @@ describe("WI-113: after a sign-out, this browser's signed-out projects are on sh
     expect(screen.queryByText(EMPTY)).toBeNull();
   });
 
-  it("control: with no signed-out projects in this browser, the Dashboard says 'No projects yet.' after a sign-out, as before", async () => {
+  it("control: with no signed-out projects in this browser, the Dashboard shows the Welcome panel after a sign-out, as before", async () => {
     renderApp("cloud");
     await settle();
     await signedInWithHeart();

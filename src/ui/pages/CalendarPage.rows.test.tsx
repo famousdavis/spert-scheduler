@@ -354,7 +354,7 @@ describe("WI-174: a project's link opens its row (D6)", () => {
     for (const name of ["Company Holidays", OSSORY, TAMBER]) expect(row(name)).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("the linked row's button keeps an 80 px scroll margin, so it lands below the sticky header (ruling 2)", () => {
+  it("the linked row's button keeps its 80 px scroll margin (scroll-mt-20, ruling 2)", () => {
     const projects = threeProjects();
     useProjectStore.setState({ projects });
     renderAt(`/calendar?project=${projects[0]!.id}`);

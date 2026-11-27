@@ -205,7 +205,8 @@ import { CalendarPage } from "./CalendarPage";
 import { ProjectPage } from "./ProjectPage";
 
 const LOADING = "Loading your projects from cloud storage…";
-const EMPTY = "No projects yet.";
+/** The Welcome panel's title (v0.89.0; it was "No projects yet."): its ® is a span, so the h2 is matched by its whole text. */
+const EMPTY = (_: string, el: Element | null) => el?.tagName === "H2" && el.textContent === "Welcome to SPERT® Scheduler";
 const LOAD_FAILED =
   "Scheduler couldn’t finish loading from cloud storage, so some projects may be missing here. Reload the page to try again.";
 const PROJECT_LOAD_FAILED =
@@ -506,7 +507,7 @@ describe("WI-113: while a cloud sign-in's first load runs, no project from this 
     expect(screen.queryByText(LOADING)).toBeNull();
   });
 
-  it("when the cloud lists no projects, the Dashboard says 'No projects yet.' — the signed-out projects are not kept on show, and stay in this browser", async () => {
+  it("when the cloud lists no projects, the Dashboard shows the Welcome panel — the signed-out projects are not kept on show, and stay in this browser", async () => {
     seedSignedOutProjects([ALPHA, BETA]);
     renderApp("cloud");
     await settle();
@@ -669,8 +670,8 @@ describe("WI-113: while a cloud sign-in's first load runs, no project from this 
 
 // -- a failed load ------------------------------------------------------------------------------------
 
-describe("WI-113: a failed cloud load is said on the Dashboard, and 'No projects yet.' is not", () => {
-  it("a failed first load: the Dashboard says so, and not 'No projects yet.'", async () => {
+describe("WI-113: a failed cloud load is said on the Dashboard, and the Welcome panel is not", () => {
+  it("a failed first load: the Dashboard says so, and not the Welcome panel", async () => {
     renderApp("cloud");
     await settle();
     await authReports(ARTHUR);
@@ -1012,7 +1013,7 @@ describe("WI-113: a project's page whose project is not in the list — the Dash
 // -- a switch to local storage while signed in -----------------------------------------------------------------------
 
 describe("WI-113: a switch to local storage while signed in loads the list again from this browser", () => {
-  it("a switch to local storage while the first load runs lists this browser's copy of the user's projects — not 'No projects yet.' — the ended load's late answer does not replace it, and nothing is sent", async () => {
+  it("a switch to local storage while the first load runs lists this browser's copy of the user's projects — not the Welcome panel — the ended load's late answer does not replace it, and nothing is sent", async () => {
     seedSignedOutProjects([ALPHA]);
     seedUsersCopy(ARTHUR.uid, CACHED);
     renderApp("cloud");

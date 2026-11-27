@@ -119,7 +119,8 @@ import { createProject } from "@app/api/project-service";
 import { ProjectsPage } from "./ProjectsPage";
 
 const LOADING = "Loading your projects from cloud storage…";
-const EMPTY = "No projects yet.";
+/** The Welcome panel's title (v0.89.0; it was "No projects yet."): its ® is a span, so the h2 is matched by its whole text. */
+const EMPTY = (_: string, el: Element | null) => el?.tagName === "H2" && el.textContent === "Welcome to SPERT® Scheduler";
 const LOAD_FAILED = "Scheduler couldn’t finish loading from cloud storage, so some projects may be missing here. Reload the page to try again.";
 
 const ARTHUR: FakeFirebaseUser = {
@@ -240,7 +241,7 @@ afterEach(() => {
 });
 
 describe("WI-109: the Dashboard says the user's cloud projects are loading, not that there are none", () => {
-  it("local storage: the empty Dashboard says 'No projects yet.' at once, signed in or not", async () => {
+  it("local storage: the empty Dashboard shows the Welcome panel at once, signed in or not", async () => {
     renderApp("local");
     expectEmpty();
 
@@ -274,7 +275,7 @@ describe("WI-109: the Dashboard says the user's cloud projects are loading, not 
     expect(screen.queryByText(EMPTY)).toBeNull();
   });
 
-  it("a cloud load that ends with no projects: loading first, then 'No projects yet.'", async () => {
+  it("a cloud load that ends with no projects: loading first, then the Welcome panel", async () => {
     renderApp("cloud");
     await authResolves(ARTHUR);
     expect(firebase.loads).toHaveLength(1);

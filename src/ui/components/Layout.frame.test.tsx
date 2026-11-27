@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 vi.mock("@ui/hooks/use-cloud-sync", () => ({ useCloudSync: () => {} }));
@@ -33,6 +33,7 @@ vi.mock("@infrastructure/nager/nager-client", () => ({
 }));
 
 import { Layout } from "./Layout";
+import { announce } from "@ui/hooks/use-announcer";
 import { HeadingRow } from "./HeadingRow";
 import { AboutPage } from "@ui/pages/AboutPage";
 import { ChangelogPage } from "@ui/pages/ChangelogPage";
@@ -150,5 +151,22 @@ describe("FRAME26: the frame around every route", () => {
     expect(within(footer as HTMLElement).getByRole("link", { name: /^Version / })).toHaveAttribute("href", "/changelog");
     expect(within(footer as HTMLElement).getByRole("button", { name: "Keyboard shortcuts" })).toHaveClass("sf-link");
     for (const a of footer.querySelectorAll("a")) expect(a).not.toHaveAttribute("class");
+  });
+
+  // v0.89.0 (FRAME26 clean-up L): the app's one polite line, always there, outside main and the notices, so Load
+  // Sample's sentence is spoken on the page it opens.
+  it("one polite, atomic, visually hidden line outside main and the notices, showing what was announced", async () => {
+    renderAt("/projects");
+    const lines = document.querySelectorAll("[data-sample-status]");
+    expect(lines).toHaveLength(1);
+    const line = lines[0]!;
+    expect(line).toHaveAttribute("aria-live", "polite");
+    expect(line).toHaveAttribute("aria-atomic", "true");
+    expect(line).toHaveClass("sr-only");
+    expect(hook("main")!.contains(line)).toBe(false);
+    expect(hook("notices")!.contains(line)).toBe(false);
+    expect(line.textContent).toBe("");
+    act(() => announce("Added “Sample: Cloud ERP Solution” to your projects and opened it."));
+    await waitFor(() => expect(line.textContent).toBe("Added “Sample: Cloud ERP Solution” to your projects and opened it."));
   });
 });
