@@ -13,6 +13,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.89.0",
+    date: "2026-11-26",
+    sections: [
+      {
+        title: "Changed",
+        items: [
+          "An empty Projects page now welcomes you. On a first visit, or once every project is deleted, a panel says \"Welcome to SPERT® Scheduler\", in a dashed box across the page, with two lines about the app, Create New Project and Load Sample Project, and a note on what the sample holds. It is the same panel as in the other SPERT® apps. It used to say \"No projects yet.\"",
+          "Load Sample names each sample \"Sample: Cloud ERP Solution\". Load it again and the copy is \"Sample: Cloud ERP Solution (2)\", then (3), and so on (it was \"Cloud ERP Solution (Sample)\", then \"(Copy)\"). The sample still opens on its project page at once. Screen readers now hear \"Added “Sample: Cloud ERP Solution” to your projects and opened it.\", and the message on screen reads \"Run the simulation to see the buffer.\" Samples you already have keep their names.",
+          "When every project is archived, the Projects page says so: \"All projects are archived. Select \"Show archived (N)\" to see them.\" It used to say \"No matching projects. Try a different search term.\", which is the line a search with no match still shows.",
+          "A project's name now lines up with every other page heading, at the page's left edge (it sat 4 pixels to the right).",
+          "If the app itself fails, it now shows one plain page, \"Something went wrong\" and \"SPERT® Scheduler could not display this page. Reload to try again.\", with a Reload button, in your light or dark theme. A failure inside a page used to show a technical error page with no way back but the browser's own reload; one elsewhere showed a grey page in light mode only.",
+          "The \"This project couldn't be displayed\" heading is easier to read in dark mode.",
+        ],
+      },
+      {
+        title: "Internal",
+        items: [
+          "FRAME26 clean-up (spert-suite-docs contract `759c4513`, frame-check `d0fc3ed`). `src/styles/spert-frame.css` is re-vendored at version 3 (md5 `b00d0759…`), whose only change is the Welcome panel's `.sf-empty` classes; `frame-stylesheet.test.ts` moves its pin with it.",
+          "Load Sample: `sampleProjectName` (`sample-project-meta.ts`) names a sample against every project, archived ones included, the lowest free number winning; `SAMPLE_PROJECT_NAME` is \"Sample: Cloud ERP Solution\". The sentence is announced in one always-mounted polite line in `Layout` (`use-announcer.ts`), so it outlives the move to the project page. The words are in `sample-words.ts`.",
+          "The crash screen is `CrashScreen.tsx`, outside the frame on the page's own ground and text colours, re-applying the stored theme: `ErrorBoundary`'s default fallback (around the providers, in `main.tsx`) and the router's root `errorElement`, which until now fell back to React Router's own page.",
+          "`falsify-spec-calendar-rows.mjs` runs whole again: seven straws re-keyed to the code since v0.88.0 (R4a–R4c, R11, H1–H3) and four test titles updated. Tests that quoted \"No projects yet.\" in their titles now name the Welcome panel, with their falsify specs' copies of those titles updated alongside.",
+          "Checked with frame-check against a local production build: 0 deviations on Projects, Projects on a first visit (40 on production at 0.88.0) and a project's page, every size and theme, classic scrollbars included; fourteen further screens read 0. Tests: 355 files and 5,870 tests before, 360 and 5,901 after: five new files (`sample-project-meta`, `use-project-store.load-sample`, `ProjectsPage.load-sample`, `ProjectsPage.welcome`, `CrashScreen`) and new cases in `Layout.frame` and `ProjectPage.frame`, each falsified once.",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.88.0",
     date: "2026-11-23",
     sections: [
