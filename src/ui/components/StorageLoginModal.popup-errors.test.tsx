@@ -82,8 +82,15 @@ const authError = (code: string) => Object.assign(new Error(code), { code });
 /** Let every pending promise chain finish: a macrotask runs only after all queued microtasks. */
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
 
-/** What the toasts say, in order. `hidden: true` because an open dialog marks the rest of the page aria-hidden. */
-const toasts = () => screen.queryAllByRole("alert", { hidden: true }).map((t) => t.querySelector("p")?.textContent);
+/**
+ * What the toasts say, in order: each one a child of the Notifications region (`role="status"`, H2 v0.90.0; a toast was
+ * its own `role="alert"` until then). `hidden: true` because an open dialog marks the rest of the page aria-hidden.
+ */
+const toasts = () => {
+  // By its label attribute: an aria-hidden element's accessible name is empty, so `name:` cannot find it here.
+  const region = screen.getAllByRole("status", { hidden: true }).find((r) => r.getAttribute("aria-label") === "Notifications")!;
+  return [...region.children].map((t) => t.querySelector("p")?.textContent);
+};
 
 async function renderSignedOut() {
   render(

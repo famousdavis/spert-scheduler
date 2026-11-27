@@ -79,7 +79,7 @@ describe("ChangelogPage release dates", () => {
     expect(renderedDate()).toMatch(MONTH_FIRST);
   });
 
-  it("keeps its Back to Projects link (the twin AboutPage.test.tsx asserts for About)", () => {
+  it("keeps its Back to Projects link", () => {
     render(
       <MemoryRouter>
         <ChangelogPage />

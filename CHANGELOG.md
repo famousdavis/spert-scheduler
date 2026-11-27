@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.90.0 — 2026-11-27
+
+### Changed
+
+- **The About page now has the same sections, in the same order, as every SPERT® app's:** what Scheduler is, how it works, Beta-PERT and Parkinson's Law, Connect AI, the guides, your data and storage, and the version and license. It lists all five Help Center guides (it showed three), each with an Open PDF link.
+
+- **About no longer says that your data never leaves your device:** it now says that Connect AI sends your project through the SPERT® Suite relay while an assistant is connected, and how cloud storage keeps it.
+
+- **Screen readers now hear each message at the bottom right of the screen once, as it appears.**
+
+- **Pressing Load Sample twice quickly now adds one sample** (it added two, with the same name) and shows one message.
+
+- **While you rename a project, its name stays at the page's left edge, and the box is as wide as the heading, so a name that fits there shows in full** (it moved 9 pixels to the right, and a name longer than about 20 characters showed only its end).
+
+- **The © year in the footer and on the About page is the current year.**
+
+### Internal
+
+- FRAME26 pass 3 (spert-suite-docs contract `be37884`, frame-check `be37884`). `src/styles/spert-frame.css` is re-vendored at version 4 (md5 `7f8e40a3…`), whose only change is the About page's `.sf-about` classes; `frame-stylesheet.test.ts` moves its pin and version with it.
+- `AboutPage.tsx` is rebuilt on the frame's `.sf-about` (contract §3 About page, §7 About): seven sections and no utility classes, its five guides copied from the Help Center's `help.ts`. `copyrightYear()` (`copyright-year.ts`) is the one source of the © year for the footer and About.
+- The toast container (`ToastContainer.tsx`) is always rendered, `role="status"` with `aria-atomic="false"`; a toast (`Toast.tsx`) has no role or `aria-live` of its own, and its icon is `aria-hidden`. `handleLoadSample` ignores a press while a load is in flight. The rename input in a project's heading gains `-ml-[9px] w-full`.
+- `falsify-spec-calendar-rows.mjs`: H3's needle is unchanged; the test it names (`Layout.title.test.tsx`) is rewritten for the new page, and `H_ABOUT` follows its title.
+- Checked with frame-check against a local production build: 0 deviations on Projects, Projects on a first visit, a project's page and, for the first time, About, every size and theme, classic scrollbars included; fifteen further screens read 0. Tests: 360 files and 5,901 tests before, 361 and 5,912 after: one new file (`ToastContainer.live-region`) and new cases in `AboutPage`, `ProjectsPage.load-sample` and `ProjectPage.frame`, each falsified once.
+
 ## 0.89.0 — 2026-11-26
 
 ### Changed

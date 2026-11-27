@@ -952,14 +952,18 @@ export function ProjectPage() {
         }
       >
         {/* `-ml-1` (v0.89.0): the name's text starts at the column's edge, C, like every other heading; the hover pill's
-            own 4 px of padding sits left of C, where the h1's overflow (it ellipsises) clips it. */}
+            own 4 px of padding sits left of C, where the h1's overflow (it ellipsises) clips it. While renaming (H4,
+            v0.90.0), `-ml-[9px]` does the same for the input's 1 px border and 8 px of padding, so the text stays at C,
+            and `w-full` gives the input the heading's width, so a name that fits there shows whole while selected (the
+            input was about 20 characters wide and scrolled to the name's end; a name longer than the heading still
+            does, as any selected input does). */}
         <InlineEdit
           value={project.name}
           onSave={(name) => renameProject(id!, name)}
           name="projectName"
           ariaLabel="Project name"
           className="-ml-1"
-          inputClassName="text-2xl font-bold text-gray-900 dark:text-gray-100"
+          inputClassName="-ml-[9px] w-full text-2xl font-bold text-gray-900 dark:text-gray-100"
         />
       </HeadingRow>
 

@@ -90,14 +90,21 @@ describe("WI-175: the header's SPERT® Scheduler", () => {
     expect(title.getAttribute("class")).toBe("sf-title");
   });
 
-  it("the About heading's ® is the frame's mark too; the body heading's stays faint (H3)", () => {
+  it("every ® and ™ on About is the frame's mark, the glyph alone in a .sf-mark, the heading's included (H3; pass 3)", () => {
+    // v0.90.0 (FRAME26 pass 3): the rebuilt About page has fourteen ® and two ™ in `main`, the h1's among them, and
+    // every one is the frame's mark (contract §4): the glyph alone, the ™ with `--tm`. Until v0.89.0 there were two,
+    // and the body heading's was a faint utility span. No ® or ™ stands in text outside a mark.
     renderHeader();
-    const marks = [...document.querySelectorAll("main span")].filter((s) => s.textContent === "®");
-    expect(marks).toHaveLength(2);
-    const [inHeading, inBody] = marks;
-    expect(inHeading!.closest("h1")).not.toBeNull();
-    expect(inHeading!.getAttribute("class")).toBe("sf-mark");
-    expect(inBody!.closest("h2")).not.toBeNull();
-    expect(inBody).toHaveClass("text-gray-300", "dark:text-gray-600");
+    const main = document.querySelector("main")!;
+    const marks = [...main.querySelectorAll("span")].filter((s) => /[®™]/.test(s.textContent ?? "") && s.children.length === 0);
+    expect(marks.map((m) => m.textContent).join("")).toBe("®".repeat(14) + "™™");
+    for (const m of marks) {
+      expect(m.getAttribute("class")).toBe(m.textContent === "™" ? "sf-mark sf-mark--tm" : "sf-mark");
+    }
+    expect(marks[0]!.closest("h1")).not.toBeNull();
+    const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (/[®™]/.test(n.textContent ?? "")) expect(n.parentElement!.classList.contains("sf-mark")).toBe(true);
+    }
   });
 });

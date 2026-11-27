@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
+import { Suspense } from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act, cleanup, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useParams } from "react-router-dom";
@@ -85,5 +86,62 @@ describe("Load Sample adds the sample, opens it and says so", () => {
     fireEvent.click(screen.getByRole("button", { name: "Load Sample" }));
     await screen.findByRole("heading", { name: `OPENED ${BASE} (2)` }, { timeout: 15_000 });
     expect(await announced()).toBe(sentence(`${BASE} (2)`));
+  }, 30_000);
+
+  /**
+   * H3 (FRAME26, v0.90.0): one Load Sample at a time. Measured on production at v0.89.0: two presses 60 ms apart added
+   * two samples, both named "Sample: Cloud ERP Solution", and showed two toasts, because both loads named the sample
+   * against the same list. A press while one is loading now does nothing.
+   */
+  it("presses while the first load is pending add one sample and show one toast (H3)", async () => {
+    renderApp();
+    const toolbar = screen.getByRole("button", { name: "Load Sample" });
+    const welcome = screen.getByRole("button", { name: "Load Sample Project" });
+    // All three in the same tick, before the first load (an awaited dynamic import) can finish.
+    fireEvent.click(toolbar);
+    fireEvent.click(toolbar);
+    fireEvent.click(welcome);
+    await screen.findByRole("heading", { name: `OPENED ${BASE}` }, { timeout: 15_000 });
+    expect(await announced()).toBe(sentence(BASE));
+    // Let any second load that slipped through land before counting.
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 200)));
+    expect(useProjectStore.getState().projects.map((p) => p.name)).toEqual([BASE]);
+    expect(useNotificationStore.getState().notifications.map((n) => n.message)).toEqual([
+      "Run the simulation to see the buffer.",
+    ]);
+  }, 30_000);
+
+  /**
+   * H3's second window. In a production build the first load finishes in under 60 ms, and React Router renders the
+   * project page as a transition (about 235 ms), with Projects still on screen: a press then added "(2)" and a second
+   * toast (About-SCH-AHP's probe of the first fix, 2026-11-27). Here the project route suspends, so the transition holds
+   * Projects on screen after the first load, as it does there, and the next press lands in that window.
+   */
+  it("a press after the first load but before the page has left adds nothing (H3)", async () => {
+    const never = new Promise<never>(() => {});
+    function Leaving(): never {
+      throw never;
+    }
+    render(
+      <MemoryRouter initialEntries={["/projects"]}>
+        <Suspense fallback={<p>LEAVING</p>}>
+          <Routes>
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/project/:id" element={<Leaving />} />
+          </Routes>
+        </Suspense>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Load Sample" }));
+    expect(await announced()).toBe(sentence(BASE));
+    // The first load is done, and Projects is still on screen: the window is real, not assumed.
+    const again = screen.getByRole("button", { name: "Load Sample" });
+    expect(useProjectStore.getState().projects.map((p) => p.name)).toEqual([BASE]);
+    fireEvent.click(again);
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 300)));
+    expect(useProjectStore.getState().projects.map((p) => p.name)).toEqual([BASE]);
+    expect(useNotificationStore.getState().notifications.map((n) => n.message)).toEqual([
+      "Run the simulation to see the buffer.",
+    ]);
   }, 30_000);
 });
