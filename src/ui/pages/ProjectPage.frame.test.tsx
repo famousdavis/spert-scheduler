@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 vi.mock("@ui/hooks/use-ai-connectivity", () => ({
@@ -149,5 +149,18 @@ describe("FRAME26: a project's page on the frame", () => {
     const span = document.querySelector('[data-sf="heading"] > span')!;
     expect(span).toHaveTextContent(/^Ossory Causeway$/);
     expect(span.className.split(/\s+/)).toEqual(expect.arrayContaining(["px-1", "-ml-1"]));
+  });
+
+  // v0.90.0 (FRAME26 H4): while renaming, the text stays at C too. InlineEdit's input has a 1 px border and `px-2`, so
+  // its text sat at C + 9 (measured in Chrome on production, About-SCH-AHP Step 1); `-ml-[9px]` sets both left of C,
+  // where the h1 clips them, and `w-full` gives the input the heading's width, so a long name shows from its start
+  // (the input was about 20 characters wide and scrolled to the name's end). jsdom has no layout: this pins the classes.
+  it("the rename input carries -ml-[9px] and w-full, so its text stays at the h1's edge and the whole name shows", () => {
+    const p = project("Ossory Causeway");
+    renderAt(`/project/${p.id}`, [p]);
+    fireEvent.click(document.querySelector('[data-sf="heading"] > span')!);
+    const input = document.querySelector<HTMLInputElement>('[data-sf="heading"] input')!;
+    expect(input).toHaveValue("Ossory Causeway");
+    expect(input.className.split(/\s+/)).toEqual(expect.arrayContaining(["border", "px-2", "-ml-[9px]", "w-full"]));
   });
 });

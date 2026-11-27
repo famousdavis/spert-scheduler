@@ -18,6 +18,11 @@
 // H1–H3) and four title constants no longer matched and the spec aborted at R4a. Each was re-keyed to what the code
 // now does; the `[expect N]` of those seven, and R2's, are the named tests measured at v0.89.0.
 //
+// v0.90.0 (FRAME26 pass 3, H5): the rebuilt About page keeps H3's needle (the heading's mark, found once), but the test
+// it names asserted two ® in `main`, the body one faint, which the new page makes false. That test is rewritten (every
+// ® and ™ on About a `.sf-mark`, the heading's included) and H_ABOUT follows its title. H3's `[expect 1]` was
+// re-measured at v0.90.0: the straw alone fails the rewritten test and nothing else in its file.
+//
 //   node scripts/falsify.mjs scripts/falsify-spec-calendar-rows.mjs
 const src = (p) => new URL(`../src/${p}`, import.meta.url).pathname;
 const PAGE = src("ui/pages/CalendarPage.tsx");
@@ -73,7 +78,7 @@ const L_NOWRAP = "Connect AI, Calendar and Print each keep to one line, so a lon
 const H_NAME = "the link's accessible name: the words with their space, and nothing else (ruling 11; contract §3)";
 const H_ONE = "the words are ONE inline element in the link, so no text run is a flex item of its own (H1)";
 const H_SIZE = "the title is the frame's 24 px at every width: no size class of its own (H2)";
-const H_ABOUT = "the About heading's ® is the frame's mark too; the body heading's stays faint (H3)";
+const H_ABOUT = "every ® and ™ on About is the frame's mark, the glyph alone in a .sf-mark, the heading's included (H3; pass 3)";
 // calendar-summary.test.ts
 const U_ROW = (h, c, i) => `${h} holidays, ${c} converted, ${i} not in effect`;
 const U_ONE = "one: 1 holiday, through its date";

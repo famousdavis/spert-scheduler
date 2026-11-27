@@ -28,14 +28,17 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   warning: "⚠",
 };
 
+/**
+ * One message, inserted into ToastContainer's live region (FRAME26 H2, v0.90.0). It has no role or `aria-live` of its
+ * own (it was `role="alert"` with `aria-live="polite"`, inside a container created already holding it), and its icon is
+ * hidden from screen readers, so what is spoken is the message, then the Dismiss button's name.
+ */
 export function Toast({ type, message, onDismiss }: ToastProps) {
   return (
     <div
       className={`flex items-start gap-3 px-4 py-3 border rounded-lg shadow-lg max-w-sm animate-slide-in ${TYPE_STYLES[type]}`}
-      role="alert"
-      aria-live="polite"
     >
-      <span className="text-lg leading-none flex-shrink-0">{TYPE_ICONS[type]}</span>
+      <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{TYPE_ICONS[type]}</span>
       <p className="text-sm flex-1">{message}</p>
       <button
         onClick={onDismiss}

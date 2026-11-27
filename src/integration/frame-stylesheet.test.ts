@@ -8,7 +8,7 @@ import { join, relative } from "node:path";
 import { describe, it, expect } from "vitest";
 
 /**
- * The SPERT® Suite app frame's stylesheet (FRAME26, v0.88.0; v3 since v0.89.0), vendored byte for byte from the canonical copy in
+ * The SPERT® Suite app frame's stylesheet (FRAME26, v0.88.0; v3 since v0.89.0, v4 since v0.90.0), vendored byte for byte from the canonical copy in
  * spert-suite-docs (`suite/frame/spert-frame.css`). Every adopting app pins the same md5, so a local edit, or a copy
  * that missed a canonical change, fails here, not in a user's window. It is a byte-identical shared artifact, like
  * `scripts/shipgate.mjs`: never edit it in one repo alone.
@@ -16,7 +16,7 @@ import { describe, it, expect } from "vitest";
  * If this fails because the canonical file changed: copy it again (`cp`), check `md5 -q` against the md5 the campaign
  * gives you, and update PINNED in the same commit. Never edit the vendored copy to make this pass.
  */
-const PINNED = "b00d0759ec0a0a4d2db6ba10b16678f0"; // v3 (v0.89.0): adds the Welcome panel, `.sf-empty`
+const PINNED = "7f8e40a37b008027e06123fe13e1b2f8"; // v4 (v0.90.0): adds the About page, `.sf-about`
 const SRC = join(process.cwd(), "src");
 const VENDORED = join(SRC, "styles", "spert-frame.css");
 const STYLES = join(SRC, "styles.css");
@@ -40,7 +40,7 @@ describe("the vendored frame stylesheet", () => {
   });
 
   it("declares the version the pin was taken at", () => {
-    expect(readFileSync(VENDORED, "utf8")).toMatch(/--sf-version: "3";/);
+    expect(readFileSync(VENDORED, "utf8")).toMatch(/--sf-version: "4";/);
   });
 
   it("is imported exactly once, by styles.css, after Tailwind, unlayered", () => {

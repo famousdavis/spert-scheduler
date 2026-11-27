@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { APP_VERSION } from "@app/constants";
 import { TOS_URL, PRIVACY_URL, LICENSE_URL } from "@app/legal-constants";
 import { AI_PRIVACY_URL } from "@app/ai-connectivity-constants";
+import { copyrightYear } from "@ui/helpers/copyright-year";
 
 interface AppFooterProps {
   /** Opens the Keyboard shortcuts window. */
@@ -17,13 +18,15 @@ interface AppFooterProps {
  * lines, flowing after `main`. Wording and destinations are unchanged from v0.87.4. The links' colour is the frame's
  * `--sf-link` (`#155dfc` / `#51a2ff`: 5.25 and 6.73 : 1 on the page ground), and they underline on hover and, under
  * `prefers-contrast: more`, at rest: never a utility here, because the frame's unlayered rules would beat it anyway.
+ * The © year is the current one, from the same `copyrightYear()` as the About page's © line (Y1, v0.90.0; it was a fixed
+ * 2026).
  */
 export function AppFooter({ onOpenShortcuts }: AppFooterProps) {
   return (
     <footer className="sf-footer" data-sf="footer">
       <div className="sf-col">
         <div>
-          &copy; 2026 William W. Davis, MSPM, PMP |{" "}
+          &copy; {copyrightYear()} William W. Davis, MSPM, PMP |{" "}
           <Link to="/changelog">Version {APP_VERSION}</Link>{" "}
           | Licensed under GNU GPL v3 |{" "}
           <button type="button" onClick={onOpenShortcuts} className="sf-link" title="Keyboard shortcuts (?)">

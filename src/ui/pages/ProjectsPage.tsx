@@ -254,13 +254,23 @@ export function ProjectsPage() {
     navigate(`/project/${project.id}`);
   };
 
+  // H3 (v0.90.0): one Load Sample per visit to this page. A second press while the first was still loading did a second
+  // load against the same list, so two samples with the same name and two toasts; and a press after the first load but
+  // before the page has left (React Router renders the project page as a transition, about 235 ms in a production
+  // build, with this page still on screen) added "(2)" and a second toast. Now a press does nothing from the first
+  // press until this page leaves, and the guard is released only when no sample was added, so the user can try again.
+  // A ref, not state, so it holds within the same tick.
+  const sampleLoading = useRef(false);
   const handleLoadSample = async () => {
+    if (sampleLoading.current) return;
+    sampleLoading.current = true;
     try {
       // WI-112: a press before the first cloud load began can land inside it — on this page, or by then
       // on another. The build asks the gate when it lands, from the store, and adds nothing then; the
       // toast says why on whatever page the user is on (the note is on the Dashboard only).
       const project = await loadSampleProject(newProjectOwner, isCloudCreateBlocked);
       if (!project) {
+        sampleLoading.current = false;
         toast.error(SAMPLE_NOT_ADDED_MESSAGE);
         return;
       }
@@ -273,6 +283,7 @@ export function ProjectsPage() {
       toast.success(SAMPLE_LOADED_TOAST, 8000);
       navigate(`/project/${project.id}`);
     } catch {
+      sampleLoading.current = false;
       toast.error("Couldn't load the sample project. Please try again.");
     }
   };
